@@ -1,0 +1,100 @@
+{{define "seo-head"}}
+<!-- SEO Meta Tags -->
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="googlebot" content="index, follow">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:site_name" content="{{.Domain}}">
+<meta property="og:image" content="https://{{.Domain}}/images/prairie.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://{{.Domain}}/images/prairie.png">
+
+<!-- Additional SEO -->
+<meta name="author" content="{{.Domain}}">
+<meta name="generator" content="SSG Static Site Generator">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+
+<!-- Feeds & Sitemap -->
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+
+<!-- Preload critical resources -->
+<link rel="preload" href="/css/style.css" as="style">
+<link rel="dns-prefetch" href="//fonts.googleapis.com">
+<link rel="dns-prefetch" href="//fonts.gstatic.com">
+{{end}}
+
+{{define "schema-website"}}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "{{.Domain}}",
+    "url": "https://{{.Domain}}/",
+    "description": "Wszystko o krowach, hodowli bydła i mleczarstwie",
+    "inLanguage": "pl-PL",
+    "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://{{.Domain}}/?s={search_term_string}",
+        "query-input": "required name=search_term_string"
+    }
+}
+</script>
+{{end}}
+
+{{define "schema-article"}}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "{{.Post.Title | decodeHTML}}",
+    "description": "{{.Post.Excerpt | stripShortcodes | decodeHTML}}",
+    "datePublished": "{{.Post.Date.Format "2006-01-02T15:04:05Z07:00"}}",
+    "dateModified": "{{.Post.Modified.Format "2006-01-02T15:04:05Z07:00"}}",
+    "author": {
+        "@type": "Person",
+        "name": "{{getAuthorName .Post.Author}}"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "{{.Domain}}",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "https://{{.Domain}}/images/prairie.png"
+        }
+    },
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{getCanonical .Post .Domain}}"
+    },
+    "image": "https://{{.Domain}}/images/prairie.png"
+}
+</script>
+{{end}}
+
+{{define "schema-page"}}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "{{.Page.Title | decodeHTML}}",
+    "description": "{{.Page.Excerpt | stripShortcodes | decodeHTML}}",
+    "url": "{{getCanonical .Page .Domain}}",
+    "inLanguage": "pl-PL",
+    "isPartOf": {
+        "@type": "WebSite",
+        "name": "{{.Domain}}",
+        "url": "https://{{.Domain}}/"
+    }
+}
+</script>
+{{end}}

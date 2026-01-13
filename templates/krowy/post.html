@@ -1,0 +1,86 @@
+{{define "post.html"}}
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Post.Title | decodeHTML}} - {{.Domain}}</title>
+    <meta name="description" content="{{.Post.Excerpt | stripShortcodes | decodeHTML}}">
+    <link rel="canonical" href="{{getCanonical .Post .Domain}}">
+    {{template "seo-head" .}}
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {{template "schema-article" .}}
+</head>
+
+<body>
+    <header class="site-header" id="site-header">
+        <div class="container">
+            {{template "navigation.html" .}}
+        </div>
+    </header>
+
+    <main class="main-content" id="main-content">
+        <div class="container page-layout">
+            <div class="content-area">
+                <article class="post-content" id="post-{{.Post.Slug}}">
+                    <div class="post-body" id="post-body">
+                        <header class="post-header">
+                            <h1 class="post-title">{{.Post.Title | decodeHTML}}</h1>
+                            <div class="post-meta">
+                                <time class="post-date" datetime="{{.Post.Date.Format " 2006-01-02"}}">
+                                    {{formatDatePL .Post.Date}}
+                                </time>
+                                {{$authorName := getAuthorName .Post.Author}}
+                                {{if $authorName}}
+                                <span class="post-author">przez <strong>{{$authorName}}</strong></span>
+                                {{end}}
+                                {{if hasValidCategories .Post}}
+                                <div class="post-categories">
+                                    {{range .Post.Categories}}
+                                    {{if isValidCategory .}}
+                                    <a href="/category/{{getCategorySlug .}}/" class="category-tag">{{getCategoryName
+                                        .}}</a>
+                                    {{end}}
+                                    {{end}}
+                                </div>
+                                {{end}}
+                            </div>
+                        </header>
+                        {{.Post.Content | safeHTML}}
+                    </div>
+                </article>
+            </div>
+
+            <aside class="sidebar" id="sidebar">
+                <div class="widget">
+                    <h3 class="widget-title">Ostatnie wpisy</h3>
+                    <ul class="recent-posts">
+                        {{range recentPosts 10}}
+                        <li><a href="{{.GetURL}}">{{.Title | decodeHTML}}</a></li>
+                        {{end}}
+                    </ul>
+                </div>
+                <div class="widget">
+                    <h3 class="widget-title">Kategorie</h3>
+                    <ul class="category-list">
+                        {{range $id, $cat := .Site.Categories}}
+                        {{if ne $id 1}}
+                        <li><a href="/category/{{$cat.Slug}}/">{{$cat.Name}}</a></li>
+                        {{end}}
+                        {{end}}
+                    </ul>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    {{template "footer.html" .}}
+
+    <script src="/js/main.js"></script>
+</body>
+
+</html>{{end}}

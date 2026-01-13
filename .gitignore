@@ -1,0 +1,40 @@
+# Build artifacts
+/build/
+/output/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+content/
+content/*
+
+/.agent/
+/.agent/*

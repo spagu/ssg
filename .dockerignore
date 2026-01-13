@@ -1,0 +1,26 @@
+# Build artifacts
+/build/
+/output/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+
+# Development
+.idea/
+.vscode/
+*.md
+Makefile
+
+# Tests
+*_test.go
+coverage.*
+
+# Agent/IDE config
+.agent/

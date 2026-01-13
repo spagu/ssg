@@ -1,0 +1,67 @@
+{{define "page.html"}}
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Page.Title | decodeHTML}} - {{.Domain}}</title>
+    <meta name="description" content="{{.Page.Excerpt | stripShortcodes | decodeHTML}}">
+    <link rel="canonical" href="{{getCanonical .Page .Domain}}">
+    {{template "seo-head" .}}
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {{template "schema-page" .}}
+</head>
+
+<body>
+    <header class="site-header" id="site-header">
+        <div class="container">
+            {{template "navigation.html" .}}
+        </div>
+    </header>
+
+    <main class="main-content" id="main-content">
+        <div class="container page-layout">
+            <div class="content-area">
+                <article class="page-content" id="page-{{.Page.Slug}}">
+                    <div class="page-body" id="page-body">
+                        <header class="page-header">
+                            <h1 class="page-title">{{.Page.Title | decodeHTML}}</h1>
+                        </header>
+                        {{.Page.Content | safeHTML}}
+                    </div>
+                </article>
+            </div>
+
+            <aside class="sidebar" id="sidebar">
+                <div class="widget">
+                    <h3 class="widget-title">Ostatnie wpisy</h3>
+                    <ul class="recent-posts">
+                        {{range recentPosts 10}}
+                        <li><a href="{{.GetURL}}">{{.Title | decodeHTML}}</a></li>
+                        {{end}}
+                    </ul>
+                </div>
+                <div class="widget">
+                    <h3 class="widget-title">Kategorie</h3>
+                    <ul class="category-list">
+                        {{range $id, $cat := .Site.Categories}}
+                        {{if ne $id 1}}
+                        <li><a href="/category/{{$cat.Slug}}/">{{$cat.Name}}</a></li>
+                        {{end}}
+                        {{end}}
+                    </ul>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    {{template "footer.html" .}}
+
+    <script src="/js/main.js"></script>
+</body>
+
+</html>{{end}}

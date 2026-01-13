@@ -1,0 +1,80 @@
+{{define "category.html"}}
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Category.Name}} - {{.Domain}}</title>
+    <meta name="description" content="Artykuły z kategorii {{.Category.Name}}">
+    <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
+    {{template "seo-head" .}}
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="site-header" id="site-header">
+        <div class="container">
+            {{template "navigation.html" .}}
+        </div>
+    </header>
+
+    <main class="main-content" id="main-content">
+        <div class="container page-layout">
+            <div class="content-area">
+                <section class="category-page" id="category-{{.Category.Slug}}">
+                    <header class="category-header">
+                        <h1 class="category-title">{{.Category.Name}}</h1>
+                        {{if .Category.Description}}
+                        <p class="category-description">{{.Category.Description}}</p>
+                        {{end}}
+                    </header>
+                    <div class="posts-grid" id="category-posts">
+                        {{range .Posts}}
+                        <article class="post-card" id="post-card-{{.Slug}}">
+                            <h3 class="post-card-title">
+                                <a href="{{.GetURL}}">{{.Title | decodeHTML}}</a>
+                            </h3>
+                            <time class="post-date" datetime="{{.Date.Format " 2006-01-02"}}">
+                                {{formatDatePL .Date}}
+                            </time>
+                            <p class="post-excerpt">{{.Excerpt | stripShortcodes | decodeHTML}}</p>
+                            <a href="{{.GetURL}}" class="read-more">Czytaj więcej →</a>
+                        </article>
+                        {{end}}
+                    </div>
+                </section>
+            </div>
+
+            <aside class="sidebar" id="sidebar">
+                <div class="widget">
+                    <h3 class="widget-title">Ostatnie wpisy</h3>
+                    <ul class="recent-posts">
+                        {{range recentPosts 10}}
+                        <li><a href="{{.GetURL}}">{{.Title | decodeHTML}}</a></li>
+                        {{end}}
+                    </ul>
+                </div>
+                <div class="widget">
+                    <h3 class="widget-title">Kategorie</h3>
+                    <ul class="category-list">
+                        {{range $id, $cat := .Site.Categories}}
+                        {{if ne $id 1}}
+                        <li><a href="/category/{{$cat.Slug}}/">{{$cat.Name}}</a></li>
+                        {{end}}
+                        {{end}}
+                    </ul>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    {{template "footer.html" .}}
+
+    <script src="/js/main.js"></script>
+</body>
+
+</html>{{end}}
