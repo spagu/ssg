@@ -281,7 +281,7 @@ func createCloudflareZip(sourceDir, zipFileName string) error {
 		if err != nil {
 			return fmt.Errorf("opening file: %w", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		// Copy content
 		_, err = io.Copy(writer, file)
