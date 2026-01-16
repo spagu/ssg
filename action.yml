@@ -97,8 +97,11 @@ runs:
           FLAGS="$FLAGS --zip"
         fi
 
-        # Copy SSG binary to workspace
-        cp "${{ github.action_path }}/ssg" ./ssg
+        # Copy SSG binary to workspace (skip if running from same repo)
+        ACTION_SSG="${{ github.action_path }}/ssg"
+        if [[ "$(realpath "$ACTION_SSG")" != "$(realpath ./ssg)" ]]; then
+          cp "$ACTION_SSG" ./ssg
+        fi
 
         # Check if directories exist
         if [[ ! -d "${{ inputs.content-dir }}/${{ inputs.source }}" ]]; then
@@ -140,5 +143,8 @@ runs:
           fi
         fi
 
-        # Cleanup
-        rm -f ./ssg
+        # Cleanup (only if we copied the binary)
+        ACTION_SSG="${{ github.action_path }}/ssg"
+        if [[ "$(realpath "$ACTION_SSG" 2>/dev/null)" != "$(realpath ./ssg 2>/dev/null)" ]]; then
+          rm -f ./ssg
+        fi
