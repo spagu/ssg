@@ -135,7 +135,7 @@ func (g *Generator) loadMetadata(path string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var metadata models.Metadata
 	if err := json.NewDecoder(file).Decode(&metadata); err != nil {
@@ -562,7 +562,7 @@ func (g *Generator) renderTemplate(templateName, outputPath string, data interfa
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return g.tmpl.ExecuteTemplate(file, templateName, data)
 }
@@ -643,13 +643,13 @@ func (g *Generator) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
@@ -668,7 +668,7 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 		}
 		idStr := match[1]
 		var id int
-		fmt.Sscanf(idStr, "%d", &id)
+		_, _ = fmt.Sscanf(idStr, "%d", &id)
 		if mediaItem, ok := media[id]; ok {
 			// Get the filename from the media item
 			filename := filepath.Base(mediaItem.MediaDetails.File)

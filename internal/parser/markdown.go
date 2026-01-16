@@ -17,7 +17,7 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	var frontmatter strings.Builder

@@ -229,10 +229,10 @@ func createCloudflareZip(sourceDir, zipFileName string) error {
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
+	defer func() { _ = zipWriter.Close() }()
 
 	// Walk through the output directory
 	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {

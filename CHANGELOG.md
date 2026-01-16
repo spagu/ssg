@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Date parsing now handles simple `YYYY-MM-DD` format correctly
 - Fixed "same file" error in GitHub Action when testing locally with `uses: ./`
+- Code cleanup: Fixed unhandled error returns (golangci-lint errcheck)
 
 ### Documentation
 - Updated README with GitHub Actions usage examples
