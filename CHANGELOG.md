@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated README with GitHub Actions usage examples
 - Added workflow examples for Cloudflare Pages deployment
 - Added CLI options documentation
+- Added status badges for Code Quality, Coverage, and Project Stats
 
 ## [1.1.0] - 2026-01-13
 
