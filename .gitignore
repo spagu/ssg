@@ -33,8 +33,13 @@ vendor/
 # Temporary files
 tmp/
 temp/
-content/
+
+# Content (except test-content for CI)
 content/*
+!content/test-content/
+
+# ZIP deployments
+*.zip
 
 /.agent/
 /.agent/*

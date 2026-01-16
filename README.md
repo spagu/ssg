@@ -2,7 +2,8 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![CI](https://github.com/spagu/ssg/actions/workflows/ci.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/ci.yml)
+[![GitHub Action](https://img.shields.io/badge/GitHub_Action-Available-2088FF?logo=github-actions&logoColor=white)](action.yml)
 
 🐄 **SSG** - A simple static site generator written in Go. Converts content from WordPress exports (Markdown format with YAML frontmatter) to static HTML, CSS, and JS files.
 
@@ -12,6 +13,7 @@
 - [Requirements](#-requirements)
 - [Installation](#-installation)
 - [Usage](#-usage)
+- [GitHub Actions](#-github-actions)
 - [Project Structure](#-project-structure)
 - [Templates](#-templates)
 - [Styles/Colors](#-stylescolors)
@@ -31,6 +33,7 @@
 - 🏷️ Category support
 - 🖼️ WebP image conversion (--webp flag)
 - 📦 Cloudflare Pages deployment package (--zip flag)
+- 🎬 **GitHub Actions integration** - Use as a step in CI/CD pipelines
 
 ## 📦 Requirements
 
@@ -65,8 +68,8 @@ ssg <source> <template> <domain> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `source` | Source folder name (inside `content/`) |
-| `template` | Template name (inside `templates/`) |
+| `source` | Source folder name (inside content-dir) |
+| `template` | Template name (inside templates-dir) |
 | `domain` | Target domain for the generated site |
 
 ### Options
@@ -75,6 +78,9 @@ ssg <source> <template> <domain> [options]
 |--------|-------------|
 | `--zip` | Create ZIP file for Cloudflare Pages deployment |
 | `--webp` | Convert images to WebP format (reduces size significantly) |
+| `--content-dir=PATH` | Path to content directory (default: `content`) |
+| `--templates-dir=PATH` | Path to templates directory (default: `templates`) |
+| `--output-dir=PATH` | Path to output directory (default: `output`) |
 
 ### Examples
 
@@ -87,6 +93,12 @@ ssg <source> <template> <domain> [options]
 
 # Generate with WebP conversion and ZIP package
 ./build/ssg krowy.net.2026-01-13110345 krowy krowy.net --webp --zip
+
+# Use custom directories
+./build/ssg my-content my-template example.com \
+  --content-dir=/data/content \
+  --templates-dir=/data/templates \
+  --output-dir=/var/www/html
 
 # Or using Makefile
 make generate        # krowy template
@@ -116,6 +128,98 @@ output/
 ├── robots.txt          # Robots file
 ├── _headers            # Cloudflare Pages headers
 └── _redirects          # Cloudflare Pages redirects
+```
+
+## 🎬 GitHub Actions
+
+Use SSG as a GitHub Action in your CI/CD pipeline:
+
+### Basic Usage
+
+```yaml
+- name: Generate static site
+  uses: spagu/ssg@v1
+  with:
+    source: 'my-content'
+    template: 'krowy'
+    domain: 'example.com'
+```
+
+### Full Configuration
+
+```yaml
+- name: Generate static site
+  id: ssg
+  uses: spagu/ssg@v1
+  with:
+    source: 'my-content'           # Content folder (inside content/)
+    template: 'krowy'              # Template: 'simple' or 'krowy'
+    domain: 'example.com'          # Target domain
+    content-dir: 'content'         # Optional: content directory path
+    templates-dir: 'templates'     # Optional: templates directory path
+    output-dir: 'output'           # Optional: output directory path
+    webp: 'true'                   # Optional: convert images to WebP
+    zip: 'true'                    # Optional: create ZIP for deployment
+
+- name: Show outputs
+  run: |
+    echo "Output path: ${{ steps.ssg.outputs.output-path }}"
+    echo "ZIP file: ${{ steps.ssg.outputs.zip-file }}"
+    echo "ZIP size: ${{ steps.ssg.outputs.zip-size }} bytes"
+```
+
+### Action Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `source` | Content source folder name | ✅ | - |
+| `template` | Template name | ✅ | `simple` |
+| `domain` | Target domain | ✅ | - |
+| `content-dir` | Path to content directory | ❌ | `content` |
+| `templates-dir` | Path to templates directory | ❌ | `templates` |
+| `output-dir` | Path to output directory | ❌ | `output` |
+| `webp` | Convert images to WebP | ❌ | `false` |
+| `zip` | Create ZIP file | ❌ | `false` |
+
+### Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `output-path` | Path to generated site directory |
+| `zip-file` | Path to ZIP file (if --zip used) |
+| `zip-size` | Size of ZIP file in bytes |
+
+### Deploy to Cloudflare Pages
+
+```yaml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate site
+        id: ssg
+        uses: spagu/ssg@v1
+        with:
+          source: 'my-content'
+          template: 'krowy'
+          domain: 'example.com'
+          webp: 'true'
+
+      - name: Deploy to Cloudflare
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: 'my-site'
+          directory: ${{ steps.ssg.outputs.output-path }}
 ```
 
 ## 📁 Project Structure

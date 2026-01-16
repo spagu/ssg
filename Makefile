@@ -31,7 +31,7 @@ GO=go
 GOFLAGS=-v
 LDFLAGS=-s -w
 
-.PHONY: all build clean test lint run help deps tidy generate
+.PHONY: all build clean test lint run help deps tidy generate release test-action
 
 # Default target
 all: deps lint test build ## 🚀 Run all: deps, lint, test, build
@@ -62,26 +62,35 @@ build: ## 🔨 Build the binary
 	@$(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
 	@echo "${GREEN}✅ Binary built: $(BUILD_DIR)/$(BINARY_NAME)${RESET}"
 
-build-linux: ## 🐧 Build for Linux
+build-linux: ## 🐧 Build for Linux (amd64 + arm64)
 	@echo "${BLUE}🐧 Building for Linux...${RESET}"
 	@mkdir -p $(BUILD_DIR)
 	@GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(CMD_DIR)
-	@echo "${GREEN}✅ Linux binary built${RESET}"
+	@GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(CMD_DIR)
+	@echo "${GREEN}✅ Linux binaries built${RESET}"
 
-build-darwin: ## 🍎 Build for macOS
+build-freebsd: ## 😈 Build for FreeBSD (amd64 + arm64)
+	@echo "${BLUE}😈 Building for FreeBSD...${RESET}"
+	@mkdir -p $(BUILD_DIR)
+	@GOOS=freebsd GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-freebsd-amd64 ./$(CMD_DIR)
+	@GOOS=freebsd GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-freebsd-arm64 ./$(CMD_DIR)
+	@echo "${GREEN}✅ FreeBSD binaries built${RESET}"
+
+build-darwin: ## 🍎 Build for macOS (amd64 + arm64)
 	@echo "${BLUE}🍎 Building for macOS...${RESET}"
 	@mkdir -p $(BUILD_DIR)
 	@GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./$(CMD_DIR)
 	@GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./$(CMD_DIR)
 	@echo "${GREEN}✅ macOS binaries built${RESET}"
 
-build-windows: ## 🪟 Build for Windows
+build-windows: ## 🪟 Build for Windows (amd64 + arm64)
 	@echo "${BLUE}🪟 Building for Windows...${RESET}"
 	@mkdir -p $(BUILD_DIR)
 	@GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
-	@echo "${GREEN}✅ Windows binary built${RESET}"
+	@GOOS=windows GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe ./$(CMD_DIR)
+	@echo "${GREEN}✅ Windows binaries built${RESET}"
 
-build-all: build-linux build-darwin build-windows ## 🌍 Build for all platforms
+build-all: build-linux build-freebsd build-darwin build-windows ## 🌍 Build for all platforms
 
 # Testing
 test: ## 🧪 Run tests
@@ -149,3 +158,20 @@ uninstall: ## 🗑️  Uninstall binary
 	@echo "${BLUE}🗑️  Uninstalling $(BINARY_NAME)...${RESET}"
 	@sudo rm -f /usr/local/bin/$(BINARY_NAME)
 	@echo "${GREEN}✅ Uninstalled${RESET}"
+
+# Release
+release: ## 🏷️  Create a new release tag (usage: make release VERSION=v1.2.0)
+ifndef VERSION
+	@echo "${RED}❌ VERSION is required. Usage: make release VERSION=v1.2.0${RESET}"
+	@exit 1
+endif
+	@echo "${BLUE}🏷️  Creating release $(VERSION)...${RESET}"
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@git push origin $(VERSION)
+	@echo "${GREEN}✅ Release $(VERSION) created and pushed${RESET}"
+
+# Test GitHub Action locally
+test-action: build ## 🎬 Test GitHub Action locally
+	@echo "${BLUE}🎬 Testing GitHub Action locally...${RESET}"
+	@./$(BUILD_DIR)/$(BINARY_NAME) test-content simple test.example.com
+	@echo "${GREEN}✅ Action test complete - check output/ directory${RESET}"

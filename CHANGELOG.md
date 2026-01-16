@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-16
+
+### Added
+- 🎬 **GitHub Actions support** - Use SSG as a step in GitHub Actions workflows
+- 📋 `action.yml` - Composite action definition with full input/output configuration
+- 🔄 CI/CD workflows:
+  - `ci.yml` - Test, lint, build, and release pipeline
+  - `test-action.yml` - Tests for the GitHub Action itself
+  - `example-deploy.yml` - Example Cloudflare Pages deployment workflow
+- 📦 Automatic artifact uploads for all platforms
+- 🏷️ Automatic release creation from version tags (v*)
+- 🧪 Test content for CI validation
+- 📂 **Custom directory paths**:
+  - `--content-dir=PATH` - specify custom content directory
+  - `--templates-dir=PATH` - specify custom templates directory  
+  - `--output-dir=PATH` - specify custom output directory
+- 😈 **FreeBSD support** - builds for FreeBSD amd64 and arm64
+- 🗓️ **Flexible date parsing** - supports multiple formats:
+  - RFC3339: `2025-01-01T12:00:00Z`
+  - Datetime: `2025-01-01T12:00:00`
+  - Date only: `2025-01-01`
+  - And more formats
+
+### Changed
+- Improved cross-platform build matrix (8 targets now)
+- All platforms now include arm64 builds:
+  - Linux: amd64, arm64
+  - FreeBSD: amd64, arm64
+  - macOS: amd64, arm64
+  - Windows: amd64, arm64
+- Enhanced output path configuration via action inputs
+
+### Fixed
+- Date parsing now handles simple `YYYY-MM-DD` format correctly
+
+### Documentation
+- Updated README with GitHub Actions usage examples
+- Added workflow examples for Cloudflare Pages deployment
+- Added CLI options documentation
+
 ## [1.1.0] - 2026-01-13
 
 ### Added

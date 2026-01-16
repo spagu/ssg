@@ -1,6 +1,7 @@
 // Package main provides the entry point for the SSG (Static Site Generator) CLI tool.
-// Usage: ssg <source> <template> <domain> [--zip] [--webp]
+// Usage: ssg <source> <template> <domain> [options]
 // Example: ssg krowy.net.2026-01-13110345 simple krowy.net --zip --webp
+// Example: ssg my-content my-template example.com --content-dir=/data/content --templates-dir=/data/templates
 package main
 
 import (
@@ -20,19 +21,36 @@ func main() {
 	args := os.Args[1:]
 	zipFlag := false
 	webpFlag := false
+	contentDir := "content"
+	templatesDir := "templates"
+	outputDir := "output"
 
 	// Filter out flags and collect positional args
 	var positionalArgs []string
-	for _, arg := range args {
-		switch arg {
-		case "--zip", "-zip":
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--zip" || arg == "-zip":
 			zipFlag = true
-		case "--webp", "-webp":
+		case arg == "--webp" || arg == "-webp":
 			webpFlag = true
-		default:
-			if !strings.HasPrefix(arg, "-") {
-				positionalArgs = append(positionalArgs, arg)
-			}
+		case strings.HasPrefix(arg, "--content-dir="):
+			contentDir = strings.TrimPrefix(arg, "--content-dir=")
+		case strings.HasPrefix(arg, "--templates-dir="):
+			templatesDir = strings.TrimPrefix(arg, "--templates-dir=")
+		case strings.HasPrefix(arg, "--output-dir="):
+			outputDir = strings.TrimPrefix(arg, "--output-dir=")
+		case arg == "--content-dir" && i+1 < len(args):
+			i++
+			contentDir = args[i]
+		case arg == "--templates-dir" && i+1 < len(args):
+			i++
+			templatesDir = args[i]
+		case arg == "--output-dir" && i+1 < len(args):
+			i++
+			outputDir = args[i]
+		case !strings.HasPrefix(arg, "-"):
+			positionalArgs = append(positionalArgs, arg)
 		}
 	}
 
@@ -49,9 +67,9 @@ func main() {
 		Source:       source,
 		Template:     template,
 		Domain:       domain,
-		ContentDir:   "content",
-		TemplatesDir: "templates",
-		OutputDir:    "output",
+		ContentDir:   contentDir,
+		TemplatesDir: templatesDir,
+		OutputDir:    outputDir,
 	}
 
 	gen, err := generator.New(cfg)
@@ -283,16 +301,19 @@ func printUsage() {
 	fmt.Println("Usage: ssg <source> <template> <domain> [options]")
 	fmt.Println("")
 	fmt.Println("Arguments:")
-	fmt.Println("  source    - Content source folder name (inside content/)")
-	fmt.Println("  template  - Template name (inside templates/)")
+	fmt.Println("  source    - Content source folder name (inside content-dir)")
+	fmt.Println("  template  - Template name (inside templates-dir)")
 	fmt.Println("  domain    - Target domain for the generated site")
 	fmt.Println("")
 	fmt.Println("Options:")
-	fmt.Println("  --zip     - Create ZIP file for Cloudflare Pages deployment")
-	fmt.Println("  --webp    - Convert images to WebP format (reduces size significantly)")
+	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages deployment")
+	fmt.Println("  --webp                 - Convert images to WebP format (reduces size)")
+	fmt.Println("  --content-dir=PATH     - Path to content directory (default: content)")
+	fmt.Println("  --templates-dir=PATH   - Path to templates directory (default: templates)")
+	fmt.Println("  --output-dir=PATH      - Path to output directory (default: output)")
 	fmt.Println("")
 	fmt.Println("Example:")
 	fmt.Println("  ssg krowy.net.2026-01-13110345 simple krowy.net")
-	fmt.Println("  ssg krowy.net.2026-01-13110345 krowy krowy.net --zip")
-	fmt.Println("  ssg krowy.net.2026-01-13110345 krowy krowy.net --webp --zip")
+	fmt.Println("  ssg krowy.net.2026-01-13110345 krowy krowy.net --zip --webp")
+	fmt.Println("  ssg my-content my-template example.com --content-dir=/data/content")
 }

@@ -1,0 +1,144 @@
+# GitHub Action for SSG - Static Site Generator
+# Usage in workflow:
+#   - uses: spagu/ssg@v1
+#     with:
+#       source: 'my-content-folder'
+#       template: 'krowy'
+#       domain: 'example.com'
+
+name: "SSG - Static Site Generator"
+description: "Generate static sites from Markdown content with YAML frontmatter"
+author: "spagu"
+
+branding:
+  icon: "file-text"
+  color: "green"
+
+inputs:
+  source:
+    description: "Content source folder name (inside content/ directory)"
+    required: true
+  template:
+    description: "Template name to use (inside templates/ directory)"
+    required: true
+    default: "simple"
+  domain:
+    description: "Target domain for the generated site"
+    required: true
+  content-dir:
+    description: "Path to content directory (default: content)"
+    required: false
+    default: "content"
+  templates-dir:
+    description: "Path to templates directory (default: templates)"
+    required: false
+    default: "templates"
+  output-dir:
+    description: "Path to output directory (default: output)"
+    required: false
+    default: "output"
+  webp:
+    description: "Convert images to WebP format (true/false)"
+    required: false
+    default: "false"
+  zip:
+    description: "Create ZIP file for Cloudflare Pages deployment (true/false)"
+    required: false
+    default: "false"
+
+outputs:
+  output-path:
+    description: "Path to the generated site output directory"
+    value: ${{ steps.generate.outputs.output-path }}
+  zip-file:
+    description: "Path to the generated ZIP file (if --zip was used)"
+    value: ${{ steps.generate.outputs.zip-file }}
+  zip-size:
+    description: "Size of the generated ZIP file in bytes"
+    value: ${{ steps.generate.outputs.zip-size }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.25"
+        cache: true
+
+    - name: Install cwebp (for WebP conversion)
+      if: ${{ inputs.webp == 'true' }}
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update && sudo apt-get install -y webp
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          brew install webp
+        else
+          echo "::warning::WebP tools not available on Windows, skipping WebP conversion"
+        fi
+
+    - name: Build SSG
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        go build -ldflags "-s -w" -o ssg ./cmd/ssg
+
+    - name: Generate site
+      id: generate
+      shell: bash
+      run: |
+        # Build flags
+        FLAGS=""
+        if [[ "${{ inputs.webp }}" == "true" ]]; then
+          FLAGS="$FLAGS --webp"
+        fi
+        if [[ "${{ inputs.zip }}" == "true" ]]; then
+          FLAGS="$FLAGS --zip"
+        fi
+
+        # Copy SSG binary to workspace
+        cp "${{ github.action_path }}/ssg" ./ssg
+
+        # Check if directories exist
+        if [[ ! -d "${{ inputs.content-dir }}/${{ inputs.source }}" ]]; then
+          echo "::error::Content source directory not found: ${{ inputs.content-dir }}/${{ inputs.source }}"
+          exit 1
+        fi
+
+        if [[ ! -d "${{ inputs.templates-dir }}/${{ inputs.template }}" ]]; then
+          # Copy templates from action if not present
+          if [[ -d "${{ github.action_path }}/templates/${{ inputs.template }}" ]]; then
+            mkdir -p "${{ inputs.templates-dir }}"
+            cp -r "${{ github.action_path }}/templates/${{ inputs.template }}" "${{ inputs.templates-dir }}/"
+          else
+            echo "::error::Template directory not found: ${{ inputs.templates-dir }}/${{ inputs.template }}"
+            exit 1
+          fi
+        fi
+
+        # Run generator with directory options
+        echo "::group::Running SSG"
+        ./ssg "${{ inputs.source }}" "${{ inputs.template }}" "${{ inputs.domain }}" \
+          --content-dir="${{ inputs.content-dir }}" \
+          --templates-dir="${{ inputs.templates-dir }}" \
+          --output-dir="${{ inputs.output-dir }}" \
+          $FLAGS
+        echo "::endgroup::"
+
+        # Set outputs
+        echo "output-path=${{ inputs.output-dir }}" >> $GITHUB_OUTPUT
+
+        # Handle ZIP output
+        if [[ "${{ inputs.zip }}" == "true" ]]; then
+          ZIP_FILE="${{ inputs.domain }}.zip"
+          if [[ -f "$ZIP_FILE" ]]; then
+            ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat --format=%s "$ZIP_FILE")
+            echo "zip-file=$ZIP_FILE" >> $GITHUB_OUTPUT
+            echo "zip-size=$ZIP_SIZE" >> $GITHUB_OUTPUT
+            echo "📦 ZIP created: $ZIP_FILE ($((ZIP_SIZE / 1024 / 1024)) MB)"
+          fi
+        fi
+
+        # Cleanup
+        rm -f ./ssg

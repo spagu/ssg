@@ -77,11 +77,14 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 		return nil, err
 	}
 
-	page := &models.Page{}
-	if err := yaml.Unmarshal([]byte(frontmatter.String()), page); err != nil {
+	// First unmarshal to PageFrontmatter (uses string dates)
+	pf := &PageFrontmatter{}
+	if err := yaml.Unmarshal([]byte(frontmatter.String()), pf); err != nil {
 		return nil, err
 	}
 
+	// Convert to models.Page (parses dates flexibly)
+	page := pf.ToPage()
 	page.Excerpt = strings.TrimSpace(excerpt.String())
 	page.Content = strings.TrimSpace(content.String())
 
@@ -102,10 +105,36 @@ type PageFrontmatter struct {
 	Categories []int  `yaml:"categories,omitempty"`
 }
 
+// parseFlexibleDate parses dates in multiple formats
+// Supports: RFC3339 (2025-01-01T12:00:00Z), date-only (2025-01-01), datetime (2025-01-01T12:00:00)
+func parseFlexibleDate(dateStr string) time.Time {
+	if dateStr == "" {
+		return time.Time{}
+	}
+
+	// List of formats to try (most specific first)
+	formats := []string{
+		time.RFC3339,          // 2025-01-01T12:00:00Z
+		"2006-01-02T15:04:05", // 2025-01-01T12:00:00
+		"2006-01-02 15:04:05", // 2025-01-01 12:00:00
+		"2006-01-02",          // 2025-01-01
+		"02-01-2006",          // 01-01-2025
+		"2006/01/02",          // 2025/01/01
+	}
+
+	for _, format := range formats {
+		if parsed, err := time.Parse(format, dateStr); err == nil {
+			return parsed
+		}
+	}
+
+	return time.Time{}
+}
+
 // ParseFrontmatterWithDates handles date parsing from frontmatter
 func (pf *PageFrontmatter) ToPage() *models.Page {
-	date, _ := time.Parse(time.RFC3339, pf.Date)
-	modified, _ := time.Parse(time.RFC3339, pf.Modified)
+	date := parseFlexibleDate(pf.Date)
+	modified := parseFlexibleDate(pf.Modified)
 
 	return &models.Page{
 		ID:         pf.ID,

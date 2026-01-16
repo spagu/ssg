@@ -24,3 +24,9 @@ coverage.*
 
 # Agent/IDE config
 .agent/
+
+# GitHub Actions
+.github/
+
+# ZIP files
+*.zip

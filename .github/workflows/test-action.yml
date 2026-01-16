@@ -1,0 +1,115 @@
+# Test the SSG GitHub Action
+# This workflow tests the action itself using the local repository
+
+name: Test Action
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "action.yml"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/test-action.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "action.yml"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/test-action.yml"
+
+jobs:
+  test-action:
+    name: Test SSG Action
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run SSG Action (basic)
+        uses: ./
+        with:
+          source: "test-content"
+          template: "simple"
+          domain: "test.example.com"
+          content-dir: "content"
+          templates-dir: "templates"
+          output-dir: "output-test"
+
+      - name: Verify output exists
+        run: |
+          if [[ -d "output-test" ]]; then
+            echo "✅ Output directory created"
+            ls -la output-test/
+          else
+            echo "❌ Output directory not found"
+            exit 1
+          fi
+
+      - name: Check for required files
+        run: |
+          # Check for essential files
+          for file in "index.html" "sitemap.xml" "robots.txt"; do
+            if [[ -f "output-test/$file" ]]; then
+              echo "✅ Found: $file"
+            else
+              echo "⚠️ Missing: $file (may be expected if no content)"
+            fi
+          done
+
+  test-action-webp:
+    name: Test SSG Action with WebP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run SSG Action (with WebP)
+        uses: ./
+        with:
+          source: "test-content"
+          template: "krowy"
+          domain: "test-webp.example.com"
+          webp: "true"
+          output-dir: "output-webp"
+
+      - name: Verify WebP conversion
+        run: |
+          echo "📊 Checking for WebP files..."
+          find output-webp -name "*.webp" -type f | head -20 || echo "No WebP files (expected if no images in test content)"
+
+  test-action-zip:
+    name: Test SSG Action with ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run SSG Action (with ZIP)
+        id: ssg
+        uses: ./
+        with:
+          source: "test-content"
+          template: "simple"
+          domain: "test-zip.example.com"
+          zip: "true"
+          output-dir: "output-zip"
+
+      - name: Check ZIP output
+        run: |
+          if [[ -f "test-zip.example.com.zip" ]]; then
+            echo "✅ ZIP file created"
+            ls -lh test-zip.example.com.zip
+            unzip -l test-zip.example.com.zip | head -20
+          else
+            echo "❌ ZIP file not found"
+            exit 1
+          fi
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-site-zip
+          path: test-zip.example.com.zip
+          retention-days: 1

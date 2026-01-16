@@ -1,0 +1,40 @@
+# Example: Deploy static site to Cloudflare Pages using SSG
+# Copy this workflow to your repository and customize the inputs
+
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate static site
+        id: ssg
+        uses: spagu/ssg@v1
+        with:
+          source: "my-content" # Your content folder
+          template: "krowy" # Template: 'simple' or 'krowy'
+          domain: "example.com" # Your domain
+          webp: "true" # Convert images to WebP
+          zip: "false" # Don't create ZIP, deploy directory
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: "my-site" # Your Cloudflare Pages project name
+          directory: ${{ steps.ssg.outputs.output-path }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: "3"
