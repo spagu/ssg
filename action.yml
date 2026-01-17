@@ -149,17 +149,18 @@ runs:
         echo "✅ SSG $VERSION installed successfully"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Install cwebp (for WebP conversion)
-      if: ${{ inputs.webp == 'true' }}
+    - name: Install WebP tools
       shell: bash
       run: |
+        echo "📦 Installing WebP tools..."
         if [[ "$RUNNER_OS" == "Linux" ]]; then
           sudo apt-get update && sudo apt-get install -y webp
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
           brew install webp
         else
-          echo "::warning::WebP tools not available on Windows, skipping WebP conversion"
+          echo "::warning::WebP tools not available on Windows. If you need WebP conversion, use Linux/macOS runner."
         fi
+        echo "✅ WebP tools installed"
 
     - name: Generate site
       id: generate
