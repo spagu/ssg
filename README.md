@@ -41,7 +41,7 @@
 - 📄 **Config file support** (YAML, TOML, JSON)
 - 🌐 **Built-in HTTP server** (`--http` flag)
 - 👀 **Watch mode** - auto-rebuild on file changes (`--watch` flag)
-- 🖼️ **Native WebP conversion** - no external tools needed (`--webp` flag)
+- 🖼️ **WebP conversion** (`--webp` flag)
 - 🗄️ **Minification** - HTML, CSS, JS (`--minify-all` flag)
 - 🧹 **Clean builds** (`--clean` flag)
 - 📦 Cloudflare Pages deployment package (`--zip` flag)
@@ -50,8 +50,9 @@
 
 ## 📦 Requirements
 
-- Go 1.21 or later
+- Go 1.25 or later
 - Make (optional, for Makefile)
+- `cwebp` (optional, for WebP conversion)
 
 ## 🚀 Installation
 
@@ -189,7 +190,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 
 | Option | Description |
 |--------|-------------|
-| `--webp` | Convert images to WebP format (native library) |
+| `--webp` | Convert images to WebP format (requires `cwebp`) |
 | `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
 
 **Deployment:**

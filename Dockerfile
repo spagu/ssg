@@ -8,7 +8,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /build
 
 # Install build dependencies
-RUN apk add --no-cache git build-base libwebp-dev
+RUN apk add --no-cache git
 
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./
@@ -17,15 +17,15 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary (requires CGO for webp)
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w -X main.Version=1.3.1" \
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=1.3.1" \
     -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
 FROM alpine:3.19
 
-# Install runtime dependencies
-RUN apk add --no-cache libwebp
+# Install runtime dependencies (cwebp)
+RUN apk add --no-cache libwebp-tools
 
 # Labels
 LABEL org.opencontainers.image.title="SSG - Static Site Generator"

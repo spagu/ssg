@@ -14,9 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Docker Compose configuration included
 - 🔄 Docker CI workflow for automatic image builds
 
+### Changed
+- Reverted to `cwebp` for WebP conversion to support static builds and cross-compilation (removed CGO dependency)
+- Changed license to BSD 3-Clause
+
 ### Documentation
 - Added Docker installation and usage examples
 - Updated GitHub Actions versioning documentation
+- Updated License badge
 
 ## [1.3.0] - 2026-01-17
 
@@ -27,8 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 📄 **Config file support** (`--config`) - load settings from YAML, TOML, or JSON
   - Auto-detects `.ssg.yaml`, `.ssg.toml`, `.ssg.json`
   - All CLI flags available in config file
-- 🖼️ **Native WebP conversion** - no external `cwebp` tool needed!
-  - Uses Go's native `chai2010/webp` library
+- 🖼️ **WebP conversion** (`--webp`) - requires `cwebp` installed
   - `--webp-quality=N` - compression level 1-100 (default: 60)
 - 📝 `stripHTML` template function for clean meta descriptions
 - 🧹 **Clean build** (`--clean`) - clean output directory before build
