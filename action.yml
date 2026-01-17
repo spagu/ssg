@@ -107,19 +107,37 @@ runs:
 
         echo "📦 Downloading SSG $VERSION for $OS/$ARCH..."
 
-        # Build download URL
+        # Extract version number (remove 'v' prefix if present)
+        VER_NUM="${VERSION#v}"
+
+        # Build download URL (format: ssg-VERSION-OS-ARCH.tar.gz)
         if [[ "$OS" == "windows" ]]; then
-          ARCHIVE="ssg-${OS}-${ARCH}.zip"
+          ARCHIVE="ssg-${VER_NUM}-${OS}-${ARCH}.zip"
         else
-          ARCHIVE="ssg-${OS}-${ARCH}.tar.gz"
+          ARCHIVE="ssg-${VER_NUM}-${OS}-${ARCH}.tar.gz"
         fi
 
         URL="https://github.com/spagu/ssg/releases/download/${VERSION}/${ARCHIVE}"
 
-        # Download and extract
+        # Download
         echo "🔗 URL: $URL"
-        curl -sL "$URL" -o "/tmp/$ARCHIVE"
+        HTTP_CODE=$(curl -sL -w "%{http_code}" "$URL" -o "/tmp/$ARCHIVE")
 
+        if [[ "$HTTP_CODE" != "200" ]]; then
+          echo "::error::Failed to download SSG $VERSION. HTTP code: $HTTP_CODE"
+          echo "::error::URL: $URL"
+          echo "::error::Make sure release $VERSION exists and has binary assets."
+          exit 1
+        fi
+
+        # Verify it's a valid archive (not HTML error page)
+        if file "/tmp/$ARCHIVE" | grep -q "HTML"; then
+          echo "::error::Downloaded file is not a valid archive (got HTML page)"
+          echo "::error::Release $VERSION may not have binary assets yet"
+          exit 1
+        fi
+
+        # Extract
         if [[ "$OS" == "windows" ]]; then
           unzip -q "/tmp/$ARCHIVE" -d /tmp/ssg-bin
         else
