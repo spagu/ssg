@@ -107,14 +107,11 @@ runs:
 
         echo "📦 Downloading SSG $VERSION for $OS/$ARCH..."
 
-        # Extract version number (remove 'v' prefix if present)
-        VER_NUM="${VERSION#v}"
-
-        # Build download URL (format: ssg-VERSION-OS-ARCH.tar.gz)
+        # Build download URL (format: ssg-OS-ARCH.tar.gz - no version in filename)
         if [[ "$OS" == "windows" ]]; then
-          ARCHIVE="ssg-${VER_NUM}-${OS}-${ARCH}.zip"
+          ARCHIVE="ssg-${OS}-${ARCH}.zip"
         else
-          ARCHIVE="ssg-${VER_NUM}-${OS}-${ARCH}.tar.gz"
+          ARCHIVE="ssg-${OS}-${ARCH}.tar.gz"
         fi
 
         URL="https://github.com/spagu/ssg/releases/download/${VERSION}/${ARCHIVE}"

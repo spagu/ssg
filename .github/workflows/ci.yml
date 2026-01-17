@@ -161,19 +161,23 @@ jobs:
           go build -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
             -o "dist/${BINARY_NAME}" ./cmd/ssg
 
-      - name: Create archive (Unix)
+      - name: Create archive and raw binary (Unix)
         if: matrix.goos != 'windows'
         run: |
           cd dist
-          tar -czvf "ssg-${{ steps.version.outputs.version }}-${{ matrix.suffix }}.tar.gz" ssg
-          rm ssg
+          # Create archive without version in filename (simpler URLs)
+          tar -czvf "ssg-${{ matrix.suffix }}.tar.gz" ssg
+          # Also keep raw binary with platform suffix for direct download
+          mv ssg "ssg-${{ matrix.suffix }}"
 
-      - name: Create archive (Windows)
+      - name: Create archive and raw binary (Windows)
         if: matrix.goos == 'windows'
         run: |
           cd dist
-          zip "ssg-${{ steps.version.outputs.version }}-${{ matrix.suffix }}.zip" ssg.exe
-          rm ssg.exe
+          # Create archive without version in filename
+          zip "ssg-${{ matrix.suffix }}.zip" ssg.exe
+          # Also keep raw binary with platform suffix
+          mv ssg.exe "ssg-${{ matrix.suffix }}.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
