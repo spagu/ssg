@@ -1,0 +1,71 @@
+{{define "category.html"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Category.Name}} - {{.Domain}}</title>
+    <meta name="description" content="Articles in category: {{.Category.Name}}">
+    <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
+    {{template "seo-head" .}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    {{template "navigation.html" .}}
+
+    <main class="main-content">
+        <header class="category-header">
+            <div class="container">
+                <h1 class="category-title">{{.Category.Name}}</h1>
+                {{if .Category.Description}}
+                <p class="category-description">{{.Category.Description}}</p>
+                {{end}}
+            </div>
+        </header>
+
+        <section class="posts-section">
+            <div class="container">
+                <div class="posts-grid">
+                    {{range .Posts}}
+                    <article class="post-card">
+                        <h3 class="post-card-title">
+                            <a href="{{getURL .}}">{{.Title | decodeHTML}}</a>
+                        </h3>
+                        <time class="post-date" datetime="{{.Date.Format " 2006-01-02"}}">
+                            {{.Date.Format "2 January 2006"}}
+                        </time>
+                        {{if .Excerpt}}
+                        <p class="post-excerpt">{{.Excerpt | stripShortcodes}}</p>
+                        {{end}}
+                        <a href="{{getURL .}}" class="read-more">Read article</a>
+                    </article>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta-section">
+            <div class="container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Need Expert SEO Help?</h2>
+                    <p class="cta-description">Our team is ready to help with your technical SEO challenges.</p>
+                    <div class="cta-buttons">
+                        <a href="/about/contact/" class="btn btn-primary">Get In Touch</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {{template "footer.html" .}}
+    <script src="/js/main.js"></script>
+</body>
+
+</html>
+{{end}}

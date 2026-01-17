@@ -41,6 +41,10 @@ inputs:
     description: "Convert images to WebP format (true/false)"
     required: false
     default: "false"
+  webp-quality:
+    description: "WebP compression quality 1-100 (default: 60)"
+    required: false
+    default: "60"
   zip:
     description: "Create ZIP file for Cloudflare Pages deployment (true/false)"
     required: false
@@ -91,7 +95,7 @@ runs:
         # Build flags
         FLAGS=""
         if [[ "${{ inputs.webp }}" == "true" ]]; then
-          FLAGS="$FLAGS --webp"
+          FLAGS="$FLAGS --webp --webp-quality=${{ inputs.webp-quality }}"
         fi
         if [[ "${{ inputs.zip }}" == "true" ]]; then
           FLAGS="$FLAGS --zip"

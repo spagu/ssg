@@ -1,0 +1,159 @@
+{{define "index.html"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Domain}} - Intelligent Growth</title>
+    <link rel="stylesheet" href="/css/style.css">
+    {{template "seo-head" .}}
+</head>
+
+<body>
+    <script src="/js/digital-bg.js"></script>
+
+    {{template "navigation.html" .}}
+
+    <main>
+
+        <!-- HERO SECTION -->
+        <section class="hero">
+            <div class="container">
+                <div class="hero-grid">
+                    <div class="hero-content">
+                        <div style="font-weight:700; color:#0066cc; margin-bottom:1rem; letter-spacing:0.05em;">SYSTEM
+                            OPERATIONAL</div>
+                        <h1>Data-Driven<br>Revenue Architecture</h1>
+                        <p>
+                            We engineer enterprise growth systems using advanced telemetry and predictive algorithms.
+                            Data-driven. Risk-mitigated. Scalable.
+                        </p>
+                        <div style="margin-top:2rem; display:flex; gap:1rem;">
+                            <a href="/seo-agency/" class="btn">Initialize Audit</a>
+                            <a href="/development/" class="btn"
+                                style="background:#fff; color:#0f172a; border:1px solid #e2e8f0;">View Stack</a>
+                        </div>
+                    </div>
+
+                    <!-- HERO STAT CARD -->
+                    <div class="hero-card">
+                        <div class="stat-row">
+                            <div>
+                                <span class="stat-big">520%</span>
+                                <span class="stat-lbl">Avg. ROI Multiplier</span>
+                            </div>
+                        </div>
+                        <div class="stat-row">
+                            <div>
+                                <span class="stat-big">99.9%</span>
+                                <span class="stat-lbl">Service Uptime</span>
+                            </div>
+                        </div>
+                        <div class="stat-row" style="border:none; margin:0; padding:0;">
+                            <div>
+                                <span class="stat-big">15+</span>
+                                <span class="stat-lbl">Years Experience</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOGOS GRID (5 COLUMNS) -->
+        <section class="logos-section">
+            <div class="container">
+                <div
+                    style="text-align:center; margin-bottom:2rem; font-weight:700; color:#64748b; font-size:0.9rem; letter-spacing:0.1em;">
+                    TRUSTED PARTNERS</div>
+                <div class="logos-grid">
+                    <div class="logo-box">TechCorp</div>
+                    <div class="logo-box">DataFlow</div>
+                    <div class="logo-box">Nexus</div>
+                    <div class="logo-box">Gigabyte</div>
+                    <div class="logo-box">Cyberdyne</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVICES (4 COLUMNS) -->
+        <section class="services-section">
+            <div class="container">
+                <div style="margin-bottom: 4rem;">
+                    <h2>Core Modules</h2>
+                    <p>Enterprise-grade capabilities deployed for maximum market impact.</p>
+                </div>
+
+                <div class="modules-grid">
+                    <div class="module-card">
+                        <div class="mod-icon">⚡</div>
+                        <h3>Technical SEO</h3>
+                        <p style="font-size:0.95rem;">Server-side optimization and crawl budget architecture.</p>
+                        <a href="/seo-agency/technical-audit/"
+                            style="color:#0066cc; font-weight:700; font-size:0.9rem;">Explore &rarr;</a>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="mod-icon">📊</div>
+                        <h3>Data Science</h3>
+                        <p style="font-size:0.95rem;">Predictive analytics integration and real-time dashboards.</p>
+                        <a href="/seo-agency/google-data-studio-reporting/"
+                            style="color:#0066cc; font-weight:700; font-size:0.9rem;">Explore &rarr;</a>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="mod-icon">🔄</div>
+                        <h3>Migrations</h3>
+                        <p style="font-size:0.95rem;">Risk-free platform transitions for high-traffic environments.</p>
+                        <a href="/seo-agency/seo-migrations/"
+                            style="color:#0066cc; font-weight:700; font-size:0.9rem;">Explore &rarr;</a>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="mod-icon">💻</div>
+                        <h3>Full-Stack Dev</h3>
+                        <p style="font-size:0.95rem;">High-performance web applications built on modern edge networks.
+                        </p>
+                        <a href="/development/" style="color:#0066cc; font-weight:700; font-size:0.9rem;">Explore
+                            &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LATEST INTEL -->
+        {{if .Posts}}
+        <section style="background:#f8fafc; margin-top:4rem;">
+            <div class="container">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 3rem;">
+                    <h2>Intelligence</h2>
+                    <a href="/blog/" style="color:#0066cc; font-weight:700;">View Archive &rarr;</a>
+                </div>
+
+                <div class="modules-grid"> <!-- Reusing 4-col grid -->
+                    {{range $i, $post := .Posts}}
+                    {{if lt $i 4}}
+                    <article class="module-card" style="padding:1.5rem;">
+                        <span
+                            style="font-size:0.8rem; font-weight:700; color:#0066cc; margin-bottom:0.5rem; display:block;">{{$post.Date.Format
+                            "2006-01-02"}}</span>
+                        <h3 style="margin:0; font-size:1.1rem; line-height:1.4;">
+                            <a href="{{getURL $post}}">{{$post.Title | decodeHTML}}</a>
+                        </h3>
+                    </article>
+                    {{end}}
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+    </main>
+
+    {{template "footer.html" .}}
+    <script src="/js/main.js"></script>
+</body>
+
+</html>
+{{end}}

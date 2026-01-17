@@ -1,0 +1,55 @@
+{{define "page.html"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Page.Title | decodeHTML}} - {{.Domain}}</title>
+    <meta name="description" content="{{.Page.Excerpt | stripHTML}}">
+    <link rel="canonical" href="{{getCanonical .Page .Domain}}">
+    {{template "seo-head" .}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    {{template "navigation.html" .}}
+
+    <main class="main-content">
+        <article class="page-content">
+            <div class="container">
+                <header class="page-header">
+                    <h1 class="page-title">{{.Page.Title | decodeHTML}}</h1>
+                </header>
+
+                <div class="page-body">
+                    {{.Page.Content | safeHTML}}
+                </div>
+            </div>
+        </article>
+
+        <!-- CTA Section -->
+        <section class="cta-section">
+            <div class="container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Need Help With Your Project?</h2>
+                    <p class="cta-description">Get in touch with our team for expert technical SEO and development
+                        support.</p>
+                    <div class="cta-buttons">
+                        <a href="/about/contact/" class="btn btn-primary">Contact Us</a>
+                        <a href="/seo-agency/" class="btn btn-secondary">Our Services</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {{template "footer.html" .}}
+    <script src="/js/main.js"></script>
+</body>
+
+</html>
+{{end}}

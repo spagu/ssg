@@ -1,0 +1,39 @@
+name: ssg
+version: "1.3.0"
+summary: Static Site Generator
+description: |
+  Fast static site generator written in Go.
+  Converts Markdown content with YAML frontmatter to static HTML.
+
+  Features:
+  - Built-in HTTP server with watch mode
+  - WebP image conversion
+  - Cloudflare Pages deployment support
+  - Multiple templates (simple, krowy)
+  - SEO-friendly URL generation
+
+grade: stable
+confinement: classic
+base: core22
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  ssg:
+    command: bin/ssg
+    plugs:
+      - home
+      - network
+      - network-bind
+
+parts:
+  ssg:
+    plugin: go
+    source: .
+    source-type: local
+    build-snaps:
+      - go/latest/stable
+    override-build: |
+      go build -ldflags "-s -w" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg

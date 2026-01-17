@@ -367,6 +367,11 @@ func (g *Generator) loadTemplates() error {
 			s = embedRegex.ReplaceAllString(s, "")
 			return strings.TrimSpace(s)
 		},
+		"stripHTML": func(s string) string {
+			// Remove HTML tags
+			regex := regexp.MustCompile(`<[^>]*>`)
+			return strings.TrimSpace(regex.ReplaceAllString(s, ""))
+		},
 		"recentPosts": func(n int) []models.Page {
 			if n > len(g.siteData.Posts) {
 				n = len(g.siteData.Posts)

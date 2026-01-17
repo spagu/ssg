@@ -1,0 +1,20 @@
+Package: ssg
+Version: 1.3.0
+Section: web
+Priority: optional
+Architecture: ${ARCH}
+Maintainer: spagu <spagu@github.com>
+Homepage: https://github.com/spagu/ssg
+Description: Fast static site generator written in Go
+ SSG is a fast static site generator written in Go.
+ It converts Markdown content with YAML frontmatter to static HTML.
+ .
+ Features:
+  - Built-in HTTP server with watch mode
+  - WebP image conversion
+  - Cloudflare Pages deployment support
+  - Multiple templates (simple, krowy)
+  - SEO-friendly URL generation
+Depends: libc6
+Recommends: webp
+Suggests: git

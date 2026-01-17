@@ -41,5 +41,12 @@ content/*
 # ZIP deployments
 *.zip
 
+# Distribution/Packaging
+/dist/
+*.deb
+*.rpm
+*.snap
+*.tar.gz
+
 /.agent/
 /.agent/*

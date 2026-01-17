@@ -36,6 +36,8 @@
 - 🔍 SEO-friendly URLs (clean addresses)
 - 📁 Automatic media file copying
 - 🏷️ Category support
+- 🌐 **Built-in HTTP server** (--http flag)
+- 👀 **Watch mode** - auto-rebuild on file changes (--watch flag)
 - 🖼️ WebP image conversion (--webp flag)
 - 📦 Cloudflare Pages deployment package (--zip flag)
 - 🎬 **GitHub Actions integration** - Use as a step in CI/CD pipelines
@@ -48,18 +50,44 @@
 
 ## 🚀 Installation
 
+### Quick Install (Linux/macOS)
+
 ```bash
-# Clone the repository
+curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
+```
+
+### Package Managers
+
+| Platform | Command |
+|----------|---------|
+| **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
+| **Snap** (Ubuntu) | `snap install ssg` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg_1.3.0_amd64.deb && sudo dpkg -i ssg_1.3.0_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-1.x86_64.rpm` |
+| **FreeBSD** | `pkg install ssg` or from ports |
+| **OpenBSD** | From ports: `/usr/ports/www/ssg` |
+
+### Binary Downloads
+
+Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/releases):
+
+| Platform | AMD64 | ARM64 |
+|----------|-------|-------|
+| Linux | [ssg-linux-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-linux-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
+| macOS | [ssg-darwin-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-darwin-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
+| FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
+| Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
+
+### From Source
+
+```bash
 git clone https://github.com/spagu/ssg.git
 cd ssg
-
-# Install dependencies and build
-make all
-
-# Or manually
-go mod download
-go build -o build/ssg ./cmd/ssg
+make build
+sudo make install
 ```
+
+📖 **Full installation guide:** [docs/INSTALL.md](docs/INSTALL.md)
 
 ## 💻 Usage
 
@@ -81,8 +109,12 @@ ssg <source> <template> <domain> [options]
 
 | Option | Description |
 |--------|-------------|
+| `--http` | Start built-in HTTP server (default port: 8888) |
+| `--port=PORT` | HTTP server port (default: `8888`) |
+| `--watch` | Watch for changes and rebuild automatically |
 | `--zip` | Create ZIP file for Cloudflare Pages deployment |
 | `--webp` | Convert images to WebP format (reduces size significantly) |
+| `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
 | `--content-dir=PATH` | Path to content directory (default: `content`) |
 | `--templates-dir=PATH` | Path to templates directory (default: `templates`) |
 | `--output-dir=PATH` | Path to output directory (default: `output`) |
@@ -90,6 +122,12 @@ ssg <source> <template> <domain> [options]
 ### Examples
 
 ```bash
+# Development mode: HTTP server + auto-rebuild on changes
+./build/ssg my-content krowy example.com --http --watch
+
+# HTTP server on custom port
+./build/ssg my-content krowy example.com --http --port=3000
+
 # Generate site with krowy template
 ./build/ssg krowy.net.2026-01-13110345 krowy krowy.net
 
@@ -164,6 +202,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
     templates-dir: 'templates'     # Optional: templates directory path
     output-dir: 'output'           # Optional: output directory path
     webp: 'true'                   # Optional: convert images to WebP
+    webp-quality: '80'             # Optional: WebP quality 1-100 (default: 60)
     zip: 'true'                    # Optional: create ZIP for deployment
 
 - name: Show outputs
@@ -184,6 +223,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `templates-dir` | Path to templates directory | ❌ | `templates` |
 | `output-dir` | Path to output directory | ❌ | `output` |
 | `webp` | Convert images to WebP | ❌ | `false` |
+| `webp-quality` | WebP compression quality 1-100 | ❌ | `60` |
 | `zip` | Create ZIP file | ❌ | `false` |
 
 ### Action Outputs

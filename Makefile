@@ -90,7 +90,31 @@ build-windows: ## 🪟 Build for Windows (amd64 + arm64)
 	@GOOS=windows GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe ./$(CMD_DIR)
 	@echo "${GREEN}✅ Windows binaries built${RESET}"
 
-build-all: build-linux build-freebsd build-darwin build-windows ## 🌍 Build for all platforms
+build-all: build-linux build-freebsd build-darwin build-windows build-openbsd ## 🌍 Build for all platforms
+
+build-openbsd: ## 🐡 Build for OpenBSD (amd64 + arm64)
+	@echo "${BLUE}🐡 Building for OpenBSD...${RESET}"
+	@mkdir -p $(BUILD_DIR)
+	@GOOS=openbsd GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-openbsd-amd64 ./$(CMD_DIR)
+	@GOOS=openbsd GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-openbsd-arm64 ./$(CMD_DIR)
+	@echo "${GREEN}✅ OpenBSD binaries built${RESET}"
+
+# Packaging
+package-all: ## 📦 Build all packages (DEB, RPM, Snap)
+	@echo "${BLUE}📦 Building all packages...${RESET}"
+	@./packaging/scripts/build-all.sh all
+
+package-deb: build-linux ## 📦 Build Debian packages (amd64 + arm64)
+	@echo "${BLUE}📦 Building DEB packages...${RESET}"
+	@./packaging/scripts/build-all.sh deb
+
+package-rpm: build-linux ## 📦 Build RPM packages (amd64 + arm64)
+	@echo "${BLUE}📦 Building RPM packages...${RESET}"
+	@./packaging/scripts/build-all.sh rpm
+
+package-snap: ## 📦 Build Snap package
+	@echo "${BLUE}📦 Building Snap package...${RESET}"
+	@snapcraft
 
 # Testing
 test: ## 🧪 Run tests

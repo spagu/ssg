@@ -1,0 +1,68 @@
+{{define "post.html"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Post.Title | decodeHTML}} - {{.Domain}}</title>
+    <meta name="description" content="{{.Post.Excerpt | stripHTML}}">
+    <link rel="canonical" href="{{getCanonical .Post .Domain}}">
+    {{template "seo-head" .}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    {{template "navigation.html" .}}
+
+    <main class="main-content">
+        <article class="post-content">
+            <div class="container">
+                <header class="post-header">
+                    <h1 class="post-title">{{.Post.Title | decodeHTML}}</h1>
+                    <div class="post-meta">
+                        <time class="post-date" datetime="{{.Post.Date.Format " 2006-01-02"}}">
+                            {{.Post.Date.Format "2 January 2006"}}
+                        </time>
+                        {{if hasValidCategories .Post}}
+                        <div class="post-categories">
+                            {{range .Post.Categories}}
+                            {{if isValidCategory .}}
+                            <a href="/category/{{getCategorySlug .}}/" class="category-tag">{{getCategoryName .}}</a>
+                            {{end}}
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </div>
+                </header>
+
+                <div class="post-body">
+                    {{.Post.Content | safeHTML}}
+                </div>
+            </div>
+        </article>
+
+        <!-- CTA Section -->
+        <section class="cta-section">
+            <div class="container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Ready to Improve Your SEO?</h2>
+                    <p class="cta-description">Contact us for a free assessment—no commitment required.</p>
+                    <div class="cta-buttons">
+                        <a href="/about/contact/" class="btn btn-primary">Contact Us</a>
+                        <a href="/seo-agency/" class="btn btn-secondary">Our Services</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {{template "footer.html" .}}
+    <script src="/js/main.js"></script>
+</body>
+
+</html>
+{{end}}
