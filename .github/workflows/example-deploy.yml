@@ -1,5 +1,11 @@
 # Example: Deploy static site to Cloudflare Pages using SSG
 # Copy this workflow to your repository and customize the inputs
+#
+# NOTE: Before public release, use:
+#   uses: spagu/ssg@main  (for latest from main branch)
+# After release:
+#   uses: spagu/ssg@v1    (for stable v1.x releases)
+#   uses: spagu/ssg@v1.3.0 (for specific version)
 
 name: Deploy to Cloudflare Pages
 
@@ -19,9 +25,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      # Use @main for development, @v1 after first release
       - name: Generate static site
         id: ssg
-        uses: spagu/ssg@v1
+        uses: spagu/ssg@main
         with:
           source: "my-content" # Your content folder
           template: "krowy" # Template: 'simple' or 'krowy'

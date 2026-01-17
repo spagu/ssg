@@ -1,0 +1,31 @@
+# SSG Docker Compose
+# Usage: docker compose run --rm ssg <args>
+
+services:
+  ssg:
+    build: .
+    image: ghcr.io/spagu/ssg:latest
+    volumes:
+      # Mount your content, templates, and output directories
+      - ./content:/site/content:ro
+      - ./templates:/site/templates:ro
+      - ./output:/site/output
+      # Optional: mount config file
+      - ./.ssg.yaml:/site/.ssg.yaml:ro
+    working_dir: /site
+    # Override command as needed
+    # command: ["my-content", "krowy", "example.com", "--webp"]
+
+  # Development server
+  dev:
+    build: .
+    image: ghcr.io/spagu/ssg:latest
+    volumes:
+      - ./content:/site/content:ro
+      - ./templates:/site/templates:ro
+      - ./output:/site/output
+      - ./.ssg.yaml:/site/.ssg.yaml:ro
+    working_dir: /site
+    ports:
+      - "8888:8888"
+    command: ["my-content", "krowy", "example.com", "--http", "--watch"]

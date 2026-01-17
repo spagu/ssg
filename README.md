@@ -36,17 +36,20 @@
 - 🔍 SEO-friendly URLs (clean addresses)
 - 📁 Automatic media file copying
 - 🏷️ Category support
-- 🌐 **Built-in HTTP server** (--http flag)
-- 👀 **Watch mode** - auto-rebuild on file changes (--watch flag)
-- 🖼️ WebP image conversion (--webp flag)
-- 📦 Cloudflare Pages deployment package (--zip flag)
+- 📄 **Config file support** (YAML, TOML, JSON)
+- 🌐 **Built-in HTTP server** (`--http` flag)
+- 👀 **Watch mode** - auto-rebuild on file changes (`--watch` flag)
+- 🖼️ **Native WebP conversion** - no external tools needed (`--webp` flag)
+- 🗄️ **Minification** - HTML, CSS, JS (`--minify-all` flag)
+- 🧹 **Clean builds** (`--clean` flag)
+- 📦 Cloudflare Pages deployment package (`--zip` flag)
+- 🐳 **Docker support** - minimal Alpine image (~15MB)
 - 🎬 **GitHub Actions integration** - Use as a step in CI/CD pipelines
 
 ## 📦 Requirements
 
-- Go 1.25 or later
+- Go 1.21 or later
 - Make (optional, for Makefile)
-- cwebp (optional, for --webp image conversion)
 
 ## 🚀 Installation
 
@@ -87,6 +90,23 @@ make build
 sudo make install
 ```
 
+### Docker
+
+```bash
+# Pull image from GitHub Container Registry
+docker pull ghcr.io/spagu/ssg:latest
+
+# Run SSG in container
+docker run --rm -v $(pwd):/site ghcr.io/spagu/ssg:latest \
+    my-content krowy example.com --webp
+
+# Or use docker-compose
+docker compose run --rm ssg my-content krowy example.com
+
+# Development server with watch mode
+docker compose up dev
+```
+
 📖 **Full installation guide:** [docs/INSTALL.md](docs/INSTALL.md)
 
 ## 💻 Usage
@@ -105,7 +125,42 @@ ssg <source> <template> <domain> [options]
 | `template` | Template name (inside templates-dir) |
 | `domain` | Target domain for the generated site |
 
+### Configuration File
+
+SSG supports configuration files in YAML, TOML, or JSON format. Auto-detects: `.ssg.yaml`, `.ssg.toml`, `.ssg.json`
+
+```bash
+# Use explicit config file
+ssg --config .ssg.yaml
+
+# Or just create .ssg.yaml and run ssg (auto-detected)
+ssg
+```
+
+Example `.ssg.yaml`:
+
+```yaml
+source: "my-content"
+template: "krowy"
+domain: "example.com"
+
+http: true
+watch: true
+clean: true
+webp: true
+webp_quality: 80
+minify_all: true
+```
+
+See [.ssg.yaml.example](.ssg.yaml.example) for all options.
+
 ### Options
+
+**Configuration:**
+
+| Option | Description |
+|--------|-------------|
+| `--config=FILE` | Load config from YAML/TOML/JSON file |
 
 **Server & Development:**
 
@@ -128,11 +183,11 @@ ssg <source> <template> <domain> [options]
 | `--minify-js` | Minify JS output |
 | `--sourcemap` | Include source maps in output |
 
-**Image Processing:**
+**Image Processing (Native Go - no external tools needed):**
 
 | Option | Description |
 |--------|-------------|
-| `--webp` | Convert images to WebP format |
+| `--webp` | Convert images to WebP format (native library) |
 | `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
 
 **Deployment:**
@@ -215,11 +270,21 @@ output/
 
 Use SSG as a GitHub Action in your CI/CD pipeline:
 
+### Versioning
+
+| Reference | Description |
+|-----------|-------------|
+| `spagu/ssg@main` | Latest from main branch (development) |
+| `spagu/ssg@v1` | Latest stable v1.x release |
+| `spagu/ssg@v1.3.0` | Specific version |
+
+> **Note:** Use `@main` until a stable release is published.
+
 ### Basic Usage
 
 ```yaml
 - name: Generate static site
-  uses: spagu/ssg@v1
+  uses: spagu/ssg@main  # or @v1 after release
   with:
     source: 'my-content'
     template: 'krowy'

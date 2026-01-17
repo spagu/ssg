@@ -1,0 +1,37 @@
+# SSG Configuration File
+# Copy this to .ssg.yaml in your project root
+
+# Required: Content source, template, and domain
+source: "my-content"
+template: "krowy"
+domain: "example.com"
+
+# Paths (optional, these are defaults)
+content_dir: "content"
+templates_dir: "templates"
+output_dir: "output"
+
+# Server & Development
+http: false          # Start built-in HTTP server
+port: 8888           # HTTP server port
+watch: false         # Watch for changes and rebuild
+clean: false         # Clean output before build
+
+# Output Control
+sitemap_off: false   # Disable sitemap.xml generation
+robots_off: false    # Disable robots.txt generation
+minify_all: false    # Minify HTML, CSS, and JS
+minify_html: false   # Minify only HTML
+minify_css: false    # Minify only CSS
+minify_js: false     # Minify only JS
+sourcemap: false     # Include source maps
+
+# Image Processing (native Go library, no cwebp needed)
+webp: false          # Convert images to WebP
+webp_quality: 60     # Quality 1-100 (lower = smaller file)
+
+# Deployment
+zip: false           # Create ZIP for Cloudflare Pages
+
+# Other
+quiet: false         # Suppress output (only exit codes)

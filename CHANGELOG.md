@@ -5,13 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-01-17
+
+### Added
+- 🐳 **Docker support** - minimal Alpine-based image (~15MB)
+  - Multi-arch builds: `linux/amd64` and `linux/arm64`
+  - Published to GitHub Container Registry: `ghcr.io/spagu/ssg`
+  - Docker Compose configuration included
+- 🔄 Docker CI workflow for automatic image builds
+
+### Documentation
+- Added Docker installation and usage examples
+- Updated GitHub Actions versioning documentation
+
 ## [1.3.0] - 2026-01-17
 
 ### Added
 - 🌐 **Built-in HTTP server** (`--http` flag) - no need for external Python/Node server
 - 🔌 **Custom port** (`--port=PORT`) - default: 8888
 - 👀 **Watch mode** (`--watch` flag) - auto-rebuild on file changes (with error recovery)
-- 🎚️ **WebP quality control** (`--webp-quality=N`) - compression level 1-100 (default: 60)
+- 📄 **Config file support** (`--config`) - load settings from YAML, TOML, or JSON
+  - Auto-detects `.ssg.yaml`, `.ssg.toml`, `.ssg.json`
+  - All CLI flags available in config file
+- 🖼️ **Native WebP conversion** - no external `cwebp` tool needed!
+  - Uses Go's native `chai2010/webp` library
+  - `--webp-quality=N` - compression level 1-100 (default: 60)
 - 📝 `stripHTML` template function for clean meta descriptions
 - 🧹 **Clean build** (`--clean`) - clean output directory before build
 - 🔇 **Quiet mode** (`--quiet`, `-q`) - suppress output, only exit codes
@@ -36,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refactored build logic into reusable function for watch mode
+- WebP conversion now uses native Go library (removed `cwebp` dependency)
+- Config package for loading settings from files
 
 ### Fixed
 - Page title overlapping with fixed navigation header
