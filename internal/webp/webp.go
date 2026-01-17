@@ -68,7 +68,7 @@ func convertImage(srcPath, dstPath, ext string, quality int) error {
 	if err != nil {
 		return fmt.Errorf("opening source: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var img image.Image
 
@@ -89,7 +89,7 @@ func convertImage(srcPath, dstPath, ext string, quality int) error {
 	if err != nil {
 		return fmt.Errorf("creating output: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	// Encode to WebP with specified quality
 	if err := webp.Encode(outFile, img, &webp.Options{Quality: float32(quality)}); err != nil {

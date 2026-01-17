@@ -954,8 +954,13 @@ func minifyHTMLFile(path string) error {
 
 	s := string(content)
 	// Remove HTML comments (except conditionals)
-	reComment := regexp.MustCompile(`<!--(?!\[if).*?-->`)
-	s = reComment.ReplaceAllString(s, "")
+	reComment := regexp.MustCompile(`<!--[\s\S]*?-->`)
+	s = reComment.ReplaceAllStringFunc(s, func(match string) string {
+		if strings.HasPrefix(match, "<!--[if") {
+			return match
+		}
+		return ""
+	})
 	// Remove whitespace between tags
 	reSpace := regexp.MustCompile(`>\s+<`)
 	s = reSpace.ReplaceAllString(s, "><")
