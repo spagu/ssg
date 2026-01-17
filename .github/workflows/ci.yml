@@ -370,8 +370,17 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+
+          # Copy all archives and packages
           find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) \
             -exec cp {} release/ \;
+
+          # Copy raw binaries (files starting with ssg- without extension, not ending with common extensions)
+          find artifacts -type f -name "ssg-*" ! -name "*.tar.gz" ! -name "*.zip" ! -name "*.deb" ! -name "*.rpm" ! -name "*.exe" \
+            -exec cp {} release/ \;
+
+          # Copy Windows executables
+          find artifacts -type f -name "*.exe" -exec cp {} release/ \;
 
           # Create checksums
           cd release
