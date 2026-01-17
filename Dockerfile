@@ -32,7 +32,7 @@ LABEL org.opencontainers.image.title="SSG - Static Site Generator"
 LABEL org.opencontainers.image.description="Fast static site generator written in Go"
 LABEL org.opencontainers.image.version="1.3.1"
 LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.licenses="BSD-3-Clause"
 LABEL maintainer="spagu <spagu@github.com>"
 
 # Create non-root user

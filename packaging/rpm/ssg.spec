@@ -3,7 +3,7 @@ Version:        1.3.1
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
-License:        MIT
+License:        BSD-3-Clause
 URL:            https://github.com/spagu/ssg
 Source0:        https://github.com/spagu/ssg/archive/refs/tags/v%{version}.tar.gz
 

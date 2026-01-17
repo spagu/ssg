@@ -11,7 +11,7 @@ HOMEPAGE=	https://github.com/spagu/ssg
 
 MAINTAINER=	spagu@github.com
 
-# MIT
+# BSD-3-Clause
 PERMIT_PACKAGE=	Yes
 
 WANTLIB=	c pthread

@@ -14,6 +14,7 @@ description: |
 
 grade: stable
 confinement: classic
+license: BSD-3-Clause
 base: core22
 
 architectures:

@@ -9,7 +9,7 @@ MAINTAINER=	spagu@github.com
 COMMENT=	Fast static site generator written in Go
 WWW=		https://github.com/spagu/ssg
 
-LICENSE=	MIT
+LICENSE=	BSD3CLAUSE
 LICENSE_FILE=	${WRKSRC}/LICENSE
 
 USES=		go:modules
