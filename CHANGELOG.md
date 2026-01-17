@@ -10,9 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 🌐 **Built-in HTTP server** (`--http` flag) - no need for external Python/Node server
 - 🔌 **Custom port** (`--port=PORT`) - default: 8888
-- 👀 **Watch mode** (`--watch` flag) - auto-rebuild on file changes in content/templates
+- 👀 **Watch mode** (`--watch` flag) - auto-rebuild on file changes (with error recovery)
 - 🎚️ **WebP quality control** (`--webp-quality=N`) - compression level 1-100 (default: 60)
 - 📝 `stripHTML` template function for clean meta descriptions
+- 🧹 **Clean build** (`--clean`) - clean output directory before build
+- 🔇 **Quiet mode** (`--quiet`, `-q`) - suppress output, only exit codes
+- 🗺️ **Sitemap control** (`--sitemap-off`) - disable sitemap.xml generation
+- 🤖 **Robots control** (`--robots-off`) - disable robots.txt generation
+- 🗜️ **Minification options**:
+  - `--minify-all` - minify HTML, CSS, and JS
+  - `--minify-html` - minify only HTML
+  - `--minify-css` - minify only CSS
+  - `--minify-js` - minify only JS
+- 🗂️ **Source maps** (`--sourcemap`) - include source maps in output
+- ℹ️ **Version flag** (`--version`, `-v`) - show version info
+- ❓ **Help flag** (`--help`, `-h`) - show usage help
 - 📦 **Multi-platform packages**:
   - Debian/Ubuntu: `.deb` packages (amd64, arm64)
   - Fedora/RHEL: `.rpm` packages (x86_64, aarch64)

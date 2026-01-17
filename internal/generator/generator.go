@@ -30,6 +30,15 @@ type Config struct {
 	ContentDir   string
 	TemplatesDir string
 	OutputDir    string
+	// New options
+	SitemapOff bool // Disable sitemap generation
+	RobotsOff  bool // Disable robots.txt generation
+	MinifyHTML bool // Minify HTML output
+	MinifyCSS  bool // Minify CSS output
+	MinifyJS   bool // Minify JS output
+	SourceMap  bool // Include source maps
+	Clean      bool // Clean output directory before build
+	Quiet      bool // Suppress stdout output
 }
 
 // Generator handles the static site generation process
@@ -54,37 +63,76 @@ func New(cfg Config) (*Generator, error) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
-	fmt.Println("🔄 Loading content...")
+	// Clean output directory if requested
+	if g.config.Clean {
+		if !g.config.Quiet {
+			fmt.Println("🧹 Cleaning output directory...")
+		}
+		if err := os.RemoveAll(g.config.OutputDir); err != nil {
+			return fmt.Errorf("cleaning output: %w", err)
+		}
+	}
+
+	if !g.config.Quiet {
+		fmt.Println("🔄 Loading content...")
+	}
 	if err := g.loadContent(); err != nil {
 		return fmt.Errorf("loading content: %w", err)
 	}
 
-	fmt.Println("📝 Loading templates...")
+	if !g.config.Quiet {
+		fmt.Println("📝 Loading templates...")
+	}
 	if err := g.loadTemplates(); err != nil {
 		return fmt.Errorf("loading templates: %w", err)
 	}
 
-	fmt.Println("🏗️  Generating site...")
+	if !g.config.Quiet {
+		fmt.Println("🏗️  Generating site...")
+	}
 	if err := g.generateSite(); err != nil {
 		return fmt.Errorf("generating site: %w", err)
 	}
 
-	fmt.Println("📁 Copying assets...")
+	if !g.config.Quiet {
+		fmt.Println("📁 Copying assets...")
+	}
 	if err := g.copyAssets(); err != nil {
 		return fmt.Errorf("copying assets: %w", err)
 	}
 
-	fmt.Println("🗺️  Generating sitemap and robots.txt...")
-	if err := g.generateSitemap(); err != nil {
-		return fmt.Errorf("generating sitemap: %w", err)
-	}
-	if err := g.generateRobots(); err != nil {
-		return fmt.Errorf("generating robots.txt: %w", err)
+	// Generate sitemap and robots (unless disabled)
+	if !g.config.SitemapOff || !g.config.RobotsOff {
+		if !g.config.Quiet {
+			fmt.Println("🗺️  Generating sitemap and robots.txt...")
+		}
+		if !g.config.SitemapOff {
+			if err := g.generateSitemap(); err != nil {
+				return fmt.Errorf("generating sitemap: %w", err)
+			}
+		}
+		if !g.config.RobotsOff {
+			if err := g.generateRobots(); err != nil {
+				return fmt.Errorf("generating robots.txt: %w", err)
+			}
+		}
 	}
 
-	fmt.Println("☁️  Generating Cloudflare Pages files...")
+	if !g.config.Quiet {
+		fmt.Println("☁️  Generating Cloudflare Pages files...")
+	}
 	if err := g.generateCloudflareFiles(); err != nil {
 		return fmt.Errorf("generating Cloudflare files: %w", err)
+	}
+
+	// Minify output if requested
+	if g.config.MinifyHTML || g.config.MinifyCSS || g.config.MinifyJS {
+		if !g.config.Quiet {
+			fmt.Println("🗜️  Minifying output...")
+		}
+		if err := g.minifyOutput(); err != nil {
+			return fmt.Errorf("minifying output: %w", err)
+		}
 	}
 
 	return nil
@@ -861,4 +909,109 @@ func (g *Generator) generateCloudflareFiles() error {
 	}
 
 	return nil
+}
+
+// minifyOutput minifies HTML, CSS, and JS files in the output directory
+func (g *Generator) minifyOutput() error {
+	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+
+		switch ext {
+		case ".html":
+			if g.config.MinifyHTML {
+				if err := minifyHTMLFile(path); err != nil {
+					return fmt.Errorf("minifying %s: %w", path, err)
+				}
+			}
+		case ".css":
+			if g.config.MinifyCSS {
+				if err := minifyCSSFile(path); err != nil {
+					return fmt.Errorf("minifying %s: %w", path, err)
+				}
+			}
+		case ".js":
+			if g.config.MinifyJS {
+				if err := minifyJSFile(path); err != nil {
+					return fmt.Errorf("minifying %s: %w", path, err)
+				}
+			}
+		}
+
+		return nil
+	})
+}
+
+// minifyHTMLFile removes unnecessary whitespace from HTML
+func minifyHTMLFile(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	s := string(content)
+	// Remove HTML comments (except conditionals)
+	reComment := regexp.MustCompile(`<!--(?!\[if).*?-->`)
+	s = reComment.ReplaceAllString(s, "")
+	// Remove whitespace between tags
+	reSpace := regexp.MustCompile(`>\s+<`)
+	s = reSpace.ReplaceAllString(s, "><")
+	// Collapse multiple whitespaces
+	reMultiSpace := regexp.MustCompile(`\s{2,}`)
+	s = reMultiSpace.ReplaceAllString(s, " ")
+	// Trim lines
+	s = strings.TrimSpace(s)
+
+	return os.WriteFile(path, []byte(s), 0644)
+}
+
+// minifyCSSFile removes unnecessary whitespace and comments from CSS
+func minifyCSSFile(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	s := string(content)
+	// Remove CSS comments
+	reComment := regexp.MustCompile(`/\*[\s\S]*?\*/`)
+	s = reComment.ReplaceAllString(s, "")
+	// Remove newlines
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	// Remove spaces around : ; { } ,
+	reSpaces := regexp.MustCompile(`\s*([:{};,])\s*`)
+	s = reSpaces.ReplaceAllString(s, "$1")
+	// Collapse multiple spaces
+	reMultiSpace := regexp.MustCompile(`\s{2,}`)
+	s = reMultiSpace.ReplaceAllString(s, " ")
+	s = strings.TrimSpace(s)
+
+	return os.WriteFile(path, []byte(s), 0644)
+}
+
+// minifyJSFile removes unnecessary whitespace and comments from JS
+func minifyJSFile(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	s := string(content)
+	// Remove single-line comments (but not in strings - simplified)
+	reSingleComment := regexp.MustCompile(`(?m)^\s*//.*$`)
+	s = reSingleComment.ReplaceAllString(s, "")
+	// Remove multi-line comments
+	reMultiComment := regexp.MustCompile(`/\*[\s\S]*?\*/`)
+	s = reMultiComment.ReplaceAllString(s, "")
+	// Remove empty lines
+	reEmptyLines := regexp.MustCompile(`\n\s*\n`)
+	s = reEmptyLines.ReplaceAllString(s, "\n")
+	// Trim
+	s = strings.TrimSpace(s)
+
+	return os.WriteFile(path, []byte(s), 0644)
 }

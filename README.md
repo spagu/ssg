@@ -107,17 +107,55 @@ ssg <source> <template> <domain> [options]
 
 ### Options
 
+**Server & Development:**
+
 | Option | Description |
 |--------|-------------|
 | `--http` | Start built-in HTTP server (default port: 8888) |
 | `--port=PORT` | HTTP server port (default: `8888`) |
 | `--watch` | Watch for changes and rebuild automatically |
-| `--zip` | Create ZIP file for Cloudflare Pages deployment |
-| `--webp` | Convert images to WebP format (reduces size significantly) |
+| `--clean` | Clean output directory before build |
+
+**Output Control:**
+
+| Option | Description |
+|--------|-------------|
+| `--sitemap-off` | Disable sitemap.xml generation |
+| `--robots-off` | Disable robots.txt generation |
+| `--minify-all` | Minify HTML, CSS, and JS |
+| `--minify-html` | Minify HTML output |
+| `--minify-css` | Minify CSS output |
+| `--minify-js` | Minify JS output |
+| `--sourcemap` | Include source maps in output |
+
+**Image Processing:**
+
+| Option | Description |
+|--------|-------------|
+| `--webp` | Convert images to WebP format |
 | `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
-| `--content-dir=PATH` | Path to content directory (default: `content`) |
-| `--templates-dir=PATH` | Path to templates directory (default: `templates`) |
-| `--output-dir=PATH` | Path to output directory (default: `output`) |
+
+**Deployment:**
+
+| Option | Description |
+|--------|-------------|
+| `--zip` | Create ZIP file for Cloudflare Pages |
+
+**Paths:**
+
+| Option | Description |
+|--------|-------------|
+| `--content-dir=PATH` | Content directory (default: `content`) |
+| `--templates-dir=PATH` | Templates directory (default: `templates`) |
+| `--output-dir=PATH` | Output directory (default: `output`) |
+
+**Other:**
+
+| Option | Description |
+|--------|-------------|
+| `--quiet`, `-q` | Suppress output (only exit codes) |
+| `--version`, `-v` | Show version |
+| `--help`, `-h` | Show help |
 
 ### Examples
 

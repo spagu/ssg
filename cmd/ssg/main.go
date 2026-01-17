@@ -19,18 +19,34 @@ import (
 	"github.com/spagu/ssg/internal/generator"
 )
 
+// Version is set by build flags
+var Version = "dev"
+
 func main() {
 	// Parse arguments manually to support flags at end
 	args := os.Args[1:]
+
+	// Flags with defaults
 	zipFlag := false
 	webpFlag := false
-	webpQuality := 60 // Default quality (1-100)
+	webpQuality := 60
 	watchFlag := false
 	httpFlag := false
 	httpPort := 8888
 	contentDir := "content"
 	templatesDir := "templates"
 	outputDir := "output"
+
+	// New flags
+	sitemapOff := false
+	robotsOff := false
+	minifyAll := false
+	minifyHTML := false
+	minifyCSS := false
+	minifyJS := false
+	sourceMap := false
+	cleanFlag := false
+	quietFlag := false
 
 	// Filter out flags and collect positional args
 	var positionalArgs []string
@@ -78,6 +94,31 @@ func main() {
 		case arg == "--output-dir" && i+1 < len(args):
 			i++
 			outputDir = args[i]
+		// New flags
+		case arg == "--sitemap-off":
+			sitemapOff = true
+		case arg == "--robots-off":
+			robotsOff = true
+		case arg == "--minify-all":
+			minifyAll = true
+		case arg == "--minify-html":
+			minifyHTML = true
+		case arg == "--minify-css":
+			minifyCSS = true
+		case arg == "--minify-js":
+			minifyJS = true
+		case arg == "--sourcemap":
+			sourceMap = true
+		case arg == "--clean":
+			cleanFlag = true
+		case arg == "--quiet" || arg == "-q":
+			quietFlag = true
+		case arg == "--version" || arg == "-v":
+			fmt.Printf("ssg version %s\n", Version)
+			os.Exit(0)
+		case arg == "--help" || arg == "-h":
+			printUsage()
+			os.Exit(0)
 		case !strings.HasPrefix(arg, "-"):
 			positionalArgs = append(positionalArgs, arg)
 		}
@@ -86,6 +127,13 @@ func main() {
 	if len(positionalArgs) < 3 {
 		printUsage()
 		os.Exit(1)
+	}
+
+	// Apply minify-all
+	if minifyAll {
+		minifyHTML = true
+		minifyCSS = true
+		minifyJS = true
 	}
 
 	source := positionalArgs[0]
@@ -99,48 +147,73 @@ func main() {
 		ContentDir:   contentDir,
 		TemplatesDir: templatesDir,
 		OutputDir:    outputDir,
+		SitemapOff:   sitemapOff,
+		RobotsOff:    robotsOff,
+		MinifyHTML:   minifyHTML,
+		MinifyCSS:    minifyCSS,
+		MinifyJS:     minifyJS,
+		SourceMap:    sourceMap,
+		Clean:        cleanFlag,
+		Quiet:        quietFlag,
 	}
 
 	// Initial build
 	if err := build(cfg, webpFlag, webpQuality, zipFlag); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if !quietFlag {
+			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		}
 		if !watchFlag && !httpFlag {
 			os.Exit(1)
 		}
+	} else if !quietFlag {
+		fmt.Printf("✅ Site generated successfully to %s/\n", cfg.OutputDir)
 	}
 
 	// Start HTTP server if requested
 	if httpFlag {
-		go startServer(cfg.OutputDir, httpPort)
+		go startServer(cfg.OutputDir, httpPort, quietFlag)
 	}
 
 	// Watch mode
 	if watchFlag {
-		fmt.Println("👀 Watching for changes in content and templates...")
+		if !quietFlag {
+			fmt.Println("👀 Watching for changes in content and templates...")
+		}
 		lastBuild := time.Now()
 
 		for {
-			time.Sleep(1 * time.Second) // Poll every second
+			time.Sleep(1 * time.Second)
 
 			if hasChanges([]string{cfg.ContentDir, cfg.TemplatesDir}, lastBuild) {
-				fmt.Println("\n🔄 Changes detected! Rebuilding...")
+				if !quietFlag {
+					fmt.Println("\n🔄 Changes detected! Rebuilding...")
+				}
 				if err := build(cfg, webpFlag, webpQuality, zipFlag); err != nil {
-					fmt.Fprintf(os.Stderr, "Error rebuilding: %v\n", err)
+					// In watch mode, show error but don't exit
+					if !quietFlag {
+						fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
+						fmt.Println("⚠️  Fix the issue and save to retry...")
+					}
+				} else if !quietFlag {
+					fmt.Printf("✅ Rebuilt successfully\n")
 				}
 				lastBuild = time.Now()
-				fmt.Println("👀 Watching for changes...")
+				if !quietFlag {
+					fmt.Println("👀 Watching for changes...")
+				}
 			}
 		}
 	} else if httpFlag {
-		// If only HTTP server (no watch), block forever
 		select {}
 	}
 }
 
-func startServer(dir string, port int) {
+func startServer(dir string, port int, quiet bool) {
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("🌐 Starting HTTP server at http://localhost%s\n", addr)
-	fmt.Printf("   Serving files from: %s/\n", dir)
+	if !quiet {
+		fmt.Printf("🌐 Starting HTTP server at http://localhost%s\n", addr)
+		fmt.Printf("   Serving files from: %s/\n", dir)
+	}
 
 	fs := http.FileServer(http.Dir(dir))
 	http.Handle("/", fs)
@@ -160,15 +233,17 @@ func build(cfg generator.Config, webpFlag bool, webpQuality int, zipFlag bool) e
 		return fmt.Errorf("generating site: %w", err)
 	}
 
-	fmt.Printf("✅ Site generated successfully to %s/\n", cfg.OutputDir)
-
 	// Convert images to WebP if requested
 	if webpFlag {
-		fmt.Printf("🖼️  Converting images to WebP (quality: %d)...\n", webpQuality)
+		if !cfg.Quiet {
+			fmt.Printf("🖼️  Converting images to WebP (quality: %d)...\n", webpQuality)
+		}
 		if err := convertToWebP(cfg.OutputDir, webpQuality); err != nil {
 			return fmt.Errorf("converting to WebP: %w", err)
 		}
-		fmt.Println("✅ Images converted to WebP")
+		if !cfg.Quiet {
+			fmt.Println("✅ Images converted to WebP")
+		}
 	}
 
 	// Create ZIP if requested
@@ -178,12 +253,13 @@ func build(cfg generator.Config, webpFlag bool, webpQuality int, zipFlag bool) e
 			return fmt.Errorf("creating ZIP: %w", err)
 		}
 
-		// Get file size
-		if info, err := os.Stat(zipFileName); err == nil {
-			sizeMB := float64(info.Size()) / (1024 * 1024)
-			fmt.Printf("📦 Created deployment package: %s (%.1f MB)\n", zipFileName, sizeMB)
-			if sizeMB > 25 {
-				fmt.Printf("⚠️  Warning: File exceeds Cloudflare Pages 25MB limit!\n")
+		if !cfg.Quiet {
+			if info, err := os.Stat(zipFileName); err == nil {
+				sizeMB := float64(info.Size()) / (1024 * 1024)
+				fmt.Printf("📦 Created deployment package: %s (%.1f MB)\n", zipFileName, sizeMB)
+				if sizeMB > 25 {
+					fmt.Printf("⚠️  Warning: File exceeds Cloudflare Pages 25MB limit!\n")
+				}
 			}
 		}
 	}
@@ -195,12 +271,12 @@ func hasChanges(dirs []string, lastBuild time.Time) bool {
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Ignore errors during walk
+				return nil
 			}
 			if !info.IsDir() {
 				if info.ModTime().After(lastBuild) {
 					changed = true
-					return io.EOF // Stop walking
+					return io.EOF
 				}
 			}
 			return nil
@@ -214,22 +290,18 @@ func hasChanges(dirs []string, lastBuild time.Time) bool {
 
 // convertToWebP converts all JPG/PNG images to WebP format
 func convertToWebP(outputDir string, quality int) error {
-	// Check if cwebp is available
 	if _, err := exec.LookPath("cwebp"); err != nil {
 		return fmt.Errorf("cwebp not found. Install with: sudo apt install webp")
 	}
 
 	qualityStr := strconv.Itoa(quality)
-
 	var convertedCount int
 	var savedBytes int64
 
-	// Find all images
 	err := filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
 		if info.IsDir() {
 			return nil
 		}
@@ -239,25 +311,19 @@ func convertToWebP(outputDir string, quality int) error {
 			return nil
 		}
 
-		// Get original size
 		originalSize := info.Size()
-
-		// Convert to WebP
 		webpPath := strings.TrimSuffix(path, ext) + ".webp"
 
-		// Use specified quality
 		cmd := exec.Command("cwebp", "-q", qualityStr, "-quiet", path, "-o", webpPath)
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), err)
-			return nil // Continue with other files
+			return nil
 		}
 
-		// Get new size
 		if newInfo, err := os.Stat(webpPath); err == nil {
 			savedBytes += originalSize - newInfo.Size()
 		}
 
-		// Remove original file
 		if err := os.Remove(path); err != nil {
 			fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), err)
 		}
@@ -270,7 +336,6 @@ func convertToWebP(outputDir string, quality int) error {
 		return err
 	}
 
-	// Update HTML and CSS files to use .webp extensions
 	err = filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -281,13 +346,11 @@ func convertToWebP(outputDir string, quality int) error {
 			return nil
 		}
 
-		// Read file
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
-		// Replace image extensions
 		newContent := string(content)
 		newContent = strings.ReplaceAll(newContent, ".jpg\"", ".webp\"")
 		newContent = strings.ReplaceAll(newContent, ".jpeg\"", ".webp\"")
@@ -295,16 +358,13 @@ func convertToWebP(outputDir string, quality int) error {
 		newContent = strings.ReplaceAll(newContent, ".jpg'", ".webp'")
 		newContent = strings.ReplaceAll(newContent, ".jpeg'", ".webp'")
 		newContent = strings.ReplaceAll(newContent, ".png'", ".webp'")
-		// Handle CSS url() syntax with parentheses
 		newContent = strings.ReplaceAll(newContent, ".jpg)", ".webp)")
 		newContent = strings.ReplaceAll(newContent, ".jpeg)", ".webp)")
 		newContent = strings.ReplaceAll(newContent, ".png)", ".webp)")
-		// Handle srcset entries with space and width descriptor (e.g., .jpg 300w)
 		newContent = strings.ReplaceAll(newContent, ".jpg ", ".webp ")
 		newContent = strings.ReplaceAll(newContent, ".jpeg ", ".webp ")
 		newContent = strings.ReplaceAll(newContent, ".png ", ".webp ")
 
-		// Write back
 		if err := os.WriteFile(path, []byte(newContent), info.Mode()); err != nil {
 			return err
 		}
@@ -322,9 +382,7 @@ func convertToWebP(outputDir string, quality int) error {
 	return nil
 }
 
-// createCloudflareZip creates a ZIP file suitable for Cloudflare Pages deployment
 func createCloudflareZip(sourceDir, zipFileName string) error {
-	// Create ZIP file
 	zipFile, err := os.Create(zipFileName)
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
@@ -334,27 +392,22 @@ func createCloudflareZip(sourceDir, zipFileName string) error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer func() { _ = zipWriter.Close() }()
 
-	// Walk through the output directory
 	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip the root directory itself
 		if path == sourceDir {
 			return nil
 		}
 
-		// Get relative path (relative to output dir)
 		relPath, err := filepath.Rel(sourceDir, path)
 		if err != nil {
 			return fmt.Errorf("getting relative path: %w", err)
 		}
 
-		// Use forward slashes for ZIP compatibility
 		relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
 
-		// Create header
 		header, err := zip.FileInfoHeader(info)
 		if err != nil {
 			return fmt.Errorf("creating file header: %w", err)
@@ -367,23 +420,19 @@ func createCloudflareZip(sourceDir, zipFileName string) error {
 			return err
 		}
 
-		// Set compression method
 		header.Method = zip.Deflate
 
-		// Create writer for file
 		writer, err := zipWriter.CreateHeader(header)
 		if err != nil {
 			return fmt.Errorf("creating zip entry: %w", err)
 		}
 
-		// Open source file
 		file, err := os.Open(path)
 		if err != nil {
 			return fmt.Errorf("opening file: %w", err)
 		}
 		defer func() { _ = file.Close() }()
 
-		// Copy content
 		_, err = io.Copy(writer, file)
 		return err
 	})
@@ -405,18 +454,40 @@ func printUsage() {
 	fmt.Println("  template  - Template name (inside templates-dir)")
 	fmt.Println("  domain    - Target domain for the generated site")
 	fmt.Println("")
-	fmt.Println("Options:")
+	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")
 	fmt.Println("  --port=PORT            - HTTP server port (default: 8888)")
 	fmt.Println("  --watch                - Watch for changes and rebuild automatically")
-	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages deployment")
-	fmt.Println("  --webp                 - Convert images to WebP format (reduces size)")
+	fmt.Println("  --clean                - Clean output directory before build")
+	fmt.Println("")
+	fmt.Println("Output Control:")
+	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
+	fmt.Println("  --robots-off           - Disable robots.txt generation")
+	fmt.Println("  --minify-all           - Minify HTML, CSS, and JS")
+	fmt.Println("  --minify-html          - Minify HTML output")
+	fmt.Println("  --minify-css           - Minify CSS output")
+	fmt.Println("  --minify-js            - Minify JS output")
+	fmt.Println("  --sourcemap            - Include source maps in output")
+	fmt.Println("")
+	fmt.Println("Image Processing:")
+	fmt.Println("  --webp                 - Convert images to WebP format")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
-	fmt.Println("  --content-dir=PATH     - Path to content directory (default: content)")
-	fmt.Println("  --templates-dir=PATH   - Path to templates directory (default: templates)")
-	fmt.Println("  --output-dir=PATH      - Path to output directory (default: output)")
+	fmt.Println("")
+	fmt.Println("Deployment:")
+	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages")
+	fmt.Println("")
+	fmt.Println("Paths:")
+	fmt.Println("  --content-dir=PATH     - Content directory (default: content)")
+	fmt.Println("  --templates-dir=PATH   - Templates directory (default: templates)")
+	fmt.Println("  --output-dir=PATH      - Output directory (default: output)")
+	fmt.Println("")
+	fmt.Println("Other:")
+	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")
+	fmt.Println("  --version, -v          - Show version")
+	fmt.Println("  --help, -h             - Show this help")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  ssg my-site simple example.com --http --watch")
-	fmt.Println("  ssg my-site simple example.com --webp --webp-quality=80")
+	fmt.Println("  ssg my-site krowy example.com --clean --minify-all --zip")
+	fmt.Println("  ssg my-site simple example.com --quiet")
 }
