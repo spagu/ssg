@@ -25,6 +25,10 @@ inputs:
   domain:
     description: "Target domain for the generated site"
     required: true
+  version:
+    description: "SSG version to use (default: latest)"
+    required: false
+    default: "latest"
   content-dir:
     description: "Path to content directory (default: content)"
     required: false
@@ -49,6 +53,14 @@ inputs:
     description: "Create ZIP file for Cloudflare Pages deployment (true/false)"
     required: false
     default: "false"
+  minify:
+    description: "Minify HTML, CSS, and JS output (true/false)"
+    required: false
+    default: "false"
+  clean:
+    description: "Clean output directory before build (true/false)"
+    required: false
+    default: "false"
 
 outputs:
   output-path:
@@ -64,11 +76,63 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: "1.25"
-        cache: true
+    - name: Download SSG binary
+      id: download
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+
+        # Determine OS and architecture
+        case "$RUNNER_OS" in
+          Linux)  OS="linux" ;;
+          macOS)  OS="darwin" ;;
+          Windows) OS="windows" ;;
+          *) echo "::error::Unsupported OS: $RUNNER_OS"; exit 1 ;;
+        esac
+
+        case "$RUNNER_ARCH" in
+          X64)   ARCH="amd64" ;;
+          ARM64) ARCH="arm64" ;;
+          *) echo "::error::Unsupported architecture: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        # Get latest version if not specified
+        if [[ "$VERSION" == "latest" ]]; then
+          VERSION=$(curl -sL https://api.github.com/repos/spagu/ssg/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::Failed to get latest version"
+            exit 1
+          fi
+        fi
+
+        echo "📦 Downloading SSG $VERSION for $OS/$ARCH..."
+
+        # Build download URL
+        if [[ "$OS" == "windows" ]]; then
+          ARCHIVE="ssg-${OS}-${ARCH}.zip"
+        else
+          ARCHIVE="ssg-${OS}-${ARCH}.tar.gz"
+        fi
+
+        URL="https://github.com/spagu/ssg/releases/download/${VERSION}/${ARCHIVE}"
+
+        # Download and extract
+        echo "🔗 URL: $URL"
+        curl -sL "$URL" -o "/tmp/$ARCHIVE"
+
+        if [[ "$OS" == "windows" ]]; then
+          unzip -q "/tmp/$ARCHIVE" -d /tmp/ssg-bin
+        else
+          mkdir -p /tmp/ssg-bin
+          tar -xzf "/tmp/$ARCHIVE" -C /tmp/ssg-bin
+        fi
+
+        # Make executable and add to PATH
+        chmod +x /tmp/ssg-bin/ssg*
+        echo "/tmp/ssg-bin" >> $GITHUB_PATH
+
+        echo "✅ SSG $VERSION installed successfully"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Install cwebp (for WebP conversion)
       if: ${{ inputs.webp == 'true' }}
@@ -82,12 +146,6 @@ runs:
           echo "::warning::WebP tools not available on Windows, skipping WebP conversion"
         fi
 
-    - name: Build SSG
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      run: |
-        go build -ldflags "-s -w" -o ssg ./cmd/ssg
-
     - name: Generate site
       id: generate
       shell: bash
@@ -100,22 +158,23 @@ runs:
         if [[ "${{ inputs.zip }}" == "true" ]]; then
           FLAGS="$FLAGS --zip"
         fi
-
-        # Copy SSG binary to workspace (skip if running from same repo)
-        ACTION_SSG="${{ github.action_path }}/ssg"
-        if [[ "$(realpath "$ACTION_SSG")" != "$(realpath ./ssg)" ]]; then
-          cp "$ACTION_SSG" ./ssg
+        if [[ "${{ inputs.minify }}" == "true" ]]; then
+          FLAGS="$FLAGS --minify-all"
+        fi
+        if [[ "${{ inputs.clean }}" == "true" ]]; then
+          FLAGS="$FLAGS --clean"
         fi
 
-        # Check if directories exist
+        # Check if content directory exists
         if [[ ! -d "${{ inputs.content-dir }}/${{ inputs.source }}" ]]; then
           echo "::error::Content source directory not found: ${{ inputs.content-dir }}/${{ inputs.source }}"
           exit 1
         fi
 
+        # Check if templates exist, copy from action repo if not
         if [[ ! -d "${{ inputs.templates-dir }}/${{ inputs.template }}" ]]; then
-          # Copy templates from action if not present
           if [[ -d "${{ github.action_path }}/templates/${{ inputs.template }}" ]]; then
+            echo "📁 Copying template '${{ inputs.template }}' from action..."
             mkdir -p "${{ inputs.templates-dir }}"
             cp -r "${{ github.action_path }}/templates/${{ inputs.template }}" "${{ inputs.templates-dir }}/"
           else
@@ -124,9 +183,9 @@ runs:
           fi
         fi
 
-        # Run generator with directory options
+        # Run generator
         echo "::group::Running SSG"
-        ./ssg "${{ inputs.source }}" "${{ inputs.template }}" "${{ inputs.domain }}" \
+        ssg "${{ inputs.source }}" "${{ inputs.template }}" "${{ inputs.domain }}" \
           --content-dir="${{ inputs.content-dir }}" \
           --templates-dir="${{ inputs.templates-dir }}" \
           --output-dir="${{ inputs.output-dir }}" \
@@ -145,10 +204,4 @@ runs:
             echo "zip-size=$ZIP_SIZE" >> $GITHUB_OUTPUT
             echo "📦 ZIP created: $ZIP_FILE ($((ZIP_SIZE / 1024 / 1024)) MB)"
           fi
-        fi
-
-        # Cleanup (only if we copied the binary)
-        ACTION_SSG="${{ github.action_path }}/ssg"
-        if [[ "$(realpath "$ACTION_SSG" 2>/dev/null)" != "$(realpath ./ssg 2>/dev/null)" ]]; then
-          rm -f ./ssg
         fi

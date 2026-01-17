@@ -304,12 +304,15 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
     source: 'my-content'           # Content folder (inside content/)
     template: 'krowy'              # Template: 'simple' or 'krowy'
     domain: 'example.com'          # Target domain
+    version: 'latest'              # Optional: SSG version (default: latest)
     content-dir: 'content'         # Optional: content directory path
     templates-dir: 'templates'     # Optional: templates directory path
     output-dir: 'output'           # Optional: output directory path
     webp: 'true'                   # Optional: convert images to WebP
     webp-quality: '80'             # Optional: WebP quality 1-100 (default: 60)
     zip: 'true'                    # Optional: create ZIP for deployment
+    minify: 'true'                 # Optional: minify HTML/CSS/JS
+    clean: 'true'                  # Optional: clean output before build
 
 - name: Show outputs
   run: |
@@ -325,12 +328,15 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `source` | Content source folder name | ✅ | - |
 | `template` | Template name | ✅ | `simple` |
 | `domain` | Target domain | ✅ | - |
+| `version` | SSG version to download | ❌ | `latest` |
 | `content-dir` | Path to content directory | ❌ | `content` |
 | `templates-dir` | Path to templates directory | ❌ | `templates` |
 | `output-dir` | Path to output directory | ❌ | `output` |
 | `webp` | Convert images to WebP | ❌ | `false` |
 | `webp-quality` | WebP compression quality 1-100 | ❌ | `60` |
 | `zip` | Create ZIP file | ❌ | `false` |
+| `minify` | Minify HTML, CSS, and JS | ❌ | `false` |
+| `clean` | Clean output directory before build | ❌ | `false` |
 
 ### Action Outputs
 

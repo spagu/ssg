@@ -17,11 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Reverted to `cwebp` for WebP conversion to support static builds and cross-compilation (removed CGO dependency)
 - Changed license to BSD 3-Clause
+- ⚡ **GitHub Action now downloads pre-built binary** instead of building from source (much faster!)
+  - Added `version` input to specify SSG version
+  - Added `minify` and `clean` inputs
 
 ### Documentation
 - Added Docker installation and usage examples
 - Updated GitHub Actions versioning documentation
 - Updated License badge
+- Added Code of Conduct
 
 ## [1.3.0] - 2026-01-17
 
