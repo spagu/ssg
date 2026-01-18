@@ -12,43 +12,97 @@
 [![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
 [![GitHub forks](https://img.shields.io/github/forks/spagu/ssg)](https://github.com/spagu/ssg/network)
 
-🐄 **SSG** - A simple static site generator written in Go. Converts content from WordPress exports (Markdown format with YAML frontmatter) to static HTML, CSS, and JS files.
+A fast and flexible [static site generator](https://en.wikipedia.org/wiki/Static_site_generator) built in [Go](https://go.dev/), designed for simplicity and speed.
 
-## 📋 Table of Contents
+[Website](https://github.com/spagu/ssg) | [Installation](#-installation) | [Documentation](#-usage) | [Contributing](CONTRIBUTORS.md) | [Security](SECURITY.md)
 
-- [Features](#-features)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [GitHub Actions](#-github-actions)
-- [Project Structure](#-project-structure)
-- [Templates](#-templates)
-- [Styles/Colors](#-stylescolors)
-- [Architecture](#-architecture)
-- [Testing](#-testing)
-- [Development](#-development)
+---
+
+## 🔍 Overview
+
+**SSG** is a static site generator written in [Go](https://go.dev/), optimized for converting WordPress exports (Markdown with YAML frontmatter) to blazing-fast static websites. With its simple architecture, multiple template engine support, and powerful asset pipelines, SSG renders a complete site in milliseconds.
+
+### What Can You Build?
+
+SSG is perfect for creating:
+
+- � **Blogs** - Personal or professional blogs migrated from WordPress
+- 🏢 **Corporate sites** - Fast, secure company websites
+- 📚 **Documentation** - Technical docs with clean SEO URLs
+- 🎨 **Portfolios** - Image galleries and creative showcases
+- 📄 **Landing pages** - Marketing and product pages
+- 📝 **Personal sites** - Resumes, CVs, and personal branding
+
+### Key Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **⚡ Lightning Fast** | Go-powered generation completes in milliseconds |
+| **🎭 Multiple Engines** | Go templates, Pongo2 (Jinja2), Mustache, Handlebars |
+| **🌐 Hugo Themes** | Download and use Hugo themes from GitHub |
+| **🖼️ Image Pipeline** | WebP conversion with quality control |
+| **📦 Asset Bundling** | HTML, CSS, JS minification |
+| **🔄 Live Reload** | Built-in server with file watching |
+| **🐳 Docker Ready** | Minimal Alpine image (~15MB) |
+| **🎬 CI/CD Native** | First-class GitHub Actions support |
+
+### Development Workflow
+
+Use SSG's embedded web server during development to instantly see changes to content, structure, and presentation. The watch mode automatically rebuilds your site when files change:
+
+```bash
+# Start development server with auto-rebuild
+ssg my-content krowy example.com --http --watch
+```
+
+Then deploy to any static hosting:
+- **Cloudflare Pages** - Zero-config with our example workflow
+- **GitHub Pages** - Direct push deployment
+- **Netlify, Vercel** - Drag and drop or Git integration
+- **Any web server** - Just copy the output folder
+
+### Asset Processing
+
+SSG includes powerful asset processing:
+
+- **Image Processing** - Convert JPG/PNG to WebP with configurable quality
+- **HTML Minification** - Remove whitespace, comments, optimize output
+- **CSS Minification** - Bundle and compress stylesheets
+- **JS Minification** - Optimize JavaScript files
+- **SEO Automation** - Sitemap, robots.txt, clean URLs, meta tags
 
 ## ✨ Features
 
-- 🚀 Fast static site generation
-- 📝 Markdown support with YAML frontmatter
-- 🎨 Two templates: **simple** (dark theme) and **krowy** (green/natural theme)
-- 📱 Responsive design
-- ♿ WCAG 2.2 compliant
-- 🔍 SEO-friendly URLs (clean addresses)
-- 📁 Automatic media file copying
-- 🏷️ Category support
-- 📄 **Config file support** (YAML, TOML, JSON)
-- 🔧 **Multiple template engines** - Go, Pongo2 (Jinja2), Mustache, Handlebars
-- 🌍 **Online theme download** - use Hugo themes from GitHub/GitLab
-- 🌐 **Built-in HTTP server** (`--http` flag)
-- 👀 **Watch mode** - auto-rebuild on file changes (`--watch` flag)
-- 🖼️ **WebP conversion** (`--webp` flag)
-- 🗄️ **Minification** - HTML, CSS, JS (`--minify-all` flag)
-- 🧹 **Clean builds** (`--clean` flag)
-- 📦 Cloudflare Pages deployment package (`--zip` flag)
-- 🐳 **Docker support** - minimal Alpine image (~15MB)
-- 🎬 **GitHub Actions integration** - Use as a step in CI/CD pipelines
+### Core Features
+- 🚀 **Fast generation** - Go-powered, millisecond builds
+- 📝 **Markdown** - Full support with YAML frontmatter
+- 🎨 **Built-in templates** - `simple` (dark) and `krowy` (green/natural)
+- 📱 **Responsive** - Mobile-first design
+- ♿ **Accessible** - WCAG 2.2 compliant
+- 🔍 **SEO** - Clean URLs, sitemap, robots.txt
+
+### Template Engines
+- � **Go Templates** - Default, powerful templating (`.Variable`)
+- 🐍 **Pongo2** - Jinja2/Django syntax (`{% for %}`)
+- 👨‍🦱 **Mustache** - Logic-less templates (`{{#}}`)
+- 🔨 **Handlebars** - Semantic templates (`{{#each}}`)
+
+### Development
+- 🌐 **HTTP Server** - Built-in dev server (`--http`)
+- 👀 **Watch Mode** - Auto-rebuild on changes (`--watch`)
+- 📄 **Config Files** - YAML, TOML, JSON support
+- 🧹 **Clean Builds** - Fresh output (`--clean`)
+
+### Production
+- 🖼️ **WebP Conversion** - Optimized images (`--webp`)
+- 🗄️ **Minification** - HTML, CSS, JS (`--minify-all`)
+- 📦 **Deployment Package** - Cloudflare Pages ready (`--zip`)
+- 🐳 **Docker** - Multi-arch Alpine image
+
+### Integration
+- 🎬 **GitHub Actions** - Use as CI/CD step
+- 🌍 **Online Themes** - Download Hugo themes from URL
+- 📁 **WordPress** - Import from WP exports
 
 ## 📦 Requirements
 

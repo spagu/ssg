@@ -18,7 +18,7 @@ RUN go mod download
 COPY . .
 
 # Build static binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=1.4.3" \
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=1.4.4" \
     -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
@@ -30,7 +30,7 @@ RUN apk add --no-cache libwebp-tools
 # Labels
 LABEL org.opencontainers.image.title="SSG - Static Site Generator"
 LABEL org.opencontainers.image.description="Fast static site generator written in Go"
-LABEL org.opencontainers.image.version="1.4.3"
+LABEL org.opencontainers.image.version="1.4.4"
 LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
 LABEL org.opencontainers.image.licenses="BSD-3-Clause"
 LABEL maintainer="spagu <spagu@github.com>"
