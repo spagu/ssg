@@ -478,6 +478,8 @@ jobs:
 ```
 {% endraw %}
 
+> **📁 Complete workflow examples** are available in [`examples/workflows/`](examples/workflows/).
+
 ## 📁 Project Structure
 
 ```

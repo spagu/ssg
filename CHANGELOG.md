@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-01-18
+
+### Fixed
+- 🔧 **Example workflow moved** - `example-deploy.yml` moved to `examples/workflows/`
+  - No longer runs on every push to main
+  - Users copy it to their own `.github/workflows/`
+
+### Added
+- 📁 **Examples directory** - `examples/workflows/` with complete workflow templates
+- 📝 Examples README with usage instructions
+
 ## [1.4.2] - 2026-01-18
 
 ### Fixed
