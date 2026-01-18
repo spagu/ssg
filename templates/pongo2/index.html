@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if Page %}{{ Page.Title }}{% else %}{{ Site.Title }}{% endif %}</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>{{ Site.Title }}</h1>
+        <nav>
+            <a href="/">Home</a>
+            {% for category in Categories %}
+            <a href="/category/{{ category.Slug }}/">{{ category.Name }}</a>
+            {% endfor %}
+        </nav>
+    </header>
+
+    <main>
+        {% if Page %}
+        <article>
+            <h2>{{ Page.Title }}</h2>
+            <p class="date">{{ Page.Date }}</p>
+            <div class="content">
+                {{ Page.Content|safe }}
+            </div>
+        </article>
+        {% else %}
+        <section class="posts">
+            <h2>Latest Posts</h2>
+            {% for post in Posts %}
+            <article>
+                <h3><a href="{{ post.URL }}">{{ post.Title }}</a></h3>
+                <p class="date">{{ post.Date }}</p>
+                <p>{{ post.Excerpt }}</p>
+            </article>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </main>
+
+    <footer>
+        <p>&copy; {{ Site.Year }} {{ Site.Title }}</p>
+    </footer>
+</body>
+
+</html>

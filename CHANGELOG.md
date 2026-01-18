@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-01-18
+
+### Added
+- ✅ **Test coverage** for new packages:
+  - `engine`: 61.6% coverage
+  - `config`: 79.2% coverage
+  - `theme`: 26.1% coverage
+- 📝 **SECURITY.md** - Security policy and best practices
+- 👥 **CONTRIBUTORS.md** - Contribution guidelines
+- 🎨 **Template examples** for all engines (pongo2, mustache, handlebars)
+
+### Changed
+- 🔄 Updated all dependencies to latest versions
+- 📦 Updated GitHub Action with `engine` and `online-theme` inputs
+
 ## [1.4.0] - 2026-01-18
 
 ### Added

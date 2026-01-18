@@ -1,5 +1,5 @@
 name: ssg
-version: "1.4.0"
+version: "1.4.1"
 summary: Static Site Generator
 description: |
   Fast static site generator written in Go.

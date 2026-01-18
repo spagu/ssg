@@ -61,6 +61,14 @@ inputs:
     description: "Clean output directory before build (true/false)"
     required: false
     default: "false"
+  engine:
+    description: "Template engine: go (default), pongo2, mustache, handlebars"
+    required: false
+    default: "go"
+  online-theme:
+    description: "Download theme from URL (GitHub, GitLab, or direct ZIP)"
+    required: false
+    default: ""
 
 outputs:
   output-path:
@@ -179,6 +187,12 @@ runs:
         fi
         if [[ "${{ inputs.clean }}" == "true" ]]; then
           FLAGS="$FLAGS --clean"
+        fi
+        if [[ "${{ inputs.engine }}" != "go" && -n "${{ inputs.engine }}" ]]; then
+          FLAGS="$FLAGS --engine=${{ inputs.engine }}"
+        fi
+        if [[ -n "${{ inputs.online-theme }}" ]]; then
+          FLAGS="$FLAGS --online-theme=${{ inputs.online-theme }}"
         fi
 
         # Check if content directory exists

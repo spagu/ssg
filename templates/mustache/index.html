@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{#Page}}{{Title}}{{/Page}}{{^Page}}{{Site.Title}}{{/Page}}</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>{{Site.Title}}</h1>
+        <nav>
+            <a href="/">Home</a>
+            {{#Categories}}
+            <a href="/category/{{Slug}}/">{{Name}}</a>
+            {{/Categories}}
+        </nav>
+    </header>
+
+    <main>
+        {{#Page}}
+        <article>
+            <h2>{{Title}}</h2>
+            <p class="date">{{Date}}</p>
+            <div class="content">
+                {{{Content}}}
+            </div>
+        </article>
+        {{/Page}}
+
+        {{^Page}}
+        <section class="posts">
+            <h2>Latest Posts</h2>
+            {{#Posts}}
+            <article>
+                <h3><a href="{{URL}}">{{Title}}</a></h3>
+                <p class="date">{{Date}}</p>
+                <p>{{Excerpt}}</p>
+            </article>
+            {{/Posts}}
+        </section>
+        {{/Page}}
+    </main>
+
+    <footer>
+        <p>&copy; {{Site.Year}} {{Site.Title}}</p>
+    </footer>
+</body>
+
+</html>

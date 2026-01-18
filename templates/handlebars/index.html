@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{#if Page}}{{Page.Title}}{{else}}{{Site.Title}}{{/if}}</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <header>
+        <h1>{{Site.Title}}</h1>
+        <nav>
+            <a href="/">Home</a>
+            {{#each Categories}}
+            <a href="/category/{{Slug}}/">{{Name}}</a>
+            {{/each}}
+        </nav>
+    </header>
+
+    <main>
+        {{#if Page}}
+        <article>
+            <h2>{{Page.Title}}</h2>
+            <p class="date">{{Page.Date}}</p>
+            <div class="content">
+                {{{Page.Content}}}
+            </div>
+        </article>
+        {{else}}
+        <section class="posts">
+            <h2>Latest Posts</h2>
+            {{#each Posts}}
+            <article>
+                <h3><a href="{{URL}}">{{Title}}</a></h3>
+                <p class="date">{{Date}}</p>
+                <p>{{Excerpt}}</p>
+            </article>
+            {{/each}}
+        </section>
+        {{/if}}
+    </main>
+
+    <footer>
+        <p>&copy; {{Site.Year}} {{Site.Title}}</p>
+    </footer>
+</body>
+
+</html>
