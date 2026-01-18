@@ -82,10 +82,10 @@ SSG includes powerful asset processing:
 - 🔍 **SEO** - Clean URLs, sitemap, robots.txt
 
 ### Template Engines
-- � **Go Templates** - Default, powerful templating (`.Variable`)
-- 🐍 **Pongo2** - Jinja2/Django syntax (`{% for %}`)
-- 👨‍🦱 **Mustache** - Logic-less templates (`{{#}}`)
-- 🔨 **Handlebars** - Semantic templates (`{{#each}}`)
+- 🔧 **Go Templates** - Default, powerful templating (`.Variable`)
+- 🐍 **Pongo2** - Jinja2/Django syntax (for loops, filters)
+- 👨‍🦱 **Mustache** - Logic-less templates (sections)
+- 🔨 **Handlebars** - Semantic templates (each blocks)
 
 ### Development
 - 🌐 **HTTP Server** - Built-in dev server (`--http`)
@@ -340,10 +340,10 @@ SSG supports multiple template engines. By default, Go templates are used, but y
 
 | Engine | Flag | Syntax Style |
 |--------|------|--------------|
-| Go (default) | `--engine=go` | `{{"{{"}}.Variable}}`, `{{"{{"}}.range .Items}}` |
-| Pongo2 | `--engine=pongo2` | Jinja2/Django: `{{"{{"}}.variable}}`, `{%raw%}{% for item in items %}{%endraw%}` |
-| Mustache | `--engine=mustache` | `{{"{{"}}.variable}}`, `{{"{{#"}} items}}` |
-| Handlebars | `--engine=handlebars` | `{{"{{"}}.variable}}`, `{{"{{#each"}} items}}` |
+| Go (default) | `--engine=go` | `.Variable`, `range .Items` |
+| Pongo2 | `--engine=pongo2` | Jinja2/Django: `for item in items` |
+| Mustache | `--engine=mustache` | `variable`, `#items` |
+| Handlebars | `--engine=handlebars` | `variable`, `#each items` |
 
 ### Usage Examples
 
