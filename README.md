@@ -39,6 +39,8 @@
 - 📁 Automatic media file copying
 - 🏷️ Category support
 - 📄 **Config file support** (YAML, TOML, JSON)
+- 🔧 **Multiple template engines** - Go, Pongo2 (Jinja2), Mustache, Handlebars
+- 🌍 **Online theme download** - use Hugo themes from GitHub/GitLab
 - 🌐 **Built-in HTTP server** (`--http` flag)
 - 👀 **Watch mode** - auto-rebuild on file changes (`--watch` flag)
 - 🖼️ **WebP conversion** (`--webp` flag)
@@ -207,6 +209,13 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--templates-dir=PATH` | Templates directory (default: `templates`) |
 | `--output-dir=PATH` | Output directory (default: `output`) |
 
+**Template Engine:**
+
+| Option | Description |
+|--------|-------------|
+| `--engine=ENGINE` | Template engine: `go` (default), `pongo2`, `mustache`, `handlebars` |
+| `--online-theme=URL` | Download theme from URL (GitHub, GitLab, or direct ZIP) |
+
 **Other:**
 
 | Option | Description |
@@ -267,6 +276,80 @@ output/
 ├── robots.txt          # Robots file
 ├── _headers            # Cloudflare Pages headers
 └── _redirects          # Cloudflare Pages redirects
+```
+
+## 🔧 Template Engines
+
+SSG supports multiple template engines. By default, Go templates are used, but you can switch to other engines:
+
+### Available Engines
+
+| Engine | Flag | Syntax Style |
+|--------|------|--------------|
+| Go (default) | `--engine=go` | `{{ .Variable }}`, `{{ range .Items }}` |
+| Pongo2 | `--engine=pongo2` | Jinja2/Django: `{{ variable }}`, `{% for item in items %}` |
+| Mustache | `--engine=mustache` | `{{ variable }}`, `{{# items }}` |
+| Handlebars | `--engine=handlebars` | `{{ variable }}`, `{{#each items}}` |
+
+### Usage Examples
+
+```bash
+# Use Pongo2 (Jinja2/Django syntax)
+ssg my-content mytheme example.com --engine=pongo2
+
+# Use Mustache
+ssg my-content mytheme example.com --engine=mustache
+
+# Use Handlebars
+ssg my-content mytheme example.com --engine=handlebars
+```
+
+### Online Themes
+
+Download themes directly from GitHub, GitLab, or any ZIP URL:
+
+```bash
+# Download Hugo theme from GitHub
+ssg my-content bearblog example.com --online-theme=https://github.com/janraasch/hugo-bearblog
+
+# Download from any URL
+ssg my-content mytheme example.com --online-theme=https://example.com/theme.zip
+```
+
+The theme will be downloaded and extracted to `templates/{template-name}/`.
+
+### Template Syntax Comparison
+
+**Go Templates:**
+```html
+{{ range .Posts }}
+  <h2>{{ .Title }}</h2>
+  <p>{{ .Content }}</p>
+{{ end }}
+```
+
+**Pongo2 (Jinja2):**
+```html
+{% for post in Posts %}
+  <h2>{{ post.Title }}</h2>
+  <p>{{ post.Content }}</p>
+{% endfor %}
+```
+
+**Mustache:**
+```html
+{{#Posts}}
+  <h2>{{Title}}</h2>
+  <p>{{Content}}</p>
+{{/Posts}}
+```
+
+**Handlebars:**
+```html
+{{#each Posts}}
+  <h2>{{Title}}</h2>
+  <p>{{Content}}</p>
+{{/each}}
 ```
 
 ## 🎬 GitHub Actions

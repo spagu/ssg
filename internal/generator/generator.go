@@ -31,14 +31,15 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// New options
-	SitemapOff bool // Disable sitemap generation
-	RobotsOff  bool // Disable robots.txt generation
-	MinifyHTML bool // Minify HTML output
-	MinifyCSS  bool // Minify CSS output
-	MinifyJS   bool // Minify JS output
-	SourceMap  bool // Include source maps
-	Clean      bool // Clean output directory before build
-	Quiet      bool // Suppress stdout output
+	SitemapOff bool   // Disable sitemap generation
+	RobotsOff  bool   // Disable robots.txt generation
+	MinifyHTML bool   // Minify HTML output
+	MinifyCSS  bool   // Minify CSS output
+	MinifyJS   bool   // Minify JS output
+	SourceMap  bool   // Include source maps
+	Clean      bool   // Clean output directory before build
+	Quiet      bool   // Suppress stdout output
+	Engine     string // Template engine: go, pongo2, mustache, handlebars
 }
 
 // Generator handles the static site generation process

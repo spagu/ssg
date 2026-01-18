@@ -26,7 +26,12 @@ minify_css: false    # Minify only CSS
 minify_js: false     # Minify only JS
 sourcemap: false     # Include source maps
 
-# Image Processing (native Go library, no cwebp needed)
+# Template Engine
+engine: "go"         # Options: go, pongo2, mustache, handlebars
+# online_theme: ""   # Download theme from URL (GitHub, GitLab, or direct ZIP)
+                     # Example: https://github.com/janraasch/hugo-bearblog
+
+# Image Processing (requires cwebp installed)
 webp: false          # Convert images to WebP
 webp_quality: 60     # Quality 1-100 (lower = smaller file)
 

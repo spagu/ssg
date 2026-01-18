@@ -24,6 +24,10 @@ type Config struct {
 	TemplatesDir string `yaml:"templates_dir" toml:"templates_dir" json:"templates_dir"`
 	OutputDir    string `yaml:"output_dir" toml:"output_dir" json:"output_dir"`
 
+	// Template Engine
+	Engine      string `yaml:"engine" toml:"engine" json:"engine"`                   // go, pongo2, mustache, handlebars
+	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
+
 	// Server & Development
 	HTTP  bool `yaml:"http" toml:"http" json:"http"`
 	Port  int  `yaml:"port" toml:"port" json:"port"`

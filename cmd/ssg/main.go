@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/generator"
+	"github.com/spagu/ssg/internal/theme"
 	"github.com/spagu/ssg/internal/webp"
 )
 
@@ -86,6 +88,29 @@ func main() {
 		cfg.MinifyJS = true
 	}
 
+	// Validate template engine
+	if cfg.Engine != "" {
+		if _, err := engine.New(cfg.Engine); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+			os.Exit(1)
+		}
+		if !cfg.Quiet {
+			fmt.Printf("🔧 Using template engine: %s\n", cfg.Engine)
+		}
+	}
+
+	// Download online theme if specified
+	if cfg.OnlineTheme != "" {
+		themeDir := filepath.Join(cfg.TemplatesDir, cfg.Template)
+		if !cfg.Quiet {
+			fmt.Printf("🌐 Downloading theme from: %s\n", cfg.OnlineTheme)
+		}
+		if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Error downloading theme: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Create generator config
 	genCfg := generator.Config{
 		Source:       cfg.Source,
@@ -102,6 +127,7 @@ func main() {
 		SourceMap:    cfg.SourceMap,
 		Clean:        cfg.Clean,
 		Quiet:        cfg.Quiet,
+		Engine:       cfg.Engine,
 	}
 
 	// Initial build
@@ -217,6 +243,16 @@ func parseFlags(args []string, cfg *config.Config) {
 			cfg.Clean = true
 		case arg == "--quiet" || arg == "-q":
 			cfg.Quiet = true
+		case strings.HasPrefix(arg, "--engine="):
+			cfg.Engine = strings.TrimPrefix(arg, "--engine=")
+		case arg == "--engine" && i+1 < len(args):
+			i++
+			cfg.Engine = args[i]
+		case strings.HasPrefix(arg, "--online-theme="):
+			cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
+		case arg == "--online-theme" && i+1 < len(args):
+			i++
+			cfg.OnlineTheme = args[i]
 		case arg == "--version" || arg == "-v":
 			fmt.Printf("ssg version %s\n", Version)
 			os.Exit(0)
@@ -403,6 +439,12 @@ func printUsage() {
 	fmt.Println("  --config=FILE          - Load config from YAML/TOML/JSON file")
 	fmt.Println("                           Auto-detects: .ssg.yaml, .ssg.toml, .ssg.json")
 	fmt.Println("")
+	fmt.Println("Template Engine:")
+	fmt.Println("  --engine=ENGINE        - Template engine (default: go)")
+	fmt.Println("                           Available: go, pongo2 (jinja2), mustache, handlebars")
+	fmt.Println("  --online-theme=URL     - Download theme from URL (GitHub, GitLab, or direct ZIP)")
+	fmt.Println("                           Example: --online-theme=https://github.com/user/hugo-theme")
+	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")
 	fmt.Println("  --port=PORT            - HTTP server port (default: 8888)")
@@ -419,7 +461,7 @@ func printUsage() {
 	fmt.Println("  --sourcemap            - Include source maps in output")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
-	fmt.Println("  --webp                 - Convert images to WebP format (native, no cwebp needed)")
+	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
 	fmt.Println("")
 	fmt.Println("Deployment:")
@@ -438,5 +480,7 @@ func printUsage() {
 	fmt.Println("Examples:")
 	fmt.Println("  ssg my-site simple example.com --http --watch")
 	fmt.Println("  ssg my-site krowy example.com --clean --minify-all --zip")
+	fmt.Println("  ssg my-site mytheme example.com --engine=pongo2")
+	fmt.Println("  ssg my-site themename example.com --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("  ssg --config .ssg.yaml --http --watch")
 }
