@@ -286,10 +286,10 @@ SSG supports multiple template engines. By default, Go templates are used, but y
 
 | Engine | Flag | Syntax Style |
 |--------|------|--------------|
-| Go (default) | `--engine=go` | `{{ .Variable }}`, `{{ range .Items }}` |
-| Pongo2 | `--engine=pongo2` | Jinja2/Django: `{{ variable }}`, `{% for item in items %}` |
-| Mustache | `--engine=mustache` | `{{ variable }}`, `{{# items }}` |
-| Handlebars | `--engine=handlebars` | `{{ variable }}`, `{{#each items}}` |
+| Go (default) | `--engine=go` | `{{"{{"}}.Variable}}`, `{{"{{"}}.range .Items}}` |
+| Pongo2 | `--engine=pongo2` | Jinja2/Django: `{{"{{"}}.variable}}`, `{%raw%}{% for item in items %}{%endraw%}` |
+| Mustache | `--engine=mustache` | `{{"{{"}}.variable}}`, `{{"{{#"}} items}}` |
+| Handlebars | `--engine=handlebars` | `{{"{{"}}.variable}}`, `{{"{{#each"}} items}}` |
 
 ### Usage Examples
 
@@ -321,36 +321,48 @@ The theme will be downloaded and extracted to `templates/{template-name}/`.
 ### Template Syntax Comparison
 
 **Go Templates:**
+
+{% raw %}
 ```html
 {{ range .Posts }}
   <h2>{{ .Title }}</h2>
   <p>{{ .Content }}</p>
 {{ end }}
 ```
+{% endraw %}
 
 **Pongo2 (Jinja2):**
+
+{% raw %}
 ```html
 {% for post in Posts %}
   <h2>{{ post.Title }}</h2>
   <p>{{ post.Content }}</p>
 {% endfor %}
 ```
+{% endraw %}
 
 **Mustache:**
+
+{% raw %}
 ```html
 {{#Posts}}
   <h2>{{Title}}</h2>
   <p>{{Content}}</p>
 {{/Posts}}
 ```
+{% endraw %}
 
 **Handlebars:**
+
+{% raw %}
 ```html
 {{#each Posts}}
   <h2>{{Title}}</h2>
   <p>{{Content}}</p>
 {{/each}}
 ```
+{% endraw %}
 
 ## 🎬 GitHub Actions
 
@@ -379,6 +391,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 
 ### Full Configuration
 
+{% raw %}
 ```yaml
 - name: Generate static site
   id: ssg
@@ -403,6 +416,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
     echo "ZIP file: ${{ steps.ssg.outputs.zip-file }}"
     echo "ZIP size: ${{ steps.ssg.outputs.zip-size }} bytes"
 ```
+{% endraw %}
 
 ### Action Inputs
 
@@ -431,6 +445,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 
 ### Deploy to Cloudflare Pages
 
+{% raw %}
 ```yaml
 name: Deploy
 
@@ -461,6 +476,7 @@ jobs:
           projectName: 'my-site'
           directory: ${{ steps.ssg.outputs.output-path }}
 ```
+{% endraw %}
 
 ## 📁 Project Structure
 
