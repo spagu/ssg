@@ -29,57 +29,14 @@ var Version = "dev"
 func main() {
 	args := os.Args[1:]
 
-	// Check for config file first
-	var cfg *config.Config
-	var configPath string
-
-	// Look for --config flag
-	for i, arg := range args {
-		if strings.HasPrefix(arg, "--config=") {
-			configPath = strings.TrimPrefix(arg, "--config=")
-		} else if arg == "--config" && i+1 < len(args) {
-			configPath = args[i+1]
-		}
-	}
-
-	// If no --config, look for default config file
-	if configPath == "" {
-		configPath = config.FindConfigFile()
-	}
-
-	// Load config file if exists
-	if configPath != "" {
-		var err error
-		cfg, err = config.Load(configPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		cfg = config.DefaultConfig()
-	}
+	// Load configuration
+	cfg := loadConfig(args)
 
 	// Override with command line flags
 	parseFlags(args, cfg)
 
 	// Validate required fields
-	if cfg.Source == "" || cfg.Template == "" || cfg.Domain == "" {
-		// Check positional args
-		var positionalArgs []string
-		for _, arg := range args {
-			if !strings.HasPrefix(arg, "-") {
-				positionalArgs = append(positionalArgs, arg)
-			}
-		}
-		if len(positionalArgs) >= 3 {
-			cfg.Source = positionalArgs[0]
-			cfg.Template = positionalArgs[1]
-			cfg.Domain = positionalArgs[2]
-		} else if cfg.Source == "" || cfg.Template == "" || cfg.Domain == "" {
-			printUsage()
-			os.Exit(1)
-		}
-	}
+	validateRequiredFields(args, cfg)
 
 	// Apply minify_all
 	if cfg.MinifyAll {
@@ -88,47 +45,12 @@ func main() {
 		cfg.MinifyJS = true
 	}
 
-	// Validate template engine
-	if cfg.Engine != "" {
-		if _, err := engine.New(cfg.Engine); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
-			os.Exit(1)
-		}
-		if !cfg.Quiet {
-			fmt.Printf("🔧 Using template engine: %s\n", cfg.Engine)
-		}
-	}
-
-	// Download online theme if specified
-	if cfg.OnlineTheme != "" {
-		themeDir := filepath.Join(cfg.TemplatesDir, cfg.Template)
-		if !cfg.Quiet {
-			fmt.Printf("🌐 Downloading theme from: %s\n", cfg.OnlineTheme)
-		}
-		if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Error downloading theme: %v\n", err)
-			os.Exit(1)
-		}
-	}
+	// Setup template engine and theme
+	setupTemplateEngine(cfg)
+	downloadOnlineTheme(cfg)
 
 	// Create generator config
-	genCfg := generator.Config{
-		Source:       cfg.Source,
-		Template:     cfg.Template,
-		Domain:       cfg.Domain,
-		ContentDir:   cfg.ContentDir,
-		TemplatesDir: cfg.TemplatesDir,
-		OutputDir:    cfg.OutputDir,
-		SitemapOff:   cfg.SitemapOff,
-		RobotsOff:    cfg.RobotsOff,
-		MinifyHTML:   cfg.MinifyHTML,
-		MinifyCSS:    cfg.MinifyCSS,
-		MinifyJS:     cfg.MinifyJS,
-		SourceMap:    cfg.SourceMap,
-		Clean:        cfg.Clean,
-		Quiet:        cfg.Quiet,
-		Engine:       cfg.Engine,
-	}
+	genCfg := createGeneratorConfig(cfg)
 
 	// Initial build
 	if err := build(genCfg, cfg); err != nil {
@@ -177,6 +99,115 @@ func main() {
 		}
 	} else if cfg.HTTP {
 		select {}
+	}
+}
+
+// loadConfig loads configuration from file or returns defaults
+func loadConfig(args []string) *config.Config {
+	var configPath string
+
+	// Look for --config flag
+	for i, arg := range args {
+		if strings.HasPrefix(arg, "--config=") {
+			configPath = strings.TrimPrefix(arg, "--config=")
+		} else if arg == "--config" && i+1 < len(args) {
+			configPath = args[i+1]
+		}
+	}
+
+	// If no --config, look for default config file
+	if configPath == "" {
+		configPath = config.FindConfigFile()
+	}
+
+	// Load config file if exists
+	if configPath != "" {
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
+			os.Exit(1)
+		}
+		return cfg
+	}
+
+	return config.DefaultConfig()
+}
+
+// validateRequiredFields validates and populates required config fields
+func validateRequiredFields(args []string, cfg *config.Config) {
+	if cfg.Source != "" && cfg.Template != "" && cfg.Domain != "" {
+		return
+	}
+
+	// Check positional args
+	var positionalArgs []string
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			positionalArgs = append(positionalArgs, arg)
+		}
+	}
+
+	if len(positionalArgs) >= 3 {
+		cfg.Source = positionalArgs[0]
+		cfg.Template = positionalArgs[1]
+		cfg.Domain = positionalArgs[2]
+	} else if cfg.Source == "" || cfg.Template == "" || cfg.Domain == "" {
+		printUsage()
+		os.Exit(1)
+	}
+}
+
+// setupTemplateEngine validates the template engine
+func setupTemplateEngine(cfg *config.Config) {
+	if cfg.Engine == "" {
+		return
+	}
+
+	if _, err := engine.New(cfg.Engine); err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !cfg.Quiet {
+		fmt.Printf("🔧 Using template engine: %s\n", cfg.Engine)
+	}
+}
+
+// downloadOnlineTheme downloads theme from URL if specified
+func downloadOnlineTheme(cfg *config.Config) {
+	if cfg.OnlineTheme == "" {
+		return
+	}
+
+	themeDir := filepath.Join(cfg.TemplatesDir, cfg.Template)
+	if !cfg.Quiet {
+		fmt.Printf("🌐 Downloading theme from: %s\n", cfg.OnlineTheme)
+	}
+
+	if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Error downloading theme: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// createGeneratorConfig creates generator.Config from app config
+func createGeneratorConfig(cfg *config.Config) generator.Config {
+	return generator.Config{
+		Source:       cfg.Source,
+		Template:     cfg.Template,
+		Domain:       cfg.Domain,
+		ContentDir:   cfg.ContentDir,
+		TemplatesDir: cfg.TemplatesDir,
+		OutputDir:    cfg.OutputDir,
+		SitemapOff:   cfg.SitemapOff,
+		RobotsOff:    cfg.RobotsOff,
+		MinifyHTML:   cfg.MinifyHTML,
+		MinifyCSS:    cfg.MinifyCSS,
+		MinifyJS:     cfg.MinifyJS,
+		SourceMap:    cfg.SourceMap,
+		Clean:        cfg.Clean,
+		Quiet:        cfg.Quiet,
+		Engine:       cfg.Engine,
 	}
 }
 

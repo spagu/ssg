@@ -3,9 +3,9 @@ name: Docker
 
 on:
   push:
-    branches: [main]
+    # Only build on full semver tags, not v1 alias
     tags:
-      - "v*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
   workflow_dispatch:

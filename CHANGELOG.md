@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.2] - 2026-01-18
 
 ### Fixed
-- 🐳 **Docker build tags** - Fixed v1 major version tag handling in Docker workflow
+- 🐳 **Docker build optimization** - Only builds on full semver tags (v1.4.2), not major version alias (v1)
 - 📄 **Jekyll compatibility** - Escaped Liquid syntax in README.md for GitHub Pages
+
+### Changed
+- 🔧 **Code quality** - Refactored main() to reduce cyclomatic complexity (25 → 18)
+- 📝 Added LICENSE.md for better Go Report Card detection
 
 ## [1.4.1] - 2026-01-18
 
