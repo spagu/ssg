@@ -2,11 +2,43 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
+
+// FlexInt is an int that can be unmarshaled from either int or string JSON
+type FlexInt int
+
+// UnmarshalJSON implements custom unmarshaling for FlexInt
+func (fi *FlexInt) UnmarshalJSON(data []byte) error {
+	// Try int first
+	var intVal int
+	if err := json.Unmarshal(data, &intVal); err == nil {
+		*fi = FlexInt(intVal)
+		return nil
+	}
+
+	// Try string
+	var strVal string
+	if err := json.Unmarshal(data, &strVal); err == nil {
+		if strVal == "" {
+			*fi = 0
+			return nil
+		}
+		parsed, err := strconv.Atoi(strVal)
+		if err != nil {
+			return fmt.Errorf("cannot parse %q as int: %w", strVal, err)
+		}
+		*fi = FlexInt(parsed)
+		return nil
+	}
+
+	return fmt.Errorf("cannot unmarshal %s into FlexInt", string(data))
+}
 
 // Page represents a page or post content with frontmatter metadata
 type Page struct {
@@ -104,9 +136,9 @@ type MediaItem struct {
 	MimeType     string `json:"mime_type"`
 	SourceURL    string `json:"source_url"`
 	MediaDetails struct {
-		Width  int    `json:"width"`
-		Height int    `json:"height"`
-		File   string `json:"file"`
+		Width  FlexInt `json:"width"`
+		Height FlexInt `json:"height"`
+		File   string  `json:"file"`
 	} `json:"media_details"`
 }
 

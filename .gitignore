@@ -50,3 +50,6 @@ content/*
 
 /.agent/
 /.agent/*
+# Downloaded themes (created by --online-theme)
+templates/gohugo-*/
+templates/hugo-*/
