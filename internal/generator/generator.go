@@ -530,6 +530,15 @@ func (g *Generator) generateIndex() error {
 
 // generatePage generates a single page
 func (g *Generator) generatePage(page models.Page) error {
+	// Skip pages that would overwrite the main index.html
+	// This happens when a page has link="https://domain/" pointing to root
+	outputSubPath := page.GetOutputPath()
+	if outputSubPath == "" || outputSubPath == "." {
+		fmt.Printf("   ⚠️  Skipping page '%s' (slug: %s) - would overwrite main index.html\n", page.Title, page.Slug)
+		fmt.Printf("      Hint: Change the 'link' field in frontmatter or use a different slug\n")
+		return nil
+	}
+
 	data := struct {
 		Site   *models.SiteData
 		Page   models.Page
@@ -540,7 +549,7 @@ func (g *Generator) generatePage(page models.Page) error {
 		Domain: g.config.Domain,
 	}
 
-	outputPath := filepath.Join(g.config.OutputDir, page.GetOutputPath(), "index.html")
+	outputPath := filepath.Join(g.config.OutputDir, outputSubPath, "index.html")
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
