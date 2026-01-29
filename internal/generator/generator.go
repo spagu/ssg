@@ -33,6 +33,7 @@ type Config struct {
 	// New options
 	SitemapOff bool   // Disable sitemap generation
 	RobotsOff  bool   // Disable robots.txt generation
+	PrettyHTML bool   // Prettify HTML output (remove extra blank lines)
 	MinifyHTML bool   // Minify HTML output
 	MinifyCSS  bool   // Minify CSS output
 	MinifyJS   bool   // Minify JS output
@@ -124,6 +125,16 @@ func (g *Generator) Generate() error {
 	}
 	if err := g.generateCloudflareFiles(); err != nil {
 		return fmt.Errorf("generating Cloudflare files: %w", err)
+	}
+
+	// Prettify HTML if requested (before minify - mutually exclusive with minify)
+	if g.config.PrettyHTML && !g.config.MinifyHTML {
+		if !g.config.Quiet {
+			fmt.Println("✨ Prettifying HTML output...")
+		}
+		if err := g.prettifyOutput(); err != nil {
+			return fmt.Errorf("prettifying output: %w", err)
+		}
 	}
 
 	// Minify output if requested
@@ -921,6 +932,24 @@ func (g *Generator) generateCloudflareFiles() error {
 	return nil
 }
 
+// prettifyOutput prettifies HTML files in the output directory
+func (g *Generator) prettifyOutput() error {
+	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".html" {
+			if err := prettifyHTMLFile(path); err != nil {
+				return fmt.Errorf("prettifying %s: %w", path, err)
+			}
+		}
+
+		return nil
+	})
+}
+
 // minifyOutput minifies HTML, CSS, and JS files in the output directory
 func (g *Generator) minifyOutput() error {
 	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
@@ -1027,6 +1056,36 @@ func minifyJSFile(path string) error {
 	s = reEmptyLines.ReplaceAllString(s, "\n")
 	// Trim
 	s = strings.TrimSpace(s)
+
+	return os.WriteFile(path, []byte(s), 0644)
+}
+
+// prettifyHTMLFile cleans up HTML by removing excessive blank lines while keeping readable formatting
+func prettifyHTMLFile(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	s := string(content)
+
+	// Remove lines that contain only whitespace
+	reEmptyLine := regexp.MustCompile(`(?m)^[ \t]+$`)
+	s = reEmptyLine.ReplaceAllString(s, "")
+
+	// Collapse multiple consecutive blank lines into single blank line
+	reMultipleBlankLines := regexp.MustCompile(`\n{3,}`)
+	s = reMultipleBlankLines.ReplaceAllString(s, "\n\n")
+
+	// Remove blank lines at the very beginning of the file
+	s = strings.TrimLeft(s, "\n")
+
+	// Remove trailing whitespace from each line
+	reTrailingWhitespace := regexp.MustCompile(`(?m)[ \t]+$`)
+	s = reTrailingWhitespace.ReplaceAllString(s, "")
+
+	// Ensure file ends with single newline
+	s = strings.TrimRight(s, "\n") + "\n"
 
 	return os.WriteFile(path, []byte(s), 0644)
 }

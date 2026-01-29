@@ -201,6 +201,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		OutputDir:    cfg.OutputDir,
 		SitemapOff:   cfg.SitemapOff,
 		RobotsOff:    cfg.RobotsOff,
+		PrettyHTML:   cfg.PrettyHTML,
 		MinifyHTML:   cfg.MinifyHTML,
 		MinifyCSS:    cfg.MinifyCSS,
 		MinifyJS:     cfg.MinifyJS,
@@ -260,6 +261,8 @@ func parseFlags(args []string, cfg *config.Config) {
 			cfg.SitemapOff = true
 		case arg == "--robots-off":
 			cfg.RobotsOff = true
+		case arg == "--pretty-html" || arg == "--pretty":
+			cfg.PrettyHTML = true
 		case arg == "--minify-all":
 			cfg.MinifyAll = true
 		case arg == "--minify-html":
@@ -485,6 +488,7 @@ func printUsage() {
 	fmt.Println("Output Control:")
 	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
 	fmt.Println("  --robots-off           - Disable robots.txt generation")
+	fmt.Println("  --pretty-html          - Prettify HTML (remove extra blank lines, clean formatting)")
 	fmt.Println("  --minify-all           - Minify HTML, CSS, and JS")
 	fmt.Println("  --minify-html          - Minify HTML output")
 	fmt.Println("  --minify-css           - Minify CSS output")

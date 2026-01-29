@@ -236,6 +236,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 |--------|-------------|
 | `--sitemap-off` | Disable sitemap.xml generation |
 | `--robots-off` | Disable robots.txt generation |
+| `--pretty-html` | Prettify HTML (remove extra blank lines, clean formatting) |
 | `--minify-all` | Minify HTML, CSS, and JS |
 | `--minify-html` | Minify HTML output |
 | `--minify-css` | Minify CSS output |

@@ -115,3 +115,226 @@ func TestEnsureTemplates(t *testing.T) {
 		}
 	}
 }
+
+func TestPrettifyHTMLFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "collapse multiple blank lines",
+			input: `<!DOCTYPE html>
+<html>
+
+
+<head>
+<title>Test</title>
+</head>
+
+
+
+<body>
+<p>Hello</p>
+</body>
+</html>`,
+			expected: `<!DOCTYPE html>
+<html>
+
+<head>
+<title>Test</title>
+</head>
+
+<body>
+<p>Hello</p>
+</body>
+</html>
+`,
+		},
+		{
+			name: "remove whitespace-only lines",
+			input: `<html>
+
+<head>
+</head>
+</html>`,
+			expected: `<html>
+
+<head>
+</head>
+</html>
+`,
+		},
+		{
+			name: "remove trailing whitespace",
+			input: `<html>
+<head>
+<title>Test</title>
+</head>
+</html>`,
+			expected: `<html>
+<head>
+<title>Test</title>
+</head>
+</html>
+`,
+		},
+		{
+			name: "remove leading blank lines",
+			input: `
+
+<!DOCTYPE html>
+<html>
+</html>`,
+			expected: `<!DOCTYPE html>
+<html>
+</html>
+`,
+		},
+		{
+			name:     "ensure single trailing newline",
+			input:    `<html></html>`,
+			expected: `<html></html>` + "\n",
+		},
+		{
+			name: "complex case - all transformations",
+			input: `
+
+<!DOCTYPE html>
+<html>
+
+
+
+<head>
+
+<title>Test</title>
+</head>
+
+
+<body>
+<p>Content</p>
+</body>
+
+
+</html>
+
+
+`,
+			expected: `<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Test</title>
+</head>
+
+<body>
+<p>Content</p>
+</body>
+
+</html>
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			htmlPath := filepath.Join(tmpDir, "test.html")
+
+			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
+				t.Fatalf("Failed to write test file: %v", err)
+			}
+
+			if err := prettifyHTMLFile(htmlPath); err != nil {
+				t.Fatalf("prettifyHTMLFile failed: %v", err)
+			}
+
+			result, err := os.ReadFile(htmlPath)
+			if err != nil {
+				t.Fatalf("Failed to read result file: %v", err)
+			}
+
+			if string(result) != tt.expected {
+				t.Errorf("prettifyHTMLFile mismatch:\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.input, tt.expected, string(result))
+			}
+		})
+	}
+}
+
+func TestPrettifyHTMLFileNotFound(t *testing.T) {
+	err := prettifyHTMLFile("/nonexistent/path/to/file.html")
+	if err == nil {
+		t.Error("Expected error for nonexistent file, got nil")
+	}
+}
+
+func TestPrettifyOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test HTML files
+	htmlContent := `<!DOCTYPE html>
+
+
+<html>
+<body>
+</body>
+</html>`
+
+	expectedContent := `<!DOCTYPE html>
+
+<html>
+<body>
+</body>
+</html>
+`
+
+	// Create directory structure
+	if err := os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755); err != nil {
+		t.Fatalf("Failed to create subdir: %v", err)
+	}
+
+	// Create HTML files
+	if err := os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte(htmlContent), 0644); err != nil {
+		t.Fatalf("Failed to create index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "subdir", "page.html"), []byte(htmlContent), 0644); err != nil {
+		t.Fatalf("Failed to create page.html: %v", err)
+	}
+
+	// Create non-HTML file (should be ignored)
+	if err := os.WriteFile(filepath.Join(tmpDir, "style.css"), []byte("body { }"), 0644); err != nil {
+		t.Fatalf("Failed to create style.css: %v", err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			OutputDir:  tmpDir,
+			PrettyHTML: true,
+		},
+	}
+
+	if err := gen.prettifyOutput(); err != nil {
+		t.Fatalf("prettifyOutput failed: %v", err)
+	}
+
+	// Verify HTML files were prettified
+	for _, path := range []string{
+		filepath.Join(tmpDir, "index.html"),
+		filepath.Join(tmpDir, "subdir", "page.html"),
+	} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", path, err)
+		}
+		if string(content) != expectedContent {
+			t.Errorf("File %s not properly prettified:\nExpected:\n%q\nGot:\n%q", path, expectedContent, string(content))
+		}
+	}
+
+	// Verify CSS file was not modified
+	cssContent, _ := os.ReadFile(filepath.Join(tmpDir, "style.css"))
+	if string(cssContent) != "body { }" {
+		t.Error("CSS file was incorrectly modified")
+	}
+}

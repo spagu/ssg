@@ -5,7 +5,7 @@
 class Ssg < Formula
   desc "Fast static site generator written in Go"
   homepage "https://github.com/spagu/ssg"
-  version "1.4.5"
+  version "1.4.7"
   license "BSD-3-Clause"
 
   on_macos do

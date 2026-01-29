@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.7] - 2026-01-29
+
+### Added
+- ✨ **Pretty HTML output** (`--pretty-html`) - Clean up generated HTML without minification
+  - Removes excessive blank lines (collapses to max 1 between elements)
+  - Removes whitespace-only lines
+  - Removes trailing whitespace from lines
+  - Keeps readable formatting, not aggressive like minify
+  - Also available as `--pretty` shorthand
+  - Config file option: `pretty_html: true`
+
 ## [1.4.6] - 2026-01-23
 
 ### Fixed

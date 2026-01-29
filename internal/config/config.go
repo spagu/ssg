@@ -37,6 +37,7 @@ type Config struct {
 	// Output Control
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 	RobotsOff  bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	PrettyHTML bool `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
 	MinifyAll  bool `yaml:"minify_all" toml:"minify_all" json:"minify_all"`
 	MinifyHTML bool `yaml:"minify_html" toml:"minify_html" json:"minify_html"`
 	MinifyCSS  bool `yaml:"minify_css" toml:"minify_css" json:"minify_css"`
