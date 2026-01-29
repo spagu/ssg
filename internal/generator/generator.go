@@ -1142,7 +1142,7 @@ func minifyJSFile(path string) error {
 	return os.WriteFile(path, []byte(s), 0644)
 }
 
-// prettifyHTMLFile cleans up HTML by removing excessive blank lines while keeping readable formatting
+// prettifyHTMLFile cleans up HTML by removing all blank lines for cleaner output
 func prettifyHTMLFile(path string) error {
 	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
@@ -1151,20 +1151,13 @@ func prettifyHTMLFile(path string) error {
 
 	s := string(content)
 
-	// Remove lines that contain only whitespace
-	reEmptyLine := regexp.MustCompile(`(?m)^[ \t]+$`)
-	s = reEmptyLine.ReplaceAllString(s, "")
-
-	// Collapse multiple consecutive blank lines into single blank line
-	reMultipleBlankLines := regexp.MustCompile(`\n{3,}`)
-	s = reMultipleBlankLines.ReplaceAllString(s, "\n\n")
-
-	// Remove blank lines at the very beginning of the file
-	s = strings.TrimLeft(s, "\n")
-
 	// Remove trailing whitespace from each line
 	reTrailingWhitespace := regexp.MustCompile(`(?m)[ \t]+$`)
 	s = reTrailingWhitespace.ReplaceAllString(s, "")
+
+	// Remove all blank lines (lines with only whitespace or empty)
+	reBlankLines := regexp.MustCompile(`(?m)^\s*\n`)
+	s = reBlankLines.ReplaceAllString(s, "")
 
 	// Ensure file ends with single newline
 	s = strings.TrimRight(s, "\n") + "\n"

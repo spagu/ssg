@@ -125,7 +125,7 @@ func TestPrettifyHTMLFile(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "collapse multiple blank lines",
+			name: "remove all blank lines",
 			input: `<!DOCTYPE html>
 <html>
 
@@ -142,11 +142,9 @@ func TestPrettifyHTMLFile(t *testing.T) {
 </html>`,
 			expected: `<!DOCTYPE html>
 <html>
-
 <head>
 <title>Test</title>
 </head>
-
 <body>
 <p>Hello</p>
 </body>
@@ -161,7 +159,6 @@ func TestPrettifyHTMLFile(t *testing.T) {
 </head>
 </html>`,
 			expected: `<html>
-
 <head>
 </head>
 </html>
@@ -224,16 +221,12 @@ func TestPrettifyHTMLFile(t *testing.T) {
 `,
 			expected: `<!DOCTYPE html>
 <html>
-
 <head>
-
 <title>Test</title>
 </head>
-
 <body>
 <p>Content</p>
 </body>
-
 </html>
 `,
 		},
@@ -274,7 +267,7 @@ func TestPrettifyHTMLFileNotFound(t *testing.T) {
 func TestPrettifyOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test HTML files
+	// Create test HTML files with blank lines
 	htmlContent := `<!DOCTYPE html>
 
 
@@ -283,8 +276,8 @@ func TestPrettifyOutput(t *testing.T) {
 </body>
 </html>`
 
+	// Expected: all blank lines removed
 	expectedContent := `<!DOCTYPE html>
-
 <html>
 <body>
 </body>

@@ -259,6 +259,120 @@ template: "yml-template"
 	}
 }
 
+func TestLoadPrettyHTMLFromYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	// Test case 1: pretty_html set to true
+	yamlContent := `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+pretty_html: true
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if !cfg.PrettyHTML {
+		t.Error("expected pretty_html to be true from config file, got false")
+	}
+
+	// Test case 2: pretty_html not set (should default to false)
+	yamlContent2 := `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+`
+	configPath2 := filepath.Join(tmpDir, "config2.yaml")
+	if err := os.WriteFile(configPath2, []byte(yamlContent2), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg2, err := Load(configPath2)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg2.PrettyHTML {
+		t.Error("expected pretty_html to default to false, got true")
+	}
+
+	// Test case 3: pretty_html set to false explicitly
+	yamlContent3 := `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+pretty_html: false
+`
+	configPath3 := filepath.Join(tmpDir, "config3.yaml")
+	if err := os.WriteFile(configPath3, []byte(yamlContent3), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg3, err := Load(configPath3)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg3.PrettyHTML {
+		t.Error("expected pretty_html to be false when explicitly set, got true")
+	}
+}
+
+func TestLoadPrettyHTMLFromTOML(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	tomlContent := `
+source = "test-source"
+template = "test-template"
+domain = "test.com"
+pretty_html = true
+`
+	if err := os.WriteFile(configPath, []byte(tomlContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if !cfg.PrettyHTML {
+		t.Error("expected pretty_html to be true from TOML config file, got false")
+	}
+}
+
+func TestLoadPrettyHTMLFromJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	jsonContent := `{
+  "source": "test-source",
+  "template": "test-template",
+  "domain": "test.com",
+  "pretty_html": true
+}`
+	if err := os.WriteFile(configPath, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if !cfg.PrettyHTML {
+		t.Error("expected pretty_html to be true from JSON config file, got false")
+	}
+}
+
 func TestLoadAllOptions(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
