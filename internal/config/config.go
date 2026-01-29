@@ -68,7 +68,7 @@ func DefaultConfig() *Config {
 
 // Load loads configuration from a file (YAML, TOML, or JSON)
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's config file
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}

@@ -65,88 +65,115 @@ func New(cfg Config) (*Generator, error) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
-	// Clean output directory if requested
-	if g.config.Clean {
-		if !g.config.Quiet {
-			fmt.Println("🧹 Cleaning output directory...")
-		}
-		if err := os.RemoveAll(g.config.OutputDir); err != nil {
-			return fmt.Errorf("cleaning output: %w", err)
-		}
+	if err := g.cleanOutputIfRequested(); err != nil {
+		return err
 	}
 
+	if err := g.runStep("🔄 Loading content...", g.loadContent, "loading content"); err != nil {
+		return err
+	}
+
+	if err := g.runStep("📝 Loading templates...", g.loadTemplates, "loading templates"); err != nil {
+		return err
+	}
+
+	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
+		return err
+	}
+
+	if err := g.runStep("📁 Copying assets...", g.copyAssets, "copying assets"); err != nil {
+		return err
+	}
+
+	if err := g.generateSitemapAndRobots(); err != nil {
+		return err
+	}
+
+	if err := g.runStep("☁️  Generating Cloudflare Pages files...", g.generateCloudflareFiles, "generating Cloudflare files"); err != nil {
+		return err
+	}
+
+	if err := g.prettifyIfRequested(); err != nil {
+		return err
+	}
+
+	if err := g.minifyIfRequested(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// log prints a message if not in quiet mode
+func (g *Generator) log(msg string) {
 	if !g.config.Quiet {
-		fmt.Println("🔄 Loading content...")
+		fmt.Println(msg)
 	}
-	if err := g.loadContent(); err != nil {
-		return fmt.Errorf("loading content: %w", err)
+}
+
+// runStep executes a generation step with logging
+func (g *Generator) runStep(msg string, fn func() error, errContext string) error {
+	g.log(msg)
+	if err := fn(); err != nil {
+		return fmt.Errorf("%s: %w", errContext, err)
+	}
+	return nil
+}
+
+// cleanOutputIfRequested cleans the output directory if configured
+func (g *Generator) cleanOutputIfRequested() error {
+	if !g.config.Clean {
+		return nil
+	}
+	g.log("🧹 Cleaning output directory...")
+	if err := os.RemoveAll(g.config.OutputDir); err != nil {
+		return fmt.Errorf("cleaning output: %w", err)
+	}
+	return nil
+}
+
+// generateSitemapAndRobots generates sitemap.xml and robots.txt if enabled
+func (g *Generator) generateSitemapAndRobots() error {
+	if g.config.SitemapOff && g.config.RobotsOff {
+		return nil
 	}
 
-	if !g.config.Quiet {
-		fmt.Println("📝 Loading templates...")
-	}
-	if err := g.loadTemplates(); err != nil {
-		return fmt.Errorf("loading templates: %w", err)
-	}
+	g.log("🗺️  Generating sitemap and robots.txt...")
 
-	if !g.config.Quiet {
-		fmt.Println("🏗️  Generating site...")
-	}
-	if err := g.generateSite(); err != nil {
-		return fmt.Errorf("generating site: %w", err)
-	}
-
-	if !g.config.Quiet {
-		fmt.Println("📁 Copying assets...")
-	}
-	if err := g.copyAssets(); err != nil {
-		return fmt.Errorf("copying assets: %w", err)
-	}
-
-	// Generate sitemap and robots (unless disabled)
-	if !g.config.SitemapOff || !g.config.RobotsOff {
-		if !g.config.Quiet {
-			fmt.Println("🗺️  Generating sitemap and robots.txt...")
-		}
-		if !g.config.SitemapOff {
-			if err := g.generateSitemap(); err != nil {
-				return fmt.Errorf("generating sitemap: %w", err)
-			}
-		}
-		if !g.config.RobotsOff {
-			if err := g.generateRobots(); err != nil {
-				return fmt.Errorf("generating robots.txt: %w", err)
-			}
+	if !g.config.SitemapOff {
+		if err := g.generateSitemap(); err != nil {
+			return fmt.Errorf("generating sitemap: %w", err)
 		}
 	}
-
-	if !g.config.Quiet {
-		fmt.Println("☁️  Generating Cloudflare Pages files...")
-	}
-	if err := g.generateCloudflareFiles(); err != nil {
-		return fmt.Errorf("generating Cloudflare files: %w", err)
-	}
-
-	// Prettify HTML if requested (before minify - mutually exclusive with minify)
-	if g.config.PrettyHTML && !g.config.MinifyHTML {
-		if !g.config.Quiet {
-			fmt.Println("✨ Prettifying HTML output...")
-		}
-		if err := g.prettifyOutput(); err != nil {
-			return fmt.Errorf("prettifying output: %w", err)
+	if !g.config.RobotsOff {
+		if err := g.generateRobots(); err != nil {
+			return fmt.Errorf("generating robots.txt: %w", err)
 		}
 	}
+	return nil
+}
 
-	// Minify output if requested
-	if g.config.MinifyHTML || g.config.MinifyCSS || g.config.MinifyJS {
-		if !g.config.Quiet {
-			fmt.Println("🗜️  Minifying output...")
-		}
-		if err := g.minifyOutput(); err != nil {
-			return fmt.Errorf("minifying output: %w", err)
-		}
+// prettifyIfRequested prettifies HTML if configured
+func (g *Generator) prettifyIfRequested() error {
+	if !g.config.PrettyHTML || g.config.MinifyHTML {
+		return nil
 	}
+	g.log("✨ Prettifying HTML output...")
+	if err := g.prettifyOutput(); err != nil {
+		return fmt.Errorf("prettifying output: %w", err)
+	}
+	return nil
+}
 
+// minifyIfRequested minifies output if configured
+func (g *Generator) minifyIfRequested() error {
+	if !g.config.MinifyHTML && !g.config.MinifyCSS && !g.config.MinifyJS {
+		return nil
+	}
+	g.log("🗜️  Minifying output...")
+	if err := g.minifyOutput(); err != nil {
+		return fmt.Errorf("minifying output: %w", err)
+	}
 	return nil
 }
 
@@ -191,7 +218,7 @@ func (g *Generator) loadContent() error {
 
 // loadMetadata loads the metadata.json file
 func (g *Generator) loadMetadata(path string) error {
-	file, err := os.Open(path)
+	file, err := os.Open(path) // #nosec G304 -- CLI tool reads user's content files
 	if err != nil {
 		return err
 	}
@@ -284,161 +311,12 @@ func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 func (g *Generator) loadTemplates() error {
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template)
 
-	// Create default templates if template directory is empty
 	if err := g.ensureTemplates(templatePath); err != nil {
 		return err
 	}
 
-	// Build title -> URL map for autolinking
-	pageLinks := make(map[string]string)
-	for _, p := range g.siteData.Pages {
-		pageLinks[strings.TrimSpace(p.Title)] = p.GetURL()
-		pageLinks[stdhtml.UnescapeString(strings.TrimSpace(p.Title))] = p.GetURL()
-	}
-	for _, p := range g.siteData.Posts {
-		pageLinks[strings.TrimSpace(p.Title)] = p.GetURL()
-		pageLinks[stdhtml.UnescapeString(strings.TrimSpace(p.Title))] = p.GetURL()
-	}
-
-	funcs := template.FuncMap{
-		"safeHTML": func(s string) template.HTML {
-			// Cleanup markdown artifacts (e.g. orphan **)
-			starRegex := regexp.MustCompile(`(?m)^\s*\*\*\s*$`)
-			s = starRegex.ReplaceAllString(s, "")
-
-			// Fix bolding inside HTML tags (WP artifact)
-			// e.g., <p>**text**</p> is not parsed by goldmark because it's inside HTML block
-			// Use \*\*(.*?)\*\* to match within valid lines, avoiding multi-line spans across HTML tags
-			boldRegex := regexp.MustCompile(`\*\*(.*?)\*\*`)
-			s = boldRegex.ReplaceAllString(s, "<strong>$1</strong>")
-
-			// Autolink list items matching page titles
-			lines := strings.Split(s, "\n")
-			for i, line := range lines {
-				trimmed := strings.TrimSpace(line)
-				// Match list item: "- Item Name" or "* Item Name"
-				var content string
-				if strings.HasPrefix(trimmed, "- ") {
-					content = strings.TrimSpace(trimmed[2:])
-				} else if strings.HasPrefix(trimmed, "* ") {
-					content = strings.TrimSpace(trimmed[2:])
-				}
-
-				if content != "" {
-					// Check strict match
-					if url, ok := pageLinks[content]; ok {
-						lines[i] = strings.Replace(line, content, fmt.Sprintf("[%s](%s)", content, url), 1)
-					} else {
-						// Check unescaped match
-						unescaped := stdhtml.UnescapeString(content)
-						if url, ok := pageLinks[unescaped]; ok {
-							lines[i] = strings.Replace(line, content, fmt.Sprintf("[%s](%s)", content, url), 1)
-						}
-					}
-				}
-			}
-			s = strings.Join(lines, "\n")
-
-			// Convert Markdown to HTML
-			var buf bytes.Buffer
-			md := goldmark.New(
-				goldmark.WithExtensions(
-					extension.Table,
-				),
-				goldmark.WithRendererOptions(
-					html.WithUnsafe(),
-				),
-			)
-			if err := md.Convert([]byte(s), &buf); err != nil {
-				fmt.Printf("   ⚠️  Warning: markdown conversion failed: %v\n", err)
-			} else {
-				s = buf.String()
-			}
-
-			// Fix relative media paths to absolute and rewrite WordPress URLs
-			s = fixMediaPaths(s, g.siteData.Media)
-			return template.HTML(s)
-		},
-		"decodeHTML": func(s string) string {
-			// Decode HTML entities like &#8211; -> –
-			return stdhtml.UnescapeString(s)
-		},
-		"formatDate": func(t interface{}) string {
-			switch v := t.(type) {
-			case string:
-				return v
-			default:
-				return fmt.Sprintf("%v", v)
-			}
-		},
-		"formatDatePL": func(t time.Time) string {
-			// Polish month names
-			months := []string{
-				"", "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
-				"lipca", "sierpnia", "września", "października", "listopada", "grudnia",
-			}
-			return fmt.Sprintf("%d %s %d", t.Day(), months[t.Month()], t.Year())
-		},
-		"getCategoryName": func(id int) string {
-			if cat, ok := g.siteData.Categories[id]; ok {
-				return cat.Name
-			}
-			return ""
-		},
-		"getCategorySlug": func(id int) string {
-			if cat, ok := g.siteData.Categories[id]; ok {
-				return cat.Slug
-			}
-			return ""
-		},
-		"isValidCategory": func(id int) bool {
-			// Returns false for "Bez kategorii" (ID 1)
-			return id != 1
-		},
-		"getAuthorName": func(id int) string {
-			if author, ok := g.siteData.Authors[id]; ok {
-				return author.Name
-			}
-			return ""
-		},
-		"getURL": func(p models.Page) string {
-			return p.GetURL()
-		},
-		"getCanonical": func(p models.Page, domain string) string {
-			return p.GetCanonical(domain)
-		},
-		"hasValidCategories": func(p models.Page) bool {
-			return p.HasValidCategories()
-		},
-		"thumbnailFromYoutube": func(s string) string {
-			// Extract YouTube video ID and return thumbnail URL
-			youtubeRegex := regexp.MustCompile(`\[youtube\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/youtube\]`)
-			matches := youtubeRegex.FindStringSubmatch(s)
-			if len(matches) >= 2 {
-				return fmt.Sprintf("https://img.youtube.com/vi/%s/hqdefault.jpg", matches[1])
-			}
-			return ""
-		},
-		"stripShortcodes": func(s string) string {
-			// Remove [youtube]...[/youtube] and [embed]...[/embed] from excerpt
-			youtubeRegex := regexp.MustCompile(`\[youtube\][^\[]*\[/youtube\]`)
-			s = youtubeRegex.ReplaceAllString(s, "")
-			embedRegex := regexp.MustCompile(`\[embed\][^\[]*\[/embed\]`)
-			s = embedRegex.ReplaceAllString(s, "")
-			return strings.TrimSpace(s)
-		},
-		"stripHTML": func(s string) string {
-			// Remove HTML tags
-			regex := regexp.MustCompile(`<[^>]*>`)
-			return strings.TrimSpace(regex.ReplaceAllString(s, ""))
-		},
-		"recentPosts": func(n int) []models.Page {
-			if n > len(g.siteData.Posts) {
-				n = len(g.siteData.Posts)
-			}
-			return g.siteData.Posts[:n]
-		},
-	}
+	pageLinks := g.buildPageLinks()
+	funcs := g.buildTemplateFuncs(pageLinks)
 
 	tmpl, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
@@ -449,8 +327,199 @@ func (g *Generator) loadTemplates() error {
 	return nil
 }
 
+// buildPageLinks creates a map of page titles to URLs for autolinking
+func (g *Generator) buildPageLinks() map[string]string {
+	pageLinks := make(map[string]string)
+	for _, p := range g.siteData.Pages {
+		pageLinks[strings.TrimSpace(p.Title)] = p.GetURL()
+		pageLinks[stdhtml.UnescapeString(strings.TrimSpace(p.Title))] = p.GetURL()
+	}
+	for _, p := range g.siteData.Posts {
+		pageLinks[strings.TrimSpace(p.Title)] = p.GetURL()
+		pageLinks[stdhtml.UnescapeString(strings.TrimSpace(p.Title))] = p.GetURL()
+	}
+	return pageLinks
+}
+
+// buildTemplateFuncs creates the template function map
+func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
+	return template.FuncMap{
+		"safeHTML":            g.tmplSafeHTML(pageLinks),
+		"decodeHTML":          tmplDecodeHTML,
+		"formatDate":          tmplFormatDate,
+		"formatDatePL":        tmplFormatDatePL,
+		"getCategoryName":     g.tmplGetCategoryName,
+		"getCategorySlug":     g.tmplGetCategorySlug,
+		"isValidCategory":     tmplIsValidCategory,
+		"getAuthorName":       g.tmplGetAuthorName,
+		"getURL":              tmplGetURL,
+		"getCanonical":        tmplGetCanonical,
+		"hasValidCategories":  tmplHasValidCategories,
+		"thumbnailFromYoutube": tmplThumbnailFromYoutube,
+		"stripShortcodes":     tmplStripShortcodes,
+		"stripHTML":           tmplStripHTML,
+		"recentPosts":         g.tmplRecentPosts,
+	}
+}
+
+// tmplSafeHTML returns the safeHTML template function
+func (g *Generator) tmplSafeHTML(pageLinks map[string]string) func(string) template.HTML {
+	return func(s string) template.HTML {
+		s = cleanMarkdownArtifacts(s)
+		s = autolinkListItems(s, pageLinks)
+		s = convertMarkdownToHTML(s)
+		s = fixMediaPaths(s, g.siteData.Media)
+		return template.HTML(s) // #nosec G203 -- SSG intentionally renders markdown as HTML
+	}
+}
+
+// cleanMarkdownArtifacts removes markdown artifacts and fixes bolding
+func cleanMarkdownArtifacts(s string) string {
+	starRegex := regexp.MustCompile(`(?m)^\s*\*\*\s*$`)
+	s = starRegex.ReplaceAllString(s, "")
+	boldRegex := regexp.MustCompile(`\*\*(.*?)\*\*`)
+	s = boldRegex.ReplaceAllString(s, "<strong>$1</strong>")
+	return s
+}
+
+// autolinkListItems converts list items matching page titles to links
+func autolinkListItems(s string, pageLinks map[string]string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		content := extractListItemContent(line)
+		if content != "" {
+			lines[i] = linkifyListItem(line, content, pageLinks)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// extractListItemContent extracts content from a list item line
+func extractListItemContent(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "- ") {
+		return strings.TrimSpace(trimmed[2:])
+	}
+	if strings.HasPrefix(trimmed, "* ") {
+		return strings.TrimSpace(trimmed[2:])
+	}
+	return ""
+}
+
+// linkifyListItem converts list item content to a link if matching page exists
+func linkifyListItem(line, content string, pageLinks map[string]string) string {
+	if url, ok := pageLinks[content]; ok {
+		return strings.Replace(line, content, fmt.Sprintf("[%s](%s)", content, url), 1)
+	}
+	unescaped := stdhtml.UnescapeString(content)
+	if url, ok := pageLinks[unescaped]; ok {
+		return strings.Replace(line, content, fmt.Sprintf("[%s](%s)", content, url), 1)
+	}
+	return line
+}
+
+// convertMarkdownToHTML converts markdown content to HTML
+func convertMarkdownToHTML(s string) string {
+	var buf bytes.Buffer
+	md := goldmark.New(
+		goldmark.WithExtensions(extension.Table),
+		goldmark.WithRendererOptions(html.WithUnsafe()),
+	)
+	if err := md.Convert([]byte(s), &buf); err != nil {
+		fmt.Printf("   ⚠️  Warning: markdown conversion failed: %v\n", err)
+		return s
+	}
+	return buf.String()
+}
+
+func tmplDecodeHTML(s string) string {
+	return stdhtml.UnescapeString(s)
+}
+
+func tmplFormatDate(t interface{}) string {
+	if v, ok := t.(string); ok {
+		return v
+	}
+	return fmt.Sprintf("%v", t)
+}
+
+func tmplFormatDatePL(t time.Time) string {
+	months := []string{
+		"", "stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca",
+		"lipca", "sierpnia", "września", "października", "listopada", "grudnia",
+	}
+	return fmt.Sprintf("%d %s %d", t.Day(), months[t.Month()], t.Year())
+}
+
+func (g *Generator) tmplGetCategoryName(id int) string {
+	if cat, ok := g.siteData.Categories[id]; ok {
+		return cat.Name
+	}
+	return ""
+}
+
+func (g *Generator) tmplGetCategorySlug(id int) string {
+	if cat, ok := g.siteData.Categories[id]; ok {
+		return cat.Slug
+	}
+	return ""
+}
+
+func tmplIsValidCategory(id int) bool {
+	return id != 1
+}
+
+func (g *Generator) tmplGetAuthorName(id int) string {
+	if author, ok := g.siteData.Authors[id]; ok {
+		return author.Name
+	}
+	return ""
+}
+
+func tmplGetURL(p models.Page) string {
+	return p.GetURL()
+}
+
+func tmplGetCanonical(p models.Page, domain string) string {
+	return p.GetCanonical(domain)
+}
+
+func tmplHasValidCategories(p models.Page) bool {
+	return p.HasValidCategories()
+}
+
+func tmplThumbnailFromYoutube(s string) string {
+	youtubeRegex := regexp.MustCompile(`\[youtube\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/youtube\]`)
+	matches := youtubeRegex.FindStringSubmatch(s)
+	if len(matches) >= 2 {
+		return fmt.Sprintf("https://img.youtube.com/vi/%s/hqdefault.jpg", matches[1])
+	}
+	return ""
+}
+
+func tmplStripShortcodes(s string) string {
+	youtubeRegex := regexp.MustCompile(`\[youtube\][^\[]*\[/youtube\]`)
+	s = youtubeRegex.ReplaceAllString(s, "")
+	embedRegex := regexp.MustCompile(`\[embed\][^\[]*\[/embed\]`)
+	s = embedRegex.ReplaceAllString(s, "")
+	return strings.TrimSpace(s)
+}
+
+func tmplStripHTML(s string) string {
+	regex := regexp.MustCompile(`<[^>]*>`)
+	return strings.TrimSpace(regex.ReplaceAllString(s, ""))
+}
+
+func (g *Generator) tmplRecentPosts(n int) []models.Page {
+	if n > len(g.siteData.Posts) {
+		n = len(g.siteData.Posts)
+	}
+	return g.siteData.Posts[:n]
+}
+
 // ensureTemplates creates default templates if they don't exist
 func (g *Generator) ensureTemplates(templatePath string) error {
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(templatePath, 0755); err != nil {
 		return err
 	}
@@ -479,6 +548,7 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 
 	for name, content := range templates {
 		path := filepath.Join(templatePath, name)
+		// #nosec G306 -- Web content files need to be world-readable
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			return fmt.Errorf("creating template %s: %w", name, err)
 		}
@@ -491,6 +561,7 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 // generateSite generates all HTML files
 func (g *Generator) generateSite() error {
 	outputPath := g.config.OutputDir
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
 		return err
 	}
@@ -561,6 +632,7 @@ func (g *Generator) generatePage(page models.Page) error {
 	}
 
 	outputPath := filepath.Join(g.config.OutputDir, outputSubPath, "index.html")
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
@@ -582,6 +654,7 @@ func (g *Generator) generatePost(post models.Page) error {
 
 	// Create date-based URL structure: /YYYY/MM/DD/slug/
 	outputPath := filepath.Join(g.config.OutputDir, post.GetOutputPath(), "index.html")
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
@@ -618,6 +691,7 @@ func (g *Generator) generateCategories() error {
 		}
 
 		outputPath := filepath.Join(g.config.OutputDir, "category", cat.Slug, "index.html")
+		// #nosec G301 -- Web content directories need to be world-traversable
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 			return err
 		}
@@ -632,7 +706,7 @@ func (g *Generator) generateCategories() error {
 
 // renderTemplate renders a template to a file
 func (g *Generator) renderTemplate(templateName, outputPath string, data interface{}) error {
-	file, err := os.Create(outputPath)
+	file, err := os.Create(outputPath) // #nosec G304 -- CLI tool creates user's output files
 	if err != nil {
 		return err
 	}
@@ -684,6 +758,7 @@ func (g *Generator) copyAssets() error {
 
 // copyDir copies a directory recursively
 func (g *Generator) copyDir(src, dst string) error {
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(dst, 0755); err != nil {
 		return err
 	}
@@ -713,13 +788,13 @@ func (g *Generator) copyDir(src, dst string) error {
 
 // copyFile copies a single file
 func (g *Generator) copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(src) // #nosec G304 -- CLI tool reads user's content files
 	if err != nil {
 		return err
 	}
 	defer func() { _ = srcFile.Close() }()
 
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.Create(dst) // #nosec G304 -- CLI tool creates user's output files
 	if err != nil {
 		return err
 	}
@@ -864,6 +939,7 @@ func (g *Generator) generateSitemap() error {
 
 	sb.WriteString("</urlset>\n")
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "sitemap.xml"), []byte(sb.String()), 0644)
 }
 
@@ -875,6 +951,7 @@ Allow: /
 Sitemap: https://%s/sitemap.xml
 `, g.config.Domain)
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "robots.txt"), []byte(content), 0644)
 }
 
@@ -913,6 +990,7 @@ func (g *Generator) generateCloudflareFiles() error {
   Cache-Control: public, max-age=3600
 `
 	headersPath := filepath.Join(g.config.OutputDir, "_headers")
+	// #nosec G306 -- Web content files need to be world-readable
 	if err := os.WriteFile(headersPath, []byte(headers), 0644); err != nil {
 		return fmt.Errorf("writing _headers: %w", err)
 	}
@@ -925,6 +1003,7 @@ func (g *Generator) generateCloudflareFiles() error {
 # Trailing slash normalization handled by Cloudflare automatically
 `
 	redirectsPath := filepath.Join(g.config.OutputDir, "_redirects")
+	// #nosec G306 -- Web content files need to be world-readable
 	if err := os.WriteFile(redirectsPath, []byte(redirects), 0644); err != nil {
 		return fmt.Errorf("writing _redirects: %w", err)
 	}
@@ -986,7 +1065,7 @@ func (g *Generator) minifyOutput() error {
 
 // minifyHTMLFile removes unnecessary whitespace from HTML
 func minifyHTMLFile(path string) error {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
 		return err
 	}
@@ -1009,12 +1088,13 @@ func minifyHTMLFile(path string) error {
 	// Trim lines
 	s = strings.TrimSpace(s)
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)
 }
 
 // minifyCSSFile removes unnecessary whitespace and comments from CSS
 func minifyCSSFile(path string) error {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
 		return err
 	}
@@ -1034,12 +1114,13 @@ func minifyCSSFile(path string) error {
 	s = reMultiSpace.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)
 }
 
 // minifyJSFile removes unnecessary whitespace and comments from JS
 func minifyJSFile(path string) error {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
 		return err
 	}
@@ -1057,12 +1138,13 @@ func minifyJSFile(path string) error {
 	// Trim
 	s = strings.TrimSpace(s)
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)
 }
 
 // prettifyHTMLFile cleans up HTML by removing excessive blank lines while keeping readable formatting
 func prettifyHTMLFile(path string) error {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
 		return err
 	}
@@ -1087,5 +1169,6 @@ func prettifyHTMLFile(path string) error {
 	// Ensure file ends with single newline
 	s = strings.TrimRight(s, "\n") + "\n"
 
+	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)
 }

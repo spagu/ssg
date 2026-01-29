@@ -19,7 +19,7 @@ func Download(url, destDir string) error {
 	fmt.Printf("📥 Downloading theme from %s...\n", archiveURL)
 
 	// Download archive
-	resp, err := http.Get(archiveURL)
+	resp, err := http.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
 	if err != nil {
 		return fmt.Errorf("downloading theme: %w", err)
 	}
@@ -90,6 +90,7 @@ func extractZip(src, dest string) error {
 	defer func() { _ = r.Close() }()
 
 	// Create destination directory
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
 	}
@@ -125,11 +126,13 @@ func extractZip(src, dest string) error {
 		}
 
 		// Create parent directories
+		// #nosec G301 -- Web content directories need to be world-traversable
 		if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
 			return err
 		}
 
 		// Extract file
+		// #nosec G304 -- Path is validated above with security check
 		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 		if err != nil {
 			return err
@@ -141,7 +144,9 @@ func extractZip(src, dest string) error {
 			return err
 		}
 
-		_, err = io.Copy(outFile, rc)
+		// Limit extraction to 100MB per file to prevent zip bombs
+		const maxFileSize = 100 * 1024 * 1024 // 100MB
+		_, err = io.Copy(outFile, io.LimitReader(rc, maxFileSize))
 		_ = rc.Close()
 		_ = outFile.Close()
 
@@ -163,6 +168,7 @@ func ConvertHugoTheme(themeDir, outputDir string) error {
 	// - assets/ -> css/, js/
 
 	// Create output directory
+	// #nosec G301 -- Web content directories need to be world-traversable
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
@@ -219,13 +225,13 @@ func copyDir(src, dst string) error {
 
 // copyFile copies a single file
 func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(src) // #nosec G304 -- CLI tool copies user's theme files
 	if err != nil {
 		return err
 	}
 	defer func() { _ = srcFile.Close() }()
 
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.Create(dst) // #nosec G304 -- CLI tool copies user's theme files
 	if err != nil {
 		return err
 	}

@@ -29,77 +29,90 @@ var Version = "dev"
 func main() {
 	args := os.Args[1:]
 
-	// Load configuration
 	cfg := loadConfig(args)
-
-	// Override with command line flags
 	parseFlags(args, cfg)
-
-	// Validate required fields
 	validateRequiredFields(args, cfg)
+	applyMinifyAll(cfg)
+	setupTemplateEngine(cfg)
+	downloadOnlineTheme(cfg)
 
-	// Apply minify_all
+	genCfg := createGeneratorConfig(cfg)
+
+	if !runInitialBuild(genCfg, cfg) && !cfg.Watch && !cfg.HTTP {
+		os.Exit(1)
+	}
+
+	if cfg.HTTP {
+		go startServer(cfg.OutputDir, cfg.Port, cfg.Quiet)
+	}
+
+	runWatchOrServe(genCfg, cfg)
+}
+
+// applyMinifyAll sets all minify flags if minify_all is enabled
+func applyMinifyAll(cfg *config.Config) {
 	if cfg.MinifyAll {
 		cfg.MinifyHTML = true
 		cfg.MinifyCSS = true
 		cfg.MinifyJS = true
 	}
+}
 
-	// Setup template engine and theme
-	setupTemplateEngine(cfg)
-	downloadOnlineTheme(cfg)
-
-	// Create generator config
-	genCfg := createGeneratorConfig(cfg)
-
-	// Initial build
+// runInitialBuild performs the initial site build, returns true on success
+func runInitialBuild(genCfg generator.Config, cfg *config.Config) bool {
 	if err := build(genCfg, cfg); err != nil {
 		if !cfg.Quiet {
 			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
 		}
-		if !cfg.Watch && !cfg.HTTP {
-			os.Exit(1)
-		}
-	} else if !cfg.Quiet {
+		return false
+	}
+	if !cfg.Quiet {
 		fmt.Printf("✅ Site generated successfully to %s/\n", cfg.OutputDir)
 	}
+	return true
+}
 
-	// Start HTTP server if requested
-	if cfg.HTTP {
-		go startServer(cfg.OutputDir, cfg.Port, cfg.Quiet)
-	}
-
-	// Watch mode
+// runWatchOrServe handles watch mode loop or HTTP server blocking
+func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 	if cfg.Watch {
-		if !cfg.Quiet {
-			fmt.Println("👀 Watching for changes in content and templates...")
-		}
-		lastBuild := time.Now()
-
-		for {
-			time.Sleep(1 * time.Second)
-
-			if hasChanges([]string{cfg.ContentDir, cfg.TemplatesDir}, lastBuild) {
-				if !cfg.Quiet {
-					fmt.Println("\n🔄 Changes detected! Rebuilding...")
-				}
-				if err := build(genCfg, cfg); err != nil {
-					if !cfg.Quiet {
-						fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
-						fmt.Println("⚠️  Fix the issue and save to retry...")
-					}
-				} else if !cfg.Quiet {
-					fmt.Printf("✅ Rebuilt successfully\n")
-				}
-				lastBuild = time.Now()
-				if !cfg.Quiet {
-					fmt.Println("👀 Watching for changes...")
-				}
-			}
-		}
+		runWatchLoop(genCfg, cfg)
 	} else if cfg.HTTP {
 		select {}
 	}
+}
+
+// runWatchLoop continuously watches for file changes and rebuilds
+func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
+	if !cfg.Quiet {
+		fmt.Println("👀 Watching for changes in content and templates...")
+	}
+	lastBuild := time.Now()
+
+	for {
+		time.Sleep(1 * time.Second)
+		if hasChanges([]string{cfg.ContentDir, cfg.TemplatesDir}, lastBuild) {
+			lastBuild = rebuildOnChange(genCfg, cfg)
+		}
+	}
+}
+
+// rebuildOnChange handles rebuilding when changes are detected
+func rebuildOnChange(genCfg generator.Config, cfg *config.Config) time.Time {
+	if !cfg.Quiet {
+		fmt.Println("\n🔄 Changes detected! Rebuilding...")
+	}
+	if err := build(genCfg, cfg); err != nil {
+		if !cfg.Quiet {
+			fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
+			fmt.Println("⚠️  Fix the issue and save to retry...")
+		}
+	} else if !cfg.Quiet {
+		fmt.Printf("✅ Rebuilt successfully\n")
+	}
+	if !cfg.Quiet {
+		fmt.Println("👀 Watching for changes...")
+	}
+	return time.Now()
 }
 
 // loadConfig loads configuration from file or returns defaults
@@ -215,91 +228,156 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 func parseFlags(args []string, cfg *config.Config) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		switch {
-		case arg == "--zip" || arg == "-zip":
-			cfg.Zip = true
-		case arg == "--webp" || arg == "-webp":
-			cfg.WebP = true
-		case strings.HasPrefix(arg, "--webp-quality="):
-			if q, err := strconv.Atoi(strings.TrimPrefix(arg, "--webp-quality=")); err == nil && q >= 1 && q <= 100 {
-				cfg.WebPQuality = q
-			}
-		case arg == "--webp-quality" && i+1 < len(args):
-			i++
-			if q, err := strconv.Atoi(args[i]); err == nil && q >= 1 && q <= 100 {
-				cfg.WebPQuality = q
-			}
-		case arg == "--watch" || arg == "-watch":
-			cfg.Watch = true
-		case arg == "--http" || arg == "-http":
-			cfg.HTTP = true
-		case strings.HasPrefix(arg, "--port="):
-			if port, err := strconv.Atoi(strings.TrimPrefix(arg, "--port=")); err == nil {
-				cfg.Port = port
-			}
-		case arg == "--port" && i+1 < len(args):
-			i++
-			if port, err := strconv.Atoi(args[i]); err == nil {
-				cfg.Port = port
-			}
-		case strings.HasPrefix(arg, "--content-dir="):
-			cfg.ContentDir = strings.TrimPrefix(arg, "--content-dir=")
-		case strings.HasPrefix(arg, "--templates-dir="):
-			cfg.TemplatesDir = strings.TrimPrefix(arg, "--templates-dir=")
-		case strings.HasPrefix(arg, "--output-dir="):
-			cfg.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
-		case arg == "--content-dir" && i+1 < len(args):
-			i++
-			cfg.ContentDir = args[i]
-		case arg == "--templates-dir" && i+1 < len(args):
-			i++
-			cfg.TemplatesDir = args[i]
-		case arg == "--output-dir" && i+1 < len(args):
-			i++
-			cfg.OutputDir = args[i]
-		case arg == "--sitemap-off":
-			cfg.SitemapOff = true
-		case arg == "--robots-off":
-			cfg.RobotsOff = true
-		case arg == "--pretty-html" || arg == "--pretty":
-			cfg.PrettyHTML = true
-		case arg == "--minify-all":
-			cfg.MinifyAll = true
-		case arg == "--minify-html":
-			cfg.MinifyHTML = true
-		case arg == "--minify-css":
-			cfg.MinifyCSS = true
-		case arg == "--minify-js":
-			cfg.MinifyJS = true
-		case arg == "--sourcemap":
-			cfg.SourceMap = true
-		case arg == "--clean":
-			cfg.Clean = true
-		case arg == "--quiet" || arg == "-q":
-			cfg.Quiet = true
-		case strings.HasPrefix(arg, "--engine="):
-			cfg.Engine = strings.TrimPrefix(arg, "--engine=")
-		case arg == "--engine" && i+1 < len(args):
-			i++
-			cfg.Engine = args[i]
-		case strings.HasPrefix(arg, "--online-theme="):
-			cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
-		case arg == "--online-theme" && i+1 < len(args):
-			i++
-			cfg.OnlineTheme = args[i]
-		case arg == "--version" || arg == "-v":
-			fmt.Printf("ssg version %s\n", Version)
-			os.Exit(0)
-		case arg == "--help" || arg == "-h":
-			printUsage()
-			os.Exit(0)
-		case strings.HasPrefix(arg, "--config"):
-			// Skip, already processed
-			if arg == "--config" {
-				i++
-			}
+		skip := parseBoolFlags(arg, cfg)
+		if skip {
+			continue
 		}
+		skip = parseSpecialFlags(arg)
+		if skip {
+			continue
+		}
+		i += parseValueFlags(args, i, cfg)
 	}
+}
+
+// parseBoolFlags handles boolean flags, returns true if flag was handled
+func parseBoolFlags(arg string, cfg *config.Config) bool {
+	switch arg {
+	case "--zip", "-zip":
+		cfg.Zip = true
+	case "--webp", "-webp":
+		cfg.WebP = true
+	case "--watch", "-watch":
+		cfg.Watch = true
+	case "--http", "-http":
+		cfg.HTTP = true
+	case "--sitemap-off":
+		cfg.SitemapOff = true
+	case "--robots-off":
+		cfg.RobotsOff = true
+	case "--pretty-html", "--pretty":
+		cfg.PrettyHTML = true
+	case "--minify-all":
+		cfg.MinifyAll = true
+	case "--minify-html":
+		cfg.MinifyHTML = true
+	case "--minify-css":
+		cfg.MinifyCSS = true
+	case "--minify-js":
+		cfg.MinifyJS = true
+	case "--sourcemap":
+		cfg.SourceMap = true
+	case "--clean":
+		cfg.Clean = true
+	case "--quiet", "-q":
+		cfg.Quiet = true
+	default:
+		return false
+	}
+	return true
+}
+
+// parseSpecialFlags handles --version and --help
+func parseSpecialFlags(arg string) bool {
+	switch arg {
+	case "--version", "-v":
+		fmt.Printf("ssg version %s\n", Version)
+		os.Exit(0)
+	case "--help", "-h":
+		printUsage()
+		os.Exit(0)
+	default:
+		return false
+	}
+	return true
+}
+
+// parseValueFlags handles flags with values, returns number of args to skip
+func parseValueFlags(args []string, i int, cfg *config.Config) int {
+	arg := args[i]
+	skip := 0
+
+	// Handle --flag=value format
+	if strings.Contains(arg, "=") {
+		parseEqualFlags(arg, cfg)
+		return 0
+	}
+
+	// Handle --flag value format
+	skip = parseSeparateValueFlags(args, i, cfg)
+	return skip
+}
+
+// parseEqualFlags handles --flag=value format
+func parseEqualFlags(arg string, cfg *config.Config) {
+	switch {
+	case strings.HasPrefix(arg, "--webp-quality="):
+		if q, err := strconv.Atoi(strings.TrimPrefix(arg, "--webp-quality=")); err == nil && q >= 1 && q <= 100 {
+			cfg.WebPQuality = q
+		}
+	case strings.HasPrefix(arg, "--port="):
+		if port, err := strconv.Atoi(strings.TrimPrefix(arg, "--port=")); err == nil {
+			cfg.Port = port
+		}
+	case strings.HasPrefix(arg, "--content-dir="):
+		cfg.ContentDir = strings.TrimPrefix(arg, "--content-dir=")
+	case strings.HasPrefix(arg, "--templates-dir="):
+		cfg.TemplatesDir = strings.TrimPrefix(arg, "--templates-dir=")
+	case strings.HasPrefix(arg, "--output-dir="):
+		cfg.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
+	case strings.HasPrefix(arg, "--engine="):
+		cfg.Engine = strings.TrimPrefix(arg, "--engine=")
+	case strings.HasPrefix(arg, "--online-theme="):
+		cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
+	}
+}
+
+// parseSeparateValueFlags handles --flag value format, returns skip count
+func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
+	arg := args[i]
+	if i+1 >= len(args) {
+		return handleConfigSkip(arg)
+	}
+
+	nextArg := args[i+1]
+	switch arg {
+	case "--webp-quality":
+		if q, err := strconv.Atoi(nextArg); err == nil && q >= 1 && q <= 100 {
+			cfg.WebPQuality = q
+		}
+		return 1
+	case "--port":
+		if port, err := strconv.Atoi(nextArg); err == nil {
+			cfg.Port = port
+		}
+		return 1
+	case "--content-dir":
+		cfg.ContentDir = nextArg
+		return 1
+	case "--templates-dir":
+		cfg.TemplatesDir = nextArg
+		return 1
+	case "--output-dir":
+		cfg.OutputDir = nextArg
+		return 1
+	case "--engine":
+		cfg.Engine = nextArg
+		return 1
+	case "--online-theme":
+		cfg.OnlineTheme = nextArg
+		return 1
+	case "--config":
+		return 1 // Skip, already processed
+	}
+	return 0
+}
+
+// handleConfigSkip handles --config at end of args
+func handleConfigSkip(arg string) int {
+	if arg == "--config" {
+		return 0 // No next arg to skip
+	}
+	return 0
 }
 
 func startServer(dir string, port int, quiet bool) {
@@ -310,9 +388,19 @@ func startServer(dir string, port int, quiet bool) {
 	}
 
 	fs := http.FileServer(http.Dir(dir))
-	http.Handle("/", fs)
+	mux := http.NewServeMux()
+	mux.Handle("/", fs)
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
 	}
 }
@@ -397,7 +485,7 @@ func hasChanges(dirs []string, lastBuild time.Time) bool {
 }
 
 func createZip(sourceDir, zipFileName string) error {
-	zipFile, err := os.Create(zipFileName)
+	zipFile, err := os.Create(zipFileName) // #nosec G304 -- CLI tool creates user's output file
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
@@ -441,7 +529,7 @@ func createZip(sourceDir, zipFileName string) error {
 			return fmt.Errorf("creating zip entry: %w", err)
 		}
 
-		file, err := os.Open(path)
+		file, err := os.Open(path) // #nosec G304 -- CLI tool reads user's output files
 		if err != nil {
 			return fmt.Errorf("opening file: %w", err)
 		}

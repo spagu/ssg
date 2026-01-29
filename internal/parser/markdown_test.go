@@ -137,3 +137,149 @@ func TestParseMarkdownFileNotFound(t *testing.T) {
 		t.Error("Expected error for nonexistent file, got nil")
 	}
 }
+
+func TestParseFlexibleDateFormats(t *testing.T) {
+	tests := []struct {
+		name     string
+		dateStr  string
+		expected string
+	}{
+		{"RFC3339", "2024-01-15T10:00:00Z", "2024-01-15"},
+		{"datetime", "2024-01-15T10:00:00", "2024-01-15"},
+		{"datetime with space", "2024-01-15 10:00:00", "2024-01-15"},
+		{"date only", "2024-01-15", "2024-01-15"},
+		{"date DD-MM-YYYY", "15-01-2024", "2024-01-15"},
+		{"date slash", "2024/01/15", "2024-01-15"},
+		{"empty", "", "0001-01-01"},
+		{"invalid", "not-a-date", "0001-01-01"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseFlexibleDate(tt.dateStr)
+			got := result.Format("2006-01-02")
+			if got != tt.expected {
+				t.Errorf("parseFlexibleDate(%q) = %s, want %s", tt.dateStr, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseMarkdownFileNoExcerpt(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "no-excerpt.md")
+
+	content := `---
+title: "No Excerpt"
+slug: "no-excerpt"
+status: "publish"
+---
+
+# Content Only
+
+This file has no excerpt section.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	if page.Excerpt != "" {
+		t.Errorf("Expected empty excerpt, got '%s'", page.Excerpt)
+	}
+}
+
+func TestParseMarkdownFileNoContent(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "no-content.md")
+
+	content := `---
+title: "No Content"
+slug: "no-content"
+status: "publish"
+---
+
+# Title
+
+## Excerpt
+
+Just an excerpt, no content section.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	if page.Content != "" {
+		t.Errorf("Expected empty content, got '%s'", page.Content)
+	}
+}
+
+func TestParseMarkdownFileInvalidFrontmatter(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "invalid.md")
+
+	content := `---
+title: "Missing closing fence
+---
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	_, err := ParseMarkdownFile(testFile)
+	if err == nil {
+		t.Error("Expected error for invalid frontmatter")
+	}
+}
+
+func TestParseMarkdownFileNoFrontmatter(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "no-frontmatter.md")
+
+	content := `# Just markdown
+
+No frontmatter here.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Parser may or may not return error for missing frontmatter
+	// Just ensure it doesn't panic
+	_, _ = ParseMarkdownFile(testFile)
+}
+
+func TestParseMarkdownFileMalformedYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "malformed.md")
+
+	content := `---
+title: [invalid yaml
+  - broken
+---
+
+Content
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	_, err := ParseMarkdownFile(testFile)
+	if err == nil {
+		t.Error("Expected error for malformed YAML")
+	}
+}

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.8] - 2026-01-29
+
+### Changed
+- 🔒 **Code quality improvements** - Refactored high-complexity functions and fixed all security scanner warnings
+  - Reduced cyclomatic complexity in `main()`, `parseFlags()`, `Generate()`, `loadTemplates()`, `ParseMarkdownFile()`
+  - Added documented `#nosec` comments for all 41 gosec false positives (CLI tool with trusted inputs)
+  - All quality checks pass: golangci-lint, gosec, gocyclo (<15)
+
+### Added
+- 🛡️ **OpenSSF Scorecard badge** - Security posture visibility in README
+
 ## [1.4.7] - 2026-01-29
 
 ### Added

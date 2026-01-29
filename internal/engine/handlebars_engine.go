@@ -42,7 +42,7 @@ func (e *HandlebarsEngine) Parse(name, content string, funcs template.FuncMap) (
 
 // ParseFile parses a template file
 func (e *HandlebarsEngine) ParseFile(path string, funcs template.FuncMap) (Template, error) {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's template files
 	if err != nil {
 		return nil, err
 	}

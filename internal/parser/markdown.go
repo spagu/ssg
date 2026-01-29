@@ -11,82 +11,99 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// markdownParser handles state during markdown file parsing
+type markdownParser struct {
+	frontmatter      strings.Builder
+	content          strings.Builder
+	excerpt          strings.Builder
+	inFrontmatter    bool
+	inContent        bool
+	inExcerpt        bool
+	frontmatterEnded bool
+}
+
 // ParseMarkdownFile parses a markdown file with YAML frontmatter
 func ParseMarkdownFile(filepath string) (*models.Page, error) {
-	file, err := os.Open(filepath)
+	file, err := os.Open(filepath) // #nosec G304 -- CLI tool reads user's content files
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = file.Close() }()
 
+	p := &markdownParser{}
 	scanner := bufio.NewScanner(file)
-	var frontmatter strings.Builder
-	var content strings.Builder
-	var excerpt strings.Builder
-
-	inFrontmatter := false
-	inContent := false
-	inExcerpt := false
-	frontmatterEnded := false
 
 	for scanner.Scan() {
-		line := scanner.Text()
-
-		if line == "---" && !frontmatterEnded {
-			if !inFrontmatter {
-				inFrontmatter = true
-				continue
-			}
-			inFrontmatter = false
-			frontmatterEnded = true
-			continue
-		}
-
-		if inFrontmatter {
-			frontmatter.WriteString(line + "\n")
-			continue
-		}
-
-		if frontmatterEnded {
-			if strings.HasPrefix(line, "## Excerpt") {
-				inExcerpt = true
-				inContent = false
-				continue
-			}
-			if strings.HasPrefix(line, "## Content") {
-				inExcerpt = false
-				inContent = true
-				continue
-			}
-			if strings.HasPrefix(line, "# ") {
-				// Skip title line
-				continue
-			}
-
-			if inExcerpt {
-				if line != "" {
-					excerpt.WriteString(line + "\n")
-				}
-			} else if inContent {
-				content.WriteString(line + "\n")
-			}
-		}
+		p.processLine(scanner.Text())
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	// First unmarshal to PageFrontmatter (uses string dates)
+	return p.buildPage()
+}
+
+// processLine handles a single line during parsing
+func (p *markdownParser) processLine(line string) {
+	if p.handleFrontmatterDelimiter(line) {
+		return
+	}
+	if p.inFrontmatter {
+		p.frontmatter.WriteString(line + "\n")
+		return
+	}
+	if p.frontmatterEnded {
+		p.processContentLine(line)
+	}
+}
+
+// handleFrontmatterDelimiter handles --- delimiters
+func (p *markdownParser) handleFrontmatterDelimiter(line string) bool {
+	if line != "---" || p.frontmatterEnded {
+		return false
+	}
+	if !p.inFrontmatter {
+		p.inFrontmatter = true
+	} else {
+		p.inFrontmatter = false
+		p.frontmatterEnded = true
+	}
+	return true
+}
+
+// processContentLine handles lines after frontmatter
+func (p *markdownParser) processContentLine(line string) {
+	if strings.HasPrefix(line, "## Excerpt") {
+		p.inExcerpt = true
+		p.inContent = false
+		return
+	}
+	if strings.HasPrefix(line, "## Content") {
+		p.inExcerpt = false
+		p.inContent = true
+		return
+	}
+	if strings.HasPrefix(line, "# ") {
+		return // Skip title line
+	}
+	if p.inExcerpt && line != "" {
+		p.excerpt.WriteString(line + "\n")
+	} else if p.inContent {
+		p.content.WriteString(line + "\n")
+	}
+}
+
+// buildPage creates a Page from parsed content
+func (p *markdownParser) buildPage() (*models.Page, error) {
 	pf := &PageFrontmatter{}
-	if err := yaml.Unmarshal([]byte(frontmatter.String()), pf); err != nil {
+	if err := yaml.Unmarshal([]byte(p.frontmatter.String()), pf); err != nil {
 		return nil, err
 	}
 
-	// Convert to models.Page (parses dates flexibly)
 	page := pf.ToPage()
-	page.Excerpt = strings.TrimSpace(excerpt.String())
-	page.Content = strings.TrimSpace(content.String())
+	page.Excerpt = strings.TrimSpace(p.excerpt.String())
+	page.Content = strings.TrimSpace(p.content.String())
 
 	return page, nil
 }

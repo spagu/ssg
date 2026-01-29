@@ -66,6 +66,7 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 
 // convertImage converts a single image to WebP using cwebp
 func convertImage(srcPath, dstPath string, quality int) error {
+	// #nosec G204 -- CLI tool intentionally executes cwebp with user-provided paths
 	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), srcPath, "-o", dstPath)
 	// Suppress cwebp output unless error
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -86,7 +87,7 @@ func UpdateReferences(dir string) error {
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
 		if err != nil {
 			return err
 		}

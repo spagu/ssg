@@ -11,6 +11,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/spagu/ssg?style=flat&color=blue)](https://github.com/spagu/ssg/releases)
 [![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
 [![GitHub forks](https://img.shields.io/github/forks/spagu/ssg)](https://github.com/spagu/ssg/network)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/spagu/ssg/badge)](https://securityscorecards.dev/viewer/?uri=github.com/spagu/ssg)
 
 A fast and flexible [static site generator](https://en.wikipedia.org/wiki/Static_site_generator) built in [Go](https://go.dev/), designed for simplicity and speed.
 
