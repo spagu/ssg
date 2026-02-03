@@ -129,6 +129,27 @@ func TestPageGetURL(t *testing.T) {
 			expected: "/custom-url/",
 		},
 		{
+			name: "post with URLFormat=date and link field (link takes priority)",
+			page: Page{
+				Type:      "post",
+				Slug:      "ignored",
+				Link:      "https://example.com/my-custom-link",
+				Date:      time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+				URLFormat: "date",
+			},
+			expected: "/my-custom-link/",
+		},
+		{
+			name: "post with default URLFormat and link field (link takes priority)",
+			page: Page{
+				Type: "post",
+				Slug: "ignored",
+				Link: "https://example.com/link-priority",
+				Date: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+			},
+			expected: "/link-priority/",
+		},
+		{
 			name: "page with slug only",
 			page: Page{
 				Type: "page",
@@ -252,6 +273,27 @@ func TestPageGetOutputPath(t *testing.T) {
 				URLFormat: "slug",
 			},
 			expected: "custom/post-url",
+		},
+		{
+			name: "post with URLFormat=date and link field (link takes priority)",
+			page: Page{
+				Type:      "post",
+				Slug:      "ignored",
+				Link:      "https://example.com/link/takes/priority",
+				Date:      time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
+				URLFormat: "date",
+			},
+			expected: "link/takes/priority",
+		},
+		{
+			name: "post with default URLFormat and link field (link takes priority)",
+			page: Page{
+				Type: "post",
+				Slug: "ignored",
+				Link: "https://example.com/always-link",
+				Date: time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
+			},
+			expected: "always-link",
 		},
 		{
 			name: "page with slug",

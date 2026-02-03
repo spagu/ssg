@@ -58,33 +58,11 @@ type Page struct {
 }
 
 // GetURL returns the URL path for this page/post
-// Posts use date-based URLs by default: /YYYY/MM/DD/slug/
-// With URLFormat="slug", posts use: /slug/
-// Pages always use simple URLs: /slug/ or path from Link field
+// Link field from frontmatter ALWAYS takes priority
+// Posts without Link: use URLFormat ("date" or "slug")
+// Pages without Link: use slug
 func (p Page) GetURL() string {
-	if p.Type == "post" {
-		// If URLFormat is "slug", use slug-only URL
-		if p.URLFormat == "slug" {
-			// Check if Link field has a custom path
-			if p.Link != "" {
-				if u, err := url.Parse(p.Link); err == nil {
-					path := u.Path
-					if !strings.HasPrefix(path, "/") {
-						path = "/" + path
-					}
-					if !strings.HasSuffix(path, "/") {
-						path = path + "/"
-					}
-					return path
-				}
-			}
-			return fmt.Sprintf("/%s/", p.Slug)
-		}
-		// Default: date-based URL
-		return fmt.Sprintf("/%d/%02d/%02d/%s/",
-			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
-	}
-	// Pages: If Link meta is present, try to extract path from it to preserve hierarchy
+	// Link field ALWAYS takes priority (for both posts and pages)
 	if p.Link != "" {
 		if u, err := url.Parse(p.Link); err == nil {
 			path := u.Path
@@ -97,6 +75,18 @@ func (p Page) GetURL() string {
 			return path
 		}
 	}
+
+	if p.Type == "post" {
+		// URLFormat="slug" uses slug-only URL
+		if p.URLFormat == "slug" {
+			return fmt.Sprintf("/%s/", p.Slug)
+		}
+		// Default: date-based URL
+		return fmt.Sprintf("/%d/%02d/%02d/%s/",
+			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
+	}
+
+	// Pages: use slug
 	return fmt.Sprintf("/%s/", p.Slug)
 }
 
@@ -106,26 +96,28 @@ func (p Page) GetCanonical(domain string) string {
 }
 
 // GetOutputPath returns the filesystem path for this page/post
+// Link field from frontmatter ALWAYS takes priority
 func (p Page) GetOutputPath() string {
+	// Link field ALWAYS takes priority (for both posts and pages)
+	if p.Link != "" {
+		if u, err := url.Parse(p.Link); err == nil {
+			path := u.Path
+			return strings.Trim(path, "/")
+		}
+	}
+
 	if p.Type == "post" {
-		// If URLFormat is "slug", use slug-only path
+		// URLFormat="slug" uses slug-only path
 		if p.URLFormat == "slug" {
-			// Check if Link field has a custom path
-			if p.Link != "" {
-				if u, err := url.Parse(p.Link); err == nil {
-					path := u.Path
-					return strings.Trim(path, "/")
-				}
-			}
 			return p.Slug
 		}
 		// Default: date-based path
 		return fmt.Sprintf("%d/%02d/%02d/%s",
 			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
 	}
-	// Pages: Use path from Link if available (via GetURL logic)
-	path := p.GetURL()
-	return strings.Trim(path, "/")
+
+	// Pages: use slug
+	return p.Slug
 }
 
 // HasValidCategories returns true if post has categories other than "Bez kategorii" (ID 1)

@@ -5,13 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-02-03
+
+### Fixed
+- 🐛 **Link field always takes priority** - If a post has `link` in frontmatter, it's used regardless of `post_url_format` setting
+  - `post_url_format` is now a fallback when `link` is not present
+
 ## [1.5.0] - 2026-02-03
 
 ### Added
 - ✨ **Configurable post URL format** (`--post-url-format` / `post_url_format`)
   - `date` (default): `/YYYY/MM/DD/slug/` - date-based URLs
   - `slug`: `/slug/` - SEO-friendly slug-only URLs
-  - When using `slug` format, the `link` field from frontmatter takes priority
+  - `link` field from frontmatter **always** takes priority
   - Config file option: `post_url_format: "slug"`
 
 ## [1.4.9] - 2026-01-29
