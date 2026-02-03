@@ -54,20 +54,37 @@ type Page struct {
 	Categories []int     `yaml:"categories,omitempty"`
 	Excerpt    string    `yaml:"-"`
 	Content    string    `yaml:"-"`
+	URLFormat  string    `yaml:"-"` // URL format: "date" or "slug" (set by generator)
 }
 
 // GetURL returns the URL path for this page/post
-// Posts use date-based URLs: /YYYY/MM/DD/slug/
-// Pages use simple URLs: /slug/
-// GetURL returns the URL path for this page/post
-// Posts use date-based URLs: /YYYY/MM/DD/slug/
-// Pages use simple URLs: /slug/
+// Posts use date-based URLs by default: /YYYY/MM/DD/slug/
+// With URLFormat="slug", posts use: /slug/
+// Pages always use simple URLs: /slug/ or path from Link field
 func (p Page) GetURL() string {
 	if p.Type == "post" {
+		// If URLFormat is "slug", use slug-only URL
+		if p.URLFormat == "slug" {
+			// Check if Link field has a custom path
+			if p.Link != "" {
+				if u, err := url.Parse(p.Link); err == nil {
+					path := u.Path
+					if !strings.HasPrefix(path, "/") {
+						path = "/" + path
+					}
+					if !strings.HasSuffix(path, "/") {
+						path = path + "/"
+					}
+					return path
+				}
+			}
+			return fmt.Sprintf("/%s/", p.Slug)
+		}
+		// Default: date-based URL
 		return fmt.Sprintf("/%d/%02d/%02d/%s/",
 			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
 	}
-	// If Link meta is present, try to extract path from it to preserve hierarchy
+	// Pages: If Link meta is present, try to extract path from it to preserve hierarchy
 	if p.Link != "" {
 		if u, err := url.Parse(p.Link); err == nil {
 			path := u.Path
@@ -91,10 +108,22 @@ func (p Page) GetCanonical(domain string) string {
 // GetOutputPath returns the filesystem path for this page/post
 func (p Page) GetOutputPath() string {
 	if p.Type == "post" {
+		// If URLFormat is "slug", use slug-only path
+		if p.URLFormat == "slug" {
+			// Check if Link field has a custom path
+			if p.Link != "" {
+				if u, err := url.Parse(p.Link); err == nil {
+					path := u.Path
+					return strings.Trim(path, "/")
+				}
+			}
+			return p.Slug
+		}
+		// Default: date-based path
 		return fmt.Sprintf("%d/%02d/%02d/%s",
 			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
 	}
-	// Use path from Link if available (via GetURL logic)
+	// Pages: Use path from Link if available (via GetURL logic)
 	path := p.GetURL()
 	return strings.Trim(path, "/")
 }

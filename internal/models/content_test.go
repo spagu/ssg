@@ -89,13 +89,44 @@ func TestPageGetURL(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "post with date",
+			name: "post with date (default URLFormat)",
 			page: Page{
 				Type: "post",
 				Slug: "test-post",
 				Date: time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
 			},
 			expected: "/2025/01/15/test-post/",
+		},
+		{
+			name: "post with URLFormat=date",
+			page: Page{
+				Type:      "post",
+				Slug:      "test-post",
+				Date:      time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+				URLFormat: "date",
+			},
+			expected: "/2025/01/15/test-post/",
+		},
+		{
+			name: "post with URLFormat=slug",
+			page: Page{
+				Type:      "post",
+				Slug:      "my-awesome-post",
+				Date:      time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+				URLFormat: "slug",
+			},
+			expected: "/my-awesome-post/",
+		},
+		{
+			name: "post with URLFormat=slug and link field",
+			page: Page{
+				Type:      "post",
+				Slug:      "ignored",
+				Link:      "https://example.com/custom-url",
+				Date:      time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
+				URLFormat: "slug",
+			},
+			expected: "/custom-url/",
 		},
 		{
 			name: "page with slug only",
@@ -183,13 +214,44 @@ func TestPageGetOutputPath(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "post with date",
+			name: "post with date (default URLFormat)",
 			page: Page{
 				Type: "post",
 				Slug: "my-post",
 				Date: time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
 			},
 			expected: "2025/03/20/my-post",
+		},
+		{
+			name: "post with URLFormat=date",
+			page: Page{
+				Type:      "post",
+				Slug:      "my-post",
+				Date:      time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
+				URLFormat: "date",
+			},
+			expected: "2025/03/20/my-post",
+		},
+		{
+			name: "post with URLFormat=slug",
+			page: Page{
+				Type:      "post",
+				Slug:      "my-post",
+				Date:      time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
+				URLFormat: "slug",
+			},
+			expected: "my-post",
+		},
+		{
+			name: "post with URLFormat=slug and link field",
+			page: Page{
+				Type:      "post",
+				Slug:      "ignored",
+				Link:      "https://example.com/custom/post-url",
+				Date:      time.Date(2025, 3, 20, 0, 0, 0, 0, time.UTC),
+				URLFormat: "slug",
+			},
+			expected: "custom/post-url",
 		},
 		{
 			name: "page with slug",

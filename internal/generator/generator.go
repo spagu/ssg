@@ -31,16 +31,17 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// New options
-	SitemapOff bool   // Disable sitemap generation
-	RobotsOff  bool   // Disable robots.txt generation
-	PrettyHTML bool   // Prettify HTML output (remove extra blank lines)
-	MinifyHTML bool   // Minify HTML output
-	MinifyCSS  bool   // Minify CSS output
-	MinifyJS   bool   // Minify JS output
-	SourceMap  bool   // Include source maps
-	Clean      bool   // Clean output directory before build
-	Quiet      bool   // Suppress stdout output
-	Engine     string // Template engine: go, pongo2, mustache, handlebars
+	SitemapOff    bool   // Disable sitemap generation
+	RobotsOff     bool   // Disable robots.txt generation
+	PrettyHTML    bool   // Prettify HTML output (remove extra blank lines)
+	PostURLFormat string // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
+	MinifyHTML    bool   // Minify HTML output
+	MinifyCSS     bool   // Minify CSS output
+	MinifyJS      bool   // Minify JS output
+	SourceMap     bool   // Include source maps
+	Clean         bool   // Clean output directory before build
+	Quiet         bool   // Suppress stdout output
+	Engine        string // Template engine: go, pongo2, mustache, handlebars
 }
 
 // Generator handles the static site generation process
@@ -201,6 +202,12 @@ func (g *Generator) loadContent() error {
 	if err != nil {
 		return fmt.Errorf("loading posts: %w", err)
 	}
+
+	// Set URL format for posts based on config
+	for i := range posts {
+		posts[i].URLFormat = g.config.PostURLFormat
+	}
+
 	g.siteData.Posts = posts
 
 	// Sort posts by date (newest first)

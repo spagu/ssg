@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -370,6 +371,112 @@ func TestLoadPrettyHTMLFromJSON(t *testing.T) {
 
 	if !cfg.PrettyHTML {
 		t.Error("expected pretty_html to be true from JSON config file, got false")
+	}
+}
+
+func TestLoadPostURLFormatFromYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name: "post_url_format=slug",
+			content: `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+post_url_format: "slug"
+`,
+			expected: "slug",
+		},
+		{
+			name: "post_url_format=date",
+			content: `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+post_url_format: "date"
+`,
+			expected: "date",
+		},
+		{
+			name: "post_url_format not set (default empty)",
+			content: `
+source: "test-source"
+template: "test-template"
+domain: "test.com"
+`,
+			expected: "",
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configPath := filepath.Join(tmpDir, fmt.Sprintf("config%d.yaml", i))
+			if err := os.WriteFile(configPath, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("failed to write config file: %v", err)
+			}
+
+			cfg, err := Load(configPath)
+			if err != nil {
+				t.Fatalf("failed to load config: %v", err)
+			}
+
+			if cfg.PostURLFormat != tt.expected {
+				t.Errorf("expected post_url_format %q, got %q", tt.expected, cfg.PostURLFormat)
+			}
+		})
+	}
+}
+
+func TestLoadPostURLFormatFromTOML(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	tomlContent := `
+source = "test-source"
+template = "test-template"
+domain = "test.com"
+post_url_format = "slug"
+`
+	if err := os.WriteFile(configPath, []byte(tomlContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg.PostURLFormat != "slug" {
+		t.Errorf("expected post_url_format 'slug' from TOML, got %q", cfg.PostURLFormat)
+	}
+}
+
+func TestLoadPostURLFormatFromJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	jsonContent := `{
+  "source": "test-source",
+  "template": "test-template",
+  "domain": "test.com",
+  "post_url_format": "slug"
+}`
+	if err := os.WriteFile(configPath, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg.PostURLFormat != "slug" {
+		t.Errorf("expected post_url_format 'slug' from JSON, got %q", cfg.PostURLFormat)
 	}
 }
 

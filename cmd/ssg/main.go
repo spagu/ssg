@@ -206,22 +206,23 @@ func downloadOnlineTheme(cfg *config.Config) {
 // createGeneratorConfig creates generator.Config from app config
 func createGeneratorConfig(cfg *config.Config) generator.Config {
 	return generator.Config{
-		Source:       cfg.Source,
-		Template:     cfg.Template,
-		Domain:       cfg.Domain,
-		ContentDir:   cfg.ContentDir,
-		TemplatesDir: cfg.TemplatesDir,
-		OutputDir:    cfg.OutputDir,
-		SitemapOff:   cfg.SitemapOff,
-		RobotsOff:    cfg.RobotsOff,
-		PrettyHTML:   cfg.PrettyHTML,
-		MinifyHTML:   cfg.MinifyHTML,
-		MinifyCSS:    cfg.MinifyCSS,
-		MinifyJS:     cfg.MinifyJS,
-		SourceMap:    cfg.SourceMap,
-		Clean:        cfg.Clean,
-		Quiet:        cfg.Quiet,
-		Engine:       cfg.Engine,
+		Source:        cfg.Source,
+		Template:      cfg.Template,
+		Domain:        cfg.Domain,
+		ContentDir:    cfg.ContentDir,
+		TemplatesDir:  cfg.TemplatesDir,
+		OutputDir:     cfg.OutputDir,
+		SitemapOff:    cfg.SitemapOff,
+		RobotsOff:     cfg.RobotsOff,
+		PrettyHTML:    cfg.PrettyHTML,
+		PostURLFormat: cfg.PostURLFormat,
+		MinifyHTML:    cfg.MinifyHTML,
+		MinifyCSS:     cfg.MinifyCSS,
+		MinifyJS:      cfg.MinifyJS,
+		SourceMap:     cfg.SourceMap,
+		Clean:         cfg.Clean,
+		Quiet:         cfg.Quiet,
+		Engine:        cfg.Engine,
 	}
 }
 
@@ -329,6 +330,8 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.Engine = strings.TrimPrefix(arg, "--engine=")
 	case strings.HasPrefix(arg, "--online-theme="):
 		cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
+	case strings.HasPrefix(arg, "--post-url-format="):
+		cfg.PostURLFormat = strings.TrimPrefix(arg, "--post-url-format=")
 	}
 }
 
@@ -365,6 +368,9 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 		return 1
 	case "--online-theme":
 		cfg.OnlineTheme = nextArg
+		return 1
+	case "--post-url-format":
+		cfg.PostURLFormat = nextArg
 		return 1
 	case "--config":
 		return 1 // Skip, already processed
@@ -576,7 +582,9 @@ func printUsage() {
 	fmt.Println("Output Control:")
 	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
 	fmt.Println("  --robots-off           - Disable robots.txt generation")
-	fmt.Println("  --pretty-html          - Prettify HTML (remove extra blank lines, clean formatting)")
+	fmt.Println("  --pretty-html          - Prettify HTML (remove all blank lines)")
+	fmt.Println("  --post-url-format=FMT  - Post URL format: 'date' (default: /YYYY/MM/DD/slug/)")
+	fmt.Println("                           or 'slug' (/slug/ using slug or link field)")
 	fmt.Println("  --minify-all           - Minify HTML, CSS, and JS")
 	fmt.Println("  --minify-html          - Minify HTML output")
 	fmt.Println("  --minify-css           - Minify CSS output")

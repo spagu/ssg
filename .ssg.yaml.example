@@ -20,7 +20,8 @@ clean: false         # Clean output before build
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
-pretty_html: false   # Prettify HTML (remove extra blank lines, clean formatting)
+pretty_html: false   # Prettify HTML (remove all blank lines)
+post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "slug" (/slug/)
 minify_all: false    # Minify HTML, CSS, and JS
 minify_html: false   # Minify only HTML
 minify_css: false    # Minify only CSS
