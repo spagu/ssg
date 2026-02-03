@@ -1158,16 +1158,22 @@ func prettifyHTMLFile(path string) error {
 
 	s := string(content)
 
-	// Remove trailing whitespace from each line
-	reTrailingWhitespace := regexp.MustCompile(`(?m)[ \t]+$`)
-	s = reTrailingWhitespace.ReplaceAllString(s, "")
+	// Normalize line endings (handle CRLF)
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
 
-	// Remove all blank lines (lines with only whitespace or empty)
-	reBlankLines := regexp.MustCompile(`(?m)^\s*\n`)
-	s = reBlankLines.ReplaceAllString(s, "")
+	// Split into lines and filter out empty/whitespace-only lines
+	lines := strings.Split(s, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, " \t") // Remove trailing whitespace
+		if strings.TrimSpace(trimmed) != "" {     // Keep only non-empty lines
+			result = append(result, trimmed)
+		}
+	}
 
-	// Ensure file ends with single newline
-	s = strings.TrimRight(s, "\n") + "\n"
+	// Join with newlines and ensure file ends with single newline
+	s = strings.Join(result, "\n") + "\n"
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)

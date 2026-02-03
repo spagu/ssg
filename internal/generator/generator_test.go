@@ -230,6 +230,16 @@ func TestPrettifyHTMLFile(t *testing.T) {
 </html>
 `,
 		},
+		{
+			name:     "handle CRLF line endings",
+			input:    "<html>\r\n\r\n<head>\r\n</head>\r\n\r\n<body>\r\n</body>\r\n</html>\r\n",
+			expected: "<html>\n<head>\n</head>\n<body>\n</body>\n</html>\n",
+		},
+		{
+			name:     "handle mixed line endings",
+			input:    "<html>\r\n\n<head>\r</head>\n\r\n<body>\n</body>\r\n</html>",
+			expected: "<html>\n<head>\n</head>\n<body>\n</body>\n</html>\n",
+		},
 	}
 
 	for _, tt := range tests {
