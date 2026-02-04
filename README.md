@@ -238,6 +238,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--sitemap-off` | Disable sitemap.xml generation |
 | `--robots-off` | Disable robots.txt generation |
 | `--pretty-html` | Prettify HTML (remove all blank lines) |
+| `--relative-links` | Convert absolute URLs to relative links |
 | `--post-url-format=FMT` | Post URL format: `date` (default: `/YYYY/MM/DD/slug/`) or `slug` (`/slug/`) |
 | `--minify-all` | Minify HTML, CSS, and JS |
 | `--minify-html` | Minify HTML output |
@@ -280,6 +281,37 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--quiet`, `-q` | Suppress output (only exit codes) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
+
+### Shortcodes
+
+Define reusable content snippets in your config file:
+
+```yaml
+shortcodes:
+  - name: "thunderpick"
+    type: "banner"
+    text: "100% up to $1000 + 5% rakeback"
+    url: "https://example.com/promo"
+    logo: "/assets/images/thunderpick.png"
+    legal: "18+. Gamble Responsibly. T&Cs Apply."
+```
+
+Use in markdown content with `{{shortcode_name}}`:
+
+```markdown
+Check out this amazing offer:
+
+{{thunderpick}}
+
+Don't miss it!
+```
+
+**Built-in types:**
+- `banner` - Promotional banner with logo, text, link, and legal text
+- `link` - Simple link with text
+- `image` - Image with optional link
+
+**Custom templates:** Set `template: "my-template.html"` to use a custom template from your theme folder.
 
 ### Examples
 

@@ -205,6 +205,21 @@ func downloadOnlineTheme(cfg *config.Config) {
 
 // createGeneratorConfig creates generator.Config from app config
 func createGeneratorConfig(cfg *config.Config) generator.Config {
+	// Convert shortcodes from config to generator format
+	shortcodes := make([]generator.Shortcode, len(cfg.Shortcodes))
+	for i, sc := range cfg.Shortcodes {
+		shortcodes[i] = generator.Shortcode{
+			Name:     sc.Name,
+			Type:     sc.Type,
+			Template: sc.Template,
+			Text:     sc.Text,
+			URL:      sc.URL,
+			Logo:     sc.Logo,
+			Legal:    sc.Legal,
+			Data:     sc.Data,
+		}
+	}
+
 	return generator.Config{
 		Source:        cfg.Source,
 		Template:      cfg.Template,
@@ -216,6 +231,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		RobotsOff:     cfg.RobotsOff,
 		PrettyHTML:    cfg.PrettyHTML,
 		PostURLFormat: cfg.PostURLFormat,
+		RelativeLinks: cfg.RelativeLinks,
+		Shortcodes:    shortcodes,
 		MinifyHTML:    cfg.MinifyHTML,
 		MinifyCSS:     cfg.MinifyCSS,
 		MinifyJS:      cfg.MinifyJS,
@@ -258,6 +275,8 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.RobotsOff = true
 	case "--pretty-html", "--pretty":
 		cfg.PrettyHTML = true
+	case "--relative-links":
+		cfg.RelativeLinks = true
 	case "--minify-all":
 		cfg.MinifyAll = true
 	case "--minify-html":
@@ -583,6 +602,7 @@ func printUsage() {
 	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
 	fmt.Println("  --robots-off           - Disable robots.txt generation")
 	fmt.Println("  --pretty-html          - Prettify HTML (remove all blank lines)")
+	fmt.Println("  --relative-links       - Convert absolute URLs to relative links")
 	fmt.Println("  --post-url-format=FMT  - Post URL format: 'date' (default: /YYYY/MM/DD/slug/)")
 	fmt.Println("                           or 'slug' (/slug/ using slug or link field)")
 	fmt.Println("  --minify-all           - Minify HTML, CSS, and JS")

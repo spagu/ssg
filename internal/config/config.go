@@ -12,6 +12,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Shortcode defines a reusable content snippet
+type Shortcode struct {
+	Name     string            `yaml:"name" toml:"name" json:"name"`         // Shortcode name (e.g., "thunderpick")
+	Type     string            `yaml:"type" toml:"type" json:"type"`         // Type: "banner", "custom", etc.
+	Template string            `yaml:"template" toml:"template" json:"template"` // Template file for custom rendering
+	Text     string            `yaml:"text" toml:"text" json:"text"`         // Text content
+	URL      string            `yaml:"url" toml:"url" json:"url"`            // Link URL
+	Logo     string            `yaml:"logo" toml:"logo" json:"logo"`         // Logo/image path
+	Legal    string            `yaml:"legal" toml:"legal" json:"legal"`      // Legal text
+	Data     map[string]string `yaml:"data" toml:"data" json:"data"`         // Additional custom data
+}
+
 // Config represents all SSG configuration options
 type Config struct {
 	// Positional arguments (can be set in config)
@@ -39,11 +51,15 @@ type Config struct {
 	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
 	PrettyHTML    bool   `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
+	RelativeLinks bool   `yaml:"relative_links" toml:"relative_links" json:"relative_links"`    // Convert absolute URLs to relative
 	MinifyAll     bool   `yaml:"minify_all" toml:"minify_all" json:"minify_all"`
 	MinifyHTML    bool   `yaml:"minify_html" toml:"minify_html" json:"minify_html"`
 	MinifyCSS     bool   `yaml:"minify_css" toml:"minify_css" json:"minify_css"`
 	MinifyJS      bool   `yaml:"minify_js" toml:"minify_js" json:"minify_js"`
 	SourceMap     bool   `yaml:"sourcemap" toml:"sourcemap" json:"sourcemap"`
+
+	// Shortcodes
+	Shortcodes []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
 
 	// Image Processing
 	WebP        bool `yaml:"webp" toml:"webp" json:"webp"`

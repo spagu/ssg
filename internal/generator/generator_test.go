@@ -274,6 +274,271 @@ func TestPrettifyHTMLFileNotFound(t *testing.T) {
 	}
 }
 
+func TestConvertToRelativeLinksFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		domain   string
+		input    string
+		expected string
+	}{
+		{
+			name:     "convert https href links",
+			domain:   "https://example.com",
+			input:    `<a href="https://example.com/about">About</a>`,
+			expected: `<a href="/about">About</a>`,
+		},
+		{
+			name:     "convert http href links",
+			domain:   "https://example.com",
+			input:    `<a href="http://example.com/contact">Contact</a>`,
+			expected: `<a href="/contact">Contact</a>`,
+		},
+		{
+			name:     "convert protocol-relative links",
+			domain:   "example.com",
+			input:    `<a href="//example.com/page">Page</a>`,
+			expected: `<a href="/page">Page</a>`,
+		},
+		{
+			name:     "convert src attributes",
+			domain:   "https://example.com",
+			input:    `<img src="https://example.com/images/logo.png">`,
+			expected: `<img src="/images/logo.png">`,
+		},
+		{
+			name:     "convert action attributes",
+			domain:   "https://example.com",
+			input:    `<form action="https://example.com/submit">`,
+			expected: `<form action="/submit">`,
+		},
+		{
+			name:     "convert domain root to /",
+			domain:   "https://example.com",
+			input:    `<a href="https://example.com">Home</a>`,
+			expected: `<a href="/">Home</a>`,
+		},
+		{
+			name:     "preserve external links",
+			domain:   "https://example.com",
+			input:    `<a href="https://other-site.com/page">External</a>`,
+			expected: `<a href="https://other-site.com/page">External</a>`,
+		},
+		{
+			name:     "handle single quotes",
+			domain:   "https://example.com",
+			input:    `<a href='https://example.com/path'>Link</a>`,
+			expected: `<a href='/path'>Link</a>`,
+		},
+		{
+			name:     "convert url() in inline styles",
+			domain:   "https://example.com",
+			input:    `<div style="background: url(https://example.com/bg.jpg)">`,
+			expected: `<div style="background: url(/bg.jpg)">`,
+		},
+		{
+			name:   "multiple links in one file",
+			domain: "https://example.com",
+			input: `<html>
+<head><link href="https://example.com/style.css"></head>
+<body>
+<a href="https://example.com/page1">Page 1</a>
+<a href="https://example.com/page2">Page 2</a>
+<img src="https://example.com/img.jpg">
+</body>
+</html>`,
+			expected: `<html>
+<head><link href="/style.css"></head>
+<body>
+<a href="/page1">Page 1</a>
+<a href="/page2">Page 2</a>
+<img src="/img.jpg">
+</body>
+</html>`,
+		},
+		{
+			name:     "domain with trailing slash in config",
+			domain:   "https://example.com/",
+			input:    `<a href="https://example.com/about">About</a>`,
+			expected: `<a href="/about">About</a>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			htmlPath := filepath.Join(tmpDir, "test.html")
+
+			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
+				t.Fatalf("Failed to write test file: %v", err)
+			}
+
+			if err := convertToRelativeLinksFile(htmlPath, tt.domain); err != nil {
+				t.Fatalf("convertToRelativeLinksFile failed: %v", err)
+			}
+
+			result, err := os.ReadFile(htmlPath)
+			if err != nil {
+				t.Fatalf("Failed to read result file: %v", err)
+			}
+
+			if string(result) != tt.expected {
+				t.Errorf("convertToRelativeLinksFile mismatch:\nDomain: %s\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.domain, tt.input, tt.expected, string(result))
+			}
+		})
+	}
+}
+
+func TestConvertToRelativeLinksFileNotFound(t *testing.T) {
+	err := convertToRelativeLinksFile("/nonexistent/path/to/file.html", "https://example.com")
+	if err == nil {
+		t.Error("Expected error for nonexistent file, got nil")
+	}
+}
+
+func TestProcessConfigShortcodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		shortcodes []Shortcode
+		input      string
+		expected   string
+	}{
+		{
+			name:       "no shortcodes defined",
+			shortcodes: nil,
+			input:      "Hello {{world}}",
+			expected:   "Hello {{world}}",
+		},
+		{
+			name: "simple text shortcode",
+			shortcodes: []Shortcode{
+				{Name: "greeting", Type: "", Text: "Hello World"},
+			},
+			input:    "Say {{greeting}} to everyone",
+			expected: "Say Hello World to everyone",
+		},
+		{
+			name: "link shortcode",
+			shortcodes: []Shortcode{
+				{Name: "mylink", Type: "link", Text: "Click Here", URL: "https://example.com"},
+			},
+			input:    "Please {{mylink}} for more info",
+			expected: `Please <a href="https://example.com" target="_blank" rel="noopener">Click Here</a> for more info`,
+		},
+		{
+			name: "banner shortcode",
+			shortcodes: []Shortcode{
+				{
+					Name:  "promo",
+					Type:  "banner",
+					Text:  "Get 50% off",
+					URL:   "https://shop.com",
+					Logo:  "/images/logo.png",
+					Legal: "Terms apply",
+				},
+			},
+			input: "Check out {{promo}} now!",
+			expected: `Check out <div class="shortcode-banner">
+<a href="https://shop.com" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
+<img src="/images/logo.png" alt="promo" class="shortcode-banner-logo">
+<span class="shortcode-banner-text">Get 50% off</span>
+</a>
+<span class="shortcode-banner-legal">Terms apply</span>
+</div> now!`,
+		},
+		{
+			name: "image shortcode with link",
+			shortcodes: []Shortcode{
+				{Name: "photo", Type: "image", Logo: "/img/photo.jpg", URL: "https://gallery.com", Text: "My Photo"},
+			},
+			input:    "Here is {{photo}}",
+			expected: `Here is <a href="https://gallery.com" target="_blank" rel="noopener"><img src="/img/photo.jpg" alt="My Photo" class="shortcode-image"></a>`,
+		},
+		{
+			name: "image shortcode without link",
+			shortcodes: []Shortcode{
+				{Name: "pic", Type: "image", Logo: "/img/pic.jpg", Text: "A picture"},
+			},
+			input:    "Look at {{pic}}",
+			expected: `Look at <img src="/img/pic.jpg" alt="A picture" class="shortcode-image">`,
+		},
+		{
+			name: "multiple shortcodes",
+			shortcodes: []Shortcode{
+				{Name: "hello", Type: "", Text: "Hello"},
+				{Name: "world", Type: "", Text: "World"},
+			},
+			input:    "{{hello}} {{world}}!",
+			expected: "Hello World!",
+		},
+		{
+			name: "unknown shortcode preserved",
+			shortcodes: []Shortcode{
+				{Name: "known", Type: "", Text: "Known"},
+			},
+			input:    "{{known}} and {{unknown}}",
+			expected: "Known and {{unknown}}",
+		},
+		{
+			name: "default shortcode with URL",
+			shortcodes: []Shortcode{
+				{Name: "site", Type: "", Text: "My Site", URL: "https://mysite.com"},
+			},
+			input:    "Visit {{site}}",
+			expected: `Visit <a href="https://mysite.com" target="_blank" rel="noopener">My Site</a>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{Shortcodes: tt.shortcodes}
+			g, _ := New(cfg)
+
+			result := g.processShortcodes(tt.input)
+
+			if result != tt.expected {
+				t.Errorf("processShortcodes mismatch:\nInput: %q\nExpected:\n%s\n\nGot:\n%s", tt.input, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestRenderShortcodeWithCustomTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	templateDir := filepath.Join(tmpDir, "templates", "test")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("Failed to create template dir: %v", err)
+	}
+
+	// Create a custom template
+	templateContent := `<div class="custom">{{.Name}}: {{.Text}} - <a href="{{.URL}}">Link</a></div>`
+	templatePath := filepath.Join(templateDir, "custom.html")
+	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
+		t.Fatalf("Failed to write template: %v", err)
+	}
+
+	cfg := Config{
+		TemplatesDir: filepath.Join(tmpDir, "templates"),
+		Template:     "test",
+		Shortcodes: []Shortcode{
+			{
+				Name:     "custom",
+				Type:     "custom",
+				Template: "custom.html",
+				Text:     "Custom Text",
+				URL:      "https://custom.com",
+			},
+		},
+	}
+	g, _ := New(cfg)
+
+	result := g.processShortcodes("Here is {{custom}}")
+	expected := `Here is <div class="custom">custom: Custom Text - <a href="https://custom.com">Link</a></div>`
+
+	if result != expected {
+		t.Errorf("Custom template mismatch:\nExpected: %s\nGot: %s", expected, result)
+	}
+}
+
 func TestPrettifyOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 

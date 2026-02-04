@@ -21,6 +21,7 @@ clean: false         # Clean output before build
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
 pretty_html: false   # Prettify HTML (remove all blank lines)
+relative_links: false # Convert absolute URLs to relative links
 post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "slug" (/slug/)
 minify_all: false    # Minify HTML, CSS, and JS
 minify_html: false   # Minify only HTML
@@ -39,6 +40,19 @@ webp_quality: 60     # Quality 1-100 (lower = smaller file)
 
 # Deployment
 zip: false           # Create ZIP for Cloudflare Pages
+
+# Shortcodes - reusable content snippets, use {{name}} in markdown
+# shortcodes:
+#   - name: "thunderpick"          # Use as {{thunderpick}} in content
+#     type: "banner"               # Types: banner, link, image, or empty for custom
+#     template: "betting-banner.html"  # Optional custom template
+#     text: "100% up to $1000"     # Text content
+#     url: "https://example.com"   # Link URL
+#     logo: "/images/logo.png"     # Logo/image path
+#     legal: "18+. T&Cs Apply."    # Legal text (for banners)
+#     data:                        # Additional custom data for templates
+#       color: "blue"
+#       size: "large"
 
 # Other
 quiet: false         # Suppress output (only exit codes)

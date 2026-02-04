@@ -119,6 +119,27 @@ func TestParseFlagsSetsPrettyHTML(t *testing.T) {
 	}
 }
 
+func TestParseFlagsSetsRelativeLinks(t *testing.T) {
+	// Config with RelativeLinks=false
+	cfg := &config.Config{
+		Source:        "test-source",
+		Template:      "test-template",
+		Domain:        "example.com",
+		ContentDir:    "content",
+		TemplatesDir:  "templates",
+		OutputDir:     "output",
+		RelativeLinks: false,
+	}
+
+	// Parse flags WITH --relative-links flag - should set RelativeLinks to true
+	args := []string{"test-source", "test-template", "example.com", "--relative-links"}
+	parseFlags(args, cfg)
+
+	if !cfg.RelativeLinks {
+		t.Error("parseFlags should set RelativeLinks to true when --relative-links flag is passed")
+	}
+}
+
 func TestFullPipelineConfigToGenerator(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".ssg.yaml")

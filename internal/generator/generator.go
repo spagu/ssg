@@ -22,6 +22,18 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 )
 
+// Shortcode defines a reusable content snippet
+type Shortcode struct {
+	Name     string            // Shortcode name (e.g., "thunderpick")
+	Type     string            // Type: "banner", "custom", etc.
+	Template string            // Template file for custom rendering
+	Text     string            // Text content
+	URL      string            // Link URL
+	Logo     string            // Logo/image path
+	Legal    string            // Legal text
+	Data     map[string]string // Additional custom data
+}
+
 // Config holds generator configuration
 type Config struct {
 	Source       string
@@ -31,28 +43,37 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// New options
-	SitemapOff    bool   // Disable sitemap generation
-	RobotsOff     bool   // Disable robots.txt generation
-	PrettyHTML    bool   // Prettify HTML output (remove extra blank lines)
-	PostURLFormat string // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
-	MinifyHTML    bool   // Minify HTML output
-	MinifyCSS     bool   // Minify CSS output
-	MinifyJS      bool   // Minify JS output
-	SourceMap     bool   // Include source maps
-	Clean         bool   // Clean output directory before build
-	Quiet         bool   // Suppress stdout output
-	Engine        string // Template engine: go, pongo2, mustache, handlebars
+	SitemapOff    bool        // Disable sitemap generation
+	RobotsOff     bool        // Disable robots.txt generation
+	PrettyHTML    bool        // Prettify HTML output (remove extra blank lines)
+	PostURLFormat string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
+	RelativeLinks bool        // Convert absolute URLs to relative links
+	Shortcodes    []Shortcode // Shortcodes definitions
+	MinifyHTML    bool        // Minify HTML output
+	MinifyCSS     bool        // Minify CSS output
+	MinifyJS      bool        // Minify JS output
+	SourceMap     bool        // Include source maps
+	Clean         bool        // Clean output directory before build
+	Quiet         bool        // Suppress stdout output
+	Engine        string      // Template engine: go, pongo2, mustache, handlebars
 }
 
 // Generator handles the static site generation process
 type Generator struct {
-	config   Config
-	siteData *models.SiteData
-	tmpl     *template.Template
+	config       Config
+	siteData     *models.SiteData
+	tmpl         *template.Template
+	shortcodeMap map[string]Shortcode // Map of shortcode name to shortcode
 }
 
 // New creates a new Generator instance
 func New(cfg Config) (*Generator, error) {
+	// Build shortcode map for quick lookup
+	scMap := make(map[string]Shortcode)
+	for _, sc := range cfg.Shortcodes {
+		scMap[sc.Name] = sc
+	}
+
 	return &Generator{
 		config: cfg,
 		siteData: &models.SiteData{
@@ -61,6 +82,7 @@ func New(cfg Config) (*Generator, error) {
 			Media:      make(map[int]models.MediaItem),
 			Authors:    make(map[int]models.Author),
 		},
+		shortcodeMap: scMap,
 	}, nil
 }
 
@@ -91,6 +113,10 @@ func (g *Generator) Generate() error {
 	}
 
 	if err := g.runStep("☁️  Generating Cloudflare Pages files...", g.generateCloudflareFiles, "generating Cloudflare files"); err != nil {
+		return err
+	}
+
+	if err := g.convertRelativeLinksIfRequested(); err != nil {
 		return err
 	}
 
@@ -150,6 +176,18 @@ func (g *Generator) generateSitemapAndRobots() error {
 		if err := g.generateRobots(); err != nil {
 			return fmt.Errorf("generating robots.txt: %w", err)
 		}
+	}
+	return nil
+}
+
+// convertRelativeLinksIfRequested converts absolute URLs to relative if configured
+func (g *Generator) convertRelativeLinksIfRequested() error {
+	if !g.config.RelativeLinks || g.config.Domain == "" {
+		return nil
+	}
+	g.log("🔗 Converting to relative links...")
+	if err := g.convertToRelativeLinks(); err != nil {
+		return fmt.Errorf("converting to relative links: %w", err)
 	}
 	return nil
 }
@@ -372,6 +410,7 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 // tmplSafeHTML returns the safeHTML template function
 func (g *Generator) tmplSafeHTML(pageLinks map[string]string) func(string) template.HTML {
 	return func(s string) template.HTML {
+		s = g.processShortcodes(s) // Process shortcodes first
 		s = cleanMarkdownArtifacts(s)
 		s = autolinkListItems(s, pageLinks)
 		s = convertMarkdownToHTML(s)
@@ -437,6 +476,120 @@ func convertMarkdownToHTML(s string) string {
 		return s
 	}
 	return buf.String()
+}
+
+// processShortcodes replaces {{shortcode_name}} with rendered HTML
+func (g *Generator) processShortcodes(content string) string {
+	if len(g.shortcodeMap) == 0 {
+		return content
+	}
+
+	// Match {{shortcode_name}} pattern
+	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		// Extract shortcode name from {{name}}
+		name := match[2 : len(match)-2]
+
+		sc, ok := g.shortcodeMap[name]
+		if !ok {
+			return match // Leave unmatched shortcodes as-is
+		}
+
+		return g.renderShortcode(sc)
+	})
+}
+
+// renderShortcode renders a single shortcode to HTML
+func (g *Generator) renderShortcode(sc Shortcode) string {
+	// Try custom template first
+	if sc.Template != "" {
+		rendered, err := g.renderShortcodeTemplate(sc)
+		if err == nil {
+			return rendered
+		}
+		fmt.Printf("   ⚠️  Warning: shortcode template %s failed: %v, using built-in\n", sc.Template, err)
+	}
+
+	// Use built-in templates based on type
+	switch sc.Type {
+	case "banner":
+		return g.renderBannerShortcode(sc)
+	case "link":
+		return g.renderLinkShortcode(sc)
+	case "image":
+		return g.renderImageShortcode(sc)
+	default:
+		// Default: simple text or link
+		if sc.URL != "" {
+			return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`, sc.URL, sc.Text)
+		}
+		return sc.Text
+	}
+}
+
+// renderShortcodeTemplate renders shortcode using a custom template file
+func (g *Generator) renderShortcodeTemplate(sc Shortcode) (string, error) {
+	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
+
+	// Check if template exists
+	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("template not found: %s", templatePath)
+	}
+
+	// Parse and execute template
+	tmpl, err := template.ParseFiles(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("parsing template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, sc); err != nil {
+		return "", fmt.Errorf("executing template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+// renderBannerShortcode renders a banner-type shortcode
+func (g *Generator) renderBannerShortcode(sc Shortcode) string {
+	var logoHTML string
+	if sc.Logo != "" {
+		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-banner-logo">`, sc.Logo, sc.Name)
+	}
+
+	var legalHTML string
+	if sc.Legal != "" {
+		legalHTML = fmt.Sprintf(`<span class="shortcode-banner-legal">%s</span>`, sc.Legal)
+	}
+
+	return fmt.Sprintf(`<div class="shortcode-banner">
+<a href="%s" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
+%s
+<span class="shortcode-banner-text">%s</span>
+</a>
+%s
+</div>`, sc.URL, logoHTML, sc.Text, legalHTML)
+}
+
+// renderLinkShortcode renders a link-type shortcode
+func (g *Generator) renderLinkShortcode(sc Shortcode) string {
+	text := sc.Text
+	if text == "" {
+		text = sc.Name
+	}
+	return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`, sc.URL, text)
+}
+
+// renderImageShortcode renders an image-type shortcode
+func (g *Generator) renderImageShortcode(sc Shortcode) string {
+	alt := sc.Text
+	if alt == "" {
+		alt = sc.Name
+	}
+	if sc.URL != "" {
+		return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener"><img src="%s" alt="%s" class="shortcode-image"></a>`, sc.URL, sc.Logo, alt)
+	}
+	return fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-image">`, sc.Logo, alt)
 }
 
 func tmplDecodeHTML(s string) string {
@@ -1174,6 +1327,73 @@ func prettifyHTMLFile(path string) error {
 
 	// Join with newlines and ensure file ends with single newline
 	s = strings.Join(result, "\n") + "\n"
+
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(path, []byte(s), 0644)
+}
+
+// convertToRelativeLinks converts absolute URLs to relative links in all HTML files
+func (g *Generator) convertToRelativeLinks() error {
+	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		if strings.HasSuffix(strings.ToLower(path), ".html") {
+			return convertToRelativeLinksFile(path, g.config.Domain)
+		}
+		return nil
+	})
+}
+
+// convertToRelativeLinksFile converts absolute URLs to relative links in a single HTML file
+func convertToRelativeLinksFile(path string, domain string) error {
+	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
+	if err != nil {
+		return err
+	}
+
+	s := string(content)
+
+	// Build patterns for the domain (with and without trailing slash, http and https)
+	// Remove protocol if present to get base domain
+	baseDomain := domain
+	baseDomain = strings.TrimPrefix(baseDomain, "https://")
+	baseDomain = strings.TrimPrefix(baseDomain, "http://")
+	baseDomain = strings.TrimSuffix(baseDomain, "/")
+
+	// Replace patterns: href="https://domain/path" -> href="/path"
+	// and src="https://domain/path" -> src="/path"
+	patterns := []string{
+		"https://" + baseDomain,
+		"http://" + baseDomain,
+		"//" + baseDomain,
+	}
+
+	for _, pattern := range patterns {
+		// Replace href="pattern/..." with href="/..."
+		// Replace href="pattern" with href="/"
+		s = strings.ReplaceAll(s, `href="`+pattern+`"`, `href="/"`)
+		s = strings.ReplaceAll(s, `href='`+pattern+`'`, `href='/'`)
+		s = strings.ReplaceAll(s, `href="`+pattern+`/`, `href="/`)
+		s = strings.ReplaceAll(s, `href='`+pattern+`/`, `href='/`)
+
+		// Replace src="pattern/..." with src="/..."
+		s = strings.ReplaceAll(s, `src="`+pattern+`"`, `src="/"`)
+		s = strings.ReplaceAll(s, `src='`+pattern+`'`, `src='/'`)
+		s = strings.ReplaceAll(s, `src="`+pattern+`/`, `src="/`)
+		s = strings.ReplaceAll(s, `src='`+pattern+`/`, `src='/`)
+
+		// Replace action="pattern/..." with action="/..."
+		s = strings.ReplaceAll(s, `action="`+pattern+`"`, `action="/"`)
+		s = strings.ReplaceAll(s, `action='`+pattern+`'`, `action='/'`)
+		s = strings.ReplaceAll(s, `action="`+pattern+`/`, `action="/`)
+		s = strings.ReplaceAll(s, `action='`+pattern+`/`, `action='/`)
+
+		// Replace url(pattern/...) in inline styles
+		s = strings.ReplaceAll(s, `url(`+pattern+`/`, `url(/`)
+		s = strings.ReplaceAll(s, `url("`+pattern+`/`, `url("/`)
+		s = strings.ReplaceAll(s, `url('`+pattern+`/`, `url('/`)
+	}
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(s), 0644)
