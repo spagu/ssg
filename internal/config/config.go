@@ -23,6 +23,7 @@ type Shortcode struct {
 	Logo     string            `yaml:"logo" toml:"logo" json:"logo"`             // Logo/image path
 	Legal    string            `yaml:"legal" toml:"legal" json:"legal"`          // Legal text
 	Ranking  float64           `yaml:"ranking" toml:"ranking" json:"ranking"`    // Ranking score (e.g., 3.5)
+	Tags     []string          `yaml:"tags" toml:"tags" json:"tags"`             // Tags for categorization (e.g., ["game", "public"])
 	Data     map[string]string `yaml:"data" toml:"data" json:"data"`             // Additional custom data
 }
 

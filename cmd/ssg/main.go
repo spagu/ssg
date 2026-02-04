@@ -218,6 +218,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			Logo:     sc.Logo,
 			Legal:    sc.Legal,
 			Ranking:  sc.Ranking,
+			Tags:     sc.Tags,
 			Data:     sc.Data,
 		}
 	}

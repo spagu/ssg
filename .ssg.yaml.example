@@ -54,6 +54,7 @@ zip: false           # Create ZIP for Cloudflare Pages
 #     logo: "/images/logo.png"     # Available as {{.Logo}} in template
 #     legal: "18+. T&Cs Apply."    # Available as {{.Legal}} in template
 #     ranking: 4.5                 # Available as {{.Ranking}} in template (e.g., 3 or 3.5)
+#     tags: ["game", "public"]     # Available as {{.Tags}} in template (array of strings)
 #     data:                        # Available as {{.Data.key}} in template
 #       color: "blue"
 #       size: "large"

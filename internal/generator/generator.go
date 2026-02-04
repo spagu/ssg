@@ -33,6 +33,7 @@ type Shortcode struct {
 	Logo     string            // Logo/image path
 	Legal    string            // Legal text
 	Ranking  float64           // Ranking score (e.g., 3.5)
+	Tags     []string          // Tags for categorization (e.g., ["game", "public"])
 	Data     map[string]string // Additional custom data
 }
 
