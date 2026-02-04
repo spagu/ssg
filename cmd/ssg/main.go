@@ -447,10 +447,6 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 
 	// Convert images to WebP if requested (using native Go library)
 	if cfg.WebP {
-		if !cfg.Quiet {
-			fmt.Printf("🖼️  Converting images to WebP (quality: %d)...\n", cfg.WebPQuality)
-		}
-
 		opts := webp.ConvertOptions{
 			Quality: cfg.WebPQuality,
 			Quiet:   cfg.Quiet,
@@ -466,10 +462,9 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 			return fmt.Errorf("updating image references: %w", err)
 		}
 
-		if !cfg.Quiet {
+		if !cfg.Quiet && converted > 0 {
 			savedMB := float64(saved) / (1024 * 1024)
 			fmt.Printf("   📊 Converted %d images, saved %.1f MB\n", converted, savedMB)
-			fmt.Println("✅ Images converted to WebP")
 		}
 	}
 

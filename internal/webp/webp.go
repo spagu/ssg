@@ -56,13 +56,17 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 	total := len(imagePaths)
 	if total == 0 {
 		if skipped > 0 && !opts.Quiet {
-			fmt.Printf("   ✅ Skipped %d images (WebP already exists)\n", skipped)
+			fmt.Printf("🖼️  WebP: all %d images already converted, skipping\n", skipped)
 		}
 		return 0, 0, nil
 	}
 
-	if skipped > 0 && !opts.Quiet {
-		fmt.Printf("   ⏭️  Skipping %d images (WebP already exists)\n", skipped)
+	// Print header only when there are images to convert
+	if !opts.Quiet {
+		fmt.Printf("🖼️  Converting %d images to WebP (quality: %d)...\n", total, opts.Quality)
+		if skipped > 0 {
+			fmt.Printf("   ⏭️  Skipping %d images (WebP already exists)\n", skipped)
+		}
 	}
 
 	// Second pass: convert with progress
