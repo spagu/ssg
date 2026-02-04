@@ -422,10 +422,10 @@ func TestProcessConfigShortcodes(t *testing.T) {
 		expected   string
 	}{
 		{
-			name:       "no shortcodes defined",
+			name:       "undefined shortcode removed",
 			shortcodes: nil,
 			input:      "Hello {{world}}",
-			expected:   "Hello {{world}}",
+			expected:   "Hello ",
 		},
 		{
 			name: "simple text shortcode with template",
@@ -460,12 +460,12 @@ func TestProcessConfigShortcodes(t *testing.T) {
 			expected: `Check out <div class="banner"><a href="https://shop.com"><img src="/images/logo.png">Special Offer - Get 50% off</a><small>Terms apply</small></div> now!`,
 		},
 		{
-			name: "unknown shortcode preserved",
+			name: "unknown shortcode removed",
 			shortcodes: []Shortcode{
 				{Name: "known", Template: "text.html", Text: "Known"},
 			},
 			input:    "{{known}} and {{unknown}}",
-			expected: "Known and {{unknown}}",
+			expected: "Known and ",
 		},
 	}
 

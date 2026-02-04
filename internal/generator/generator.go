@@ -482,10 +482,6 @@ func convertMarkdownToHTML(s string) string {
 
 // processShortcodes replaces {{shortcode_name}} with rendered HTML
 func (g *Generator) processShortcodes(content string) string {
-	if len(g.shortcodeMap) == 0 {
-		return content
-	}
-
 	// Match {{shortcode_name}} pattern
 	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
 	return re.ReplaceAllStringFunc(content, func(match string) string {
@@ -494,7 +490,7 @@ func (g *Generator) processShortcodes(content string) string {
 
 		sc, ok := g.shortcodeMap[name]
 		if !ok {
-			return match // Leave unmatched shortcodes as-is
+			return "" // Remove undefined shortcodes
 		}
 
 		return g.renderShortcode(sc)
