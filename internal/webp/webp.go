@@ -28,7 +28,7 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		opts.Quality = 60
 	}
 
-	// First pass: collect images that need conversion
+	// First pass: collect images that need conversion, delete originals if webp exists
 	var imagePaths []string
 	var skipped int
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -38,9 +38,11 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
 			webpPath := strings.TrimSuffix(path, ext) + ".webp"
-			// Skip if WebP already exists (unless Force)
+			// If WebP already exists, just delete the original (unless Force reconvert)
 			if !opts.Force {
 				if _, statErr := os.Stat(webpPath); statErr == nil {
+					// WebP exists - delete the original jpg/png from output
+					_ = os.Remove(path)
 					skipped++
 					return nil
 				}
