@@ -522,9 +522,10 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 	default:
 		// Default: simple text or link
 		if sc.URL != "" {
-			return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`, sc.URL, sc.Text)
+			return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`,
+				stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(sc.Text))
 		}
-		return sc.Text
+		return stdhtml.EscapeString(sc.Text)
 	}
 }
 
@@ -555,17 +556,20 @@ func (g *Generator) renderShortcodeTemplate(sc Shortcode) (string, error) {
 func (g *Generator) renderBannerShortcode(sc Shortcode) string {
 	var logoHTML string
 	if sc.Logo != "" {
-		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-banner-logo">`, sc.Logo, sc.Name)
+		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-banner-logo">`,
+			stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(sc.Name))
 	}
 
 	var titleHTML string
 	if sc.Title != "" {
-		titleHTML = fmt.Sprintf(`<span class="shortcode-banner-title">%s</span>`, sc.Title)
+		titleHTML = fmt.Sprintf(`<span class="shortcode-banner-title">%s</span>`,
+			stdhtml.EscapeString(sc.Title))
 	}
 
 	var legalHTML string
 	if sc.Legal != "" {
-		legalHTML = fmt.Sprintf(`<span class="shortcode-banner-legal">%s</span>`, sc.Legal)
+		legalHTML = fmt.Sprintf(`<span class="shortcode-banner-legal">%s</span>`,
+			stdhtml.EscapeString(sc.Legal))
 	}
 
 	return fmt.Sprintf(`<div class="shortcode-banner">
@@ -575,7 +579,7 @@ func (g *Generator) renderBannerShortcode(sc Shortcode) string {
 <span class="shortcode-banner-text">%s</span>
 </a>
 %s
-</div>`, sc.URL, logoHTML, titleHTML, sc.Text, legalHTML)
+</div>`, stdhtml.EscapeString(sc.URL), logoHTML, titleHTML, stdhtml.EscapeString(sc.Text), legalHTML)
 }
 
 // renderLinkShortcode renders a link-type shortcode
@@ -584,7 +588,8 @@ func (g *Generator) renderLinkShortcode(sc Shortcode) string {
 	if text == "" {
 		text = sc.Name
 	}
-	return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`, sc.URL, text)
+	return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`,
+		stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(text))
 }
 
 // renderImageShortcode renders an image-type shortcode
@@ -594,9 +599,11 @@ func (g *Generator) renderImageShortcode(sc Shortcode) string {
 		alt = sc.Name
 	}
 	if sc.URL != "" {
-		return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener"><img src="%s" alt="%s" class="shortcode-image"></a>`, sc.URL, sc.Logo, alt)
+		return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener"><img src="%s" alt="%s" class="shortcode-image"></a>`,
+			stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(alt))
 	}
-	return fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-image">`, sc.Logo, alt)
+	return fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-image">`,
+		stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(alt))
 }
 
 func tmplDecodeHTML(s string) string {
