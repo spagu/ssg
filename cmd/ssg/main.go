@@ -267,6 +267,8 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.Zip = true
 	case "--webp", "-webp":
 		cfg.WebP = true
+	case "--reconvert-images":
+		cfg.ReconvertImages = true
 	case "--watch", "-watch":
 		cfg.Watch = true
 	case "--http", "-http":
@@ -451,6 +453,7 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 		opts := webp.ConvertOptions{
 			Quality: cfg.WebPQuality,
 			Quiet:   cfg.Quiet,
+			Force:   cfg.ReconvertImages,
 		}
 
 		converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
@@ -616,6 +619,7 @@ func printUsage() {
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
+	fmt.Println("  --reconvert-images     - Force reconvert even if WebP already exists")
 	fmt.Println("")
 	fmt.Println("Deployment:")
 	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages")

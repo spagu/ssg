@@ -14,6 +14,7 @@ import (
 type ConvertOptions struct {
 	Quality int  // 1-100, default 60
 	Quiet   bool // Suppress output
+	Force   bool // Force reconversion even if WebP exists
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -27,14 +28,23 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		opts.Quality = 60
 	}
 
-	// First pass: count images
+	// First pass: collect images that need conversion
 	var imagePaths []string
+	var skipped int
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
 		}
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+			webpPath := strings.TrimSuffix(path, ext) + ".webp"
+			// Skip if WebP already exists (unless Force)
+			if !opts.Force {
+				if _, statErr := os.Stat(webpPath); statErr == nil {
+					skipped++
+					return nil
+				}
+			}
 			imagePaths = append(imagePaths, path)
 		}
 		return nil
@@ -45,7 +55,14 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 
 	total := len(imagePaths)
 	if total == 0 {
+		if skipped > 0 && !opts.Quiet {
+			fmt.Printf("   ✅ Skipped %d images (WebP already exists)\n", skipped)
+		}
 		return 0, 0, nil
+	}
+
+	if skipped > 0 && !opts.Quiet {
+		fmt.Printf("   ⏭️  Skipping %d images (WebP already exists)\n", skipped)
 	}
 
 	// Second pass: convert with progress

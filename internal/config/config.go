@@ -64,8 +64,9 @@ type Config struct {
 	Shortcodes []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
 
 	// Image Processing
-	WebP        bool `yaml:"webp" toml:"webp" json:"webp"`
-	WebPQuality int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`
+	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
+	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`
+	ReconvertImages bool `yaml:"reconvert_images" toml:"reconvert_images" json:"reconvert_images"` // Force reconvert even if WebP exists
 
 	// Deployment
 	Zip bool `yaml:"zip" toml:"zip" json:"zip"`
