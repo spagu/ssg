@@ -214,9 +214,10 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			Template: sc.Template,
 			Title:    sc.Title,
 			Text:     sc.Text,
-			URL:      sc.URL,
+			Url:      sc.Url,
 			Logo:     sc.Logo,
 			Legal:    sc.Legal,
+			Ranking:  sc.Ranking,
 			Data:     sc.Data,
 		}
 	}

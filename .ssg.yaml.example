@@ -46,11 +46,13 @@ zip: false           # Create ZIP for Cloudflare Pages
 # shortcodes:
 #   - name: "thunderpick"          # Use as {{thunderpick}} in content
 #     template: "shortcodes/banner.html"  # REQUIRED: template file in theme
+#     type: "banner"               # Available as {{.Type}} in template (for conditionals)
 #     title: "Thunderpick"         # Available as {{.Title}} in template
 #     text: "100% up to $1000"     # Available as {{.Text}} in template
-#     url: "https://example.com"   # Available as {{.URL}} in template
+#     url: "https://example.com"   # Available as {{.Url}} in template
 #     logo: "/images/logo.png"     # Available as {{.Logo}} in template
 #     legal: "18+. T&Cs Apply."    # Available as {{.Legal}} in template
+#     ranking: 4.5                 # Available as {{.Ranking}} in template (e.g., 3 or 3.5)
 #     data:                        # Available as {{.Data.key}} in template
 #       color: "blue"
 #       size: "large"

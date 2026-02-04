@@ -406,8 +406,8 @@ func TestProcessConfigShortcodes(t *testing.T) {
 	// Create template files
 	templates := map[string]string{
 		"text.html":   `{{.Text}}`,
-		"link.html":   `<a href="{{.URL}}">{{.Text}}</a>`,
-		"banner.html": `<div class="banner"><a href="{{.URL}}">{{if .Logo}}<img src="{{.Logo}}">{{end}}{{.Title}} - {{.Text}}</a>{{if .Legal}}<small>{{.Legal}}</small>{{end}}</div>`,
+		"link.html":   `<a href="{{.Url}}">{{.Text}}</a>`,
+		"banner.html": `<div class="banner"><a href="{{.Url}}">{{if .Logo}}<img src="{{.Logo}}">{{end}}{{.Title}} - {{.Text}}</a>{{if .Legal}}<small>{{.Legal}}</small>{{end}}</div>`,
 	}
 	for name, content := range templates {
 		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0644); err != nil {
@@ -438,7 +438,7 @@ func TestProcessConfigShortcodes(t *testing.T) {
 		{
 			name: "link shortcode with template",
 			shortcodes: []Shortcode{
-				{Name: "mylink", Template: "link.html", Text: "Click Here", URL: "https://example.com"},
+				{Name: "mylink", Template: "link.html", Text: "Click Here", Url: "https://example.com"},
 			},
 			input:    "Please {{mylink}} for more info",
 			expected: `Please <a href="https://example.com">Click Here</a> for more info`,
@@ -451,7 +451,7 @@ func TestProcessConfigShortcodes(t *testing.T) {
 					Template: "banner.html",
 					Title:    "Special Offer",
 					Text:     "Get 50% off",
-					URL:      "https://shop.com",
+					Url:      "https://shop.com",
 					Logo:     "/images/logo.png",
 					Legal:    "Terms apply",
 				},

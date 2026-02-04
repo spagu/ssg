@@ -19,9 +19,10 @@ type Shortcode struct {
 	Template string            `yaml:"template" toml:"template" json:"template"` // Template file (required)
 	Title    string            `yaml:"title" toml:"title" json:"title"`          // Title/heading
 	Text     string            `yaml:"text" toml:"text" json:"text"`             // Text content
-	URL      string            `yaml:"url" toml:"url" json:"url"`                // Link URL
+	Url      string            `yaml:"url" toml:"url" json:"url"`                // Link URL
 	Logo     string            `yaml:"logo" toml:"logo" json:"logo"`             // Logo/image path
 	Legal    string            `yaml:"legal" toml:"legal" json:"legal"`          // Legal text
+	Ranking  float64           `yaml:"ranking" toml:"ranking" json:"ranking"`    // Ranking score (e.g., 3.5)
 	Data     map[string]string `yaml:"data" toml:"data" json:"data"`             // Additional custom data
 }
 

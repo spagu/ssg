@@ -29,9 +29,10 @@ type Shortcode struct {
 	Template string            // Template file (required)
 	Title    string            // Title/heading
 	Text     string            // Text content
-	URL      string            // Link URL
+	Url      string            // Link URL
 	Logo     string            // Logo/image path
 	Legal    string            // Legal text
+	Ranking  float64           // Ranking score (e.g., 3.5)
 	Data     map[string]string // Additional custom data
 }
 
