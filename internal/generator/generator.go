@@ -27,6 +27,7 @@ type Shortcode struct {
 	Name     string            // Shortcode name (e.g., "thunderpick")
 	Type     string            // Type: "banner", "custom", etc.
 	Template string            // Template file for custom rendering
+	Title    string            // Title/heading
 	Text     string            // Text content
 	URL      string            // Link URL
 	Logo     string            // Logo/image path
@@ -557,6 +558,11 @@ func (g *Generator) renderBannerShortcode(sc Shortcode) string {
 		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-banner-logo">`, sc.Logo, sc.Name)
 	}
 
+	var titleHTML string
+	if sc.Title != "" {
+		titleHTML = fmt.Sprintf(`<span class="shortcode-banner-title">%s</span>`, sc.Title)
+	}
+
 	var legalHTML string
 	if sc.Legal != "" {
 		legalHTML = fmt.Sprintf(`<span class="shortcode-banner-legal">%s</span>`, sc.Legal)
@@ -565,10 +571,11 @@ func (g *Generator) renderBannerShortcode(sc Shortcode) string {
 	return fmt.Sprintf(`<div class="shortcode-banner">
 <a href="%s" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
 %s
+%s
 <span class="shortcode-banner-text">%s</span>
 </a>
 %s
-</div>`, sc.URL, logoHTML, sc.Text, legalHTML)
+</div>`, sc.URL, logoHTML, titleHTML, sc.Text, legalHTML)
 }
 
 // renderLinkShortcode renders a link-type shortcode

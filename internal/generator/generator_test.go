@@ -430,6 +430,7 @@ func TestProcessConfigShortcodes(t *testing.T) {
 				{
 					Name:  "promo",
 					Type:  "banner",
+					Title: "Special Offer",
 					Text:  "Get 50% off",
 					URL:   "https://shop.com",
 					Logo:  "/images/logo.png",
@@ -440,6 +441,7 @@ func TestProcessConfigShortcodes(t *testing.T) {
 			expected: `Check out <div class="shortcode-banner">
 <a href="https://shop.com" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
 <img src="/images/logo.png" alt="promo" class="shortcode-banner-logo">
+<span class="shortcode-banner-title">Special Offer</span>
 <span class="shortcode-banner-text">Get 50% off</span>
 </a>
 <span class="shortcode-banner-legal">Terms apply</span>

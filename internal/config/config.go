@@ -14,14 +14,15 @@ import (
 
 // Shortcode defines a reusable content snippet
 type Shortcode struct {
-	Name     string            `yaml:"name" toml:"name" json:"name"`         // Shortcode name (e.g., "thunderpick")
-	Type     string            `yaml:"type" toml:"type" json:"type"`         // Type: "banner", "custom", etc.
+	Name     string            `yaml:"name" toml:"name" json:"name"`             // Shortcode name (e.g., "thunderpick")
+	Type     string            `yaml:"type" toml:"type" json:"type"`             // Type: "banner", "custom", etc.
 	Template string            `yaml:"template" toml:"template" json:"template"` // Template file for custom rendering
-	Text     string            `yaml:"text" toml:"text" json:"text"`         // Text content
-	URL      string            `yaml:"url" toml:"url" json:"url"`            // Link URL
-	Logo     string            `yaml:"logo" toml:"logo" json:"logo"`         // Logo/image path
-	Legal    string            `yaml:"legal" toml:"legal" json:"legal"`      // Legal text
-	Data     map[string]string `yaml:"data" toml:"data" json:"data"`         // Additional custom data
+	Title    string            `yaml:"title" toml:"title" json:"title"`          // Title/heading
+	Text     string            `yaml:"text" toml:"text" json:"text"`             // Text content
+	URL      string            `yaml:"url" toml:"url" json:"url"`                // Link URL
+	Logo     string            `yaml:"logo" toml:"logo" json:"logo"`             // Logo/image path
+	Legal    string            `yaml:"legal" toml:"legal" json:"legal"`          // Legal text
+	Data     map[string]string `yaml:"data" toml:"data" json:"data"`             // Additional custom data
 }
 
 // Config represents all SSG configuration options

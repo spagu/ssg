@@ -46,6 +46,7 @@ zip: false           # Create ZIP for Cloudflare Pages
 #   - name: "thunderpick"          # Use as {{thunderpick}} in content
 #     type: "banner"               # Types: banner, link, image, or empty for custom
 #     template: "betting-banner.html"  # Optional custom template
+#     title: "Thunderpick"         # Title/heading
 #     text: "100% up to $1000"     # Text content
 #     url: "https://example.com"   # Link URL
 #     logo: "/images/logo.png"     # Logo/image path
