@@ -500,45 +500,49 @@ func (g *Generator) processShortcodes(content string) string {
 	})
 }
 
-// renderShortcode renders a single shortcode to HTML
+// Built-in shortcode templates (HTML escaping is automatic via Go templates)
+var shortcodeTemplates = map[string]string{
+	"banner": `<div class="shortcode-banner">
+<a href="{{.URL}}" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
+{{if .Logo}}<img src="{{.Logo}}" alt="{{.Name}}" class="shortcode-banner-logo">{{end}}
+{{if .Title}}<span class="shortcode-banner-title">{{.Title}}</span>{{end}}
+<span class="shortcode-banner-text">{{.Text}}</span>
+</a>
+{{if .Legal}}<span class="shortcode-banner-legal">{{.Legal}}</span>{{end}}
+</div>`,
+	"link":  `<a href="{{.URL}}" target="_blank" rel="noopener">{{if .Text}}{{.Text}}{{else}}{{.Name}}{{end}}</a>`,
+	"image": `{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">{{end}}<img src="{{.Logo}}" alt="{{if .Text}}{{.Text}}{{else}}{{.Name}}{{end}}" class="shortcode-image">{{if .URL}}</a>{{end}}`,
+	"default": `{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Text}}</a>{{else}}{{.Text}}{{end}}`,
+}
+
+// renderShortcode renders a single shortcode to HTML using templates
 func (g *Generator) renderShortcode(sc Shortcode) string {
-	// Try custom template first
+	// Try custom template file first
 	if sc.Template != "" {
-		rendered, err := g.renderShortcodeTemplate(sc)
+		rendered, err := g.renderShortcodeFromFile(sc)
 		if err == nil {
 			return rendered
 		}
 		fmt.Printf("   ⚠️  Warning: shortcode template %s failed: %v, using built-in\n", sc.Template, err)
 	}
 
-	// Use built-in templates based on type
-	switch sc.Type {
-	case "banner":
-		return g.renderBannerShortcode(sc)
-	case "link":
-		return g.renderLinkShortcode(sc)
-	case "image":
-		return g.renderImageShortcode(sc)
-	default:
-		// Default: simple text or link
-		if sc.URL != "" {
-			return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`,
-				stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(sc.Text))
-		}
-		return stdhtml.EscapeString(sc.Text)
+	// Get built-in template based on type
+	tmplStr, ok := shortcodeTemplates[sc.Type]
+	if !ok {
+		tmplStr = shortcodeTemplates["default"]
 	}
+
+	return g.renderShortcodeFromString(sc, tmplStr)
 }
 
-// renderShortcodeTemplate renders shortcode using a custom template file
-func (g *Generator) renderShortcodeTemplate(sc Shortcode) (string, error) {
+// renderShortcodeFromFile renders shortcode using a custom template file
+func (g *Generator) renderShortcodeFromFile(sc Shortcode) (string, error) {
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
 
-	// Check if template exists
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
 		return "", fmt.Errorf("template not found: %s", templatePath)
 	}
 
-	// Parse and execute template
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("parsing template: %w", err)
@@ -552,58 +556,21 @@ func (g *Generator) renderShortcodeTemplate(sc Shortcode) (string, error) {
 	return buf.String(), nil
 }
 
-// renderBannerShortcode renders a banner-type shortcode
-func (g *Generator) renderBannerShortcode(sc Shortcode) string {
-	var logoHTML string
-	if sc.Logo != "" {
-		logoHTML = fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-banner-logo">`,
-			stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(sc.Name))
+// renderShortcodeFromString renders shortcode using a template string
+func (g *Generator) renderShortcodeFromString(sc Shortcode, tmplStr string) string {
+	tmpl, err := template.New("shortcode").Parse(tmplStr)
+	if err != nil {
+		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
+		return ""
 	}
 
-	var titleHTML string
-	if sc.Title != "" {
-		titleHTML = fmt.Sprintf(`<span class="shortcode-banner-title">%s</span>`,
-			stdhtml.EscapeString(sc.Title))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, sc); err != nil {
+		fmt.Printf("   ⚠️  Warning: shortcode template execute error: %v\n", err)
+		return ""
 	}
 
-	var legalHTML string
-	if sc.Legal != "" {
-		legalHTML = fmt.Sprintf(`<span class="shortcode-banner-legal">%s</span>`,
-			stdhtml.EscapeString(sc.Legal))
-	}
-
-	return fmt.Sprintf(`<div class="shortcode-banner">
-<a href="%s" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
-%s
-%s
-<span class="shortcode-banner-text">%s</span>
-</a>
-%s
-</div>`, stdhtml.EscapeString(sc.URL), logoHTML, titleHTML, stdhtml.EscapeString(sc.Text), legalHTML)
-}
-
-// renderLinkShortcode renders a link-type shortcode
-func (g *Generator) renderLinkShortcode(sc Shortcode) string {
-	text := sc.Text
-	if text == "" {
-		text = sc.Name
-	}
-	return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener">%s</a>`,
-		stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(text))
-}
-
-// renderImageShortcode renders an image-type shortcode
-func (g *Generator) renderImageShortcode(sc Shortcode) string {
-	alt := sc.Text
-	if alt == "" {
-		alt = sc.Name
-	}
-	if sc.URL != "" {
-		return fmt.Sprintf(`<a href="%s" target="_blank" rel="noopener"><img src="%s" alt="%s" class="shortcode-image"></a>`,
-			stdhtml.EscapeString(sc.URL), stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(alt))
-	}
-	return fmt.Sprintf(`<img src="%s" alt="%s" class="shortcode-image">`,
-		stdhtml.EscapeString(sc.Logo), stdhtml.EscapeString(alt))
+	return buf.String()
 }
 
 func tmplDecodeHTML(s string) string {
