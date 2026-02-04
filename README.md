@@ -284,16 +284,30 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 
 ### Shortcodes
 
-Define reusable content snippets in your config file:
+Define reusable content snippets in your config file. Each shortcode requires a template file:
 
 ```yaml
 shortcodes:
   - name: "thunderpick"
-    type: "banner"
+    template: "shortcodes/banner.html"  # Required: template in theme folder
+    title: "Thunderpick"
     text: "100% up to $1000 + 5% rakeback"
     url: "https://example.com/promo"
     logo: "/assets/images/thunderpick.png"
     legal: "18+. Gamble Responsibly. T&Cs Apply."
+```
+
+Create the template file (e.g., `templates/your-theme/shortcodes/banner.html`):
+
+```html
+<div class="promo-banner">
+  <a href="{{.URL}}">
+    {{if .Logo}}<img src="{{.Logo}}" alt="{{.Name}}">{{end}}
+    <strong>{{.Title}}</strong>
+    <span>{{.Text}}</span>
+  </a>
+  {{if .Legal}}<small>{{.Legal}}</small>{{end}}
+</div>
 ```
 
 Use in markdown content with `{{shortcode_name}}`:
@@ -306,12 +320,7 @@ Check out this amazing offer:
 Don't miss it!
 ```
 
-**Built-in types:**
-- `banner` - Promotional banner with logo, text, link, and legal text
-- `link` - Simple link with text
-- `image` - Image with optional link
-
-**Custom templates:** Set `template: "my-template.html"` to use a custom template from your theme folder.
+**Available template variables:** `{{.Name}}`, `{{.Title}}`, `{{.Text}}`, `{{.URL}}`, `{{.Logo}}`, `{{.Legal}}`, `{{.Data.key}}`
 
 ### Examples
 

@@ -25,8 +25,8 @@ import (
 // Shortcode defines a reusable content snippet
 type Shortcode struct {
 	Name     string            // Shortcode name (e.g., "thunderpick")
-	Type     string            // Type: "banner", "custom", etc.
-	Template string            // Template file for custom rendering
+	Type     string            // Type for template logic (e.g., "banner")
+	Template string            // Template file (required)
 	Title    string            // Title/heading
 	Text     string            // Text content
 	URL      string            // Link URL
@@ -500,65 +500,21 @@ func (g *Generator) processShortcodes(content string) string {
 	})
 }
 
-// Built-in shortcode templates (HTML escaping is automatic via Go templates)
-var shortcodeTemplates = map[string]string{
-	"banner": `<div class="shortcode-banner">
-<a href="{{.URL}}" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
-{{if .Logo}}<img src="{{.Logo}}" alt="{{.Name}}" class="shortcode-banner-logo">{{end}}
-{{if .Title}}<span class="shortcode-banner-title">{{.Title}}</span>{{end}}
-<span class="shortcode-banner-text">{{.Text}}</span>
-</a>
-{{if .Legal}}<span class="shortcode-banner-legal">{{.Legal}}</span>{{end}}
-</div>`,
-	"link":  `<a href="{{.URL}}" target="_blank" rel="noopener">{{if .Text}}{{.Text}}{{else}}{{.Name}}{{end}}</a>`,
-	"image": `{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">{{end}}<img src="{{.Logo}}" alt="{{if .Text}}{{.Text}}{{else}}{{.Name}}{{end}}" class="shortcode-image">{{if .URL}}</a>{{end}}`,
-	"default": `{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Text}}</a>{{else}}{{.Text}}{{end}}`,
-}
-
-// renderShortcode renders a single shortcode to HTML using templates
+// renderShortcode renders a single shortcode to HTML using its template file
 func (g *Generator) renderShortcode(sc Shortcode) string {
-	// Try custom template file first
-	if sc.Template != "" {
-		rendered, err := g.renderShortcodeFromFile(sc)
-		if err == nil {
-			return rendered
-		}
-		fmt.Printf("   ⚠️  Warning: shortcode template %s failed: %v, using built-in\n", sc.Template, err)
+	if sc.Template == "" {
+		fmt.Printf("   ⚠️  Warning: shortcode '%s' has no template defined, skipping\n", sc.Name)
+		return ""
 	}
 
-	// Get built-in template based on type
-	tmplStr, ok := shortcodeTemplates[sc.Type]
-	if !ok {
-		tmplStr = shortcodeTemplates["default"]
-	}
-
-	return g.renderShortcodeFromString(sc, tmplStr)
-}
-
-// renderShortcodeFromFile renders shortcode using a custom template file
-func (g *Generator) renderShortcodeFromFile(sc Shortcode) (string, error) {
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
 
 	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("template not found: %s", templatePath)
+		fmt.Printf("   ⚠️  Warning: shortcode template not found: %s\n", templatePath)
+		return ""
 	}
 
 	tmpl, err := template.ParseFiles(templatePath)
-	if err != nil {
-		return "", fmt.Errorf("parsing template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, sc); err != nil {
-		return "", fmt.Errorf("executing template: %w", err)
-	}
-
-	return buf.String(), nil
-}
-
-// renderShortcodeFromString renders shortcode using a template string
-func (g *Generator) renderShortcodeFromString(sc Shortcode, tmplStr string) string {
-	tmpl, err := template.New("shortcode").Parse(tmplStr)
 	if err != nil {
 		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
 		return ""

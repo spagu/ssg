@@ -42,16 +42,16 @@ webp_quality: 60     # Quality 1-100 (lower = smaller file)
 zip: false           # Create ZIP for Cloudflare Pages
 
 # Shortcodes - reusable content snippets, use {{name}} in markdown
+# Template file is REQUIRED - create your own templates in the theme folder
 # shortcodes:
 #   - name: "thunderpick"          # Use as {{thunderpick}} in content
-#     type: "banner"               # Types: banner, link, image, or empty for custom
-#     template: "betting-banner.html"  # Optional custom template
-#     title: "Thunderpick"         # Title/heading
-#     text: "100% up to $1000"     # Text content
-#     url: "https://example.com"   # Link URL
-#     logo: "/images/logo.png"     # Logo/image path
-#     legal: "18+. T&Cs Apply."    # Legal text (for banners)
-#     data:                        # Additional custom data for templates
+#     template: "shortcodes/banner.html"  # REQUIRED: template file in theme
+#     title: "Thunderpick"         # Available as {{.Title}} in template
+#     text: "100% up to $1000"     # Available as {{.Text}} in template
+#     url: "https://example.com"   # Available as {{.URL}} in template
+#     logo: "/images/logo.png"     # Available as {{.Logo}} in template
+#     legal: "18+. T&Cs Apply."    # Available as {{.Legal}} in template
+#     data:                        # Available as {{.Data.key}} in template
 #       color: "blue"
 #       size: "large"
 

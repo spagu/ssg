@@ -10,17 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - ✨ **Configurable shortcodes** - Define reusable content snippets in config
   - Use `{{shortcode_name}}` syntax in markdown content
-  - Built-in types: `banner`, `link`, `image`
-  - Support for custom templates
+  - Each shortcode requires a template file (no built-in HTML)
+  - Template variables: `{{.Name}}`, `{{.Title}}`, `{{.Text}}`, `{{.URL}}`, `{{.Logo}}`, `{{.Legal}}`, `{{.Data}}`
   - Define in `.ssg.yaml`:
     ```yaml
     shortcodes:
       - name: "promo"
-        type: "banner"
+        template: "shortcodes/banner.html"
+        title: "Special Offer"
         text: "Get 50% off!"
         url: "https://example.com"
-        logo: "/images/logo.png"
-        legal: "Terms apply"
     ```
 
 ## [1.5.3] - 2026-02-04

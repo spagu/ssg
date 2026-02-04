@@ -396,6 +396,25 @@ func TestConvertToRelativeLinksFileNotFound(t *testing.T) {
 }
 
 func TestProcessConfigShortcodes(t *testing.T) {
+	// Create temp directory with templates
+	tmpDir := t.TempDir()
+	templateDir := filepath.Join(tmpDir, "templates", "test")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("Failed to create template dir: %v", err)
+	}
+
+	// Create template files
+	templates := map[string]string{
+		"text.html":   `{{.Text}}`,
+		"link.html":   `<a href="{{.URL}}">{{.Text}}</a>`,
+		"banner.html": `<div class="banner"><a href="{{.URL}}">{{if .Logo}}<img src="{{.Logo}}">{{end}}{{.Title}} - {{.Text}}</a>{{if .Legal}}<small>{{.Legal}}</small>{{end}}</div>`,
+	}
+	for name, content := range templates {
+		if err := os.WriteFile(filepath.Join(templateDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write template %s: %v", name, err)
+		}
+	}
+
 	tests := []struct {
 		name       string
 		shortcodes []Shortcode
@@ -409,90 +428,54 @@ func TestProcessConfigShortcodes(t *testing.T) {
 			expected:   "Hello {{world}}",
 		},
 		{
-			name: "simple text shortcode",
+			name: "simple text shortcode with template",
 			shortcodes: []Shortcode{
-				{Name: "greeting", Type: "", Text: "Hello World"},
+				{Name: "greeting", Template: "text.html", Text: "Hello World"},
 			},
 			input:    "Say {{greeting}} to everyone",
 			expected: "Say Hello World to everyone",
 		},
 		{
-			name: "link shortcode",
+			name: "link shortcode with template",
 			shortcodes: []Shortcode{
-				{Name: "mylink", Type: "link", Text: "Click Here", URL: "https://example.com"},
+				{Name: "mylink", Template: "link.html", Text: "Click Here", URL: "https://example.com"},
 			},
 			input:    "Please {{mylink}} for more info",
-			expected: `Please <a href="https://example.com" target="_blank" rel="noopener">Click Here</a> for more info`,
+			expected: `Please <a href="https://example.com">Click Here</a> for more info`,
 		},
 		{
-			name: "banner shortcode",
+			name: "banner shortcode with template",
 			shortcodes: []Shortcode{
 				{
-					Name:  "promo",
-					Type:  "banner",
-					Title: "Special Offer",
-					Text:  "Get 50% off",
-					URL:   "https://shop.com",
-					Logo:  "/images/logo.png",
-					Legal: "Terms apply",
+					Name:     "promo",
+					Template: "banner.html",
+					Title:    "Special Offer",
+					Text:     "Get 50% off",
+					URL:      "https://shop.com",
+					Logo:     "/images/logo.png",
+					Legal:    "Terms apply",
 				},
 			},
-			input: "Check out {{promo}} now!",
-			expected: `Check out <div class="shortcode-banner">
-<a href="https://shop.com" target="_blank" rel="noopener sponsored" class="shortcode-banner-link">
-<img src="/images/logo.png" alt="promo" class="shortcode-banner-logo">
-<span class="shortcode-banner-title">Special Offer</span>
-<span class="shortcode-banner-text">Get 50% off</span>
-</a>
-<span class="shortcode-banner-legal">Terms apply</span>
-</div> now!`,
-		},
-		{
-			name: "image shortcode with link",
-			shortcodes: []Shortcode{
-				{Name: "photo", Type: "image", Logo: "/img/photo.jpg", URL: "https://gallery.com", Text: "My Photo"},
-			},
-			input:    "Here is {{photo}}",
-			expected: `Here is <a href="https://gallery.com" target="_blank" rel="noopener"><img src="/img/photo.jpg" alt="My Photo" class="shortcode-image"></a>`,
-		},
-		{
-			name: "image shortcode without link",
-			shortcodes: []Shortcode{
-				{Name: "pic", Type: "image", Logo: "/img/pic.jpg", Text: "A picture"},
-			},
-			input:    "Look at {{pic}}",
-			expected: `Look at <img src="/img/pic.jpg" alt="A picture" class="shortcode-image">`,
-		},
-		{
-			name: "multiple shortcodes",
-			shortcodes: []Shortcode{
-				{Name: "hello", Type: "", Text: "Hello"},
-				{Name: "world", Type: "", Text: "World"},
-			},
-			input:    "{{hello}} {{world}}!",
-			expected: "Hello World!",
+			input:    "Check out {{promo}} now!",
+			expected: `Check out <div class="banner"><a href="https://shop.com"><img src="/images/logo.png">Special Offer - Get 50% off</a><small>Terms apply</small></div> now!`,
 		},
 		{
 			name: "unknown shortcode preserved",
 			shortcodes: []Shortcode{
-				{Name: "known", Type: "", Text: "Known"},
+				{Name: "known", Template: "text.html", Text: "Known"},
 			},
 			input:    "{{known}} and {{unknown}}",
 			expected: "Known and {{unknown}}",
-		},
-		{
-			name: "default shortcode with URL",
-			shortcodes: []Shortcode{
-				{Name: "site", Type: "", Text: "My Site", URL: "https://mysite.com"},
-			},
-			input:    "Visit {{site}}",
-			expected: `Visit <a href="https://mysite.com" target="_blank" rel="noopener">My Site</a>`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := Config{Shortcodes: tt.shortcodes}
+			cfg := Config{
+				TemplatesDir: filepath.Join(tmpDir, "templates"),
+				Template:     "test",
+				Shortcodes:   tt.shortcodes,
+			}
 			g, _ := New(cfg)
 
 			result := g.processShortcodes(tt.input)
@@ -504,40 +487,45 @@ func TestProcessConfigShortcodes(t *testing.T) {
 	}
 }
 
-func TestRenderShortcodeWithCustomTemplate(t *testing.T) {
+func TestShortcodeWithoutTemplate(t *testing.T) {
+	cfg := Config{
+		Shortcodes: []Shortcode{
+			{Name: "notemplate", Text: "Some text"},
+		},
+	}
+	g, _ := New(cfg)
+
+	// Should return empty string and print warning
+	result := g.processShortcodes("Test {{notemplate}} here")
+	expected := "Test  here"
+
+	if result != expected {
+		t.Errorf("Expected shortcode without template to be empty:\nExpected: %q\nGot: %q", expected, result)
+	}
+}
+
+func TestShortcodeWithMissingTemplateFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	templateDir := filepath.Join(tmpDir, "templates", "test")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("Failed to create template dir: %v", err)
 	}
 
-	// Create a custom template
-	templateContent := `<div class="custom">{{.Name}}: {{.Text}} - <a href="{{.URL}}">Link</a></div>`
-	templatePath := filepath.Join(templateDir, "custom.html")
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
-		t.Fatalf("Failed to write template: %v", err)
-	}
-
 	cfg := Config{
 		TemplatesDir: filepath.Join(tmpDir, "templates"),
 		Template:     "test",
 		Shortcodes: []Shortcode{
-			{
-				Name:     "custom",
-				Type:     "custom",
-				Template: "custom.html",
-				Text:     "Custom Text",
-				URL:      "https://custom.com",
-			},
+			{Name: "missing", Template: "nonexistent.html", Text: "Some text"},
 		},
 	}
 	g, _ := New(cfg)
 
-	result := g.processShortcodes("Here is {{custom}}")
-	expected := `Here is <div class="custom">custom: Custom Text - <a href="https://custom.com">Link</a></div>`
+	// Should return empty string when template file doesn't exist
+	result := g.processShortcodes("Test {{missing}} here")
+	expected := "Test  here"
 
 	if result != expected {
-		t.Errorf("Custom template mismatch:\nExpected: %s\nGot: %s", expected, result)
+		t.Errorf("Expected missing template to be empty:\nExpected: %q\nGot: %q", expected, result)
 	}
 }
 

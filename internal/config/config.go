@@ -15,8 +15,8 @@ import (
 // Shortcode defines a reusable content snippet
 type Shortcode struct {
 	Name     string            `yaml:"name" toml:"name" json:"name"`             // Shortcode name (e.g., "thunderpick")
-	Type     string            `yaml:"type" toml:"type" json:"type"`             // Type: "banner", "custom", etc.
-	Template string            `yaml:"template" toml:"template" json:"template"` // Template file for custom rendering
+	Type     string            `yaml:"type" toml:"type" json:"type"`             // Type for template logic (e.g., "banner")
+	Template string            `yaml:"template" toml:"template" json:"template"` // Template file (required)
 	Title    string            `yaml:"title" toml:"title" json:"title"`          // Title/heading
 	Text     string            `yaml:"text" toml:"text" json:"text"`             // Text content
 	URL      string            `yaml:"url" toml:"url" json:"url"`                // Link URL
