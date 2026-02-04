@@ -27,24 +27,47 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		opts.Quality = 60
 	}
 
+	// First pass: count images
+	var imagePaths []string
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
 		}
-
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-			return nil
+		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+			imagePaths = append(imagePaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	total := len(imagePaths)
+	if total == 0 {
+		return 0, 0, nil
+	}
+
+	// Second pass: convert with progress
+	for i, path := range imagePaths {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			continue
 		}
 
+		ext := strings.ToLower(filepath.Ext(path))
 		originalSize := info.Size()
 		webpPath := strings.TrimSuffix(path, ext) + ".webp"
+
+		if !opts.Quiet {
+			fmt.Printf("   🖼️  Converting %d/%d: %s\n", i+1, total, filepath.Base(path))
+		}
 
 		if convErr := convertImage(path, webpPath, opts.Quality); convErr != nil {
 			if !opts.Quiet {
 				fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), convErr)
 			}
-			return nil // Continue with other files
+			continue
 		}
 
 		// Get new size
@@ -58,10 +81,9 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		}
 
 		converted++
-		return nil
-	})
+	}
 
-	return converted, savedBytes, err
+	return converted, savedBytes, nil
 }
 
 // convertImage converts a single image to WebP using cwebp
