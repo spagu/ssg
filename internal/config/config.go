@@ -27,6 +27,16 @@ type Shortcode struct {
 	Data     map[string]string `yaml:"data" toml:"data" json:"data"`             // Additional custom data
 }
 
+// MddbConfig holds MDDB connection settings
+type MddbConfig struct {
+	Enabled    bool   `yaml:"enabled" toml:"enabled" json:"enabled"`          // Enable mddb as content source
+	URL        string `yaml:"url" toml:"url" json:"url"`                      // Base URL (e.g., "http://localhost:8080")
+	APIKey     string `yaml:"api_key" toml:"api_key" json:"api_key"`          // Optional API key
+	Collection string `yaml:"collection" toml:"collection" json:"collection"` // Collection name for content
+	Lang       string `yaml:"lang" toml:"lang" json:"lang"`                   // Language filter (e.g., "en_US")
+	Timeout    int    `yaml:"timeout" toml:"timeout" json:"timeout"`          // Request timeout in seconds
+}
+
 // Config represents all SSG configuration options
 type Config struct {
 	// Positional arguments (can be set in config)
@@ -38,6 +48,9 @@ type Config struct {
 	ContentDir   string `yaml:"content_dir" toml:"content_dir" json:"content_dir"`
 	TemplatesDir string `yaml:"templates_dir" toml:"templates_dir" json:"templates_dir"`
 	OutputDir    string `yaml:"output_dir" toml:"output_dir" json:"output_dir"`
+
+	// MDDB Content Source
+	Mddb MddbConfig `yaml:"mddb" toml:"mddb" json:"mddb"`
 
 	// Template Engine
 	Engine      string `yaml:"engine" toml:"engine" json:"engine"`                   // go, pongo2, mustache, handlebars
@@ -84,6 +97,9 @@ func DefaultConfig() *Config {
 		OutputDir:    "output",
 		Port:         8888,
 		WebPQuality:  60,
+		Mddb: MddbConfig{
+			Timeout: 30,
+		},
 	}
 }
 

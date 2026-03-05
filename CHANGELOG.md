@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-03-05
+
+### Added
+- ✨ **MDDB Content Source** - Fetch markdown content from [MDDB](https://github.com/tradik/mddb) server
+  - Single document fetch via `/v1/get` endpoint
+  - Bulk fetch via `/v1/search` endpoint with pagination
+  - CLI flags: `--mddb-url`, `--mddb-collection`, `--mddb-key`, `--mddb-lang`, `--mddb-timeout`
+  - YAML config support:
+    ```yaml
+    mddb:
+      enabled: true
+      url: "http://localhost:8080"
+      collection: "blog"
+      lang: "en_US"
+    ```
+  - Automatic conversion of MDDB documents to pages/posts
+  - Support for categories, media, and users collections
+
 ## [1.5.4] - 2026-02-04
 
 ### Added

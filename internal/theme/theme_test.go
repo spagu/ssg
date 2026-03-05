@@ -299,11 +299,11 @@ func TestExtractZipWithSubdirectory(t *testing.T) {
 	// Create a zip file with nested directories
 	zipPath := filepath.Join(tmpDir, "nested.zip")
 	if err := createTestZip(zipPath, map[string]string{
-		"theme-main/layouts/base.html":       "<html>base</html>",
-		"theme-main/layouts/index.html":      "<html>index</html>",
-		"theme-main/static/css/style.css":    "body {}",
-		"theme-main/static/js/main.js":       "// js",
-		"theme-main/assets/images/logo.png":  "PNG",
+		"theme-main/layouts/base.html":      "<html>base</html>",
+		"theme-main/layouts/index.html":     "<html>index</html>",
+		"theme-main/static/css/style.css":   "body {}",
+		"theme-main/static/js/main.js":      "// js",
+		"theme-main/assets/images/logo.png": "PNG",
 	}); err != nil {
 		t.Fatalf("Failed to create test zip: %v", err)
 	}
@@ -608,9 +608,9 @@ func TestExtractZipRootPrefixStripped(t *testing.T) {
 	// Create a zip with a deep structure
 	zipPath := filepath.Join(tmpDir, "deep.zip")
 	if err := createTestZip(zipPath, map[string]string{
-		"theme-v1.0.0/layouts/index.html":    "index content",
-		"theme-v1.0.0/layouts/base.html":     "base content",
-		"theme-v1.0.0/static/style.css":      "body {}",
+		"theme-v1.0.0/layouts/index.html": "index content",
+		"theme-v1.0.0/layouts/base.html":  "base content",
+		"theme-v1.0.0/static/style.css":   "body {}",
 	}); err != nil {
 		t.Fatalf("Failed to create test zip: %v", err)
 	}

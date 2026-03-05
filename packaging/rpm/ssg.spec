@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.5.4
+Version:        1.6.0
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
@@ -38,6 +38,11 @@ install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/%{name}/CHANGELOG.md
 %{_bindir}/ssg
 
 %changelog
+* Wed Mar 05 2026 spagu <spagu@github.com> - 1.6.0-1
+- Added MDDB content source support (single and bulk fetch)
+- CLI flags: --mddb-url, --mddb-collection, --mddb-key, --mddb-lang
+- YAML config support for MDDB
+
 * Fri Jan 17 2026 spagu <spagu@github.com> - 1.3.0-1
 - Added built-in HTTP server
 - Added watch mode for auto-rebuild

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/yuin/goldmark"
@@ -35,6 +36,16 @@ type Shortcode struct {
 	Ranking  float64           // Ranking score (e.g., 3.5)
 	Tags     []string          // Tags for categorization (e.g., ["game", "public"])
 	Data     map[string]string // Additional custom data
+}
+
+// MddbConfig holds MDDB connection settings for generator
+type MddbConfig struct {
+	Enabled    bool   // Enable mddb as content source
+	URL        string // Base URL (e.g., "http://localhost:8080")
+	APIKey     string // Optional API key
+	Collection string // Collection name for content
+	Lang       string // Language filter (e.g., "en_US")
+	Timeout    int    // Request timeout in seconds
 }
 
 // Config holds generator configuration
@@ -59,6 +70,8 @@ type Config struct {
 	Clean         bool        // Clean output directory before build
 	Quiet         bool        // Suppress stdout output
 	Engine        string      // Template engine: go, pongo2, mustache, handlebars
+	// MDDB content source
+	Mddb MddbConfig // MDDB configuration
 }
 
 // Generator handles the static site generation process
@@ -219,8 +232,18 @@ func (g *Generator) minifyIfRequested() error {
 	return nil
 }
 
-// loadContent loads all content from the source directory
+// loadContent loads all content from the source directory or mddb
 func (g *Generator) loadContent() error {
+	// Check if mddb is enabled
+	if g.config.Mddb.Enabled {
+		return g.loadContentFromMddb()
+	}
+
+	return g.loadContentFromFiles()
+}
+
+// loadContentFromFiles loads content from the local filesystem
+func (g *Generator) loadContentFromFiles() error {
 	sourcePath := filepath.Join(g.config.ContentDir, g.config.Source)
 
 	// Load metadata.json
@@ -256,12 +279,189 @@ func (g *Generator) loadContent() error {
 		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
 	})
 
+	g.logContentStats()
+
+	return nil
+}
+
+// loadContentFromMddb loads content from mddb server
+func (g *Generator) loadContentFromMddb() error {
+	client := mddb.NewClient(mddb.Config{
+		BaseURL: g.config.Mddb.URL,
+		APIKey:  g.config.Mddb.APIKey,
+		Timeout: g.config.Mddb.Timeout,
+	})
+
+	// Check server health
+	if err := client.Health(); err != nil {
+		return fmt.Errorf("mddb server not available: %w", err)
+	}
+
+	g.log("   🔗 Connected to mddb server")
+
+	// Load pages from mddb
+	pageDocs, err := client.GetByType(g.config.Mddb.Collection, "page", g.config.Mddb.Lang)
+	if err != nil {
+		return fmt.Errorf("loading pages from mddb: %w", err)
+	}
+
+	pages, err := mddb.ToPages(pageDocs)
+	if err != nil {
+		return fmt.Errorf("converting pages: %w", err)
+	}
+	g.siteData.Pages = pages
+
+	// Load posts from mddb
+	postDocs, err := client.GetByType(g.config.Mddb.Collection, "post", g.config.Mddb.Lang)
+	if err != nil {
+		return fmt.Errorf("loading posts from mddb: %w", err)
+	}
+
+	posts, err := mddb.ToPages(postDocs)
+	if err != nil {
+		return fmt.Errorf("converting posts: %w", err)
+	}
+
+	// Set URL format for posts based on config
+	for i := range posts {
+		posts[i].URLFormat = g.config.PostURLFormat
+	}
+
+	g.siteData.Posts = posts
+
+	// Sort posts by date (newest first)
+	sort.Slice(g.siteData.Posts, func(i, j int) bool {
+		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
+	})
+
+	// Load metadata (categories, media, users) from mddb
+	if err := g.loadMetadataFromMddb(client); err != nil {
+		return fmt.Errorf("loading metadata from mddb: %w", err)
+	}
+
+	g.logContentStats()
+
+	return nil
+}
+
+// loadMetadataFromMddb loads categories, media, and users from mddb
+func (g *Generator) loadMetadataFromMddb(client *mddb.Client) error {
+	// Load categories
+	catDocs, err := client.GetAll("categories", g.config.Mddb.Lang, 100)
+	if err != nil {
+		// Categories collection might not exist - not critical
+		g.log("   ⚠️  Warning: could not load categories from mddb")
+	} else {
+		for _, doc := range catDocs {
+			cat := extractCategoryFromDoc(doc)
+			g.siteData.Categories[cat.ID] = cat
+		}
+	}
+
+	// Load media
+	mediaDocs, err := client.GetAll("media", g.config.Mddb.Lang, 100)
+	if err != nil {
+		// Media collection might not exist - not critical
+		g.log("   ⚠️  Warning: could not load media from mddb")
+	} else {
+		for _, doc := range mediaDocs {
+			media := extractMediaFromDoc(doc)
+			g.siteData.Media[media.ID] = media
+		}
+	}
+
+	// Load users/authors
+	userDocs, err := client.GetAll("users", g.config.Mddb.Lang, 100)
+	if err != nil {
+		// Users collection might not exist - not critical
+		g.log("   ⚠️  Warning: could not load users from mddb")
+	} else {
+		for _, doc := range userDocs {
+			author := extractAuthorFromDoc(doc)
+			g.siteData.Authors[author.ID] = author
+		}
+	}
+
+	return nil
+}
+
+// extractCategoryFromDoc extracts Category from mddb Document
+func extractCategoryFromDoc(doc mddb.Document) models.Category {
+	cat := models.Category{
+		Slug: doc.Key,
+	}
+
+	if id, ok := doc.Metadata["id"].(float64); ok {
+		cat.ID = int(id)
+	}
+	if name, ok := doc.Metadata["name"].(string); ok {
+		cat.Name = name
+	}
+	if desc, ok := doc.Metadata["description"].(string); ok {
+		cat.Description = desc
+	}
+	if link, ok := doc.Metadata["link"].(string); ok {
+		cat.Link = link
+	}
+	if count, ok := doc.Metadata["count"].(float64); ok {
+		cat.Count = int(count)
+	}
+	if parent, ok := doc.Metadata["parent"].(float64); ok {
+		cat.Parent = int(parent)
+	}
+
+	return cat
+}
+
+// extractMediaFromDoc extracts MediaItem from mddb Document
+func extractMediaFromDoc(doc mddb.Document) models.MediaItem {
+	media := models.MediaItem{
+		Slug: doc.Key,
+	}
+
+	if id, ok := doc.Metadata["id"].(float64); ok {
+		media.ID = int(id)
+	}
+	if mediaType, ok := doc.Metadata["media_type"].(string); ok {
+		media.MediaType = mediaType
+	}
+	if mimeType, ok := doc.Metadata["mime_type"].(string); ok {
+		media.MimeType = mimeType
+	}
+	if sourceURL, ok := doc.Metadata["source_url"].(string); ok {
+		media.SourceURL = sourceURL
+	}
+	if title, ok := doc.Metadata["title"].(map[string]interface{}); ok {
+		if rendered, ok := title["rendered"].(string); ok {
+			media.Title.Rendered = rendered
+		}
+	}
+
+	return media
+}
+
+// extractAuthorFromDoc extracts Author from mddb Document
+func extractAuthorFromDoc(doc mddb.Document) models.Author {
+	author := models.Author{
+		Slug: doc.Key,
+	}
+
+	if id, ok := doc.Metadata["id"].(float64); ok {
+		author.ID = int(id)
+	}
+	if name, ok := doc.Metadata["name"].(string); ok {
+		author.Name = name
+	}
+
+	return author
+}
+
+// logContentStats prints content loading statistics
+func (g *Generator) logContentStats() {
 	fmt.Printf("   📄 Loaded %d pages\n", len(g.siteData.Pages))
 	fmt.Printf("   📝 Loaded %d posts\n", len(g.siteData.Posts))
 	fmt.Printf("   📁 Loaded %d categories\n", len(g.siteData.Categories))
 	fmt.Printf("   🖼️  Loaded %d media items\n", len(g.siteData.Media))
-
-	return nil
 }
 
 // loadMetadata loads the metadata.json file
@@ -392,21 +592,21 @@ func (g *Generator) buildPageLinks() map[string]string {
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	return template.FuncMap{
-		"safeHTML":            g.tmplSafeHTML(pageLinks),
-		"decodeHTML":          tmplDecodeHTML,
-		"formatDate":          tmplFormatDate,
-		"formatDatePL":        tmplFormatDatePL,
-		"getCategoryName":     g.tmplGetCategoryName,
-		"getCategorySlug":     g.tmplGetCategorySlug,
-		"isValidCategory":     tmplIsValidCategory,
-		"getAuthorName":       g.tmplGetAuthorName,
-		"getURL":              tmplGetURL,
-		"getCanonical":        tmplGetCanonical,
-		"hasValidCategories":  tmplHasValidCategories,
+		"safeHTML":             g.tmplSafeHTML(pageLinks),
+		"decodeHTML":           tmplDecodeHTML,
+		"formatDate":           tmplFormatDate,
+		"formatDatePL":         tmplFormatDatePL,
+		"getCategoryName":      g.tmplGetCategoryName,
+		"getCategorySlug":      g.tmplGetCategorySlug,
+		"isValidCategory":      tmplIsValidCategory,
+		"getAuthorName":        g.tmplGetAuthorName,
+		"getURL":               tmplGetURL,
+		"getCanonical":         tmplGetCanonical,
+		"hasValidCategories":   tmplHasValidCategories,
 		"thumbnailFromYoutube": tmplThumbnailFromYoutube,
-		"stripShortcodes":     tmplStripShortcodes,
-		"stripHTML":           tmplStripHTML,
-		"recentPosts":         g.tmplRecentPosts,
+		"stripShortcodes":      tmplStripShortcodes,
+		"stripHTML":            tmplStripHTML,
+		"recentPosts":          g.tmplRecentPosts,
 	}
 }
 

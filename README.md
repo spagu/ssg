@@ -104,6 +104,7 @@ SSG includes powerful asset processing:
 - 🎬 **GitHub Actions** - Use as CI/CD step
 - 🌍 **Online Themes** - Download Hugo themes from URL
 - 📁 **WordPress** - Import from WP exports
+- 🗃️ **MDDB** - Fetch content from [MDDB](https://github.com/tradik/mddb) markdown database
 
 ## 📦 Requirements
 
@@ -125,8 +126,8 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
 | **Snap** (Ubuntu) | `snap install ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg_1.3.0_amd64.deb && sudo dpkg -i ssg_1.3.0_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-1.x86_64.rpm` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.6.0/ssg_1.3.0_amd64.deb && sudo dpkg -i ssg_1.3.0_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.6.0/ssg-1.3.0-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |
 | **OpenBSD** | From ports: `/usr/ports/www/ssg` |
 
@@ -212,6 +213,24 @@ webp_quality: 80
 minify_all: true
 ```
 
+Example `.ssg.yaml` with MDDB:
+
+```yaml
+template: "krowy"
+domain: "example.com"
+
+# MDDB content source (replaces local files)
+mddb:
+  enabled: true
+  url: "http://localhost:8080"
+  collection: "blog"
+  lang: "en_US"
+  api_key: ""  # optional
+  timeout: 30
+
+minify_all: true
+```
+
 See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 
 ### Options
@@ -273,6 +292,16 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 |--------|-------------|
 | `--engine=ENGINE` | Template engine: `go` (default), `pongo2`, `mustache`, `handlebars` |
 | `--online-theme=URL` | Download theme from URL (GitHub, GitLab, or direct ZIP) |
+
+**MDDB Content Source ([github.com/tradik/mddb](https://github.com/tradik/mddb)):**
+
+| Option | Description |
+|--------|-------------|
+| `--mddb-url=URL` | MDDB server URL (enables mddb mode) |
+| `--mddb-collection=NAME` | Collection name for pages/posts |
+| `--mddb-key=KEY` | API key for authentication (optional) |
+| `--mddb-lang=LANG` | Language filter (e.g., `en_US`, `pl_PL`) |
+| `--mddb-timeout=SEC` | Request timeout in seconds (default: `30`) |
 
 **Other:**
 
@@ -351,6 +380,13 @@ make generate        # krowy template
 make generate-simple # simple template
 make serve           # generate and run local server
 make deploy          # generate with WebP + ZIP for Cloudflare Pages
+
+# Fetch content from MDDB server (single and bulk)
+./build/ssg --mddb-url=http://localhost:8080 --mddb-collection=blog krowy example.com
+
+# MDDB with language filter and API key
+./build/ssg --mddb-url=https://mddb.example.com --mddb-collection=site \
+  --mddb-lang=en_US --mddb-key=secret krowy example.com --minify-all
 ```
 
 ### Output
@@ -472,7 +508,7 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 |-----------|-------------|
 | `spagu/ssg@main` | Latest from main branch (development) |
 | `spagu/ssg@v1` | Latest stable v1.x release |
-| `spagu/ssg@v1.3.0` | Specific version |
+| `spagu/ssg@v1.6.0` | Specific version |
 
 > **Note:** Use `@main` until a stable release is published.
 

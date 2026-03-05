@@ -243,6 +243,14 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Clean:         cfg.Clean,
 		Quiet:         cfg.Quiet,
 		Engine:        cfg.Engine,
+		Mddb: generator.MddbConfig{
+			Enabled:    cfg.Mddb.Enabled,
+			URL:        cfg.Mddb.URL,
+			APIKey:     cfg.Mddb.APIKey,
+			Collection: cfg.Mddb.Collection,
+			Lang:       cfg.Mddb.Lang,
+			Timeout:    cfg.Mddb.Timeout,
+		},
 	}
 }
 
@@ -356,6 +364,20 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
 	case strings.HasPrefix(arg, "--post-url-format="):
 		cfg.PostURLFormat = strings.TrimPrefix(arg, "--post-url-format=")
+	// MDDB flags
+	case strings.HasPrefix(arg, "--mddb-url="):
+		cfg.Mddb.URL = strings.TrimPrefix(arg, "--mddb-url=")
+		cfg.Mddb.Enabled = true
+	case strings.HasPrefix(arg, "--mddb-key="):
+		cfg.Mddb.APIKey = strings.TrimPrefix(arg, "--mddb-key=")
+	case strings.HasPrefix(arg, "--mddb-collection="):
+		cfg.Mddb.Collection = strings.TrimPrefix(arg, "--mddb-collection=")
+	case strings.HasPrefix(arg, "--mddb-lang="):
+		cfg.Mddb.Lang = strings.TrimPrefix(arg, "--mddb-lang=")
+	case strings.HasPrefix(arg, "--mddb-timeout="):
+		if t, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-timeout=")); err == nil && t > 0 {
+			cfg.Mddb.Timeout = t
+		}
 	}
 }
 
@@ -398,6 +420,25 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 		return 1
 	case "--config":
 		return 1 // Skip, already processed
+	// MDDB flags
+	case "--mddb-url":
+		cfg.Mddb.URL = nextArg
+		cfg.Mddb.Enabled = true
+		return 1
+	case "--mddb-key":
+		cfg.Mddb.APIKey = nextArg
+		return 1
+	case "--mddb-collection":
+		cfg.Mddb.Collection = nextArg
+		return 1
+	case "--mddb-lang":
+		cfg.Mddb.Lang = nextArg
+		return 1
+	case "--mddb-timeout":
+		if t, err := strconv.Atoi(nextArg); err == nil && t > 0 {
+			cfg.Mddb.Timeout = t
+		}
+		return 1
 	}
 	return 0
 }
@@ -577,6 +618,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Usage: ssg <source> <template> <domain> [options]")
 	fmt.Println("       ssg --config .ssg.yaml")
+	fmt.Println("       ssg --mddb-url=http://localhost:8080 --mddb-collection=blog <template> <domain>")
 	fmt.Println("")
 	fmt.Println("Arguments:")
 	fmt.Println("  source    - Content source folder name (inside content-dir)")
@@ -592,6 +634,13 @@ func printUsage() {
 	fmt.Println("                           Available: go, pongo2 (jinja2), mustache, handlebars")
 	fmt.Println("  --online-theme=URL     - Download theme from URL (GitHub, GitLab, or direct ZIP)")
 	fmt.Println("                           Example: --online-theme=https://github.com/user/hugo-theme")
+	fmt.Println("")
+	fmt.Println("MDDB Content Source (https://github.com/tradik/mddb):")
+	fmt.Println("  --mddb-url=URL         - MDDB server URL (enables mddb mode)")
+	fmt.Println("  --mddb-collection=NAME - Collection name for pages/posts")
+	fmt.Println("  --mddb-key=KEY         - API key for authentication (optional)")
+	fmt.Println("  --mddb-lang=LANG       - Language filter (e.g., en_US, pl_PL)")
+	fmt.Println("  --mddb-timeout=SEC     - Request timeout in seconds (default: 30)")
 	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")
@@ -636,4 +685,12 @@ func printUsage() {
 	fmt.Println("  ssg my-site mytheme example.com --engine=pongo2")
 	fmt.Println("  ssg my-site themename example.com --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("  ssg --config .ssg.yaml --http --watch")
+	fmt.Println("")
+	fmt.Println("MDDB Examples:")
+	fmt.Println("  # Fetch content from MDDB server")
+	fmt.Println("  ssg --mddb-url=http://localhost:8080 --mddb-collection=blog krowy example.com")
+	fmt.Println("")
+	fmt.Println("  # With language filter and API key")
+	fmt.Println("  ssg --mddb-url=https://mddb.example.com --mddb-collection=site \\")
+	fmt.Println("      --mddb-lang=en_US --mddb-key=secret krowy example.com")
 }
