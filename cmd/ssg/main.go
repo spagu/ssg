@@ -378,6 +378,10 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		if t, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-timeout=")); err == nil && t > 0 {
 			cfg.Mddb.Timeout = t
 		}
+	case strings.HasPrefix(arg, "--mddb-batch-size="):
+		if b, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-batch-size=")); err == nil && b > 0 {
+			cfg.Mddb.BatchSize = b
+		}
 	}
 }
 
@@ -437,6 +441,11 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 	case "--mddb-timeout":
 		if t, err := strconv.Atoi(nextArg); err == nil && t > 0 {
 			cfg.Mddb.Timeout = t
+		}
+		return 1
+	case "--mddb-batch-size":
+		if b, err := strconv.Atoi(nextArg); err == nil && b > 0 {
+			cfg.Mddb.BatchSize = b
 		}
 		return 1
 	}
@@ -641,6 +650,7 @@ func printUsage() {
 	fmt.Println("  --mddb-key=KEY         - API key for authentication (optional)")
 	fmt.Println("  --mddb-lang=LANG       - Language filter (e.g., en_US, pl_PL)")
 	fmt.Println("  --mddb-timeout=SEC     - Request timeout in seconds (default: 30)")
+	fmt.Println("  --mddb-batch-size=N    - Batch size for pagination (default: 1000)")
 	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")

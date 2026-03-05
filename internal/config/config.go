@@ -35,6 +35,7 @@ type MddbConfig struct {
 	Collection string `yaml:"collection" toml:"collection" json:"collection"` // Collection name for content
 	Lang       string `yaml:"lang" toml:"lang" json:"lang"`                   // Language filter (e.g., "en_US")
 	Timeout    int    `yaml:"timeout" toml:"timeout" json:"timeout"`          // Request timeout in seconds
+	BatchSize  int    `yaml:"batch_size" toml:"batch_size" json:"batch_size"` // Batch size for pagination (default: 1000)
 }
 
 // Config represents all SSG configuration options
@@ -98,7 +99,8 @@ func DefaultConfig() *Config {
 		Port:         8888,
 		WebPQuality:  60,
 		Mddb: MddbConfig{
-			Timeout: 30,
+			Timeout:   30,
+			BatchSize: 1000,
 		},
 	}
 }

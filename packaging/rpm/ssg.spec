@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.6.1
+Version:        1.6.2
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
@@ -38,6 +38,10 @@ install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/%{name}/CHANGELOG.md
 %{_bindir}/ssg
 
 %changelog
+* Wed Mar 05 2026 spagu <spagu@github.com> - 1.6.2-1
+- Added configurable batch_size for MDDB pagination (--mddb-batch-size)
+- Fixed GetByType to fetch all documents with pagination (was limited to 1000)
+
 * Wed Mar 05 2026 spagu <spagu@github.com> - 1.6.1-1
 - Fixed MDDB client to match actual API format (contentMd, meta, addedAt/updatedAt)
 - Fixed install.sh download URL pattern

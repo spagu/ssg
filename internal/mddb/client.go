@@ -17,13 +17,15 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	apiKey     string
+	batchSize  int
 }
 
 // Config holds mddb client configuration
 type Config struct {
-	BaseURL string // Base URL of mddb server (e.g., "http://localhost:8080")
-	APIKey  string // Optional API key for authentication
-	Timeout int    // Timeout in seconds (default: 30)
+	BaseURL   string // Base URL of mddb server (e.g., "http://localhost:8080")
+	APIKey    string // Optional API key for authentication
+	Timeout   int    // Timeout in seconds (default: 30)
+	BatchSize int    // Batch size for pagination (default: 1000)
 }
 
 // Document represents a markdown document from mddb
@@ -104,6 +106,11 @@ func NewClient(cfg Config) *Client {
 		timeout = 30
 	}
 
+	batchSize := cfg.BatchSize
+	if batchSize <= 0 {
+		batchSize = 1000
+	}
+
 	baseURL := strings.TrimSuffix(cfg.BaseURL, "/")
 
 	return &Client{
@@ -111,7 +118,8 @@ func NewClient(cfg Config) *Client {
 		httpClient: &http.Client{
 			Timeout: time.Duration(timeout) * time.Second,
 		},
-		apiKey: cfg.APIKey,
+		apiKey:    cfg.APIKey,
+		batchSize: batchSize,
 	}
 }
 
@@ -183,7 +191,7 @@ func (c *Client) Search(req SearchRequest) ([]Document, int, error) {
 // GetAll fetches all documents from a collection with pagination
 func (c *Client) GetAll(collection string, lang string, batchSize int) ([]Document, error) {
 	if batchSize <= 0 {
-		batchSize = 100
+		batchSize = c.batchSize
 	}
 
 	var allDocs []Document
@@ -213,22 +221,38 @@ func (c *Client) GetAll(collection string, lang string, batchSize int) ([]Docume
 	return allDocs, nil
 }
 
-// GetByType fetches documents filtered by type (page or post)
+// GetByType fetches all documents filtered by type (page or post) with pagination
 func (c *Client) GetByType(collection string, docType string, lang string) ([]Document, error) {
-	req := SearchRequest{
-		Collection: collection,
-		FilterMeta: map[string][]any{
-			"type": {docType},
-		},
-		Limit: 1000, // Reasonable default for most sites
+	batchSize := c.batchSize
+
+	var allDocs []Document
+	offset := 0
+
+	for {
+		req := SearchRequest{
+			Collection: collection,
+			FilterMeta: map[string][]any{
+				"type": {docType},
+			},
+			Limit:  batchSize,
+			Offset: offset,
+		}
+
+		docs, total, err := c.Search(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
+		}
+
+		allDocs = append(allDocs, docs...)
+
+		if len(allDocs) >= total || len(docs) < batchSize {
+			break
+		}
+
+		offset += batchSize
 	}
 
-	docs, _, err := c.Search(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return docs, nil
+	return allDocs, nil
 }
 
 // Health checks if the mddb server is available

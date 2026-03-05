@@ -46,6 +46,7 @@ type MddbConfig struct {
 	Collection string // Collection name for content
 	Lang       string // Language filter (e.g., "en_US")
 	Timeout    int    // Request timeout in seconds
+	BatchSize  int    // Batch size for pagination (default: 1000)
 }
 
 // Config holds generator configuration
@@ -287,9 +288,10 @@ func (g *Generator) loadContentFromFiles() error {
 // loadContentFromMddb loads content from mddb server
 func (g *Generator) loadContentFromMddb() error {
 	client := mddb.NewClient(mddb.Config{
-		BaseURL: g.config.Mddb.URL,
-		APIKey:  g.config.Mddb.APIKey,
-		Timeout: g.config.Mddb.Timeout,
+		BaseURL:   g.config.Mddb.URL,
+		APIKey:    g.config.Mddb.APIKey,
+		Timeout:   g.config.Mddb.Timeout,
+		BatchSize: g.config.Mddb.BatchSize,
 	})
 
 	// Check server health

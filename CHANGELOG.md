@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-03-05
+
+### Added
+- ✨ **MDDB Batch Size** - Configurable batch size for pagination
+  - CLI flag: `--mddb-batch-size=N` (default: 1000)
+  - YAML config: `mddb.batch_size`
+  - Removed hardcoded 1000 limit in `GetByType` - now fetches all documents with pagination
+
 ## [1.6.1] - 2026-03-05
 
 ### Fixed
