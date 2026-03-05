@@ -7,7 +7,7 @@ License:        BSD-3-Clause
 URL:            https://github.com/spagu/ssg
 Source0:        https://github.com/spagu/ssg/archive/refs/tags/v%{version}.tar.gz
 
-BuildRequires:  golang >= 1.21
+BuildRequires:  golang >= 1.26
 BuildRequires:  git
 
 %description
