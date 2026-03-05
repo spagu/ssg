@@ -18,6 +18,7 @@ import (
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/theme"
 	"github.com/spagu/ssg/internal/webp"
@@ -74,7 +75,9 @@ func runInitialBuild(genCfg generator.Config, cfg *config.Config) bool {
 
 // runWatchOrServe handles watch mode loop or HTTP server blocking
 func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
-	if cfg.Watch {
+	if cfg.Mddb.Watch && cfg.Mddb.Enabled {
+		runMddbWatchLoop(genCfg, cfg)
+	} else if cfg.Watch {
 		runWatchLoop(genCfg, cfg)
 	} else if cfg.HTTP {
 		select {}
@@ -92,6 +95,66 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		time.Sleep(1 * time.Second)
 		if hasChanges([]string{cfg.ContentDir, cfg.TemplatesDir}, lastBuild) {
 			lastBuild = rebuildOnChange(genCfg, cfg)
+		}
+	}
+}
+
+// runMddbWatchLoop continuously polls MDDB checksum and rebuilds on changes
+func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
+	client, err := mddb.NewMddbClient(mddb.ClientConfig{
+		URL:       cfg.Mddb.URL,
+		Protocol:  cfg.Mddb.Protocol,
+		APIKey:    cfg.Mddb.APIKey,
+		Timeout:   cfg.Mddb.Timeout,
+		BatchSize: cfg.Mddb.BatchSize,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Error creating MDDB client: %v\n", err)
+		return
+	}
+
+	interval := cfg.Mddb.WatchInterval
+	if interval <= 0 {
+		interval = 30
+	}
+
+	if !cfg.Quiet {
+		fmt.Printf("👀 Watching MDDB collection '%s' for changes (interval: %ds)...\n",
+			cfg.Mddb.Collection, interval)
+	}
+
+	var lastChecksum string
+
+	// Get initial checksum
+	checksumResp, err := client.Checksum(cfg.Mddb.Collection)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Could not get initial checksum: %v\n", err)
+	} else {
+		lastChecksum = checksumResp.Checksum
+		if !cfg.Quiet {
+			fmt.Printf("   📋 Initial checksum: %s (%d documents)\n",
+				lastChecksum, checksumResp.DocumentCount)
+		}
+	}
+
+	for {
+		time.Sleep(time.Duration(interval) * time.Second)
+
+		checksumResp, err := client.Checksum(cfg.Mddb.Collection)
+		if err != nil {
+			if !cfg.Quiet {
+				fmt.Fprintf(os.Stderr, "⚠️  Checksum check failed: %v\n", err)
+			}
+			continue
+		}
+
+		if checksumResp.Checksum != lastChecksum {
+			if !cfg.Quiet {
+				fmt.Printf("\n🔄 MDDB content changed! Checksum: %s → %s (%d docs)\n",
+					lastChecksum, checksumResp.Checksum, checksumResp.DocumentCount)
+			}
+			lastChecksum = checksumResp.Checksum
+			rebuildOnChange(genCfg, cfg)
 		}
 	}
 }
@@ -244,12 +307,16 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Quiet:         cfg.Quiet,
 		Engine:        cfg.Engine,
 		Mddb: generator.MddbConfig{
-			Enabled:    cfg.Mddb.Enabled,
-			URL:        cfg.Mddb.URL,
-			APIKey:     cfg.Mddb.APIKey,
-			Collection: cfg.Mddb.Collection,
-			Lang:       cfg.Mddb.Lang,
-			Timeout:    cfg.Mddb.Timeout,
+			Enabled:       cfg.Mddb.Enabled,
+			URL:           cfg.Mddb.URL,
+			Protocol:      cfg.Mddb.Protocol,
+			APIKey:        cfg.Mddb.APIKey,
+			Collection:    cfg.Mddb.Collection,
+			Lang:          cfg.Mddb.Lang,
+			Timeout:       cfg.Mddb.Timeout,
+			BatchSize:     cfg.Mddb.BatchSize,
+			Watch:         cfg.Mddb.Watch,
+			WatchInterval: cfg.Mddb.WatchInterval,
 		},
 	}
 }
@@ -382,6 +449,17 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		if b, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-batch-size=")); err == nil && b > 0 {
 			cfg.Mddb.BatchSize = b
 		}
+	case strings.HasPrefix(arg, "--mddb-protocol="):
+		protocol := strings.TrimPrefix(arg, "--mddb-protocol=")
+		if protocol == "http" || protocol == "grpc" {
+			cfg.Mddb.Protocol = protocol
+		}
+	case arg == "--mddb-watch":
+		cfg.Mddb.Watch = true
+	case strings.HasPrefix(arg, "--mddb-watch-interval="):
+		if i, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-watch-interval=")); err == nil && i > 0 {
+			cfg.Mddb.WatchInterval = i
+		}
 	}
 }
 
@@ -446,6 +524,16 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 	case "--mddb-batch-size":
 		if b, err := strconv.Atoi(nextArg); err == nil && b > 0 {
 			cfg.Mddb.BatchSize = b
+		}
+		return 1
+	case "--mddb-protocol":
+		if nextArg == "http" || nextArg == "grpc" {
+			cfg.Mddb.Protocol = nextArg
+		}
+		return 1
+	case "--mddb-watch-interval":
+		if i, err := strconv.Atoi(nextArg); err == nil && i > 0 {
+			cfg.Mddb.WatchInterval = i
 		}
 		return 1
 	}
@@ -646,11 +734,16 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("MDDB Content Source (https://github.com/tradik/mddb):")
 	fmt.Println("  --mddb-url=URL         - MDDB server URL (enables mddb mode)")
+	fmt.Println("                           HTTP: http://localhost:11023")
+	fmt.Println("                           gRPC: localhost:11024")
+	fmt.Println("  --mddb-protocol=PROTO  - Connection protocol: http (default) or grpc")
 	fmt.Println("  --mddb-collection=NAME - Collection name for pages/posts")
 	fmt.Println("  --mddb-key=KEY         - API key for authentication (optional)")
 	fmt.Println("  --mddb-lang=LANG       - Language filter (e.g., en_US, pl_PL)")
 	fmt.Println("  --mddb-timeout=SEC     - Request timeout in seconds (default: 30)")
 	fmt.Println("  --mddb-batch-size=N    - Batch size for pagination (default: 1000)")
+	fmt.Println("  --mddb-watch           - Watch MDDB for changes and rebuild automatically")
+	fmt.Println("  --mddb-watch-interval=SEC - Watch interval in seconds (default: 30)")
 	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")
@@ -697,8 +790,11 @@ func printUsage() {
 	fmt.Println("  ssg --config .ssg.yaml --http --watch")
 	fmt.Println("")
 	fmt.Println("MDDB Examples:")
-	fmt.Println("  # Fetch content from MDDB server")
-	fmt.Println("  ssg --mddb-url=http://localhost:8080 --mddb-collection=blog krowy example.com")
+	fmt.Println("  # Fetch content from MDDB server (HTTP)")
+	fmt.Println("  ssg --mddb-url=http://localhost:11023 --mddb-collection=blog krowy example.com")
+	fmt.Println("")
+	fmt.Println("  # Use gRPC connection (faster)")
+	fmt.Println("  ssg --mddb-url=localhost:11024 --mddb-protocol=grpc --mddb-collection=blog krowy example.com")
 	fmt.Println("")
 	fmt.Println("  # With language filter and API key")
 	fmt.Println("  ssg --mddb-url=https://mddb.example.com --mddb-collection=site \\")

@@ -1,0 +1,635 @@
+syntax = "proto3";
+
+package mddb;
+
+option go_package = "github.com/spagu/ssg/internal/mddb/proto";
+
+// MDDB Service - gRPC API for Markdown Database
+service MDDB {
+  // Add or update a document
+  rpc Add(AddRequest) returns (Document);
+  
+  // Add or update multiple documents in a single transaction (batch)
+  rpc AddBatch(AddBatchRequest) returns (AddBatchResponse);
+  
+  // Delete multiple documents in a single transaction (batch)
+  rpc DeleteBatch(DeleteBatchRequest) returns (DeleteBatchResponse);
+  
+  // Update multiple documents in a single transaction (batch)
+  rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
+  
+  // Get a document by key and language
+  rpc Get(GetRequest) returns (Document);
+  
+  // Search documents with filters
+  rpc Search(SearchRequest) returns (SearchResponse);
+  
+  // Export documents (streaming)
+  rpc Export(ExportRequest) returns (stream ExportChunk);
+  
+  // Create database backup
+  rpc Backup(BackupRequest) returns (BackupResponse);
+  
+  // Restore database from backup
+  rpc Restore(RestoreRequest) returns (RestoreResponse);
+  
+  // Truncate revision history
+  rpc Truncate(TruncateRequest) returns (TruncateResponse);
+  
+  // Get server statistics
+  rpc Stats(StatsRequest) returns (StatsResponse);
+
+  // Vector/semantic search using embeddings
+  rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+
+  // Reindex embeddings for a collection
+  rpc VectorReindex(VectorReindexRequest) returns (VectorReindexResponse);
+
+  // Get vector/embedding statistics
+  rpc VectorStats(VectorStatsRequest) returns (VectorStatsResponse);
+
+  // Import document from URL
+  rpc ImportURL(ImportURLRequest) returns (Document);
+
+  // Set TTL on a document
+  rpc SetTTL(SetTTLRequest) returns (Document);
+
+  // Full-text search
+  rpc FTS(FTSRequest) returns (FTSResponse);
+
+  // Hybrid search (combines FTS + vector search)
+  rpc HybridSearch(HybridSearchRequest) returns (HybridSearchResponse);
+
+  // Register a webhook
+  rpc RegisterWebhook(RegisterWebhookRequest) returns (WebhookProto);
+
+  // List webhooks
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+
+  // Delete a webhook
+  rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
+
+  // Set JSON Schema for a collection's metadata validation
+  rpc SetSchema(SetSchemaRequest) returns (SetSchemaResponse);
+
+  // Get JSON Schema for a collection
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+
+  // Delete JSON Schema for a collection (disables validation)
+  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+
+  // List all collection schemas
+  rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
+
+  // Validate document metadata against collection schema
+  rpc ValidateDocument(ValidateDocumentRequest) returns (ValidateDocumentResponse);
+
+  // Partial document update (meta and/or content independently)
+  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+
+  // Get document metadata only (without content)
+  rpc GetDocumentMeta(GetDocumentMetaRequest) returns (GetDocumentMetaResponse);
+
+  // Zero-shot document classification using embedding similarity
+  rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+}
+
+// Document represents a markdown document
+message Document {
+  string id = 1;
+  string key = 2;
+  string lang = 3;
+  map<string, MetaValues> meta = 4;
+  string content_md = 5;
+  int64 added_at = 6;
+  int64 updated_at = 7;
+  int64 expires_at = 8;
+}
+
+// MetaValues holds multiple values for a metadata key
+message MetaValues {
+  repeated string values = 1;
+}
+
+// Add/Update document request
+message AddRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  map<string, MetaValues> meta = 4;
+  string content_md = 5;
+  bool save_revision = 6;  // Optional: save revision history (default: false)
+  int64 ttl = 7;           // Optional: time-to-live in seconds (0 = no expiry)
+}
+
+// Batch add request
+message AddBatchRequest {
+  string collection = 1;
+  repeated BatchDocument documents = 2;
+}
+
+// Document for batch operations
+message BatchDocument {
+  string key = 1;
+  string lang = 2;
+  map<string, MetaValues> meta = 3;
+  string content_md = 4;
+  bool save_revision = 5;  // Optional: save revision history (default: false)
+}
+
+// Batch add response
+message AddBatchResponse {
+  int32 added = 1;
+  int32 updated = 2;
+  int32 failed = 3;
+  repeated string errors = 4; // Error messages for failed documents
+}
+
+// Get document request
+message GetRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  map<string, string> env = 4; // Template variables
+}
+
+// Search request
+message SearchRequest {
+  string collection = 1;
+  map<string, MetaValues> filter_meta = 2;
+  string sort = 3; // addedAt, updatedAt, key
+  bool asc = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+// Search response
+message SearchResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+}
+
+// Export request
+message ExportRequest {
+  string collection = 1;
+  map<string, MetaValues> filter_meta = 2;
+  string format = 3; // ndjson, zip
+}
+
+// Export chunk (streaming)
+message ExportChunk {
+  bytes data = 1;
+  bool is_last = 2;
+}
+
+// Backup request
+message BackupRequest {
+  string to = 1; // Backup filename
+}
+
+// Backup response
+message BackupResponse {
+  string backup = 1;
+}
+
+// Restore request
+message RestoreRequest {
+  string from = 1; // Backup filename
+}
+
+// Restore response
+message RestoreResponse {
+  string restored = 1;
+}
+
+// Truncate request
+message TruncateRequest {
+  string collection = 1;
+  int32 keep_revs = 2;
+  bool drop_cache = 3;
+}
+
+// Truncate response
+message TruncateResponse {
+  string status = 1;
+}
+
+// Stats request
+message StatsRequest {
+  // Empty - no parameters needed
+}
+
+// Stats response
+message StatsResponse {
+  string database_path = 1;
+  int64 database_size = 2;
+  string mode = 3;
+  repeated CollectionStats collections = 4;
+  int32 total_documents = 5;
+  int32 total_revisions = 6;
+  int32 total_meta_indices = 7;
+}
+
+// Collection statistics
+message CollectionStats {
+  string name = 1;
+  int32 document_count = 2;
+  int32 revision_count = 3;
+  int32 meta_index_count = 4;
+}
+
+// Delete batch request
+message DeleteBatchRequest {
+  string collection = 1;
+  repeated DeleteDocument documents = 2;
+}
+
+// Document to delete
+message DeleteDocument {
+  string key = 1;
+  string lang = 2;
+}
+
+// Delete batch response
+message DeleteBatchResponse {
+  int32 deleted = 1;
+  int32 not_found = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// Update batch request
+message UpdateBatchRequest {
+  string collection = 1;
+  repeated UpdateDocument documents = 2;
+}
+
+// Document to update
+message UpdateDocument {
+  string key = 1;
+  string lang = 2;
+  map<string, MetaValues> meta = 3;
+  string content_md = 4;
+  bool save_revision = 5;
+}
+
+// Update batch response
+message UpdateBatchResponse {
+  int32 updated = 1;
+  int32 not_found = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// --- Vector search messages ---
+
+// Vector search request
+message VectorSearchRequest {
+  string collection = 1;
+  string query = 2;                              // text query (will be embedded server-side)
+  repeated float query_vector = 3;               // OR pre-computed vector
+  int32 top_k = 4;                               // number of results (default: 5)
+  double threshold = 5;                          // minimum similarity 0-1 (default: 0.0)
+  map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
+  bool include_content = 7;                      // include full content_md in results
+  string algorithm = 8;                          // "flat" (default), "hnsw", "ivf", "pq"
+}
+
+// Vector search result
+message VectorSearchResult {
+  Document document = 1;
+  float score = 2;
+  int32 rank = 3;
+}
+
+// Vector search response
+message VectorSearchResponse {
+  repeated VectorSearchResult results = 1;
+  int32 total = 2;
+  string model = 3;
+  int32 dimensions = 4;
+  string algorithm = 5;                          // algorithm used for this search
+}
+
+// Vector reindex request
+message VectorReindexRequest {
+  string collection = 1;
+  bool force = 2;  // re-embed even if content hash matches
+}
+
+// Vector reindex response
+message VectorReindexResponse {
+  int32 embedded = 1;
+  int32 skipped = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// Vector stats request
+message VectorStatsRequest {}
+
+// Vector stats response
+message VectorStatsResponse {
+  string provider = 1;
+  string model = 2;
+  int32 dimensions = 3;
+  bool enabled = 4;
+  map<string, VectorCollectionStats> collections = 5;
+}
+
+// Vector collection stats
+message VectorCollectionStats {
+  int32 total_documents = 1;
+  int32 embedded_documents = 2;
+  int32 stale_embeddings = 3;
+}
+
+// --- Import URL ---
+
+message ImportURLRequest {
+  string collection = 1;
+  string url = 2;
+  string key = 3;           // optional: derived from URL if empty
+  string lang = 4;
+  map<string, MetaValues> meta = 5;
+  int64 ttl = 6;
+}
+
+// --- TTL ---
+
+message SetTTLRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  int64 ttl = 4;  // seconds; 0 = remove TTL
+}
+
+// --- Full-text search ---
+
+message FTSRequest {
+  string collection = 1;
+  string query = 2;
+  int32 limit = 3;
+  string algorithm = 4;                          // "tfidf" (default) or "bm25"
+  int32 fuzzy = 5;                               // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+  map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
+}
+
+message FTSResult {
+  Document document = 1;
+  double score = 2;
+  repeated string matched_terms = 3;
+}
+
+message FTSResponse {
+  repeated FTSResult results = 1;
+  int32 total = 2;
+  string algorithm = 3;                          // algorithm used for this search
+  int32 fuzzy = 4;                               // typo tolerance level used
+}
+
+// --- Hybrid search ---
+
+// Hybrid search request - combines FTS and vector search
+message HybridSearchRequest {
+  string collection = 1;
+  string query = 2;
+  int32 top_k = 3;
+  string algorithm = 4;                          // FTS algorithm: "bm25" (default), "bm25f"
+  string vector_algorithm = 5;                   // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "sq"
+  double alpha = 6;                              // weight for alpha blending: 0=keyword only, 1=semantic only
+  string strategy = 7;                           // "alpha" (default) or "rrf"
+  int32 rrf_k = 8;                               // RRF parameter k (default 60)
+  int32 fuzzy = 9;
+  double threshold = 10;
+  map<string, MetaValues> filter_meta = 11;
+  bool include_content = 12;
+  map<string, double> field_weights = 13;
+}
+
+message HybridSearchResult {
+  Document document = 1;
+  double combined_score = 2;
+  double fts_score = 3;
+  double vector_score = 4;
+  repeated string matched_terms = 5;
+  int32 rank = 6;
+}
+
+message HybridSearchResponse {
+  repeated HybridSearchResult results = 1;
+  int32 total = 2;
+  string strategy = 3;
+  string fts_algorithm = 4;
+  string vector_algorithm = 5;
+}
+
+// --- Webhooks ---
+
+message WebhookProto {
+  string id = 1;
+  string url = 2;
+  repeated string events = 3;
+  string collection = 4;
+  int64 created_at = 5;
+}
+
+message RegisterWebhookRequest {
+  string url = 1;
+  repeated string events = 2;
+  string collection = 3;
+}
+
+message ListWebhooksRequest {}
+
+message ListWebhooksResponse {
+  repeated WebhookProto webhooks = 1;
+}
+
+message DeleteWebhookRequest {
+  string id = 1;
+}
+
+message DeleteWebhookResponse {
+  string status = 1;
+  string id = 2;
+}
+
+// --- Schema Validation ---
+
+message SetSchemaRequest {
+  string collection = 1;
+  string schema = 2;  // JSON Schema string
+}
+
+message SetSchemaResponse {
+  string status = 1;
+}
+
+message GetSchemaRequest {
+  string collection = 1;
+}
+
+message GetSchemaResponse {
+  string collection = 1;
+  string schema = 2;
+  bool enabled = 3;
+}
+
+message DeleteSchemaRequest {
+  string collection = 1;
+}
+
+message DeleteSchemaResponse {
+  string status = 1;
+}
+
+message ListSchemasRequest {}
+
+message ListSchemasResponse {
+  repeated SchemaInfo schemas = 1;
+}
+
+message SchemaInfo {
+  string collection = 1;
+  string schema = 2;
+}
+
+message ValidateDocumentRequest {
+  string collection = 1;
+  map<string, MetaValues> meta = 2;
+}
+
+message ValidateDocumentResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+}
+
+// --- Partial Update ---
+
+message UpdateDocumentRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  map<string, MetaValues> meta = 4;
+  string content_md = 5;
+  int64 ttl = 6;
+  bool update_meta = 7;     // explicit flag: should meta be updated?
+  bool update_content = 8;  // explicit flag: should content be updated?
+  bool update_ttl = 9;      // explicit flag: should TTL be updated?
+}
+
+message GetDocumentMetaRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+}
+
+message GetDocumentMetaResponse {
+  string key = 1;
+  string lang = 2;
+  map<string, MetaValues> meta = 3;
+  int64 added_at = 4;
+  int64 updated_at = 5;
+  int64 expires_at = 6;
+}
+
+// --- Zero-shot Classification ---
+
+message ClassifyRequest {
+  string collection = 1;          // Collection name (for doc reference)
+  string key = 2;                 // Document key (for doc reference)
+  string lang = 3;                // Language code (for doc reference)
+  string text = 4;                // Raw text to classify (alternative to doc reference)
+  repeated string labels = 5;     // Candidate labels (required)
+  int32 top_k = 6;                // Return top K labels (0 = all)
+  bool multi = 7;                 // If true, return all labels above threshold
+  double threshold = 8;           // Minimum similarity score (default: 0.0)
+}
+
+message ClassifyLabelScore {
+  string label = 1;
+  double score = 2;
+}
+
+message ClassifyResponse {
+  repeated ClassifyLabelScore results = 1;
+  string model = 2;               // Embedding model used
+  int32 dimensions = 3;           // Embedding dimensions
+}
+
+// ---- Replication Service ----
+
+service MDDBReplication {
+  // RequestSnapshot streams a full database snapshot to a follower
+  rpc RequestSnapshot(SnapshotRequest) returns (stream SnapshotChunk);
+
+  // StreamBinlog streams binlog entries from a given LSN (long-lived server-stream)
+  rpc StreamBinlog(StreamBinlogRequest) returns (stream BinlogEntryProto);
+
+  // ReplicationStatus returns the current replication state of this node
+  rpc ReplicationStatus(ReplicationStatusRequest) returns (ReplicationStatusResponse);
+
+  // AcknowledgeLSN allows a follower to confirm it has applied up to a given LSN
+  rpc AcknowledgeLSN(AcknowledgeLSNRequest) returns (AcknowledgeLSNResponse);
+}
+
+message SnapshotRequest {
+  string follower_id = 1;
+  uint64 current_lsn = 2;
+}
+
+message SnapshotChunk {
+  bytes data = 1;
+  uint64 offset = 2;
+  uint64 total_size = 3;
+  bool is_last = 4;
+  uint64 snapshot_lsn = 5;
+}
+
+message StreamBinlogRequest {
+  string follower_id = 1;
+  uint64 from_lsn = 2;
+}
+
+message BinlogEntryProto {
+  uint64 lsn = 1;
+  uint32 type = 2;
+  int64 timestamp = 3;
+  string bucket_name = 4;
+  bytes key = 5;
+  bytes value = 6;
+  uint32 checksum = 7;
+}
+
+message ReplicationStatusRequest {}
+
+message ReplicationStatusResponse {
+  string node_id = 1;
+  string role = 2;
+  uint64 current_lsn = 3;
+  string leader_addr = 4;
+  int64 last_applied_at = 5;
+  repeated FollowerInfo followers = 6;
+  int64 replication_lag_ms = 7;
+  uint64 binlog_oldest_lsn = 8;
+  int64 binlog_size_bytes = 9;
+}
+
+message FollowerInfo {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+  int64 last_seen_at = 3;
+  string address = 4;
+  int64 lag_ms = 5;
+}
+
+message AcknowledgeLSNRequest {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+}
+
+message AcknowledgeLSNResponse {
+  bool ok = 1;
+  uint64 leader_lsn = 2;
+}

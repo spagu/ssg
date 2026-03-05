@@ -271,6 +271,35 @@ func (c *Client) Health() error {
 	return nil
 }
 
+// ChecksumResponse represents the response from /v1/checksum endpoint
+type ChecksumResponse struct {
+	Collection    string `json:"collection"`
+	Checksum      string `json:"checksum"`
+	DocumentCount int    `json:"documentCount"`
+}
+
+// Checksum returns the checksum for a collection (for change detection)
+func (c *Client) Checksum(collection string) (*ChecksumResponse, error) {
+	endpoint := fmt.Sprintf("/v1/checksum?collection=%s", collection)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("checksum request failed: %s", string(body))
+	}
+
+	var checksumResp ChecksumResponse
+	if err := json.NewDecoder(resp.Body).Decode(&checksumResp); err != nil {
+		return nil, fmt.Errorf("decoding checksum response: %w", err)
+	}
+
+	return &checksumResp, nil
+}
+
 // doRequest performs an HTTP request to the mddb server
 func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response, error) {
 	url := c.baseURL + endpoint

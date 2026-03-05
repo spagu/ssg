@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.6.2
+Version:        1.7.0
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
@@ -38,7 +38,12 @@ install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/%{name}/CHANGELOG.md
 %{_bindir}/ssg
 
 %changelog
-* Wed Mar 05 2026 spagu <spagu@github.com> - 1.6.2-1
+* Wed Mar 05 2026 spagu <spagu@github.com> - 1.7.0-1
+- Added optional gRPC connection for MDDB (--mddb-protocol=grpc)
+- Added MDDB watch mode with checksum polling (--mddb-watch)
+- Refactored MDDB client to interface pattern
+
+* Wed Mar 05 2026 spagu <spagu@github.com> - 1.6.3-1
 - Added configurable batch_size for MDDB pagination (--mddb-batch-size)
 - Fixed GetByType to fetch all documents with pagination (was limited to 1000)
 

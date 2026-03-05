@@ -40,13 +40,16 @@ type Shortcode struct {
 
 // MddbConfig holds MDDB connection settings for generator
 type MddbConfig struct {
-	Enabled    bool   // Enable mddb as content source
-	URL        string // Base URL (e.g., "http://localhost:8080")
-	APIKey     string // Optional API key
-	Collection string // Collection name for content
-	Lang       string // Language filter (e.g., "en_US")
-	Timeout    int    // Request timeout in seconds
-	BatchSize  int    // Batch size for pagination (default: 1000)
+	Enabled       bool   // Enable mddb as content source
+	URL           string // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
+	Protocol      string // Connection protocol: "http" (default) or "grpc"
+	APIKey        string // Optional API key
+	Collection    string // Collection name for content
+	Lang          string // Language filter (e.g., "en_US")
+	Timeout       int    // Request timeout in seconds
+	BatchSize     int    // Batch size for pagination (default: 1000)
+	Watch         bool   // Enable watch mode for MDDB changes
+	WatchInterval int    // Watch interval in seconds (default: 30)
 }
 
 // Config holds generator configuration
@@ -287,12 +290,16 @@ func (g *Generator) loadContentFromFiles() error {
 
 // loadContentFromMddb loads content from mddb server
 func (g *Generator) loadContentFromMddb() error {
-	client := mddb.NewClient(mddb.Config{
-		BaseURL:   g.config.Mddb.URL,
+	client, err := mddb.NewMddbClient(mddb.ClientConfig{
+		URL:       g.config.Mddb.URL,
+		Protocol:  g.config.Mddb.Protocol,
 		APIKey:    g.config.Mddb.APIKey,
 		Timeout:   g.config.Mddb.Timeout,
 		BatchSize: g.config.Mddb.BatchSize,
 	})
+	if err != nil {
+		return fmt.Errorf("creating mddb client: %w", err)
+	}
 
 	// Check server health
 	if err := client.Health(); err != nil {
@@ -347,7 +354,7 @@ func (g *Generator) loadContentFromMddb() error {
 }
 
 // loadMetadataFromMddb loads categories, media, and users from mddb
-func (g *Generator) loadMetadataFromMddb(client *mddb.Client) error {
+func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	// Load categories
 	catDocs, err := client.GetAll("categories", g.config.Mddb.Lang, 100)
 	if err != nil {

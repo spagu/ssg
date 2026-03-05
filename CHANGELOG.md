@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-03-05
+
+### Added
+- ✨ **MDDB gRPC Support** - Optional gRPC connection alongside HTTP
+  - CLI flag: `--mddb-protocol=grpc` (default: `http`)
+  - YAML config: `mddb.protocol: "grpc"`
+  - gRPC port: 11024 (HTTP: 11023)
+  - Uses protobuf for faster serialization
+  - Full gRPC API generated from MDDB proto file
+- ✨ **MDDB Watch Mode** - Auto-rebuild on content changes
+  - CLI flags: `--mddb-watch`, `--mddb-watch-interval=SEC`
+  - YAML config: `mddb.watch: true`, `mddb.watch_interval: 30`
+  - Polls collection checksum and rebuilds when content changes
+  - Works with both HTTP and gRPC protocols
+
+### Changed
+- Refactored MDDB client to use interface pattern (supports HTTP and gRPC implementations)
+
 ## [1.6.2] - 2026-03-05
 
 ### Added

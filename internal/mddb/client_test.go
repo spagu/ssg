@@ -336,6 +336,53 @@ func TestClient_ErrorHandling(t *testing.T) {
 	})
 }
 
+func TestClient_Checksum(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			t.Errorf("Expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/v1/checksum" {
+			t.Errorf("Expected /v1/checksum, got %s", r.URL.Path)
+		}
+
+		// Check query parameter
+		collection := r.URL.Query().Get("collection")
+		if collection != "blog" {
+			t.Errorf("Expected collection=blog, got %s", collection)
+		}
+
+		resp := ChecksumResponse{
+			Collection:    "blog",
+			Checksum:      "a1b2c3d4",
+			DocumentCount: 42,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{BaseURL: server.URL})
+
+	checksumResp, err := client.Checksum("blog")
+
+	if err != nil {
+		t.Fatalf("Checksum() error = %v", err)
+	}
+
+	if checksumResp.Collection != "blog" {
+		t.Errorf("checksumResp.Collection = %v, want blog", checksumResp.Collection)
+	}
+
+	if checksumResp.Checksum != "a1b2c3d4" {
+		t.Errorf("checksumResp.Checksum = %v, want a1b2c3d4", checksumResp.Checksum)
+	}
+
+	if checksumResp.DocumentCount != 42 {
+		t.Errorf("checksumResp.DocumentCount = %v, want 42", checksumResp.DocumentCount)
+	}
+}
+
 func TestMddbDocument_ToDocument(t *testing.T) {
 	mddbDoc := mddbDocument{
 		ID:        "doc|blog|test|en_US",

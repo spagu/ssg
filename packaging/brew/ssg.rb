@@ -5,27 +5,27 @@
 class Ssg < Formula
   desc "Fast static site generator written in Go"
   homepage "https://github.com/spagu/ssg"
-  version "1.6.2"
+  version "1.7.0"
   license "BSD-3-Clause"
 
   on_macos do
     on_arm do
-      url "https://github.com/spagu/ssg/releases/download/v1.6.2/ssg-1.6.2-darwin-arm64.tar.gz"
+      url "https://github.com/spagu/ssg/releases/download/v1.7.0/ssg-1.7.0-darwin-arm64.tar.gz"
       sha256 "PLACEHOLDER_SHA256_DARWIN_ARM64"
     end
     on_intel do
-      url "https://github.com/spagu/ssg/releases/download/v1.6.2/ssg-1.6.2-darwin-amd64.tar.gz"
+      url "https://github.com/spagu/ssg/releases/download/v1.7.0/ssg-1.7.0-darwin-amd64.tar.gz"
       sha256 "PLACEHOLDER_SHA256_DARWIN_AMD64"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/spagu/ssg/releases/download/v1.6.2/ssg-1.6.2-linux-arm64.tar.gz"
+      url "https://github.com/spagu/ssg/releases/download/v1.7.0/ssg-1.7.0-linux-arm64.tar.gz"
       sha256 "PLACEHOLDER_SHA256_LINUX_ARM64"
     end
     on_intel do
-      url "https://github.com/spagu/ssg/releases/download/v1.6.2/ssg-1.6.2-linux-amd64.tar.gz"
+      url "https://github.com/spagu/ssg/releases/download/v1.7.0/ssg-1.7.0-linux-amd64.tar.gz"
       sha256 "PLACEHOLDER_SHA256_LINUX_AMD64"
     end
   end
