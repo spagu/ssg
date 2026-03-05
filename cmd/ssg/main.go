@@ -18,8 +18,8 @@ import (
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/engine"
-	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/generator"
+	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/theme"
 	"github.com/spagu/ssg/internal/webp"
 )

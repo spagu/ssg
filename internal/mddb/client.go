@@ -86,12 +86,12 @@ type GetRequest struct {
 
 // SearchRequest represents a request to search documents
 type SearchRequest struct {
-	Collection string             `json:"collection"`
-	FilterMeta map[string][]any   `json:"filterMeta,omitempty"`
-	Sort       string             `json:"sort,omitempty"`   // Field to sort by (e.g., "updatedAt")
-	Asc        bool               `json:"asc,omitempty"`    // Sort ascending
-	Limit      int                `json:"limit,omitempty"`  // Max results
-	Offset     int                `json:"offset,omitempty"` // Skip results
+	Collection string           `json:"collection"`
+	FilterMeta map[string][]any `json:"filterMeta,omitempty"`
+	Sort       string           `json:"sort,omitempty"`   // Field to sort by (e.g., "updatedAt")
+	Asc        bool             `json:"asc,omitempty"`    // Sort ascending
+	Limit      int              `json:"limit,omitempty"`  // Max results
+	Offset     int              `json:"offset,omitempty"` // Skip results
 }
 
 // ErrorResponse represents an error from MDDB
