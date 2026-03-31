@@ -4116,3 +4116,134 @@ Hello world`
 		t.Errorf("Expected SourceDir=%s, got %s", pagesDir, pages[0].SourceDir)
 	}
 }
+
+func TestGetOutputPaths(t *testing.T) {
+	tests := []struct {
+		name       string
+		pageFormat string
+		subPath    string
+		wantCount  int
+		wantFirst  string
+		wantLast   string
+	}{
+		{
+			name:      "directory format",
+			subPath:   "docs/introduction",
+			wantCount: 1,
+			wantFirst: "output/docs/introduction/index.html",
+		},
+		{
+			name:       "flat format",
+			pageFormat: "flat",
+			subPath:    "docs/introduction",
+			wantCount:  1,
+			wantFirst:  "output/docs/introduction.html",
+		},
+		{
+			name:       "both format",
+			pageFormat: "both",
+			subPath:    "docs/introduction",
+			wantCount:  2,
+			wantFirst:  "output/docs/introduction/index.html",
+			wantLast:   "output/docs/introduction.html",
+		},
+		{
+			name:      "empty page format defaults to directory",
+			subPath:   "about",
+			wantCount: 1,
+			wantFirst: "output/about/index.html",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := &Generator{config: Config{OutputDir: "output", PageFormat: tt.pageFormat}}
+			paths := gen.getOutputPaths(tt.subPath)
+			if len(paths) != tt.wantCount {
+				t.Fatalf("Expected %d paths, got %d: %v", tt.wantCount, len(paths), paths)
+			}
+			if paths[0] != tt.wantFirst {
+				t.Errorf("First path = %q, want %q", paths[0], tt.wantFirst)
+			}
+			if tt.wantLast != "" && paths[len(paths)-1] != tt.wantLast {
+				t.Errorf("Last path = %q, want %q", paths[len(paths)-1], tt.wantLast)
+			}
+		})
+	}
+}
+
+func TestGeneratePageFlatFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	page := models.Page{
+		Title:  "About",
+		Slug:   "about",
+		Type:   "page",
+		Status: "publish",
+	}
+
+	gen := &Generator{
+		config: Config{
+			OutputDir:  outputDir,
+			Domain:     "example.com",
+			PageFormat: "flat",
+			Quiet:      true,
+		},
+		siteData: &models.SiteData{Domain: "example.com"},
+		tmpl:     template.Must(template.New("page.html").Parse(`<html>{{.Page.Title}}</html>`)),
+	}
+
+	if err := gen.generatePage(page); err != nil {
+		t.Fatalf("generatePage flat failed: %v", err)
+	}
+
+	// Should create about.html, NOT about/index.html
+	if _, err := os.Stat(filepath.Join(outputDir, "about.html")); os.IsNotExist(err) {
+		t.Error("about.html should exist in flat mode")
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "about", "index.html")); !os.IsNotExist(err) {
+		t.Error("about/index.html should NOT exist in flat mode")
+	}
+}
+
+func TestGeneratePageBothFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	page := models.Page{
+		Title:  "About",
+		Slug:   "about",
+		Type:   "page",
+		Status: "publish",
+	}
+
+	gen := &Generator{
+		config: Config{
+			OutputDir:  outputDir,
+			Domain:     "example.com",
+			PageFormat: "both",
+			Quiet:      true,
+		},
+		siteData: &models.SiteData{Domain: "example.com"},
+		tmpl:     template.Must(template.New("page.html").Parse(`<html>{{.Page.Title}}</html>`)),
+	}
+
+	if err := gen.generatePage(page); err != nil {
+		t.Fatalf("generatePage both failed: %v", err)
+	}
+
+	// Both files should exist
+	if _, err := os.Stat(filepath.Join(outputDir, "about", "index.html")); os.IsNotExist(err) {
+		t.Error("about/index.html should exist in both mode")
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "about.html")); os.IsNotExist(err) {
+		t.Error("about.html should exist in both mode")
+	}
+}

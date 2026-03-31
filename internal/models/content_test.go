@@ -419,3 +419,56 @@ func TestMetadataUnmarshal(t *testing.T) {
 		t.Errorf("Expected 1 user, got %d", len(metadata.Users))
 	}
 }
+
+func TestGetURLWithPageFormat(t *testing.T) {
+	tests := []struct {
+		name    string
+		page    Page
+		wantURL string
+	}{
+		{
+			name:    "directory format (default)",
+			page:    Page{Slug: "about", Type: "page"},
+			wantURL: "/about/",
+		},
+		{
+			name:    "flat format page",
+			page:    Page{Slug: "about", Type: "page", PageFormat: "flat"},
+			wantURL: "/about.html",
+		},
+		{
+			name:    "both format uses directory URL",
+			page:    Page{Slug: "about", Type: "page", PageFormat: "both"},
+			wantURL: "/about/",
+		},
+		{
+			name:    "flat format post with date",
+			page:    Page{Slug: "hello", Type: "post", Date: time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC), PageFormat: "flat"},
+			wantURL: "/2026/03/30/hello.html",
+		},
+		{
+			name:    "flat format post with slug URL",
+			page:    Page{Slug: "hello", Type: "post", URLFormat: "slug", PageFormat: "flat"},
+			wantURL: "/hello.html",
+		},
+		{
+			name:    "directory format post with date",
+			page:    Page{Slug: "hello", Type: "post", Date: time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC)},
+			wantURL: "/2026/03/30/hello/",
+		},
+		{
+			name:    "link always takes priority over page format",
+			page:    Page{Slug: "about", Type: "page", Link: "https://example.com/custom/path", PageFormat: "flat"},
+			wantURL: "/custom/path/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.page.GetURL()
+			if got != tt.wantURL {
+				t.Errorf("GetURL() = %q, want %q", got, tt.wantURL)
+			}
+		})
+	}
+}

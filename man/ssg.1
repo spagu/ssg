@@ -128,6 +128,23 @@ Date-based URLs: \fB/YYYY/MM/DD/slug/\fR (default).
 SEO-friendly slug-only URLs: \fB/slug/\fR.
 .RE
 .TP
+.BR \-\-page\-format =\fIFMT
+Page output format. Controls how HTML files are generated. Options:
+.RS
+.TP
+.B directory
+Each page generates \fBslug/index.html\fR (default). URLs end with
+trailing slash: \fB/slug/\fR.
+.TP
+.B flat
+Each page generates \fBslug.html\fR. URLs include the extension:
+\fB/slug.html\fR.
+.TP
+.B both
+Generates both \fBslug/index.html\fR and \fBslug.html\fR for maximum
+compatibility. URLs use the directory form: \fB/slug/\fR.
+.RE
+.TP
 .B \-\-minify\-all
 Minify HTML, CSS, and JS output.
 .TP

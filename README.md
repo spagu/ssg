@@ -212,6 +212,7 @@ clean: true
 webp: true
 webp_quality: 80
 minify_all: true
+page_format: "directory"  # "directory" (slug/index.html), "flat" (slug.html), or "both"
 ```
 
 Example `.ssg.yaml` with MDDB:
@@ -260,6 +261,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--pretty-html` | Prettify HTML (remove all blank lines) |
 | `--relative-links` | Convert absolute URLs to relative links |
 | `--post-url-format=FMT` | Post URL format: `date` (default: `/YYYY/MM/DD/slug/`) or `slug` (`/slug/`) |
+| `--page-format=FMT` | Page output: `directory` (default: `slug/index.html`), `flat` (`slug.html`), `both` |
 | `--minify-all` | Minify HTML, CSS, and JS |
 | `--minify-html` | Minify HTML output |
 | `--minify-css` | Minify CSS output |

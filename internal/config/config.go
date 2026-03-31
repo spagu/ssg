@@ -71,6 +71,7 @@ type Config struct {
 	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
 	PrettyHTML    bool   `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
+	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"
 	RelativeLinks bool   `yaml:"relative_links" toml:"relative_links" json:"relative_links"`    // Convert absolute URLs to relative
 	MinifyAll     bool   `yaml:"minify_all" toml:"minify_all" json:"minify_all"`
 	MinifyHTML    bool   `yaml:"minify_html" toml:"minify_html" json:"minify_html"`

@@ -296,8 +296,8 @@ func TestConvertToRelativeLinksError(t *testing.T) {
 
 func TestLinkifyListItem(t *testing.T) {
 	pageLinks := map[string]string{
-		"About Us":   "/about/",
-		"Contact":    "/contact/",
+		"About Us":  "/about/",
+		"Contact":   "/contact/",
 		"Caf\u00e9": "/cafe/",
 	}
 

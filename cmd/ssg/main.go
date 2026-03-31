@@ -297,6 +297,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		RobotsOff:     cfg.RobotsOff,
 		PrettyHTML:    cfg.PrettyHTML,
 		PostURLFormat: cfg.PostURLFormat,
+		PageFormat:    cfg.PageFormat,
 		RelativeLinks: cfg.RelativeLinks,
 		Shortcodes:    shortcodes,
 		MinifyHTML:    cfg.MinifyHTML,
@@ -431,6 +432,11 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
 	case strings.HasPrefix(arg, "--post-url-format="):
 		cfg.PostURLFormat = strings.TrimPrefix(arg, "--post-url-format=")
+	case strings.HasPrefix(arg, "--page-format="):
+		pf := strings.TrimPrefix(arg, "--page-format=")
+		if pf == "directory" || pf == "flat" || pf == "both" {
+			cfg.PageFormat = pf
+		}
 	// MDDB flags
 	case strings.HasPrefix(arg, "--mddb-url="):
 		cfg.Mddb.URL = strings.TrimPrefix(arg, "--mddb-url=")
@@ -499,6 +505,11 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 		return 1
 	case "--post-url-format":
 		cfg.PostURLFormat = nextArg
+		return 1
+	case "--page-format":
+		if nextArg == "directory" || nextArg == "flat" || nextArg == "both" {
+			cfg.PageFormat = nextArg
+		}
 		return 1
 	case "--config":
 		return 1 // Skip, already processed
@@ -758,6 +769,10 @@ func printUsage() {
 	fmt.Println("  --relative-links       - Convert absolute URLs to relative links")
 	fmt.Println("  --post-url-format=FMT  - Post URL format: 'date' (default: /YYYY/MM/DD/slug/)")
 	fmt.Println("                           or 'slug' (/slug/ using slug or link field)")
+	fmt.Println("  --page-format=FMT      - Page output format:")
+	fmt.Println("                           'directory' (default: slug/index.html)")
+	fmt.Println("                           'flat' (slug.html)")
+	fmt.Println("                           'both' (slug/index.html AND slug.html)")
 	fmt.Println("  --minify-all           - Minify HTML, CSS, and JS")
 	fmt.Println("  --minify-html          - Minify HTML output")
 	fmt.Println("  --minify-css           - Minify CSS output")

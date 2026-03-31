@@ -23,6 +23,7 @@ robots_off: false    # Disable robots.txt generation
 pretty_html: false   # Prettify HTML (remove all blank lines)
 relative_links: false # Convert absolute URLs to relative links
 post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "slug" (/slug/)
+page_format: ""      # Page output: "directory" (slug/index.html), "flat" (slug.html), "both"
 minify_all: false    # Minify HTML, CSS, and JS
 minify_html: false   # Minify only HTML
 minify_css: false    # Minify only CSS

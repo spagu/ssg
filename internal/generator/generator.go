@@ -65,6 +65,7 @@ type Config struct {
 	RobotsOff     bool        // Disable robots.txt generation
 	PrettyHTML    bool        // Prettify HTML output (remove extra blank lines)
 	PostURLFormat string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
+	PageFormat    string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
 	RelativeLinks bool        // Convert absolute URLs to relative links
 	Shortcodes    []Shortcode // Shortcodes definitions
 	MinifyHTML    bool        // Minify HTML output
@@ -262,6 +263,10 @@ func (g *Generator) loadContentFromFiles() error {
 	if err != nil {
 		return fmt.Errorf("loading pages: %w", err)
 	}
+	// Set page format for pages
+	for i := range pages {
+		pages[i].PageFormat = g.config.PageFormat
+	}
 	g.siteData.Pages = pages
 
 	// Load posts
@@ -271,9 +276,10 @@ func (g *Generator) loadContentFromFiles() error {
 		return fmt.Errorf("loading posts: %w", err)
 	}
 
-	// Set URL format for posts based on config
+	// Set URL format and page format for posts based on config
 	for i := range posts {
 		posts[i].URLFormat = g.config.PostURLFormat
+		posts[i].PageFormat = g.config.PageFormat
 	}
 
 	g.siteData.Posts = posts
@@ -318,6 +324,9 @@ func (g *Generator) loadContentFromMddb() error {
 	if err != nil {
 		return fmt.Errorf("converting pages: %w", err)
 	}
+	for i := range pages {
+		pages[i].PageFormat = g.config.PageFormat
+	}
 	g.siteData.Pages = pages
 
 	// Load posts from mddb
@@ -331,9 +340,10 @@ func (g *Generator) loadContentFromMddb() error {
 		return fmt.Errorf("converting posts: %w", err)
 	}
 
-	// Set URL format for posts based on config
+	// Set URL format and page format for posts based on config
 	for i := range posts {
 		posts[i].URLFormat = g.config.PostURLFormat
+		posts[i].PageFormat = g.config.PageFormat
 	}
 
 	g.siteData.Posts = posts
@@ -915,6 +925,24 @@ func (g *Generator) generateIndex() error {
 	return g.renderTemplate("index.html", filepath.Join(g.config.OutputDir, "index.html"), data)
 }
 
+// getOutputPaths returns one or more output file paths based on PageFormat config.
+// "directory" (default): slug/index.html
+// "flat": slug.html
+// "both": slug/index.html AND slug.html
+func (g *Generator) getOutputPaths(subPath string) []string {
+	switch g.config.PageFormat {
+	case "flat":
+		return []string{filepath.Join(g.config.OutputDir, subPath+".html")}
+	case "both":
+		return []string{
+			filepath.Join(g.config.OutputDir, subPath, "index.html"),
+			filepath.Join(g.config.OutputDir, subPath+".html"),
+		}
+	default: // "directory" or empty
+		return []string{filepath.Join(g.config.OutputDir, subPath, "index.html")}
+	}
+}
+
 // generatePage generates a single page
 func (g *Generator) generatePage(page models.Page) error {
 	// Skip pages that would overwrite the main index.html
@@ -936,21 +964,27 @@ func (g *Generator) generatePage(page models.Page) error {
 		Domain: g.config.Domain,
 	}
 
-	outputPath := filepath.Join(g.config.OutputDir, outputSubPath, "index.html")
-	outputDir := filepath.Dir(outputPath)
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return err
-	}
+	outputPaths := g.getOutputPaths(outputSubPath)
+	for _, outputPath := range outputPaths {
+		outputDir := filepath.Dir(outputPath)
+		// #nosec G301 -- Web content directories need to be world-traversable
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return err
+		}
 
-	// Copy co-located assets (images, etc.) from content source directory
-	if page.SourceDir != "" {
-		if err := g.copyColocatedAssets(page.SourceDir, outputDir); err != nil {
-			fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
+		// Copy co-located assets only to the directory-style path (avoid duplicates)
+		if page.SourceDir != "" && strings.HasSuffix(outputPath, "index.html") {
+			if err := g.copyColocatedAssets(page.SourceDir, outputDir); err != nil {
+				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
+			}
+		}
+
+		if err := g.renderTemplate("page.html", outputPath, data); err != nil {
+			return err
 		}
 	}
 
-	return g.renderTemplate("page.html", outputPath, data)
+	return nil
 }
 
 // generatePost generates a single post
@@ -965,22 +999,27 @@ func (g *Generator) generatePost(post models.Page) error {
 		Domain: g.config.Domain,
 	}
 
-	// Create date-based URL structure: /YYYY/MM/DD/slug/
-	outputPath := filepath.Join(g.config.OutputDir, post.GetOutputPath(), "index.html")
-	outputDir := filepath.Dir(outputPath)
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return err
-	}
+	outputPaths := g.getOutputPaths(post.GetOutputPath())
+	for _, outputPath := range outputPaths {
+		outputDir := filepath.Dir(outputPath)
+		// #nosec G301 -- Web content directories need to be world-traversable
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			return err
+		}
 
-	// Copy co-located assets (images, etc.) from content source directory
-	if post.SourceDir != "" {
-		if err := g.copyColocatedAssets(post.SourceDir, outputDir); err != nil {
-			fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for post %s: %v\n", post.Slug, err)
+		// Copy co-located assets only to the directory-style path (avoid duplicates)
+		if post.SourceDir != "" && strings.HasSuffix(outputPath, "index.html") {
+			if err := g.copyColocatedAssets(post.SourceDir, outputDir); err != nil {
+				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for post %s: %v\n", post.Slug, err)
+			}
+		}
+
+		if err := g.renderTemplate("post.html", outputPath, data); err != nil {
+			return err
 		}
 	}
 
-	return g.renderTemplate("post.html", outputPath, data)
+	return nil
 }
 
 // generateCategories generates category listing pages

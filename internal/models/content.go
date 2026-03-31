@@ -55,6 +55,7 @@ type Page struct {
 	Excerpt    string    `yaml:"-"`
 	Content    string    `yaml:"-"`
 	URLFormat  string    `yaml:"-"` // URL format: "date" or "slug" (set by generator)
+	PageFormat string    `yaml:"-"` // Page output format: "directory", "flat", or "both" (set by generator)
 	SourceDir  string    `yaml:"-"` // Source directory path (for co-located asset copying)
 }
 
@@ -62,6 +63,7 @@ type Page struct {
 // Link field from frontmatter ALWAYS takes priority
 // Posts without Link: use URLFormat ("date" or "slug")
 // Pages without Link: use slug
+// PageFormat "flat" returns .html suffix, "directory"/"both" returns trailing slash
 func (p Page) GetURL() string {
 	// Link field ALWAYS takes priority (for both posts and pages)
 	if p.Link != "" {
@@ -77,18 +79,23 @@ func (p Page) GetURL() string {
 		}
 	}
 
+	basePath := p.getBasePath()
+	if p.PageFormat == "flat" {
+		return basePath + ".html"
+	}
+	return basePath + "/"
+}
+
+// getBasePath returns the base URL path without trailing slash or extension
+func (p Page) getBasePath() string {
 	if p.Type == "post" {
-		// URLFormat="slug" uses slug-only URL
 		if p.URLFormat == "slug" {
-			return fmt.Sprintf("/%s/", p.Slug)
+			return fmt.Sprintf("/%s", p.Slug)
 		}
-		// Default: date-based URL
-		return fmt.Sprintf("/%d/%02d/%02d/%s/",
+		return fmt.Sprintf("/%d/%02d/%02d/%s",
 			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
 	}
-
-	// Pages: use slug
-	return fmt.Sprintf("/%s/", p.Slug)
+	return fmt.Sprintf("/%s", p.Slug)
 }
 
 // GetCanonical returns the full canonical URL for this page/post
