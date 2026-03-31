@@ -964,7 +964,13 @@ func (g *Generator) generateIndex() error {
 // "directory" (default): slug/index.html
 // "flat": slug.html
 // "both": slug/index.html AND slug.html
+// Special case: "404" always generates 404.html in root for Cloudflare Pages/Netlify compatibility
 func (g *Generator) getOutputPaths(subPath string) []string {
+	// Special handling for 404 page - always generate as flat file for static hosting compatibility
+	if subPath == "404" {
+		return []string{filepath.Join(g.config.OutputDir, "404.html")}
+	}
+
 	switch g.config.PageFormat {
 	case "flat":
 		return []string{filepath.Join(g.config.OutputDir, subPath+".html")}

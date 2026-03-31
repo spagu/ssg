@@ -4153,6 +4153,19 @@ func TestGetOutputPaths(t *testing.T) {
 			wantCount: 1,
 			wantFirst: "output/about/index.html",
 		},
+		{
+			name:      "404 page always generates flat file for static hosting",
+			subPath:   "404",
+			wantCount: 1,
+			wantFirst: "output/404.html",
+		},
+		{
+			name:       "404 page ignores directory format",
+			pageFormat: "directory",
+			subPath:    "404",
+			wantCount:  1,
+			wantFirst:  "output/404.html",
+		},
 	}
 
 	for _, tt := range tests {
