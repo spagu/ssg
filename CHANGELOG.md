@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.3] - 2026-03-31
 
 ### Added
-- ✨ **Dynamic MDDB metadata fields** - All custom metadata fields from MDDB are now passed to templates via `Extra` map
-  - Any field not explicitly mapped (like `dupa`, `defaultVideo`, `playlist`, etc.) is available as `{{.Extra.fieldname}}`
-  - Supports strings, numbers, booleans, arrays, and nested objects
-  - Known fields (title, slug, status, etc.) remain mapped to their typed struct fields
+- ✨ **Dynamic MDDB metadata fields with top-level access** - Custom metadata fields are flattened to template root
+  - Use `{{.dupa}}` directly instead of `{{.Extra.dupa}}` or `{{.Page.Extra.dupa}}`
+  - All standard Page fields also available at root: `{{.Title}}`, `{{.Content}}`, `{{.Slug}}`, etc.
+  - Backward compatible: `{{.Page.Title}}` and `{{.Post.Title}}` still work
+  - URL helpers at root level: `{{.URL}}`, `{{.CanonicalURL}}`, `{{.OutputPath}}`
 - ✨ **Additional SEO fields from MDDB** - Now extracts: `description`, `keywords`, `lang`, `canonical`, `robots`, `featured_image`, `tags`, `category`, `layout`, `template`
 
 ## [1.7.2] - 2026-03-31

@@ -245,6 +245,38 @@ Logic-less templates. Uses \fB{{field}}\fR and \fB{{#section}}\fR syntax.
 .B handlebars
 Extension of Mustache with helpers. Uses \fB{{field}}\fR and
 \fB{{#if condition}}\fR syntax.
+.SH TEMPLATE VARIABLES
+All page/post fields are available at the template root level for direct access.
+Custom metadata fields from MDDB frontmatter are also flattened to root level.
+.PP
+.B Standard fields:
+.RS
+.nf
+{{ .Title }}        \- Page/post title
+{{ .Slug }}         \- URL slug
+{{ .Content }}      \- Rendered HTML content
+{{ .Date }}         \- Publication date
+{{ .Modified }}     \- Last modification date
+{{ .Excerpt }}      \- Content excerpt
+{{ .URL }}          \- Page URL path
+{{ .CanonicalURL }} \- Full canonical URL
+{{ .Description }}  \- SEO description
+{{ .Keywords }}     \- SEO keywords
+{{ .Tags }}         \- Tags array
+.fi
+.RE
+.PP
+.B Custom fields (from MDDB metadata):
+.RS
+.nf
+{{ .dupa }}         \- Custom field "dupa"
+{{ .defaultVideo }} \- Custom field "defaultVideo"
+{{ .playlist }}     \- Custom field "playlist"
+.fi
+.RE
+.PP
+For backward compatibility, \fB{{ .Page.Title }}\fR and \fB{{ .Post.Title }}\fR
+still work.
 .SH CO-LOCATED ASSETS
 Images and other media files placed alongside Markdown content files are
 automatically copied to the corresponding output directory. This allows

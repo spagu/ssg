@@ -4260,3 +4260,105 @@ func TestGeneratePageBothFormat(t *testing.T) {
 		t.Error("about.html should exist in both mode")
 	}
 }
+
+func TestPageToTemplateDataFlattenExtra(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{Domain: "example.com"},
+		config:   Config{Domain: "example.com"},
+	}
+
+	page := models.Page{
+		Title:   "Test Page",
+		Slug:    "test",
+		Content: "<p>Hello</p>",
+		Extra: map[string]interface{}{
+			"dupa":         "custom value",
+			"defaultVideo": "https://youtube.com/xyz",
+			"rating":       4.5,
+		},
+	}
+
+	data := gen.pageToTemplateData(page, false)
+
+	// Check standard fields at root level
+	if data["Title"] != "Test Page" {
+		t.Errorf("Title = %v, want 'Test Page'", data["Title"])
+	}
+	if data["Slug"] != "test" {
+		t.Errorf("Slug = %v, want 'test'", data["Slug"])
+	}
+
+	// Check Extra fields flattened to root level
+	if data["dupa"] != "custom value" {
+		t.Errorf("dupa = %v, want 'custom value'", data["dupa"])
+	}
+	if data["defaultVideo"] != "https://youtube.com/xyz" {
+		t.Errorf("defaultVideo = %v, want 'https://youtube.com/xyz'", data["defaultVideo"])
+	}
+	if data["rating"] != 4.5 {
+		t.Errorf("rating = %v, want 4.5", data["rating"])
+	}
+
+	// Check backward compatibility - Page struct should still be there
+	pageStruct, ok := data["Page"].(models.Page)
+	if !ok {
+		t.Error("Page struct should be present for backward compatibility")
+	}
+	if pageStruct.Title != "Test Page" {
+		t.Errorf("Page.Title = %v, want 'Test Page'", pageStruct.Title)
+	}
+}
+
+func TestPageToTemplateDataPost(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{Domain: "example.com"},
+		config:   Config{Domain: "example.com"},
+	}
+
+	post := models.Page{
+		Title: "Test Post",
+		Type:  "post",
+		Extra: map[string]interface{}{
+			"featured": true,
+		},
+	}
+
+	data := gen.pageToTemplateData(post, true)
+
+	// Check Post struct for backward compatibility
+	_, hasPost := data["Post"]
+	_, hasPage := data["Page"]
+	if !hasPost {
+		t.Error("Post struct should be present when isPost=true")
+	}
+	if hasPage {
+		t.Error("Page struct should NOT be present when isPost=true")
+	}
+
+	// Check Extra fields
+	if data["featured"] != true {
+		t.Errorf("featured = %v, want true", data["featured"])
+	}
+}
+
+func TestPageToTemplateDataNoOverwrite(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{Domain: "example.com"},
+		config:   Config{Domain: "example.com"},
+	}
+
+	// Extra field with same name as standard field should NOT overwrite
+	page := models.Page{
+		Title: "Original Title",
+		Extra: map[string]interface{}{
+			"Title": "Should Not Overwrite",
+		},
+	}
+
+	data := gen.pageToTemplateData(page, false)
+
+	// Standard field should win
+	if data["Title"] != "Original Title" {
+		t.Errorf("Title = %v, want 'Original Title' (standard field should not be overwritten)", data["Title"])
+	}
+}
