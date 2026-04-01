@@ -2272,7 +2272,79 @@ Content`
 	}
 
 	if len(pages) != 1 {
-		t.Errorf("Expected 1 page (subdir should be skipped), got %d", len(pages))
+		t.Errorf("Expected 1 page (empty subdir has no files), got %d", len(pages))
+	}
+}
+
+func TestLoadMarkdownDirRecursive(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create nested directory structure
+	docsDir := filepath.Join(tmpDir, "docs")
+	deepDir := filepath.Join(docsDir, "advanced")
+	if err := os.MkdirAll(deepDir, 0755); err != nil {
+		t.Fatalf("Failed to create dirs: %v", err)
+	}
+
+	// Root level page
+	rootContent := `---
+title: Root Page
+status: publish
+slug: root
+link: https://example.com/root/
+---
+Root content`
+	if err := os.WriteFile(filepath.Join(tmpDir, "root.md"), []byte(rootContent), 0644); err != nil {
+		t.Fatalf("Failed to create root.md: %v", err)
+	}
+
+	// Nested page in docs/
+	docsContent := `---
+title: Docs Intro
+status: publish
+slug: docs/intro
+link: https://example.com/docs/intro/
+---
+Docs intro content`
+	if err := os.WriteFile(filepath.Join(docsDir, "intro.md"), []byte(docsContent), 0644); err != nil {
+		t.Fatalf("Failed to create docs/intro.md: %v", err)
+	}
+
+	// Deeply nested page in docs/advanced/
+	advancedContent := `---
+title: Advanced Guide
+status: publish
+slug: docs/advanced/guide
+link: https://example.com/docs/advanced/guide/
+---
+Advanced guide content`
+	if err := os.WriteFile(filepath.Join(deepDir, "guide.md"), []byte(advancedContent), 0644); err != nil {
+		t.Fatalf("Failed to create docs/advanced/guide.md: %v", err)
+	}
+
+	gen := &Generator{}
+	pages, err := gen.loadMarkdownDir(tmpDir)
+	if err != nil {
+		t.Fatalf("loadMarkdownDir failed: %v", err)
+	}
+
+	if len(pages) != 3 {
+		t.Errorf("Expected 3 pages (recursive), got %d", len(pages))
+	}
+
+	// Verify all pages are loaded
+	titles := make(map[string]bool)
+	for _, p := range pages {
+		titles[p.Title] = true
+	}
+	if !titles["Root Page"] {
+		t.Error("Missing Root Page")
+	}
+	if !titles["Docs Intro"] {
+		t.Error("Missing Docs Intro")
+	}
+	if !titles["Advanced Guide"] {
+		t.Error("Missing Advanced Guide")
 	}
 }
 

@@ -511,7 +511,7 @@ func (g *Generator) loadMetadata(path string) error {
 	return nil
 }
 
-// loadMarkdownDir loads all markdown files from a directory
+// loadMarkdownDir loads all markdown files from a directory (recursively)
 func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 	var pages []models.Page
 
@@ -524,15 +524,24 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 	}
 
 	for _, entry := range entries {
+		entryPath := filepath.Join(dir, entry.Name())
+
 		if entry.IsDir() {
+			// Recursively load subdirectories
+			subPages, err := g.loadMarkdownDir(entryPath)
+			if err != nil {
+				fmt.Printf("   ⚠️  Warning: failed to load subdirectory %s: %v\n", entry.Name(), err)
+				continue
+			}
+			pages = append(pages, subPages...)
 			continue
 		}
+
 		if !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
 
-		filePath := filepath.Join(dir, entry.Name())
-		page, err := parser.ParseMarkdownFile(filePath)
+		page, err := parser.ParseMarkdownFile(entryPath)
 		if err != nil {
 			fmt.Printf("   ⚠️  Warning: failed to parse %s: %v\n", entry.Name(), err)
 			continue

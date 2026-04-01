@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2026-04-01
+
+### Fixed
+- 🐛 **Pages directory now supports subdirectories** - Recursive scanning of `pages/` directory (fixes #1)
+  - `content/pages/docs/intro.md` → `/docs/intro/`
+  - `content/pages/docs/advanced/guide.md` → `/docs/advanced/guide/`
+  - Works for both pages and posts (via category subdirectories)
+
 ## [1.7.4] - 2026-04-01
 
 ### Fixed
