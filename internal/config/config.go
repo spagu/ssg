@@ -82,6 +82,11 @@ type Config struct {
 	// Shortcodes
 	Shortcodes []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
 
+	// Variables defines custom variables available in all templates as {{.Vars.key}}
+	// and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
+	// Values starting with $ are resolved from the current environment (e.g. "$GTM_CODE").
+	Variables map[string]interface{} `yaml:"variables" toml:"variables" json:"variables"`
+
 	// Image Processing
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`

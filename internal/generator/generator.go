@@ -77,6 +77,11 @@ type Config struct {
 	Engine        string      // Template engine: go, pongo2, mustache, handlebars
 	// MDDB content source
 	Mddb MddbConfig // MDDB configuration
+
+	// Variables defines custom variables available in all templates as {{.Vars.key}}
+	// and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
+	// Values starting with $ are resolved from the current environment (e.g. "$GTM_CODE").
+	Variables map[string]interface{}
 }
 
 // Generator handles the static site generation process
@@ -95,6 +100,10 @@ func New(cfg Config) (*Generator, error) {
 		scMap[sc.Name] = sc
 	}
 
+	// Resolve variables (expand $ENV_VAR references) and export as SSG_* env vars
+	cfg.Variables = resolveVariables(cfg.Variables)
+	exportVariablesToEnv(cfg.Variables, "SSG")
+
 	return &Generator{
 		config: cfg,
 		siteData: &models.SiteData{
@@ -105,6 +114,60 @@ func New(cfg Config) (*Generator, error) {
 		},
 		shortcodeMap: scMap,
 	}, nil
+}
+
+// resolveVariables replaces values starting with $ with the corresponding environment variable.
+// Works recursively for nested maps.
+func resolveVariables(vars map[string]interface{}) map[string]interface{} {
+	if vars == nil {
+		return nil
+	}
+
+	resolved := make(map[string]interface{}, len(vars))
+	for k, v := range vars {
+		switch val := v.(type) {
+		case string:
+			if strings.HasPrefix(val, "$") {
+				envKey := strings.TrimPrefix(val, "$")
+				if envVal := os.Getenv(envKey); envVal != "" {
+					resolved[k] = envVal
+				} else {
+					resolved[k] = val // keep original if env var not set
+				}
+			} else {
+				resolved[k] = val
+			}
+		case map[string]interface{}:
+			resolved[k] = resolveVariables(val)
+		default:
+			resolved[k] = v
+		}
+	}
+	return resolved
+}
+
+// exportVariablesToEnv sets each variable as an environment variable with the given prefix.
+// Nested maps are flattened using _ as separator (e.g. prefix_KEY_SUBKEY).
+func exportVariablesToEnv(vars map[string]interface{}, prefix string) {
+	for k, v := range vars {
+		envKey := strings.ToUpper(prefix + "_" + k)
+		// Replace non-alphanumeric chars with _
+		envKey = strings.Map(func(r rune) rune {
+			if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+				return r
+			}
+			return '_'
+		}, envKey)
+
+		switch val := v.(type) {
+		case map[string]interface{}:
+			exportVariablesToEnv(val, strings.ToUpper(prefix+"_"+k))
+		case string:
+			_ = os.Setenv(envKey, val)
+		default:
+			_ = os.Setenv(envKey, fmt.Sprintf("%v", val))
+		}
+	}
 }
 
 // Generate performs the full site generation
@@ -955,15 +1018,17 @@ func (g *Generator) generateSite() error {
 // generateIndex generates the main index.html
 func (g *Generator) generateIndex() error {
 	data := struct {
-		Site   *models.SiteData
-		Posts  []models.Page
-		Pages  []models.Page
-		Domain string
+		Site      *models.SiteData
+		Posts     []models.Page
+		Pages     []models.Page
+		Domain    string
+		Vars      map[string]interface{}
 	}{
-		Site:   g.siteData,
-		Posts:  g.siteData.Posts,
-		Pages:  g.siteData.Pages,
-		Domain: g.config.Domain,
+		Site:      g.siteData,
+		Posts:     g.siteData.Posts,
+		Pages:     g.siteData.Pages,
+		Domain:    g.config.Domain,
+		Vars:      g.config.Variables,
 	}
 
 	return g.renderTemplate("index.html", filepath.Join(g.config.OutputDir, "index.html"), data)
@@ -1094,11 +1159,13 @@ func (g *Generator) generateCategories() error {
 			Category models.Category
 			Posts    []models.Page
 			Domain   string
+			Vars     map[string]interface{}
 		}{
 			Site:     g.siteData,
 			Category: cat,
 			Posts:    posts,
 			Domain:   g.config.Domain,
+			Vars:     g.config.Variables,
 		}
 
 		outputPath := filepath.Join(g.config.OutputDir, "category", cat.Slug, "index.html")
@@ -1132,6 +1199,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 	data := map[string]interface{}{
 		"Site":   g.siteData,
 		"Domain": g.config.Domain,
+		"Vars":   g.config.Variables,
 		// Standard Page fields
 		"ID":            page.ID,
 		"Title":         page.Title,
