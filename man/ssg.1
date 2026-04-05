@@ -218,6 +218,12 @@ shortcodes:
     text: "Get 50% off!"
     url: "https://example.com"
 
+variables:
+  gtm: "GTM-XXXXXXX"
+  analytics_id: "$GA_ID"
+  api:
+    endpoint: "https://api.example.com"
+
 mddb:
   enabled: true
   url: "http://localhost:11023"
@@ -226,6 +232,28 @@ mddb:
   lang: "en_US"
   watch: true
   watch_interval: 30
+.fi
+.RE
+.SH CONFIG VARIABLES
+Define custom variables in \fB.ssg.yaml\fR under the \fBvariables\fR key. They are
+available in every template context as \fB{{.Vars.key}}\fR and exported as
+environment variables with the \fBSSG_\fR prefix at build time.
+.PP
+Nested maps are supported: \fB{{.Vars.api.endpoint}}\fR is exported as
+\fBSSG_API_ENDPOINT\fR.
+.PP
+Values starting with \fB$\fR are resolved from the current OS environment
+(e.g. \fB"$GTM_CODE"\fR reads the \fBGTM_CODE\fR env var). If the env var is not
+set the literal value is kept unchanged.
+.PP
+Example:
+.RS
+.nf
+variables:
+  gtm: "GTM-XXXXXXX"        # {{.Vars.gtm}}, exported as SSG_GTM
+  analytics_id: "$GA_ID"    # resolved from $GA_ID at build time
+  api:
+    endpoint: "https://api.example.com"  # SSG_API_ENDPOINT
 .fi
 .RE
 .SH TEMPLATE ENGINES

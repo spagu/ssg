@@ -380,6 +380,33 @@ Don't miss it!
 
 **Available template variables:** `{{.Name}}`, `{{.Title}}`, `{{.Text}}`, `{{.URL}}`, `{{.Logo}}`, `{{.Legal}}`, `{{.Data.key}}`
 
+### Config Variables
+
+Define custom variables in `.ssg.yaml` that are available in every template as `{{.Vars.key}}` and automatically exported as `SSG_*` environment variables:
+
+```yaml
+variables:
+  gtm: "GTM-XXXXXXX"          # {{.Vars.gtm}}, exported as SSG_GTM
+  analytics_id: "$GA_ID"       # Value resolved from $GA_ID env var at build time
+  api:
+    endpoint: "https://api.example.com"  # {{.Vars.api.endpoint}}, exported as SSG_API_ENDPOINT
+```
+
+Use in templates:
+
+```html
+<!-- GTM snippet using a config variable -->
+{{if .Vars.gtm}}
+<script>(function(w,d,s,l,i){...})(window,document,'script','dataLayer','{{.Vars.gtm}}');</script>
+{{end}}
+```
+
+**Features:**
+- Flat and nested structures supported
+- Values starting with `$` are resolved from OS environment variables at build time
+- All variables exported as env vars: `SSG_GTM`, `SSG_API_ENDPOINT`, etc.
+- Available in index, page, post, and category templates
+
 ### Examples
 
 ```bash

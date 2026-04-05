@@ -4458,3 +4458,97 @@ func TestPageToTemplateDataNoOverwrite(t *testing.T) {
 		t.Errorf("Title = %v, want 'Original Title' (standard field should not be overwritten)", data["Title"])
 	}
 }
+
+func TestResolveVariables(t *testing.T) {
+	t.Run("resolves $ENV references", func(t *testing.T) {
+		t.Setenv("TEST_GTM_CODE", "GTM-ABCDEF")
+		vars := map[string]interface{}{
+			"gtm": "$TEST_GTM_CODE",
+		}
+		result := resolveVariables(vars)
+		if result["gtm"] != "GTM-ABCDEF" {
+			t.Errorf("gtm = %v, want GTM-ABCDEF", result["gtm"])
+		}
+	})
+
+	t.Run("keeps original value when env var not set", func(t *testing.T) {
+		vars := map[string]interface{}{
+			"gtm": "$NOT_SET_XYZ_VAR",
+		}
+		result := resolveVariables(vars)
+		if result["gtm"] != "$NOT_SET_XYZ_VAR" {
+			t.Errorf("gtm = %v, want $NOT_SET_XYZ_VAR", result["gtm"])
+		}
+	})
+
+	t.Run("resolves nested maps recursively", func(t *testing.T) {
+		t.Setenv("TEST_NESTED_KEY", "resolved-value")
+		vars := map[string]interface{}{
+			"nested": map[string]interface{}{
+				"key": "$TEST_NESTED_KEY",
+			},
+		}
+		result := resolveVariables(vars)
+		nested, ok := result["nested"].(map[string]interface{})
+		if !ok {
+			t.Fatal("nested is not a map")
+		}
+		if nested["key"] != "resolved-value" {
+			t.Errorf("nested.key = %v, want resolved-value", nested["key"])
+		}
+	})
+
+	t.Run("returns nil for nil input", func(t *testing.T) {
+		if resolveVariables(nil) != nil {
+			t.Error("expected nil result for nil input")
+		}
+	})
+}
+
+func TestExportVariablesToEnv(t *testing.T) {
+	t.Run("exports flat variables", func(t *testing.T) {
+		vars := map[string]interface{}{
+			"gtm": "GTM-TEST123",
+		}
+		exportVariablesToEnv(vars, "SSG")
+		if val := os.Getenv("SSG_GTM"); val != "GTM-TEST123" {
+			t.Errorf("SSG_GTM = %q, want GTM-TEST123", val)
+		}
+	})
+
+	t.Run("exports nested variables with _ separator", func(t *testing.T) {
+		vars := map[string]interface{}{
+			"analytics": map[string]interface{}{
+				"id": "UA-999",
+			},
+		}
+		exportVariablesToEnv(vars, "SSG")
+		if val := os.Getenv("SSG_ANALYTICS_ID"); val != "UA-999" {
+			t.Errorf("SSG_ANALYTICS_ID = %q, want UA-999", val)
+		}
+	})
+}
+
+func TestVariablesInTemplateData(t *testing.T) {
+	vars := map[string]interface{}{
+		"gtm": "GTM-XYZ",
+	}
+	gen := &Generator{
+		siteData: &models.SiteData{Domain: "example.com"},
+		config: Config{
+			Domain:    "example.com",
+			Variables: vars,
+		},
+	}
+
+	page := models.Page{Title: "Test"}
+	data := gen.pageToTemplateData(page, false)
+
+	varMap, ok := data["Vars"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Vars not present in template data or wrong type")
+	}
+	if varMap["gtm"] != "GTM-XYZ" {
+		t.Errorf("Vars.gtm = %v, want GTM-XYZ", varMap["gtm"])
+	}
+}

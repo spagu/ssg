@@ -5,7 +5,7 @@
 # =============================================================================
 set -e
 
-VERSION="${SSG_VERSION:-1.7.7}"
+VERSION="${SSG_VERSION:-1.7.8}"
 INSTALL_DIR="${SSG_INSTALL_DIR:-/usr/local/bin}"
 
 RED='\033[0;31m'

@@ -60,5 +60,14 @@ zip: false           # Create ZIP for Cloudflare Pages
 #       color: "blue"
 #       size: "large"
 
+# Variables - custom variables available in all templates as {{.Vars.key}}
+# and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
+# Values starting with $ are resolved from the current OS environment.
+# variables:
+#   gtm: "GTM-XXXXXXX"          # Use as {{.Vars.gtm}} in templates, exported as SSG_GTM
+#   analytics_id: "$GA_ID"       # Resolved from env var $GA_ID at build time
+#   api:
+#     endpoint: "https://api.example.com"  # Nested: {{.Vars.api.endpoint}}, exported as SSG_API_ENDPOINT
+
 # Other
 quiet: false         # Suppress output (only exit codes)
