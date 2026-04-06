@@ -660,6 +660,19 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 			page.SourceDir = dir
 			page.SourceFile = entry.Name() // original filename e.g. "AUTHENTICATION.md"
 			page.Slug = g.normalizeSlug(page.Slug, entry.Name())
+
+			// Use file modification time as fallback for missing dates
+			if page.Date.IsZero() || page.Modified.IsZero() {
+				if info, err := entry.Info(); err == nil {
+					if page.Date.IsZero() {
+						page.Date = info.ModTime()
+					}
+					if page.Modified.IsZero() {
+						page.Modified = info.ModTime()
+					}
+				}
+			}
+
 			pages = append(pages, *page)
 		}
 	}
@@ -1596,7 +1609,13 @@ func (g *Generator) generateSitemap() error {
 	for _, page := range g.siteData.Pages {
 		sb.WriteString("  <url>\n")
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
-		fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", page.Modified.Format("2006-01-02"))
+		lastmod := page.Modified
+		if lastmod.IsZero() {
+			lastmod = page.Date
+		}
+		if !lastmod.IsZero() {
+			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
+		}
 		sb.WriteString("    <changefreq>monthly</changefreq>\n")
 		sb.WriteString("    <priority>0.8</priority>\n")
 		sb.WriteString("  </url>\n")
@@ -1606,7 +1625,13 @@ func (g *Generator) generateSitemap() error {
 	for _, post := range g.siteData.Posts {
 		sb.WriteString("  <url>\n")
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
-		fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", post.Modified.Format("2006-01-02"))
+		lastmod := post.Modified
+		if lastmod.IsZero() {
+			lastmod = post.Date
+		}
+		if !lastmod.IsZero() {
+			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
+		}
 		sb.WriteString("    <changefreq>monthly</changefreq>\n")
 		sb.WriteString("    <priority>0.6</priority>\n")
 		sb.WriteString("  </url>\n")
