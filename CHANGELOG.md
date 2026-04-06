@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.10] - 2026-04-06
+
+### Added
+- ✨ **Rewrite `.md` links to final URLs** - opt-in via `rewrite_md_links: true` (closes #5)
+  - Rewrites `href="AUTHENTICATION.md"` → `href="/authentication/"` based on actual slug
+  - Handles relative prefixes `./file.md`, `../dir/file.md` — only base filename is matched
+  - Priority: exact source filename > lowercase > slug-derived
+  - Unknown `.md` links are left untouched
+  - Disabled by default to avoid breaking sites serving raw `.md` files
+- ✨ **Auto-derive slug from filename** - when no `slug:` in frontmatter, derived from filename
+  - `AUTHENTICATION.md` without slug → slug `authentication` → `/authentication/`
+- ✨ **`preserve_slug_case` option** - control URL casing for slugs derived from filenames
+  - Default (`false`): lowercased — `API.md` → `/api/`
+  - `preserve_slug_case: true` — original case kept — `API.md` → `/API/`
+
 ## [1.7.9] - 2026-04-06
 
 ### Added

@@ -87,6 +87,13 @@ type Config struct {
 	PagesPath string
 	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
 	PostsPath string
+
+	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
+	RewriteMdLinks bool
+
+	// PreserveSlugCase keeps original casing in slugs derived from filenames.
+	// Default (false): slugs lowercased. When true: original case preserved.
+	PreserveSlugCase bool
 }
 
 // Generator handles the static site generation process
@@ -313,6 +320,25 @@ func (g *Generator) loadContent() error {
 	}
 
 	return g.loadContentFromFiles()
+}
+
+// normalizeSlug returns the slug to use for a page.
+// If slug is set in frontmatter it is used as-is.
+// Otherwise it is derived from the source filename (without .md extension).
+// Casing: lowercased by default; preserved when PreserveSlugCase is true.
+func (g *Generator) normalizeSlug(slug, filename string) string {
+	if slug != "" {
+		if g.config.PreserveSlugCase {
+			return slug
+		}
+		return strings.ToLower(slug)
+	}
+	// Derive from filename
+	base := strings.TrimSuffix(filename, filepath.Ext(filename))
+	if g.config.PreserveSlugCase {
+		return base
+	}
+	return strings.ToLower(base)
 }
 
 // pagesPath returns the configured pages subdirectory name, defaulting to "pages"
@@ -632,6 +658,8 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		}
 		if page.Status == "publish" {
 			page.SourceDir = dir
+			page.SourceFile = entry.Name() // original filename e.g. "AUTHENTICATION.md"
+			page.Slug = g.normalizeSlug(page.Slug, entry.Name())
 			pages = append(pages, *page)
 		}
 	}
@@ -711,10 +739,58 @@ func (g *Generator) buildPageLinks() map[string]string {
 	return pageLinks
 }
 
+// buildMdLinkMap creates a map of .md filename variants to final output URLs.
+// Priority order: exact SourceFile match > lowercase SourceFile > slug variants.
+// This ensures that the actual filename on disk (e.g. "AUTHENTICATION.md") is always
+// preferred over slug-derived names, so slug and filename can differ independently.
+func (g *Generator) buildMdLinkMap() map[string]string {
+	mdLinks := make(map[string]string)
+	allPages := append(g.siteData.Pages, g.siteData.Posts...)
+	for _, p := range allPages {
+		url := p.GetURL()
+
+		// 1. Actual source filename — highest priority (e.g. "AUTHENTICATION.md")
+		if p.SourceFile != "" {
+			mdLinks[p.SourceFile] = url
+			mdLinks[strings.ToLower(p.SourceFile)] = url
+		}
+
+		// 2. Slug-derived variants — fallback when SourceFile not available (e.g. mddb source)
+		slug := p.Slug
+		mdLinks[slug+".md"] = url
+		mdLinks[strings.ToUpper(slug)+".md"] = url
+		mdLinks[slug] = url
+	}
+	return mdLinks
+}
+
+// rewriteMdLinks replaces relative .md hrefs in HTML with final output URLs.
+// Handles: href="file.md", href="./file.md", href="../dir/file.md"
+var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
+
+func rewriteMdLinks(html string, mdLinkMap map[string]string) string {
+	return mdLinkRe.ReplaceAllStringFunc(html, func(match string) string {
+		// Extract path from href="..."
+		inner := match[6 : len(match)-1] // strip href=" and "
+		// Get base filename (last path segment)
+		base := filepath.Base(inner)
+		if url, ok := mdLinkMap[base]; ok {
+			return `href="` + url + `"`
+		}
+		// Try without .md extension
+		noExt := strings.TrimSuffix(base, ".md")
+		if url, ok := mdLinkMap[noExt]; ok {
+			return `href="` + url + `"`
+		}
+		return match // no match — leave as-is
+	})
+}
+
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
+	mdLinkMap := g.buildMdLinkMap()
 	return template.FuncMap{
-		"safeHTML":             g.tmplSafeHTML(pageLinks),
+		"safeHTML":             g.tmplSafeHTML(pageLinks, mdLinkMap),
 		"decodeHTML":           tmplDecodeHTML,
 		"formatDate":           tmplFormatDate,
 		"formatDatePL":         tmplFormatDatePL,
@@ -759,13 +835,16 @@ func tmplDict(values ...interface{}) (map[string]interface{}, error) {
 }
 
 // tmplSafeHTML returns the safeHTML template function
-func (g *Generator) tmplSafeHTML(pageLinks map[string]string) func(string) template.HTML {
+func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[string]string) func(string) template.HTML {
 	return func(s string) template.HTML {
 		s = g.processShortcodes(s) // Process shortcodes first
 		s = cleanMarkdownArtifacts(s)
 		s = autolinkListItems(s, pageLinks)
 		s = convertMarkdownToHTML(s)
 		s = fixMediaPaths(s, g.siteData.Media)
+		if g.config.RewriteMdLinks {
+			s = rewriteMdLinks(s, mdLinkMap)
+		}
 		return template.HTML(s) // #nosec G203 -- SSG intentionally renders markdown as HTML
 	}
 }
@@ -1039,17 +1118,17 @@ func (g *Generator) generateSite() error {
 // generateIndex generates the main index.html
 func (g *Generator) generateIndex() error {
 	data := struct {
-		Site      *models.SiteData
-		Posts     []models.Page
-		Pages     []models.Page
-		Domain    string
-		Vars      map[string]interface{}
+		Site   *models.SiteData
+		Posts  []models.Page
+		Pages  []models.Page
+		Domain string
+		Vars   map[string]interface{}
 	}{
-		Site:      g.siteData,
-		Posts:     g.siteData.Posts,
-		Pages:     g.siteData.Pages,
-		Domain:    g.config.Domain,
-		Vars:      g.config.Variables,
+		Site:   g.siteData,
+		Posts:  g.siteData.Posts,
+		Pages:  g.siteData.Pages,
+		Domain: g.config.Domain,
+		Vars:   g.config.Variables,
 	}
 
 	return g.renderTemplate("index.html", filepath.Join(g.config.OutputDir, "index.html"), data)
@@ -1118,7 +1197,7 @@ func (g *Generator) generatePage(page models.Page) error {
 
 		if err := g.renderTemplate(templateName, outputPath, data); err != nil {
 			// Fallback to page.html if custom template not found
-			if strings.Contains(err.Error(), "no such template") {
+			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
 				if err := g.renderTemplate("page.html", outputPath, data); err != nil {
 					return err
 				}
@@ -1233,7 +1312,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Author":        page.Author,
 		"Categories":    page.Categories,
 		"Excerpt":       page.Excerpt,
-		"Content":       template.HTML(page.Content),
+		"Content":       template.HTML(page.Content), // #nosec G203 -- SSG intentionally renders user's markdown as HTML
 		"URLFormat":     page.URLFormat,
 		"PageFormat":    page.PageFormat,
 		"SourceDir":     page.SourceDir,

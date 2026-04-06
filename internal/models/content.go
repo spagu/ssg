@@ -57,6 +57,7 @@ type Page struct {
 	URLFormat  string    `yaml:"-"` // URL format: "date" or "slug" (set by generator)
 	PageFormat string    `yaml:"-"` // Page output format: "directory", "flat", or "both" (set by generator)
 	SourceDir  string    `yaml:"-"` // Source directory path (for co-located asset copying)
+	SourceFile string    `yaml:"-"` // Source filename (e.g. "AUTHENTICATION.md") for .md link rewriting
 
 	// SEO and metadata fields
 	Description   string   `yaml:"description"`

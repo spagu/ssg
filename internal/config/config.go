@@ -92,6 +92,14 @@ type Config struct {
 	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
 	PostsPath string `yaml:"posts_path" toml:"posts_path" json:"posts_path"`
 
+	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
+	RewriteMdLinks bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
+
+	// PreserveSlugCase keeps original casing in slugs/URLs derived from filenames.
+	// Default (false): slugs are lowercased (e.g. "API.md" → slug "api" → /api/).
+	// When true: original case is preserved (e.g. "API.md" → slug "API" → /API/).
+	PreserveSlugCase bool `yaml:"preserve_slug_case" toml:"preserve_slug_case" json:"preserve_slug_case"`
+
 	// Image Processing
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`

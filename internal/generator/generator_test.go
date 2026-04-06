@@ -4529,6 +4529,123 @@ func TestExportVariablesToEnv(t *testing.T) {
 	})
 }
 
+func TestNormalizeSlug(t *testing.T) {
+	tests := []struct {
+		name             string
+		slug             string
+		filename         string
+		preserveSlugCase bool
+		want             string
+	}{
+		{"slug from frontmatter lowercased", "MySlug", "file.md", false, "myslug"},
+		{"slug from frontmatter preserved", "MySlug", "file.md", true, "MySlug"},
+		{"derived from filename lowercased", "", "AUTHENTICATION.md", false, "authentication"},
+		{"derived from filename preserved", "", "AUTHENTICATION.md", true, "AUTHENTICATION"},
+		{"derived from filename mixed case lowercased", "", "Hello-World.md", false, "hello-world"},
+		{"derived from filename mixed case preserved", "", "Hello-World.md", true, "Hello-World"},
+		{"slug empty filename also empty", "", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := &Generator{config: Config{PreserveSlugCase: tt.preserveSlugCase}}
+			got := gen.normalizeSlug(tt.slug, tt.filename)
+			if got != tt.want {
+				t.Errorf("normalizeSlug(%q, %q) = %q, want %q", tt.slug, tt.filename, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRewriteMdLinks(t *testing.T) {
+	mdLinkMap := map[string]string{
+		"authentication.md": "/docs/authentication/",
+		"authentication":    "/docs/authentication/",
+		"API.md":            "/docs/api/",
+		"api":               "/docs/api/",
+	}
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "simple .md link",
+			input: `<a href="authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "relative path prefix stripped",
+			input: `<a href="./authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "parent dir prefix stripped",
+			input: `<a href="../docs/authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "uppercase filename",
+			input: `<a href="API.md">API</a>`,
+			want:  `<a href="/docs/api/">API</a>`,
+		},
+		{
+			name:  "unknown .md left as-is",
+			input: `<a href="unknown.md">X</a>`,
+			want:  `<a href="unknown.md">X</a>`,
+		},
+		{
+			name:  "non-.md link untouched",
+			input: `<a href="/about/">About</a>`,
+			want:  `<a href="/about/">About</a>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := rewriteMdLinks(tt.input, mdLinkMap)
+			if got != tt.want {
+				t.Errorf("rewriteMdLinks() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildMdLinkMap(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{
+			Pages: []models.Page{
+				// SourceFile differs from slug — simulates real filename vs frontmatter slug
+				{Slug: "authentication", Type: "page", SourceFile: "AUTHENTICATION.md"},
+			},
+			Posts: []models.Page{
+				{Slug: "hello-world", Type: "post", URLFormat: "slug", SourceFile: "hello-world.md"},
+			},
+		},
+		config: Config{Domain: "example.com", PostURLFormat: "slug"},
+	}
+
+	m := gen.buildMdLinkMap()
+
+	// SourceFile exact match
+	if m["AUTHENTICATION.md"] != "/authentication/" {
+		t.Errorf("AUTHENTICATION.md = %q, want /authentication/", m["AUTHENTICATION.md"])
+	}
+	// SourceFile lowercase
+	if m["authentication.md"] != "/authentication/" {
+		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"])
+	}
+	// slug-derived fallback
+	if m["hello-world.md"] != "/hello-world/" {
+		t.Errorf("hello-world.md = %q, want /hello-world/", m["hello-world.md"])
+	}
+	// slug without extension
+	if m["authentication"] != "/authentication/" {
+		t.Errorf("authentication = %q, want /authentication/", m["authentication"])
+	}
+}
+
 func TestVariablesInTemplateData(t *testing.T) {
 	vars := map[string]interface{}{
 		"gtm": "GTM-XYZ",
