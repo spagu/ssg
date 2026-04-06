@@ -126,7 +126,7 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 | Platform | Command |
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
-| **Snap** (Ubuntu) | `snap install ssg` |
+| **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
 | **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.6.0/ssg_1.3.0_amd64.deb && sudo dpkg -i ssg_1.3.0_amd64.deb` |
 | **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.6.0/ssg-1.3.0-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |

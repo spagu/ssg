@@ -111,15 +111,16 @@ sudo dnf install libwebp-tools
 ### Install from Snap Store
 
 ```bash
-sudo snap install ssg
+sudo snap install static-site-generator
 ```
 
-### Or from local snap file
+### Create short alias
 
 ```bash
-wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg_1.7.10_amd64.snap
-sudo snap install ssg_1.7.10_amd64.snap
+sudo snap alias static-site-generator ssg
 ```
+
+Now you can use `ssg` instead of `static-site-generator`.
 
 ---
 
@@ -307,7 +308,7 @@ sudo dnf remove ssg
 ### Snap
 
 ```bash
-sudo snap remove ssg
+sudo snap remove static-site-generator
 ```
 
 ### Homebrew
