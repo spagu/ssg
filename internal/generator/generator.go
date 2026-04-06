@@ -635,6 +635,7 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		}
 		if page.Status == "publish" {
 			page.SourceDir = dir
+			page.SourceFile = entry.Name() // original filename e.g. "AUTHENTICATION.md"
 			pages = append(pages, *page)
 		}
 	}
@@ -715,18 +716,25 @@ func (g *Generator) buildPageLinks() map[string]string {
 }
 
 // buildMdLinkMap creates a map of .md filename variants to final output URLs.
-// Keys include: slug, slug.md, SLUG.md, and the base filename derived from slug.
+// Priority order: exact SourceFile match > lowercase SourceFile > slug variants.
+// This ensures that the actual filename on disk (e.g. "AUTHENTICATION.md") is always
+// preferred over slug-derived names, so slug and filename can differ independently.
 func (g *Generator) buildMdLinkMap() map[string]string {
 	mdLinks := make(map[string]string)
 	allPages := append(g.siteData.Pages, g.siteData.Posts...)
 	for _, p := range allPages {
 		url := p.GetURL()
+
+		// 1. Actual source filename — highest priority (e.g. "AUTHENTICATION.md")
+		if p.SourceFile != "" {
+			mdLinks[p.SourceFile] = url
+			mdLinks[strings.ToLower(p.SourceFile)] = url
+		}
+
+		// 2. Slug-derived variants — fallback when SourceFile not available (e.g. mddb source)
 		slug := p.Slug
-		// slug.md → /url/
 		mdLinks[slug+".md"] = url
-		// SLUG.md (uppercase) → /url/
 		mdLinks[strings.ToUpper(slug)+".md"] = url
-		// slug only (without extension) → /url/
 		mdLinks[slug] = url
 	}
 	return mdLinks

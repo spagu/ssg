@@ -4588,10 +4588,11 @@ func TestBuildMdLinkMap(t *testing.T) {
 	gen := &Generator{
 		siteData: &models.SiteData{
 			Pages: []models.Page{
-				{Slug: "authentication", Type: "page"},
+				// SourceFile differs from slug — simulates real filename vs frontmatter slug
+				{Slug: "authentication", Type: "page", SourceFile: "AUTHENTICATION.md"},
 			},
 			Posts: []models.Page{
-				{Slug: "hello-world", Type: "post", URLFormat: "slug"},
+				{Slug: "hello-world", Type: "post", URLFormat: "slug", SourceFile: "hello-world.md"},
 			},
 		},
 		config: Config{Domain: "example.com", PostURLFormat: "slug"},
@@ -4599,14 +4600,21 @@ func TestBuildMdLinkMap(t *testing.T) {
 
 	m := gen.buildMdLinkMap()
 
-	if m["authentication.md"] != "/authentication/" {
-		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"])
-	}
+	// SourceFile exact match
 	if m["AUTHENTICATION.md"] != "/authentication/" {
 		t.Errorf("AUTHENTICATION.md = %q, want /authentication/", m["AUTHENTICATION.md"])
 	}
+	// SourceFile lowercase
+	if m["authentication.md"] != "/authentication/" {
+		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"])
+	}
+	// slug-derived fallback
 	if m["hello-world.md"] != "/hello-world/" {
 		t.Errorf("hello-world.md = %q, want /hello-world/", m["hello-world.md"])
+	}
+	// slug without extension
+	if m["authentication"] != "/authentication/" {
+		t.Errorf("authentication = %q, want /authentication/", m["authentication"])
 	}
 }
 
