@@ -14,7 +14,7 @@ description: |
   - Config variables with env var support
 
 grade: stable
-confinement: classic
+confinement: strict
 license: BSD-3-Clause
 base: core24
 
@@ -23,11 +23,6 @@ issues: https://github.com/spagu/ssg/issues
 source-code: https://github.com/spagu/ssg
 website: https://github.com/spagu/ssg
 donation: https://github.com/sponsors/spagu
-
-# Suppress classic linter warnings for statically linked Go binary
-lint:
-  ignore:
-    - classic
 
 platforms:
   amd64:
@@ -38,6 +33,7 @@ apps:
     command: bin/ssg
     plugs:
       - home
+      - removable-media
       - network
       - network-bind
 
