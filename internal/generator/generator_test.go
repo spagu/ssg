@@ -4531,11 +4531,11 @@ func TestExportVariablesToEnv(t *testing.T) {
 
 func TestNormalizeSlug(t *testing.T) {
 	tests := []struct {
-		name              string
-		slug              string
-		filename          string
-		preserveSlugCase  bool
-		want              string
+		name             string
+		slug             string
+		filename         string
+		preserveSlugCase bool
+		want             string
 	}{
 		{"slug from frontmatter lowercased", "MySlug", "file.md", false, "myslug"},
 		{"slug from frontmatter preserved", "MySlug", "file.md", true, "MySlug"},

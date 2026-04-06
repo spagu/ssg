@@ -1118,17 +1118,17 @@ func (g *Generator) generateSite() error {
 // generateIndex generates the main index.html
 func (g *Generator) generateIndex() error {
 	data := struct {
-		Site      *models.SiteData
-		Posts     []models.Page
-		Pages     []models.Page
-		Domain    string
-		Vars      map[string]interface{}
+		Site   *models.SiteData
+		Posts  []models.Page
+		Pages  []models.Page
+		Domain string
+		Vars   map[string]interface{}
 	}{
-		Site:      g.siteData,
-		Posts:     g.siteData.Posts,
-		Pages:     g.siteData.Pages,
-		Domain:    g.config.Domain,
-		Vars:      g.config.Variables,
+		Site:   g.siteData,
+		Posts:  g.siteData.Posts,
+		Pages:  g.siteData.Pages,
+		Domain: g.config.Domain,
+		Vars:   g.config.Variables,
 	}
 
 	return g.renderTemplate("index.html", filepath.Join(g.config.OutputDir, "index.html"), data)
@@ -1312,7 +1312,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Author":        page.Author,
 		"Categories":    page.Categories,
 		"Excerpt":       page.Excerpt,
-		"Content":       template.HTML(page.Content),
+		"Content":       template.HTML(page.Content), // #nosec G203 -- SSG intentionally renders user's markdown as HTML
 		"URLFormat":     page.URLFormat,
 		"PageFormat":    page.PageFormat,
 		"SourceDir":     page.SourceDir,
