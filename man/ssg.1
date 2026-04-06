@@ -105,6 +105,17 @@ Remove the output directory before building.
 .TP
 .B \-\-sitemap\-off
 Disable sitemap.xml generation.
+.PP
+Pages and posts are automatically excluded from sitemap.xml when any of the
+following frontmatter conditions are met:
+.RS
+.IP \(bu 2
+\fBrobots\fR contains \fBnoindex\fR (e.g. \fBrobots: "noindex, follow"\fR)
+.IP \(bu 2
+\fBlayout: "redirect"\fR
+.IP \(bu 2
+\fBsitemap: "no"\fR
+.RE
 .TP
 .B \-\-robots\-off
 Disable robots.txt generation.

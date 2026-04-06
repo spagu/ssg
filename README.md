@@ -264,7 +264,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 
 | Option | Description |
 |--------|-------------|
-| `--sitemap-off` | Disable sitemap.xml generation |
+| `--sitemap-off` | Disable sitemap.xml generation. Pages with `robots: "noindex"`, `layout: "redirect"`, or `sitemap: "no"` are excluded automatically |
 | `--robots-off` | Disable robots.txt generation |
 | `--pretty-html` | Prettify HTML (remove all blank lines) |
 | `--relative-links` | Convert absolute URLs to relative links |

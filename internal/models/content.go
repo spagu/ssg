@@ -65,6 +65,7 @@ type Page struct {
 	Lang          string   `yaml:"lang"`
 	Canonical     string   `yaml:"canonical"`
 	Robots        string   `yaml:"robots"`
+	Sitemap       string   `yaml:"sitemap"`
 	FeaturedImage string   `yaml:"featured_image"`
 	Tags          []string `yaml:"tags,omitempty"`
 	Category      string   `yaml:"category"`

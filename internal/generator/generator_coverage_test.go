@@ -2160,6 +2160,137 @@ func parseDateCov(s string) (t time.Time) {
 }
 
 // ---------------------------------------------------------------------------
+// excludeFromSitemap / generateSitemap: noindex, redirect, sitemap:no (#7)
+// ---------------------------------------------------------------------------
+
+func TestExcludeFromSitemap(t *testing.T) {
+	tests := []struct {
+		name    string
+		page    models.Page
+		exclude bool
+	}{
+		{"normal page", models.Page{Title: "About", Slug: "about"}, false},
+		{"noindex", models.Page{Title: "X", Robots: "noindex, follow"}, true},
+		{"noindex nofollow", models.Page{Title: "X", Robots: "noindex, nofollow"}, true},
+		{"NOINDEX caps", models.Page{Title: "X", Robots: "NOINDEX"}, true},
+		{"index follow", models.Page{Title: "X", Robots: "index, follow"}, false},
+		{"redirect layout", models.Page{Title: "X", Layout: "redirect"}, true},
+		{"sitemap no", models.Page{Title: "X", Sitemap: "no"}, true},
+		{"sitemap No caps", models.Page{Title: "X", Sitemap: "No"}, true},
+		{"sitemap yes", models.Page{Title: "X", Sitemap: "yes"}, false},
+		{"redirect + noindex", models.Page{Title: "X", Layout: "redirect", Robots: "noindex"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := excludeFromSitemap(tt.page)
+			if got != tt.exclude {
+				t.Errorf("excludeFromSitemap(%s) = %v, want %v", tt.name, got, tt.exclude)
+			}
+		})
+	}
+}
+
+func TestSitemapExcludesNoindexPages(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			Domain:    "example.com",
+			OutputDir: outputDir,
+			Quiet:     true,
+		},
+		siteData: &models.SiteData{
+			Pages: []models.Page{
+				{Title: "About", Slug: "about", Modified: parseDateCov("2024-01-01")},
+				{Title: "Redirect", Slug: "docs", Robots: "noindex, follow", Layout: "redirect"},
+				{Title: "Hidden", Slug: "hidden", Sitemap: "no"},
+			},
+			Posts: []models.Page{
+				{Title: "Post1", Slug: "post1", Type: "post", Date: parseDateCov("2024-06-01")},
+				{Title: "Draft", Slug: "draft", Type: "post", Robots: "noindex, nofollow"},
+			},
+			Categories: make(map[int]models.Category),
+		},
+	}
+
+	if err := gen.generateSitemap(); err != nil {
+		t.Fatalf("generateSitemap() error: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(outputDir, "sitemap.xml"))
+	if err != nil {
+		t.Fatalf("sitemap.xml not found: %v", err)
+	}
+	xml := string(content)
+
+	// Should include
+	if !strings.Contains(xml, "/about/") {
+		t.Error("sitemap should contain /about/")
+	}
+	if !strings.Contains(xml, "/post1/") {
+		t.Error("sitemap should contain /post1/")
+	}
+	if !strings.Contains(xml, "example.com/") {
+		t.Error("sitemap should contain homepage")
+	}
+
+	// Should exclude
+	if strings.Contains(xml, "/docs/") {
+		t.Error("sitemap should NOT contain noindex redirect /docs/")
+	}
+	if strings.Contains(xml, "/hidden/") {
+		t.Error("sitemap should NOT contain sitemap:no /hidden/")
+	}
+	if strings.Contains(xml, "/draft/") {
+		t.Error("sitemap should NOT contain noindex post /draft/")
+	}
+}
+
+func TestSitemapSkipsHomepageWhenNoindex(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			Domain:    "example.com",
+			OutputDir: outputDir,
+			Quiet:     true,
+		},
+		siteData: &models.SiteData{
+			Pages: []models.Page{
+				{Title: "Home", Slug: "index", Robots: "noindex, nofollow"},
+				{Title: "About", Slug: "about"},
+			},
+			Categories: make(map[int]models.Category),
+		},
+	}
+
+	if err := gen.generateSitemap(); err != nil {
+		t.Fatalf("generateSitemap() error: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(outputDir, "sitemap.xml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	xml := string(content)
+
+	if strings.Contains(xml, "<loc>https://example.com/</loc>") {
+		t.Error("homepage should be excluded when index page has noindex")
+	}
+	if !strings.Contains(xml, "/about/") {
+		t.Error("about page should still be included")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // generatePage: skip-root branch + custom layout + copyColocated error
 // ---------------------------------------------------------------------------
 

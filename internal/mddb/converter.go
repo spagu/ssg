@@ -95,6 +95,9 @@ func (d *Document) ToPage() (*models.Page, error) {
 	if robots, ok := d.Metadata["robots"].(string); ok {
 		page.Robots = robots
 	}
+	if sitemap, ok := d.Metadata["sitemap"].(string); ok {
+		page.Sitemap = sitemap
+	}
 	if featuredImage, ok := d.Metadata["featured_image"].(string); ok {
 		page.FeaturedImage = featuredImage
 	}
@@ -123,7 +126,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"id": true, "title": true, "slug": true, "status": true, "type": true,
 		"link": true, "author": true, "excerpt": true, "date": true, "modified": true,
 		"categories": true, "description": true, "keywords": true, "lang": true,
-		"canonical": true, "robots": true, "featured_image": true, "tags": true,
+		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
 		"category": true, "layout": true, "template": true,
 	}
 

@@ -1334,6 +1334,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Lang":          page.Lang,
 		"Canonical":     page.Canonical,
 		"Robots":        page.Robots,
+		"Sitemap":       page.Sitemap,
 		"FeaturedImage": page.FeaturedImage,
 		"Tags":          page.Tags,
 		"Category":      page.Category,
@@ -1589,6 +1590,21 @@ func processShortcodes(content string) string {
 	return content
 }
 
+// excludeFromSitemap returns true if a page should be excluded from sitemap.xml.
+// Excluded: pages with robots containing "noindex", layout "redirect", or sitemap "no".
+func excludeFromSitemap(page models.Page) bool {
+	if strings.Contains(strings.ToLower(page.Robots), "noindex") {
+		return true
+	}
+	if page.Layout == "redirect" {
+		return true
+	}
+	if strings.EqualFold(page.Sitemap, "no") {
+		return true
+	}
+	return false
+}
+
 // generateSitemap creates sitemap.xml
 func (g *Generator) generateSitemap() error {
 	var sb strings.Builder
@@ -1598,15 +1614,27 @@ func (g *Generator) generateSitemap() error {
 	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`)
 	sb.WriteString("\n")
 
-	// Homepage
-	sb.WriteString("  <url>\n")
-	fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
-	sb.WriteString("    <changefreq>daily</changefreq>\n")
-	sb.WriteString("    <priority>1.0</priority>\n")
-	sb.WriteString("  </url>\n")
+	// Homepage — skip if any index page has noindex
+	skipHomepage := false
+	for _, page := range g.siteData.Pages {
+		if (page.Slug == "" || page.Slug == "index") && excludeFromSitemap(page) {
+			skipHomepage = true
+			break
+		}
+	}
+	if !skipHomepage {
+		sb.WriteString("  <url>\n")
+		fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
+		sb.WriteString("    <changefreq>daily</changefreq>\n")
+		sb.WriteString("    <priority>1.0</priority>\n")
+		sb.WriteString("  </url>\n")
+	}
 
 	// Pages
 	for _, page := range g.siteData.Pages {
+		if excludeFromSitemap(page) {
+			continue
+		}
 		sb.WriteString("  <url>\n")
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
 		lastmod := page.Modified
@@ -1623,6 +1651,9 @@ func (g *Generator) generateSitemap() error {
 
 	// Posts
 	for _, post := range g.siteData.Posts {
+		if excludeFromSitemap(post) {
+			continue
+		}
 		sb.WriteString("  <url>\n")
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
 		lastmod := post.Modified

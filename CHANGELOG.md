@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - ✨ **Rewrite `.md` links to final URLs** - opt-in via `rewrite_md_links: true` (closes #5)
+- ✨ **Sitemap exclusion** - pages/posts with `robots: "noindex"`, `layout: "redirect"`, or `sitemap: "no"` are excluded from `sitemap.xml` (closes #7)
   - Rewrites `href="AUTHENTICATION.md"` → `href="/authentication/"` based on actual slug
   - Handles relative prefixes `./file.md`, `../dir/file.md` — only base filename is matched
   - Priority: exact source filename > lowercase > slug-derived
@@ -19,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✨ **`preserve_slug_case` option** - control URL casing for slugs derived from filenames
   - Default (`false`): lowercased — `API.md` → `/api/`
   - `preserve_slug_case: true` — original case kept — `API.md` → `/API/`
+
+### Fixed
+- Fix sitemap: use file modification time when `date`/`modified` fields are empty instead of writing `0001-01-01`
+- Fix template fallback detection for custom page layouts
 
 ## [1.7.9] - 2026-04-06
 
