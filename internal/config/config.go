@@ -87,6 +87,11 @@ type Config struct {
 	// Values starting with $ are resolved from the current environment (e.g. "$GTM_CODE").
 	Variables map[string]interface{} `yaml:"variables" toml:"variables" json:"variables"`
 
+	// PagesPath is the subdirectory name inside source for static pages (default: "pages")
+	PagesPath string `yaml:"pages_path" toml:"pages_path" json:"pages_path"`
+	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
+	PostsPath string `yaml:"posts_path" toml:"posts_path" json:"posts_path"`
+
 	// Image Processing
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`
