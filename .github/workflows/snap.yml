@@ -12,8 +12,15 @@ env:
 
 jobs:
     snap:
-        name: Build Snap
-        runs-on: ubuntu-latest
+        name: Build Snap (${{ matrix.arch }})
+        runs-on: ${{ matrix.runner }}
+        strategy:
+            matrix:
+                include:
+                    - arch: amd64
+                      runner: ubuntu-latest
+                    - arch: arm64
+                      runner: ubuntu-24.04-arm
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -25,7 +32,7 @@ jobs:
             - name: Upload Snap artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: snap-package
+                  name: snap-package-${{ matrix.arch }}
                   path: ${{ steps.build.outputs.snap }}
                   retention-days: 7
 
