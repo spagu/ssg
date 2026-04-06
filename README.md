@@ -407,6 +407,52 @@ Use in templates:
 - All variables exported as env vars: `SSG_GTM`, `SSG_API_ENDPOINT`, etc.
 - Available in index, page, post, and category templates
 
+### Custom Content Paths
+
+Override the default `pages/` and `posts/` subdirectory names:
+
+```yaml
+pages_path: "docs"      # reads from content/{source}/docs/ instead of pages/
+posts_path: "articles"  # reads from content/{source}/articles/ instead of posts/
+```
+
+### Slug Handling
+
+Slugs come from the `slug:` frontmatter field. When not set, the slug is automatically derived from the source filename (without `.md` extension).
+
+By default slugs are **lowercased** (`API.md` → `/api/`). To preserve original casing:
+
+```yaml
+preserve_slug_case: true   # API.md → /API/, Hello-World.md → /Hello-World/
+```
+
+### Rewrite `.md` Links
+
+When Markdown files cross-reference each other with `.md` links, enable automatic rewriting to final output URLs:
+
+```yaml
+rewrite_md_links: true
+```
+
+```markdown
+See [Authentication](AUTHENTICATION.md) for details.
+See [Quickstart](../quickstart/README.md) or [API](./API.md).
+```
+
+Becomes in the rendered HTML:
+
+```html
+<a href="/authentication/">Authentication</a>
+<a href="/quickstart/">Quickstart</a>
+<a href="/api/">API</a>
+```
+
+**How it works:**
+- Matches the base filename (strips `./` and `../dir/` prefixes)
+- Priority: exact source filename → lowercase filename → slug-derived name
+- Unknown `.md` links are left untouched
+- Disabled by default to avoid breaking sites that serve raw `.md` files
+
 ### Examples
 
 ```bash

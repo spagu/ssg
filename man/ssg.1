@@ -224,6 +224,11 @@ variables:
   api:
     endpoint: "https://api.example.com"
 
+pages_path: "docs"
+posts_path: "articles"
+rewrite_md_links: true
+preserve_slug_case: false
+
 mddb:
   enabled: true
   url: "http://localhost:11023"
@@ -234,6 +239,36 @@ mddb:
   watch_interval: 30
 .fi
 .RE
+.SH CONTENT PATHS
+By default SSG reads static pages from the \fBpages/\fR subdirectory and blog
+posts from the \fBposts/\fR subdirectory inside the content source. Both can be
+overridden:
+.TP
+.B pages_path
+Subdirectory name for static pages (default: \fBpages\fR).
+Example: \fBpages_path: "docs"\fR reads from \fBcontent/{source}/docs/\fR.
+.TP
+.B posts_path
+Subdirectory name for blog posts (default: \fBposts\fR).
+Example: \fBposts_path: "articles"\fR reads from \fBcontent/{source}/articles/\fR.
+.SH SLUG HANDLING
+Slugs are read from the \fBslug:\fR field in frontmatter. When no slug is set,
+it is automatically derived from the source filename (without the \fB.md\fR
+extension).
+.PP
+By default slugs are lowercased (\fBAPI.md\fR → \fB/api/\fR). Set
+\fBpreserve_slug_case: true\fR to keep the original casing (\fBAPI.md\fR →
+\fB/API/\fR).
+.SH MD LINK REWRITING
+When \fBrewrite_md_links: true\fR is set, relative \fB.md\fR hrefs in content
+are rewritten to their final output URLs during the build.
+.PP
+For example \fBhref="AUTHENTICATION.md"\fR becomes
+\fBhref="/authentication/"\fR (or whatever the slug resolves to).
+.PP
+Relative path prefixes (\fB./\fR, \fB../dir/\fR) are stripped — only the base
+filename is matched. Unknown \fB.md\fR links are left untouched. The feature is
+opt-in to avoid breaking sites that intentionally serve raw \fB.md\fR files.
 .SH CONFIG VARIABLES
 Define custom variables in \fB.ssg.yaml\fR under the \fBvariables\fR key. They are
 available in every template context as \fB{{.Vars.key}}\fR and exported as

@@ -34,7 +34,7 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 
 ```bash
 # Add GPG key
-curl -fsSL https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-apt.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ssg-keyring.gpg
+curl -fsSL https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-apt.gpg | sudo gpg --dearmor -o /usr/share/keyrings/ssg-keyring.gpg
 
 # Add repository
 echo "deb [signed-by=/usr/share/keyrings/ssg-keyring.gpg] https://apt.ssg.dev stable main" | sudo tee /etc/apt/sources.list.d/ssg.list
@@ -48,12 +48,12 @@ sudo apt install ssg
 
 ```bash
 # AMD64 (x86_64)
-wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg_1.3.0_amd64.deb
-sudo dpkg -i ssg_1.3.0_amd64.deb
+wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg_1.7.10_amd64.deb
+sudo dpkg -i ssg_1.7.10_amd64.deb
 
 # ARM64 (aarch64)
-wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg_1.3.0_arm64.deb
-sudo dpkg -i ssg_1.3.0_arm64.deb
+wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg_1.7.10_arm64.deb
+sudo dpkg -i ssg_1.7.10_arm64.deb
 
 # Install dependencies if needed
 sudo apt install -f
@@ -79,7 +79,7 @@ name=SSG Repository
 baseurl=https://rpm.ssg.dev/stable/$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-rpm.gpg
+gpgkey=https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-rpm.gpg
 EOF
 
 # Install
@@ -90,12 +90,12 @@ sudo dnf install ssg
 
 ```bash
 # AMD64 (x86_64)
-wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-1.x86_64.rpm
-sudo rpm -i ssg-1.3.0-1.x86_64.rpm
+wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-1.x86_64.rpm
+sudo rpm -i ssg-1.7.10-1.x86_64.rpm
 
 # ARM64 (aarch64)
-wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-1.aarch64.rpm
-sudo rpm -i ssg-1.3.0-1.aarch64.rpm
+wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-1.aarch64.rpm
+sudo rpm -i ssg-1.7.10-1.aarch64.rpm
 ```
 
 ### Install WebP tools
@@ -117,8 +117,8 @@ sudo snap install ssg
 ### Or from local snap file
 
 ```bash
-wget https://github.com/spagu/ssg/releases/download/v1.3.0/ssg_1.3.0_amd64.snap
-sudo snap install --classic ssg_1.3.0_amd64.snap
+wget https://github.com/spagu/ssg/releases/download/v1.7.10/ssg_1.7.10_amd64.snap
+sudo snap install ssg_1.7.10_amd64.snap
 ```
 
 ---
@@ -155,13 +155,13 @@ brew install webp
 
 ```bash
 # Apple Silicon (M1/M2/M3)
-curl -LO https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-darwin-arm64.tar.gz
-tar -xzf ssg-1.3.0-darwin-arm64.tar.gz
+curl -LO https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-darwin-arm64.tar.gz
+tar -xzf ssg-1.7.10-darwin-arm64.tar.gz
 sudo mv ssg /usr/local/bin/
 
 # Intel
-curl -LO https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-darwin-amd64.tar.gz
-tar -xzf ssg-1.3.0-darwin-amd64.tar.gz
+curl -LO https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-darwin-amd64.tar.gz
+tar -xzf ssg-1.7.10-darwin-amd64.tar.gz
 sudo mv ssg /usr/local/bin/
 ```
 
@@ -186,13 +186,13 @@ make install clean
 
 ```bash
 # AMD64
-fetch https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-freebsd-amd64.tar.gz
-tar -xzf ssg-1.3.0-freebsd-amd64.tar.gz
+fetch https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-freebsd-amd64.tar.gz
+tar -xzf ssg-1.7.10-freebsd-amd64.tar.gz
 mv ssg /usr/local/bin/
 
 # ARM64
-fetch https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-freebsd-arm64.tar.gz
-tar -xzf ssg-1.3.0-freebsd-arm64.tar.gz
+fetch https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-freebsd-arm64.tar.gz
+tar -xzf ssg-1.7.10-freebsd-arm64.tar.gz
 mv ssg /usr/local/bin/
 ```
 
@@ -211,13 +211,13 @@ make install
 
 ```bash
 # AMD64
-ftp https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-openbsd-amd64.tar.gz
-tar -xzf ssg-1.3.0-openbsd-amd64.tar.gz
+ftp https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-openbsd-amd64.tar.gz
+tar -xzf ssg-1.7.10-openbsd-amd64.tar.gz
 doas mv ssg /usr/local/bin/
 
 # ARM64
-ftp https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-openbsd-arm64.tar.gz
-tar -xzf ssg-1.3.0-openbsd-arm64.tar.gz
+ftp https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-openbsd-arm64.tar.gz
+tar -xzf ssg-1.7.10-openbsd-arm64.tar.gz
 doas mv ssg /usr/local/bin/
 ```
 
@@ -228,8 +228,8 @@ doas mv ssg /usr/local/bin/
 ### Download and Install
 
 1. Download the latest release:
-   - [ssg-1.3.0-windows-amd64.zip](https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-windows-amd64.zip)
-   - [ssg-1.3.0-windows-arm64.zip](https://github.com/spagu/ssg/releases/download/v1.3.0/ssg-1.3.0-windows-arm64.zip)
+   - [ssg-1.7.10-windows-amd64.zip](https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-windows-amd64.zip)
+   - [ssg-1.7.10-windows-arm64.zip](https://github.com/spagu/ssg/releases/download/v1.7.10/ssg-1.7.10-windows-arm64.zip)
 
 2. Extract the ZIP file
 
