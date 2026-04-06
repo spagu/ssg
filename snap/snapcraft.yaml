@@ -1,21 +1,27 @@
 name: ssg
 version: "1.7.8"
-summary: Static Site Generator
+title: SSG - Static Site Generator
+summary: Fast static site generator written in Go
 description: |
-  Fast static site generator written in Go.
-  Converts Markdown content with YAML frontmatter to static HTML.
+  SSG converts Markdown content with YAML frontmatter to static HTML sites.
 
   Features:
   - Built-in HTTP server with watch mode
   - WebP image conversion
   - Cloudflare Pages deployment support
-  - Multiple templates (simple, krowy)
+  - Multiple template engines (Go, Pongo2, Mustache, Handlebars)
   - SEO-friendly URL generation
+  - Config variables with env var support
 
 grade: stable
 confinement: classic
 license: BSD-3-Clause
 base: core24
+
+contact: https://github.com/spagu/ssg/issues
+issues: https://github.com/spagu/ssg/issues
+source-code: https://github.com/spagu/ssg
+website: https://github.com/spagu/ssg
 
 platforms:
   amd64:

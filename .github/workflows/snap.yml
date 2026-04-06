@@ -7,20 +7,23 @@ on:
             - "v*"
     workflow_dispatch:
 
+env:
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
     snap:
         name: Build Snap
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: Build Snap
               uses: snapcore/action-build@v1
               id: build
 
             - name: Upload Snap artifact
-              uses: actions/upload-artifact@v7
+              uses: actions/upload-artifact@v4
               with:
                   name: snap-package
                   path: ${{ steps.build.outputs.snap }}
@@ -29,7 +32,7 @@ jobs:
             # Publish to Snap Store (requires SNAPCRAFT_STORE_CREDENTIALS secret)
             - name: Publish to Snap Store
               uses: snapcore/action-publish@v1
-              if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'spagu/ssg'
+              if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'spagu/ssg' && secrets.SNAPCRAFT_STORE_CREDENTIALS != ''
               env:
                 SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
               with:
