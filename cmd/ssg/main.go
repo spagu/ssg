@@ -308,6 +308,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Quiet:         cfg.Quiet,
 		Engine:        cfg.Engine,
 		Variables:     cfg.Variables,
+		PagesPath:     cfg.PagesPath,
+		PostsPath:     cfg.PostsPath,
 		Mddb: generator.MddbConfig{
 			Enabled:       cfg.Mddb.Enabled,
 			URL:           cfg.Mddb.URL,

@@ -60,6 +60,10 @@ zip: false           # Create ZIP for Cloudflare Pages
 #       color: "blue"
 #       size: "large"
 
+# Content directory structure (optional, these are defaults)
+# pages_path: "pages"   # Subdirectory inside source for static pages (default: "pages")
+# posts_path: "posts"   # Subdirectory inside source for blog posts  (default: "posts")
+
 # Variables - custom variables available in all templates as {{.Vars.key}}
 # and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
 # Values starting with $ are resolved from the current OS environment.

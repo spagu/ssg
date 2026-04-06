@@ -82,6 +82,11 @@ type Config struct {
 	// and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
 	// Values starting with $ are resolved from the current environment (e.g. "$GTM_CODE").
 	Variables map[string]interface{}
+
+	// PagesPath is the subdirectory name inside source for static pages (default: "pages")
+	PagesPath string
+	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
+	PostsPath string
 }
 
 // Generator handles the static site generation process
@@ -310,6 +315,22 @@ func (g *Generator) loadContent() error {
 	return g.loadContentFromFiles()
 }
 
+// pagesPath returns the configured pages subdirectory name, defaulting to "pages"
+func (g *Generator) pagesPath() string {
+	if g.config.PagesPath != "" {
+		return g.config.PagesPath
+	}
+	return "pages"
+}
+
+// postsPath returns the configured posts subdirectory name, defaulting to "posts"
+func (g *Generator) postsPath() string {
+	if g.config.PostsPath != "" {
+		return g.config.PostsPath
+	}
+	return "posts"
+}
+
 // loadContentFromFiles loads content from the local filesystem
 func (g *Generator) loadContentFromFiles() error {
 	sourcePath := filepath.Join(g.config.ContentDir, g.config.Source)
@@ -321,7 +342,7 @@ func (g *Generator) loadContentFromFiles() error {
 	}
 
 	// Load pages
-	pagesPath := filepath.Join(sourcePath, "pages")
+	pagesPath := filepath.Join(sourcePath, g.pagesPath())
 	pages, err := g.loadMarkdownDir(pagesPath)
 	if err != nil {
 		return fmt.Errorf("loading pages: %w", err)
@@ -333,7 +354,7 @@ func (g *Generator) loadContentFromFiles() error {
 	g.siteData.Pages = pages
 
 	// Load posts
-	postsPath := filepath.Join(sourcePath, "posts")
+	postsPath := filepath.Join(sourcePath, g.postsPath())
 	posts, err := g.loadPostsDir(postsPath)
 	if err != nil {
 		return fmt.Errorf("loading posts: %w", err)
