@@ -1197,7 +1197,7 @@ func (g *Generator) generatePage(page models.Page) error {
 
 		if err := g.renderTemplate(templateName, outputPath, data); err != nil {
 			// Fallback to page.html if custom template not found
-			if strings.Contains(err.Error(), "no such template") {
+			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
 				if err := g.renderTemplate("page.html", outputPath, data); err != nil {
 					return err
 				}
