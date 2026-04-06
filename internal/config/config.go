@@ -92,6 +92,9 @@ type Config struct {
 	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
 	PostsPath string `yaml:"posts_path" toml:"posts_path" json:"posts_path"`
 
+	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
+	RewriteMdLinks bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
+
 	// Image Processing
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`

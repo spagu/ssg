@@ -87,6 +87,9 @@ type Config struct {
 	PagesPath string
 	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
 	PostsPath string
+
+	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
+	RewriteMdLinks bool
 }
 
 // Generator handles the static site generation process
@@ -711,10 +714,51 @@ func (g *Generator) buildPageLinks() map[string]string {
 	return pageLinks
 }
 
+// buildMdLinkMap creates a map of .md filename variants to final output URLs.
+// Keys include: slug, slug.md, SLUG.md, and the base filename derived from slug.
+func (g *Generator) buildMdLinkMap() map[string]string {
+	mdLinks := make(map[string]string)
+	allPages := append(g.siteData.Pages, g.siteData.Posts...)
+	for _, p := range allPages {
+		url := p.GetURL()
+		slug := p.Slug
+		// slug.md → /url/
+		mdLinks[slug+".md"] = url
+		// SLUG.md (uppercase) → /url/
+		mdLinks[strings.ToUpper(slug)+".md"] = url
+		// slug only (without extension) → /url/
+		mdLinks[slug] = url
+	}
+	return mdLinks
+}
+
+// rewriteMdLinks replaces relative .md hrefs in HTML with final output URLs.
+// Handles: href="file.md", href="./file.md", href="../dir/file.md"
+var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
+
+func rewriteMdLinks(html string, mdLinkMap map[string]string) string {
+	return mdLinkRe.ReplaceAllStringFunc(html, func(match string) string {
+		// Extract path from href="..."
+		inner := match[6 : len(match)-1] // strip href=" and "
+		// Get base filename (last path segment)
+		base := filepath.Base(inner)
+		if url, ok := mdLinkMap[base]; ok {
+			return `href="` + url + `"`
+		}
+		// Try without .md extension
+		noExt := strings.TrimSuffix(base, ".md")
+		if url, ok := mdLinkMap[noExt]; ok {
+			return `href="` + url + `"`
+		}
+		return match // no match — leave as-is
+	})
+}
+
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
+	mdLinkMap := g.buildMdLinkMap()
 	return template.FuncMap{
-		"safeHTML":             g.tmplSafeHTML(pageLinks),
+		"safeHTML":             g.tmplSafeHTML(pageLinks, mdLinkMap),
 		"decodeHTML":           tmplDecodeHTML,
 		"formatDate":           tmplFormatDate,
 		"formatDatePL":         tmplFormatDatePL,
@@ -759,13 +803,16 @@ func tmplDict(values ...interface{}) (map[string]interface{}, error) {
 }
 
 // tmplSafeHTML returns the safeHTML template function
-func (g *Generator) tmplSafeHTML(pageLinks map[string]string) func(string) template.HTML {
+func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[string]string) func(string) template.HTML {
 	return func(s string) template.HTML {
 		s = g.processShortcodes(s) // Process shortcodes first
 		s = cleanMarkdownArtifacts(s)
 		s = autolinkListItems(s, pageLinks)
 		s = convertMarkdownToHTML(s)
 		s = fixMediaPaths(s, g.siteData.Media)
+		if g.config.RewriteMdLinks {
+			s = rewriteMdLinks(s, mdLinkMap)
+		}
 		return template.HTML(s) // #nosec G203 -- SSG intentionally renders markdown as HTML
 	}
 }

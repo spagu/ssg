@@ -4529,6 +4529,87 @@ func TestExportVariablesToEnv(t *testing.T) {
 	})
 }
 
+func TestRewriteMdLinks(t *testing.T) {
+	mdLinkMap := map[string]string{
+		"authentication.md": "/docs/authentication/",
+		"authentication":    "/docs/authentication/",
+		"API.md":            "/docs/api/",
+		"api":               "/docs/api/",
+	}
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "simple .md link",
+			input: `<a href="authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "relative path prefix stripped",
+			input: `<a href="./authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "parent dir prefix stripped",
+			input: `<a href="../docs/authentication.md">Auth</a>`,
+			want:  `<a href="/docs/authentication/">Auth</a>`,
+		},
+		{
+			name:  "uppercase filename",
+			input: `<a href="API.md">API</a>`,
+			want:  `<a href="/docs/api/">API</a>`,
+		},
+		{
+			name:  "unknown .md left as-is",
+			input: `<a href="unknown.md">X</a>`,
+			want:  `<a href="unknown.md">X</a>`,
+		},
+		{
+			name:  "non-.md link untouched",
+			input: `<a href="/about/">About</a>`,
+			want:  `<a href="/about/">About</a>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := rewriteMdLinks(tt.input, mdLinkMap)
+			if got != tt.want {
+				t.Errorf("rewriteMdLinks() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildMdLinkMap(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{
+			Pages: []models.Page{
+				{Slug: "authentication", Type: "page"},
+			},
+			Posts: []models.Page{
+				{Slug: "hello-world", Type: "post", URLFormat: "slug"},
+			},
+		},
+		config: Config{Domain: "example.com", PostURLFormat: "slug"},
+	}
+
+	m := gen.buildMdLinkMap()
+
+	if m["authentication.md"] != "/authentication/" {
+		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"])
+	}
+	if m["AUTHENTICATION.md"] != "/authentication/" {
+		t.Errorf("AUTHENTICATION.md = %q, want /authentication/", m["AUTHENTICATION.md"])
+	}
+	if m["hello-world.md"] != "/hello-world/" {
+		t.Errorf("hello-world.md = %q, want /hello-world/", m["hello-world.md"])
+	}
+}
+
 func TestVariablesInTemplateData(t *testing.T) {
 	vars := map[string]interface{}{
 		"gtm": "GTM-XYZ",

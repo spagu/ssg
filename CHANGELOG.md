@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.10] - 2026-04-06
+
+### Added
+- ✨ **Rewrite `.md` links to final URLs** - opt-in via `rewrite_md_links: true` (closes #5)
+  - Converts `href="authentication.md"` → `href="/docs/authentication/"` during build
+  - Handles relative prefixes: `./file.md`, `../dir/file.md` — only filename is matched
+  - Case-insensitive: `API.md` and `api.md` both resolve correctly
+  - Unknown `.md` links are left untouched
+  - Disabled by default to avoid breaking sites serving raw `.md` files
+
 ## [1.7.9] - 2026-04-06
 
 ### Added
