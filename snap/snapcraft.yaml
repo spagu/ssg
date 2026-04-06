@@ -22,6 +22,12 @@ contact: https://github.com/spagu/ssg/issues
 issues: https://github.com/spagu/ssg/issues
 source-code: https://github.com/spagu/ssg
 website: https://github.com/spagu/ssg
+donation: https://github.com/sponsors/spagu
+
+# Suppress classic linter warnings for statically linked Go binary
+lint:
+  ignore:
+    - classic
 
 platforms:
   amd64:
