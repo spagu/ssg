@@ -310,7 +310,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Variables:     cfg.Variables,
 		PagesPath:      cfg.PagesPath,
 		PostsPath:      cfg.PostsPath,
-		RewriteMdLinks: cfg.RewriteMdLinks,
+		RewriteMdLinks:   cfg.RewriteMdLinks,
+		PreserveSlugCase: cfg.PreserveSlugCase,
 		Mddb: generator.MddbConfig{
 			Enabled:       cfg.Mddb.Enabled,
 			URL:           cfg.Mddb.URL,

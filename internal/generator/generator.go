@@ -90,6 +90,10 @@ type Config struct {
 
 	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
 	RewriteMdLinks bool
+
+	// PreserveSlugCase keeps original casing in slugs derived from filenames.
+	// Default (false): slugs lowercased. When true: original case preserved.
+	PreserveSlugCase bool
 }
 
 // Generator handles the static site generation process
@@ -316,6 +320,25 @@ func (g *Generator) loadContent() error {
 	}
 
 	return g.loadContentFromFiles()
+}
+
+// normalizeSlug returns the slug to use for a page.
+// If slug is set in frontmatter it is used as-is.
+// Otherwise it is derived from the source filename (without .md extension).
+// Casing: lowercased by default; preserved when PreserveSlugCase is true.
+func (g *Generator) normalizeSlug(slug, filename string) string {
+	if slug != "" {
+		if g.config.PreserveSlugCase {
+			return slug
+		}
+		return strings.ToLower(slug)
+	}
+	// Derive from filename
+	base := strings.TrimSuffix(filename, filepath.Ext(filename))
+	if g.config.PreserveSlugCase {
+		return base
+	}
+	return strings.ToLower(base)
 }
 
 // pagesPath returns the configured pages subdirectory name, defaulting to "pages"
@@ -636,6 +659,7 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		if page.Status == "publish" {
 			page.SourceDir = dir
 			page.SourceFile = entry.Name() // original filename e.g. "AUTHENTICATION.md"
+			page.Slug = g.normalizeSlug(page.Slug, entry.Name())
 			pages = append(pages, *page)
 		}
 	}

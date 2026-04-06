@@ -4529,6 +4529,34 @@ func TestExportVariablesToEnv(t *testing.T) {
 	})
 }
 
+func TestNormalizeSlug(t *testing.T) {
+	tests := []struct {
+		name              string
+		slug              string
+		filename          string
+		preserveSlugCase  bool
+		want              string
+	}{
+		{"slug from frontmatter lowercased", "MySlug", "file.md", false, "myslug"},
+		{"slug from frontmatter preserved", "MySlug", "file.md", true, "MySlug"},
+		{"derived from filename lowercased", "", "AUTHENTICATION.md", false, "authentication"},
+		{"derived from filename preserved", "", "AUTHENTICATION.md", true, "AUTHENTICATION"},
+		{"derived from filename mixed case lowercased", "", "Hello-World.md", false, "hello-world"},
+		{"derived from filename mixed case preserved", "", "Hello-World.md", true, "Hello-World"},
+		{"slug empty filename also empty", "", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := &Generator{config: Config{PreserveSlugCase: tt.preserveSlugCase}}
+			got := gen.normalizeSlug(tt.slug, tt.filename)
+			if got != tt.want {
+				t.Errorf("normalizeSlug(%q, %q) = %q, want %q", tt.slug, tt.filename, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRewriteMdLinks(t *testing.T) {
 	mdLinkMap := map[string]string{
 		"authentication.md": "/docs/authentication/",

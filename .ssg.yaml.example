@@ -63,7 +63,8 @@ zip: false           # Create ZIP for Cloudflare Pages
 # Content directory structure (optional, these are defaults)
 # pages_path: "pages"   # Subdirectory inside source for static pages (default: "pages")
 # posts_path: "posts"   # Subdirectory inside source for blog posts  (default: "posts")
-# rewrite_md_links: false  # Rewrite relative .md links to final output URLs (opt-in)
+# rewrite_md_links: false      # Rewrite relative .md links to final output URLs (opt-in)
+# preserve_slug_case: false    # Keep original casing in slugs/URLs (default: lowercase)
 
 # Variables - custom variables available in all templates as {{.Vars.key}}
 # and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).
