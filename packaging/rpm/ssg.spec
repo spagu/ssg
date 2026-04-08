@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.7.12
+Version:        1.7.13
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
@@ -40,6 +40,9 @@ install -Dm644 man/ssg.1 %{buildroot}%{_mandir}/man1/ssg.1
 %{_mandir}/man1/ssg.1*
 
 %changelog
+* Wed Apr 08 2026 spagu <spagu@github.com> - 1.7.13-1
+- Fix shortcode templates missing FuncMap (safeHTML, decodeHTML, etc.)
+
 * Wed Apr 08 2026 spagu <spagu@github.com> - 1.7.12-1
 - Bracket shortcodes with attributes and closing tags
 

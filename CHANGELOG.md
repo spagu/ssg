@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.13] - 2026-04-08
+
+### Fixed
+- 🐛 **Shortcode templates now have FuncMap** — `safeHTML`, `decodeHTML`, `getCategoryName`, `getAuthorName`, and other template functions are now available in shortcode templates (fixes #11)
+  - `{{.InnerContent | safeHTML}}` works correctly — HTML is no longer auto-escaped
+  - All standard template functions available: `formatDate`, `formatDatePL`, `stripHTML`, `default`, `dict`, etc.
+
 ## [1.7.12] - 2026-04-08
 
 ### Added
