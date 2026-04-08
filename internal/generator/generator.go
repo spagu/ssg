@@ -1026,7 +1026,7 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 		return ""
 	}
 
-	tmpl, err := template.ParseFiles(templatePath)
+	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(g.shortcodeFuncMap()).ParseFiles(templatePath)
 	if err != nil {
 		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
 		return ""
@@ -1039,6 +1039,26 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 	}
 
 	return buf.String()
+}
+
+// shortcodeFuncMap returns template functions available in shortcode templates
+func (g *Generator) shortcodeFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"safeHTML": func(s string) template.HTML {
+			return template.HTML(s) // #nosec G203 -- shortcode content is author-controlled
+		},
+		"decodeHTML":      tmplDecodeHTML,
+		"formatDate":      tmplFormatDate,
+		"formatDatePL":    tmplFormatDatePL,
+		"getCategoryName": g.tmplGetCategoryName,
+		"getCategorySlug": g.tmplGetCategorySlug,
+		"isValidCategory": tmplIsValidCategory,
+		"getAuthorName":   g.tmplGetAuthorName,
+		"stripShortcodes": tmplStripShortcodes,
+		"stripHTML":       tmplStripHTML,
+		"default":         tmplDefault,
+		"dict":            tmplDict,
+	}
 }
 
 func tmplDecodeHTML(s string) string {

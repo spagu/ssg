@@ -1004,6 +1004,94 @@ func TestProcessBracketShortcodesConfigFieldsPreserved(t *testing.T) {
 	}
 }
 
+func TestShortcodeSafeHTMLInTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "wrap.html")
+	if err := os.WriteFile(tmplFile, []byte(`<div>{{.InnerContent | safeHTML}}</div>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"wrap": {Name: "wrap", Template: "wrap.html"},
+		},
+		siteData: &models.SiteData{
+			Categories: make(map[int]models.Category),
+			Authors:    make(map[int]models.Author),
+		},
+	}
+
+	result := gen.processShortcodes(`[wrap]<img src="/photo.jpg" alt="Photo">[/wrap]`)
+	if strings.Contains(result, "&lt;img") {
+		t.Errorf("Expected HTML not to be escaped, got: %s", result)
+	}
+	if !strings.Contains(result, `<img src="/photo.jpg"`) {
+		t.Errorf("Expected raw HTML in output, got: %s", result)
+	}
+}
+
+func TestShortcodeInnerContentSafeHTML(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "col.html")
+	// Realistic WordPress migration: vc_column wrapping HTML
+	if err := os.WriteFile(tmplFile, []byte(`<div class="col">{{.InnerContent | safeHTML}}</div>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"vc_column": {Name: "vc_column", Template: "col.html"},
+		},
+		siteData: &models.SiteData{
+			Categories: make(map[int]models.Category),
+			Authors:    make(map[int]models.Author),
+		},
+	}
+
+	result := gen.processShortcodes(`[vc_column]<img src="/media/images/photo.jpg" alt="Photo">[/vc_column]`)
+	if strings.Contains(result, "&lt;img") || strings.Contains(result, "&#34;") {
+		t.Errorf("Expected unescaped HTML, got: %s", result)
+	}
+	if !strings.Contains(result, `<img src="/media/images/photo.jpg"`) {
+		t.Errorf("Expected raw img tag, got: %s", result)
+	}
+	if !strings.Contains(result, `class="col"`) {
+		t.Errorf("Expected col wrapper, got: %s", result)
+	}
+}
+
+func TestShortcodeFuncMapAvailable(t *testing.T) {
+	gen := &Generator{
+		siteData: &models.SiteData{
+			Categories: map[int]models.Category{
+				1: {ID: 1, Name: "News", Slug: "news"},
+			},
+			Authors: map[int]models.Author{
+				1: {ID: 1, Name: "Admin"},
+			},
+		},
+	}
+
+	fm := gen.shortcodeFuncMap()
+
+	// Verify key functions are registered
+	for _, name := range []string{"safeHTML", "decodeHTML", "formatDate", "getCategoryName", "getAuthorName", "stripHTML", "default", "dict"} {
+		if fm[name] == nil {
+			t.Errorf("Expected %q in shortcode FuncMap", name)
+		}
+	}
+}
+
 func TestParseShortcodeAttrs(t *testing.T) {
 	tests := []struct {
 		name  string

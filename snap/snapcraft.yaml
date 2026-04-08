@@ -1,5 +1,5 @@
 name: static-site-generator
-version: "1.7.12"
+version: "1.7.13"
 title: SSG - Static Site Generator
 summary: Fast static site generator written in Go
 description: |
@@ -55,4 +55,4 @@ parts:
     build-snaps:
       - go/latest/stable
     override-build: |
-      go build -ldflags "-s -w -X main.Version=1.7.12" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg
+      go build -ldflags "-s -w -X main.Version=1.7.13" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg
