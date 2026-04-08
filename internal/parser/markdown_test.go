@@ -469,6 +469,7 @@ func TestResolveFlexibleAuthor(t *testing.T) {
 		{"numeric string", "42", 42, true},
 		{"name string", "Jan Kowalski", 0, false},
 		{"slug string", "jan-kowalski", 0, false},
+		{"unknown type (bool)", true, 0, true},
 	}
 
 	for _, tt := range tests {

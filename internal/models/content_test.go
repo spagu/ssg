@@ -668,6 +668,70 @@ func TestResolveFlexibleFields_UnknownAuthorString(t *testing.T) {
 	}
 }
 
+func TestResolveFlexibleFields_AuthorRawInt(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: 7},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 7 {
+		t.Errorf("Expected Author=7 from raw int, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorRawFloat64(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: float64(9)},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 9 {
+		t.Errorf("Expected Author=9 from raw float64, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesRawInt(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{3, 7}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 3 || sd.Posts[0].Categories[1] != 7 {
+		t.Errorf("Expected [3 7] from raw ints, got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesRawFloat64(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{float64(4), float64(8)}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 4 || sd.Posts[0].Categories[1] != 8 {
+		t.Errorf("Expected [4 8] from raw float64s, got %v", sd.Posts[0].Categories)
+	}
+}
+
 func TestResolveFlexibleFields_UnknownCategoryString(t *testing.T) {
 	sd := &SiteData{
 		Authors:    make(map[int]Author),
