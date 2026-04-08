@@ -390,6 +390,21 @@ shortcode_brackets: true  # default: false
 
 When enabled, `[thunderpick]` in content is replaced with the rendered shortcode HTML — but only for shortcodes defined in your config. Unknown `[tags]` are left untouched.
 
+Bracket shortcodes also support **attributes** and **closing tags**:
+
+```markdown
+<!-- Self-closing with attributes -->
+[link url="https://example.com" label="Click here"]
+
+<!-- With inner content -->
+[box]This content is wrapped in a box.[/box]
+
+<!-- Combined -->
+[alert type="warning"]Watch out for this![/alert]
+```
+
+In the shortcode template, use `{{.Attrs.key}}` for inline attributes and `{{.InnerContent}}` for content between tags. Config-defined fields (Title, Text, etc.) remain available alongside inline attrs.
+
 ### Config Variables
 
 Define custom variables in `.ssg.yaml` that are available in every template as `{{.Vars.key}}` and automatically exported as `SSG_*` environment variables:
