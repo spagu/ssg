@@ -283,3 +283,267 @@ Content
 		t.Error("Expected error for malformed YAML")
 	}
 }
+
+func TestParseMarkdownFileAuthorAsString(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "string-author.md")
+
+	content := `---
+title: "String Author Post"
+slug: "string-author"
+status: "publish"
+type: "post"
+author: "Jan Kowalski"
+---
+
+Content here.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	// Author should be 0 (unresolved) with raw value set
+	if page.Author != 0 {
+		t.Errorf("Expected Author=0 for string author, got %d", page.Author)
+	}
+	if page.AuthorRaw != "Jan Kowalski" {
+		t.Errorf("Expected AuthorRaw='Jan Kowalski', got %v", page.AuthorRaw)
+	}
+}
+
+func TestParseMarkdownFileAuthorAsInt(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "int-author.md")
+
+	content := `---
+title: "Int Author Post"
+slug: "int-author"
+status: "publish"
+type: "post"
+author: 5
+---
+
+Content here.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	if page.Author != 5 {
+		t.Errorf("Expected Author=5, got %d", page.Author)
+	}
+	if page.AuthorRaw != nil {
+		t.Errorf("Expected AuthorRaw=nil for int author, got %v", page.AuthorRaw)
+	}
+}
+
+func TestParseMarkdownFileAuthorAsNumericString(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "numeric-string-author.md")
+
+	content := `---
+title: "Numeric String Author"
+slug: "numeric-string-author"
+status: "publish"
+author: "42"
+---
+
+Content.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	if page.Author != 42 {
+		t.Errorf("Expected Author=42, got %d", page.Author)
+	}
+	if page.AuthorRaw != nil {
+		t.Errorf("Expected AuthorRaw=nil for numeric string, got %v", page.AuthorRaw)
+	}
+}
+
+func TestParseMarkdownFileCategoriesAsStrings(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "string-cats.md")
+
+	content := `---
+title: "String Categories"
+slug: "string-cats"
+status: "publish"
+type: "post"
+categories:
+  - "Humor"
+  - "Technology"
+---
+
+Content.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	// Categories should be empty (unresolved), CategoriesRaw should have values
+	if len(page.Categories) != 0 {
+		t.Errorf("Expected empty Categories for string values, got %v", page.Categories)
+	}
+	if len(page.CategoriesRaw) != 2 {
+		t.Errorf("Expected 2 CategoriesRaw, got %d", len(page.CategoriesRaw))
+	}
+}
+
+func TestParseMarkdownFileCategoriesAsInts(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "int-cats.md")
+
+	content := `---
+title: "Int Categories"
+slug: "int-cats"
+status: "publish"
+type: "post"
+categories:
+  - 1
+  - 5
+  - 10
+---
+
+Content.
+`
+
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	page, err := ParseMarkdownFile(testFile)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+
+	expectedCats := []int{1, 5, 10}
+	if len(page.Categories) != 3 {
+		t.Fatalf("Expected 3 categories, got %d", len(page.Categories))
+	}
+	for i, cat := range expectedCats {
+		if page.Categories[i] != cat {
+			t.Errorf("Expected category %d at index %d, got %d", cat, i, page.Categories[i])
+		}
+	}
+	if page.CategoriesRaw != nil {
+		t.Errorf("Expected nil CategoriesRaw for int categories, got %v", page.CategoriesRaw)
+	}
+}
+
+func TestResolveFlexibleAuthor(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      interface{}
+		wantID     int
+		wantRawNil bool
+	}{
+		{"nil", nil, 0, true},
+		{"int", 5, 5, true},
+		{"float64", float64(3), 3, true},
+		{"numeric string", "42", 42, true},
+		{"name string", "Jan Kowalski", 0, false},
+		{"slug string", "jan-kowalski", 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, raw := resolveFlexibleAuthor(tt.input)
+			if id != tt.wantID {
+				t.Errorf("resolveFlexibleAuthor(%v) id = %d, want %d", tt.input, id, tt.wantID)
+			}
+			if tt.wantRawNil && raw != nil {
+				t.Errorf("resolveFlexibleAuthor(%v) raw = %v, want nil", tt.input, raw)
+			}
+			if !tt.wantRawNil && raw == nil {
+				t.Errorf("resolveFlexibleAuthor(%v) raw = nil, want non-nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestResolveFlexibleCategories(t *testing.T) {
+	t.Run("nil input", func(t *testing.T) {
+		ids, raw := resolveFlexibleCategories(nil)
+		if ids != nil || raw != nil {
+			t.Errorf("Expected nil, nil; got %v, %v", ids, raw)
+		}
+	})
+
+	t.Run("all ints", func(t *testing.T) {
+		ids, raw := resolveFlexibleCategories([]interface{}{1, 5, 10})
+		if len(ids) != 3 || ids[0] != 1 || ids[1] != 5 || ids[2] != 10 {
+			t.Errorf("Expected [1 5 10], got %v", ids)
+		}
+		if raw != nil {
+			t.Errorf("Expected nil raw, got %v", raw)
+		}
+	})
+
+	t.Run("all float64", func(t *testing.T) {
+		ids, raw := resolveFlexibleCategories([]interface{}{float64(2), float64(7)})
+		if len(ids) != 2 || ids[0] != 2 || ids[1] != 7 {
+			t.Errorf("Expected [2 7], got %v", ids)
+		}
+		if raw != nil {
+			t.Errorf("Expected nil raw, got %v", raw)
+		}
+	})
+
+	t.Run("all strings", func(t *testing.T) {
+		input := []interface{}{"Humor", "Technology"}
+		ids, raw := resolveFlexibleCategories(input)
+		if ids != nil {
+			t.Errorf("Expected nil ids for strings, got %v", ids)
+		}
+		if len(raw) != 2 {
+			t.Errorf("Expected 2 raw values, got %d", len(raw))
+		}
+	})
+
+	t.Run("numeric strings", func(t *testing.T) {
+		ids, raw := resolveFlexibleCategories([]interface{}{"1", "5"})
+		if len(ids) != 2 || ids[0] != 1 || ids[1] != 5 {
+			t.Errorf("Expected [1 5], got %v", ids)
+		}
+		if raw != nil {
+			t.Errorf("Expected nil raw for numeric strings, got %v", raw)
+		}
+	})
+
+	t.Run("mixed int and string", func(t *testing.T) {
+		input := []interface{}{float64(1), "Humor"}
+		ids, raw := resolveFlexibleCategories(input)
+		if ids != nil {
+			t.Errorf("Expected nil ids for mixed, got %v", ids)
+		}
+		if len(raw) != 2 {
+			t.Errorf("Expected 2 raw values for mixed, got %d", len(raw))
+		}
+	})
+}

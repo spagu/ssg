@@ -52,12 +52,16 @@ type Page struct {
 	Link       string    `yaml:"link"`
 	Author     int       `yaml:"author"`
 	Categories []int     `yaml:"categories,omitempty"`
-	Excerpt    string    `yaml:"-"`
-	Content    string    `yaml:"-"`
-	URLFormat  string    `yaml:"-"` // URL format: "date" or "slug" (set by generator)
-	PageFormat string    `yaml:"-"` // Page output format: "directory", "flat", or "both" (set by generator)
-	SourceDir  string    `yaml:"-"` // Source directory path (for co-located asset copying)
-	SourceFile string    `yaml:"-"` // Source filename (e.g. "AUTHENTICATION.md") for .md link rewriting
+
+	// Raw fields for flexible parsing (string or int values before resolution)
+	AuthorRaw     interface{}   `yaml:"-" json:"-"` // Unresolved author (int or string)
+	CategoriesRaw []interface{} `yaml:"-" json:"-"` // Unresolved categories (int or string values)
+	Excerpt       string        `yaml:"-"`
+	Content       string        `yaml:"-"`
+	URLFormat     string        `yaml:"-"` // URL format: "date" or "slug" (set by generator)
+	PageFormat    string        `yaml:"-"` // Page output format: "directory", "flat", or "both" (set by generator)
+	SourceDir     string        `yaml:"-"` // Source directory path (for co-located asset copying)
+	SourceFile    string        `yaml:"-"` // Source filename (e.g. "AUTHENTICATION.md") for .md link rewriting
 
 	// SEO and metadata fields
 	Description   string   `yaml:"description"`
@@ -212,4 +216,83 @@ type SiteData struct {
 	Categories map[int]Category
 	Media      map[int]MediaItem
 	Authors    map[int]Author
+}
+
+// ResolveFlexibleFields resolves raw author/category strings to integer IDs
+// using reverse-lookup maps built from loaded metadata.
+// Call this after all metadata (authors, categories) has been loaded.
+func (sd *SiteData) ResolveFlexibleFields() {
+	authorByName := make(map[string]int)
+	authorBySlug := make(map[string]int)
+	for _, a := range sd.Authors {
+		authorByName[strings.ToLower(a.Name)] = a.ID
+		authorBySlug[strings.ToLower(a.Slug)] = a.ID
+	}
+
+	catByName := make(map[string]int)
+	catBySlug := make(map[string]int)
+	for _, c := range sd.Categories {
+		catByName[strings.ToLower(c.Name)] = c.ID
+		catBySlug[strings.ToLower(c.Slug)] = c.ID
+	}
+
+	resolvePages := func(pages []Page) {
+		for i := range pages {
+			resolveAuthor(&pages[i], authorByName, authorBySlug)
+			resolveCategories(&pages[i], catByName, catBySlug)
+		}
+	}
+
+	resolvePages(sd.Pages)
+	resolvePages(sd.Posts)
+}
+
+// resolveAuthor resolves AuthorRaw to Author ID
+func resolveAuthor(p *Page, byName, bySlug map[string]int) {
+	if p.AuthorRaw == nil || p.Author != 0 {
+		return
+	}
+	switch v := p.AuthorRaw.(type) {
+	case int:
+		p.Author = v
+	case float64:
+		p.Author = int(v)
+	case string:
+		lower := strings.ToLower(v)
+		if id, ok := byName[lower]; ok {
+			p.Author = id
+		} else if id, ok := bySlug[lower]; ok {
+			p.Author = id
+		}
+		// If still 0 — try parsing as numeric string
+		if p.Author == 0 {
+			if parsed, err := strconv.Atoi(v); err == nil {
+				p.Author = parsed
+			}
+		}
+	}
+}
+
+// resolveCategories resolves CategoriesRaw to Categories IDs
+func resolveCategories(p *Page, byName, bySlug map[string]int) {
+	if len(p.CategoriesRaw) == 0 || len(p.Categories) > 0 {
+		return
+	}
+	for _, raw := range p.CategoriesRaw {
+		switch v := raw.(type) {
+		case int:
+			p.Categories = append(p.Categories, v)
+		case float64:
+			p.Categories = append(p.Categories, int(v))
+		case string:
+			lower := strings.ToLower(v)
+			if id, ok := byName[lower]; ok {
+				p.Categories = append(p.Categories, id)
+			} else if id, ok := bySlug[lower]; ok {
+				p.Categories = append(p.Categories, id)
+			} else if parsed, err := strconv.Atoi(v); err == nil {
+				p.Categories = append(p.Categories, parsed)
+			}
+		}
+	}
 }

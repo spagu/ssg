@@ -1,5 +1,5 @@
 name: static-site-generator
-version: "1.7.10"
+version: "1.7.11"
 title: SSG - Static Site Generator
 summary: Fast static site generator written in Go
 description: |

@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.7.9
+Version:        1.7.11
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
@@ -40,6 +40,9 @@ install -Dm644 man/ssg.1 %{buildroot}%{_mandir}/man1/ssg.1
 %{_mandir}/man1/ssg.1*
 
 %changelog
+* Sun Apr 06 2026 spagu <spagu@github.com> - 1.7.11-1
+- Flexible author and category fields (accept int ID or string name/slug)
+
 * Mon Mar 30 2026 spagu <spagu@github.com> - 1.7.9-1
 - Updated Go dependencies to latest versions
 - Updated Alpine base image to 3.23

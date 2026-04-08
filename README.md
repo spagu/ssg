@@ -380,6 +380,16 @@ Don't miss it!
 
 **Available template variables:** `{{.Name}}`, `{{.Title}}`, `{{.Text}}`, `{{.URL}}`, `{{.Logo}}`, `{{.Legal}}`, `{{.Data.key}}`
 
+#### WordPress-style bracket syntax
+
+Enable `[shortcode_name]` syntax (in addition to `{{shortcode_name}}`):
+
+```yaml
+shortcode_brackets: true  # default: false
+```
+
+When enabled, `[thunderpick]` in content is replaced with the rendered shortcode HTML — but only for shortcodes defined in your config. Unknown `[tags]` are left untouched.
+
 ### Config Variables
 
 Define custom variables in `.ssg.yaml` that are available in every template as `{{.Vars.key}}` and automatically exported as `SSG_*` environment variables:
@@ -861,6 +871,32 @@ No `## Excerpt` or `## Content` markers needed.
 
 This is simpler for pages that don't need excerpts.
 ```
+
+### Flexible Author & Categories
+
+The `author` and `categories` fields accept both integer IDs and string values:
+
+```yaml
+# Integer IDs (classic)
+author: 3
+categories:
+  - 1
+  - 5
+
+# String names — resolved to IDs via metadata lookup
+author: "Jan Kowalski"
+categories:
+  - "Humor"
+  - "Technology"
+
+# String slugs — also resolved
+author: "jan-kowalski"
+categories:
+  - "humor"
+  - "technology"
+```
+
+Resolution is case-insensitive. Numeric strings (e.g., `author: "42"`) are parsed as integers automatically. Unresolved strings (no matching author/category in metadata) are silently ignored.
 
 ### Template Variables
 
