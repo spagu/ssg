@@ -540,6 +540,112 @@ func TestExtractAuthor(t *testing.T) {
 	}
 }
 
+func TestDocument_ToPage_FlexibleAuthorString(t *testing.T) {
+	doc := Document{
+		Key: "test",
+		Metadata: map[string]any{
+			"author": "Jan Kowalski",
+		},
+	}
+
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatalf("ToPage() error = %v", err)
+	}
+
+	if page.Author != 0 {
+		t.Errorf("page.Author = %v, want 0 (unresolved string)", page.Author)
+	}
+	if page.AuthorRaw != "Jan Kowalski" {
+		t.Errorf("page.AuthorRaw = %v, want 'Jan Kowalski'", page.AuthorRaw)
+	}
+}
+
+func TestDocument_ToPage_FlexibleAuthorFloat(t *testing.T) {
+	doc := Document{
+		Key: "test",
+		Metadata: map[string]any{
+			"author": float64(7),
+		},
+	}
+
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatalf("ToPage() error = %v", err)
+	}
+
+	if page.Author != 7 {
+		t.Errorf("page.Author = %v, want 7", page.Author)
+	}
+	if page.AuthorRaw != nil {
+		t.Errorf("page.AuthorRaw = %v, want nil", page.AuthorRaw)
+	}
+}
+
+func TestDocument_ToPage_FlexibleCategoriesStrings(t *testing.T) {
+	doc := Document{
+		Key: "test",
+		Metadata: map[string]any{
+			"categories": []interface{}{"Humor", "Technology"},
+		},
+	}
+
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatalf("ToPage() error = %v", err)
+	}
+
+	if len(page.Categories) != 0 {
+		t.Errorf("page.Categories = %v, want empty (string values)", page.Categories)
+	}
+	if len(page.CategoriesRaw) != 2 {
+		t.Errorf("page.CategoriesRaw length = %v, want 2", len(page.CategoriesRaw))
+	}
+}
+
+func TestDocument_ToPage_FlexibleCategoriesMixed(t *testing.T) {
+	doc := Document{
+		Key: "test",
+		Metadata: map[string]any{
+			"categories": []interface{}{float64(1), "Humor"},
+		},
+	}
+
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatalf("ToPage() error = %v", err)
+	}
+
+	// Mixed values — should store raw for later resolution
+	if len(page.Categories) != 0 {
+		t.Errorf("page.Categories = %v, want empty (mixed values)", page.Categories)
+	}
+	if len(page.CategoriesRaw) != 2 {
+		t.Errorf("page.CategoriesRaw length = %v, want 2", len(page.CategoriesRaw))
+	}
+}
+
+func TestDocument_ToPage_FlexibleCategoriesInts(t *testing.T) {
+	doc := Document{
+		Key: "test",
+		Metadata: map[string]any{
+			"categories": []interface{}{float64(1), float64(5)},
+		},
+	}
+
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatalf("ToPage() error = %v", err)
+	}
+
+	if len(page.Categories) != 2 || page.Categories[0] != 1 || page.Categories[1] != 5 {
+		t.Errorf("page.Categories = %v, want [1 5]", page.Categories)
+	}
+	if len(page.CategoriesRaw) != 0 {
+		t.Errorf("page.CategoriesRaw = %v, want empty", page.CategoriesRaw)
+	}
+}
+
 func TestDocument_ToPage_ExtraFields(t *testing.T) {
 	doc := Document{
 		Key: "custom-page",

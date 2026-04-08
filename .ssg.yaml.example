@@ -45,6 +45,7 @@ zip: false           # Create ZIP for Cloudflare Pages
 
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder
+# shortcode_brackets: false  # Also match [name] syntax (WordPress-style, default: false)
 # shortcodes:
 #   - name: "thunderpick"          # Use as {{thunderpick}} in content
 #     template: "shortcodes/banner.html"  # REQUIRED: template file in theme

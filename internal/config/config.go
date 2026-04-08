@@ -80,7 +80,8 @@ type Config struct {
 	SourceMap     bool   `yaml:"sourcemap" toml:"sourcemap" json:"sourcemap"`
 
 	// Shortcodes
-	Shortcodes []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
+	Shortcodes        []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
+	ShortcodeBrackets bool        `yaml:"shortcode_brackets" toml:"shortcode_brackets" json:"shortcode_brackets"` // Also match [shortcode] syntax (default: false)
 
 	// Variables defines custom variables available in all templates as {{.Vars.key}}
 	// and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).

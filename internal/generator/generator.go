@@ -61,20 +61,21 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// New options
-	SitemapOff    bool        // Disable sitemap generation
-	RobotsOff     bool        // Disable robots.txt generation
-	PrettyHTML    bool        // Prettify HTML output (remove extra blank lines)
-	PostURLFormat string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
-	PageFormat    string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
-	RelativeLinks bool        // Convert absolute URLs to relative links
-	Shortcodes    []Shortcode // Shortcodes definitions
-	MinifyHTML    bool        // Minify HTML output
-	MinifyCSS     bool        // Minify CSS output
-	MinifyJS      bool        // Minify JS output
-	SourceMap     bool        // Include source maps
-	Clean         bool        // Clean output directory before build
-	Quiet         bool        // Suppress stdout output
-	Engine        string      // Template engine: go, pongo2, mustache, handlebars
+	SitemapOff        bool        // Disable sitemap generation
+	RobotsOff         bool        // Disable robots.txt generation
+	PrettyHTML        bool        // Prettify HTML output (remove extra blank lines)
+	PostURLFormat     string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
+	PageFormat        string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
+	RelativeLinks     bool        // Convert absolute URLs to relative links
+	Shortcodes        []Shortcode // Shortcodes definitions
+	ShortcodeBrackets bool        // Also match [shortcode] syntax
+	MinifyHTML        bool        // Minify HTML output
+	MinifyCSS         bool        // Minify CSS output
+	MinifyJS          bool        // Minify JS output
+	SourceMap         bool        // Include source maps
+	Clean             bool        // Clean output directory before build
+	Quiet             bool        // Suppress stdout output
+	Engine            string      // Template engine: go, pongo2, mustache, handlebars
 	// MDDB content source
 	Mddb MddbConfig // MDDB configuration
 
@@ -399,6 +400,9 @@ func (g *Generator) loadContentFromFiles() error {
 		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
 	})
 
+	// Resolve flexible author/category fields (string → ID lookup)
+	g.siteData.ResolveFlexibleFields()
+
 	g.logContentStats()
 
 	return nil
@@ -467,6 +471,9 @@ func (g *Generator) loadContentFromMddb() error {
 	if err := g.loadMetadataFromMddb(client); err != nil {
 		return fmt.Errorf("loading metadata from mddb: %w", err)
 	}
+
+	// Resolve flexible author/category fields (string → ID lookup)
+	g.siteData.ResolveFlexibleFields()
 
 	g.logContentStats()
 
@@ -921,21 +928,34 @@ func convertMarkdownToHTML(s string) string {
 	return buf.String()
 }
 
-// processShortcodes replaces {{shortcode_name}} with rendered HTML
+// processShortcodes replaces {{shortcode_name}} with rendered HTML.
+// When ShortcodeBrackets is enabled, also replaces [shortcode_name] for defined shortcodes only.
 func (g *Generator) processShortcodes(content string) string {
 	// Match {{shortcode_name}} pattern
 	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		// Extract shortcode name from {{name}}
+	content = re.ReplaceAllStringFunc(content, func(match string) string {
 		name := match[2 : len(match)-2]
-
 		sc, ok := g.shortcodeMap[name]
 		if !ok {
 			return "" // Remove undefined shortcodes
 		}
-
 		return g.renderShortcode(sc)
 	})
+
+	// Match [shortcode_name] pattern (only defined shortcodes, opt-in)
+	if g.config.ShortcodeBrackets && len(g.shortcodeMap) > 0 {
+		reBracket := regexp.MustCompile(`\[(\w+)\]`)
+		content = reBracket.ReplaceAllStringFunc(content, func(match string) string {
+			name := match[1 : len(match)-1]
+			sc, ok := g.shortcodeMap[name]
+			if !ok {
+				return match // Keep unknown [tags] untouched
+			}
+			return g.renderShortcode(sc)
+		})
+	}
+
+	return content
 }
 
 // renderShortcode renders a single shortcode to HTML using its template file

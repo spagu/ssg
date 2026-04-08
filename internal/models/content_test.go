@@ -420,6 +420,334 @@ func TestMetadataUnmarshal(t *testing.T) {
 	}
 }
 
+func TestResolveFlexibleFields_AuthorByName(t *testing.T) {
+	sd := &SiteData{
+		Authors: map[int]Author{
+			3: {ID: 3, Name: "Jan Kowalski", Slug: "jan-kowalski"},
+		},
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: "Jan Kowalski"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 3 {
+		t.Errorf("Expected Author=3 resolved by name, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorBySlug(t *testing.T) {
+	sd := &SiteData{
+		Authors: map[int]Author{
+			5: {ID: 5, Name: "Anna Nowak", Slug: "anna-nowak"},
+		},
+		Categories: make(map[int]Category),
+		Pages: []Page{
+			{AuthorRaw: "anna-nowak"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Pages[0].Author != 5 {
+		t.Errorf("Expected Author=5 resolved by slug, got %d", sd.Pages[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorCaseInsensitive(t *testing.T) {
+	sd := &SiteData{
+		Authors: map[int]Author{
+			1: {ID: 1, Name: "Admin User", Slug: "admin-user"},
+		},
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: "admin user"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 1 {
+		t.Errorf("Expected Author=1 (case-insensitive), got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorNumericString(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: "42"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 42 {
+		t.Errorf("Expected Author=42 (numeric string fallback), got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorAlreadyResolved(t *testing.T) {
+	sd := &SiteData{
+		Authors:    map[int]Author{3: {ID: 3, Name: "Test", Slug: "test"}},
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{Author: 3, AuthorRaw: "something-else"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 3 {
+		t.Errorf("Expected Author=3 (already resolved), got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesByName(t *testing.T) {
+	sd := &SiteData{
+		Authors: make(map[int]Author),
+		Categories: map[int]Category{
+			59: {ID: 59, Name: "Humor", Slug: "humor"},
+			10: {ID: 10, Name: "Technology", Slug: "technology"},
+		},
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{"Humor", "Technology"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 {
+		t.Fatalf("Expected 2 categories, got %d", len(sd.Posts[0].Categories))
+	}
+	if sd.Posts[0].Categories[0] != 59 {
+		t.Errorf("Expected category 59 (Humor), got %d", sd.Posts[0].Categories[0])
+	}
+	if sd.Posts[0].Categories[1] != 10 {
+		t.Errorf("Expected category 10 (Technology), got %d", sd.Posts[0].Categories[1])
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesBySlug(t *testing.T) {
+	sd := &SiteData{
+		Authors: make(map[int]Author),
+		Categories: map[int]Category{
+			5: {ID: 5, Name: "Web Dev", Slug: "web-dev"},
+		},
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{"web-dev"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 1 || sd.Posts[0].Categories[0] != 5 {
+		t.Errorf("Expected [5], got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesCaseInsensitive(t *testing.T) {
+	sd := &SiteData{
+		Authors: make(map[int]Author),
+		Categories: map[int]Category{
+			2: {ID: 2, Name: "Humor", Slug: "humor"},
+		},
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{"humor"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 1 || sd.Posts[0].Categories[0] != 2 {
+		t.Errorf("Expected [2], got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesAlreadyResolved(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{Categories: []int{1, 5}, CategoriesRaw: []interface{}{"Ignored"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 1 {
+		t.Errorf("Expected [1 5] (already resolved), got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesNumericStrings(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{"10", "20"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 10 || sd.Posts[0].Categories[1] != 20 {
+		t.Errorf("Expected [10 20], got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_MixedIntAndStringCategories(t *testing.T) {
+	sd := &SiteData{
+		Authors: make(map[int]Author),
+		Categories: map[int]Category{
+			59: {ID: 59, Name: "Humor", Slug: "humor"},
+		},
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{float64(1), "Humor"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 {
+		t.Fatalf("Expected 2 categories, got %d", len(sd.Posts[0].Categories))
+	}
+	if sd.Posts[0].Categories[0] != 1 {
+		t.Errorf("Expected category 1, got %d", sd.Posts[0].Categories[0])
+	}
+	if sd.Posts[0].Categories[1] != 59 {
+		t.Errorf("Expected category 59 (Humor), got %d", sd.Posts[0].Categories[1])
+	}
+}
+
+func TestResolveFlexibleFields_PagesAndPosts(t *testing.T) {
+	sd := &SiteData{
+		Authors: map[int]Author{
+			1: {ID: 1, Name: "Admin", Slug: "admin"},
+		},
+		Categories: map[int]Category{
+			2: {ID: 2, Name: "News", Slug: "news"},
+		},
+		Pages: []Page{
+			{AuthorRaw: "Admin"},
+		},
+		Posts: []Page{
+			{AuthorRaw: "admin", CategoriesRaw: []interface{}{"News"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Pages[0].Author != 1 {
+		t.Errorf("Page Author: expected 1, got %d", sd.Pages[0].Author)
+	}
+	if sd.Posts[0].Author != 1 {
+		t.Errorf("Post Author: expected 1, got %d", sd.Posts[0].Author)
+	}
+	if len(sd.Posts[0].Categories) != 1 || sd.Posts[0].Categories[0] != 2 {
+		t.Errorf("Post Categories: expected [2], got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_UnknownAuthorString(t *testing.T) {
+	sd := &SiteData{
+		Authors:    map[int]Author{1: {ID: 1, Name: "Admin", Slug: "admin"}},
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: "unknown-person"},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 0 {
+		t.Errorf("Expected Author=0 for unknown string, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorRawInt(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: 7},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 7 {
+		t.Errorf("Expected Author=7 from raw int, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_AuthorRawFloat64(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{AuthorRaw: float64(9)},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if sd.Posts[0].Author != 9 {
+		t.Errorf("Expected Author=9 from raw float64, got %d", sd.Posts[0].Author)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesRawInt(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{3, 7}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 3 || sd.Posts[0].Categories[1] != 7 {
+		t.Errorf("Expected [3 7] from raw ints, got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_CategoriesRawFloat64(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: make(map[int]Category),
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{float64(4), float64(8)}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 2 || sd.Posts[0].Categories[0] != 4 || sd.Posts[0].Categories[1] != 8 {
+		t.Errorf("Expected [4 8] from raw float64s, got %v", sd.Posts[0].Categories)
+	}
+}
+
+func TestResolveFlexibleFields_UnknownCategoryString(t *testing.T) {
+	sd := &SiteData{
+		Authors:    make(map[int]Author),
+		Categories: map[int]Category{1: {ID: 1, Name: "News", Slug: "news"}},
+		Posts: []Page{
+			{CategoriesRaw: []interface{}{"nonexistent"}},
+		},
+	}
+
+	sd.ResolveFlexibleFields()
+
+	if len(sd.Posts[0].Categories) != 0 {
+		t.Errorf("Expected empty categories for unknown string, got %v", sd.Posts[0].Categories)
+	}
+}
+
 func TestGetURLWithPageFormat(t *testing.T) {
 	tests := []struct {
 		name    string

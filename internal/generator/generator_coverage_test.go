@@ -751,6 +751,94 @@ func TestNewWithShortcodes(t *testing.T) {
 	}
 }
 
+func TestProcessShortcodesBracketSyntax(t *testing.T) {
+	gen := &Generator{
+		config: Config{ShortcodeBrackets: true},
+		shortcodeMap: map[string]Shortcode{
+			"promo": {Name: "promo", Text: "Promo text"},
+		},
+	}
+
+	// [promo] should be replaced (defined shortcode)
+	result := gen.processShortcodes("Hello [promo] world")
+	if strings.Contains(result, "[promo]") {
+		t.Errorf("Expected [promo] to be replaced, got: %s", result)
+	}
+
+	// [unknown] should NOT be replaced (undefined)
+	result = gen.processShortcodes("Hello [unknown] world")
+	if !strings.Contains(result, "[unknown]") {
+		t.Errorf("Expected [unknown] to remain untouched, got: %s", result)
+	}
+
+	// {{promo}} should also work
+	result = gen.processShortcodes("Hello {{promo}} world")
+	if strings.Contains(result, "{{promo}}") {
+		t.Errorf("Expected {{promo}} to be replaced, got: %s", result)
+	}
+}
+
+func TestProcessShortcodesBracketDisabled(t *testing.T) {
+	gen := &Generator{
+		config: Config{ShortcodeBrackets: false},
+		shortcodeMap: map[string]Shortcode{
+			"promo": {Name: "promo", Text: "Promo text"},
+		},
+	}
+
+	// [promo] should NOT be replaced when disabled
+	result := gen.processShortcodes("Hello [promo] world")
+	if !strings.Contains(result, "[promo]") {
+		t.Errorf("Expected [promo] to remain when brackets disabled, got: %s", result)
+	}
+
+	// {{promo}} should still work
+	result = gen.processShortcodes("Hello {{promo}} world")
+	if strings.Contains(result, "{{promo}}") {
+		t.Errorf("Expected {{promo}} to be replaced, got: %s", result)
+	}
+}
+
+func TestProcessShortcodesBracketWithTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "banner.html")
+	if err := os.WriteFile(tmplFile, []byte(`<div>{{.Title}}</div>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"banner": {Name: "banner", Title: "My Banner", Template: "banner.html"},
+		},
+	}
+
+	result := gen.processShortcodes("Before [banner] After")
+	if strings.Contains(result, "[banner]") {
+		t.Errorf("Expected [banner] to be replaced, got: %s", result)
+	}
+	if !strings.Contains(result, "My Banner") {
+		t.Errorf("Expected rendered template with 'My Banner', got: %s", result)
+	}
+}
+
+func TestProcessShortcodesBracketEmptyMap(t *testing.T) {
+	gen := &Generator{
+		config:       Config{ShortcodeBrackets: true},
+		shortcodeMap: map[string]Shortcode{},
+	}
+
+	// Should not crash with empty map
+	result := gen.processShortcodes("Hello [anything] world")
+	if !strings.Contains(result, "[anything]") {
+		t.Errorf("Expected [anything] to remain with empty map, got: %s", result)
+	}
+}
+
 func TestTmplDecodeHTML(t *testing.T) {
 	result := tmplDecodeHTML("&amp; &lt; &gt; &#8211;")
 	if !strings.Contains(result, "&") || !strings.Contains(result, "<") || !strings.Contains(result, ">") {

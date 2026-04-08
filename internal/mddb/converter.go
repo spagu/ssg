@@ -42,8 +42,12 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Link = link
 	}
 
-	if author, ok := d.Metadata["author"].(float64); ok {
-		page.Author = int(author)
+	// Flexible author: accept int (float64 from JSON) or string
+	switch authorVal := d.Metadata["author"].(type) {
+	case float64:
+		page.Author = int(authorVal)
+	case string:
+		page.AuthorRaw = authorVal
 	}
 
 	if excerpt, ok := d.Metadata["excerpt"].(string); ok {
@@ -70,12 +74,21 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Modified = d.UpdatedAt
 	}
 
-	// Parse categories
+	// Flexible categories: accept []int (float64 from JSON) or []string
 	if cats, ok := d.Metadata["categories"].([]interface{}); ok {
+		hasStrings := false
 		for _, cat := range cats {
-			if catID, ok := cat.(float64); ok {
-				page.Categories = append(page.Categories, int(catID))
+			switch v := cat.(type) {
+			case float64:
+				page.Categories = append(page.Categories, int(v))
+			case string:
+				hasStrings = true
 			}
+		}
+		if hasStrings {
+			// Has string values — store raw for later resolution
+			page.Categories = nil
+			page.CategoriesRaw = cats
 		}
 	}
 

@@ -4,6 +4,7 @@ package parser
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -146,16 +147,18 @@ func extractExtraFields(allFields map[string]interface{}) map[string]interface{}
 
 // PageFrontmatter is a temporary struct for parsing frontmatter with string dates
 type PageFrontmatter struct {
-	ID         int    `yaml:"id"`
-	Title      string `yaml:"title"`
-	Slug       string `yaml:"slug"`
-	Date       string `yaml:"date"`
-	Modified   string `yaml:"modified"`
-	Status     string `yaml:"status"`
-	Type       string `yaml:"type"`
-	Link       string `yaml:"link"`
-	Author     int    `yaml:"author"`
-	Categories []int  `yaml:"categories,omitempty"`
+	ID       int    `yaml:"id"`
+	Title    string `yaml:"title"`
+	Slug     string `yaml:"slug"`
+	Date     string `yaml:"date"`
+	Modified string `yaml:"modified"`
+	Status   string `yaml:"status"`
+	Type     string `yaml:"type"`
+	Link     string `yaml:"link"`
+
+	// Flexible fields: accept int or string for author and categories
+	Author     interface{}   `yaml:"author"`
+	Categories []interface{} `yaml:"categories,omitempty"`
 
 	// SEO and metadata fields
 	Description   string   `yaml:"description"`
@@ -170,6 +173,59 @@ type PageFrontmatter struct {
 	// Template selection
 	Layout   string `yaml:"layout"`
 	Template string `yaml:"template"`
+}
+
+// resolveFlexibleAuthor converts a flexible author value (int or string) from frontmatter.
+// Returns (resolvedID, rawValue). If the value is an int, resolvedID is set immediately.
+// If string, resolvedID=0 and rawValue holds the string for later resolution.
+func resolveFlexibleAuthor(v interface{}) (int, interface{}) {
+	if v == nil {
+		return 0, nil
+	}
+	switch val := v.(type) {
+	case int:
+		return val, nil
+	case float64:
+		return int(val), nil
+	case string:
+		// Try numeric string first
+		if parsed, err := strconv.Atoi(val); err == nil {
+			return parsed, nil
+		}
+		// String name/slug — defer resolution
+		return 0, val
+	}
+	return 0, nil
+}
+
+// resolveFlexibleCategories converts flexible category values (int or string) from frontmatter.
+// Returns (resolvedIDs, rawValues). Integer values are resolved immediately.
+// String values are stored in rawValues for later resolution.
+func resolveFlexibleCategories(vals []interface{}) ([]int, []interface{}) {
+	if len(vals) == 0 {
+		return nil, nil
+	}
+	var resolved []int
+	hasStrings := false
+	for _, v := range vals {
+		switch val := v.(type) {
+		case int:
+			resolved = append(resolved, val)
+		case float64:
+			resolved = append(resolved, int(val))
+		case string:
+			if parsed, err := strconv.Atoi(val); err == nil {
+				resolved = append(resolved, parsed)
+			} else {
+				hasStrings = true
+			}
+		}
+	}
+	if hasStrings {
+		// Has string values — store all raw for full resolution later
+		return nil, vals
+	}
+	return resolved, nil
 }
 
 // parseFlexibleDate parses dates in multiple formats
@@ -203,17 +259,22 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 	date := parseFlexibleDate(pf.Date)
 	modified := parseFlexibleDate(pf.Modified)
 
+	authorID, authorRaw := resolveFlexibleAuthor(pf.Author)
+	catIDs, catRaw := resolveFlexibleCategories(pf.Categories)
+
 	return &models.Page{
-		ID:         pf.ID,
-		Title:      pf.Title,
-		Slug:       pf.Slug,
-		Date:       date,
-		Modified:   modified,
-		Status:     pf.Status,
-		Type:       pf.Type,
-		Link:       pf.Link,
-		Author:     pf.Author,
-		Categories: pf.Categories,
+		ID:            pf.ID,
+		Title:         pf.Title,
+		Slug:          pf.Slug,
+		Date:          date,
+		Modified:      modified,
+		Status:        pf.Status,
+		Type:          pf.Type,
+		Link:          pf.Link,
+		Author:        authorID,
+		AuthorRaw:     authorRaw,
+		Categories:    catIDs,
+		CategoriesRaw: catRaw,
 		// SEO and metadata fields
 		Description:   pf.Description,
 		Keywords:      pf.Keywords,

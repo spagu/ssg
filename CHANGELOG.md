@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.11] - 2026-04-06
+
+### Added
+- ✨ **Flexible author and category fields** - Frontmatter `author` and `categories` now accept both integer IDs and string values
+  - `author: 3` (int ID) — works as before
+  - `author: "Jan Kowalski"` (name) — resolved to ID via author name lookup
+  - `author: "jan-kowalski"` (slug) — resolved to ID via author slug lookup
+  - `categories: [1, 5]` (int IDs) — works as before
+  - `categories: ["Humor", "Technology"]` (names) — resolved to IDs via category name/slug lookup
+  - Numeric strings (e.g., `author: "42"`) are parsed as integers automatically
+  - Resolution is case-insensitive
+  - Same flexibility works for MDDB content source
+  - Unresolved string values (no matching author/category found) are silently ignored
+- ✨ **WordPress-style bracket shortcodes** - opt-in via `shortcode_brackets: true`
+  - Enables `[shortcode_name]` syntax alongside existing `{{shortcode_name}}`
+  - Only defined shortcodes are matched — unknown `[tags]` are left untouched
+  - Disabled by default to avoid conflicts with markdown link syntax
+
 ## [1.7.10] - 2026-04-06
 
 ### Added
