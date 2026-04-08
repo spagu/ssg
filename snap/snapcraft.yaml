@@ -55,4 +55,4 @@ parts:
     build-snaps:
       - go/latest/stable
     override-build: |
-      go build -ldflags "-s -w" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg
+      go build -ldflags "-s -w -X main.Version=1.7.11" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg

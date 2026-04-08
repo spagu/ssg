@@ -418,8 +418,71 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Homebrew formula
-        if: success()
+      - name: Update Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          echo "📦 Remember to update Homebrew formula with new SHA256 checksums"
-          echo "   See: packaging/brew/ssg.rb"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Get SHA256 checksums from release archives
+          cd release
+          SHA_DARWIN_ARM64=$(sha256sum ssg-darwin-arm64.tar.gz | awk '{print $1}')
+          SHA_DARWIN_AMD64=$(sha256sum ssg-darwin-amd64.tar.gz | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum ssg-linux-arm64.tar.gz | awk '{print $1}')
+          SHA_LINUX_AMD64=$(sha256sum ssg-linux-amd64.tar.gz | awk '{print $1}')
+          cd ..
+
+          # Generate updated formula
+          cat > /tmp/ssg.rb << FORMULA
+          # Homebrew formula for SSG - Static Site Generator
+          # Install: brew install spagu/tap/ssg
+          # Or: brew tap spagu/tap && brew install ssg
+
+          class Ssg < Formula
+            desc "Fast static site generator written in Go"
+            homepage "https://github.com/spagu/ssg"
+            version "${VERSION}"
+            license "BSD-3-Clause"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-darwin-arm64.tar.gz"
+                sha256 "${SHA_DARWIN_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-darwin-amd64.tar.gz"
+                sha256 "${SHA_DARWIN_AMD64}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-linux-arm64.tar.gz"
+                sha256 "${SHA_LINUX_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-linux-amd64.tar.gz"
+                sha256 "${SHA_LINUX_AMD64}"
+              end
+            end
+
+            def install
+              bin.install "ssg"
+            end
+
+            test do
+              system "#{bin}/ssg", "--help"
+            end
+          end
+          FORMULA
+
+          # Push to homebrew-tap repo
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/spagu/homebrew-tap.git" /tmp/homebrew-tap
+          cp /tmp/ssg.rb /tmp/homebrew-tap/ssg.rb
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ssg.rb
+          git commit -m "ssg: update to v${VERSION}" || echo "No changes to commit"
+          git push
