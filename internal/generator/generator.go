@@ -36,6 +36,10 @@ type Shortcode struct {
 	Ranking  float64           // Ranking score (e.g., 3.5)
 	Tags     []string          // Tags for categorization (e.g., ["game", "public"])
 	Data     map[string]string // Additional custom data
+
+	// Runtime fields (set per-invocation from inline attributes/content)
+	Attrs        map[string]string // Inline attributes from [name key="val"]
+	InnerContent string            // Content between [name]...[/name]
 }
 
 // MddbConfig holds MDDB connection settings for generator
@@ -942,20 +946,70 @@ func (g *Generator) processShortcodes(content string) string {
 		return g.renderShortcode(sc)
 	})
 
-	// Match [shortcode_name] pattern (only defined shortcodes, opt-in)
+	// Match bracket shortcodes (only defined shortcodes, opt-in)
 	if g.config.ShortcodeBrackets && len(g.shortcodeMap) > 0 {
-		reBracket := regexp.MustCompile(`\[(\w+)\]`)
-		content = reBracket.ReplaceAllStringFunc(content, func(match string) string {
-			name := match[1 : len(match)-1]
-			sc, ok := g.shortcodeMap[name]
-			if !ok {
-				return match // Keep unknown [tags] untouched
+		content = g.processBracketShortcodes(content)
+	}
+
+	return content
+}
+
+// processBracketShortcodes handles WordPress-style bracket shortcodes:
+//   - [name] — simple self-closing
+//   - [name attr="val" attr2="val2"] — with attributes
+//   - [name]inner content[/name] — with inner content
+//   - [name attr="val"]inner content[/name] — with both
+func (g *Generator) processBracketShortcodes(content string) string {
+	// Process each defined shortcode by name (avoids backreference limitation in Go regexp)
+	for name, baseSc := range g.shortcodeMap {
+		// First: closing-tag with optional attrs [name ...]...[/name]
+		reClosing := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `((?:\s+\w+="[^"]*")*)\]([\s\S]*?)\[/` + regexp.QuoteMeta(name) + `\]`)
+		content = reClosing.ReplaceAllStringFunc(content, func(match string) string {
+			parts := reClosing.FindStringSubmatch(match)
+			if len(parts) < 3 {
+				return match
 			}
+			sc := g.shortcodeWithOverrides(baseSc, parts[1], parts[2])
 			return g.renderShortcode(sc)
+		})
+
+		// Second: self-closing with attrs [name attr="val"]
+		reSelfAttrs := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `(\s+\w+="[^"]*"(?:\s+\w+="[^"]*")*)\]`)
+		content = reSelfAttrs.ReplaceAllStringFunc(content, func(match string) string {
+			parts := reSelfAttrs.FindStringSubmatch(match)
+			if len(parts) < 2 {
+				return match
+			}
+			sc := g.shortcodeWithOverrides(baseSc, parts[1], "")
+			return g.renderShortcode(sc)
+		})
+
+		// Third: simple [name]
+		reSimple := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `\]`)
+		content = reSimple.ReplaceAllStringFunc(content, func(_ string) string {
+			return g.renderShortcode(baseSc)
 		})
 	}
 
 	return content
+}
+
+// shortcodeWithOverrides creates a copy of a shortcode with inline attributes and inner content applied
+func (g *Generator) shortcodeWithOverrides(base Shortcode, attrStr, innerContent string) Shortcode {
+	sc := base
+	sc.InnerContent = strings.TrimSpace(innerContent)
+	sc.Attrs = parseShortcodeAttrs(attrStr)
+	return sc
+}
+
+// parseShortcodeAttrs extracts key="value" pairs from an attribute string
+func parseShortcodeAttrs(s string) map[string]string {
+	attrs := make(map[string]string)
+	re := regexp.MustCompile(`(\w+)="([^"]*)"`)
+	for _, m := range re.FindAllStringSubmatch(s, -1) {
+		attrs[m[1]] = m[2]
+	}
+	return attrs
 }
 
 // renderShortcode renders a single shortcode to HTML using its template file

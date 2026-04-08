@@ -839,6 +839,200 @@ func TestProcessShortcodesBracketEmptyMap(t *testing.T) {
 	}
 }
 
+func TestProcessBracketShortcodesWithAttrs(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "sc.html")
+	if err := os.WriteFile(tmplFile, []byte(`<a href="{{.Attrs.url}}">{{.Attrs.label}}</a>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"link": {Name: "link", Template: "sc.html"},
+		},
+	}
+
+	result := gen.processShortcodes(`Check [link url="https://example.com" label="Click here"] now`)
+	if strings.Contains(result, "[link") {
+		t.Errorf("Expected [link ...] to be replaced, got: %s", result)
+	}
+	if !strings.Contains(result, `href="https://example.com"`) {
+		t.Errorf("Expected url attr in output, got: %s", result)
+	}
+	if !strings.Contains(result, "Click here") {
+		t.Errorf("Expected label attr in output, got: %s", result)
+	}
+}
+
+func TestProcessBracketShortcodesWithClosingTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "box.html")
+	if err := os.WriteFile(tmplFile, []byte(`<div class="box">{{.InnerContent}}</div>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"box": {Name: "box", Template: "box.html"},
+		},
+	}
+
+	result := gen.processShortcodes("Before [box]Hello World[/box] After")
+	if strings.Contains(result, "[box]") || strings.Contains(result, "[/box]") {
+		t.Errorf("Expected [box]...[/box] to be replaced, got: %s", result)
+	}
+	if !strings.Contains(result, "Hello World") {
+		t.Errorf("Expected inner content in output, got: %s", result)
+	}
+	if !strings.Contains(result, `class="box"`) {
+		t.Errorf("Expected box div in output, got: %s", result)
+	}
+}
+
+func TestProcessBracketShortcodesWithAttrsAndClosingTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "alert.html")
+	if err := os.WriteFile(tmplFile, []byte(`<div class="alert-{{.Attrs.type}}">{{.InnerContent}}</div>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"alert": {Name: "alert", Template: "alert.html"},
+		},
+	}
+
+	result := gen.processShortcodes(`[alert type="warning"]Watch out![/alert]`)
+	if strings.Contains(result, "[alert") || strings.Contains(result, "[/alert]") {
+		t.Errorf("Expected shortcode to be replaced, got: %s", result)
+	}
+	if !strings.Contains(result, `alert-warning`) {
+		t.Errorf("Expected type attr in output, got: %s", result)
+	}
+	if !strings.Contains(result, "Watch out!") {
+		t.Errorf("Expected inner content in output, got: %s", result)
+	}
+}
+
+func TestProcessBracketShortcodesUnknownWithAttrs(t *testing.T) {
+	gen := &Generator{
+		config:       Config{ShortcodeBrackets: true},
+		shortcodeMap: map[string]Shortcode{"known": {Name: "known"}},
+	}
+
+	// Unknown shortcode with attrs should remain untouched
+	result := gen.processShortcodes(`[unknown attr="val"]`)
+	if !strings.Contains(result, `[unknown attr="val"]`) {
+		t.Errorf("Expected unknown shortcode to remain, got: %s", result)
+	}
+
+	// Unknown closing shortcode should remain untouched
+	result = gen.processShortcodes(`[unknown]content[/unknown]`)
+	if !strings.Contains(result, `[unknown]content[/unknown]`) {
+		t.Errorf("Expected unknown closing shortcode to remain, got: %s", result)
+	}
+}
+
+func TestProcessBracketShortcodesMultilineContent(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "code.html")
+	if err := os.WriteFile(tmplFile, []byte(`<pre>{{.InnerContent}}</pre>`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"code": {Name: "code", Template: "code.html"},
+		},
+	}
+
+	input := "[code]\nline 1\nline 2\nline 3\n[/code]"
+	result := gen.processShortcodes(input)
+	if strings.Contains(result, "[code]") {
+		t.Errorf("Expected [code]...[/code] to be replaced, got: %s", result)
+	}
+	if !strings.Contains(result, "<pre>") {
+		t.Errorf("Expected <pre> wrapper, got: %s", result)
+	}
+}
+
+func TestProcessBracketShortcodesConfigFieldsPreserved(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmplFile := filepath.Join(tmpDir, "sc.html")
+	if err := os.WriteFile(tmplFile, []byte(`{{.Title}}|{{.Attrs.extra}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gen := &Generator{
+		config: Config{
+			ShortcodeBrackets: true,
+			TemplatesDir:      tmpDir,
+			Template:          "",
+		},
+		shortcodeMap: map[string]Shortcode{
+			"promo": {Name: "promo", Title: "Config Title", Template: "sc.html"},
+		},
+	}
+
+	// Config fields should be preserved alongside inline attrs
+	result := gen.processShortcodes(`[promo extra="bonus"]`)
+	if !strings.Contains(result, "Config Title") {
+		t.Errorf("Expected config Title preserved, got: %s", result)
+	}
+	if !strings.Contains(result, "bonus") {
+		t.Errorf("Expected inline attr, got: %s", result)
+	}
+}
+
+func TestParseShortcodeAttrs(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  map[string]string
+	}{
+		{"empty", "", map[string]string{}},
+		{"single", ` url="https://example.com"`, map[string]string{"url": "https://example.com"}},
+		{"multiple", ` type="warning" color="red"`, map[string]string{"type": "warning", "color": "red"}},
+		{"with spaces in value", ` title="Hello World"`, map[string]string{"title": "Hello World"}},
+		{"empty value", ` class=""`, map[string]string{"class": ""}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseShortcodeAttrs(tt.input)
+			if len(got) != len(tt.want) {
+				t.Errorf("parseShortcodeAttrs(%q) len = %d, want %d", tt.input, len(got), len(tt.want))
+				return
+			}
+			for k, v := range tt.want {
+				if got[k] != v {
+					t.Errorf("parseShortcodeAttrs(%q)[%q] = %q, want %q", tt.input, k, got[k], v)
+				}
+			}
+		})
+	}
+}
+
 func TestTmplDecodeHTML(t *testing.T) {
 	result := tmplDecodeHTML("&amp; &lt; &gt; &#8211;")
 	if !strings.Contains(result, "&") || !strings.Contains(result, "<") || !strings.Contains(result, ">") {
