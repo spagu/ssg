@@ -184,7 +184,7 @@ func TestExtractCategory(t *testing.T) {
 		},
 	}
 
-	cat := extractCategory(doc)
+	cat := ExtractCategory(doc)
 
 	if cat.ID != 5 {
 		t.Errorf("cat.ID = %v, want 5", cat.ID)
@@ -217,7 +217,7 @@ func TestExtractMedia(t *testing.T) {
 		},
 	}
 
-	media := extractMedia(doc)
+	media := ExtractMedia(doc)
 
 	if media.ID != 100 {
 		t.Errorf("media.ID = %v, want 100", media.ID)
@@ -337,7 +337,7 @@ func TestExtractMedia_WithDetails(t *testing.T) {
 		},
 	}
 
-	media := extractMedia(doc)
+	media := ExtractMedia(doc)
 
 	if media.ID != 200 {
 		t.Errorf("media.ID = %v, want 200", media.ID)
@@ -365,7 +365,7 @@ func TestExtractMedia_EmptyMetadata(t *testing.T) {
 		Metadata: map[string]any{},
 	}
 
-	media := extractMedia(doc)
+	media := ExtractMedia(doc)
 
 	if media.Slug != "empty" {
 		t.Errorf("media.Slug = %v, want empty", media.Slug)
@@ -381,7 +381,7 @@ func TestExtractCategory_EmptyMetadata(t *testing.T) {
 		Metadata: map[string]any{},
 	}
 
-	cat := extractCategory(doc)
+	cat := ExtractCategory(doc)
 
 	if cat.Slug != "uncategorized" {
 		t.Errorf("cat.Slug = %v, want uncategorized", cat.Slug)
@@ -397,7 +397,7 @@ func TestExtractAuthor_EmptyMetadata(t *testing.T) {
 		Metadata: map[string]any{},
 	}
 
-	author := extractAuthor(doc)
+	author := ExtractAuthor(doc)
 
 	if author.Slug != "anon" {
 		t.Errorf("author.Slug = %v, want anon", author.Slug)
@@ -525,7 +525,7 @@ func TestExtractAuthor(t *testing.T) {
 		},
 	}
 
-	author := extractAuthor(doc)
+	author := ExtractAuthor(doc)
 
 	if author.ID != 1 {
 		t.Errorf("author.ID = %v, want 1", author.ID)

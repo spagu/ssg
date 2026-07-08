@@ -93,6 +93,10 @@ type Config struct {
 	// PostsPath is the subdirectory name inside source for blog posts (default: "posts")
 	PostsPath string `yaml:"posts_path" toml:"posts_path" json:"posts_path"`
 
+	// StaticDir is a project-level directory copied verbatim (all files and
+	// subdirectories) into the output during generation (default: "static").
+	StaticDir string `yaml:"static_dir" toml:"static_dir" json:"static_dir"`
+
 	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
 	RewriteMdLinks bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
 
@@ -119,6 +123,7 @@ func DefaultConfig() *Config {
 		ContentDir:   "content",
 		TemplatesDir: "templates",
 		OutputDir:    "output",
+		StaticDir:    "static",
 		Port:         8888,
 		WebPQuality:  60,
 		Mddb: MddbConfig{

@@ -99,7 +99,16 @@ type Config struct {
 	// PreserveSlugCase keeps original casing in slugs derived from filenames.
 	// Default (false): slugs lowercased. When true: original case preserved.
 	PreserveSlugCase bool
+
+	// StaticDir is a project-level directory whose entire contents (all files
+	// and subdirectories, recursively) are copied verbatim into the output
+	// directory during generation. Default: "static". Missing directory is a
+	// no-op. Fixes #8 where only some static assets reached the output.
+	StaticDir string
 }
+
+// defaultStaticDir is the fallback name for the passthrough static directory.
+const defaultStaticDir = "static"
 
 // Generator handles the static site generation process
 type Generator struct {
@@ -206,6 +215,10 @@ func (g *Generator) Generate() error {
 	}
 
 	if err := g.runStep("📁 Copying assets...", g.copyAssets, "copying assets"); err != nil {
+		return err
+	}
+
+	if err := g.runStep("📦 Copying static directory...", g.copyStaticDir, "copying static directory"); err != nil {
 		return err
 	}
 
@@ -525,75 +538,23 @@ func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	return nil
 }
 
-// extractCategoryFromDoc extracts Category from mddb Document
+// extractCategoryFromDoc extracts Category from an mddb Document.
+// Delegates to the shared mddb extractor to avoid duplicated logic (DRY, GO-010).
 func extractCategoryFromDoc(doc mddb.Document) models.Category {
-	cat := models.Category{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		cat.ID = int(id)
-	}
-	if name, ok := doc.Metadata["name"].(string); ok {
-		cat.Name = name
-	}
-	if desc, ok := doc.Metadata["description"].(string); ok {
-		cat.Description = desc
-	}
-	if link, ok := doc.Metadata["link"].(string); ok {
-		cat.Link = link
-	}
-	if count, ok := doc.Metadata["count"].(float64); ok {
-		cat.Count = int(count)
-	}
-	if parent, ok := doc.Metadata["parent"].(float64); ok {
-		cat.Parent = int(parent)
-	}
-
-	return cat
+	return mddb.ExtractCategory(doc)
 }
 
-// extractMediaFromDoc extracts MediaItem from mddb Document
+// extractMediaFromDoc extracts MediaItem (including media_details) from an mddb
+// Document. Delegates to the shared mddb extractor so the generator always gets
+// media_details populated (GO-006) without duplicating the logic (GO-010).
 func extractMediaFromDoc(doc mddb.Document) models.MediaItem {
-	media := models.MediaItem{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		media.ID = int(id)
-	}
-	if mediaType, ok := doc.Metadata["media_type"].(string); ok {
-		media.MediaType = mediaType
-	}
-	if mimeType, ok := doc.Metadata["mime_type"].(string); ok {
-		media.MimeType = mimeType
-	}
-	if sourceURL, ok := doc.Metadata["source_url"].(string); ok {
-		media.SourceURL = sourceURL
-	}
-	if title, ok := doc.Metadata["title"].(map[string]interface{}); ok {
-		if rendered, ok := title["rendered"].(string); ok {
-			media.Title.Rendered = rendered
-		}
-	}
-
-	return media
+	return mddb.ExtractMedia(doc)
 }
 
-// extractAuthorFromDoc extracts Author from mddb Document
+// extractAuthorFromDoc extracts Author from an mddb Document.
+// Delegates to the shared mddb extractor to avoid duplicated logic (DRY, GO-010).
 func extractAuthorFromDoc(doc mddb.Document) models.Author {
-	author := models.Author{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		author.ID = int(id)
-	}
-	if name, ok := doc.Metadata["name"].(string); ok {
-		author.Name = name
-	}
-
-	return author
+	return mddb.ExtractAuthor(doc)
 }
 
 // logContentStats prints content loading statistics
@@ -1246,6 +1207,19 @@ func (g *Generator) generateIndex() error {
 // "flat": slug.html
 // "both": slug/index.html AND slug.html
 // Special case: "404" always generates 404.html in root for Cloudflare Pages/Netlify compatibility
+// ensureWithinOutput verifies that the resolved output path stays within the
+// configured OutputDir. Defense-in-depth against path traversal from untrusted
+// slug/link values (e.g. from a remote mddb server) — complements the
+// sanitization in models.Page.GetOutputPath (SEC-001).
+func (g *Generator) ensureWithinOutput(p string) error {
+	root := filepath.Clean(g.config.OutputDir)
+	clean := filepath.Clean(p)
+	if clean != root && !strings.HasPrefix(clean, root+string(os.PathSeparator)) {
+		return fmt.Errorf("output path %q escapes output directory %q", p, root)
+	}
+	return nil
+}
+
 func (g *Generator) getOutputPaths(subPath string) []string {
 	// Special handling for 404 page - always generate as flat file for static hosting compatibility
 	if subPath == "404" {
@@ -1281,6 +1255,10 @@ func (g *Generator) generatePage(page models.Page) error {
 
 	outputPaths := g.getOutputPaths(outputSubPath)
 	for _, outputPath := range outputPaths {
+		// Reject any path that escapes the output directory (SEC-001).
+		if err := g.ensureWithinOutput(outputPath); err != nil {
+			return err
+		}
 		outputDir := filepath.Dir(outputPath)
 		// #nosec G301 -- Web content directories need to be world-traversable
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -1324,6 +1302,10 @@ func (g *Generator) generatePost(post models.Page) error {
 
 	outputPaths := g.getOutputPaths(post.GetOutputPath())
 	for _, outputPath := range outputPaths {
+		// Reject any path that escapes the output directory (SEC-001).
+		if err := g.ensureWithinOutput(outputPath); err != nil {
+			return err
+		}
 		outputDir := filepath.Dir(outputPath)
 		// #nosec G301 -- Web content directories need to be world-traversable
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -1375,7 +1357,14 @@ func (g *Generator) generateCategories() error {
 			Vars:     g.config.Variables,
 		}
 
-		outputPath := filepath.Join(g.config.OutputDir, "category", cat.Slug, "index.html")
+		// Sanitize the category slug so a malicious value cannot escape the
+		// output directory, then verify the final path (SEC-001).
+		catSlug := models.SanitizeRelPath(cat.Slug)
+		outputPath := filepath.Join(g.config.OutputDir, "category", catSlug, "index.html")
+		if err := g.ensureWithinOutput(outputPath); err != nil {
+			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
+			continue
+		}
 		// #nosec G301 -- Web content directories need to be world-traversable
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 			return err
@@ -1499,6 +1488,38 @@ func (g *Generator) copyAssets() error {
 	return nil
 }
 
+// copyStaticDir copies the project's static directory verbatim into the output
+// directory. Every file and subdirectory (e.g. downloads/, assets/, scripts/,
+// styles/, manifest.json) is copied recursively, fixing #8 where only a fixed
+// subset of static assets reached the output. A missing directory is a no-op so
+// the step is safe for sites that do not use one.
+func (g *Generator) copyStaticDir() error {
+	staticDir := g.config.StaticDir
+	if staticDir == "" {
+		staticDir = defaultStaticDir
+	}
+
+	info, err := os.Stat(staticDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // no static/ directory — nothing to copy
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return nil // a file named "static" is not a passthrough directory
+	}
+
+	if err := g.copyDir(staticDir, g.config.OutputDir); err != nil {
+		return err
+	}
+
+	if !g.config.Quiet {
+		fmt.Printf("   📦 Copied static/ directory (%s) to output\n", staticDir)
+	}
+	return nil
+}
+
 // copyDir copies a directory recursively
 func (g *Generator) copyDir(src, dst string) error {
 	// #nosec G301 -- Web content directories need to be world-traversable
@@ -1615,11 +1636,18 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 		if mediaItem, ok := media[id]; ok {
 			// Get the filename from the media item
 			filename := filepath.Base(mediaItem.MediaDetails.File)
+			// Guard against empty/short media filenames: filepath.Base("") == "."
+			// so filename[:len-4] would panic (slice bounds out of range).
+			// Strip the extension safely instead (GO-001).
+			nameNoExt := strings.TrimSuffix(filename, filepath.Ext(filename))
+			if nameNoExt == "" || nameNoExt == "." {
+				continue
+			}
 			localPath := fmt.Sprintf("/media/%d_%s", id, filename)
 
 			// Replace old WordPress URLs for this image
 			// Match patterns like src="http://...krowy.net/.../filename..."
-			oldURLRegex := regexp.MustCompile(`(src=["'])https?://[^"']*` + regexp.QuoteMeta(filename[:len(filename)-4]) + `[^"']*\.(jpg|jpeg|png|gif|webp)(["'])`)
+			oldURLRegex := regexp.MustCompile(`(src=["'])https?://[^"']*` + regexp.QuoteMeta(nameNoExt) + `[^"']*\.(jpg|jpeg|png|gif|webp)(["'])`)
 			content = oldURLRegex.ReplaceAllString(content, `${1}`+localPath+`${3}`)
 		}
 	}

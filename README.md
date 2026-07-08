@@ -315,7 +315,7 @@ flowchart TD
 
 | Option | Description |
 |--------|-------------|
-| `--engine=ENGINE` | Template engine: `go` (default), `pongo2`, `mustache`, `handlebars` |
+| `--engine=ENGINE` | Template engine: `go` (default, only implemented engine; others rejected) |
 | `--online-theme=URL` | Download theme from URL (GitHub, GitLab, or direct ZIP) |
 
 **MDDB Content Source ([github.com/tradik/mddb](https://github.com/tradik/mddb)):**
@@ -548,28 +548,26 @@ output/
 
 ## 🔧 Template Engines
 
-SSG supports multiple template engines. By default, Go templates are used, but you can switch to other engines:
+SSG renders templates with the Go (`html/template`) engine.
 
 ### Available Engines
 
-| Engine | Flag | Syntax Style |
-|--------|------|--------------|
-| Go (default) | `--engine=go` | `.Variable`, `range .Items` |
-| Pongo2 | `--engine=pongo2` | Jinja2/Django: `for item in items` |
-| Mustache | `--engine=mustache` | `variable`, `#items` |
-| Handlebars | `--engine=handlebars` | `variable`, `#each items` |
+| Engine | Flag | Status |
+|--------|------|--------|
+| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items` |
+| Pongo2 | `--engine=pongo2` | 🚧 Not yet implemented (rejected with an error) |
+| Mustache | `--engine=mustache` | 🚧 Not yet implemented (rejected with an error) |
+| Handlebars | `--engine=handlebars` | 🚧 Not yet implemented (rejected with an error) |
+
+> **Note:** Only the Go engine is currently wired into the rendering pipeline.
+> Passing `--engine=pongo2`, `--engine=mustache`, or `--engine=handlebars` fails fast
+> with a clear "not yet implemented" error rather than silently rendering with Go.
 
 ### Usage Examples
 
 ```bash
-# Use Pongo2 (Jinja2/Django syntax)
-ssg my-content mytheme example.com --engine=pongo2
-
-# Use Mustache
-ssg my-content mytheme example.com --engine=mustache
-
-# Use Handlebars
-ssg my-content mytheme example.com --engine=handlebars
+# Use the Go engine (default)
+ssg my-content mytheme example.com --engine=go
 ```
 
 ### Online Themes
