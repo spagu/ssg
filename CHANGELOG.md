@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer interpolates `${{ inputs.* }}` inside `run:` blocks. All inputs are passed via
   `env:` and referenced as quoted shell variables; build flags are assembled as a bash
   array; `version`/`webp-quality`/`engine` are validated. Prevents RCE on the runner.
+- 🔒 **CI/CD supply-chain hardening (OpenSSF Scorecard)** — resolves the open code-scanning
+  alerts:
+  - **Token-Permissions** — added least-privilege top-level `permissions: contents: read`
+    to every workflow that lacked one (`ci.yml`, `docker.yml`, `snap.yml`, `test-action.yml`);
+    jobs that need more (release, GHCR push) elevate locally.
+  - **Pinned-Dependencies** — every third-party GitHub Action is now pinned to a full commit
+    SHA with a `# vX` comment (Dependabot still updates them), across all six workflows.
+  - **Binary-Artifacts** — removed the 21 MB compiled `ssg` binary that was committed to the
+    repository and added `/ssg`, `/ssg-*` to `.gitignore` and `.dockerignore`.
+- 🔒 **Module toolchain floor raised to go1.26.5** — `go.mod`'s `go` directive is now
+  `1.26.5`, so any build (not just CI/Docker) uses the toolchain where GO-2026-5856
+  (`crypto/tls` ECH leak) and GO-2026-4970 (`os`) are fixed. `govulncheck ./...` is clean.
+- 🔒 **cwebp argument-injection hardened (SEC-011)** — image paths passed to the `cwebp`
+  binary are now prefixed with `./` when relative, so a file named like `-o.png` can no
+  longer be interpreted as a `cwebp` flag.
+
+### Added
+- ✨ **`static/` passthrough directory (`--static-dir`, `static_dir:`)** — a project-level
+  static directory is now copied verbatim into the output during generation.
 
 ### Fixed
 - 🐛 **Panic in `fixMediaPaths` on empty media file (GO-001)** — an empty
@@ -34,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`html/template`) engine is wired into rendering. Requesting `pongo2`/`mustache`/
   `handlebars` now fails fast with a clear "not yet implemented" error instead of silently
   rendering with Go. Help text and the action input description updated accordingly.
+- 🐛 **gRPC connection leak in watch mode fixed (GO-005)** — `MddbClient` now exposes
+  `Close()` (HTTP no-op, gRPC closes the connection) and `loadContentFromMddb` defers it.
+  A fresh client is created on every `Generate()`, so `--mddb-watch` rebuilds no longer
+  leak `*grpc.ClientConn` connections and goroutines.
+- 🐛 **All `static/` files and subdirectories now reach the output (#8)** — previously only a
+  fixed subset was emitted, so directories like `downloads/`, `assets/`, `scripts/`, `styles/`
+  and files like `manifest.json` were silently dropped. The generator now copies the entire
+  `static/` tree (configurable via `--static-dir` / `static_dir:`, default `static`) verbatim
+  to the output. A missing directory is a no-op, so existing sites are unaffected.
 
 ## [1.7.13] - 2026-04-08
 

@@ -120,6 +120,53 @@ func TestCopyStaticDirDefaultsToStatic(t *testing.T) {
 	assertFileContent(t, filepath.Join(outputDir, "robots-extra.txt"), "ok")
 }
 
+// TestCopyStaticDirStatError ensures a stat failure that is NOT "not exists"
+// (here: permission denied on the parent) is surfaced rather than swallowed.
+func TestCopyStaticDirStatError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses directory permissions")
+	}
+	tmpDir := t.TempDir()
+	locked := filepath.Join(tmpDir, "locked")
+	if err := os.Mkdir(locked, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Remove all permissions so stat of a child path fails with EACCES.
+	if err := os.Chmod(locked, 0000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0755) }) // restore so TempDir cleanup works
+
+	gen := &Generator{config: Config{
+		StaticDir: filepath.Join(locked, "static"),
+		OutputDir: filepath.Join(tmpDir, "output"),
+		Quiet:     true,
+	}}
+	if err := gen.copyStaticDir(); err == nil {
+		t.Error("expected a stat permission error to be propagated")
+	}
+}
+
+// TestCopyStaticDirCopyError ensures a failure while copying (here: the output
+// path cannot be created because its parent is a regular file) is propagated.
+func TestCopyStaticDirCopyError(t *testing.T) {
+	tmpDir := t.TempDir()
+	staticDir := filepath.Join(tmpDir, "static")
+	writeStaticFile(t, filepath.Join(staticDir, "file.txt"), "x")
+
+	// A regular file where a directory component is expected makes MkdirAll fail.
+	blocker := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blocker, []byte("i am a file"), 0644); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+	outputDir := filepath.Join(blocker, "output")
+
+	gen := &Generator{config: Config{StaticDir: staticDir, OutputDir: outputDir, Quiet: true}}
+	if err := gen.copyStaticDir(); err == nil {
+		t.Error("expected an error when the output directory cannot be created")
+	}
+}
+
 // TestCopyStaticDirNonQuietPrints exercises the informational branch so it is
 // covered and does not panic when Quiet is false.
 func TestCopyStaticDirNonQuietPrints(t *testing.T) {

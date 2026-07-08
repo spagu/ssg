@@ -109,10 +109,22 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 	return converted, savedBytes, nil
 }
 
+// safeArgPath guards against argument injection into cwebp: a filename that
+// begins with '-' (e.g. "-o.png") would otherwise be parsed as a cwebp flag.
+// Relative paths are prefixed with "./" so they are unambiguously paths, never
+// options. Absolute paths and paths already starting with "." are unchanged
+// (SEC-011).
+func safeArgPath(p string) string {
+	if p == "" || filepath.IsAbs(p) || strings.HasPrefix(p, ".") {
+		return p
+	}
+	return "./" + p
+}
+
 // convertImage converts a single image to WebP using cwebp
 func convertImage(srcPath, dstPath string, quality int) error {
 	// #nosec G204 -- CLI tool intentionally executes cwebp with user-provided paths
-	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), srcPath, "-o", dstPath)
+	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), safeArgPath(srcPath), "-o", safeArgPath(dstPath))
 	// Suppress cwebp output unless error
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cwebp failed: %v, output: %s", err, string(output))

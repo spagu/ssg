@@ -310,6 +310,7 @@ flowchart TD
 | `--content-dir=PATH` | Content directory (default: `content`) |
 | `--templates-dir=PATH` | Templates directory (default: `templates`) |
 | `--output-dir=PATH` | Output directory (default: `output`) |
+| `--static-dir=PATH` | Static passthrough directory copied verbatim to output (default: `static`) |
 
 **Template Engine:**
 
@@ -440,6 +441,24 @@ Override the default `pages/` and `posts/` subdirectory names:
 pages_path: "docs"      # reads from content/{source}/docs/ instead of pages/
 posts_path: "articles"  # reads from content/{source}/articles/ instead of posts/
 ```
+
+### Static Passthrough Directory
+
+Anything placed in the project-level `static/` directory is copied **verbatim** into
+the output during generation — every file and subdirectory, recursively. This is the
+place for assets that SSG does not generate itself: `downloads/`, `assets/`, `scripts/`,
+`styles/`, `manifest.json`, favicons, etc.
+
+```
+static/
+├── downloads/guide.pdf   →  output/downloads/guide.pdf
+├── assets/app.css        →  output/assets/app.css
+└── manifest.json         →  output/manifest.json
+```
+
+Point it elsewhere (or disable it by naming a non-existent path) with `static_dir:`
+in config or `--static-dir=PATH` on the CLI. A missing directory is a silent no-op,
+so sites that do not use one are unaffected.
 
 ### Slug Handling
 
