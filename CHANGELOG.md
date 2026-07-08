@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.14] - 2026-07-08
 
 ### Security
+- 🔒 **Go toolchain bumped to 1.26.5 (GO-2026-5856)** — go1.26.4's `crypto/tls`
+  is affected by an Encrypted Client Hello privacy leak (reachable via the dev
+  server, mddb client, and theme downloader). Pinned `GO_VERSION` and the
+  Dockerfile builder image to 1.26.5, where it is fixed. `govulncheck` is clean.
 - 🔒 **Path traversal / arbitrary write via slug/link hardened (SEC-001)** — output
   sub-paths derived from `slug`/`link` (fully controlled by a remote `mddb` server) are
   now sanitized (`models.SanitizeRelPath`), and every page/post/category write is verified

@@ -2,7 +2,9 @@
 # Multi-stage build for minimal image size
 
 # Stage 1: Build
-FROM golang:1.26-alpine AS builder
+# Pinned to 1.26.5-alpine: go1.26.4 stdlib crypto/tls is affected by
+# GO-2026-5856 (Encrypted Client Hello privacy leak), fixed in go1.26.5.
+FROM golang:1.26.5-alpine AS builder
 
 WORKDIR /build
 
