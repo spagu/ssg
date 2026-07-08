@@ -22,6 +22,8 @@ env:
   # Pinned to 1.26.5+: 1.26.4 stdlib crypto/tls is affected by GO-2026-5856
   # (Encrypted Client Hello privacy leak), fixed in go1.26.5.
   GO_VERSION: "1.26.5"
+  # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # Default least-privilege token for all jobs; the release job elevates to
 # contents: write where it actually needs to publish artifacts.
@@ -484,12 +486,26 @@ jobs:
           end
           FORMULA
 
+          # Updating the tap is best-effort: a missing/expired HOMEBREW_TAP_TOKEN
+          # must NOT fail the release — the GitHub Release is already published
+          # above. We warn and exit 0 instead (OPS-009).
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set; skipping Homebrew tap update"
+            exit 0
+          fi
+
           # Push to homebrew-tap repo
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/spagu/homebrew-tap.git" /tmp/homebrew-tap
+          if ! git clone "https://x-access-token:${GH_TOKEN}@github.com/spagu/homebrew-tap.git" /tmp/homebrew-tap; then
+            echo "::warning::Could not clone homebrew-tap (check HOMEBREW_TAP_TOKEN); skipping tap update"
+            exit 0
+          fi
           cp /tmp/ssg.rb /tmp/homebrew-tap/ssg.rb
           cd /tmp/homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ssg.rb
           git commit -m "ssg: update to v${VERSION}" || echo "No changes to commit"
-          git push
+          if ! git push; then
+            echo "::warning::Could not push to homebrew-tap (check HOMEBREW_TAP_TOKEN permissions); skipping tap update"
+            exit 0
+          fi
