@@ -1,6 +1,8 @@
 # Build artifacts
 /build/
 /output/
+/ssg
+/ssg-*
 
 # Git
 .git/
@@ -30,3 +32,6 @@ coverage.*
 
 # ZIP files
 *.zip
+
+# Audit reports (local only)
+audit/

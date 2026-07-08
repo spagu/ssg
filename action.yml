@@ -62,7 +62,7 @@ inputs:
     required: false
     default: "false"
   engine:
-    description: "Template engine: go (default), pongo2, mustache, handlebars"
+    description: "Template engine (only 'go' is implemented; others are rejected)"
     required: false
     default: "go"
   online-theme:
@@ -87,8 +87,17 @@ runs:
     - name: Download SSG binary
       id: download
       shell: bash
+      # SECURITY (SEC-002): pass inputs via env:, never interpolate into run:.
+      env:
+        IN_VERSION: ${{ inputs.version }}
       run: |
-        VERSION="${{ inputs.version }}"
+        set -euo pipefail
+        VERSION="$IN_VERSION"
+        # Reject anything that isn't a plausible version/tag or "latest".
+        if ! [[ "$VERSION" =~ ^(latest|v?[0-9A-Za-z._-]+)$ ]]; then
+          echo "::error::Invalid version: $VERSION"
+          exit 1
+        fi
 
         # Determine OS and architecture
         case "$RUNNER_OS" in
@@ -173,65 +182,95 @@ runs:
     - name: Generate site
       id: generate
       shell: bash
+      # SECURITY (SEC-002): all inputs are passed through env: and referenced as
+      # quoted shell variables. Never interpolate ${{ inputs.* }} directly inside
+      # run: — that lets attacker-controlled input inject shell commands.
+      env:
+        IN_SOURCE: ${{ inputs.source }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        IN_DOMAIN: ${{ inputs.domain }}
+        IN_CONTENT_DIR: ${{ inputs.content-dir }}
+        IN_TEMPLATES_DIR: ${{ inputs.templates-dir }}
+        IN_OUTPUT_DIR: ${{ inputs.output-dir }}
+        IN_WEBP: ${{ inputs.webp }}
+        IN_WEBP_QUALITY: ${{ inputs.webp-quality }}
+        IN_ZIP: ${{ inputs.zip }}
+        IN_MINIFY: ${{ inputs.minify }}
+        IN_CLEAN: ${{ inputs.clean }}
+        IN_ENGINE: ${{ inputs.engine }}
+        IN_ONLINE_THEME: ${{ inputs.online-theme }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        # Build flags
-        FLAGS=""
-        if [[ "${{ inputs.webp }}" == "true" ]]; then
-          FLAGS="$FLAGS --webp --webp-quality=${{ inputs.webp-quality }}"
+        set -euo pipefail
+
+        # Validate untrusted inputs before use.
+        if ! [[ "$IN_WEBP_QUALITY" =~ ^[0-9]+$ ]]; then
+          echo "::error::webp-quality must be a number, got: $IN_WEBP_QUALITY"
+          exit 1
         fi
-        if [[ "${{ inputs.zip }}" == "true" ]]; then
-          FLAGS="$FLAGS --zip"
+        case "$IN_ENGINE" in
+          ""|go|pongo2|mustache|handlebars) ;;
+          *) echo "::error::Invalid engine: $IN_ENGINE"; exit 1 ;;
+        esac
+
+        # Build flags as an array (never a space-joined string).
+        FLAGS=()
+        if [[ "$IN_WEBP" == "true" ]]; then
+          FLAGS+=(--webp --webp-quality="$IN_WEBP_QUALITY")
         fi
-        if [[ "${{ inputs.minify }}" == "true" ]]; then
-          FLAGS="$FLAGS --minify-all"
+        if [[ "$IN_ZIP" == "true" ]]; then
+          FLAGS+=(--zip)
         fi
-        if [[ "${{ inputs.clean }}" == "true" ]]; then
-          FLAGS="$FLAGS --clean"
+        if [[ "$IN_MINIFY" == "true" ]]; then
+          FLAGS+=(--minify-all)
         fi
-        if [[ "${{ inputs.engine }}" != "go" && -n "${{ inputs.engine }}" ]]; then
-          FLAGS="$FLAGS --engine=${{ inputs.engine }}"
+        if [[ "$IN_CLEAN" == "true" ]]; then
+          FLAGS+=(--clean)
         fi
-        if [[ -n "${{ inputs.online-theme }}" ]]; then
-          FLAGS="$FLAGS --online-theme=${{ inputs.online-theme }}"
+        if [[ -n "$IN_ENGINE" && "$IN_ENGINE" != "go" ]]; then
+          FLAGS+=(--engine="$IN_ENGINE")
+        fi
+        if [[ -n "$IN_ONLINE_THEME" ]]; then
+          FLAGS+=(--online-theme="$IN_ONLINE_THEME")
         fi
 
         # Check if content directory exists
-        if [[ ! -d "${{ inputs.content-dir }}/${{ inputs.source }}" ]]; then
-          echo "::error::Content source directory not found: ${{ inputs.content-dir }}/${{ inputs.source }}"
+        if [[ ! -d "$IN_CONTENT_DIR/$IN_SOURCE" ]]; then
+          echo "::error::Content source directory not found: $IN_CONTENT_DIR/$IN_SOURCE"
           exit 1
         fi
 
         # Check if templates exist, copy from action repo if not
-        if [[ ! -d "${{ inputs.templates-dir }}/${{ inputs.template }}" ]]; then
-          if [[ -d "${{ github.action_path }}/templates/${{ inputs.template }}" ]]; then
-            echo "📁 Copying template '${{ inputs.template }}' from action..."
-            mkdir -p "${{ inputs.templates-dir }}"
-            cp -r "${{ github.action_path }}/templates/${{ inputs.template }}" "${{ inputs.templates-dir }}/"
+        if [[ ! -d "$IN_TEMPLATES_DIR/$IN_TEMPLATE" ]]; then
+          if [[ -d "$ACTION_PATH/templates/$IN_TEMPLATE" ]]; then
+            echo "📁 Copying template '$IN_TEMPLATE' from action..."
+            mkdir -p "$IN_TEMPLATES_DIR"
+            cp -r "$ACTION_PATH/templates/$IN_TEMPLATE" "$IN_TEMPLATES_DIR/"
           else
-            echo "::error::Template directory not found: ${{ inputs.templates-dir }}/${{ inputs.template }}"
+            echo "::error::Template directory not found: $IN_TEMPLATES_DIR/$IN_TEMPLATE"
             exit 1
           fi
         fi
 
         # Run generator
         echo "::group::Running SSG"
-        ssg "${{ inputs.source }}" "${{ inputs.template }}" "${{ inputs.domain }}" \
-          --content-dir="${{ inputs.content-dir }}" \
-          --templates-dir="${{ inputs.templates-dir }}" \
-          --output-dir="${{ inputs.output-dir }}" \
-          $FLAGS
+        ssg "$IN_SOURCE" "$IN_TEMPLATE" "$IN_DOMAIN" \
+          --content-dir="$IN_CONTENT_DIR" \
+          --templates-dir="$IN_TEMPLATES_DIR" \
+          --output-dir="$IN_OUTPUT_DIR" \
+          "${FLAGS[@]}"
         echo "::endgroup::"
 
         # Set outputs
-        echo "output-path=${{ inputs.output-dir }}" >> $GITHUB_OUTPUT
+        echo "output-path=$IN_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
 
         # Handle ZIP output
-        if [[ "${{ inputs.zip }}" == "true" ]]; then
-          ZIP_FILE="${{ inputs.domain }}.zip"
+        if [[ "$IN_ZIP" == "true" ]]; then
+          ZIP_FILE="$IN_DOMAIN.zip"
           if [[ -f "$ZIP_FILE" ]]; then
             ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat --format=%s "$ZIP_FILE")
-            echo "zip-file=$ZIP_FILE" >> $GITHUB_OUTPUT
-            echo "zip-size=$ZIP_SIZE" >> $GITHUB_OUTPUT
+            echo "zip-file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
+            echo "zip-size=$ZIP_SIZE" >> "$GITHUB_OUTPUT"
             echo "📦 ZIP created: $ZIP_FILE ($((ZIP_SIZE / 1024 / 1024)) MB)"
           fi
         fi

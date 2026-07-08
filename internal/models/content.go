@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -128,28 +129,45 @@ func (p Page) GetCanonical(domain string) string {
 }
 
 // GetOutputPath returns the filesystem path for this page/post
-// Link field from frontmatter ALWAYS takes priority
+// Link field from frontmatter ALWAYS takes priority.
+//
+// The returned sub-path is always sanitized (see SanitizeRelPath) so that
+// untrusted slug/link values — e.g. supplied by a remote mddb server — can
+// never escape the output directory via path traversal (SEC-001).
 func (p Page) GetOutputPath() string {
 	// Link field ALWAYS takes priority (for both posts and pages)
 	if p.Link != "" {
 		if u, err := url.Parse(p.Link); err == nil {
-			path := u.Path
-			return strings.Trim(path, "/")
+			return SanitizeRelPath(u.Path)
 		}
 	}
 
 	if p.Type == "post" {
 		// URLFormat="slug" uses slug-only path
 		if p.URLFormat == "slug" {
-			return p.Slug
+			return SanitizeRelPath(p.Slug)
 		}
 		// Default: date-based path
-		return fmt.Sprintf("%d/%02d/%02d/%s",
-			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
+		return SanitizeRelPath(fmt.Sprintf("%d/%02d/%02d/%s",
+			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug))
 	}
 
 	// Pages: use slug
-	return p.Slug
+	return SanitizeRelPath(p.Slug)
+}
+
+// SanitizeRelPath returns a cleaned, relative sub-path that cannot escape its
+// root. Untrusted input (slug/link from mddb) may contain "..", absolute paths
+// or Windows separators; anchoring at "/" before path.Clean collapses any such
+// traversal, and the leading separator is then stripped to yield a safe
+// relative path. Guards against path traversal / arbitrary write (SEC-001).
+func SanitizeRelPath(p string) string {
+	// Normalize Windows separators so "\.." cannot bypass the cleaning.
+	p = strings.ReplaceAll(p, "\\", "/")
+	// Anchor at root: path.Clean("/"+"../../etc") == "/etc", never above root.
+	cleaned := path.Clean("/" + p)
+	// Strip the leading slash to produce a relative path ("" stays "").
+	return strings.TrimPrefix(cleaned, "/")
 }
 
 // HasValidCategories returns true if post has categories other than "Bez kategorii" (ID 1)

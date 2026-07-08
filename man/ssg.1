@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-04-06" "1.7.13" "SSG Manual"
+.TH SSG 1 "2026-07-08" "1.7.14" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -49,11 +49,11 @@ current directory.
 .SS Template Engine
 .TP
 .BR \-\-engine =\fIENGINE
-Template engine to use. Available engines:
-.BR go " (default),"
-.BR pongo2 " (Jinja2/Django-like),"
-.BR mustache ","
-.BR handlebars .
+Template engine to use. Only
+.BR go
+(default) is implemented;
+.BR pongo2 ", " mustache " and " handlebars
+are not yet implemented and are rejected with an error.
 .TP
 .BR \-\-online\-theme =\fIURL
 Download theme from a URL. Supports GitHub, GitLab repositories, or direct
@@ -304,22 +304,16 @@ variables:
 .fi
 .RE
 .SH TEMPLATE ENGINES
-SSG supports four template engines:
+SSG renders templates with the Go engine. Other engines are recognized by the
+\fB\-\-engine\fR flag but are not yet implemented (they are rejected with an error).
 .TP
 .B go
 Go's standard \fBhtml/template\fR package (default). Uses \fB{{ .Field }}\fR
-syntax.
+syntax. This is the only engine currently wired into rendering.
 .TP
-.B pongo2
-Jinja2/Django-like templates. Uses \fB{{ field }}\fR and
-\fB{% block %}\fR syntax.
-.TP
-.B mustache
-Logic-less templates. Uses \fB{{field}}\fR and \fB{{#section}}\fR syntax.
-.TP
-.B handlebars
-Extension of Mustache with helpers. Uses \fB{{field}}\fR and
-\fB{{#if condition}}\fR syntax.
+.B pongo2 ", " mustache ", " handlebars
+Not yet implemented. Requesting any of these fails with a clear error instead of
+silently rendering with the Go engine.
 .SH TEMPLATE VARIABLES
 All page/post fields are available at the template root level for direct access.
 Custom metadata fields from MDDB frontmatter are also flattened to root level.

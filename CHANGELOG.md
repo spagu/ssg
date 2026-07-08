@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.14] - 2026-07-08
+
+### Security
+- 🔒 **Path traversal / arbitrary write via slug/link hardened (SEC-001)** — output
+  sub-paths derived from `slug`/`link` (fully controlled by a remote `mddb` server) are
+  now sanitized (`models.SanitizeRelPath`), and every page/post/category write is verified
+  to stay within the output directory (`ensureWithinOutput`). Malicious values such as
+  `../../../etc/...` can no longer escape the output directory.
+- 🔒 **Script injection in the GitHub composite action closed (SEC-002)** — `action.yml`
+  no longer interpolates `${{ inputs.* }}` inside `run:` blocks. All inputs are passed via
+  `env:` and referenced as quoted shell variables; build flags are assembled as a bash
+  array; `version`/`webp-quality`/`engine` are validated. Prevents RCE on the runner.
+
+### Fixed
+- 🐛 **Panic in `fixMediaPaths` on empty media file (GO-001)** — an empty
+  `MediaDetails.File` previously caused `filename[:len-4]` to panic (slice bounds out of
+  range) and crash the whole build. The filename is now trimmed with `filepath.Ext` and
+  empty names are skipped safely.
+- 🐛 **mddb media details were dropped (GO-006)** — `extractMediaFromDoc` now populates
+  `MediaDetails.file/width/height`, so mddb-sourced media has correct paths (this was the
+  root cause of GO-001).
+- 🐛 **`--engine` flag no longer silently ignored (GO-002)** — only the Go
+  (`html/template`) engine is wired into rendering. Requesting `pongo2`/`mustache`/
+  `handlebars` now fails fast with a clear "not yet implemented" error instead of silently
+  rendering with Go. Help text and the action input description updated accordingly.
+
 ## [1.7.13] - 2026-04-08
 
 ### Fixed

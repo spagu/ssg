@@ -233,19 +233,38 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	}
 }
 
-// setupTemplateEngine validates the template engine
+// setupTemplateEngine validates the template engine and exits on error.
 func setupTemplateEngine(cfg *config.Config) {
-	if cfg.Engine == "" {
-		return
-	}
-
-	if _, err := engine.New(cfg.Engine); err != nil {
+	if err := validateTemplateEngine(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if !cfg.Quiet {
+	if cfg.Engine != "" && !cfg.Quiet {
 		fmt.Printf("🔧 Using template engine: %s\n", cfg.Engine)
+	}
+}
+
+// validateTemplateEngine checks that the requested template engine is actually
+// supported for rendering. The generator currently renders exclusively with the
+// Go (html/template) engine; the pongo2/mustache/handlebars back-ends are not
+// wired into the rendering pipeline, so requesting them previously produced
+// misleading output rendered with Go anyway (GO-002). We now reject them with a
+// clear error instead of silently ignoring the flag.
+func validateTemplateEngine(cfg *config.Config) error {
+	if cfg.Engine == "" {
+		return nil
+	}
+	switch strings.ToLower(cfg.Engine) {
+	case engine.EngineGo:
+		return nil
+	case engine.EnginePongo2, "jinja2", "django",
+		engine.EngineMustache, engine.EngineHandlebars, "hbs":
+		return fmt.Errorf(
+			"template engine %q is not yet implemented; only 'go' is currently supported for rendering",
+			cfg.Engine)
+	default:
+		return fmt.Errorf("unknown template engine: %s (supported: go)", cfg.Engine)
 	}
 }
 
@@ -311,6 +330,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Variables:         cfg.Variables,
 		PagesPath:         cfg.PagesPath,
 		PostsPath:         cfg.PostsPath,
+		StaticDir:         cfg.StaticDir,
 		RewriteMdLinks:    cfg.RewriteMdLinks,
 		PreserveSlugCase:  cfg.PreserveSlugCase,
 		Mddb: generator.MddbConfig{
@@ -432,6 +452,8 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.TemplatesDir = strings.TrimPrefix(arg, "--templates-dir=")
 	case strings.HasPrefix(arg, "--output-dir="):
 		cfg.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
+	case strings.HasPrefix(arg, "--static-dir="):
+		cfg.StaticDir = strings.TrimPrefix(arg, "--static-dir=")
 	case strings.HasPrefix(arg, "--engine="):
 		cfg.Engine = strings.TrimPrefix(arg, "--engine=")
 	case strings.HasPrefix(arg, "--online-theme="):
@@ -745,7 +767,8 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Template Engine:")
 	fmt.Println("  --engine=ENGINE        - Template engine (default: go)")
-	fmt.Println("                           Available: go, pongo2 (jinja2), mustache, handlebars")
+	fmt.Println("                           Supported: go. (pongo2/mustache/handlebars are")
+	fmt.Println("                           not yet implemented and are rejected with an error.)")
 	fmt.Println("  --online-theme=URL     - Download theme from URL (GitHub, GitLab, or direct ZIP)")
 	fmt.Println("                           Example: --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("")
@@ -797,6 +820,7 @@ func printUsage() {
 	fmt.Println("  --content-dir=PATH     - Content directory (default: content)")
 	fmt.Println("  --templates-dir=PATH   - Templates directory (default: templates)")
 	fmt.Println("  --output-dir=PATH      - Output directory (default: output)")
+	fmt.Println("  --static-dir=PATH      - Static passthrough directory copied verbatim to output (default: static)")
 	fmt.Println("")
 	fmt.Println("Other:")
 	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")
@@ -806,7 +830,7 @@ func printUsage() {
 	fmt.Println("Examples:")
 	fmt.Println("  ssg my-site simple example.com --http --watch")
 	fmt.Println("  ssg my-site krowy example.com --clean --minify-all --zip")
-	fmt.Println("  ssg my-site mytheme example.com --engine=pongo2")
+	fmt.Println("  ssg my-site mytheme example.com --engine=go")
 	fmt.Println("  ssg my-site themename example.com --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("  ssg --config .ssg.yaml --http --watch")
 	fmt.Println("")
