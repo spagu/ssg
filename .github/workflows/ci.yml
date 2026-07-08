@@ -19,7 +19,9 @@ on:
         type: boolean
 
 env:
-  GO_VERSION: "1.26"
+  # Pinned to 1.26.5+: 1.26.4 stdlib crypto/tls is affected by GO-2026-5856
+  # (Encrypted Client Hello privacy leak), fixed in go1.26.5.
+  GO_VERSION: "1.26.5"
 
 # Default least-privilege token for all jobs; the release job elevates to
 # contents: write where it actually needs to publish artifacts.
