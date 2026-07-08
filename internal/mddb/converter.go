@@ -193,13 +193,13 @@ func ToMetadata(docs []Document) (*models.Metadata, error) {
 	for _, doc := range docs {
 		switch doc.Collection {
 		case "categories":
-			cat := extractCategory(doc)
+			cat := ExtractCategory(doc)
 			metadata.Categories = append(metadata.Categories, cat)
 		case "media":
-			media := extractMedia(doc)
+			media := ExtractMedia(doc)
 			metadata.Media = append(metadata.Media, media)
 		case "users":
-			author := extractAuthor(doc)
+			author := ExtractAuthor(doc)
 			metadata.Users = append(metadata.Users, author)
 		}
 	}
@@ -207,7 +207,9 @@ func ToMetadata(docs []Document) (*models.Metadata, error) {
 	return metadata, nil
 }
 
-func extractCategory(doc Document) models.Category {
+// ExtractCategory builds a models.Category from an mddb category Document.
+// Shared by the metadata converter and the generator's mddb loader (DRY, GO-010).
+func ExtractCategory(doc Document) models.Category {
 	cat := models.Category{
 		Slug: doc.Key,
 	}
@@ -234,7 +236,10 @@ func extractCategory(doc Document) models.Category {
 	return cat
 }
 
-func extractMedia(doc Document) models.MediaItem {
+// ExtractMedia builds a models.MediaItem (including media_details) from an mddb
+// media Document. Shared by the metadata converter and the generator's mddb
+// loader (DRY, GO-006/GO-010).
+func ExtractMedia(doc Document) models.MediaItem {
 	media := models.MediaItem{
 		Slug: doc.Key,
 	}
@@ -271,7 +276,9 @@ func extractMedia(doc Document) models.MediaItem {
 	return media
 }
 
-func extractAuthor(doc Document) models.Author {
+// ExtractAuthor builds a models.Author from an mddb user Document.
+// Shared by the metadata converter and the generator's mddb loader (DRY, GO-010).
+func ExtractAuthor(doc Document) models.Author {
 	author := models.Author{
 		Slug: doc.Key,
 	}

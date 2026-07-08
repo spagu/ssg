@@ -538,89 +538,23 @@ func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	return nil
 }
 
-// extractCategoryFromDoc extracts Category from mddb Document
+// extractCategoryFromDoc extracts Category from an mddb Document.
+// Delegates to the shared mddb extractor to avoid duplicated logic (DRY, GO-010).
 func extractCategoryFromDoc(doc mddb.Document) models.Category {
-	cat := models.Category{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		cat.ID = int(id)
-	}
-	if name, ok := doc.Metadata["name"].(string); ok {
-		cat.Name = name
-	}
-	if desc, ok := doc.Metadata["description"].(string); ok {
-		cat.Description = desc
-	}
-	if link, ok := doc.Metadata["link"].(string); ok {
-		cat.Link = link
-	}
-	if count, ok := doc.Metadata["count"].(float64); ok {
-		cat.Count = int(count)
-	}
-	if parent, ok := doc.Metadata["parent"].(float64); ok {
-		cat.Parent = int(parent)
-	}
-
-	return cat
+	return mddb.ExtractCategory(doc)
 }
 
-// extractMediaFromDoc extracts MediaItem from mddb Document
+// extractMediaFromDoc extracts MediaItem (including media_details) from an mddb
+// Document. Delegates to the shared mddb extractor so the generator always gets
+// media_details populated (GO-006) without duplicating the logic (GO-010).
 func extractMediaFromDoc(doc mddb.Document) models.MediaItem {
-	media := models.MediaItem{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		media.ID = int(id)
-	}
-	if mediaType, ok := doc.Metadata["media_type"].(string); ok {
-		media.MediaType = mediaType
-	}
-	if mimeType, ok := doc.Metadata["mime_type"].(string); ok {
-		media.MimeType = mimeType
-	}
-	if sourceURL, ok := doc.Metadata["source_url"].(string); ok {
-		media.SourceURL = sourceURL
-	}
-	if title, ok := doc.Metadata["title"].(map[string]interface{}); ok {
-		if rendered, ok := title["rendered"].(string); ok {
-			media.Title.Rendered = rendered
-		}
-	}
-	// Populate media_details (file/width/height) so downstream URL rewriting
-	// (fixMediaPaths) has a real filename. Missing this caused empty File and a
-	// panic on mddb-sourced media (GO-006, root cause of GO-001).
-	if details, ok := doc.Metadata["media_details"].(map[string]interface{}); ok {
-		if width, ok := details["width"].(float64); ok {
-			media.MediaDetails.Width = models.FlexInt(int(width))
-		}
-		if height, ok := details["height"].(float64); ok {
-			media.MediaDetails.Height = models.FlexInt(int(height))
-		}
-		if file, ok := details["file"].(string); ok {
-			media.MediaDetails.File = file
-		}
-	}
-
-	return media
+	return mddb.ExtractMedia(doc)
 }
 
-// extractAuthorFromDoc extracts Author from mddb Document
+// extractAuthorFromDoc extracts Author from an mddb Document.
+// Delegates to the shared mddb extractor to avoid duplicated logic (DRY, GO-010).
 func extractAuthorFromDoc(doc mddb.Document) models.Author {
-	author := models.Author{
-		Slug: doc.Key,
-	}
-
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		author.ID = int(id)
-	}
-	if name, ok := doc.Metadata["name"].(string); ok {
-		author.Name = name
-	}
-
-	return author
+	return mddb.ExtractAuthor(doc)
 }
 
 // logContentStats prints content loading statistics
