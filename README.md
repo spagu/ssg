@@ -256,6 +256,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | Option | Description |
 |--------|-------------|
 | `--http` | Start built-in HTTP server (default port: 8888) |
+| `--host=ADDR` | Dev server bind address (default: `127.0.0.1`; use `0.0.0.0` to expose on all interfaces) |
 | `--port=PORT` | HTTP server port (default: `8888`) |
 | `--watch` | Watch for changes and rebuild automatically |
 | `--clean` | Clean output directory before build |

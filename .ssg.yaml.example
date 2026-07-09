@@ -14,6 +14,7 @@ static_dir: "static"   # Copied verbatim to output (all files & subdirs). Missin
 
 # Server & Development
 http: false          # Start built-in HTTP server
+host: "127.0.0.1"    # Dev server bind address (use 0.0.0.0 to expose on all interfaces)
 port: 8888           # HTTP server port
 watch: false         # Watch for changes and rebuild
 clean: false         # Clean output before build

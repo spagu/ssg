@@ -128,7 +128,7 @@ var knownFields = map[string]bool{
 	"status": true, "type": true, "link": true, "author": true, "categories": true,
 	"description": true, "keywords": true, "lang": true, "canonical": true,
 	"robots": true, "featured_image": true, "tags": true, "category": true,
-	"layout": true, "template": true,
+	"layout": true, "template": true, "sitemap": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -169,6 +169,7 @@ type PageFrontmatter struct {
 	FeaturedImage string   `yaml:"featured_image"`
 	Tags          []string `yaml:"tags,omitempty"`
 	Category      string   `yaml:"category"`
+	Sitemap       string   `yaml:"sitemap"` // "no" excludes the page from sitemap.xml (GO-003)
 
 	// Template selection
 	Layout   string `yaml:"layout"`
@@ -284,6 +285,7 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		FeaturedImage: pf.FeaturedImage,
 		Tags:          pf.Tags,
 		Category:      pf.Category,
+		Sitemap:       pf.Sitemap,
 		// Template selection
 		Layout:   pf.Layout,
 		Template: pf.Template,
