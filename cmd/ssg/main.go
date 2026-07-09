@@ -35,6 +35,7 @@ func main() {
 	validateRequiredFields(args, cfg)
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
+	warnUnimplementedFlags(cfg)
 	downloadOnlineTheme(cfg)
 
 	genCfg := createGeneratorConfig(cfg)
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	if cfg.HTTP {
-		go startServer(cfg.OutputDir, cfg.Port, cfg.Quiet)
+		go startServer(cfg.OutputDir, cfg.Host, cfg.Port, cfg.Quiet)
 	}
 
 	runWatchOrServe(genCfg, cfg)
@@ -56,6 +57,14 @@ func applyMinifyAll(cfg *config.Config) {
 		cfg.MinifyHTML = true
 		cfg.MinifyCSS = true
 		cfg.MinifyJS = true
+	}
+}
+
+// warnUnimplementedFlags warns about flags that are accepted for compatibility
+// but do nothing yet, so the CLI does not silently ignore them (GO-004).
+func warnUnimplementedFlags(cfg *config.Config) {
+	if cfg.SourceMap && !cfg.Quiet {
+		fmt.Fprintln(os.Stderr, "⚠️  --sourcemap is accepted but not yet implemented; no source maps will be emitted")
 	}
 }
 
@@ -446,6 +455,8 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		if port, err := strconv.Atoi(strings.TrimPrefix(arg, "--port=")); err == nil {
 			cfg.Port = port
 		}
+	case strings.HasPrefix(arg, "--host="):
+		cfg.Host = strings.TrimPrefix(arg, "--host=")
 	case strings.HasPrefix(arg, "--content-dir="):
 		cfg.ContentDir = strings.TrimPrefix(arg, "--content-dir=")
 	case strings.HasPrefix(arg, "--templates-dir="):
@@ -587,10 +598,29 @@ func handleConfigSkip(arg string) int {
 	return 0
 }
 
-func startServer(dir string, port int, quiet bool) {
-	addr := fmt.Sprintf(":%d", port)
+// resolveListenAddr computes the dev-server bind address and a user-facing URL.
+// SEC-012: it defaults to loopback and flags exposure when 0.0.0.0 is requested.
+func resolveListenAddr(host string, port int) (addr, url string, exposed bool) {
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr = fmt.Sprintf("%s:%d", host, port)
+	display := host
+	if host == "0.0.0.0" {
+		display = "127.0.0.1"
+		exposed = true
+	}
+	url = fmt.Sprintf("http://%s:%d", display, port)
+	return addr, url, exposed
+}
+
+func startServer(dir, host string, port int, quiet bool) {
+	addr, url, exposed := resolveListenAddr(host, port)
 	if !quiet {
-		fmt.Printf("🌐 Starting HTTP server at http://localhost%s\n", addr)
+		fmt.Printf("🌐 Starting HTTP server at %s\n", url)
+		if exposed {
+			fmt.Printf("   ⚠️  Exposed on ALL network interfaces (0.0.0.0)\n")
+		}
 		fmt.Printf("   Serving files from: %s/\n", dir)
 	}
 
@@ -787,6 +817,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server")
+	fmt.Println("  --host=ADDR            - Dev server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)")
 	fmt.Println("  --port=PORT            - HTTP server port (default: 8888)")
 	fmt.Println("  --watch                - Watch for changes and rebuild automatically")
 	fmt.Println("  --clean                - Clean output directory before build")
@@ -806,7 +837,7 @@ func printUsage() {
 	fmt.Println("  --minify-html          - Minify HTML output")
 	fmt.Println("  --minify-css           - Minify CSS output")
 	fmt.Println("  --minify-js            - Minify JS output")
-	fmt.Println("  --sourcemap            - Include source maps in output")
+	fmt.Println("  --sourcemap            - (not yet implemented) Reserved for source map output")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")

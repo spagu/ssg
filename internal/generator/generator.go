@@ -1104,6 +1104,11 @@ func tmplStripHTML(s string) string {
 }
 
 func (g *Generator) tmplRecentPosts(n int) []models.Page {
+	// GO-008: clamp both ends so a negative n (e.g. {{recentPosts -1}}) cannot
+	// panic with a slice-bounds-out-of-range.
+	if n < 0 {
+		n = 0
+	}
 	if n > len(g.siteData.Posts) {
 		n = len(g.siteData.Posts)
 	}

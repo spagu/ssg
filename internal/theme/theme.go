@@ -9,6 +9,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+)
+
+const (
+	downloadTimeout = 30 * time.Second
+	maxRedirects    = 5
+)
+
+// Download and extraction limits guard against slow/oversized downloads
+// (SEC-008) and decompression bombs (SEC-006). They are package variables (not
+// consts) so tests can lower them to exercise the caps without huge fixtures.
+var (
+	maxTotalSize int64 = 500 * 1024 * 1024 // cumulative downloaded/extracted bytes
+	maxFileSize  int64 = 100 * 1024 * 1024 // per archive entry
+	maxEntries         = 10000             // archive entry count
 )
 
 // Download downloads a theme from a URL (GitHub repo or direct archive)
@@ -18,8 +33,18 @@ func Download(url, destDir string) error {
 
 	fmt.Printf("📥 Downloading theme from %s...\n", archiveURL)
 
-	// Download archive
-	resp, err := http.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
+	// SEC-008: use a bounded client (timeout + redirect cap) instead of
+	// http.DefaultClient, which has no timeout and follows redirects freely.
+	client := &http.Client{
+		Timeout: downloadTimeout,
+		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+			if len(via) >= maxRedirects {
+				return fmt.Errorf("stopped after %d redirects", maxRedirects)
+			}
+			return nil
+		},
+	}
+	resp, err := client.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
 	if err != nil {
 		return fmt.Errorf("downloading theme: %w", err)
 	}
@@ -39,9 +64,13 @@ func Download(url, destDir string) error {
 		_ = os.Remove(tmpFile.Name())
 	}()
 
-	_, err = io.Copy(tmpFile, resp.Body)
+	// SEC-006: cap the total downloaded size; +1 lets us detect an overflow.
+	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxTotalSize+1))
 	if err != nil {
 		return fmt.Errorf("saving theme archive: %w", err)
+	}
+	if written > maxTotalSize {
+		return fmt.Errorf("theme archive exceeds %d bytes; refusing to extract", maxTotalSize)
 	}
 
 	// Extract
@@ -89,73 +118,109 @@ func extractZip(src, dest string) error {
 	}
 	defer func() { _ = r.Close() }()
 
+	// SEC-006: reject archives with an implausible number of entries.
+	if len(r.File) > maxEntries {
+		return fmt.Errorf("archive has too many entries (%d > %d)", len(r.File), maxEntries)
+	}
+
 	// Create destination directory
 	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(dest, 0755); err != nil {
+	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
 
-	// Find common prefix (first directory in archive)
-	var prefix string
-	if len(r.File) > 0 {
-		parts := strings.Split(r.File[0].Name, "/")
-		if len(parts) > 0 {
-			prefix = parts[0] + "/"
-		}
-	}
+	prefix := commonPrefix(r.File)
 
+	var written int64 // SEC-006: cumulative extracted bytes across all entries
 	for _, f := range r.File {
-		// Strip common prefix
-		name := strings.TrimPrefix(f.Name, prefix)
-		if name == "" {
-			continue
-		}
-
-		fpath := filepath.Join(dest, name)
-
-		// Security check
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return fmt.Errorf("invalid file path: %s", fpath)
-		}
-
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(fpath, f.Mode()); err != nil {
-				return err
-			}
-			continue
-		}
-
-		// Create parent directories
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
-			return err
-		}
-
-		// Extract file
-		// #nosec G304 -- Path is validated above with security check
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		n, err := extractOneEntry(f, dest, prefix, maxTotalSize-written)
 		if err != nil {
 			return err
 		}
-
-		rc, err := f.Open()
-		if err != nil {
-			_ = outFile.Close()
-			return err
-		}
-
-		// Limit extraction to 100MB per file to prevent zip bombs
-		const maxFileSize = 100 * 1024 * 1024 // 100MB
-		_, err = io.Copy(outFile, io.LimitReader(rc, maxFileSize))
-		_ = rc.Close()
-		_ = outFile.Close()
-
-		if err != nil {
-			return err
-		}
+		written += n
 	}
 
 	return nil
+}
+
+// commonPrefix returns the top-level directory shared by the archive so it can
+// be stripped from extracted paths (e.g. "repo-main/").
+func commonPrefix(files []*zip.File) string {
+	if len(files) == 0 {
+		return ""
+	}
+	// strings.Split always yields at least one element, so [0] is safe.
+	return strings.Split(files[0].Name, "/")[0] + "/"
+}
+
+// extractOneEntry resolves, validates and writes a single archive entry.
+// Directories create a fixed-mode dir and return 0 bytes; the returned byte
+// count feeds the caller's cumulative size cap (SEC-006).
+func extractOneEntry(f *zip.File, dest, prefix string, remainingTotal int64) (int64, error) {
+	// Strip common prefix
+	name := strings.TrimPrefix(f.Name, prefix)
+	if name == "" {
+		return 0, nil
+	}
+
+	fpath := filepath.Join(dest, name)
+
+	// Security check: reject path traversal outside dest.
+	if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+		return 0, fmt.Errorf("invalid file path: %s", fpath)
+	}
+
+	if f.FileInfo().IsDir() {
+		// SEC-010: fixed safe mode, never trust the archive's f.Mode().
+		// #nosec G301 -- Web content directories need to be world-traversable
+		return 0, os.MkdirAll(fpath, 0o755)
+	}
+
+	// Create parent directories
+	// #nosec G301 -- Web content directories need to be world-traversable
+	if err := os.MkdirAll(filepath.Dir(fpath), 0o755); err != nil {
+		return 0, err
+	}
+
+	return extractZipEntry(f, fpath, remainingTotal)
+}
+
+// extractZipEntry writes a single archive entry to fpath with a fixed 0o644 mode
+// (SEC-010) and enforces the per-file and remaining-total size caps (SEC-006).
+// remainingTotal is the extraction budget left before the cumulative limit.
+func extractZipEntry(f *zip.File, fpath string, remainingTotal int64) (int64, error) {
+	if remainingTotal <= 0 {
+		return 0, fmt.Errorf("archive exceeds total size limit of %d bytes", maxTotalSize)
+	}
+
+	// Extract file. Web content must be world-readable, so 0o644 is intentional.
+	// #nosec G304,G302 -- Path is validated by the caller's traversal check; mode is a fixed safe 0o644 (SEC-010)
+	outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = outFile.Close() }()
+
+	rc, err := f.Open()
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = rc.Close() }()
+
+	// Cap this entry by both the per-file limit and the remaining total budget;
+	// +1 lets us detect an entry that blows past the cap (zip bomb).
+	limit := maxFileSize
+	if remainingTotal < limit {
+		limit = remainingTotal
+	}
+	n, err := io.Copy(outFile, io.LimitReader(rc, limit+1))
+	if err != nil {
+		return n, err
+	}
+	if n > limit {
+		return n, fmt.Errorf("archive entry %q exceeds size limit (possible zip bomb)", f.Name)
+	}
+	return n, nil
 }
 
 // ConvertHugoTheme converts a Hugo theme structure to SSG format

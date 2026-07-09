@@ -126,6 +126,7 @@ func TestParseEqualFlags(t *testing.T) {
 		{"templates-dir", "--templates-dir=my-templates", func(c *config.Config) interface{} { return c.TemplatesDir }, "my-templates"},
 		{"output-dir", "--output-dir=my-output", func(c *config.Config) interface{} { return c.OutputDir }, "my-output"},
 		{"static-dir", "--static-dir=my-static", func(c *config.Config) interface{} { return c.StaticDir }, "my-static"},
+		{"host", "--host=0.0.0.0", func(c *config.Config) interface{} { return c.Host }, "0.0.0.0"},
 		{"engine", "--engine=pongo2", func(c *config.Config) interface{} { return c.Engine }, "pongo2"},
 		{"online-theme", "--online-theme=https://example.com/t", func(c *config.Config) interface{} { return c.OnlineTheme }, "https://example.com/t"},
 		{"post-url-format", "--post-url-format=slug", func(c *config.Config) interface{} { return c.PostURLFormat }, "slug"},
@@ -1260,7 +1261,7 @@ func TestStartServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go startServer(tmpDir, 0, true)
+	go startServer(tmpDir, "127.0.0.1", 0, true)
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -1571,7 +1572,7 @@ func TestStartServerVerbose(t *testing.T) {
 	_, w, _ := os.Pipe()
 	os.Stdout = w
 
-	go startServer(tmpDir, 0, false)
+	go startServer(tmpDir, "127.0.0.1", 0, false)
 	time.Sleep(100 * time.Millisecond)
 
 	_ = w.Close()
@@ -2003,5 +2004,57 @@ func TestDownloadOnlineThemeVerbose(t *testing.T) {
 	out, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(out), "Downloading theme") {
 		t.Errorf("expected download message, got: %s", out)
+	}
+}
+
+// TestWarnUnimplementedFlags verifies GO-004: --sourcemap is announced as a
+// no-op instead of being silently ignored, and stays silent when unset/quiet.
+func TestWarnUnimplementedFlags(t *testing.T) {
+	capture := func(cfg *config.Config) string {
+		old := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+		warnUnimplementedFlags(cfg)
+		_ = w.Close()
+		os.Stderr = old
+		out, _ := io.ReadAll(r)
+		return string(out)
+	}
+
+	if got := capture(&config.Config{SourceMap: true}); !strings.Contains(got, "sourcemap") {
+		t.Errorf("expected a sourcemap warning, got %q", got)
+	}
+	if got := capture(&config.Config{SourceMap: false}); got != "" {
+		t.Errorf("expected no warning when --sourcemap unset, got %q", got)
+	}
+	if got := capture(&config.Config{SourceMap: true, Quiet: true}); got != "" {
+		t.Errorf("expected no warning in quiet mode, got %q", got)
+	}
+}
+
+// TestResolveListenAddr verifies SEC-012: the dev server defaults to loopback
+// and only 0.0.0.0 is reported as exposing all interfaces.
+func TestResolveListenAddr(t *testing.T) {
+	tests := []struct {
+		name        string
+		host        string
+		port        int
+		wantAddr    string
+		wantURL     string
+		wantExposed bool
+	}{
+		{"empty defaults to loopback", "", 8888, "127.0.0.1:8888", "http://127.0.0.1:8888", false},
+		{"explicit loopback", "127.0.0.1", 3000, "127.0.0.1:3000", "http://127.0.0.1:3000", false},
+		{"all interfaces flagged", "0.0.0.0", 8080, "0.0.0.0:8080", "http://127.0.0.1:8080", true},
+		{"custom host", "192.168.1.5", 9000, "192.168.1.5:9000", "http://192.168.1.5:9000", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, url, exposed := resolveListenAddr(tt.host, tt.port)
+			if addr != tt.wantAddr || url != tt.wantURL || exposed != tt.wantExposed {
+				t.Errorf("resolveListenAddr(%q,%d) = (%q,%q,%v), want (%q,%q,%v)",
+					tt.host, tt.port, addr, url, exposed, tt.wantAddr, tt.wantURL, tt.wantExposed)
+			}
+		})
 	}
 }

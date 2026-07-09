@@ -61,10 +61,11 @@ type Config struct {
 	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
 
 	// Server & Development
-	HTTP  bool `yaml:"http" toml:"http" json:"http"`
-	Port  int  `yaml:"port" toml:"port" json:"port"`
-	Watch bool `yaml:"watch" toml:"watch" json:"watch"`
-	Clean bool `yaml:"clean" toml:"clean" json:"clean"`
+	HTTP  bool   `yaml:"http" toml:"http" json:"http"`
+	Host  string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
+	Port  int    `yaml:"port" toml:"port" json:"port"`
+	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
+	Clean bool   `yaml:"clean" toml:"clean" json:"clean"`
 
 	// Output Control
 	SitemapOff    bool   `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
@@ -124,6 +125,7 @@ func DefaultConfig() *Config {
 		TemplatesDir: "templates",
 		OutputDir:    "output",
 		StaticDir:    "static",
+		Host:         "127.0.0.1",
 		Port:         8888,
 		WebPQuality:  60,
 		Mddb: MddbConfig{

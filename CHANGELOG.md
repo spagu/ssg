@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.15] - 2026-07-09
+
+Audit hardening round: 5 security + 3 correctness fixes from the local audit backlog.
+
+### Security
+- 🔒 **Decompression-bomb total limit (SEC-006)** — theme extraction now enforces a
+  cumulative size cap (500 MB), a per-file cap (100 MB) and an entry-count cap (10 000)
+  in addition to bounding the download itself, so a malicious archive can no longer
+  exhaust disk/memory.
+- 🔒 **Theme download timeout & redirect cap (SEC-008)** — `theme.Download` uses a bounded
+  `http.Client` (30 s timeout, ≤5 redirects) instead of `http.DefaultClient`, preventing
+  hangs and redirect-loop SSRF-lite.
+- 🔒 **Bounded mddb response reads (SEC-009)** — every mddb HTTP body is wrapped in an
+  `io.LimitReader` (64 MB payloads, 64 KB error bodies) so a hostile/broken server cannot
+  exhaust memory via `io.ReadAll`/streaming decode.
+- 🔒 **Archive file permissions clamped (SEC-010)** — extracted files/dirs use fixed safe
+  modes (`0644`/`0755`) instead of trusting `f.Mode()` from the archive.
+- 🔒 **Dev server binds loopback by default (SEC-012)** — the built-in server now listens on
+  `127.0.0.1` instead of `0.0.0.0`; exposing on all interfaces requires an explicit
+  `--host=0.0.0.0` (new `--host` flag / `host:` config, default `127.0.0.1`).
+
+### Fixed
+- 🐛 **`sitemap: no` honored for file content (GO-003)** — the `sitemap` frontmatter field
+  is now parsed for file-based pages (previously only mddb set it), so `sitemap: no`
+  correctly excludes a page from `sitemap.xml`.
+- 🐛 **`--sourcemap` is no longer a silent no-op (GO-004)** — the flag now prints a clear
+  "not yet implemented" notice and the help text is truthful.
+- 🐛 **`recentPosts` negative-count panic fixed (GO-008)** — `{{recentPosts -1}}` no longer
+  panics with slice-bounds-out-of-range; the count is clamped at both ends.
+
 ## [1.7.14] - 2026-07-08
 
 ### Security

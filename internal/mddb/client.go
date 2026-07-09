@@ -130,6 +130,22 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// Response-size limits bound a single mddb HTTP response so a malicious or
+// broken server cannot exhaust memory by streaming unbounded data (SEC-009).
+const (
+	maxResponseSize = 64 * 1024 * 1024 // document payloads
+	maxErrBodySize  = 64 * 1024        // error message bodies
+)
+
+// limitedBody wraps a response body so reads are capped at limit while Close
+// still closes the underlying connection.
+func limitedBody(body io.ReadCloser, limit int64) io.ReadCloser {
+	return struct {
+		io.Reader
+		io.Closer
+	}{io.LimitReader(body, limit), body}
+}
+
 // Get fetches a single document by collection and key
 func (c *Client) Get(req GetRequest) (*Document, error) {
 	body, err := json.Marshal(req)
@@ -271,7 +287,7 @@ func (c *Client) Health() error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBodySize))
 		return fmt.Errorf("health check failed: %s", string(body))
 	}
 
@@ -295,7 +311,7 @@ func (c *Client) Checksum(collection string) (*ChecksumResponse, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBodySize))
 		return nil, fmt.Errorf("checksum request failed: %s", string(body))
 	}
 
@@ -335,10 +351,12 @@ func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response
 
 	// Don't treat 404 as error for Get - let caller handle it
 	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBodySize))
 		_ = resp.Body.Close()
 		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
+	// SEC-009: cap every successful body so downstream decoders/readers are bounded.
+	resp.Body = limitedBody(resp.Body, maxResponseSize)
 	return resp, nil
 }

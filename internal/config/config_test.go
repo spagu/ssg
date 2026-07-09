@@ -25,6 +25,13 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.WebPQuality != 60 {
 		t.Errorf("expected webp_quality 60, got %d", cfg.WebPQuality)
 	}
+	// SEC-012: dev server must default to loopback, not all interfaces.
+	if cfg.Host != "127.0.0.1" {
+		t.Errorf("expected default host '127.0.0.1', got '%s'", cfg.Host)
+	}
+	if cfg.StaticDir != "static" {
+		t.Errorf("expected default static_dir 'static', got '%s'", cfg.StaticDir)
+	}
 }
 
 func TestLoadYAML(t *testing.T) {

@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-08" "1.7.14" "SSG Manual"
+.TH SSG 1 "2026-07-08" "1.7.15" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -91,6 +91,10 @@ Polling interval for MDDB watch mode in seconds (default: 30).
 .TP
 .B \-\-http
 Start the built-in HTTP server after generating the site.
+.TP
+.BR \-\-host =\fIADDR
+Dev server bind address (default: \fB127.0.0.1\fR). Use \fB0.0.0.0\fR to expose
+the server on all network interfaces.
 .TP
 .BR \-\-port =\fIPORT
 HTTP server port (default: 8888).
