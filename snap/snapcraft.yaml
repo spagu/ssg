@@ -49,10 +49,17 @@ apps:
 
 parts:
   ssg:
-    plugin: go
+    # plugin: nil (not "go") so snapcraft's Go plugin does not run its compiler
+    # version check, which chokes on the "go: downloading go1.26.5" line emitted
+    # when go.mod's toolchain (>= 1.26.5) is newer than the go snap. GOTOOLCHAIN
+    # stays "auto", so `go build` fetches the required toolchain cleanly.
+    plugin: nil
     source: .
     source-type: local
     build-snaps:
       - go/latest/stable
+    build-environment:
+      - GOTOOLCHAIN: auto
     override-build: |
-      go build -ldflags "-s -w -X main.Version=1.7.15" -o $SNAPCRAFT_PART_INSTALL/bin/ssg ./cmd/ssg
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/bin"
+      go build -ldflags "-s -w -X main.Version=1.7.15" -o "$SNAPCRAFT_PART_INSTALL/bin/ssg" ./cmd/ssg
