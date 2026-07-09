@@ -437,6 +437,9 @@ func (g *Generator) loadContentFromMddb() error {
 	if err != nil {
 		return fmt.Errorf("creating mddb client: %w", err)
 	}
+	// A fresh client is created on every Generate(); close it so watch-mode
+	// rebuilds do not leak gRPC connections/goroutines (GO-005).
+	defer func() { _ = client.Close() }()
 
 	// Check server health
 	if err := client.Health(); err != nil {

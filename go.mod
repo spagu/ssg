@@ -1,6 +1,8 @@
 module github.com/spagu/ssg
 
-go 1.26
+// Requires go1.26.5+: earlier 1.26.x stdlib is affected by GO-2026-5856
+// (crypto/tls ECH privacy leak) and GO-2026-4970 (os), both fixed in go1.26.5.
+go 1.26.5
 
 require (
 	github.com/BurntSushi/toml v1.6.0

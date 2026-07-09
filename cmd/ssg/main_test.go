@@ -125,6 +125,7 @@ func TestParseEqualFlags(t *testing.T) {
 		{"content-dir", "--content-dir=my-content", func(c *config.Config) interface{} { return c.ContentDir }, "my-content"},
 		{"templates-dir", "--templates-dir=my-templates", func(c *config.Config) interface{} { return c.TemplatesDir }, "my-templates"},
 		{"output-dir", "--output-dir=my-output", func(c *config.Config) interface{} { return c.OutputDir }, "my-output"},
+		{"static-dir", "--static-dir=my-static", func(c *config.Config) interface{} { return c.StaticDir }, "my-static"},
 		{"engine", "--engine=pongo2", func(c *config.Config) interface{} { return c.Engine }, "pongo2"},
 		{"online-theme", "--online-theme=https://example.com/t", func(c *config.Config) interface{} { return c.OnlineTheme }, "https://example.com/t"},
 		{"post-url-format", "--post-url-format=slug", func(c *config.Config) interface{} { return c.PostURLFormat }, "slug"},
@@ -652,6 +653,7 @@ func TestCreateGeneratorConfigAllFields(t *testing.T) {
 		ContentDir:    "content",
 		TemplatesDir:  "templates",
 		OutputDir:     "output",
+		StaticDir:     "static",
 		SitemapOff:    true,
 		RobotsOff:     true,
 		PrettyHTML:    true,
@@ -697,6 +699,9 @@ func TestCreateGeneratorConfigAllFields(t *testing.T) {
 	}
 	if genCfg.OutputDir != "output" {
 		t.Error("OutputDir mismatch")
+	}
+	if genCfg.StaticDir != "static" {
+		t.Error("StaticDir mismatch")
 	}
 	if !genCfg.SitemapOff {
 		t.Error("SitemapOff mismatch")

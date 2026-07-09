@@ -21,6 +21,12 @@ type MddbClient interface {
 
 	// Checksum returns the checksum for a collection (for change detection)
 	Checksum(collection string) (*ChecksumResponse, error)
+
+	// Close releases any resources held by the client. For the HTTP client this
+	// is a no-op; the gRPC client closes its underlying connection. Callers must
+	// Close every client they create to avoid connection/goroutine leaks,
+	// especially in watch mode where a client is created per rebuild (GO-005).
+	Close() error
 }
 
 // ClientConfig holds configuration for creating an MDDB client

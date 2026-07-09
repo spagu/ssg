@@ -123,6 +123,13 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
+// Close satisfies MddbClient. The HTTP client holds no long-lived connection
+// that must be torn down (the stdlib transport pools and reaps idle
+// connections), so this is a no-op provided for interface symmetry (GO-005).
+func (c *Client) Close() error {
+	return nil
+}
+
 // Get fetches a single document by collection and key
 func (c *Client) Get(req GetRequest) (*Document, error) {
 	body, err := json.Marshal(req)

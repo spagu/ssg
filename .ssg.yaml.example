@@ -10,6 +10,7 @@ domain: "example.com"
 content_dir: "content"
 templates_dir: "templates"
 output_dir: "output"
+static_dir: "static"   # Copied verbatim to output (all files & subdirs). Missing dir = no-op
 
 # Server & Development
 http: false          # Start built-in HTTP server
