@@ -121,10 +121,17 @@ func safeArgPath(p string) string {
 	return "./" + p
 }
 
-// convertImage converts a single image to WebP using cwebp
+// convertImage converts a single image to WebP using cwebp.
+//
+// cwebp is an optional, system-installed dependency, so it must be resolved
+// from PATH (an absolute path is not portable). Its availability is verified up
+// front in ConvertDirectory via exec.LookPath, and the only variable arguments
+// are image paths, which safeArgPath hardens against flag injection (SEC-011).
+// The PATH-lookup sensitivity (Sonar S4036 / gosec G204) is therefore reviewed
+// and accepted here.
 func convertImage(srcPath, dstPath string, quality int) error {
-	// #nosec G204 -- CLI tool intentionally executes cwebp with user-provided paths
-	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), safeArgPath(srcPath), "-o", safeArgPath(dstPath))
+	// #nosec G204 -- fixed external tool (cwebp); only path args vary, hardened by safeArgPath
+	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), safeArgPath(srcPath), "-o", safeArgPath(dstPath)) // NOSONAR S4036: cwebp is intentionally resolved from PATH
 	// Suppress cwebp output unless error
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cwebp failed: %v, output: %s", err, string(output))
