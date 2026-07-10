@@ -112,3 +112,30 @@ func TestMakeArchive(t *testing.T) {
 		t.Errorf("archive not created: %v", err)
 	}
 }
+
+func TestMakeArchiveSuccessAndError(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{Domain: "example.com", OutputDir: dir, Quiet: false}
+
+	// Success: fn writes a file at the requested name (non-quiet → stat/print path).
+	got := ""
+	err := makeArchive(cfg, "tar.gz", func(src, out string) error {
+		got = out
+		return os.WriteFile(out, []byte("payload"), 0o644)
+	})
+	if err != nil {
+		t.Fatalf("makeArchive success: %v", err)
+	}
+	if got != "example.com.tar.gz" {
+		t.Errorf("archive name = %q, want example.com.tar.gz", got)
+	}
+	_ = os.Remove(got)
+
+	// Error: fn fails → wrapped error returned.
+	err = makeArchive(cfg, "tar.xz", func(_, _ string) error {
+		return os.ErrPermission
+	})
+	if err == nil {
+		t.Error("makeArchive should propagate the fn error")
+	}
+}

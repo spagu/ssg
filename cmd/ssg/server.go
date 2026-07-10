@@ -145,12 +145,21 @@ func listenAndServe(server *http.Server, cfg *config.Config, mode string, acm *a
 	return server.Serve(ln)
 }
 
-// autocertCacheDir returns a per-user cache directory for Let's Encrypt certs.
+// autocertCacheDir returns a per-user, owner-private cache directory for the
+// Let's Encrypt account key and certificates. It deliberately avoids the shared,
+// world-predictable system temp directory (S5445): the cache holds TLS private
+// keys, so it must live under a per-user path. autocert.DirCache creates the
+// directory with 0700 and stores files 0600.
 func autocertCacheDir() string {
+	if dir, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(dir, "ssg", "autocert")
+	}
 	if home, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(home, ".ssg", "autocert")
 	}
-	return filepath.Join(os.TempDir(), "ssg-autocert")
+	// Last resort: a private path under the working directory — never the shared
+	// system temp dir, which would expose the private keys to other local users.
+	return filepath.Join(".ssg", "autocert")
 }
 
 // buildServerHandler wraps the file server with cache-control, security-header and

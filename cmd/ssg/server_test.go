@@ -4,9 +4,12 @@ import (
 	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/quic-go/quic-go/http3"
 	"github.com/spagu/ssg/internal/config"
 )
 
@@ -137,7 +140,43 @@ func TestApplyMemLimit(t *testing.T) {
 }
 
 func TestAutocertCacheDir(t *testing.T) {
-	if autocertCacheDir() == "" {
-		t.Error("autocert cache dir should not be empty")
+	dir := autocertCacheDir()
+	if dir == "" {
+		t.Fatal("autocert cache dir should not be empty")
+	}
+	// Must end in the dedicated subdir and never live in the shared system temp
+	// dir (S5445) — the cache holds TLS private keys.
+	if filepath.Base(dir) != "autocert" {
+		t.Errorf("autocert cache dir = %q, want it to end in /autocert", dir)
+	}
+	if strings.HasPrefix(dir, os.TempDir()) {
+		t.Errorf("autocert cache dir %q must not be under the shared temp dir", dir)
+	}
+}
+
+func TestAutocertCacheDirFallback(t *testing.T) {
+	// With no cache/home env, the function must fall back to a private relative
+	// path — never the system temp dir.
+	t.Setenv("XDG_CACHE_HOME", "")
+	t.Setenv("HOME", "")
+	dir := autocertCacheDir()
+	if strings.HasPrefix(dir, os.TempDir()) {
+		t.Errorf("fallback cache dir %q must not be under the shared temp dir", dir)
+	}
+	if filepath.Base(dir) != "autocert" {
+		t.Errorf("fallback cache dir = %q, want it to end in /autocert", dir)
+	}
+}
+
+func TestAltSvcMiddleware(t *testing.T) {
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
+	h3 := &http3.Server{Addr: ":8443", Port: 8443}
+	rec := httptest.NewRecorder()
+	// SetQUICHeaders only emits Alt-Svc once a QUIC listener is live (verified e2e
+	// with curl); here we assert the middleware wraps and delegates without panic.
+	altSvcMiddleware(next, h3).ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if !called {
+		t.Error("altSvcMiddleware must call the next handler")
 	}
 }
