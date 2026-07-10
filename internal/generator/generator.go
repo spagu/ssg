@@ -169,6 +169,17 @@ type Config struct {
 // defaultStaticDir is the fallback name for the passthrough static directory.
 const defaultStaticDir = "static"
 
+// Shared string literals (avoids scattered duplicates).
+const (
+	indexHTMLName    = "index.html"
+	pageHTMLName     = "page.html"
+	categoryHTMLName = "category.html"
+	htmlGlobPattern  = "*.html"
+	feedFileName     = "feed.xml"
+	sitemapURLOpen   = "  <url>\n"
+	sitemapURLClose  = "  </url>\n"
+)
+
 // Generator handles the static site generation process
 type Generator struct {
 	config       Config
@@ -668,7 +679,7 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 		Vars:     g.config.Variables,
 		Data:     g.data,
 	}
-	outputPath := filepath.Join(g.config.OutputDir, kind, slug, "index.html")
+	outputPath := filepath.Join(g.config.OutputDir, kind, slug, indexHTMLName)
 	if err := g.ensureWithinOutput(outputPath); err != nil {
 		fmt.Printf("   ⚠️  Skipping %s %q with unsafe slug: %v\n", kind, name, err)
 		return nil
@@ -678,7 +689,7 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 		return err
 	}
 	if err := g.renderTemplate(primaryTmpl, outputPath, data); err != nil {
-		if err := g.renderTemplate("category.html", outputPath, data); err != nil {
+		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
 			fmt.Printf("   ⚠️  Failed to generate %s %s: %v\n", kind, name, err)
 		}
 	}
@@ -1280,13 +1291,13 @@ func (g *Generator) loadTemplates() error {
 		return err
 	}
 
-	tmpl, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(templatePath, "*.html"))
+	tmpl, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(templatePath, htmlGlobPattern))
 	if err != nil {
 		return fmt.Errorf("parsing templates: %w", err)
 	}
 
 	// Also load templates from layouts subdirectory if it exists
-	layoutsPath := filepath.Join(templatePath, "layouts", "*.html")
+	layoutsPath := filepath.Join(templatePath, "layouts", htmlGlobPattern)
 	if files, _ := filepath.Glob(layoutsPath); len(files) > 0 {
 		tmpl, err = tmpl.ParseGlob(layoutsPath)
 		if err != nil {
@@ -1309,8 +1320,8 @@ func (g *Generator) loadEngineTemplates(templatePath string, funcs template.Func
 	g.engineTmpls = make(map[string]engine.Template)
 
 	patterns := []string{
-		filepath.Join(templatePath, "*.html"),
-		filepath.Join(templatePath, "layouts", "*.html"),
+		filepath.Join(templatePath, htmlGlobPattern),
+		filepath.Join(templatePath, "layouts", htmlGlobPattern),
 	}
 	loaded := 0
 	for _, pat := range patterns {
@@ -1871,11 +1882,11 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 
 	// Create default templates
 	templates := map[string]string{
-		"base.html":     baseTemplate,
-		"index.html":    indexTemplate,
-		"page.html":     pageTemplate,
-		"post.html":     postTemplate,
-		"category.html": categoryTemplate,
+		"base.html":      baseTemplate,
+		indexHTMLName:    indexTemplate,
+		pageHTMLName:     pageTemplate,
+		"post.html":      postTemplate,
+		categoryHTMLName: categoryTemplate,
 	}
 
 	for name, content := range templates {
@@ -1963,7 +1974,7 @@ func (g *Generator) generateIndex() error {
 
 	if per <= 0 || len(posts) <= per {
 		return g.renderIndexPage(posts, Pager{Current: 1, Total: 1, PerPage: per},
-			filepath.Join(g.config.OutputDir, "index.html"))
+			filepath.Join(g.config.OutputDir, indexHTMLName))
 	}
 
 	total := (len(posts) + per - 1) / per
@@ -1981,9 +1992,9 @@ func (g *Generator) generateIndex() error {
 			pager.NextURL = pageURL(page + 1)
 		}
 
-		outPath := filepath.Join(g.config.OutputDir, "index.html")
+		outPath := filepath.Join(g.config.OutputDir, indexHTMLName)
 		if page > 1 {
-			outPath = filepath.Join(g.config.OutputDir, "page", fmt.Sprintf("%d", page), "index.html")
+			outPath = filepath.Join(g.config.OutputDir, "page", fmt.Sprintf("%d", page), indexHTMLName)
 			// #nosec G301 -- Web content directories need to be world-traversable
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
@@ -2023,7 +2034,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		Data:   g.data,
 		Pager:  pager,
 	}
-	return g.renderTemplate("index.html", outPath, data)
+	return g.renderTemplate(indexHTMLName, outPath, data)
 }
 
 // getOutputPaths returns one or more output file paths based on PageFormat config.
@@ -2055,11 +2066,11 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 		return []string{filepath.Join(g.config.OutputDir, subPath+".html")}
 	case "both":
 		return []string{
-			filepath.Join(g.config.OutputDir, subPath, "index.html"),
+			filepath.Join(g.config.OutputDir, subPath, indexHTMLName),
 			filepath.Join(g.config.OutputDir, subPath+".html"),
 		}
 	default: // "directory" or empty
-		return []string{filepath.Join(g.config.OutputDir, subPath, "index.html")}
+		return []string{filepath.Join(g.config.OutputDir, subPath, indexHTMLName)}
 	}
 }
 
@@ -2090,14 +2101,14 @@ func (g *Generator) generatePage(page models.Page) error {
 		}
 
 		// Copy co-located assets only to the directory-style path (avoid duplicates)
-		if page.SourceDir != "" && strings.HasSuffix(outputPath, "index.html") {
+		if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
 			if err := g.copyColocatedAssets(page.SourceDir, outputDir); err != nil {
 				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
 			}
 		}
 
 		// Use custom layout/template if specified, otherwise default to page.html
-		templateName := "page.html"
+		templateName := pageHTMLName
 		if page.Layout != "" {
 			templateName = "layouts/" + page.Layout + ".html"
 		} else if page.Template != "" {
@@ -2107,7 +2118,7 @@ func (g *Generator) generatePage(page models.Page) error {
 		if err := g.renderTemplate(templateName, outputPath, data); err != nil {
 			// Fallback to page.html if custom template not found
 			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
-				if err := g.renderTemplate("page.html", outputPath, data); err != nil {
+				if err := g.renderTemplate(pageHTMLName, outputPath, data); err != nil {
 					return err
 				}
 			} else {
@@ -2152,7 +2163,7 @@ func (g *Generator) generatePost(post models.Page) error {
 		}
 
 		// Copy co-located assets only to the directory-style path (avoid duplicates)
-		if post.SourceDir != "" && strings.HasSuffix(outputPath, "index.html") {
+		if post.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
 			if err := g.copyColocatedAssets(post.SourceDir, outputDir); err != nil {
 				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for post %s: %v\n", post.Slug, err)
 			}
@@ -2184,7 +2195,7 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		if rel == "" || rel == "." {
 			continue
 		}
-		outPath := filepath.Join(g.config.OutputDir, rel, "index.html")
+		outPath := filepath.Join(g.config.OutputDir, rel, indexHTMLName)
 		if strings.HasSuffix(strings.ToLower(rel), ".html") {
 			outPath = filepath.Join(g.config.OutputDir, rel)
 		}
@@ -2341,7 +2352,7 @@ func (g *Generator) generateCategories() error {
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
 		catSlug := models.SanitizeRelPath(cat.Slug)
-		outputPath := filepath.Join(g.config.OutputDir, "category", catSlug, "index.html")
+		outputPath := filepath.Join(g.config.OutputDir, "category", catSlug, indexHTMLName)
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
 			continue
@@ -2351,7 +2362,7 @@ func (g *Generator) generateCategories() error {
 			return err
 		}
 
-		if err := g.renderTemplate("category.html", outputPath, data); err != nil {
+		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
 			fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
 		}
 	}
@@ -2754,7 +2765,8 @@ func (g *Generator) gitLastMod(p models.Page) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	path := filepath.Join(p.SourceDir, p.SourceFile)
-	cmd := exec.Command("git", "log", "-1", "--format=%cI", "--", path) // #nosec G204 -- fixed args; path is a positional file argument, no shell
+	// #nosec G204 -- fixed args; path is a positional file argument, never a shell
+	cmd := exec.Command("git", "log", "-1", "--format=%cI", "--", path) // NOSONAR S4036: git is intentionally resolved from PATH (portable across systems), reviewed
 	out, err := cmd.Output()
 	if err != nil {
 		return time.Time{}, false
@@ -2787,11 +2799,11 @@ func (g *Generator) generateSitemap() error {
 		}
 	}
 	if !skipHomepage {
-		sb.WriteString("  <url>\n")
+		sb.WriteString(sitemapURLOpen)
 		fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
 		sb.WriteString("    <changefreq>daily</changefreq>\n")
 		sb.WriteString("    <priority>1.0</priority>\n")
-		sb.WriteString("  </url>\n")
+		sb.WriteString(sitemapURLClose)
 	}
 
 	// Pages
@@ -2799,14 +2811,14 @@ func (g *Generator) generateSitemap() error {
 		if excludeFromSitemap(page) {
 			continue
 		}
-		sb.WriteString("  <url>\n")
+		sb.WriteString(sitemapURLOpen)
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
 		if lastmod := g.lastModFor(page); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
 		}
 		sb.WriteString("    <changefreq>monthly</changefreq>\n")
 		sb.WriteString("    <priority>0.8</priority>\n")
-		sb.WriteString("  </url>\n")
+		sb.WriteString(sitemapURLClose)
 	}
 
 	// Posts
@@ -2814,14 +2826,14 @@ func (g *Generator) generateSitemap() error {
 		if excludeFromSitemap(post) {
 			continue
 		}
-		sb.WriteString("  <url>\n")
+		sb.WriteString(sitemapURLOpen)
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
 		if lastmod := g.lastModFor(post); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
 		}
 		sb.WriteString("    <changefreq>monthly</changefreq>\n")
 		sb.WriteString("    <priority>0.6</priority>\n")
-		sb.WriteString("  </url>\n")
+		sb.WriteString(sitemapURLClose)
 	}
 
 	// Categories
@@ -2849,11 +2861,11 @@ func (g *Generator) generateSitemap() error {
 
 // writeSitemapArchive appends a sitemap entry for an archive page (category/tag/author).
 func (g *Generator) writeSitemapArchive(sb *strings.Builder, kind, slug string) {
-	sb.WriteString("  <url>\n")
+	sb.WriteString(sitemapURLOpen)
 	fmt.Fprintf(sb, "    <loc>https://%s/%s/%s/</loc>\n", g.config.Domain, kind, slug)
 	sb.WriteString("    <changefreq>weekly</changefreq>\n")
 	sb.WriteString("    <priority>0.5</priority>\n")
-	sb.WriteString("  </url>\n")
+	sb.WriteString(sitemapURLClose)
 }
 
 // sortedValues returns the deduplicated, sorted values of a string map.
@@ -2884,7 +2896,7 @@ func (g *Generator) generateFeeds() error {
 	}
 	base := "https://" + g.config.Domain
 
-	if err := g.writeFeed("feed.xml", g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
+	if err := g.writeFeed(feedFileName, g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
 		return err
 	}
 
@@ -2903,7 +2915,7 @@ func (g *Generator) generateFeeds() error {
 		if slug == "" {
 			continue
 		}
-		rel := filepath.Join("category", slug, "feed.xml")
+		rel := filepath.Join("category", slug, feedFileName)
 		if err := g.writeFeed(rel, cat.Name, base+"/category/"+slug+"/", posts, limit); err != nil {
 			return err
 		}
@@ -2916,7 +2928,7 @@ func (g *Generator) generateFeeds() error {
 		}
 	}
 	for name, slug := range g.tagSlugs {
-		rel := filepath.Join("tag", slug, "feed.xml")
+		rel := filepath.Join("tag", slug, feedFileName)
 		if err := g.writeFeed(rel, name, base+"/tag/"+slug+"/", tagPosts[name], limit); err != nil {
 			return err
 		}

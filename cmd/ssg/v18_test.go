@@ -4,8 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/generator"
 )
 
 func TestParseIntListEdge(t *testing.T) {
@@ -60,5 +62,19 @@ func TestContentSignature(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(dir, "a.md"), []byte("changed"), 0644)
 	if contentSignature([]string{dir}) == sig1 {
 		t.Errorf("signature should change when content changes")
+	}
+}
+
+func TestRunWatchOrServeNoop(t *testing.T) {
+	// No watch, no http, no mddb-watch → returns immediately (no blocking).
+	done := make(chan struct{})
+	go func() {
+		runWatchOrServe(generator.Config{}, &config.Config{})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("runWatchOrServe blocked with no watch/http configured")
 	}
 }
