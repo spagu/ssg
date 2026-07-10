@@ -5,6 +5,102 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-07-10
+
+Feature release from the post-1.7.x roadmap (`audit/roadmap/`) plus audit fixes. Every new
+feature is opt-in behind a config flag; default behaviour is unchanged.
+
+### Added
+- ✨ **Configurable permalinks (SEO-001)** — `permalinks:` per content type with tokens
+  `:year :month :day :slug :category` (e.g. `/:year/:month/:slug/`); flags
+  `--permalink-post=` / `--permalink-page=`. Empty = current date/slug behaviour.
+- ✨ **Frontmatter aliases (SEO-002)** — `aliases: [/old/path/]` emits meta-refresh +
+  canonical + `noindex` redirect stubs, excluded from the sitemap; collisions are skipped.
+- ✨ **`--lastmod-from-git` (SEO-004)** — sitemap `<lastmod>` from each source file's last
+  git commit, with graceful fallback outside git or for mddb content.
+- ✨ **Reading time / word count (BLOG-006)** — `.WordCount` and `.ReadingTime` exposed to
+  all engines (markup stripped; 200 wpm, rounded up).
+- ✨ **Pagination (BLOG-003)** — `paginate: N` / `--paginate=N` splits the index into
+  `/page/N/` and adds a `.Pager` (Current/Total/PerPage/PrevURL/NextURL). `0` = disabled.
+- ✨ **Working source maps (BLOG-007 / GO-004)** — `--sourcemap` now truly emits v3
+  `*.js.map` / `*.css.map` (line-preserving minification → exact mappings); the flag is no
+  longer a no-op.
+- ✨ **Asset fingerprinting (ASSET-001)** — `fingerprint: true` / `--fingerprint`:
+  sha256 → `name.<hash8>.ext`, `assets-manifest.json`, reference rewrite in HTML and
+  CSS (`url()`/`@import`), deterministic across builds. Terminal asset step.
+- ✨ **Responsive images (ASSET-004)** — `image_sizes: [480,960,1600]` emits WebP variants
+  (no upscaling) and `<img srcset>`/`sizes`; `--image-sizes=` / `--image-sizes-attr=`.
+- ✨ **Math rendering (AX-004)** — `math: true` / `--math` detects `$$…$$` / ```` ```math ````
+  and injects KaTeX only on pages that use it (`.HasMath` exposed).
+- ✨ **Series (AX-005)** — `series:` frontmatter → `/series/{slug}/` landing pages
+  (`series.html`, fallback `category.html`) and `.SeriesPrev*/.SeriesNext*` navigation.
+- ✨ **Data files (PLAT-002)** — `data/*.yaml|*.json` loaded into `.Data.*` (nested by
+  subdirectory); `data_dir:` / `--data-dir=`.
+- ✨ **Build hooks (PLAT-001)** — `hooks:` `pre_build` / `post_build` / `post_page` exec
+  hooks (argv-split, no shell, 60 s timeout, trusted local config only), context via env
+  `SSG_OUTPUT_DIR` / `SSG_PHASE` / `SSG_PAGE_PATH`.
+- ✨ **i18n / multilingual (PLAT-005)** — `languages:` + `default_language:` produce
+  language-prefixed output (`/en/…`) with `.Translations`, `.Hreflang`, `.Languages`
+  context and `hreflang`/`x-default` alternates.
+- ✨ **Incremental watch (PLAT-006)** — `--watch` now gates rebuilds on a content
+  signature, skipping touch-only (mtime-but-not-bytes) events; any real change still
+  triggers a full, correct rebuild.
+- ✨ **Single source of version truth (DOC-005)** — `VERSION` file + `scripts/sync-version.sh`
+  (`--check`) + Makefile `-X main.Version`; the version propagates into every packaging
+  manifest (FreeBSD/OpenBSD/deb/rpm/brew/install.sh).
+- ✨ **Collection renderer + archives (BLOG-001/004/005)** — shared archive renderer powers
+  `/tag/{slug}/` and `/author/{slug}/` listings (`tag.html`/`author.html`, fallback
+  `category.html`), included in the sitemap.
+- ✨ **Atom feeds (BLOG-002)** — `feed: true` writes `feed.xml` at the root and per
+  category/tag; `feed_items` / `feed_full_content`. Closes the FE-010 feed gap.
+- ✨ **Generator SEO partial (SEO-003)** — OpenGraph + Twitter Card + JSON-LD (Article/WebSite)
+  injected into pages lacking their own OG tags, plus feed + hreflang links; `seo_off` opts out.
+- ✨ **Internal link checker (SEO-005)** — `--check-links[=warn|strict]` validates internal
+  href/src against the output tree (no network); strict fails the build.
+- ✨ **Syntax highlighting (AX-001)** — `highlight: true` renders code blocks via Chroma;
+  `highlight_style`.
+- ✨ **Table of contents (AX-002)** — `toc: true` exposes `.TOC`; `[toc]` expands inline;
+  `toc_depth`; anchors use goldmark auto heading IDs.
+- ✨ **Footnotes (AX-003)** — goldmark footnote syntax (`[^1]`) is enabled by default.
+- ✨ **Asset bundling (ASSET-002)** — `bundles:` concatenates CSS/JS groups before
+  minify/fingerprint.
+- ✨ **Output formats & search (PLAT-003/PLAT-004)** — `outputs: [html, json]` writes a
+  per-page `index.json`; `search_index: true` writes `search-index.json` for client-side search.
+- ✨ **Alternate template engines (GO-007)** — `--engine=pongo2|mustache|handlebars` now
+  render for real; themes must be authored in that engine's syntax.
+
+### Security
+- 🔒 **mddb API key not sent over plaintext (SEC-007)** — the HTTP client refuses to attach
+  `Authorization: Bearer` over `http://` to a non-loopback host (https:// / loopback allowed).
+- 🔒 **gRPC transport security (SEC-004)** — the gRPC client selects TLS from the scheme
+  (`grpcs://`/`https://` → TLS; `grpc://`/`http://` → insecure; bare host → TLS unless
+  loopback) and refuses to send an API key over an insecure channel to a non-loopback host.
+
+### Fixed
+- 🐛 **No-frontmatter files no longer silently dropped (GO-009)** — a `.md` file without an
+  opening `---` is treated as published content instead of yielding empty output.
+- 🐛 **`datetime` attribute leading space (FE-009)** — `<time datetime>` in the krowy/imd
+  themes no longer emits `datetime=" 2026-…"` (invalid machine date).
+- 🐛 **Hugo theme conversion wired (GO-010)** — `--online-theme` now converts a downloaded
+  Hugo theme's `layouts/`+`static/`+`assets/` into the SSG layout; dead `ToMetadata` removed.
+- 🐛 **Dead/broken `base.html` removed (FE-007)** — the unused krowy/simple `base.html` (with
+  invalid `{{template " description"}}` names) are gone.
+
+### Privacy / DevOps / Docs
+- 🔏 **No Google Fonts CDN (FE-003)** — first-party themes drop external font requests and
+  use a system font stack (no visitor IP leak to Google).
+- 🐳 **Container hardening** — `docker-compose.yml` gains log caps, healthchecks and
+  resource limits/reservations via a YAML anchor (OPS-003); the Dockerfile gains a
+  `HEALTHCHECK` (OPS-004); every CI job gets `timeout-minutes` (OPS-007).
+- 📚 **Docs/Makefile** — README deb/rpm versions and INSTALL.md artifact links corrected and
+  made version-resilient (DOC-002/DOC-004); complete `.PHONY` and demo targets on
+  `test-content` (DOC-007/DOC-008); CHANGELOG compare links (DOC-011); `make security`
+  target running gosec + govulncheck (DOC-012).
+
+### Removed
+- 🧹 **`LICENSE.md` duplication (DOC-010)** — `LICENSE.md` is now a pointer to the canonical
+  `LICENSE` (BSD-3-Clause).
+
 ## [1.7.15] - 2026-07-09
 
 Audit hardening round: 5 security + 3 correctness fixes from the local audit backlog.
@@ -638,3 +734,12 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Single binary output
 - Dependencies: gopkg.in/yaml.v3, github.com/yuin/goldmark
 - Cross-platform build support (Linux, macOS, Windows)
+
+<!-- Compare links (DOC-011) -->
+[1.8.0]: https://github.com/spagu/ssg/compare/v1.7.15...v1.8.0
+[1.7.15]: https://github.com/spagu/ssg/compare/v1.7.14...v1.7.15
+[1.7.14]: https://github.com/spagu/ssg/compare/v1.7.13...v1.7.14
+[1.7.13]: https://github.com/spagu/ssg/compare/v1.7.12...v1.7.13
+[1.7.12]: https://github.com/spagu/ssg/compare/v1.7.11...v1.7.12
+[1.7.11]: https://github.com/spagu/ssg/compare/v1.7.10...v1.7.11
+[1.7.10]: https://github.com/spagu/ssg/compare/v1.7.9...v1.7.10

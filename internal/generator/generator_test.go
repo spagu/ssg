@@ -2401,7 +2401,8 @@ Draft content`
 func TestLoadMarkdownDirInvalidMarkdown(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create invalid markdown (no frontmatter)
+	// A file with no frontmatter is no longer silently dropped: GO-009 treats the
+	// whole file as published content instead of discarding it.
 	if err := os.WriteFile(filepath.Join(tmpDir, "invalid.md"), []byte("no frontmatter"), 0644); err != nil {
 		t.Fatalf("Failed to create md file: %v", err)
 	}
@@ -2412,9 +2413,16 @@ func TestLoadMarkdownDirInvalidMarkdown(t *testing.T) {
 		t.Fatalf("loadMarkdownDir failed: %v", err)
 	}
 
-	// Invalid files should be skipped with warning
-	if len(pages) != 0 {
-		t.Errorf("Expected 0 pages (invalid should be skipped), got %d", len(pages))
+	// GO-009: the no-frontmatter file is loaded as a published page whose content
+	// is the whole file.
+	if len(pages) != 1 {
+		t.Fatalf("Expected 1 page (no-frontmatter now published, GO-009), got %d", len(pages))
+	}
+	if pages[0].Content != "no frontmatter" {
+		t.Errorf("Expected content %q, got %q", "no frontmatter", pages[0].Content)
+	}
+	if pages[0].Status != "publish" {
+		t.Errorf("Expected status 'publish', got %q", pages[0].Status)
 	}
 }
 

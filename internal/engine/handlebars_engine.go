@@ -59,8 +59,12 @@ func (t *HandlebarsTemplate) Execute(w io.Writer, data interface{}) error {
 	return err
 }
 
-// registerHandlebarsHelper registers a Go function as a Handlebars helper
+// registerHandlebarsHelper registers a Go function as a Handlebars helper.
+// raymond panics when the same helper name is registered twice (Parse runs per
+// template) or when a Go func does not match its helper contract; recover makes
+// this idempotent — the first registration sticks and later attempts are harmless
+// no-ops, so template loading never crashes (GO-007).
 func registerHandlebarsHelper(name string, fn interface{}) {
-	// Register simple helpers - full implementation would use reflection
+	defer func() { _ = recover() }()
 	raymond.RegisterHelper(name, fn)
 }

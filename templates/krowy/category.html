@@ -10,9 +10,6 @@
     <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
     {{template "seo-head" .}}
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -38,7 +35,7 @@
                             <h3 class="post-card-title">
                                 <a href="{{.GetURL}}">{{.Title | decodeHTML}}</a>
                             </h3>
-                            <time class="post-date" datetime="{{.Date.Format " 2006-01-02"}}">
+                            <time class="post-date" datetime="{{.Date.Format "2006-01-02"}}">
                                 {{formatDatePL .Date}}
                             </time>
                             <p class="post-excerpt">{{.Excerpt | stripShortcodes | decodeHTML}}</p>

@@ -9,9 +9,6 @@
     <meta name="description" content="{{.Post.Excerpt | stripHTML}}">
     <link rel="canonical" href="{{getCanonical .Post .Domain}}">
     {{template "seo-head" .}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -24,7 +21,7 @@
                 <header class="post-header">
                     <h1 class="post-title">{{.Post.Title | decodeHTML}}</h1>
                     <div class="post-meta">
-                        <time class="post-date" datetime="{{.Post.Date.Format " 2006-01-02"}}">
+                        <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                             {{.Post.Date.Format "2 January 2006"}}
                         </time>
                         {{if hasValidCategories .Post}}

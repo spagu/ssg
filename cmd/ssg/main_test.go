@@ -2007,28 +2007,45 @@ func TestDownloadOnlineThemeVerbose(t *testing.T) {
 	}
 }
 
-// TestWarnUnimplementedFlags verifies GO-004: --sourcemap is announced as a
-// no-op instead of being silently ignored, and stays silent when unset/quiet.
-func TestWarnUnimplementedFlags(t *testing.T) {
-	capture := func(cfg *config.Config) string {
-		old := os.Stderr
-		r, w, _ := os.Pipe()
-		os.Stderr = w
-		warnUnimplementedFlags(cfg)
-		_ = w.Close()
-		os.Stderr = old
-		out, _ := io.ReadAll(r)
-		return string(out)
+// TestSourceMapFlag verifies BLOG-007/GO-004: --sourcemap is a real, parsed flag
+// (its output is exercised end-to-end in the generator package).
+func TestSourceMapFlag(t *testing.T) {
+	cfg := config.DefaultConfig()
+	parseFlags([]string{"--sourcemap"}, cfg)
+	if !cfg.SourceMap {
+		t.Errorf("expected --sourcemap to set SourceMap=true")
 	}
+}
 
-	if got := capture(&config.Config{SourceMap: true}); !strings.Contains(got, "sourcemap") {
-		t.Errorf("expected a sourcemap warning, got %q", got)
+// TestNewBuildFlags verifies the v1.8 flags parse into config.
+func TestNewBuildFlags(t *testing.T) {
+	cfg := config.DefaultConfig()
+	parseFlags([]string{
+		"--fingerprint", "--lastmod-from-git", "--math",
+		"--paginate=10", "--image-sizes=480,960", "--image-sizes-attr=50vw",
+		"--permalink-post=/:year/:slug/", "--data-dir=mydata",
+		"--languages=pl,en", "--default-language=pl",
+	}, cfg)
+	if !cfg.Fingerprint || !cfg.LastmodFromGit || !cfg.Math {
+		t.Errorf("expected fingerprint/lastmod/math to be enabled")
 	}
-	if got := capture(&config.Config{SourceMap: false}); got != "" {
-		t.Errorf("expected no warning when --sourcemap unset, got %q", got)
+	if cfg.Paginate != 10 {
+		t.Errorf("expected Paginate=10, got %d", cfg.Paginate)
 	}
-	if got := capture(&config.Config{SourceMap: true, Quiet: true}); got != "" {
-		t.Errorf("expected no warning in quiet mode, got %q", got)
+	if len(cfg.ImageSizes) != 2 || cfg.ImageSizes[0] != 480 || cfg.ImageSizes[1] != 960 {
+		t.Errorf("expected ImageSizes=[480 960], got %v", cfg.ImageSizes)
+	}
+	if cfg.ImageSizesAttr != "50vw" {
+		t.Errorf("expected ImageSizesAttr=50vw, got %q", cfg.ImageSizesAttr)
+	}
+	if cfg.Permalinks["post"] != "/:year/:slug/" {
+		t.Errorf("expected post permalink, got %q", cfg.Permalinks["post"])
+	}
+	if cfg.DataDir != "mydata" {
+		t.Errorf("expected DataDir=mydata, got %q", cfg.DataDir)
+	}
+	if len(cfg.Languages) != 2 || cfg.DefaultLanguage != "pl" {
+		t.Errorf("expected languages pl,en default pl, got %v / %q", cfg.Languages, cfg.DefaultLanguage)
 	}
 }
 

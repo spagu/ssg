@@ -133,6 +133,20 @@ func (d *Document) ToPage() (*models.Page, error) {
 		}
 	}
 
+	// Parse aliases (old paths that redirect here, SEO-002)
+	if aliases, ok := d.Metadata["aliases"].([]interface{}); ok {
+		for _, a := range aliases {
+			if aliasStr, ok := a.(string); ok {
+				page.Aliases = append(page.Aliases, aliasStr)
+			}
+		}
+	}
+
+	// Series grouping (AX-005)
+	if series, ok := d.Metadata["series"].(string); ok {
+		page.Series = series
+	}
+
 	// Copy ALL remaining metadata fields to Extra for dynamic template access
 	// This allows templates to use any custom field like {{.Extra.dupa}}
 	knownFields := map[string]bool{
@@ -140,7 +154,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"link": true, "author": true, "excerpt": true, "date": true, "modified": true,
 		"categories": true, "description": true, "keywords": true, "lang": true,
 		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
-		"category": true, "layout": true, "template": true,
+		"category": true, "layout": true, "template": true, "aliases": true, "series": true,
 	}
 
 	page.Extra = make(map[string]interface{})
@@ -186,29 +200,8 @@ func parseDate(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse date: %s", s)
 }
 
-// ToMetadata extracts models.Metadata from mddb documents
-func ToMetadata(docs []Document) (*models.Metadata, error) {
-	metadata := &models.Metadata{}
-
-	for _, doc := range docs {
-		switch doc.Collection {
-		case "categories":
-			cat := ExtractCategory(doc)
-			metadata.Categories = append(metadata.Categories, cat)
-		case "media":
-			media := ExtractMedia(doc)
-			metadata.Media = append(metadata.Media, media)
-		case "users":
-			author := ExtractAuthor(doc)
-			metadata.Users = append(metadata.Users, author)
-		}
-	}
-
-	return metadata, nil
-}
-
 // ExtractCategory builds a models.Category from an mddb category Document.
-// Shared by the metadata converter and the generator's mddb loader (DRY, GO-010).
+// Shared by the generator's mddb metadata loader (DRY, GO-006/GO-010).
 func ExtractCategory(doc Document) models.Category {
 	cat := models.Category{
 		Slug: doc.Key,

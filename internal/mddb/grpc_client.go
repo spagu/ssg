@@ -3,12 +3,15 @@ package mddb
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	pb "github.com/spagu/ssg/internal/mddb/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
@@ -42,16 +45,27 @@ func NewGRPCClient(cfg GRPCConfig) (*GRPCClient, error) {
 		batchSize = 1000
 	}
 
-	// Remove protocol prefix if present
-	address := cfg.Address
-	address = strings.TrimPrefix(address, "grpc://")
-	address = strings.TrimPrefix(address, "http://")
-	address = strings.TrimPrefix(address, "https://")
+	// Resolve transport security from the address scheme (SEC-004):
+	//   grpcs:// or https:// → TLS; grpc:// or http:// → explicit insecure;
+	//   no scheme → infer (loopback = insecure, otherwise TLS).
+	address, useTLS := resolveGRPCTransport(cfg.Address)
+
+	// Never leak a Bearer API key over an unencrypted channel to a remote host.
+	if cfg.APIKey != "" && !useTLS && !isLoopbackAddr(address) {
+		return nil, fmt.Errorf(
+			"refusing to send API key over insecure gRPC to non-loopback host %q; use grpcs:// or a loopback address",
+			address)
+	}
+
+	var creds credentials.TransportCredentials
+	if useTLS {
+		creds = credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})
+	} else {
+		creds = insecure.NewCredentials()
+	}
 
 	// Connect to gRPC server
-	conn, err := grpc.NewClient(address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, fmt.Errorf("connecting to gRPC server: %w", err)
 	}
@@ -65,6 +79,40 @@ func NewGRPCClient(cfg GRPCConfig) (*GRPCClient, error) {
 	}, nil
 }
 
+// resolveGRPCTransport strips the scheme from a gRPC address and reports whether
+// TLS must be used (SEC-004). Explicit grpcs://https:// force TLS; explicit
+// grpc://http:// force insecure; a bare host is inferred (loopback = insecure,
+// otherwise TLS-by-default for safety).
+func resolveGRPCTransport(address string) (host string, useTLS bool) {
+	switch {
+	case strings.HasPrefix(address, "grpcs://"):
+		return strings.TrimPrefix(address, "grpcs://"), true
+	case strings.HasPrefix(address, "https://"):
+		return strings.TrimPrefix(address, "https://"), true
+	case strings.HasPrefix(address, "grpc://"):
+		return strings.TrimPrefix(address, "grpc://"), false
+	case strings.HasPrefix(address, "http://"):
+		return strings.TrimPrefix(address, "http://"), false
+	default:
+		return address, !isLoopbackAddr(address)
+	}
+}
+
+// isLoopbackAddr reports whether a host[:port] address targets a loopback host.
+func isLoopbackAddr(address string) bool {
+	host := address
+	if h, _, err := net.SplitHostPort(address); err == nil {
+		host = h
+	}
+	if host == "localhost" || host == "" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
 // Close closes the gRPC connection
 func (c *GRPCClient) Close() error {
 	return c.conn.Close()
@@ -72,6 +120,7 @@ func (c *GRPCClient) Close() error {
 
 // contextWithAuth creates a context with auth metadata and timeout
 func (c *GRPCClient) contextWithAuth() (context.Context, context.CancelFunc) {
+	// #nosec G118 -- cancel is returned to the caller, which defers it (known FP)
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 
 	if c.apiKey != "" {

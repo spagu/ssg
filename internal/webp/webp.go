@@ -3,18 +3,24 @@ package webp
 
 import (
 	"fmt"
+	"image"
+	_ "image/jpeg" // register JPEG decoder for image.DecodeConfig
+	_ "image/png"  // register PNG decoder for image.DecodeConfig
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
 
 // ConvertOptions holds WebP conversion options
 type ConvertOptions struct {
-	Quality int  // 1-100, default 60
-	Quiet   bool // Suppress output
-	Force   bool // Force reconversion even if WebP exists
+	Quality int   // 1-100, default 60
+	Quiet   bool  // Suppress output
+	Force   bool  // Force reconversion even if WebP exists
+	Sizes   []int // Responsive width presets (px); empty = single size (ASSET-004)
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -98,6 +104,12 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 			savedBytes += originalSize - newInfo.Size()
 		}
 
+		// Responsive variants: derive smaller widths from the original before it is
+		// removed, so quality is best and no upscaling occurs (ASSET-004).
+		if len(opts.Sizes) > 0 {
+			generateResponsiveVariants(path, webpPath, opts)
+		}
+
 		// Remove original
 		if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
 			fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
@@ -137,6 +149,124 @@ func convertImage(srcPath, dstPath string, quality int) error {
 		return fmt.Errorf("cwebp failed: %v, output: %s", err, string(output))
 	}
 	return nil
+}
+
+// variantPath returns the responsive-variant filename for a base WebP path and
+// width, e.g. ("img/foo.webp", 480) → "img/foo-480.webp" (ASSET-004).
+func variantPath(webpPath string, width int) string {
+	return strings.TrimSuffix(webpPath, ".webp") + fmt.Sprintf("-%d.webp", width)
+}
+
+// imageWidth reads an image's pixel width without fully decoding it.
+func imageWidth(path string) (int, bool) {
+	f, err := os.Open(path) // #nosec G304 -- CLI tool reads user's output files
+	if err != nil {
+		return 0, false
+	}
+	defer func() { _ = f.Close() }()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, false
+	}
+	return cfg.Width, true
+}
+
+// generateResponsiveVariants emits one downsized WebP per configured width that is
+// smaller than the original (no upscaling), derived from the original image via
+// cwebp -resize (ASSET-004). Failures are non-fatal per variant.
+func generateResponsiveVariants(srcPath, webpPath string, opts ConvertOptions) {
+	origWidth, ok := imageWidth(srcPath)
+	if !ok {
+		return
+	}
+	for _, w := range opts.Sizes {
+		if w <= 0 || w >= origWidth {
+			continue // skip upscaling and non-positive widths
+		}
+		dst := variantPath(webpPath, w)
+		if convErr := convertImageResized(srcPath, dst, opts.Quality, w); convErr != nil && !opts.Quiet {
+			fmt.Printf("   ⚠️  Failed to make %dw variant of %s: %v\n", w, filepath.Base(srcPath), convErr)
+		}
+	}
+}
+
+// convertImageResized converts an image to WebP at a target width (height auto),
+// hardened against argument injection like convertImage (SEC-011).
+func convertImageResized(srcPath, dstPath string, quality, width int) error {
+	// #nosec G204 -- fixed external tool (cwebp); only path/size args vary, paths hardened by safeArgPath
+	cmd := exec.Command("cwebp", "-q", strconv.Itoa(quality), // NOSONAR S4036: cwebp is intentionally resolved from PATH
+		"-resize", strconv.Itoa(width), "0",
+		safeArgPath(srcPath), "-o", safeArgPath(dstPath))
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("cwebp resize failed: %v, output: %s", err, string(output))
+	}
+	return nil
+}
+
+// imgTagRe / imgSrcRe locate <img> tags and their WebP src for srcset emission.
+var imgTagRe = regexp.MustCompile(`<img\b[^>]*>`)
+var imgSrcRe = regexp.MustCompile(`\bsrc="([^"]+\.webp)"`)
+
+// EmitSrcset adds srcset/sizes to <img> tags whose WebP source has responsive
+// variants on disk (ASSET-004). Tags already carrying srcset are left untouched;
+// the original src remains the fallback. Variant URLs are resolved relative to the
+// HTML file (absolute-from-root when the src begins with "/").
+func EmitSrcset(dir string, sizes []int, sizesAttr string) error {
+	if len(sizes) == 0 {
+		return nil
+	}
+	if sizesAttr == "" {
+		sizesAttr = "100vw"
+	}
+	sorted := append([]int(nil), sizes...)
+	sort.Ints(sorted)
+
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || strings.ToLower(filepath.Ext(path)) != ".html" {
+			return err
+		}
+		content, e := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own output; path from local Walk
+		if e != nil {
+			return e
+		}
+		out := imgTagRe.ReplaceAllStringFunc(string(content), func(tag string) string {
+			return rewriteImgTag(tag, filepath.Dir(path), dir, sorted, sizesAttr)
+		})
+		if out == string(content) {
+			return nil
+		}
+		return os.WriteFile(path, []byte(out), info.Mode()) // #nosec G306,G703,G122 -- CLI writes its own output; path from local Walk
+	})
+}
+
+// rewriteImgTag injects srcset/sizes into a single <img> tag when variants exist.
+func rewriteImgTag(tag, htmlDir, root string, sizes []int, sizesAttr string) string {
+	if strings.Contains(tag, "srcset=") {
+		return tag
+	}
+	m := imgSrcRe.FindStringSubmatch(tag)
+	if m == nil {
+		return tag
+	}
+	src := m[1]
+	var parts []string
+	for _, w := range sizes {
+		variantURL := variantPath(src, w)
+		var variantFile string
+		if strings.HasPrefix(variantURL, "/") {
+			variantFile = filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(variantURL, "/")))
+		} else {
+			variantFile = filepath.Join(htmlDir, filepath.FromSlash(variantURL))
+		}
+		if _, err := os.Stat(variantFile); err == nil {
+			parts = append(parts, fmt.Sprintf("%s %dw", variantURL, w))
+		}
+	}
+	if len(parts) == 0 {
+		return tag
+	}
+	inject := fmt.Sprintf(` srcset="%s" sizes="%s"`, strings.Join(parts, ", "), sizesAttr)
+	return strings.TrimSuffix(tag, ">") + inject + ">"
 }
 
 // UpdateReferences updates image references in HTML/CSS files

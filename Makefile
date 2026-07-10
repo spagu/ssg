@@ -29,9 +29,15 @@ BUILD_DIR=build
 CMD_DIR=cmd/ssg
 GO=go
 GOFLAGS=-v
-LDFLAGS=-s -w
+# Single source of truth for the version (audit DOC-005).
+VERSION := $(shell cat VERSION 2>/dev/null)
+LDFLAGS=-s -w -X main.Version=$(VERSION)
 
-.PHONY: all build clean test lint run help deps tidy generate release test-action
+.PHONY: all help deps tidy version-sync version-check \
+        build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
+        package-all package-deb package-rpm package-snap \
+        test test-coverage lint security run generate generate-simple serve deploy \
+        clean install uninstall release test-action
 
 # Default target
 all: deps lint test build ## 🚀 Run all: deps, lint, test, build
@@ -54,6 +60,12 @@ tidy: ## 🧹 Tidy go modules
 	@echo "${BLUE}🧹 Tidying go modules...${RESET}"
 	@$(GO) mod tidy
 	@echo "${GREEN}✅ Modules tidied${RESET}"
+
+version-sync: ## 🔖 Propagate ./VERSION into all packaging manifests (DOC-005)
+	@bash scripts/sync-version.sh
+
+version-check: ## 🔎 Fail if any packaging manifest drifts from ./VERSION
+	@bash scripts/sync-version.sh --check
 
 # Build
 build: ## 🔨 Build the binary
@@ -138,19 +150,26 @@ lint: ## 🔍 Run linter
 	fi
 	@echo "${GREEN}✅ Linting complete${RESET}"
 
+security: ## 🔒 Run SAST + vulnerability scan (gosec + govulncheck)
+	@echo "${BLUE}🔒 Running gosec...${RESET}"
+	@if command -v gosec >/dev/null 2>&1; then gosec -quiet ./...; else echo "${YELLOW}⚠️  gosec not installed (go install github.com/securego/gosec/v2/cmd/gosec@latest)${RESET}"; fi
+	@echo "${BLUE}🔒 Running govulncheck...${RESET}"
+	@if command -v govulncheck >/dev/null 2>&1; then govulncheck ./...; else echo "${YELLOW}⚠️  govulncheck not installed (go install golang.org/x/vuln/cmd/govulncheck@latest)${RESET}"; fi
+	@echo "${GREEN}✅ Security scan complete${RESET}"
+
 # Run
 run: build ## ▶️  Build and run with example
 	@echo "${BLUE}▶️  Running SSG...${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) krowy.net.2026-01-13110345 krowy krowy.net
+	@./$(BUILD_DIR)/$(BINARY_NAME) test-content krowy example.com
 
 generate: build ## 🏗️  Generate site with krowy template
 	@echo "${BLUE}🏗️  Generating site...${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) krowy.net.2026-01-13110345 krowy krowy.net
+	@./$(BUILD_DIR)/$(BINARY_NAME) test-content krowy example.com
 	@echo "${GREEN}✅ Site generated in output/${RESET}"
 
 generate-simple: build ## 🏗️  Generate site with simple template
 	@echo "${BLUE}🏗️  Generating site with simple template...${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) krowy.net.2026-01-13110345 simple krowy.net
+	@./$(BUILD_DIR)/$(BINARY_NAME) test-content simple example.com
 	@echo "${GREEN}✅ Site generated in output/${RESET}"
 
 serve: generate ## 🌐 Generate and serve site locally
@@ -159,9 +178,9 @@ serve: generate ## 🌐 Generate and serve site locally
 
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) krowy.net.2026-01-13110345 krowy krowy.net --webp --zip
-	@echo "${GREEN}✅ Deployment package created: krowy.net.zip${RESET}"
-	@echo "${YELLOW}📤 Upload krowy.net.zip to Cloudflare Pages${RESET}"
+	@./$(BUILD_DIR)/$(BINARY_NAME) test-content krowy example.com --webp --zip
+	@echo "${GREEN}✅ Deployment package created: example.com.zip${RESET}"
+	@echo "${YELLOW}📤 Upload example.com.zip to Cloudflare Pages${RESET}"
 
 # Clean
 clean: ## 🗑️  Clean build artifacts

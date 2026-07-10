@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-08" "1.7.15" "SSG Manual"
+.TH SSG 1 "2026-07-10" "1.8.0" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -173,7 +173,73 @@ Minify only CSS output.
 Minify only JS output.
 .TP
 .B \-\-sourcemap
-Include source maps in output.
+Emit v3 source maps (\fB*.js.map\fR / \fB*.css.map\fR) for minified JS/CSS.
+Minification becomes line-preserving so the mappings are exact and the original
+source is embedded.
+.TP
+.B \-\-fingerprint
+Content-hash CSS/JS to \fBname.<hash8>.ext\fR, write \fBassets-manifest.json\fR and
+rewrite references in HTML and CSS (\fBurl()\fR/\fB@import\fR). Deterministic across
+builds. Runs as the terminal asset step.
+.TP
+.BR \-\-paginate =\fIN
+Posts per index page; adds \fB/page/N/\fR pages and a \fB.Pager\fR context. 0 disables
+pagination (default).
+.TP
+.B \-\-lastmod\-from\-git
+Derive sitemap \fB<lastmod>\fR from each source file's last git commit (fallback:
+\fBmodified\fR/\fBdate\fR).
+.TP
+.BR \-\-permalink\-post =\fIPAT
+Post URL pattern with tokens \fB:year :month :day :slug :category\fR
+(e.g. \fB/:year/:month/:slug/\fR).
+.TP
+.BR \-\-permalink\-page =\fIPAT
+Page URL pattern (same tokens).
+.SS Authoring
+.TP
+.B \-\-math
+Opt-in math: detect \fB$$...$$\fR / \fB```math\fR blocks and inject KaTeX only on
+pages that use it.
+.TP
+.B \-\-highlight
+Syntax-highlight code blocks via Chroma.
+.TP
+.BR \-\-highlight\-style =\fINAME
+Chroma style (default: \fBgithub\fR).
+.TP
+.B \-\-toc
+Expose \fB.TOC\fR to templates; the \fB[toc]\fR marker in content always expands.
+.TP
+.BR \-\-toc\-depth =\fIN
+Maximum heading level included in the TOC (default: 3).
+.SS Feeds, SEO and Search
+.TP
+.B \-\-feed
+Generate an Atom \fBfeed.xml\fR at the root and per category/tag.
+.TP
+.BR \-\-feed\-items =\fIN
+Maximum items per feed (default: 20).
+.TP
+.BR \-\-check\-links "[=" \fIstrict ]
+Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.B \-\-search\-index
+Emit \fBsearch-index.json\fR for client-side search.
+.TP
+.BR \-\-outputs =\fILIST
+Per-page output formats, e.g. \fBhtml,json\fR (json writes index.json).
+.TP
+.B \-\-seo\-off
+Disable the generator-level OpenGraph/Twitter/JSON-LD injection.
+.SS Internationalization
+.TP
+.BR \-\-languages =\fILIST
+Comma-separated languages (e.g. \fBpl,en\fR); non-default languages are emitted under
+\fB/<lang>/\fR with \fBhreflang\fR alternates.
+.TP
+.BR \-\-default\-language =\fILANG
+The default language, which is not prefixed in URLs.
 .SS Image Processing
 .TP
 .B \-\-webp
@@ -184,6 +250,13 @@ WebP compression quality, 1\-100 (default: 60).
 .TP
 .B \-\-reconvert\-images
 Force reconversion of images even if WebP versions already exist.
+.TP
+.BR \-\-image\-sizes =\fIA,B,C
+Responsive widths in px (e.g. \fB480,960,1600\fR): emit WebP variants and
+\fB<img srcset>\fR (no upscaling).
+.TP
+.BR \-\-image\-sizes\-attr =\fIVAL
+Value of the generated \fBsizes\fR attribute (default: \fB100vw\fR).
 .SS Deployment
 .TP
 .B \-\-zip
@@ -203,6 +276,10 @@ Output directory (default: \fBoutput\fR).
 Static passthrough directory (default: \fBstatic\fR). Every file and
 subdirectory it contains is copied verbatim into the output directory during
 generation. A missing directory is a no-op.
+.TP
+.BR \-\-data\-dir =\fIPATH
+Data files directory (default: \fBdata\fR). \fB*.yaml\fR/\fB*.json\fR files are loaded
+into the \fB.Data.*\fR template namespace, nested by subdirectory.
 .SS Other
 .TP
 .BR \-\-quiet ", " \-q
@@ -341,6 +418,18 @@ Custom metadata fields from MDDB frontmatter are also flattened to root level.
 {{ .Description }}  \- SEO description
 {{ .Keywords }}     \- SEO keywords
 {{ .Tags }}         \- Tags array
+{{ .WordCount }}    \- Word count of the content
+{{ .ReadingTime }}  \- Estimated reading time in minutes
+{{ .HasMath }}      \- True if the page contains math (with \fB\-\-math\fR)
+{{ .Series }}       \- Series name (if any)
+{{ .SeriesPrevURL }}   \- Previous-in-series URL/title
+{{ .SeriesNextURL }}   \- Next-in-series URL/title
+{{ .Pager }}        \- Pagination state on the index (Current/Total/PrevURL/NextURL)
+{{ .Data }}         \- Data files namespace (\fB.Data.site.name\fR, ...)
+{{ .Lang }}         \- Page language
+{{ .Languages }}    \- Configured languages
+{{ .Translations }} \- Language variants of this page (switcher)
+{{ .Hreflang }}     \- Ready-to-use <link rel="alternate" hreflang> markup
 .fi
 .RE
 .PP

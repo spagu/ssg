@@ -1,10 +1,34 @@
 # SSG Docker Compose
 # Usage: docker compose run --rm ssg <args>
 
+# Shared service config (OPS-003): bounded logs, resource limits/reservations and
+# a health check are applied to every service via this YAML anchor.
+x-ssg-common: &ssg-common
+  build: .
+  image: ghcr.io/spagu/ssg:latest
+  working_dir: /site
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 512M
+      reservations:
+        cpus: "0.25"
+        memory: 128M
+  healthcheck:
+    test: ["CMD", "ssg", "--version"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+
 services:
   ssg:
-    build: .
-    image: ghcr.io/spagu/ssg:latest
+    <<: *ssg-common
     volumes:
       # Mount your content, templates, and output directories
       - ./content:/site/content:ro
@@ -12,20 +36,17 @@ services:
       - ./output:/site/output
       # Optional: mount config file
       - ./.ssg.yaml:/site/.ssg.yaml:ro
-    working_dir: /site
     # Override command as needed
     # command: ["my-content", "krowy", "example.com", "--webp"]
 
   # Development server
   dev:
-    build: .
-    image: ghcr.io/spagu/ssg:latest
+    <<: *ssg-common
     volumes:
       - ./content:/site/content:ro
       - ./templates:/site/templates:ro
       - ./output:/site/output
       - ./.ssg.yaml:/site/.ssg.yaml:ro
-    working_dir: /site
     ports:
       - "8888:8888"
-    command: ["my-content", "krowy", "example.com", "--http", "--watch"]
+    command: ["my-content", "krowy", "example.com", "--http", "--watch", "--host=0.0.0.0"]
