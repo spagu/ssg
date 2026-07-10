@@ -6,8 +6,10 @@ import (
 	"image"
 	_ "image/jpeg" // register JPEG decoder for image.DecodeConfig
 	_ "image/png"  // register PNG decoder for image.DecodeConfig
+	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -43,7 +45,7 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		}
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
-			webpPath := strings.TrimSuffix(path, ext) + ".webp"
+			webpPath := webpTargetPath(path)
 			// If WebP already exists, just delete the original (unless Force reconvert)
 			if !opts.Force {
 				if _, statErr := os.Stat(webpPath); statErr == nil {
@@ -84,9 +86,8 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 			continue
 		}
 
-		ext := strings.ToLower(filepath.Ext(path))
 		originalSize := info.Size()
-		webpPath := strings.TrimSuffix(path, ext) + ".webp"
+		webpPath := webpTargetPath(path)
 
 		if !opts.Quiet {
 			fmt.Printf("   🖼️  Converting %d/%d: %s\n", i+1, total, filepath.Base(path))
@@ -99,10 +100,13 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 			continue
 		}
 
-		// Get new size
-		if newInfo, statErr := os.Stat(webpPath); statErr == nil {
-			savedBytes += originalSize - newInfo.Size()
+		// Get new size; this also confirms the .webp actually exists before the
+		// original is deleted below (GO-016).
+		newInfo, statErr := os.Stat(webpPath)
+		if statErr != nil {
+			continue // output missing despite reported success — keep the original
 		}
+		savedBytes += originalSize - newInfo.Size()
 
 		// Responsive variants: derive smaller widths from the original before it is
 		// removed, so quality is best and no upscaling occurs (ASSET-004).
@@ -151,24 +155,69 @@ func convertImage(srcPath, dstPath string, quality int) error {
 	return nil
 }
 
+// webpTargetPath maps an image path to its .webp sibling by stripping the
+// original extension by length; a case-sensitive TrimSuffix on a lowercased
+// extension would turn "Photo.JPG" into "Photo.JPG.webp" (GO-016).
+func webpTargetPath(imgPath string) string {
+	return imgPath[:len(imgPath)-len(filepath.Ext(imgPath))] + ".webp"
+}
+
 // variantPath returns the responsive-variant filename for a base WebP path and
 // width, e.g. ("img/foo.webp", 480) → "img/foo-480.webp" (ASSET-004).
 func variantPath(webpPath string, width int) string {
 	return strings.TrimSuffix(webpPath, ".webp") + fmt.Sprintf("-%d.webp", width)
 }
 
-// imageWidth reads an image's pixel width without fully decoding it.
+// imageWidth reads an image's pixel width without fully decoding it. Formats
+// unknown to the stdlib (i.e. converted .webp originals) fall back to a
+// container-header parse (GO-032).
 func imageWidth(path string) (int, bool) {
 	f, err := os.Open(path) // #nosec G304 -- CLI tool reads user's output files
 	if err != nil {
 		return 0, false
 	}
 	defer func() { _ = f.Close() }()
-	cfg, _, err := image.DecodeConfig(f)
+	if cfg, _, decErr := image.DecodeConfig(f); decErr == nil {
+		return cfg.Width, true
+	}
+	// Not a stdlib-decodable format — rewind and retry as a WebP container.
+	// A failed Seek simply makes webpWidth report false.
+	_, _ = f.Seek(0, io.SeekStart)
+	return webpWidth(f)
+}
+
+// webpWidth parses a WebP (RIFF) container header for the pixel width without a
+// decoder dependency — the stdlib image package has no WebP support and
+// golang.org/x/image/webp is intentionally not added to go.mod (GO-032).
+// Lossy (VP8), lossless (VP8L) and extended (VP8X) layouts are supported.
+func webpWidth(r io.Reader) (int, bool) {
+	buf := make([]byte, 30)
+	n, err := io.ReadAtLeast(r, buf, 25)
 	if err != nil {
 		return 0, false
 	}
-	return cfg.Width, true
+	if string(buf[0:4]) != "RIFF" || string(buf[8:12]) != "WEBP" {
+		return 0, false
+	}
+	switch string(buf[12:16]) {
+	case "VP8X": // extended: 24-bit little-endian canvas width minus one at payload offset 4
+		if n < 27 {
+			return 0, false
+		}
+		return (int(buf[24]) | int(buf[25])<<8 | int(buf[26])<<16) + 1, true
+	case "VP8 ": // lossy: sync code 0x9D012A, then 14-bit little-endian width
+		if n < 28 || buf[23] != 0x9D || buf[24] != 0x01 || buf[25] != 0x2A {
+			return 0, false
+		}
+		return (int(buf[26]) | int(buf[27])<<8) & 0x3FFF, true
+	case "VP8L": // lossless: signature 0x2F, then 14-bit width minus one
+		if buf[20] != 0x2F {
+			return 0, false
+		}
+		bits := uint32(buf[21]) | uint32(buf[22])<<8 | uint32(buf[23])<<16 | uint32(buf[24])<<24
+		return int(bits&0x3FFF) + 1, true
+	}
+	return 0, false
 }
 
 // generateResponsiveVariants emits one downsized WebP per configured width that is
@@ -204,8 +253,52 @@ func convertImageResized(srcPath, dstPath string, quality, width int) error {
 }
 
 // imgTagRe / imgSrcRe locate <img> tags and their WebP src for srcset emission.
+// imgSrcRe requires start-of-tag or a separator before "src" so prefixed
+// attributes like lazy-load data-src are never matched (GO-038).
 var imgTagRe = regexp.MustCompile(`<img\b[^>]*>`)
-var imgSrcRe = regexp.MustCompile(`\bsrc="([^"]+\.webp)"`)
+var imgSrcRe = regexp.MustCompile(`(?:^|[\s"'>])src\s*=\s*"([^"]+\.webp)"`)
+
+// srcsetContext carries per-walk state for srcset emission: the output root,
+// configured widths, the sizes attribute and memoized file-existence/width
+// lookups so each variant is stat'ed and each original decoded at most once per
+// build, however many pages reference it (PERF-011).
+type srcsetContext struct {
+	root      string
+	sizes     []int
+	sizesAttr string
+	exists    func(string) bool
+	width     func(string) (int, bool)
+}
+
+// newExistsCache returns a memoized file-existence check (PERF-011).
+func newExistsCache() func(string) bool {
+	cache := map[string]bool{}
+	return func(file string) bool {
+		if hit, ok := cache[file]; ok {
+			return hit
+		}
+		_, err := os.Stat(file)
+		cache[file] = err == nil
+		return cache[file]
+	}
+}
+
+// newWidthCache returns a memoized image-width reader (GO-032, PERF-011).
+func newWidthCache() func(string) (int, bool) {
+	type dims struct {
+		width int
+		ok    bool
+	}
+	cache := map[string]dims{}
+	return func(file string) (int, bool) {
+		if hit, ok := cache[file]; ok {
+			return hit.width, hit.ok
+		}
+		w, ok := imageWidth(file)
+		cache[file] = dims{width: w, ok: ok}
+		return w, ok
+	}
+}
 
 // EmitSrcset adds srcset/sizes to <img> tags whose WebP source has responsive
 // variants on disk (ASSET-004). Tags already carrying srcset are left untouched;
@@ -220,6 +313,13 @@ func EmitSrcset(dir string, sizes []int, sizesAttr string) error {
 	}
 	sorted := append([]int(nil), sizes...)
 	sort.Ints(sorted)
+	ctx := &srcsetContext{
+		root:      dir,
+		sizes:     sorted,
+		sizesAttr: sizesAttr,
+		exists:    newExistsCache(),
+		width:     newWidthCache(),
+	}
 
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || strings.ToLower(filepath.Ext(path)) != ".html" {
@@ -230,7 +330,7 @@ func EmitSrcset(dir string, sizes []int, sizesAttr string) error {
 			return e
 		}
 		out := imgTagRe.ReplaceAllStringFunc(string(content), func(tag string) string {
-			return rewriteImgTag(tag, filepath.Dir(path), dir, sorted, sizesAttr)
+			return ctx.rewriteImgTag(tag, filepath.Dir(path))
 		})
 		if out == string(content) {
 			return nil
@@ -239,8 +339,16 @@ func EmitSrcset(dir string, sizes []int, sizesAttr string) error {
 	})
 }
 
+// resolveFile maps a page-relative or root-absolute URL to a file path.
+func (c *srcsetContext) resolveFile(url, htmlDir string) string {
+	if strings.HasPrefix(url, "/") {
+		return filepath.Join(c.root, filepath.FromSlash(strings.TrimPrefix(url, "/")))
+	}
+	return filepath.Join(htmlDir, filepath.FromSlash(url))
+}
+
 // rewriteImgTag injects srcset/sizes into a single <img> tag when variants exist.
-func rewriteImgTag(tag, htmlDir, root string, sizes []int, sizesAttr string) string {
+func (c *srcsetContext) rewriteImgTag(tag, htmlDir string) string {
 	if strings.Contains(tag, "srcset=") {
 		return tag
 	}
@@ -250,33 +358,150 @@ func rewriteImgTag(tag, htmlDir, root string, sizes []int, sizesAttr string) str
 	}
 	src := m[1]
 	var parts []string
-	for _, w := range sizes {
+	largest := 0
+	for _, w := range c.sizes { // ascending, so largest tracks the widest variant
 		variantURL := variantPath(src, w)
-		var variantFile string
-		if strings.HasPrefix(variantURL, "/") {
-			variantFile = filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(variantURL, "/")))
-		} else {
-			variantFile = filepath.Join(htmlDir, filepath.FromSlash(variantURL))
-		}
-		if _, err := os.Stat(variantFile); err == nil {
+		if c.exists(c.resolveFile(variantURL, htmlDir)) {
 			parts = append(parts, fmt.Sprintf("%s %dw", variantURL, w))
+			largest = w
 		}
 	}
 	if len(parts) == 0 {
 		return tag
 	}
-	inject := fmt.Sprintf(` srcset="%s" sizes="%s"`, strings.Join(parts, ", "), sizesAttr)
+	// Append the full-size original with its real pixel width: with w
+	// descriptors browsers ignore the src attribute, so without this entry
+	// desktops would upscale the largest downsized variant (GO-032). When the
+	// width cannot be determined (e.g. an unparsable header), the original is
+	// skipped rather than guessed.
+	if w, ok := c.width(c.resolveFile(src, htmlDir)); ok && w > largest {
+		parts = append(parts, fmt.Sprintf("%s %dw", src, w))
+	}
+	inject := fmt.Sprintf(` srcset="%s" sizes="%s"`, strings.Join(parts, ", "), c.sizesAttr)
+	// Keep self-closing tags valid: insert before "/>" instead of before ">" (GO-038).
+	if strings.HasSuffix(tag, "/>") {
+		return strings.TrimRight(strings.TrimSuffix(tag, "/>"), " ") + inject + " />"
+	}
 	return strings.TrimSuffix(tag, ">") + inject + ">"
 }
 
-// UpdateReferences updates image references in HTML/CSS files
+// imageRefAttrRe captures src/srcset/href attribute values (double- or single-
+// quoted). The leading separator class scopes rewriting to real attributes, so
+// prose text and prefixed attributes like data-src are never touched (GO-017).
+var imageRefAttrRe = regexp.MustCompile(`(?i)(?:^|[\s"'>])(?:src|srcset|href)\s*=\s*("[^"]*"|'[^']*')`)
+
+// cssURLRe captures url(...) references in stylesheets and inline <style> blocks (GO-017).
+var cssURLRe = regexp.MustCompile(`(?i)url\(\s*("[^"]*"|'[^']*'|[^'")]+)\)`)
+
+// collectWebpSet walks dir and records every existing .webp file by cleaned
+// path, so reference rewriting can verify a conversion actually succeeded (GO-017).
+func collectWebpSet(dir string) (map[string]bool, error) {
+	set := map[string]bool{}
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.EqualFold(filepath.Ext(path), ".webp") {
+			set[filepath.Clean(path)] = true
+		}
+		return nil
+	})
+	return set, err
+}
+
+// isRemoteURL reports whether ref points at another host (http://, https:// or
+// protocol-relative //) and therefore must never be rewritten (GO-017).
+func isRemoteURL(ref string) bool {
+	lower := strings.ToLower(ref)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") ||
+		strings.HasPrefix(ref, "//")
+}
+
+// rewriteLocalImageURL maps a single local .jpg/.jpeg/.png reference — matched
+// case-insensitively so Photo.JPG is rewritten too (GO-016) — to .webp, but only
+// when the converted file exists on disk (GO-017). baseDir resolves relative
+// references (the referencing file's directory); root resolves "/"-absolute ones.
+func rewriteLocalImageURL(ref, baseDir, root string, webpSet map[string]bool) string {
+	if ref == "" || isRemoteURL(ref) {
+		return ref
+	}
+	ext := strings.ToLower(path.Ext(ref))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+		return ref
+	}
+	webpRef := ref[:len(ref)-len(ext)] + ".webp"
+	var file string
+	if strings.HasPrefix(webpRef, "/") {
+		file = filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(webpRef, "/")))
+	} else {
+		file = filepath.Join(baseDir, filepath.FromSlash(webpRef))
+	}
+	if !webpSet[filepath.Clean(file)] {
+		return ref // conversion missing or failed — keep the working reference
+	}
+	return webpRef
+}
+
+// rewriteRefList rewrites each URL of a (possibly comma-separated, srcset-style)
+// attribute value, preserving width/density descriptors and spacing.
+func rewriteRefList(value, baseDir, root string, webpSet map[string]bool) string {
+	parts := strings.Split(value, ",")
+	for i, part := range parts {
+		fields := strings.Fields(part)
+		if len(fields) == 0 {
+			continue
+		}
+		if newURL := rewriteLocalImageURL(fields[0], baseDir, root, webpSet); newURL != fields[0] {
+			parts[i] = strings.Replace(part, fields[0], newURL, 1)
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+// rewriteImageRefs rewrites image references inside src/srcset/href attributes
+// and CSS url(...) only; everything else — prose, remote URLs, scripts — is left
+// untouched (GO-017).
+func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) string {
+	out := imageRefAttrRe.ReplaceAllStringFunc(content, func(m string) string {
+		quoted := imageRefAttrRe.FindStringSubmatch(m)[1]
+		inner := quoted[1 : len(quoted)-1]
+		rewritten := rewriteRefList(inner, baseDir, root, webpSet)
+		if rewritten == inner {
+			return m
+		}
+		return strings.Replace(m, quoted, quoted[:1]+rewritten+quoted[len(quoted)-1:], 1)
+	})
+	return cssURLRe.ReplaceAllStringFunc(out, func(m string) string {
+		raw := cssURLRe.FindStringSubmatch(m)[1]
+		quote, inner := "", raw
+		if len(raw) >= 2 && (raw[0] == '"' || raw[0] == '\'') {
+			quote, inner = string(raw[0]), raw[1:len(raw)-1]
+		}
+		inner = strings.TrimSpace(inner)
+		rewritten := rewriteLocalImageURL(inner, baseDir, root, webpSet)
+		if rewritten == inner {
+			return m
+		}
+		return "url(" + quote + rewritten + quote + ")"
+	})
+}
+
+// UpdateReferences updates image references in HTML/CSS files. Only references
+// whose converted .webp target exists are rewritten, remote URLs and prose are
+// left alone (GO-017), and extensions are matched case-insensitively (GO-016).
 func UpdateReferences(dir string) error {
+	webpSet, err := collectWebpSet(dir)
+	if err != nil {
+		return err
+	}
+
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		ext := filepath.Ext(path)
+		// Lowercased so .HTML/.CSS files are processed too (GO-017).
+		ext := strings.ToLower(filepath.Ext(path))
 		if info.IsDir() || (ext != ".html" && ext != ".css") {
 			return nil
 		}
@@ -286,23 +511,7 @@ func UpdateReferences(dir string) error {
 			return err
 		}
 
-		newContent := string(content)
-		// Replace in quotes
-		newContent = strings.ReplaceAll(newContent, ".jpg\"", ".webp\"")
-		newContent = strings.ReplaceAll(newContent, ".jpeg\"", ".webp\"")
-		newContent = strings.ReplaceAll(newContent, ".png\"", ".webp\"")
-		newContent = strings.ReplaceAll(newContent, ".jpg'", ".webp'")
-		newContent = strings.ReplaceAll(newContent, ".jpeg'", ".webp'")
-		newContent = strings.ReplaceAll(newContent, ".png'", ".webp'")
-		// CSS url()
-		newContent = strings.ReplaceAll(newContent, ".jpg)", ".webp)")
-		newContent = strings.ReplaceAll(newContent, ".jpeg)", ".webp)")
-		newContent = strings.ReplaceAll(newContent, ".png)", ".webp)")
-		// srcset with space
-		newContent = strings.ReplaceAll(newContent, ".jpg ", ".webp ")
-		newContent = strings.ReplaceAll(newContent, ".jpeg ", ".webp ")
-		newContent = strings.ReplaceAll(newContent, ".png ", ".webp ")
-
+		newContent := rewriteImageRefs(string(content), filepath.Dir(path), dir, webpSet)
 		if newContent != string(content) {
 			return os.WriteFile(path, []byte(newContent), info.Mode()) // #nosec G703,G122 -- CLI tool writes user's output files
 		}

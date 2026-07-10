@@ -597,8 +597,14 @@ func TestExtractZipNoPrefix(t *testing.T) {
 		t.Fatalf("extractZip failed: %v", err)
 	}
 
-	// Files should be at root level (prefix "file1.txt" stripped means empty name skipped)
-	// The behavior depends on how files are stored in the archive
+	// GO-029: no top-level directory is common to all entries, so nothing is
+	// stripped and the layout is preserved.
+	if _, err := os.Stat(filepath.Join(destDir, "file1.txt")); err != nil {
+		t.Errorf("file1.txt not extracted at root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "subdir", "file2.txt")); err != nil {
+		t.Errorf("subdir/file2.txt not extracted: %v", err)
+	}
 }
 
 func TestExtractZipRootPrefixStripped(t *testing.T) {

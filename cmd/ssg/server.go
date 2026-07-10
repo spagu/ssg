@@ -34,7 +34,7 @@ func startServer(cfg *config.Config) {
 	if mode == "auto" {
 		acm = &autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(cfg.TLSDomain),
+			HostPolicy: tlsHostPolicy(cfg.TLSDomain),
 			Cache:      autocert.DirCache(autocertCacheDir()),
 		}
 	}
@@ -48,7 +48,7 @@ func startServer(cfg *config.Config) {
 		if acm != nil {
 			h3.TLSConfig = acm.TLSConfig()
 		}
-		handler = altSvcMiddleware(handler, h3)
+		handler = altSvcMiddleware(handler, altSvcValue(addr))
 		startHTTP3(h3, cfg, mode)
 	}
 
@@ -83,12 +83,33 @@ func startHTTP3(h3 *http3.Server, cfg *config.Config, mode string) {
 	}()
 }
 
-// altSvcMiddleware advertises the HTTP/3 endpoint on TCP responses via Alt-Svc.
-func altSvcMiddleware(next http.Handler, h3 *http3.Server) http.Handler {
+// altSvcValue builds the Alt-Svc advertisement for the HTTP/3 endpoint from the
+// configured listen address. The value is computed locally instead of via
+// http3.Server.SetQUICHeaders, which emits nothing until a QUIC listener is
+// registered — leaving early TCP responses without Alt-Svc (GO-033).
+func altSvcValue(addr string) string {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		return ""
+	}
+	return fmt.Sprintf(`h3=":%s"; ma=2592000`, port)
+}
+
+// altSvcMiddleware advertises the HTTP/3 endpoint on every TCP response so
+// browsers can upgrade from the very first request (GO-033).
+func altSvcMiddleware(next http.Handler, altSvc string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = h3.SetQUICHeaders(w.Header())
+		if altSvc != "" {
+			w.Header().Set("Alt-Svc", altSvc)
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// tlsHostPolicy builds the autocert whitelist from the --tls-domain value, which
+// may be a comma-separated list of domains (GO-020).
+func tlsHostPolicy(domains string) autocert.HostPolicy {
+	return autocert.HostWhitelist(splitCSV(domains)...)
 }
 
 // serverTLSMode reports the TLS mode: "manual" (cert+key), "auto" (Let's Encrypt),
@@ -126,23 +147,47 @@ func logServerStart(cfg *config.Config, url, mode string, exposed bool) {
 // listenAndServe binds the listener (with optional connection cap) and serves in
 // the selected TLS mode. For autocert it uses the shared manager acm.
 func listenAndServe(server *http.Server, cfg *config.Config, mode string, acm *autocert.Manager) error {
-	if mode == "auto" {
-		server.TLSConfig = acm.TLSConfig()
-		go func() { _ = http.ListenAndServe(":80", acm.HTTPHandler(nil)) }() // #nosec G114 -- ACME HTTP-01 + redirect only
-		return server.ListenAndServeTLS("", "")
-	}
-	ln, err := net.Listen("tcp", server.Addr)
+	ln, err := newServerListener(server.Addr, cfg.MaxConns)
 	if err != nil {
 		return err
 	}
-	if cfg.MaxConns > 0 {
-		ln = netutil.LimitListener(ln, cfg.MaxConns)
+	return serveOnListener(server, ln, cfg, mode, acm)
+}
+
+// newServerListener binds addr and applies the --max-conns cap. Shared by every
+// TLS mode so the cap also holds for autocert (GO-019).
+func newServerListener(addr string, maxConns int) (net.Listener, error) {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
 	}
-	if mode == "manual" {
+	if maxConns > 0 {
+		ln = netutil.LimitListener(ln, maxConns)
+	}
+	return ln, nil
+}
+
+// serveOnListener serves on ln in the selected TLS mode. The autocert path wraps
+// the (possibly connection-capped) listener in a TLS listener instead of calling
+// ListenAndServeTLS, so --max-conns is honoured there too (GO-019).
+func serveOnListener(server *http.Server, ln net.Listener, cfg *config.Config, mode string, acm *autocert.Manager) error {
+	switch mode {
+	case "auto":
+		server.TLSConfig = acm.TLSConfig()
+		// ACME HTTP-01 challenge helper; a failed :80 bind (e.g. missing
+		// privileges) must be visible, not silently swallowed (GO-034).
+		go func() {
+			if err := http.ListenAndServe(":80", acm.HTTPHandler(nil)); err != nil { // #nosec G114 -- ACME HTTP-01 + redirect only
+				fmt.Fprintf(os.Stderr, "⚠️  autocert HTTP-01 helper (:80): %v\n", err)
+			}
+		}()
+		return server.Serve(tls.NewListener(ln, server.TLSConfig))
+	case "manual":
 		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		return server.ServeTLS(ln, cfg.TLSCert, cfg.TLSKey)
+	default:
+		return server.Serve(ln)
 	}
-	return server.Serve(ln)
 }
 
 // autocertCacheDir returns a per-user, owner-private cache directory for the
@@ -215,15 +260,37 @@ func securityHeadersMiddleware(next http.Handler, tlsOn bool) http.Handler {
 // gzipResponseWriter compresses the response body.
 type gzipResponseWriter struct {
 	http.ResponseWriter
-	gz *gzip.Writer
+	gz          *gzip.Writer
+	wroteHeader bool
 }
 
-func (g *gzipResponseWriter) Write(b []byte) (int, error) { return g.gz.Write(b) }
+// WriteHeader strips headers that would be wrong for a compressed body: the
+// declared length and range support refer to the uncompressed bytes, so leaving
+// them in desynchronises the connection (GO-012).
+func (g *gzipResponseWriter) WriteHeader(code int) {
+	if g.wroteHeader {
+		return
+	}
+	g.wroteHeader = true
+	g.Header().Del("Content-Length")
+	g.Header().Del("Accept-Ranges")
+	g.ResponseWriter.WriteHeader(code)
+}
 
-// gzipMiddleware compresses responses when the client accepts gzip.
+func (g *gzipResponseWriter) Write(b []byte) (int, error) {
+	if !g.wroteHeader {
+		g.WriteHeader(http.StatusOK)
+	}
+	return g.gz.Write(b)
+}
+
+// gzipMiddleware compresses responses when the client accepts gzip. Range
+// requests bypass compression entirely: http.ServeContent computes the 206
+// Content-Length from the uncompressed slice, so gzipping the body would break
+// resumed downloads and media seeking (GO-012).
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") || r.Header.Get("Range") != "" {
 			next.ServeHTTP(w, r)
 			return
 		}

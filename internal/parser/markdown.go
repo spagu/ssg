@@ -3,6 +3,7 @@ package parser
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -11,6 +12,11 @@ import (
 	"github.com/spagu/ssg/internal/models"
 	"gopkg.in/yaml.v3"
 )
+
+// maxLineSize bounds a single markdown line. The default bufio.Scanner limit
+// of 64KB fails whole files that contain long lines such as base64 data URIs
+// (GO-039).
+const maxLineSize = 10 * 1024 * 1024
 
 // markdownParser handles state during markdown file parsing
 type markdownParser struct {
@@ -21,8 +27,10 @@ type markdownParser struct {
 	inContent        bool
 	inExcerpt        bool
 	frontmatterEnded bool
-	decided          bool // whether the opening delimiter has been resolved
-	noFrontmatter    bool // file has no opening "---": whole file is content (GO-009)
+	decided          bool   // whether the opening delimiter has been resolved
+	noFrontmatter    bool   // file has no opening "---": whole file is content (GO-009)
+	inFence          bool   // inside a fenced code block (GO-027)
+	fence            string // marker that opened the current fence: "```" or "~~~"
 }
 
 // ParseMarkdownFile parses a markdown file with YAML frontmatter
@@ -35,6 +43,9 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 
 	p := &markdownParser{}
 	scanner := bufio.NewScanner(file)
+	// GO-039: raise the per-line limit above the 64KB bufio default so long
+	// lines (e.g. base64 data URIs) do not fail the whole file.
+	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
 
 	for scanner.Scan() {
 		p.processLine(scanner.Text())
@@ -42,6 +53,12 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+
+	// GO-039: an opening "---" without a closing one would silently swallow
+	// the whole body into the frontmatter, yielding an empty page.
+	if p.inFrontmatter {
+		return nil, fmt.Errorf("%s: unclosed frontmatter (missing closing \"---\")", filepath)
 	}
 
 	return p.buildPage()
@@ -58,7 +75,7 @@ func (p *markdownParser) processLine(line string) {
 			return
 		}
 		p.decided = true
-		if strings.TrimSpace(line) != "---" {
+		if !isFrontmatterDelimiter(line) {
 			p.noFrontmatter = true
 			p.frontmatterEnded = true
 			p.processContentLine(line)
@@ -78,9 +95,16 @@ func (p *markdownParser) processLine(line string) {
 	}
 }
 
+// isFrontmatterDelimiter reports whether line is a frontmatter "---" fence.
+// The same predicate is used for opener detection and delimiter handling so a
+// trailing space or \r from a CRLF export cannot desynchronize them (GO-026).
+func isFrontmatterDelimiter(line string) bool {
+	return strings.TrimSpace(line) == "---"
+}
+
 // handleFrontmatterDelimiter handles --- delimiters
 func (p *markdownParser) handleFrontmatterDelimiter(line string) bool {
-	if line != "---" || p.frontmatterEnded {
+	if !isFrontmatterDelimiter(line) || p.frontmatterEnded {
 		return false
 	}
 	if !p.inFrontmatter {
@@ -92,22 +116,62 @@ func (p *markdownParser) handleFrontmatterDelimiter(line string) bool {
 	return true
 }
 
+// fenceMarker returns the code-fence marker ("```" or "~~~") that starts the
+// line (after leading whitespace), or "" when the line is not a fence (GO-027).
+func fenceMarker(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "```") {
+		return "```"
+	}
+	if strings.HasPrefix(trimmed, "~~~") {
+		return "~~~"
+	}
+	return ""
+}
+
 // processContentLine handles lines after frontmatter
 // If no ## Excerpt or ## Content markers are found, all content goes to content
 func (p *markdownParser) processContentLine(line string) {
-	if strings.HasPrefix(line, "## Excerpt") {
+	// GO-027: fenced code blocks pass through untouched — a "# comment" inside
+	// a ``` block is code, not a title, and "## Content" there is not a marker.
+	if marker := fenceMarker(line); marker != "" {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case !p.inFence:
+			p.inFence = true
+			p.fence = marker
+		case marker == p.fence && strings.Trim(trimmed, marker[:1]) == "":
+			// Closing fence: same marker, no info string.
+			p.inFence = false
+			p.fence = ""
+		}
+		p.writeContentLine(line)
+		return
+	}
+	if p.inFence {
+		p.writeContentLine(line)
+		return
+	}
+	// GO-027: section markers must match exactly; real headings like
+	// "## Content-Type negotiation" are regular content.
+	switch strings.TrimRight(line, " \t\r") {
+	case "## Excerpt":
 		p.inExcerpt = true
 		p.inContent = false
 		return
-	}
-	if strings.HasPrefix(line, "## Content") {
+	case "## Content":
 		p.inExcerpt = false
 		p.inContent = true
 		return
 	}
 	if strings.HasPrefix(line, "# ") {
-		return // Skip title line
+		return // Skip title line (WP-export artifact)
 	}
+	p.writeContentLine(line)
+}
+
+// writeContentLine routes a content line to the active section buffer.
+func (p *markdownParser) writeContentLine(line string) {
 	if p.inExcerpt && line != "" {
 		p.excerpt.WriteString(line + "\n")
 	} else if p.inContent {

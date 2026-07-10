@@ -4,6 +4,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -547,4 +548,152 @@ func TestResolveFlexibleCategories(t *testing.T) {
 			t.Errorf("Expected 2 raw values for mixed, got %d", len(raw))
 		}
 	})
+}
+
+// TestParseFrontmatterDelimiterTrailingSpace covers GO-026: a "--- " delimiter
+// with a trailing space parses exactly like "---".
+func TestParseFrontmatterDelimiterTrailingSpace(t *testing.T) {
+	path := writeTemp(t, "space.md", "--- \ntitle: Spaced\nstatus: publish\n--- \nBody")
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+	if page.Title != "Spaced" {
+		t.Errorf("Title = %q, want Spaced", page.Title)
+	}
+	if page.Status != "publish" {
+		t.Errorf("Status = %q, want publish", page.Status)
+	}
+	if page.Content != "Body" {
+		t.Errorf("Content = %q, want Body", page.Content)
+	}
+}
+
+// TestParseFrontmatterDelimiterCRLF covers GO-026: "---\r\n" delimiters from
+// Windows/CRLF exports parse exactly like "---".
+func TestParseFrontmatterDelimiterCRLF(t *testing.T) {
+	content := "---\r\ntitle: CRLF Post\r\nstatus: publish\r\n---\r\n\r\nBody line\r\n"
+	path := writeTemp(t, "crlf.md", content)
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+	if page.Title != "CRLF Post" {
+		t.Errorf("Title = %q, want CRLF Post", page.Title)
+	}
+	if page.Status != "publish" {
+		t.Errorf("Status = %q, want publish", page.Status)
+	}
+	if !strings.Contains(page.Content, "Body line") {
+		t.Errorf("Content = %q, want it to contain Body line", page.Content)
+	}
+}
+
+// TestParseFencedCodeBlockPreserved covers GO-027: "# comment" lines and
+// section-marker lookalikes inside a ``` fence survive parsing untouched.
+func TestParseFencedCodeBlockPreserved(t *testing.T) {
+	content := `---
+title: Fence
+status: publish
+---
+
+## Content
+
+` + "```bash\n# install deps\nmake install\n## Excerpt\n```" + `
+
+Done.
+`
+	path := writeTemp(t, "fence.md", content)
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+	for _, want := range []string{"```bash", "# install deps", "make install", "## Excerpt", "Done."} {
+		if !strings.Contains(page.Content, want) {
+			t.Errorf("Content missing %q; got %q", want, page.Content)
+		}
+	}
+	if page.Excerpt != "" {
+		t.Errorf("Excerpt = %q, want empty (marker inside fence must not switch sections)", page.Excerpt)
+	}
+}
+
+// TestParseTildeFencePreserved covers GO-027 for ~~~ fences.
+func TestParseTildeFencePreserved(t *testing.T) {
+	content := "---\ntitle: Tilde\nstatus: publish\n---\n~~~\n# keep me\n~~~\nAfter"
+	path := writeTemp(t, "tilde.md", content)
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+	if !strings.Contains(page.Content, "# keep me") {
+		t.Errorf("Content missing '# keep me'; got %q", page.Content)
+	}
+	if !strings.Contains(page.Content, "After") {
+		t.Errorf("Content missing 'After'; got %q", page.Content)
+	}
+}
+
+// TestParseHeadingNotHijackedByMarkers covers GO-027: a real heading like
+// "## Content-Type negotiation" is regular content, while the exact
+// "## Excerpt"/"## Content" markers (even with trailing whitespace) still work.
+func TestParseHeadingNotHijackedByMarkers(t *testing.T) {
+	content := `---
+title: Headings
+status: publish
+---
+
+## Excerpt
+
+Short excerpt.
+
+## Content
+
+Real content.
+
+## Content-Type negotiation
+
+More content.
+`
+	path := writeTemp(t, "headings.md", content)
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed: %v", err)
+	}
+	if page.Excerpt != "Short excerpt." {
+		t.Errorf("Excerpt = %q, want Short excerpt.", page.Excerpt)
+	}
+	for _, want := range []string{"Real content.", "## Content-Type negotiation", "More content."} {
+		if !strings.Contains(page.Content, want) {
+			t.Errorf("Content missing %q; got %q", want, page.Content)
+		}
+	}
+}
+
+// TestParseLongLine covers GO-039: a single line larger than the default 64KB
+// bufio.Scanner limit (e.g. a base64 data URI) parses instead of failing.
+func TestParseLongLine(t *testing.T) {
+	longLine := "![img](data:image/png;base64," + strings.Repeat("A", 100*1024) + ")"
+	content := "---\ntitle: Long\nstatus: publish\n---\n" + longLine + "\n"
+	path := writeTemp(t, "long.md", content)
+	page, err := ParseMarkdownFile(path)
+	if err != nil {
+		t.Fatalf("ParseMarkdownFile failed on >64KB line: %v", err)
+	}
+	if !strings.Contains(page.Content, longLine) {
+		t.Errorf("Content lost the long line (len=%d)", len(page.Content))
+	}
+}
+
+// TestParseUnclosedFrontmatter covers GO-039: an opening "---" without a
+// closing one yields a clear error instead of a silent empty page.
+func TestParseUnclosedFrontmatter(t *testing.T) {
+	path := writeTemp(t, "unclosed.md", "---\ntitle: Broken\nstatus: publish\n")
+	_, err := ParseMarkdownFile(path)
+	if err == nil {
+		t.Fatal("expected error for unclosed frontmatter, got nil")
+	}
+	if !strings.Contains(err.Error(), "unclosed frontmatter") {
+		t.Errorf("error = %v, want it to mention unclosed frontmatter", err)
+	}
 }

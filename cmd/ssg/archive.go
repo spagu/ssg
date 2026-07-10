@@ -20,35 +20,38 @@ func writeTarball(sourceDir string, w io.Writer) error {
 		if walkErr != nil || path == sourceDir {
 			return walkErr
 		}
-		rel, err := filepath.Rel(sourceDir, path)
-		if err != nil {
-			return err
-		}
-		hdr, err := tar.FileInfoHeader(info, "")
-		if err != nil {
-			return err
-		}
-		hdr.Name = strings.ReplaceAll(rel, string(os.PathSeparator), "/")
-		if info.IsDir() {
-			hdr.Name += "/"
-		}
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		f, err := os.Open(path) // #nosec G304,G122,G703 -- CLI archives its own output; path from local Walk
-		if err != nil {
-			return err
-		}
-		defer func() { _ = f.Close() }()
-		_, err = io.Copy(tw, f) // #nosec G110 -- CLI archives its own generated output
-		return err
+		return tarAddEntry(tw, sourceDir, path, info)
 	})
 	if cerr := tw.Close(); err == nil {
 		err = cerr
 	}
+	return err
+}
+
+// tarAddEntry writes one file or directory entry (relative to sourceDir) into tw.
+func tarAddEntry(tw *tar.Writer, sourceDir, path string, info os.FileInfo) error {
+	rel, err := filepath.Rel(sourceDir, path)
+	if err != nil {
+		return err
+	}
+	hdr, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return err
+	}
+	hdr.Name = strings.ReplaceAll(rel, string(os.PathSeparator), "/")
+	if info.IsDir() {
+		hdr.Name += "/"
+		return tw.WriteHeader(hdr)
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return err
+	}
+	f, err := os.Open(path) // #nosec G304,G122,G703 -- CLI archives its own output; path from local Walk
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	_, err = io.Copy(tw, f) // #nosec G110 -- CLI archives its own generated output
 	return err
 }
 

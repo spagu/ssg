@@ -226,15 +226,19 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) time.Time {
 	return time.Now()
 }
 
+// configFlag selects the configuration file; it is consumed by loadConfig before
+// the regular flag parsing runs.
+const configFlag = "--config"
+
 // loadConfig loads configuration from file or returns defaults
 func loadConfig(args []string) *config.Config {
 	var configPath string
 
 	// Look for --config flag
 	for i, arg := range args {
-		if strings.HasPrefix(arg, "--config=") {
-			configPath = strings.TrimPrefix(arg, "--config=")
-		} else if arg == "--config" && i+1 < len(args) {
+		if strings.HasPrefix(arg, configFlag+"=") {
+			configPath = strings.TrimPrefix(arg, configFlag+"=")
+		} else if arg == configFlag && i+1 < len(args) {
 			configPath = args[i+1]
 		}
 	}
@@ -263,13 +267,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		return
 	}
 
-	// Check positional args
-	var positionalArgs []string
-	for _, arg := range args {
-		if !strings.HasPrefix(arg, "-") {
-			positionalArgs = append(positionalArgs, arg)
-		}
-	}
+	positionalArgs := positionalArgsOf(args)
 
 	if len(positionalArgs) >= 3 {
 		cfg.Source = positionalArgs[0]
@@ -279,6 +277,24 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+// positionalArgsOf extracts positional arguments, skipping flags and the values
+// consumed by space-separated value flags so e.g. "--engine go" never leaks "go"
+// into <source>/<template>/<domain> (GO-036).
+func positionalArgsOf(args []string) []string {
+	var positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") {
+			positional = append(positional, arg)
+			continue
+		}
+		if separateValueFlags[arg] && i+1 < len(args) {
+			i++ // skip the flag's value (GO-036)
+		}
+	}
+	return positional
 }
 
 // setupTemplateEngine validates the template engine and deploy target, exiting on error.
@@ -462,6 +478,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--math":             &cfg.Math, "--feed": &cfg.Feed,
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
 		"--search-index": &cfg.SearchIndex, "--seo-off": &cfg.SEOOff,
+		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean": &cfg.Clean,
 		"--quiet": &cfg.Quiet, "-q": &cfg.Quiet,
 	}
@@ -623,8 +640,8 @@ func parseMddbEqualFlags(arg string, cfg *config.Config) bool {
 	case setIntEqual(arg, "--mddb-timeout=", 1, 0, func(n int) { cfg.Mddb.Timeout = n }):
 	case setIntEqual(arg, "--mddb-batch-size=", 1, 0, func(n int) { cfg.Mddb.BatchSize = n }):
 	case setIntEqual(arg, "--mddb-watch-interval=", 1, 0, func(n int) { cfg.Mddb.WatchInterval = n }):
-	case arg == "--mddb-watch":
-		cfg.Mddb.Watch = true
+	// --mddb-watch is a boolean toggle handled by parseBoolFlags; a case here was
+	// unreachable because only args containing "=" ever get this far (GO-018).
 	case strings.HasPrefix(arg, "--mddb-url="):
 		cfg.Mddb.URL = strings.TrimPrefix(arg, "--mddb-url=")
 		cfg.Mddb.Enabled = true
@@ -662,94 +679,85 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	}
 }
 
-// parseSeparateValueFlags handles --flag value format, returns skip count
+// separateValueFlags lists the flags that consume the following argument when
+// given in "--flag value" form. Shared by parseSeparateValueFlags and the
+// positional-argument scanner so flag values are never miscounted as
+// positionals (GO-036).
+var separateValueFlags = map[string]bool{
+	"--webp-quality": true, "--port": true, configFlag: true,
+	"--content-dir": true, "--templates-dir": true, "--output-dir": true,
+	"--engine": true, "--online-theme": true,
+	"--post-url-format": true, "--page-format": true,
+	"--mddb-url": true, "--mddb-key": true, "--mddb-collection": true,
+	"--mddb-lang": true, "--mddb-timeout": true, "--mddb-batch-size": true,
+	"--mddb-protocol": true, "--mddb-watch-interval": true,
+}
+
+// stringSeparateFlags maps "--flag value" plain string options to their target
+// field, mirroring stringEqualFlags so parseSeparateValueFlags stays small.
+func stringSeparateFlags(cfg *config.Config) map[string]*string {
+	return map[string]*string{
+		"--content-dir":     &cfg.ContentDir,
+		"--templates-dir":   &cfg.TemplatesDir,
+		"--output-dir":      &cfg.OutputDir,
+		"--engine":          &cfg.Engine,
+		"--online-theme":    &cfg.OnlineTheme,
+		"--post-url-format": &cfg.PostURLFormat,
+		"--mddb-key":        &cfg.Mddb.APIKey,
+		"--mddb-collection": &cfg.Mddb.Collection,
+		"--mddb-lang":       &cfg.Mddb.Lang,
+	}
+}
+
+// setIntSeparate parses a "--flag N" value and applies it when it passes the
+// [minVal, maxVal] range (maxVal <= 0 means no upper bound).
+func setIntSeparate(value string, minVal, maxVal int, apply func(int)) {
+	if n, err := strconv.Atoi(value); err == nil && n >= minVal && (maxVal <= 0 || n <= maxVal) {
+		apply(n)
+	}
+}
+
+// parseSeparateValueFlags handles --flag value format, returns skip count.
+// Unknown flags, and known flags at the end of the argument list (no value to
+// consume), skip nothing (GO-046: the old handleConfigSkip helper was a
+// guaranteed no-op and has been removed in favour of this guard).
 func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 	arg := args[i]
-	if i+1 >= len(args) {
-		return handleConfigSkip(arg)
+	if !separateValueFlags[arg] || i+1 >= len(args) {
+		return 0
 	}
 
 	nextArg := args[i+1]
+	if target, ok := stringSeparateFlags(cfg)[arg]; ok {
+		*target = nextArg
+		return 1
+	}
 	switch arg {
 	case "--webp-quality":
-		if q, err := strconv.Atoi(nextArg); err == nil && q >= 1 && q <= 100 {
-			cfg.WebPQuality = q
-		}
-		return 1
+		setIntSeparate(nextArg, 1, 100, func(n int) { cfg.WebPQuality = n })
 	case "--port":
-		if port, err := strconv.Atoi(nextArg); err == nil {
-			cfg.Port = port
-		}
-		return 1
-	case "--content-dir":
-		cfg.ContentDir = nextArg
-		return 1
-	case "--templates-dir":
-		cfg.TemplatesDir = nextArg
-		return 1
-	case "--output-dir":
-		cfg.OutputDir = nextArg
-		return 1
-	case "--engine":
-		cfg.Engine = nextArg
-		return 1
-	case "--online-theme":
-		cfg.OnlineTheme = nextArg
-		return 1
-	case "--post-url-format":
-		cfg.PostURLFormat = nextArg
-		return 1
+		setIntSeparate(nextArg, 0, 0, func(n int) { cfg.Port = n })
 	case "--page-format":
 		if nextArg == "directory" || nextArg == "flat" || nextArg == "both" {
 			cfg.PageFormat = nextArg
 		}
-		return 1
-	case "--config":
-		return 1 // Skip, already processed
-	// MDDB flags
+	case configFlag:
+		// Skip the value; --config was already processed by loadConfig.
 	case "--mddb-url":
 		cfg.Mddb.URL = nextArg
 		cfg.Mddb.Enabled = true
-		return 1
-	case "--mddb-key":
-		cfg.Mddb.APIKey = nextArg
-		return 1
-	case "--mddb-collection":
-		cfg.Mddb.Collection = nextArg
-		return 1
-	case "--mddb-lang":
-		cfg.Mddb.Lang = nextArg
-		return 1
 	case "--mddb-timeout":
-		if t, err := strconv.Atoi(nextArg); err == nil && t > 0 {
-			cfg.Mddb.Timeout = t
-		}
-		return 1
+		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.Timeout = n })
 	case "--mddb-batch-size":
-		if b, err := strconv.Atoi(nextArg); err == nil && b > 0 {
-			cfg.Mddb.BatchSize = b
-		}
-		return 1
+		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.BatchSize = n })
 	case "--mddb-protocol":
 		if nextArg == "http" || nextArg == "grpc" {
 			cfg.Mddb.Protocol = nextArg
 		}
-		return 1
 	case "--mddb-watch-interval":
-		if i, err := strconv.Atoi(nextArg); err == nil && i > 0 {
-			cfg.Mddb.WatchInterval = i
-		}
-		return 1
+		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.WatchInterval = n })
 	}
-	return 0
-}
-
-// handleConfigSkip handles --config at end of args
-func handleConfigSkip(arg string) int {
-	if arg == "--config" {
-		return 0 // No next arg to skip
-	}
-	return 0
+	return 1
 }
 
 // resolveListenAddr computes the dev-server bind address and a user-facing URL.
