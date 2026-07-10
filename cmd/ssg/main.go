@@ -7,6 +7,7 @@ package main
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/deploy"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mddb"
@@ -279,10 +281,15 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	}
 }
 
-// setupTemplateEngine validates the template engine and exits on error.
+// setupTemplateEngine validates the template engine and deploy target, exiting on error.
 func setupTemplateEngine(cfg *config.Config) {
 	if err := validateTemplateEngine(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		os.Exit(1)
+	}
+	if cfg.Deploy != "" && !deploy.Supported(cfg.Deploy) {
+		fmt.Fprintf(os.Stderr, "❌ Error: unknown --deploy provider %q (supported: %s)\n",
+			cfg.Deploy, strings.Join(deploy.SupportedProviders(), ", "))
 		os.Exit(1)
 	}
 
@@ -429,75 +436,40 @@ func parseFlags(args []string, cfg *config.Config) {
 	}
 }
 
-// parseBoolFlags handles boolean flags, returns true if flag was handled
+// parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
+// on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
-	switch arg {
-	case "--zip", "-zip":
-		cfg.Zip = true
-	case "--targz":
-		cfg.TarGz = true
-	case "--tarxz":
-		cfg.TarXz = true
-	case "--tls-auto":
-		cfg.TLSAuto = true
-	case "--gzip":
-		cfg.Gzip = true
-	case "--http3":
-		cfg.HTTP3 = true
-	case "--sanitize-html":
-		cfg.SanitizeHTML = true
-	case "--webp", "-webp":
-		cfg.WebP = true
-	case "--reconvert-images":
-		cfg.ReconvertImages = true
-	case "--watch", "-watch":
-		cfg.Watch = true
-	case "--http", "-http":
-		cfg.HTTP = true
-	case "--sitemap-off":
-		cfg.SitemapOff = true
-	case "--robots-off":
-		cfg.RobotsOff = true
-	case "--pretty-html", "--pretty":
-		cfg.PrettyHTML = true
-	case "--relative-links":
-		cfg.RelativeLinks = true
-	case "--minify-all":
-		cfg.MinifyAll = true
-	case "--minify-html":
-		cfg.MinifyHTML = true
-	case "--minify-css":
-		cfg.MinifyCSS = true
-	case "--minify-js":
-		cfg.MinifyJS = true
-	case "--sourcemap":
-		cfg.SourceMap = true
-	case "--fingerprint":
-		cfg.Fingerprint = true
-	case "--lastmod-from-git":
-		cfg.LastmodFromGit = true
-	case "--math":
-		cfg.Math = true
-	case "--feed":
-		cfg.Feed = true
-	case "--highlight":
-		cfg.Highlight = true
-	case "--toc":
-		cfg.TOC = true
-	case "--search-index":
-		cfg.SearchIndex = true
-	case "--seo-off":
-		cfg.SEOOff = true
-	case "--check-links":
+	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
 		cfg.CheckLinks = "warn"
-	case "--clean":
-		cfg.Clean = true
-	case "--quiet", "-q":
-		cfg.Quiet = true
-	default:
-		return false
+		return true
 	}
-	return true
+	toggles := map[string]*bool{
+		"--zip": &cfg.Zip, "-zip": &cfg.Zip,
+		"--targz": &cfg.TarGz, "--tarxz": &cfg.TarXz,
+		"--tls-auto": &cfg.TLSAuto, "--gzip": &cfg.Gzip, "--http3": &cfg.HTTP3,
+		"--sanitize-html": &cfg.SanitizeHTML,
+		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
+		"--reconvert-images": &cfg.ReconvertImages,
+		"--watch":            &cfg.Watch, "-watch": &cfg.Watch,
+		"--http": &cfg.HTTP, "-http": &cfg.HTTP,
+		"--sitemap-off": &cfg.SitemapOff, "--robots-off": &cfg.RobotsOff,
+		"--pretty-html": &cfg.PrettyHTML, "--pretty": &cfg.PrettyHTML,
+		"--relative-links": &cfg.RelativeLinks,
+		"--minify-all":     &cfg.MinifyAll,
+		"--minify-html":    &cfg.MinifyHTML, "--minify-css": &cfg.MinifyCSS, "--minify-js": &cfg.MinifyJS,
+		"--sourcemap": &cfg.SourceMap, "--fingerprint": &cfg.Fingerprint,
+		"--lastmod-from-git": &cfg.LastmodFromGit,
+		"--math":             &cfg.Math, "--feed": &cfg.Feed,
+		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
+		"--search-index": &cfg.SearchIndex, "--seo-off": &cfg.SEOOff,
+		"--clean": &cfg.Clean,
+		"--quiet": &cfg.Quiet, "-q": &cfg.Quiet,
+	}
+	if target, ok := toggles[arg]; ok {
+		*target = true
+		return true
+	}
+	return false
 }
 
 // parseSpecialFlags handles --version and --help
@@ -569,63 +541,112 @@ func setPermalink(cfg *config.Config, typ, pattern string) {
 	cfg.Permalinks[typ] = pattern
 }
 
-// parseEqualFlags handles --flag=value format
+// stringEqualFlags maps simple "--flag=" prefixes to the string field they set,
+// keeping parseEqualFlags free of one near-identical case per plain string option.
+func stringEqualFlags(cfg *config.Config) map[string]*string {
+	return map[string]*string{
+		"--host=":             &cfg.Host,
+		"--tls-cert=":         &cfg.TLSCert,
+		"--tls-key=":          &cfg.TLSKey,
+		"--tls-domain=":       &cfg.TLSDomain,
+		"--mem-limit=":        &cfg.MemLimit,
+		"--content-dir=":      &cfg.ContentDir,
+		"--templates-dir=":    &cfg.TemplatesDir,
+		"--output-dir=":       &cfg.OutputDir,
+		"--static-dir=":       &cfg.StaticDir,
+		"--data-dir=":         &cfg.DataDir,
+		"--image-sizes-attr=": &cfg.ImageSizesAttr,
+		"--highlight-style=":  &cfg.HighlightStyle,
+		"--default-language=": &cfg.DefaultLanguage,
+		"--engine=":           &cfg.Engine,
+		"--online-theme=":     &cfg.OnlineTheme,
+		"--post-url-format=":  &cfg.PostURLFormat,
+		"--deploy=":           &cfg.Deploy,
+		"--deploy-project=":   &cfg.DeployProject,
+		"--deploy-branch=":    &cfg.DeployBranch,
+		"--deploy-target=":    &cfg.DeployTarget,
+		"--mddb-key=":         &cfg.Mddb.APIKey,
+		"--mddb-collection=":  &cfg.Mddb.Collection,
+		"--mddb-lang=":        &cfg.Mddb.Lang,
+	}
+}
+
+// setIntEqual parses "--flag=N"; when arg carries prefix it applies the value if it
+// passes the [minVal, maxVal] range (maxVal <= 0 means no upper bound) and returns
+// true to signal the flag was recognised.
+func setIntEqual(arg, prefix string, minVal, maxVal int, apply func(int)) bool {
+	if !strings.HasPrefix(arg, prefix) {
+		return false
+	}
+	if n, err := strconv.Atoi(strings.TrimPrefix(arg, prefix)); err == nil && n >= minVal && (maxVal <= 0 || n <= maxVal) {
+		apply(n)
+	}
+	return true
+}
+
+// parseEqualFlags handles --flag=value format, dispatching to focused helpers so no
+// single function carries the whole option table.
 func parseEqualFlags(arg string, cfg *config.Config) {
-	switch {
-	case strings.HasPrefix(arg, "--webp-quality="):
-		if q, err := strconv.Atoi(strings.TrimPrefix(arg, "--webp-quality=")); err == nil && q >= 1 && q <= 100 {
-			cfg.WebPQuality = q
+	for prefix, target := range stringEqualFlags(cfg) {
+		if strings.HasPrefix(arg, prefix) {
+			*target = strings.TrimPrefix(arg, prefix)
+			return
 		}
+	}
+	if parseIntEqualFlags(arg, cfg) || parseMddbEqualFlags(arg, cfg) {
+		return
+	}
+	parseMiscEqualFlags(arg, cfg)
+}
+
+// parseIntEqualFlags handles numeric --flag=N options; returns true when recognised.
+func parseIntEqualFlags(arg string, cfg *config.Config) bool {
+	switch {
+	case setIntEqual(arg, "--webp-quality=", 1, 100, func(n int) { cfg.WebPQuality = n }):
+	case setIntEqual(arg, "--max-conns=", 0, 0, func(n int) { cfg.MaxConns = n }):
+	case setIntEqual(arg, "--paginate=", 0, 0, func(n int) { cfg.Paginate = n }):
+	case setIntEqual(arg, "--feed-items=", 1, 0, func(n int) { cfg.FeedItems = n }):
+	case setIntEqual(arg, "--toc-depth=", 1, 0, func(n int) { cfg.TOCDepth = n }):
 	case strings.HasPrefix(arg, "--port="):
 		if port, err := strconv.Atoi(strings.TrimPrefix(arg, "--port=")); err == nil {
 			cfg.Port = port
 		}
-	case strings.HasPrefix(arg, "--host="):
-		cfg.Host = strings.TrimPrefix(arg, "--host=")
-	case strings.HasPrefix(arg, "--tls-cert="):
-		cfg.TLSCert = strings.TrimPrefix(arg, "--tls-cert=")
-	case strings.HasPrefix(arg, "--tls-key="):
-		cfg.TLSKey = strings.TrimPrefix(arg, "--tls-key=")
-	case strings.HasPrefix(arg, "--tls-domain="):
-		cfg.TLSDomain = strings.TrimPrefix(arg, "--tls-domain=")
-	case strings.HasPrefix(arg, "--mem-limit="):
-		cfg.MemLimit = strings.TrimPrefix(arg, "--mem-limit=")
-	case strings.HasPrefix(arg, "--max-conns="):
-		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--max-conns=")); err == nil && n >= 0 {
-			cfg.MaxConns = n
+	default:
+		return false
+	}
+	return true
+}
+
+// parseMddbEqualFlags handles the --mddb-* options; returns true when recognised.
+func parseMddbEqualFlags(arg string, cfg *config.Config) bool {
+	switch {
+	case setIntEqual(arg, "--mddb-timeout=", 1, 0, func(n int) { cfg.Mddb.Timeout = n }):
+	case setIntEqual(arg, "--mddb-batch-size=", 1, 0, func(n int) { cfg.Mddb.BatchSize = n }):
+	case setIntEqual(arg, "--mddb-watch-interval=", 1, 0, func(n int) { cfg.Mddb.WatchInterval = n }):
+	case arg == "--mddb-watch":
+		cfg.Mddb.Watch = true
+	case strings.HasPrefix(arg, "--mddb-url="):
+		cfg.Mddb.URL = strings.TrimPrefix(arg, "--mddb-url=")
+		cfg.Mddb.Enabled = true
+	case strings.HasPrefix(arg, "--mddb-protocol="):
+		if p := strings.TrimPrefix(arg, "--mddb-protocol="); p == "http" || p == "grpc" {
+			cfg.Mddb.Protocol = p
 		}
-	case strings.HasPrefix(arg, "--content-dir="):
-		cfg.ContentDir = strings.TrimPrefix(arg, "--content-dir=")
-	case strings.HasPrefix(arg, "--templates-dir="):
-		cfg.TemplatesDir = strings.TrimPrefix(arg, "--templates-dir=")
-	case strings.HasPrefix(arg, "--output-dir="):
-		cfg.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
-	case strings.HasPrefix(arg, "--static-dir="):
-		cfg.StaticDir = strings.TrimPrefix(arg, "--static-dir=")
-	case strings.HasPrefix(arg, "--data-dir="):
-		cfg.DataDir = strings.TrimPrefix(arg, "--data-dir=")
+	default:
+		return false
+	}
+	return true
+}
+
+// parseMiscEqualFlags handles the remaining validated/list --flag=value options.
+func parseMiscEqualFlags(arg string, cfg *config.Config) {
+	switch {
 	case strings.HasPrefix(arg, "--image-sizes="):
 		cfg.ImageSizes = parseIntList(strings.TrimPrefix(arg, "--image-sizes="))
-	case strings.HasPrefix(arg, "--image-sizes-attr="):
-		cfg.ImageSizesAttr = strings.TrimPrefix(arg, "--image-sizes-attr=")
 	case strings.HasPrefix(arg, "--permalink-post="):
 		setPermalink(cfg, "post", strings.TrimPrefix(arg, "--permalink-post="))
 	case strings.HasPrefix(arg, "--permalink-page="):
 		setPermalink(cfg, "page", strings.TrimPrefix(arg, "--permalink-page="))
-	case strings.HasPrefix(arg, "--paginate="):
-		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--paginate=")); err == nil && n >= 0 {
-			cfg.Paginate = n
-		}
-	case strings.HasPrefix(arg, "--feed-items="):
-		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--feed-items=")); err == nil && n > 0 {
-			cfg.FeedItems = n
-		}
-	case strings.HasPrefix(arg, "--highlight-style="):
-		cfg.HighlightStyle = strings.TrimPrefix(arg, "--highlight-style=")
-	case strings.HasPrefix(arg, "--toc-depth="):
-		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--toc-depth=")); err == nil && n > 0 {
-			cfg.TOCDepth = n
-		}
 	case strings.HasPrefix(arg, "--check-links="):
 		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
 			cfg.CheckLinks = v
@@ -634,47 +655,9 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.Outputs = splitCSV(strings.TrimPrefix(arg, "--outputs="))
 	case strings.HasPrefix(arg, "--languages="):
 		cfg.Languages = splitCSV(strings.TrimPrefix(arg, "--languages="))
-	case strings.HasPrefix(arg, "--default-language="):
-		cfg.DefaultLanguage = strings.TrimPrefix(arg, "--default-language=")
-	case strings.HasPrefix(arg, "--engine="):
-		cfg.Engine = strings.TrimPrefix(arg, "--engine=")
-	case strings.HasPrefix(arg, "--online-theme="):
-		cfg.OnlineTheme = strings.TrimPrefix(arg, "--online-theme=")
-	case strings.HasPrefix(arg, "--post-url-format="):
-		cfg.PostURLFormat = strings.TrimPrefix(arg, "--post-url-format=")
 	case strings.HasPrefix(arg, "--page-format="):
-		pf := strings.TrimPrefix(arg, "--page-format=")
-		if pf == "directory" || pf == "flat" || pf == "both" {
+		if pf := strings.TrimPrefix(arg, "--page-format="); pf == "directory" || pf == "flat" || pf == "both" {
 			cfg.PageFormat = pf
-		}
-	// MDDB flags
-	case strings.HasPrefix(arg, "--mddb-url="):
-		cfg.Mddb.URL = strings.TrimPrefix(arg, "--mddb-url=")
-		cfg.Mddb.Enabled = true
-	case strings.HasPrefix(arg, "--mddb-key="):
-		cfg.Mddb.APIKey = strings.TrimPrefix(arg, "--mddb-key=")
-	case strings.HasPrefix(arg, "--mddb-collection="):
-		cfg.Mddb.Collection = strings.TrimPrefix(arg, "--mddb-collection=")
-	case strings.HasPrefix(arg, "--mddb-lang="):
-		cfg.Mddb.Lang = strings.TrimPrefix(arg, "--mddb-lang=")
-	case strings.HasPrefix(arg, "--mddb-timeout="):
-		if t, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-timeout=")); err == nil && t > 0 {
-			cfg.Mddb.Timeout = t
-		}
-	case strings.HasPrefix(arg, "--mddb-batch-size="):
-		if b, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-batch-size=")); err == nil && b > 0 {
-			cfg.Mddb.BatchSize = b
-		}
-	case strings.HasPrefix(arg, "--mddb-protocol="):
-		protocol := strings.TrimPrefix(arg, "--mddb-protocol=")
-		if protocol == "http" || protocol == "grpc" {
-			cfg.Mddb.Protocol = protocol
-		}
-	case arg == "--mddb-watch":
-		cfg.Mddb.Watch = true
-	case strings.HasPrefix(arg, "--mddb-watch-interval="):
-		if i, err := strconv.Atoi(strings.TrimPrefix(arg, "--mddb-watch-interval=")); err == nil && i > 0 {
-			cfg.Mddb.WatchInterval = i
 		}
 	}
 }
@@ -790,59 +773,53 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("initializing generator: %w", err)
 	}
-
 	if err := gen.Generate(); err != nil {
 		return fmt.Errorf("generating site: %w", err)
 	}
-
-	// Convert images to WebP if requested (using native Go library)
-	if cfg.WebP {
-		opts := webp.ConvertOptions{
-			Quality: cfg.WebPQuality,
-			Quiet:   cfg.Quiet,
-			Force:   cfg.ReconvertImages,
-			Sizes:   cfg.ImageSizes,
-		}
-
-		converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
-		if err != nil {
-			return fmt.Errorf("converting to WebP: %w", err)
-		}
-
-		if err := webp.UpdateReferences(cfg.OutputDir); err != nil {
-			return fmt.Errorf("updating image references: %w", err)
-		}
-
-		// Emit responsive srcset/sizes for images that have variants (ASSET-004).
-		if err := webp.EmitSrcset(cfg.OutputDir, cfg.ImageSizes, cfg.ImageSizesAttr); err != nil {
-			return fmt.Errorf("emitting responsive srcset: %w", err)
-		}
-
-		if !cfg.Quiet && converted > 0 {
-			savedMB := float64(saved) / (1024 * 1024)
-			fmt.Printf("   📊 Converted %d images, saved %.1f MB\n", converted, savedMB)
-		}
+	if err := runWebP(cfg); err != nil {
+		return err
 	}
+	if err := runArchives(cfg); err != nil {
+		return err
+	}
+	return runDeploy(cfg)
+}
 
-	// Create ZIP if requested
+// runWebP converts output images to WebP and rewrites references when --webp is set.
+func runWebP(cfg *config.Config) error {
+	if !cfg.WebP {
+		return nil
+	}
+	opts := webp.ConvertOptions{
+		Quality: cfg.WebPQuality,
+		Quiet:   cfg.Quiet,
+		Force:   cfg.ReconvertImages,
+		Sizes:   cfg.ImageSizes,
+	}
+	converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
+	if err != nil {
+		return fmt.Errorf("converting to WebP: %w", err)
+	}
+	if err := webp.UpdateReferences(cfg.OutputDir); err != nil {
+		return fmt.Errorf("updating image references: %w", err)
+	}
+	// Emit responsive srcset/sizes for images that have variants (ASSET-004).
+	if err := webp.EmitSrcset(cfg.OutputDir, cfg.ImageSizes, cfg.ImageSizesAttr); err != nil {
+		return fmt.Errorf("emitting responsive srcset: %w", err)
+	}
+	if !cfg.Quiet && converted > 0 {
+		fmt.Printf("   📊 Converted %d images, saved %.1f MB\n", converted, float64(saved)/(1024*1024))
+	}
+	return nil
+}
+
+// runArchives creates the requested deployment archives (ZIP, tar.gz, tar.xz).
+func runArchives(cfg *config.Config) error {
 	if cfg.Zip {
-		zipFileName := fmt.Sprintf("%s.zip", cfg.Domain)
-		if err := createZip(cfg.OutputDir, zipFileName); err != nil {
-			return fmt.Errorf("creating ZIP: %w", err)
-		}
-
-		if !cfg.Quiet {
-			if info, err := os.Stat(zipFileName); err == nil { // #nosec G703 -- CLI tool checks user's output
-				sizeMB := float64(info.Size()) / (1024 * 1024)
-				fmt.Printf("📦 Created deployment package: %s (%.1f MB)\n", zipFileName, sizeMB)
-				if sizeMB > 25 {
-					fmt.Printf("⚠️  Warning: File exceeds Cloudflare Pages 25MB limit!\n")
-				}
-			}
+		if err := createZipArchive(cfg); err != nil {
+			return err
 		}
 	}
-
-	// tar.gz / tar.xz deployment archives (v1.8.1)
 	if cfg.TarGz {
 		if err := makeArchive(cfg, "tar.gz", createTarGz); err != nil {
 			return err
@@ -852,6 +829,50 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 		if err := makeArchive(cfg, "tar.xz", createTarXz); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// createZipArchive builds <domain>.zip and reports its size (warning past 25 MB).
+func createZipArchive(cfg *config.Config) error {
+	zipFileName := fmt.Sprintf("%s.zip", cfg.Domain)
+	if err := createZip(cfg.OutputDir, zipFileName); err != nil {
+		return fmt.Errorf("creating ZIP: %w", err)
+	}
+	if cfg.Quiet {
+		return nil
+	}
+	info, err := os.Stat(zipFileName) // #nosec G703 -- CLI tool checks its own output
+	if err != nil {
+		return nil
+	}
+	sizeMB := float64(info.Size()) / (1024 * 1024)
+	fmt.Printf("📦 Created deployment package: %s (%.1f MB)\n", zipFileName, sizeMB)
+	if sizeMB > 25 {
+		fmt.Printf("⚠️  Warning: File exceeds Cloudflare Pages 25MB limit!\n")
+	}
+	return nil
+}
+
+// runDeploy publishes the output tree to the configured provider (v1.8.1). No-op when
+// --deploy is unset.
+func runDeploy(cfg *config.Config) error {
+	if cfg.Deploy == "" {
+		return nil
+	}
+	url, err := deploy.Run(context.Background(), deploy.Options{
+		Provider: cfg.Deploy,
+		Dir:      cfg.OutputDir,
+		Project:  cfg.DeployProject,
+		Branch:   cfg.DeployBranch,
+		Target:   cfg.DeployTarget,
+		Quiet:    cfg.Quiet,
+	})
+	if err != nil {
+		return fmt.Errorf("deploy to %s: %w", cfg.Deploy, err)
+	}
+	if !cfg.Quiet && url != "" {
+		fmt.Printf("🚀 Deployed to %s\n", url)
 	}
 	return nil
 }
@@ -1044,6 +1065,18 @@ func printUsage() {
 	fmt.Println("  --zip                  - Create ZIP archive of the output tree")
 	fmt.Println("  --targz                - Create gzip-compressed tarball (.tar.gz) of the output tree")
 	fmt.Println("  --tarxz                - Create xz-compressed tarball (.tar.xz) of the output tree")
+	fmt.Println("")
+	fmt.Println("Publish (native deploy — credentials/secrets come from the environment):")
+	fmt.Println("  --deploy=PROVIDER      - cloudflare | github-pages | netlify | vercel | ftp | sftp")
+	fmt.Println("  --deploy-project=NAME  - Pages/site/project name (cloudflare, netlify, vercel)")
+	fmt.Println("  --deploy-branch=BRANCH - Target branch (cloudflare, github-pages; default gh-pages)")
+	fmt.Println("  --deploy-target=URL    - ftp://user@host/path, sftp://user@host/path, or a git remote")
+	fmt.Println("    cloudflare  → CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID")
+	fmt.Println("    github-pages→ GITHUB_TOKEN (https remotes) or an SSH key")
+	fmt.Println("    netlify     → NETLIFY_AUTH_TOKEN (+ site via --deploy-project/NETLIFY_SITE_ID)")
+	fmt.Println("    vercel      → VERCEL_TOKEN, VERCEL_ORG_ID (+ project via --deploy-project)")
+	fmt.Println("    ftp         → FTP_USERNAME, FTP_PASSWORD")
+	fmt.Println("    sftp        → SSH_USERNAME, SSH_PASSWORD or SSH_KEY_FILE (host in known_hosts)")
 	fmt.Println("")
 	fmt.Println("Paths:")
 	fmt.Println("  --content-dir=PATH     - Content directory (default: content)")

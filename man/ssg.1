@@ -300,6 +300,28 @@ Create a gzip-compressed tarball (\fB.tar.gz\fR) of the output tree.
 .TP
 .B \-\-tarxz
 Create an xz-compressed tarball (\fB.tar.xz\fR) of the output tree.
+.SS Native Publish
+Deploy runs after the build (and after \fB\-\-webp\fR/\fB\-\-zip\fR). All secrets are
+read from the environment, never the config file.
+.TP
+.BR \-\-deploy =\fIPROVIDER
+Publish the output tree to \fIcloudflare\fR, \fIgithub-pages\fR, \fInetlify\fR,
+\fIvercel\fR, \fIftp\fR or \fIsftp\fR.
+.TP
+.BR \-\-deploy\-project =\fINAME
+Pages/site/project name (cloudflare, netlify, vercel).
+.TP
+.BR \-\-deploy\-branch =\fIBRANCH
+Target branch for cloudflare / github-pages (default \fBgh-pages\fR).
+.TP
+.BR \-\-deploy\-target =\fIURL
+An \fBftp://\fR/\fBsftp://\fR URL, or a git remote for github-pages.
+.PP
+Required environment per provider: \fBcloudflare\fR — CLOUDFLARE_API_TOKEN,
+CLOUDFLARE_ACCOUNT_ID; \fBgithub-pages\fR — GITHUB_TOKEN (https) or an SSH key;
+\fBnetlify\fR — NETLIFY_AUTH_TOKEN (+ NETLIFY_SITE_ID); \fBvercel\fR — VERCEL_TOKEN,
+VERCEL_ORG_ID; \fBftp\fR — FTP_USERNAME, FTP_PASSWORD; \fBsftp\fR — SSH_USERNAME,
+SSH_PASSWORD or SSH_KEY_FILE (the host must be present in known_hosts).
 .SS Paths
 .TP
 .BR \-\-content\-dir =\fIPATH
@@ -565,6 +587,24 @@ Serve publicly with automatic Let's Encrypt certificates:
 .nf
 ssg my-site simple example.com --http --port=443 \\
     --tls-auto --tls-domain=example.com --mem-limit=512MiB
+.fi
+.RE
+.PP
+Build and publish natively to Cloudflare Pages:
+.PP
+.RS
+.nf
+CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… \\
+    ssg my-site krowy example.com --deploy=cloudflare --deploy-project=my-site
+.fi
+.RE
+.PP
+Publish over SFTP with key-based auth:
+.PP
+.RS
+.nf
+SSH_KEY_FILE=~/.ssh/id_ed25519 \\
+    ssg my-site krowy example.com --deploy=sftp --deploy-target=sftp://deploy@example.com/var/www
 .fi
 .RE
 .PP

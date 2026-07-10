@@ -212,6 +212,16 @@ type Config struct {
 	TarGz bool `yaml:"targz" toml:"targz" json:"targz"` // create <domain>.tar.gz (v1.8.1)
 	TarXz bool `yaml:"tarxz" toml:"tarxz" json:"tarxz"` // create <domain>.tar.xz (v1.8.1)
 
+	// Native deployment (v1.8.1). Deploy names the provider; empty = no deploy.
+	// Supported: cloudflare, github-pages, netlify, vercel, ftp, sftp. All secrets
+	// (API tokens, passwords, SSH keys) come from the environment — never the config
+	// file. DeployProject = Pages/site/project name; DeployBranch = target branch
+	// (cloudflare/github-pages); DeployTarget = ftp/sftp URL or git remote.
+	Deploy        string `yaml:"deploy" toml:"deploy" json:"deploy"`
+	DeployProject string `yaml:"deploy_project" toml:"deploy_project" json:"deploy_project"`
+	DeployBranch  string `yaml:"deploy_branch" toml:"deploy_branch" json:"deploy_branch"`
+	DeployTarget  string `yaml:"deploy_target" toml:"deploy_target" json:"deploy_target"`
+
 	// SanitizeHTML runs rendered content through an HTML sanitizer (bluemonday
 	// UGCPolicy) before it reaches the template, neutralising stored XSS from an
 	// untrusted mddb source (FE-005 / SEC-003). Default off (trusted local content).

@@ -112,6 +112,19 @@ zip: false           # Create ZIP archive of the output tree (Cloudflare Pages r
 targz: false         # Create gzip-compressed tarball (.tar.gz) of the output tree
 tarxz: false         # Create xz-compressed tarball (.tar.xz) of the output tree
 
+# Native publish (secrets ALWAYS come from the environment, never this file)
+deploy: ""           # "" (off) | cloudflare | github-pages | netlify | vercel | ftp | sftp
+deploy_project: ""   # Pages/site/project name (cloudflare, netlify, vercel)
+deploy_branch: ""    # Target branch (cloudflare, github-pages; default gh-pages)
+deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git remote URL
+# Required env per provider:
+#   cloudflare   → CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+#   github-pages → GITHUB_TOKEN (https remotes) or an SSH key
+#   netlify      → NETLIFY_AUTH_TOKEN (site via deploy_project or NETLIFY_SITE_ID)
+#   vercel       → VERCEL_TOKEN, VERCEL_ORG_ID (project via deploy_project)
+#   ftp          → FTP_USERNAME, FTP_PASSWORD
+#   sftp         → SSH_USERNAME, SSH_PASSWORD or SSH_KEY_FILE (host in known_hosts)
+
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder
 # shortcode_brackets: false  # Also match [name] syntax (WordPress-style, default: false)

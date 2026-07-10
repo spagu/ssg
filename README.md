@@ -56,11 +56,13 @@ Use SSG's embedded web server during development to instantly see changes to con
 ssg my-content krowy example.com --http --watch
 ```
 
-Then deploy to any static hosting:
-- **Cloudflare Pages** - Zero-config with our example workflow
-- **GitHub Pages** - Direct push deployment
-- **Netlify, Vercel** - Drag and drop or Git integration
-- **Any web server** - Just copy the output folder
+Then let SSG **publish it for you** with `--deploy=` (native, no external CLI):
+- **Cloudflare Pages** - `--deploy=cloudflare` (Direct Upload API)
+- **GitHub Pages** - `--deploy=github-pages` (force-push to gh-pages)
+- **Netlify / Vercel** - `--deploy=netlify` / `--deploy=vercel` (deploy APIs)
+- **Any web server** - `--deploy=ftp` / `--deploy=sftp`, or just copy the output folder
+
+See [Publishing (native deploy)](#-publishing-native-deploy) for details.
 
 ### Asset Processing
 
@@ -813,26 +815,37 @@ output/
 
 ## 🔧 Template Engines
 
-SSG renders templates with the Go (`html/template`) engine.
+SSG renders templates with the Go (`html/template`) engine by default, and can also
+render themes authored in Pongo2, Mustache, or Handlebars (GO-007).
 
 ### Available Engines
 
 | Engine | Flag | Status |
 |--------|------|--------|
-| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items` |
-| Pongo2 | `--engine=pongo2` | 🚧 Not yet implemented (rejected with an error) |
-| Mustache | `--engine=mustache` | 🚧 Not yet implemented (rejected with an error) |
-| Handlebars | `--engine=handlebars` | 🚧 Not yet implemented (rejected with an error) |
+| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items`, full FuncMap + template inheritance |
+| Pongo2 (Jinja2/Django) | `--engine=pongo2` (aliases `jinja2`, `django`) | ✅ Supported — `{{ var }}`, `{% for %}`, filters |
+| Mustache | `--engine=mustache` | ✅ Supported — logic-less `{{var}}` / `{{#section}}` |
+| Handlebars | `--engine=handlebars` | ✅ Supported — `{{var}}`, `{{#each}}`, helpers |
 
-> **Note:** Only the Go engine is currently wired into the rendering pipeline.
-> Passing `--engine=pongo2`, `--engine=mustache`, or `--engine=handlebars` fails fast
-> with a clear "not yet implemented" error rather than silently rendering with Go.
+> **Note:** Non-Go engines render the theme's **own** templates verbatim in that engine's
+> syntax — they do **not** get the Go `html/template` FuncMap or block inheritance. Ship an
+> alt-engine theme with templates written for that engine; the same page context
+> (`.Page`, `.Site`, `.Posts`, `.Domain`, `.Vars`, `.Data`, …) is exposed to all of them.
 
 ### Usage Examples
 
 ```bash
 # Use the Go engine (default)
 ssg my-content mytheme example.com --engine=go
+
+# Render a Jinja2/Django-style theme
+ssg my-content mytheme example.com --engine=pongo2
+
+# Logic-less Mustache theme
+ssg my-content mytheme example.com --engine=mustache
+
+# Handlebars theme
+ssg my-content mytheme example.com --engine=handlebars
 ```
 
 ### Online Themes
@@ -965,6 +978,15 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `zip` | Create ZIP file | ❌ | `false` |
 | `minify` | Minify HTML, CSS, and JS | ❌ | `false` |
 | `clean` | Clean output directory before build | ❌ | `false` |
+| `engine` | Template engine: `go`, `pongo2`, `mustache`, `handlebars` | ❌ | `go` |
+| `online-theme` | Download a theme from a URL | ❌ | - |
+| `deploy` | Native deploy: `cloudflare`, `github-pages`, `netlify`, `vercel`, `ftp`, `sftp` | ❌ | - |
+| `deploy-project` | Pages/site/project name (cloudflare, netlify, vercel) | ❌ | - |
+| `deploy-branch` | Target branch (cloudflare, github-pages) | ❌ | - |
+| `deploy-target` | ftp/sftp URL or git remote | ❌ | - |
+
+> Deploy secrets (`CLOUDFLARE_API_TOKEN`, `NETLIFY_AUTH_TOKEN`, `VERCEL_TOKEN`, `FTP_PASSWORD`, …)
+> are read from the job `env:` — pass them as GitHub secrets, never as `with:` inputs.
 
 ### Action Outputs
 
@@ -974,42 +996,74 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `zip-file` | Path to ZIP file (if --zip used) |
 | `zip-size` | Size of ZIP file in bytes |
 
-### Deploy to Cloudflare Pages
+## 🚀 Publishing (native deploy)
+
+SSG can publish the generated site **itself** — no `wrangler`, `netlify-cli`, `vercel`,
+or `rsync` required. Pick a provider with `--deploy=` and SSG uploads the output tree
+directly. **All secrets come from the environment**, never the config file.
+
+| Provider | `--deploy=` | Needs | Environment |
+|----------|-------------|-------|-------------|
+| Cloudflare Pages | `cloudflare` | `--deploy-project=<pages-project>` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| GitHub Pages | `github-pages` | `--deploy-target=<git-remote>` (or repo `origin`) | `GITHUB_TOKEN` (https) or an SSH key |
+| Netlify | `netlify` | `--deploy-project=<site-id>` | `NETLIFY_AUTH_TOKEN` (or `NETLIFY_SITE_ID`) |
+| Vercel | `vercel` | `--deploy-project=<project>` | `VERCEL_TOKEN`, `VERCEL_ORG_ID` |
+| FTP | `ftp` | `--deploy-target=ftp://host/path` | `FTP_USERNAME`, `FTP_PASSWORD` |
+| SFTP/SSH | `sftp` | `--deploy-target=sftp://user@host/path` | `SSH_PASSWORD` or `SSH_KEY_FILE` (host must be in `known_hosts`) |
+
+```bash
+# Cloudflare Pages (Direct Upload API — hashes files, uploads only what changed)
+export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…
+ssg my-content krowy example.com --deploy=cloudflare --deploy-project=my-site
+
+# GitHub Pages — force-pushes the output as a single commit to gh-pages
+export GITHUB_TOKEN=…
+ssg my-content krowy example.com \
+  --deploy=github-pages --deploy-target=https://github.com/user/repo.git
+
+# Netlify (digest-based deploy API) / Vercel (files + deployment API)
+NETLIFY_AUTH_TOKEN=… ssg my-content krowy example.com --deploy=netlify --deploy-project=<site-id>
+VERCEL_TOKEN=…       ssg my-content krowy example.com --deploy=vercel  --deploy-project=<project>
+
+# Any host over FTP or SFTP (SFTP verifies the host key against ~/.ssh/known_hosts)
+FTP_PASSWORD=…  ssg my-content krowy example.com --deploy=ftp  --deploy-target=ftp://user@ftp.example.com/public_html
+SSH_KEY_FILE=~/.ssh/id_ed25519 ssg my-content krowy example.com --deploy=sftp --deploy-target=sftp://deploy@example.com/var/www
+```
+
+Deploy runs **after** the build (and after any `--webp`/`--zip`), so it always ships
+the final, processed output. The provider name can also be set in config as `deploy:`.
+
+### Deploy from CI (GitHub Actions)
+
+The same flags work in CI — set the provider secrets as repository secrets:
 
 {% raw %}
 ```yaml
 name: Deploy
-
 on:
   push:
     branches: [main]
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: Generate site
-        id: ssg
+      - name: Build and deploy
         uses: spagu/ssg@v1
         with:
           source: 'my-content'
           template: 'krowy'
           domain: 'example.com'
           webp: 'true'
-
-      - name: Deploy to Cloudflare
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'my-site'
-          directory: ${{ steps.ssg.outputs.output-path }}
+          deploy: 'cloudflare'
+          deploy-project: 'my-site'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
 {% endraw %}
 
-> **📁 Complete workflow examples** are available in [`examples/workflows/`](examples/workflows/).
+> **📁 More workflow examples** are in [`examples/workflows/`](examples/workflows/).
 
 ## 📁 Project Structure
 

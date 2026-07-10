@@ -9,7 +9,9 @@ require (
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/cbroglie/mustache v1.4.0
 	github.com/flosch/pongo2/v6 v6.0.0
+	github.com/jlaffaye/ftp v0.2.1
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/pkg/sftp v1.13.10
 	github.com/quic-go/quic-go v0.60.0
 	github.com/ulikunitz/xz v0.5.15
 	github.com/yuin/goldmark v1.8.2
@@ -19,6 +21,7 @@ require (
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (
@@ -26,6 +29,8 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

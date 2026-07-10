@@ -62,11 +62,27 @@ inputs:
     required: false
     default: "false"
   engine:
-    description: "Template engine (only 'go' is implemented; others are rejected)"
+    description: "Template engine: go (default), pongo2, mustache, or handlebars"
     required: false
     default: "go"
   online-theme:
     description: "Download theme from URL (GitHub, GitLab, or direct ZIP)"
+    required: false
+    default: ""
+  deploy:
+    description: "Native deploy provider: cloudflare | github-pages | netlify | vercel | ftp | sftp (secrets via env)"
+    required: false
+    default: ""
+  deploy-project:
+    description: "Pages/site/project name (cloudflare, netlify, vercel)"
+    required: false
+    default: ""
+  deploy-branch:
+    description: "Target branch for cloudflare/github-pages (default gh-pages)"
+    required: false
+    default: ""
+  deploy-target:
+    description: "ftp/sftp URL or git remote for github-pages"
     required: false
     default: ""
 
@@ -199,6 +215,10 @@ runs:
         IN_CLEAN: ${{ inputs.clean }}
         IN_ENGINE: ${{ inputs.engine }}
         IN_ONLINE_THEME: ${{ inputs.online-theme }}
+        IN_DEPLOY: ${{ inputs.deploy }}
+        IN_DEPLOY_PROJECT: ${{ inputs.deploy-project }}
+        IN_DEPLOY_BRANCH: ${{ inputs.deploy-branch }}
+        IN_DEPLOY_TARGET: ${{ inputs.deploy-target }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
@@ -211,6 +231,10 @@ runs:
         case "$IN_ENGINE" in
           ""|go|pongo2|mustache|handlebars) ;;
           *) echo "::error::Invalid engine: $IN_ENGINE"; exit 1 ;;
+        esac
+        case "$IN_DEPLOY" in
+          ""|cloudflare|github-pages|netlify|vercel|ftp|sftp) ;;
+          *) echo "::error::Invalid deploy provider: $IN_DEPLOY"; exit 1 ;;
         esac
 
         # Build flags as an array (never a space-joined string).
@@ -232,6 +256,13 @@ runs:
         fi
         if [[ -n "$IN_ONLINE_THEME" ]]; then
           FLAGS+=(--online-theme="$IN_ONLINE_THEME")
+        fi
+        # Native deploy (secrets are read from the job environment by the ssg binary).
+        if [[ -n "$IN_DEPLOY" ]]; then
+          FLAGS+=(--deploy="$IN_DEPLOY")
+          [[ -n "$IN_DEPLOY_PROJECT" ]] && FLAGS+=(--deploy-project="$IN_DEPLOY_PROJECT")
+          [[ -n "$IN_DEPLOY_BRANCH" ]] && FLAGS+=(--deploy-branch="$IN_DEPLOY_BRANCH")
+          [[ -n "$IN_DEPLOY_TARGET" ]] && FLAGS+=(--deploy-target="$IN_DEPLOY_TARGET")
         fi
 
         # Check if content directory exists

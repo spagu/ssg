@@ -25,8 +25,22 @@ formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP
   (`archive/tar` + `compress/gzip`; `github.com/ulikunitz/xz`).
 - ✨ **HTML sanitization (FE-005)** — `--sanitize-html` / `sanitize_html: true` runs raw
   HTML in markdown through the bluemonday UGC policy.
+- 🚀 **Native deploy (`--deploy=`)** — SSG publishes the output tree itself, no external
+  CLI. Providers: **Cloudflare Pages** (Direct Upload API — blake3 manifest, upload only
+  what changed), **GitHub Pages** (force-push to `gh-pages`), **Netlify** (digest deploy
+  API), **Vercel** (files + deployments API), **FTP**, and **SFTP/SSH** (host-key verified
+  against `known_hosts`). Flags `--deploy-project`/`--deploy-branch`/`--deploy-target`; all
+  secrets come from the environment, never the config file. Runs after build + webp/zip.
 - 🧱 **ARM improvements** — `linux/arm/v7` (GOARM=7) release binary + Docker platform;
   multi-arch cross-compile via buildx `TARGETARCH`/`TARGETVARIANT`.
+- 🔤 **Template engines documented as shipping** — README/CLI now correctly list pongo2,
+  mustache and handlebars as supported (they render the theme's own templates; GO-007).
+
+### Changed
+- ♻️ **Flag parsing refactor** — boolean and simple string `--flag=value` options are now
+  table-driven; the value switch is split into focused helpers (resolves SonarCloud
+  S1479/S3776/S1192, keeps each function under the complexity budget).
+- ♻️ **`build()` split** into `runWebP` / `runArchives` / `runDeploy` helpers.
 
 ### Fixed
 - 🔧 **OPS-009** — homebrew tap push uses an `http.extraheader` auth header instead of
@@ -38,15 +52,19 @@ formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP
   `simple` 5.65:1).
 - 🔧 **FE-006 / FE-008** — OpenGraph/meta locale corrected to `en_US` / `en-US`; schema
   description de-hardcoded to `{{.Domain}}`.
+- 🔒 **SonarCloud S5445** — the autocert cache (Let's Encrypt private keys) no longer falls
+  back to the shared, world-predictable system temp dir; it uses per-user cache/home paths.
 
 ### Docs
 - 📚 **DOC-001** — `docs/STYLES.md` documents theme palettes with contrast ratios.
 - 📚 **DOC-006** — `SECURITY.md` Supported Versions refreshed to the 1.8.x line.
 
 ### Testing
-- ✅ Coverage raised on the packages below 96%: `cmd/ssg` 65→79%, `internal/webp` 92→96.5%,
+- ✅ Coverage raised on the packages below 96%: `cmd/ssg` 65→80%, `internal/webp` 92→96.5%,
   `internal/generator` 89→91.7%, `internal/theme` 94.8→95.5%. Added server, archive, mddb
   (mock-server), sanitizer and WebP responsive-variant tests.
+- ✅ New `internal/deploy` package tested with mock HTTP servers (Cloudflare/Netlify/Vercel),
+  a local bare-repo git push (GitHub Pages), manifest/hash and URL/credential unit tests.
 
 ## [1.8.0] - 2026-07-10
 
