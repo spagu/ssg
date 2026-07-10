@@ -31,7 +31,7 @@
                         <header class="post-header">
                             <h1 class="post-title">{{.Post.Title | decodeHTML}}</h1>
                             <div class="post-meta">
-                                <time class="post-date" datetime="{{.Post.Date.Format " 2006-01-02"}}">
+                                <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                                     {{formatDatePL .Post.Date}}
                                 </time>
                                 {{$authorName := getAuthorName .Post.Author}}

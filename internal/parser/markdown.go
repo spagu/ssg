@@ -21,6 +21,8 @@ type markdownParser struct {
 	inContent        bool
 	inExcerpt        bool
 	frontmatterEnded bool
+	decided          bool // whether the opening delimiter has been resolved
+	noFrontmatter    bool // file has no opening "---": whole file is content (GO-009)
 }
 
 // ParseMarkdownFile parses a markdown file with YAML frontmatter
@@ -47,6 +49,23 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 
 // processLine handles a single line during parsing
 func (p *markdownParser) processLine(line string) {
+	// On the first non-blank line decide whether the file opens with frontmatter.
+	// A file that does not start with "---" would otherwise have every line
+	// dropped, silently yielding empty content (GO-009); instead treat the whole
+	// file as content. Leading blank lines before "---" are tolerated as before.
+	if !p.decided {
+		if strings.TrimSpace(line) == "" {
+			return
+		}
+		p.decided = true
+		if strings.TrimSpace(line) != "---" {
+			p.noFrontmatter = true
+			p.frontmatterEnded = true
+			p.processContentLine(line)
+			return
+		}
+	}
+
 	if p.handleFrontmatterDelimiter(line) {
 		return
 	}
@@ -116,6 +135,13 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 	page.Excerpt = strings.TrimSpace(p.excerpt.String())
 	page.Content = strings.TrimSpace(p.content.String())
 
+	// A file with no frontmatter has no status and would be skipped by the
+	// generator (which keeps only status == "publish"). Treat such a plain
+	// content file as published instead of silently dropping it (GO-009).
+	if p.noFrontmatter && page.Status == "" {
+		page.Status = "publish"
+	}
+
 	// Copy extra fields (those not in the struct)
 	page.Extra = extractExtraFields(allFields)
 
@@ -128,7 +154,7 @@ var knownFields = map[string]bool{
 	"status": true, "type": true, "link": true, "author": true, "categories": true,
 	"description": true, "keywords": true, "lang": true, "canonical": true,
 	"robots": true, "featured_image": true, "tags": true, "category": true,
-	"layout": true, "template": true, "sitemap": true,
+	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -169,7 +195,9 @@ type PageFrontmatter struct {
 	FeaturedImage string   `yaml:"featured_image"`
 	Tags          []string `yaml:"tags,omitempty"`
 	Category      string   `yaml:"category"`
-	Sitemap       string   `yaml:"sitemap"` // "no" excludes the page from sitemap.xml (GO-003)
+	Sitemap       string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
+	Aliases       []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
+	Series        string   `yaml:"series,omitempty"`  // series grouping (AX-005)
 
 	// Template selection
 	Layout   string `yaml:"layout"`
@@ -286,6 +314,8 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Tags:          pf.Tags,
 		Category:      pf.Category,
 		Sitemap:       pf.Sitemap,
+		Aliases:       pf.Aliases,
+		Series:        pf.Series,
 		// Template selection
 		Layout:   pf.Layout,
 		Template: pf.Template,

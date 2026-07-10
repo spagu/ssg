@@ -7,6 +7,8 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,7 +37,6 @@ func main() {
 	validateRequiredFields(args, cfg)
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
-	warnUnimplementedFlags(cfg)
 	downloadOnlineTheme(cfg)
 
 	genCfg := createGeneratorConfig(cfg)
@@ -57,14 +58,6 @@ func applyMinifyAll(cfg *config.Config) {
 		cfg.MinifyHTML = true
 		cfg.MinifyCSS = true
 		cfg.MinifyJS = true
-	}
-}
-
-// warnUnimplementedFlags warns about flags that are accepted for compatibility
-// but do nothing yet, so the CLI does not silently ignore them (GO-004).
-func warnUnimplementedFlags(cfg *config.Config) {
-	if cfg.SourceMap && !cfg.Quiet {
-		fmt.Fprintln(os.Stderr, "⚠️  --sourcemap is accepted but not yet implemented; no source maps will be emitted")
 	}
 }
 
@@ -93,19 +86,64 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 	}
 }
 
-// runWatchLoop continuously watches for file changes and rebuilds
+// runWatchLoop continuously watches for file changes and rebuilds. Rebuilds are
+// gated on a content signature so that touch-only events (mtime bumped, bytes
+// unchanged) do not trigger redundant work — a conservative first increment of
+// incremental builds where any real change still triggers a full, correct rebuild
+// (PLAT-006).
 func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
+	dirs := watchDirs(cfg)
 	lastBuild := time.Now()
+	lastSig := contentSignature(dirs)
 
 	for {
 		time.Sleep(1 * time.Second)
-		if hasChanges([]string{cfg.ContentDir, cfg.TemplatesDir}, lastBuild) {
-			lastBuild = rebuildOnChange(genCfg, cfg)
+		if !hasChanges(dirs, lastBuild) {
+			continue
 		}
+		sig := contentSignature(dirs)
+		if sig == lastSig {
+			// mtime changed but bytes did not — skip the rebuild (PLAT-006).
+			lastBuild = time.Now()
+			continue
+		}
+		lastSig = sig
+		lastBuild = rebuildOnChange(genCfg, cfg)
 	}
+}
+
+// watchDirs returns the directories watched for changes (content, templates, data).
+func watchDirs(cfg *config.Config) []string {
+	dirs := []string{cfg.ContentDir, cfg.TemplatesDir}
+	if cfg.DataDir != "" {
+		dirs = append(dirs, cfg.DataDir)
+	}
+	return dirs
+}
+
+// contentSignature returns a hash of the bytes of every file under dirs, so a
+// rebuild can be skipped when nothing actually changed (PLAT-006). Deterministic:
+// filepath.Walk visits entries in lexical order.
+func contentSignature(dirs []string) string {
+	h := sha256.New()
+	for _, dir := range dirs {
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error { // #nosec G703 -- best-effort watch signature
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			data, rerr := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own content dirs; path from local Walk
+			if rerr != nil {
+				return nil
+			}
+			_, _ = fmt.Fprintf(h, "%s:%d:", path, len(data))
+			_, _ = h.Write(data)
+			return nil
+		})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // runMddbWatchLoop continuously polls MDDB checksum and rebuilds on changes
@@ -340,8 +378,19 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		PagesPath:         cfg.PagesPath,
 		PostsPath:         cfg.PostsPath,
 		StaticDir:         cfg.StaticDir,
+		DataDir:           cfg.DataDir,
 		RewriteMdLinks:    cfg.RewriteMdLinks,
 		PreserveSlugCase:  cfg.PreserveSlugCase,
+		Permalinks:        cfg.Permalinks,
+		LastmodFromGit:    cfg.LastmodFromGit,
+		Fingerprint:       cfg.Fingerprint,
+		ImageSizes:        cfg.ImageSizes,
+		ImageSizesAttr:    cfg.ImageSizesAttr,
+		Math:              cfg.Math,
+		Paginate:          cfg.Paginate,
+		Languages:         cfg.Languages,
+		DefaultLanguage:   cfg.DefaultLanguage,
+		Hooks:             cfg.Hooks,
 		Mddb: generator.MddbConfig{
 			Enabled:       cfg.Mddb.Enabled,
 			URL:           cfg.Mddb.URL,
@@ -403,6 +452,12 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.MinifyJS = true
 	case "--sourcemap":
 		cfg.SourceMap = true
+	case "--fingerprint":
+		cfg.Fingerprint = true
+	case "--lastmod-from-git":
+		cfg.LastmodFromGit = true
+	case "--math":
+		cfg.Math = true
 	case "--clean":
 		cfg.Clean = true
 	case "--quiet", "-q":
@@ -444,6 +499,44 @@ func parseValueFlags(args []string, i int, cfg *config.Config) int {
 	return skip
 }
 
+// parseIntList parses a comma-separated list of positive integers (e.g. "480,960").
+// Invalid or non-positive entries are skipped.
+func parseIntList(s string) []int {
+	var out []int
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if n, err := strconv.Atoi(part); err == nil && n > 0 {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// splitCSV splits a comma-separated string into trimmed, non-empty tokens.
+func splitCSV(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// setPermalink records a permalink pattern for a content type, initializing the map.
+func setPermalink(cfg *config.Config, typ, pattern string) {
+	if pattern == "" {
+		return
+	}
+	if cfg.Permalinks == nil {
+		cfg.Permalinks = make(map[string]string)
+	}
+	cfg.Permalinks[typ] = pattern
+}
+
 // parseEqualFlags handles --flag=value format
 func parseEqualFlags(arg string, cfg *config.Config) {
 	switch {
@@ -465,6 +558,24 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		cfg.OutputDir = strings.TrimPrefix(arg, "--output-dir=")
 	case strings.HasPrefix(arg, "--static-dir="):
 		cfg.StaticDir = strings.TrimPrefix(arg, "--static-dir=")
+	case strings.HasPrefix(arg, "--data-dir="):
+		cfg.DataDir = strings.TrimPrefix(arg, "--data-dir=")
+	case strings.HasPrefix(arg, "--image-sizes="):
+		cfg.ImageSizes = parseIntList(strings.TrimPrefix(arg, "--image-sizes="))
+	case strings.HasPrefix(arg, "--image-sizes-attr="):
+		cfg.ImageSizesAttr = strings.TrimPrefix(arg, "--image-sizes-attr=")
+	case strings.HasPrefix(arg, "--permalink-post="):
+		setPermalink(cfg, "post", strings.TrimPrefix(arg, "--permalink-post="))
+	case strings.HasPrefix(arg, "--permalink-page="):
+		setPermalink(cfg, "page", strings.TrimPrefix(arg, "--permalink-page="))
+	case strings.HasPrefix(arg, "--paginate="):
+		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--paginate=")); err == nil && n >= 0 {
+			cfg.Paginate = n
+		}
+	case strings.HasPrefix(arg, "--languages="):
+		cfg.Languages = splitCSV(strings.TrimPrefix(arg, "--languages="))
+	case strings.HasPrefix(arg, "--default-language="):
+		cfg.DefaultLanguage = strings.TrimPrefix(arg, "--default-language=")
 	case strings.HasPrefix(arg, "--engine="):
 		cfg.Engine = strings.TrimPrefix(arg, "--engine=")
 	case strings.HasPrefix(arg, "--online-theme="):
@@ -658,6 +769,7 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 			Quality: cfg.WebPQuality,
 			Quiet:   cfg.Quiet,
 			Force:   cfg.ReconvertImages,
+			Sizes:   cfg.ImageSizes,
 		}
 
 		converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
@@ -667,6 +779,11 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 
 		if err := webp.UpdateReferences(cfg.OutputDir); err != nil {
 			return fmt.Errorf("updating image references: %w", err)
+		}
+
+		// Emit responsive srcset/sizes for images that have variants (ASSET-004).
+		if err := webp.EmitSrcset(cfg.OutputDir, cfg.ImageSizes, cfg.ImageSizesAttr); err != nil {
+			return fmt.Errorf("emitting responsive srcset: %w", err)
 		}
 
 		if !cfg.Quiet && converted > 0 {
@@ -837,12 +954,21 @@ func printUsage() {
 	fmt.Println("  --minify-html          - Minify HTML output")
 	fmt.Println("  --minify-css           - Minify CSS output")
 	fmt.Println("  --minify-js            - Minify JS output")
-	fmt.Println("  --sourcemap            - (not yet implemented) Reserved for source map output")
+	fmt.Println("  --sourcemap            - Emit v3 source maps (*.js.map/*.css.map) for minified JS/CSS")
+	fmt.Println("  --fingerprint          - Content-hash CSS/JS names + manifest for immutable caching")
+	fmt.Println("  --lastmod-from-git     - Derive sitemap <lastmod> from each file's last git commit")
+	fmt.Println("  --permalink-post=PAT   - Post URL pattern, tokens :year :month :day :slug :category")
+	fmt.Println("  --permalink-page=PAT   - Page URL pattern (same tokens)")
+	fmt.Println("")
+	fmt.Println("Authoring:")
+	fmt.Println("  --math                 - Render math: inject KaTeX only on pages containing $$…$$")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
 	fmt.Println("  --reconvert-images     - Force reconvert even if WebP already exists")
+	fmt.Println("  --image-sizes=A,B,C    - Responsive widths (px) → WebP variants + srcset (e.g. 480,960,1600)")
+	fmt.Println("  --image-sizes-attr=VAL - Value of the generated sizes attribute (default: 100vw)")
 	fmt.Println("")
 	fmt.Println("Deployment:")
 	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages")
@@ -852,6 +978,7 @@ func printUsage() {
 	fmt.Println("  --templates-dir=PATH   - Templates directory (default: templates)")
 	fmt.Println("  --output-dir=PATH      - Output directory (default: output)")
 	fmt.Println("  --static-dir=PATH      - Static passthrough directory copied verbatim to output (default: static)")
+	fmt.Println("  --data-dir=PATH        - Data files dir (*.yaml|*.json) exposed as .Data.* (default: data)")
 	fmt.Println("")
 	fmt.Println("Other:")
 	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")

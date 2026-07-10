@@ -29,9 +29,11 @@ BUILD_DIR=build
 CMD_DIR=cmd/ssg
 GO=go
 GOFLAGS=-v
-LDFLAGS=-s -w
+# Single source of truth for the version (audit DOC-005).
+VERSION := $(shell cat VERSION 2>/dev/null)
+LDFLAGS=-s -w -X main.Version=$(VERSION)
 
-.PHONY: all build clean test lint run help deps tidy generate release test-action
+.PHONY: all build clean test lint run help deps tidy generate release test-action version-sync version-check
 
 # Default target
 all: deps lint test build ## 🚀 Run all: deps, lint, test, build
@@ -54,6 +56,12 @@ tidy: ## 🧹 Tidy go modules
 	@echo "${BLUE}🧹 Tidying go modules...${RESET}"
 	@$(GO) mod tidy
 	@echo "${GREEN}✅ Modules tidied${RESET}"
+
+version-sync: ## 🔖 Propagate ./VERSION into all packaging manifests (DOC-005)
+	@bash scripts/sync-version.sh
+
+version-check: ## 🔎 Fail if any packaging manifest drifts from ./VERSION
+	@bash scripts/sync-version.sh --check
 
 # Build
 build: ## 🔨 Build the binary

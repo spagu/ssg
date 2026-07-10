@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -323,6 +325,33 @@ func (c *Client) Checksum(collection string) (*ChecksumResponse, error) {
 	return &checksumResp, nil
 }
 
+// ensureSecureForAPIKey refuses to attach a Bearer API key over plaintext http://
+// to a non-loopback host, preventing credential leakage over untrusted networks
+// (SEC-007). https:// and loopback hosts (localhost, 127.0.0.0/8, ::1) are allowed.
+func ensureSecureForAPIKey(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("parsing mddb URL %q: %w", rawURL, err)
+	}
+	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to send API key over plaintext %s:// to non-loopback host %q; use https://",
+		u.Scheme, u.Hostname())
+}
+
+// isLoopbackHost reports whether host is localhost or a loopback IP.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" || host == "" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
 // doRequest performs an HTTP request to the mddb server
 func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response, error) {
 	url := c.baseURL + endpoint
@@ -341,6 +370,9 @@ func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response
 	req.Header.Set("Accept", "application/json")
 
 	if c.apiKey != "" {
+		if err := ensureSecureForAPIKey(c.baseURL); err != nil {
+			return nil, err
+		}
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 

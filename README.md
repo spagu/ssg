@@ -275,7 +275,18 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--minify-html` | Minify HTML output |
 | `--minify-css` | Minify CSS output |
 | `--minify-js` | Minify JS output |
-| `--sourcemap` | Include source maps in output |
+| `--sourcemap` | Emit v3 source maps (`*.js.map`/`*.css.map`) for minified JS/CSS (minification is line-preserving so mappings are exact) |
+| `--fingerprint` | Content-hash CSS/JS to `name.<hash8>.ext` + `assets-manifest.json`, rewriting references in HTML/CSS (immutable caching) |
+| `--paginate=N` | Posts per index page; adds `/page/N/` + a `.Pager` context. `0` = disabled (default) |
+| `--lastmod-from-git` | Derive sitemap `<lastmod>` from each source file's last git commit (fallback: `modified`/`date`) |
+| `--permalink-post=PAT` | Post URL pattern with tokens `:year :month :day :slug :category` (e.g. `/:year/:month/:slug/`) |
+| `--permalink-page=PAT` | Page URL pattern (same tokens) |
+
+**Authoring:**
+
+| Option | Description |
+|--------|-------------|
+| `--math` | Opt-in math: detects `$$…$$` / ` ```math ` and injects KaTeX only on pages that use it |
 
 **Skip Minification:**
 
@@ -297,6 +308,8 @@ flowchart TD
 |--------|-------------|
 | `--webp` | Convert images to WebP format (requires `cwebp`) |
 | `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
+| `--image-sizes=A,B,C` | Responsive widths (px) → WebP variants + `<img srcset>` (no upscaling), e.g. `480,960,1600` |
+| `--image-sizes-attr=VAL` | Value of the generated `sizes` attribute (default: `100vw`) |
 
 **Deployment:**
 
@@ -312,6 +325,14 @@ flowchart TD
 | `--templates-dir=PATH` | Templates directory (default: `templates`) |
 | `--output-dir=PATH` | Output directory (default: `output`) |
 | `--static-dir=PATH` | Static passthrough directory copied verbatim to output (default: `static`) |
+| `--data-dir=PATH` | Data files dir (`*.yaml`/`*.json`) exposed as `.Data.*` (default: `data`) |
+
+**Internationalization:**
+
+| Option | Description |
+|--------|-------------|
+| `--languages=pl,en` | Enable multilingual output; non-default languages are emitted under `/<lang>/…` with `hreflang` alternates |
+| `--default-language=pl` | The default language (not prefixed in URLs) |
 
 **Template Engine:**
 
@@ -341,6 +362,148 @@ flowchart TD
 | `--quiet`, `-q` | Suppress output (only exit codes) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
+
+### New in v1.8.0
+
+All features below are **opt-in** behind a config key or flag; the default build is unchanged.
+
+#### Configurable permalinks (migration)
+
+Preserve or remap WordPress URL structure. Tokens: `:year :month :day :slug :category`.
+
+```yaml
+permalinks:
+  post: "/:year/:month/:slug/"
+  page: "/:slug/"
+```
+
+The frontmatter `link:` field still takes priority over any pattern, and all expanded paths
+are sanitized (cannot escape the output directory).
+
+#### Frontmatter aliases (redirects)
+
+```yaml
+# in a post/page frontmatter
+aliases:
+  - /old/permalink/
+  - /2019/legacy-path/
+```
+
+Each alias becomes a `meta-refresh` + `<link rel="canonical">` + `noindex` stub pointing at the
+page's canonical URL. Aliases are excluded from `sitemap.xml`; a collision with a real page is
+skipped with a warning.
+
+#### Pagination
+
+```yaml
+paginate: 10
+```
+
+Page 1 is the site root; pages 2…N are written to `/page/N/`. Templates receive a `.Pager`:
+
+```html
+{{if gt .Pager.Total 1}}
+  {{if .Pager.PrevURL}}<a rel="prev" href="{{.Pager.PrevURL}}">Prev</a>{{end}}
+  <span>Page {{.Pager.Current}} / {{.Pager.Total}}</span>
+  {{if .Pager.NextURL}}<a rel="next" href="{{.Pager.NextURL}}">Next</a>{{end}}
+{{end}}
+```
+
+#### Reading time & word count
+
+Exposed to every engine as `.WordCount` and `.ReadingTime` (minutes, 200 wpm):
+
+```html
+<span>{{.ReadingTime}} min read · {{.WordCount}} words</span>
+```
+
+#### Source maps
+
+`--sourcemap` (with `--minify-js`/`--minify-css`) emits real v3 `*.js.map` / `*.css.map`
+alongside minified assets. Minification becomes line-preserving so the mapping is exact and
+the original source is embedded (`sourcesContent`).
+
+#### Asset fingerprinting (cache busting)
+
+```yaml
+fingerprint: true
+```
+
+Renames CSS/JS to `name.<hash8>.ext`, writes `assets-manifest.json`, and rewrites references in
+HTML and inside CSS (`url()` / `@import`, hashed in dependency order). Two identical builds
+produce byte-identical names. Recommended headers: hashed assets
+`Cache-Control: public, max-age=31536000, immutable`; HTML `no-cache`.
+
+#### Responsive images
+
+```yaml
+webp: true
+image_sizes: [480, 960, 1600]
+image_sizes_attr: "100vw"
+```
+
+For each image the WebP pipeline emits `name-<width>.webp` variants (never upscaling) and adds
+`srcset`/`sizes` to `<img>` tags, keeping the original as the fallback `src`.
+
+#### Math (KaTeX)
+
+```yaml
+math: true
+```
+
+Pages containing `$$…$$` (or ` ```math ` blocks) get KaTeX assets injected **only where needed**;
+`.HasMath` is exposed to templates. Display math uses `$$…$$`, inline uses `\(…\)` (so `$` for
+currency is safe).
+
+#### Series
+
+```yaml
+# in a post frontmatter
+series: "Learn Go"
+```
+
+Generates a `/series/{slug}/` landing page (`series.html`, falling back to `category.html`) and
+exposes `.SeriesPrevURL` / `.SeriesPrevTitle` / `.SeriesNextURL` / `.SeriesNextTitle`.
+
+#### Data files
+
+Files under `data/` (`*.yaml`, `*.yml`, `*.json`) are loaded into `.Data.*`, nested by
+subdirectory — `data/authors/bob.yaml` → `{{.Data.authors.bob.name}}`.
+
+#### Internationalization
+
+```yaml
+languages: ["pl", "en"]
+default_language: "pl"
+```
+
+Non-default languages are emitted under `/<lang>/…`. Templates receive `.Lang`, `.Languages`,
+`.DefaultLanguage`, `.Translations` (for a language switcher) and `.Hreflang` (ready-to-drop
+`<link rel="alternate" hreflang>` markup incl. `x-default`).
+
+#### Build hooks
+
+```yaml
+hooks:
+  pre_build:  ["./scripts/prepare.sh"]
+  post_build: ["./scripts/deploy.sh"]
+  post_page:  []
+```
+
+> ⚠️ **Security:** hooks run as **local, trusted config only** — argv-split (no shell),
+> time-limited (60 s), and never sourced from content. Context is passed via the environment:
+> `SSG_OUTPUT_DIR`, `SSG_PHASE`, and `SSG_PAGE_PATH` (for `post_page`). `pre_build`/`post_build`
+> failures fail the build; `post_page` failures are logged and non-fatal.
+
+#### `lastmod` from git
+
+`--lastmod-from-git` (or `lastmod_from_git: true`) sets sitemap `<lastmod>` to each source
+file's last commit date, falling back to `modified`/`date` outside a git repo or for mddb content.
+
+#### Incremental watch
+
+`--watch` now hashes watched content and skips rebuilds when files were touched but their bytes
+did not change. Any real change still triggers a full, correct rebuild.
 
 ### Shortcodes
 

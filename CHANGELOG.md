@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - Unreleased
+
+First feature wave from the post-1.7.x roadmap (`audit/roadmap/`) plus a batch of audit
+fixes. Every new feature is opt-in behind a config flag; default behaviour is unchanged.
+
+### Added
+- ✨ **Configurable permalinks (SEO-001)** — `permalinks:` per content type with tokens
+  `:year :month :day :slug :category` (e.g. `/:year/:month/:slug/`); flags
+  `--permalink-post=` / `--permalink-page=`. Empty = current date/slug behaviour.
+- ✨ **Frontmatter aliases (SEO-002)** — `aliases: [/old/path/]` emits meta-refresh +
+  canonical + `noindex` redirect stubs, excluded from the sitemap; collisions are skipped.
+- ✨ **`--lastmod-from-git` (SEO-004)** — sitemap `<lastmod>` from each source file's last
+  git commit, with graceful fallback outside git or for mddb content.
+- ✨ **Reading time / word count (BLOG-006)** — `.WordCount` and `.ReadingTime` exposed to
+  all engines (markup stripped; 200 wpm, rounded up).
+- ✨ **Pagination (BLOG-003)** — `paginate: N` / `--paginate=N` splits the index into
+  `/page/N/` and adds a `.Pager` (Current/Total/PerPage/PrevURL/NextURL). `0` = disabled.
+- ✨ **Working source maps (BLOG-007 / GO-004)** — `--sourcemap` now truly emits v3
+  `*.js.map` / `*.css.map` (line-preserving minification → exact mappings); the flag is no
+  longer a no-op.
+- ✨ **Asset fingerprinting (ASSET-001)** — `fingerprint: true` / `--fingerprint`:
+  sha256 → `name.<hash8>.ext`, `assets-manifest.json`, reference rewrite in HTML and
+  CSS (`url()`/`@import`), deterministic across builds. Terminal asset step.
+- ✨ **Responsive images (ASSET-004)** — `image_sizes: [480,960,1600]` emits WebP variants
+  (no upscaling) and `<img srcset>`/`sizes`; `--image-sizes=` / `--image-sizes-attr=`.
+- ✨ **Math rendering (AX-004)** — `math: true` / `--math` detects `$$…$$` / ```` ```math ````
+  and injects KaTeX only on pages that use it (`.HasMath` exposed).
+- ✨ **Series (AX-005)** — `series:` frontmatter → `/series/{slug}/` landing pages
+  (`series.html`, fallback `category.html`) and `.SeriesPrev*/.SeriesNext*` navigation.
+- ✨ **Data files (PLAT-002)** — `data/*.yaml|*.json` loaded into `.Data.*` (nested by
+  subdirectory); `data_dir:` / `--data-dir=`.
+- ✨ **Build hooks (PLAT-001)** — `hooks:` `pre_build` / `post_build` / `post_page` exec
+  hooks (argv-split, no shell, 60 s timeout, trusted local config only), context via env
+  `SSG_OUTPUT_DIR` / `SSG_PHASE` / `SSG_PAGE_PATH`.
+- ✨ **i18n / multilingual (PLAT-005)** — `languages:` + `default_language:` produce
+  language-prefixed output (`/en/…`) with `.Translations`, `.Hreflang`, `.Languages`
+  context and `hreflang`/`x-default` alternates.
+- ✨ **Incremental watch (PLAT-006)** — `--watch` now gates rebuilds on a content
+  signature, skipping touch-only (mtime-but-not-bytes) events; any real change still
+  triggers a full, correct rebuild.
+- ✨ **Single source of version truth (DOC-005)** — `VERSION` file + `scripts/sync-version.sh`
+  (`--check`) propagate the version into every packaging manifest; FreeBSD/OpenBSD/deb/rpm/
+  brew/install.sh bumped to 1.7.15.
+
+### Security
+- 🔒 **mddb API key not sent over plaintext (SEC-007)** — the HTTP client refuses to attach
+  `Authorization: Bearer` over `http://` to a non-loopback host (https:// / loopback allowed).
+- 🔒 **gRPC transport security (SEC-004)** — the gRPC client selects TLS from the scheme
+  (`grpcs://`/`https://` → TLS; `grpc://`/`http://` → insecure; bare host → TLS unless
+  loopback) and refuses to send an API key over an insecure channel to a non-loopback host.
+
+### Fixed
+- 🐛 **No-frontmatter files no longer silently dropped (GO-009)** — a `.md` file without an
+  opening `---` is treated as published content instead of yielding empty output.
+- 🐛 **`datetime` attribute leading space (FE-009)** — `<time datetime>` in the krowy/imd
+  themes no longer emits `datetime=" 2026-…"` (invalid machine date).
+
+### Removed
+- 🧹 **`LICENSE.md` duplication (DOC-010)** — `LICENSE.md` is now a pointer to the canonical
+  `LICENSE` (BSD-3-Clause).
+
 ## [1.7.15] - 2026-07-09
 
 Audit hardening round: 5 security + 3 correctness fixes from the local audit backlog.

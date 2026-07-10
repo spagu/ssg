@@ -30,7 +30,37 @@ minify_all: false    # Minify HTML, CSS, and JS
 minify_html: false   # Minify only HTML
 minify_css: false    # Minify only CSS
 minify_js: false     # Minify only JS
-sourcemap: false     # Include source maps
+sourcemap: false     # Emit v3 source maps (*.js.map/*.css.map) for minified JS/CSS
+                     # (minification becomes line-preserving so mappings are exact)
+fingerprint: false   # Content-hash CSS/JS → name.<hash8>.ext + assets-manifest.json,
+                     # rewriting references in HTML and CSS (immutable caching)
+
+# SEO & Migration
+lastmod_from_git: false   # sitemap <lastmod> from each file's last git commit (fallback: modified/date)
+# permalinks:               # Configurable URL patterns per content type (default: date/slug)
+#   post: "/:year/:month/:slug/"   # tokens: :year :month :day :slug :category
+#   page: "/:slug/"
+# Per-page frontmatter: aliases: [/old/path/] → meta-refresh + canonical redirect stubs
+
+# Blog
+paginate: 0          # Posts per index page; 0 disables pagination (else adds /page/N/ + .Pager)
+
+# Authoring
+math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
+
+# Data files — data/*.yaml|*.json exposed to templates as {{.Data.*}} (nested by subdir)
+data_dir: "data"
+
+# i18n / multilingual — language-prefixed output (/en/…) + hreflang alternates
+# languages: ["pl", "en"]
+# default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
+
+# Build hooks — exec commands per lifecycle phase. TRUSTED LOCAL CONFIG ONLY: argv-split
+# (no shell), time-limited. Env: SSG_OUTPUT_DIR, SSG_PHASE, SSG_PAGE_PATH (post_page).
+# hooks:
+#   pre_build:  ["./scripts/prepare.sh"]
+#   post_build: ["./scripts/deploy.sh"]
+#   post_page:  []
 
 # Template Engine
 engine: "go"         # Options: go, pongo2, mustache, handlebars
@@ -41,6 +71,8 @@ engine: "go"         # Options: go, pongo2, mustache, handlebars
 webp: false          # Convert images to WebP
 webp_quality: 60     # Quality 1-100 (lower = smaller file)
 reconvert_images: false  # Force reconvert even if WebP already exists
+# image_sizes: [480, 960, 1600]  # Responsive widths (px): emit WebP variants + <img srcset> (no upscaling)
+# image_sizes_attr: "100vw"      # Value of the generated sizes attribute
 
 # Deployment
 zip: false           # Create ZIP for Cloudflare Pages

@@ -78,7 +78,24 @@ type Config struct {
 	MinifyHTML    bool   `yaml:"minify_html" toml:"minify_html" json:"minify_html"`
 	MinifyCSS     bool   `yaml:"minify_css" toml:"minify_css" json:"minify_css"`
 	MinifyJS      bool   `yaml:"minify_js" toml:"minify_js" json:"minify_js"`
-	SourceMap     bool   `yaml:"sourcemap" toml:"sourcemap" json:"sourcemap"`
+	// SourceMap emits v3 source maps (*.js.map / *.css.map) alongside minified
+	// JS/CSS, embedding the original source; minification is line-preserving so
+	// the mapping stays exact (GO-004 / BLOG-007). Requires the matching minify_*.
+	SourceMap bool `yaml:"sourcemap" toml:"sourcemap" json:"sourcemap"`
+
+	// Permalinks maps a content type ("post"/"page") to a URL pattern with tokens
+	// :year :month :day :slug :category (e.g. "/:year/:month/:slug/"). Empty =
+	// default date/slug behaviour, so this is not a breaking change (SEO-001).
+	Permalinks map[string]string `yaml:"permalinks" toml:"permalinks" json:"permalinks"`
+
+	// LastmodFromGit derives sitemap <lastmod> from each source file's last git
+	// commit date instead of frontmatter (SEO-004). Falls back gracefully outside
+	// a git repository or for content without a source file (e.g. mddb).
+	LastmodFromGit bool `yaml:"lastmod_from_git" toml:"lastmod_from_git" json:"lastmod_from_git"`
+
+	// Fingerprint renames CSS/JS to name.<hash8>.ext, writes a manifest and
+	// rewrites references in HTML and CSS for immutable caching (ASSET-001).
+	Fingerprint bool `yaml:"fingerprint" toml:"fingerprint" json:"fingerprint"`
 
 	// Shortcodes
 	Shortcodes        []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
@@ -111,6 +128,34 @@ type Config struct {
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`
 	ReconvertImages bool `yaml:"reconvert_images" toml:"reconvert_images" json:"reconvert_images"` // Force reconvert even if WebP exists
 
+	// ImageSizes lists responsive width presets (px). For each image the WebP
+	// pipeline emits a variant per width (no upscaling) and rewrites <img> with
+	// srcset/sizes (ASSET-004). Empty = single-size behaviour (unchanged).
+	ImageSizes []int `yaml:"image_sizes" toml:"image_sizes" json:"image_sizes"`
+	// ImageSizesAttr is the value of the generated sizes attribute (default "100vw").
+	ImageSizesAttr string `yaml:"image_sizes_attr" toml:"image_sizes_attr" json:"image_sizes_attr"`
+
+	// Math enables opt-in math rendering: math delimiters ($$…$$) are detected
+	// and KaTeX assets are injected only on pages that use them (AX-004).
+	Math bool `yaml:"math" toml:"math" json:"math"`
+
+	// Paginate sets posts-per-page for the index listing; 0 disables pagination
+	// (default), preserving the single-page index (BLOG-003).
+	Paginate int `yaml:"paginate" toml:"paginate" json:"paginate"`
+
+	// Languages / DefaultLanguage enable language-aware output trees with hreflang
+	// alternates (PLAT-005). Empty = single-language build (unchanged).
+	Languages       []string `yaml:"languages" toml:"languages" json:"languages"`
+	DefaultLanguage string   `yaml:"default_language" toml:"default_language" json:"default_language"`
+
+	// Hooks are exec commands run at build lifecycle phases: pre_build, post_build,
+	// post_page. Trusted local config only; never sourced from content (PLAT-001).
+	Hooks map[string][]string `yaml:"hooks" toml:"hooks" json:"hooks"`
+
+	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
+	// the .Data.* template namespace (default "data", PLAT-002).
+	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`
+
 	// Deployment
 	Zip bool `yaml:"zip" toml:"zip" json:"zip"`
 
@@ -121,13 +166,15 @@ type Config struct {
 // DefaultConfig returns configuration with default values
 func DefaultConfig() *Config {
 	return &Config{
-		ContentDir:   "content",
-		TemplatesDir: "templates",
-		OutputDir:    "output",
-		StaticDir:    "static",
-		Host:         "127.0.0.1",
-		Port:         8888,
-		WebPQuality:  60,
+		ContentDir:     "content",
+		TemplatesDir:   "templates",
+		OutputDir:      "output",
+		StaticDir:      "static",
+		DataDir:        "data",
+		Host:           "127.0.0.1",
+		Port:           8888,
+		WebPQuality:    60,
+		ImageSizesAttr: "100vw",
 		Mddb: MddbConfig{
 			Timeout:       30,
 			BatchSize:     1000,

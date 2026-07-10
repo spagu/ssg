@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -75,6 +76,38 @@ type Page struct {
 	Tags          []string `yaml:"tags,omitempty"`
 	Category      string   `yaml:"category"`
 
+	// Aliases are old paths that should redirect here. Each generates a
+	// meta-refresh + canonical redirect stub excluded from the sitemap (SEO-002).
+	Aliases []string `yaml:"aliases,omitempty"`
+
+	// Series groups posts into an ordered set with a landing page and prev/next
+	// navigation (AX-005). The neighbour fields are computed by the generator.
+	Series          string `yaml:"series,omitempty"`
+	SeriesPrevURL   string `yaml:"-"`
+	SeriesPrevTitle string `yaml:"-"`
+	SeriesNextURL   string `yaml:"-"`
+	SeriesNextTitle string `yaml:"-"`
+
+	// Computed reading metadata, exposed to templates as .WordCount / .ReadingTime
+	// (BLOG-006). Set by ComputeReadingStats; not read from frontmatter.
+	WordCount   int `yaml:"-"`
+	ReadingTime int `yaml:"-"` // Estimated minutes at wordsPerMinute
+
+	// HasMath marks pages containing math delimiters so KaTeX assets are injected
+	// only where needed (AX-004). Set by the generator when math is enabled.
+	HasMath bool `yaml:"-"`
+
+	// PermalinkPath is a pre-expanded, sanitized relative output path (SEO-001).
+	// When set by the generator from a configured permalink pattern it overrides
+	// the default date/slug path for both URL and output-path computation. The
+	// frontmatter Link field still takes priority over this.
+	PermalinkPath string `yaml:"-"`
+
+	// LangPrefix is a language segment (e.g. "en") prepended to the URL/output path
+	// for non-default languages in multilingual builds (PLAT-005). Not applied when
+	// an explicit Link is set.
+	LangPrefix string `yaml:"-"`
+
 	// Template selection
 	Layout   string `yaml:"layout"`   // Custom layout template (e.g., "blog-hub", "landing")
 	Template string `yaml:"template"` // Custom template name
@@ -111,8 +144,22 @@ func (p Page) GetURL() string {
 	return basePath + "/"
 }
 
-// getBasePath returns the base URL path without trailing slash or extension
+// getBasePath returns the base URL path without trailing slash or extension,
+// applying any language prefix (PLAT-005).
 func (p Page) getBasePath() string {
+	base := p.getBasePathRaw()
+	if p.LangPrefix != "" {
+		return "/" + p.LangPrefix + base
+	}
+	return base
+}
+
+// getBasePathRaw computes the language-agnostic base path.
+func (p Page) getBasePathRaw() string {
+	// Configured permalink pattern (SEO-001) overrides the default date/slug path.
+	if p.PermalinkPath != "" {
+		return "/" + strings.Trim(SanitizeRelPath(p.PermalinkPath), "/")
+	}
 	if p.Type == "post" {
 		if p.URLFormat == "slug" {
 			return fmt.Sprintf("/%s", p.Slug)
@@ -135,25 +182,37 @@ func (p Page) GetCanonical(domain string) string {
 // untrusted slug/link values — e.g. supplied by a remote mddb server — can
 // never escape the output directory via path traversal (SEC-001).
 func (p Page) GetOutputPath() string {
-	// Link field ALWAYS takes priority (for both posts and pages)
+	// Link field ALWAYS takes priority (for both posts and pages); no language prefix.
 	if p.Link != "" {
 		if u, err := url.Parse(p.Link); err == nil {
 			return SanitizeRelPath(u.Path)
 		}
 	}
 
+	sub := p.getOutputSubPath()
+	if p.LangPrefix != "" {
+		return SanitizeRelPath(p.LangPrefix + "/" + sub)
+	}
+	return SanitizeRelPath(sub)
+}
+
+// getOutputSubPath computes the language-agnostic output sub-path (SEO-001).
+func (p Page) getOutputSubPath() string {
+	// Configured permalink pattern (SEO-001) overrides the default date/slug path.
+	if p.PermalinkPath != "" {
+		return p.PermalinkPath
+	}
 	if p.Type == "post" {
 		// URLFormat="slug" uses slug-only path
 		if p.URLFormat == "slug" {
-			return SanitizeRelPath(p.Slug)
+			return p.Slug
 		}
 		// Default: date-based path
-		return SanitizeRelPath(fmt.Sprintf("%d/%02d/%02d/%s",
-			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug))
+		return fmt.Sprintf("%d/%02d/%02d/%s",
+			p.Date.Year(), p.Date.Month(), p.Date.Day(), p.Slug)
 	}
-
 	// Pages: use slug
-	return SanitizeRelPath(p.Slug)
+	return p.Slug
 }
 
 // SanitizeRelPath returns a cleaned, relative sub-path that cannot escape its
@@ -168,6 +227,32 @@ func SanitizeRelPath(p string) string {
 	cleaned := path.Clean("/" + p)
 	// Strip the leading slash to produce a relative path ("" stays "").
 	return strings.TrimPrefix(cleaned, "/")
+}
+
+// wordsPerMinute is the assumed silent-reading speed used for ReadingTime (BLOG-006).
+const wordsPerMinute = 200
+
+// markupStripRe removes markup so word counts reflect prose, not tags/shortcodes:
+// HTML tags (<...>), brace shortcodes ({{...}}) and bracket shortcodes ([name ...]).
+var markupStripRe = regexp.MustCompile(`<[^>]*>|{{[^}]*}}|\[/?[a-zA-Z][^\]]*\]`)
+
+// ComputeReadingStats computes WordCount and ReadingTime from Content (BLOG-006).
+// Markup is stripped first so the count reflects readable prose. ReadingTime is
+// ceil(words / wordsPerMinute), at least 1 minute for any non-empty text and 0
+// for empty content. Safe to call multiple times (idempotent).
+func (p *Page) ComputeReadingStats() {
+	text := markupStripRe.ReplaceAllString(p.Content, " ")
+	words := len(strings.Fields(text))
+	p.WordCount = words
+	if words == 0 {
+		p.ReadingTime = 0
+		return
+	}
+	minutes := (words + wordsPerMinute - 1) / wordsPerMinute
+	if minutes < 1 {
+		minutes = 1
+	}
+	p.ReadingTime = minutes
 }
 
 // HasValidCategories returns true if post has categories other than "Bez kategorii" (ID 1)

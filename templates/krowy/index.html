@@ -47,7 +47,7 @@
                             <h3 class="post-card-title">
                                 <a href="{{.GetURL}}">{{.Title | decodeHTML}}</a>
                             </h3>
-                            <time class="post-date" datetime="{{.Date.Format " 2006-01-02"}}">
+                            <time class="post-date" datetime="{{.Date.Format "2006-01-02"}}">
                                 {{formatDatePL .Date}}
                             </time>
                             <p class="post-excerpt">{{.Excerpt | stripShortcodes | decodeHTML}}</p>
