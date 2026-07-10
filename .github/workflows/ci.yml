@@ -25,6 +25,12 @@ env:
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# Cancel superseded runs on the same ref to save runner minutes (OPS-011).
+# Tag pushes get a unique group so release runs are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 # Default least-privilege token for all jobs; the release job elevates to
 # contents: write where it actually needs to publish artifacts.
 permissions:
@@ -77,7 +83,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: latest
+          version: v2.12.2 # pinned for reproducible CI (OPS-013)
 
   security:
     name: Security Scan
@@ -94,7 +100,7 @@ jobs:
           cache: true
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0 # pinned (OPS-013)
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -114,6 +120,10 @@ jobs:
           - goos: linux
             goarch: arm64
             suffix: linux-arm64
+          - goos: linux # 32-bit ARMv7 (Raspberry Pi 2/3, older SBCs)
+            goarch: arm
+            goarm: "7"
+            suffix: linux-armv7
           # FreeBSD
           - goos: freebsd
             goarch: amd64
@@ -167,6 +177,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
           CGO_ENABLED: 0
         run: |
           mkdir -p dist
@@ -501,8 +512,11 @@ jobs:
             exit 0
           fi
 
-          # Push to homebrew-tap repo
-          if ! git clone "https://x-access-token:${GH_TOKEN}@github.com/spagu/homebrew-tap.git" /tmp/homebrew-tap; then
+          # Push to homebrew-tap repo. OPS-009: pass the token via a per-command
+          # http.extraheader instead of embedding it in the clone URL, so it is
+          # never written to the cloned repo's .git/config.
+          AUTH_HEADER="AUTHORIZATION: bearer ${GH_TOKEN}"
+          if ! git -c http.extraheader="${AUTH_HEADER}" clone https://github.com/spagu/homebrew-tap.git /tmp/homebrew-tap; then
             echo "::warning::Could not clone homebrew-tap (check HOMEBREW_TAP_TOKEN); skipping tap update"
             exit 0
           fi
@@ -512,7 +526,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ssg.rb
           git commit -m "ssg: update to v${VERSION}" || echo "No changes to commit"
-          if ! git push; then
+          if ! git -c http.extraheader="${AUTH_HEADER}" push; then
             echo "::warning::Could not push to homebrew-tap (check HOMEBREW_TAP_TOKEN permissions); skipping tap update"
             exit 0
           fi

@@ -1261,7 +1261,7 @@ func TestStartServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go startServer(tmpDir, "127.0.0.1", 0, true)
+	go startServer(&config.Config{OutputDir: tmpDir, Host: "127.0.0.1", Port: 0, Quiet: true})
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -1572,7 +1572,7 @@ func TestStartServerVerbose(t *testing.T) {
 	_, w, _ := os.Pipe()
 	os.Stdout = w
 
-	go startServer(tmpDir, "127.0.0.1", 0, false)
+	go startServer(&config.Config{OutputDir: tmpDir, Host: "127.0.0.1", Port: 0})
 	time.Sleep(100 * time.Millisecond)
 
 	_ = w.Close()

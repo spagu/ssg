@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-07-10
+
+Server-hardening and packaging release. The built-in server gains optional public-facing
+capabilities (TLS, HTTP/2, HTTP/3, compression, limits); the build gains extra archive
+formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP) is unchanged.
+
+### Added
+- ✨ **Optional server TLS** — `--tls-cert=`/`--tls-key=` (manual PEM) or `--tls-auto` +
+  `--tls-domain=` (automatic Let's Encrypt via `autocert`). HTTP/2 is negotiated
+  automatically over TLS (ALPN).
+- ✨ **HTTP/3 (QUIC)** — `--http3` serves HTTP/3 alongside HTTP/2 and advertises it via
+  `Alt-Svc` (requires TLS; `github.com/quic-go/quic-go/http3`).
+- ✨ **Server hardening middlewares** — `--gzip` (content compression), security headers
+  (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS under TLS),
+  cache-control (immutable for fingerprinted assets, `no-cache` for HTML), `--max-conns=N`
+  (connection cap via `netutil.LimitListener`), `--mem-limit=SIZE` (runtime GC soft limit).
+- ✨ **tar.gz / tar.xz archive output** — `--targz` and `--tarxz` alongside `--zip`
+  (`archive/tar` + `compress/gzip`; `github.com/ulikunitz/xz`).
+- ✨ **HTML sanitization (FE-005)** — `--sanitize-html` / `sanitize_html: true` runs raw
+  HTML in markdown through the bluemonday UGC policy.
+- 🧱 **ARM improvements** — `linux/arm/v7` (GOARM=7) release binary + Docker platform;
+  multi-arch cross-compile via buildx `TARGETARCH`/`TARGETVARIANT`.
+
+### Fixed
+- 🔧 **OPS-009** — homebrew tap push uses an `http.extraheader` auth header instead of
+  embedding the token in the remote URL.
+- 🔧 **OPS-011** — CI/Docker workflows add a `concurrency:` group (cancel in-progress for
+  branches, never for tags).
+- 🔧 **OPS-013** — pinned tool versions (golangci-lint v2.12.2, govulncheck v1.3.0).
+- 🔧 **FE-002** — theme muted-text colours raised to WCAG 2.2 AA (`krowy` 5.72:1,
+  `simple` 5.65:1).
+- 🔧 **FE-006 / FE-008** — OpenGraph/meta locale corrected to `en_US` / `en-US`; schema
+  description de-hardcoded to `{{.Domain}}`.
+
+### Docs
+- 📚 **DOC-001** — `docs/STYLES.md` documents theme palettes with contrast ratios.
+- 📚 **DOC-006** — `SECURITY.md` Supported Versions refreshed to the 1.8.x line.
+
+### Testing
+- ✅ Coverage raised on the packages below 96%: `cmd/ssg` 65→79%, `internal/webp` 92→96.5%,
+  `internal/generator` 89→91.7%, `internal/theme` 94.8→95.5%. Added server, archive, mddb
+  (mock-server), sanitizer and WebP responsive-variant tests.
+
 ## [1.8.0] - 2026-07-10
 
 Feature release from the post-1.7.x roadmap (`audit/roadmap/`) plus audit fixes. Every new

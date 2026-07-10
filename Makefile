@@ -74,11 +74,12 @@ build: ## 🔨 Build the binary
 	@$(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
 	@echo "${GREEN}✅ Binary built: $(BUILD_DIR)/$(BINARY_NAME)${RESET}"
 
-build-linux: ## 🐧 Build for Linux (amd64 + arm64)
+build-linux: ## 🐧 Build for Linux (amd64 + arm64 + armv7)
 	@echo "${BLUE}🐧 Building for Linux...${RESET}"
 	@mkdir -p $(BUILD_DIR)
 	@GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(CMD_DIR)
 	@GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(CMD_DIR)
+	@GOOS=linux GOARCH=arm GOARM=7 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-armv7 ./$(CMD_DIR)
 	@echo "${GREEN}✅ Linux binaries built${RESET}"
 
 build-freebsd: ## 😈 Build for FreeBSD (amd64 + arm64)
@@ -188,7 +189,7 @@ clean: ## 🗑️  Clean build artifacts
 	@rm -rf $(BUILD_DIR)
 	@rm -rf output
 	@rm -f coverage.out coverage.html
-	@rm -f *.zip
+	@rm -f *.zip *.tar.gz *.tar.xz
 	@echo "${GREEN}✅ Cleaned${RESET}"
 
 # Install

@@ -144,3 +144,123 @@ func itoa(n int) string {
 	}
 	return string(b)
 }
+
+func TestUpdateReferencesWebp(t *testing.T) {
+	dir := t.TempDir()
+	html := `<img src="a.jpg"><img src='b.png'><link href="c.jpeg"><style>background:url(d.png)</style><img srcset="e.jpg 1x">`
+	p := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(p, []byte(html), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateReferences(dir); err != nil {
+		t.Fatalf("UpdateReferences: %v", err)
+	}
+	out, _ := os.ReadFile(p)
+	s := string(out)
+	for _, bad := range []string{".jpg", ".png", ".jpeg"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("reference %q not rewritten to .webp: %s", bad, s)
+		}
+	}
+}
+
+func TestConvertImageResizedError(t *testing.T) {
+	if _, err := exec.LookPath("cwebp"); err != nil {
+		t.Skip("cwebp not installed")
+	}
+	// A non-existent source makes cwebp fail → exercises the error branch.
+	if err := convertImageResized(filepath.Join(t.TempDir(), "nope.png"), filepath.Join(t.TempDir(), "o.webp"), 60, 100); err == nil {
+		t.Error("expected error for missing source image")
+	}
+}
+
+// TestImageWidthNonImage covers the DecodeConfig error branch (existing but not an image).
+func TestImageWidthNonImage(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "notimage.png")
+	if err := os.WriteFile(p, []byte("this is not a png"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := imageWidth(p); ok {
+		t.Error("imageWidth on a non-image should return ok=false")
+	}
+}
+
+// TestGenerateResponsiveVariantsBadSource covers the early return when the source
+// is not a decodable image (imageWidth !ok).
+func TestGenerateResponsiveVariantsBadSource(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "bad.png")
+	if err := os.WriteFile(src, []byte("nope"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Must not panic and must not create variants.
+	generateResponsiveVariants(src, filepath.Join(dir, "bad.webp"),
+		ConvertOptions{Quality: 60, Quiet: true, Sizes: []int{480}})
+	if _, err := os.Stat(variantPath(filepath.Join(dir, "bad.webp"), 480)); err == nil {
+		t.Error("no variant should be produced from an undecodable source")
+	}
+}
+
+// TestEmitSrcsetDefaultSizesAttr covers the sizesAttr=="" default branch (→ 100vw).
+func TestEmitSrcsetDefaultSizesAttr(t *testing.T) {
+	dir := t.TempDir()
+	for _, w := range []int{480, 960} {
+		if err := os.WriteFile(filepath.Join(dir, "pic-"+itoa(w)+".webp"), []byte("x"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	htmlPath := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(`<img src="/pic.webp" alt="a">`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EmitSrcset(dir, []int{480, 960}, ""); err != nil {
+		t.Fatalf("EmitSrcset: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	if !strings.Contains(string(out), `sizes="100vw"`) {
+		t.Errorf("expected default sizes=100vw, got:\n%s", out)
+	}
+}
+
+// TestConvertDirectoryWithVariants covers the ConvertDirectory branch that emits
+// responsive variants (opts.Sizes set) for a real image.
+func TestConvertDirectoryWithVariants(t *testing.T) {
+	if _, err := exec.LookPath("cwebp"); err != nil {
+		t.Skip("cwebp not installed")
+	}
+	dir := t.TempDir()
+	img := image.NewRGBA(image.Rect(0, 0, 400, 100))
+	f, _ := os.Create(filepath.Join(dir, "wide.png"))
+	_ = png.Encode(f, img)
+	_ = f.Close()
+
+	converted, _, err := ConvertDirectory(dir, ConvertOptions{Quality: 60, Quiet: true, Sizes: []int{200}})
+	if err != nil {
+		t.Fatalf("ConvertDirectory: %v", err)
+	}
+	if converted != 1 {
+		t.Errorf("converted = %d, want 1", converted)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "wide-200.webp")); err != nil {
+		t.Errorf("expected 200w variant: %v", err)
+	}
+}
+
+// TestEmitSrcsetNoChange covers the no-op return path: an <img> whose variants do
+// not exist and a non-webp <img> (imgSrcRe no match) leave the file untouched.
+func TestEmitSrcsetNoChange(t *testing.T) {
+	dir := t.TempDir()
+	htmlPath := filepath.Join(dir, "index.html")
+	orig := `<img src="/novariant.webp" alt="a"><img src="/plain.png" alt="b">`
+	if err := os.WriteFile(htmlPath, []byte(orig), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EmitSrcset(dir, []int{480}, "100vw"); err != nil {
+		t.Fatalf("EmitSrcset: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	if string(out) != orig {
+		t.Errorf("file should be unchanged, got:\n%s", out)
+	}
+}

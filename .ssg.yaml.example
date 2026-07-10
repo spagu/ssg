@@ -19,6 +19,16 @@ port: 8888           # HTTP server port
 watch: false         # Watch for changes and rebuild
 clean: false         # Clean output before build
 
+# Public Server Hardening (opt-in; all off by default)
+tls_cert: ""         # Path to a PEM certificate (with tls_key → HTTPS + HTTP/2)
+tls_key: ""          # Path to the matching PEM private key
+tls_auto: false      # Automatic Let's Encrypt certificates (needs tls_domain, port 443)
+tls_domain: ""       # Domain(s) for autocert, comma-separated
+http3: false         # Serve HTTP/3 (QUIC) alongside HTTP/2 (requires TLS)
+gzip: false          # gzip-compress responses when the client accepts it
+max_conns: 0         # Cap simultaneous connections (0 = unlimited)
+mem_limit: ""        # Runtime GC soft memory target, e.g. "512MiB", "1GiB"
+
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
@@ -47,6 +57,7 @@ paginate: 0          # Posts per index page; 0 disables pagination (else adds /p
 
 # Authoring
 math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
+sanitize_html: false # Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)
 highlight: false     # Syntax highlighting for code blocks via Chroma
 highlight_style: "github"  # Chroma style (e.g. github, monokai, dracula)
 toc: false           # Expose .TOC (table of contents); [toc] in content always expands
@@ -97,7 +108,9 @@ reconvert_images: false  # Force reconvert even if WebP already exists
 # image_sizes_attr: "100vw"      # Value of the generated sizes attribute
 
 # Deployment
-zip: false           # Create ZIP for Cloudflare Pages
+zip: false           # Create ZIP archive of the output tree (Cloudflare Pages ready)
+targz: false         # Create gzip-compressed tarball (.tar.gz) of the output tree
+tarxz: false         # Create xz-compressed tarball (.tar.xz) of the output tree
 
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder

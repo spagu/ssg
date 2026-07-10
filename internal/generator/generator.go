@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
@@ -164,6 +165,10 @@ type Config struct {
 	Bundles         map[string][]string
 	Outputs         []string
 	SearchIndex     bool
+
+	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
+	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
+	SanitizeHTML bool
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -193,6 +198,7 @@ type Generator struct {
 	authorSlugs  map[string]string        // author slug → slug, for sitemap (BLOG-005)
 	engine       engine.Engine            // non-Go template engine when configured (GO-007)
 	engineTmpls  map[string]engine.Template
+	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 }
 
 // New creates a new Generator instance
@@ -217,7 +223,17 @@ func New(cfg Config) (*Generator, error) {
 		},
 		shortcodeMap: scMap,
 		md:           buildMarkdown(cfg),
+		sanitizer:    newSanitizer(cfg.SanitizeHTML),
 	}, nil
+}
+
+// newSanitizer returns a bluemonday UGC policy when sanitisation is enabled, else nil
+// (FE-005 / SEC-003).
+func newSanitizer(enabled bool) *bluemonday.Policy {
+	if !enabled {
+		return nil
+	}
+	return bluemonday.UGCPolicy()
 }
 
 // buildMarkdown assembles the goldmark renderer from config: tables + footnotes are
@@ -1501,7 +1517,10 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		if g.config.RewriteMdLinks {
 			s = rewriteMdLinks(s, mdLinkMap)
 		}
-		return template.HTML(s) // #nosec G203 -- SSG intentionally renders markdown as HTML
+		if g.sanitizer != nil {
+			s = g.sanitizer.Sanitize(s) // FE-005 / SEC-003: strip XSS from untrusted content
+		}
+		return template.HTML(s) // #nosec G203 -- rendered markdown (optionally sanitized, FE-005)
 	}
 }
 

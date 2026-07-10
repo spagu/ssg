@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -46,7 +45,7 @@ func main() {
 	}
 
 	if cfg.HTTP {
-		go startServer(cfg.OutputDir, cfg.Host, cfg.Port, cfg.Quiet)
+		go startServer(cfg)
 	}
 
 	runWatchOrServe(genCfg, cfg)
@@ -399,6 +398,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Bundles:           cfg.Bundles,
 		Outputs:           cfg.Outputs,
 		SearchIndex:       cfg.SearchIndex,
+		SanitizeHTML:      cfg.SanitizeHTML,
 		Mddb: generator.MddbConfig{
 			Enabled:       cfg.Mddb.Enabled,
 			URL:           cfg.Mddb.URL,
@@ -434,6 +434,18 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	switch arg {
 	case "--zip", "-zip":
 		cfg.Zip = true
+	case "--targz":
+		cfg.TarGz = true
+	case "--tarxz":
+		cfg.TarXz = true
+	case "--tls-auto":
+		cfg.TLSAuto = true
+	case "--gzip":
+		cfg.Gzip = true
+	case "--http3":
+		cfg.HTTP3 = true
+	case "--sanitize-html":
+		cfg.SanitizeHTML = true
 	case "--webp", "-webp":
 		cfg.WebP = true
 	case "--reconvert-images":
@@ -570,6 +582,18 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		}
 	case strings.HasPrefix(arg, "--host="):
 		cfg.Host = strings.TrimPrefix(arg, "--host=")
+	case strings.HasPrefix(arg, "--tls-cert="):
+		cfg.TLSCert = strings.TrimPrefix(arg, "--tls-cert=")
+	case strings.HasPrefix(arg, "--tls-key="):
+		cfg.TLSKey = strings.TrimPrefix(arg, "--tls-key=")
+	case strings.HasPrefix(arg, "--tls-domain="):
+		cfg.TLSDomain = strings.TrimPrefix(arg, "--tls-domain=")
+	case strings.HasPrefix(arg, "--mem-limit="):
+		cfg.MemLimit = strings.TrimPrefix(arg, "--mem-limit=")
+	case strings.HasPrefix(arg, "--max-conns="):
+		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--max-conns=")); err == nil && n >= 0 {
+			cfg.MaxConns = n
+		}
 	case strings.HasPrefix(arg, "--content-dir="):
 		cfg.ContentDir = strings.TrimPrefix(arg, "--content-dir=")
 	case strings.HasPrefix(arg, "--templates-dir="):
@@ -761,34 +785,6 @@ func resolveListenAddr(host string, port int) (addr, url string, exposed bool) {
 	return addr, url, exposed
 }
 
-func startServer(dir, host string, port int, quiet bool) {
-	addr, url, exposed := resolveListenAddr(host, port)
-	if !quiet {
-		fmt.Printf("🌐 Starting HTTP server at %s\n", url)
-		if exposed {
-			fmt.Printf("   ⚠️  Exposed on ALL network interfaces (0.0.0.0)\n")
-		}
-		fmt.Printf("   Serving files from: %s/\n", dir)
-	}
-
-	fs := http.FileServer(http.Dir(dir))
-	mux := http.NewServeMux()
-	mux.Handle("/", fs)
-
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       120 * time.Second,
-	}
-
-	if err := server.ListenAndServe(); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
-	}
-}
-
 func build(genCfg generator.Config, cfg *config.Config) error {
 	gen, err := generator.New(genCfg)
 	if err != nil {
@@ -843,6 +839,33 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 					fmt.Printf("⚠️  Warning: File exceeds Cloudflare Pages 25MB limit!\n")
 				}
 			}
+		}
+	}
+
+	// tar.gz / tar.xz deployment archives (v1.8.1)
+	if cfg.TarGz {
+		if err := makeArchive(cfg, "tar.gz", createTarGz); err != nil {
+			return err
+		}
+	}
+	if cfg.TarXz {
+		if err := makeArchive(cfg, "tar.xz", createTarXz); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// makeArchive builds a <domain>.<ext> archive from the output directory and reports
+// its size (v1.8.1).
+func makeArchive(cfg *config.Config, ext string, fn func(src, out string) error) error {
+	name := fmt.Sprintf("%s.%s", cfg.Domain, ext)
+	if err := fn(cfg.OutputDir, name); err != nil {
+		return fmt.Errorf("creating %s: %w", ext, err)
+	}
+	if !cfg.Quiet {
+		if info, err := os.Stat(name); err == nil { // #nosec G703 -- CLI checks its own output
+			fmt.Printf("📦 Created deployment package: %s (%.1f MB)\n", name, float64(info.Size())/(1024*1024))
 		}
 	}
 	return nil
@@ -950,8 +973,8 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Template Engine:")
 	fmt.Println("  --engine=ENGINE        - Template engine (default: go)")
-	fmt.Println("                           Supported: go. (pongo2/mustache/handlebars are")
-	fmt.Println("                           not yet implemented and are rejected with an error.)")
+	fmt.Println("                           Supported: go, pongo2, mustache, handlebars")
+	fmt.Println("                           (alt engines load the theme's own templates verbatim)")
 	fmt.Println("  --online-theme=URL     - Download theme from URL (GitHub, GitLab, or direct ZIP)")
 	fmt.Println("                           Example: --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("")
@@ -974,6 +997,16 @@ func printUsage() {
 	fmt.Println("  --port=PORT            - HTTP server port (default: 8888)")
 	fmt.Println("  --watch                - Watch for changes and rebuild automatically")
 	fmt.Println("  --clean                - Clean output directory before build")
+	fmt.Println("")
+	fmt.Println("Public Server Hardening (TLS/HTTP2/HTTP3, opt-in):")
+	fmt.Println("  --tls-cert=FILE        - TLS certificate (PEM); with --tls-key enables HTTPS + HTTP/2")
+	fmt.Println("  --tls-key=FILE         - TLS private key (PEM), paired with --tls-cert")
+	fmt.Println("  --tls-auto             - Automatic Let's Encrypt certificates (needs --tls-domain, port 443)")
+	fmt.Println("  --tls-domain=HOST      - Domain(s) for autocert (comma-separated)")
+	fmt.Println("  --http3                - Advertise & serve HTTP/3 (QUIC) alongside HTTP/2 (requires TLS)")
+	fmt.Println("  --gzip                 - gzip-compress responses when the client accepts it")
+	fmt.Println("  --max-conns=N          - Cap simultaneous connections (0 = unlimited)")
+	fmt.Println("  --mem-limit=SIZE       - Soft memory limit, e.g. 512MiB, 1GiB (runtime GC target)")
 	fmt.Println("")
 	fmt.Println("Output Control:")
 	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
@@ -998,6 +1031,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Authoring:")
 	fmt.Println("  --math                 - Render math: inject KaTeX only on pages containing $$…$$")
+	fmt.Println("  --sanitize-html        - Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
@@ -1007,7 +1041,9 @@ func printUsage() {
 	fmt.Println("  --image-sizes-attr=VAL - Value of the generated sizes attribute (default: 100vw)")
 	fmt.Println("")
 	fmt.Println("Deployment:")
-	fmt.Println("  --zip                  - Create ZIP file for Cloudflare Pages")
+	fmt.Println("  --zip                  - Create ZIP archive of the output tree")
+	fmt.Println("  --targz                - Create gzip-compressed tarball (.tar.gz) of the output tree")
+	fmt.Println("  --tarxz                - Create xz-compressed tarball (.tar.xz) of the output tree")
 	fmt.Println("")
 	fmt.Println("Paths:")
 	fmt.Println("  --content-dir=PATH     - Content directory (default: content)")
@@ -1023,7 +1059,9 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  ssg my-site simple example.com --http --watch")
-	fmt.Println("  ssg my-site krowy example.com --clean --minify-all --zip")
+	fmt.Println("  ssg my-site krowy example.com --clean --minify-all --zip --targz --tarxz")
+	fmt.Println("  ssg my-site simple example.com --http --port=443 --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip")
+	fmt.Println("  ssg my-site simple example.com --http --port=443 --tls-auto --tls-domain=example.com --max-conns=1024 --mem-limit=512MiB")
 	fmt.Println("  ssg my-site mytheme example.com --engine=go")
 	fmt.Println("  ssg my-site themename example.com --online-theme=https://github.com/user/hugo-theme")
 	fmt.Println("  ssg --config .ssg.yaml --http --watch")

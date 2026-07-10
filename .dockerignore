@@ -30,8 +30,10 @@ coverage.*
 # GitHub Actions
 .github/
 
-# ZIP files
+# Archive outputs
 *.zip
+*.tar.gz
+*.tar.xz
 
 # Audit reports (local only)
 audit/

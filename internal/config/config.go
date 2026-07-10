@@ -67,6 +67,24 @@ type Config struct {
 	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
 	Clean bool   `yaml:"clean" toml:"clean" json:"clean"`
 
+	// TLS for the built-in server (v1.8.1). Manual: point TLSCert/TLSKey at a
+	// certificate+key. Auto: TLSAuto obtains a Let's Encrypt cert for TLSDomain
+	// (needs a public domain and ports 80/443). Manual takes priority.
+	TLSCert   string `yaml:"tls_cert" toml:"tls_cert" json:"tls_cert"`
+	TLSKey    string `yaml:"tls_key" toml:"tls_key" json:"tls_key"`
+	TLSAuto   bool   `yaml:"tls_auto" toml:"tls_auto" json:"tls_auto"`
+	TLSDomain string `yaml:"tls_domain" toml:"tls_domain" json:"tls_domain"`
+
+	// Server hardening for public serving (v1.8.1). Cache-Control and security
+	// headers are applied automatically; these tune the rest.
+	Gzip     bool   `yaml:"gzip" toml:"gzip" json:"gzip"`                // gzip-compress responses on the fly
+	MaxConns int    `yaml:"max_conns" toml:"max_conns" json:"max_conns"` // cap concurrent connections (0 = unlimited)
+	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // soft runtime memory limit, e.g. "512MiB"
+	// HTTP3 also serves HTTP/3 (QUIC) alongside HTTPS/2 and advertises it via
+	// Alt-Svc. Requires TLS (QUIC is always encrypted). HTTP/2 is already automatic
+	// over TLS; this adds QUIC on the same UDP port (v1.8.1).
+	HTTP3 bool `yaml:"http3" toml:"http3" json:"http3"`
+
 	// Output Control
 	SitemapOff    bool   `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
@@ -190,7 +208,14 @@ type Config struct {
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`
 
 	// Deployment
-	Zip bool `yaml:"zip" toml:"zip" json:"zip"`
+	Zip   bool `yaml:"zip" toml:"zip" json:"zip"`
+	TarGz bool `yaml:"targz" toml:"targz" json:"targz"` // create <domain>.tar.gz (v1.8.1)
+	TarXz bool `yaml:"tarxz" toml:"tarxz" json:"tarxz"` // create <domain>.tar.xz (v1.8.1)
+
+	// SanitizeHTML runs rendered content through an HTML sanitizer (bluemonday
+	// UGCPolicy) before it reaches the template, neutralising stored XSS from an
+	// untrusted mddb source (FE-005 / SEC-003). Default off (trusted local content).
+	SanitizeHTML bool `yaml:"sanitize_html" toml:"sanitize_html" json:"sanitize_html"`
 
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
