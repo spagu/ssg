@@ -2,7 +2,6 @@
    IMD AGENCY - STANDARD HEADER FIX
    Absolute Standard Layout: Logo Left | Menu Right
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
 :root {
     --c-ink: #0f172a;
@@ -10,8 +9,8 @@
     /* Orange */
     --c-slate: #64748b;
     --c-border: #e2e8f0;
-    --font-main: 'Manrope', sans-serif;
-    --font-head: 'Space Grotesk', sans-serif;
+    --font-main: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-head: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --h-header: 80px;
     /* Standard height */
 }

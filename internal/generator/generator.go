@@ -19,12 +19,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	gmparser "github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/text"
 	"gopkg.in/yaml.v3"
 )
 
@@ -144,6 +149,21 @@ type Config struct {
 	// Hooks are lifecycle exec commands (pre_build/post_build/post_page) from
 	// trusted local config only (PLAT-001).
 	Hooks map[string][]string
+
+	// Feed / highlighting / TOC / SEO / link-check / bundling / outputs / search
+	// (BLOG-002, AX-001, AX-002, SEO-003, SEO-005, ASSET-002, PLAT-003, PLAT-004).
+	Feed            bool
+	FeedItems       int
+	FeedFullContent bool
+	Highlight       bool
+	HighlightStyle  string
+	TOC             bool
+	TOCDepth        int
+	SEOOff          bool
+	CheckLinks      string
+	Bundles         map[string][]string
+	Outputs         []string
+	SearchIndex     bool
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -157,6 +177,11 @@ type Generator struct {
 	shortcodeMap map[string]Shortcode     // Map of shortcode name to shortcode
 	data         map[string]interface{}   // Data files loaded into .Data.* (PLAT-002)
 	translations map[string][]Translation // slug → language variants (PLAT-005)
+	md           goldmark.Markdown        // configured Markdown renderer (AX-001/002/003)
+	tagSlugs     map[string]string        // tag name → slug, for sitemap/feeds (BLOG-004)
+	authorSlugs  map[string]string        // author slug → slug, for sitemap (BLOG-005)
+	engine       engine.Engine            // non-Go template engine when configured (GO-007)
+	engineTmpls  map[string]engine.Template
 }
 
 // New creates a new Generator instance
@@ -180,7 +205,28 @@ func New(cfg Config) (*Generator, error) {
 			Authors:    make(map[int]models.Author),
 		},
 		shortcodeMap: scMap,
+		md:           buildMarkdown(cfg),
 	}, nil
+}
+
+// buildMarkdown assembles the goldmark renderer from config: tables + footnotes are
+// always on (footnotes are a common WP-export artifact, AX-003); auto heading IDs
+// back the table of contents (AX-002); Chroma syntax highlighting is added when
+// enabled (AX-001). WithUnsafe preserves the SSG contract of rendering author HTML.
+func buildMarkdown(cfg Config) goldmark.Markdown {
+	exts := []goldmark.Extender{extension.Table, extension.Footnote}
+	if cfg.Highlight {
+		style := cfg.HighlightStyle
+		if style == "" {
+			style = "github"
+		}
+		exts = append(exts, highlighting.NewHighlighting(highlighting.WithStyle(style)))
+	}
+	return goldmark.New(
+		goldmark.WithExtensions(exts...),
+		goldmark.WithParserOptions(gmparser.WithAutoHeadingID()),
+		goldmark.WithRendererOptions(html.WithUnsafe()),
+	)
 }
 
 // resolveVariables replaces values starting with $ with the corresponding environment variable.
@@ -275,6 +321,14 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
+	if err := g.generateFeeds(); err != nil {
+		return fmt.Errorf("generating feeds: %w", err)
+	}
+
+	if err := g.generateSearchIndex(); err != nil {
+		return fmt.Errorf("building search index: %w", err)
+	}
+
 	if err := g.runStep("☁️  Generating Cloudflare Pages files...", g.generateCloudflareFiles, "generating Cloudflare files"); err != nil {
 		return err
 	}
@@ -291,6 +345,11 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
+	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
+	if err := g.bundleIfRequested(); err != nil {
+		return fmt.Errorf("bundling assets: %w", err)
+	}
+
 	if err := g.minifyIfRequested(); err != nil {
 		return err
 	}
@@ -298,6 +357,11 @@ func (g *Generator) Generate() error {
 	// Fingerprinting is the terminal asset step: it must run after bundling and
 	// minification so hashes reflect final byte content (ASSET-001).
 	if err := g.fingerprintIfRequested(); err != nil {
+		return err
+	}
+
+	// Link checking runs last, over the final output tree (SEO-005).
+	if err := g.checkLinksIfRequested(); err != nil {
 		return err
 	}
 
@@ -560,63 +624,152 @@ func (g *Generator) computeSeriesLinks() {
 	}
 }
 
-// generateSeries renders a landing page per series at /series/{slug}/ using the
-// series.html template (falling back to category.html), listing the series posts
-// in reading order (AX-005).
-func (g *Generator) generateSeries() error {
-	groups := make(map[string][]models.Page)
-	var order []string
-	for _, post := range g.siteData.Posts {
-		if post.Series == "" {
-			continue
-		}
-		if _, seen := groups[post.Series]; !seen {
-			order = append(order, post.Series)
-		}
-		groups[post.Series] = append(groups[post.Series], post)
-	}
-	sort.Strings(order)
+// sortPostsByDate returns a copy of posts sorted newest-first — the single sort
+// used by every collection/archive renderer (BLOG-001).
+func sortPostsByDate(posts []models.Page) []models.Page {
+	out := append([]models.Page(nil), posts...)
+	sort.SliceStable(out, func(a, b int) bool { return out[a].Date.After(out[b].Date) })
+	return out
+}
 
-	for _, name := range order {
-		posts := groups[name]
-		sort.SliceStable(posts, func(a, b int) bool { return posts[a].Date.Before(posts[b].Date) })
-		slug := models.SanitizeRelPath(slugify(name))
-		if slug == "" {
-			continue
+// renderArchive is the shared collection renderer (BLOG-001): it writes one archive
+// listing to /{kind}/{slug}/index.html using primaryTmpl (falling back to
+// category.html), with a context compatible with the category/series templates.
+// ascending controls order (series read forward; tag/author/category newest-first).
+func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, primaryTmpl string, ascending bool) error {
+	slug = models.SanitizeRelPath(slug)
+	if slug == "" {
+		return nil
+	}
+	ordered := sortPostsByDate(posts)
+	if ascending {
+		for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
+			ordered[i], ordered[j] = ordered[j], ordered[i]
 		}
-		data := struct {
-			Site     *models.SiteData
-			Category models.Category
-			Series   string
-			Posts    []models.Page
-			Domain   string
-			Vars     map[string]interface{}
-			Data     map[string]interface{}
-		}{
-			Site:     g.siteData,
-			Category: models.Category{Name: name, Slug: slug},
-			Series:   name,
-			Posts:    posts,
-			Domain:   g.config.Domain,
-			Vars:     g.config.Variables,
-			Data:     g.data,
-		}
-		outputPath := filepath.Join(g.config.OutputDir, "series", slug, "index.html")
-		if err := g.ensureWithinOutput(outputPath); err != nil {
-			fmt.Printf("   ⚠️  Skipping series %q with unsafe slug: %v\n", name, err)
-			continue
-		}
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return err
-		}
-		if err := g.renderTemplate("series.html", outputPath, data); err != nil {
-			if err := g.renderTemplate("category.html", outputPath, data); err != nil {
-				fmt.Printf("   ⚠️  Failed to generate series %s: %v\n", name, err)
-			}
+	}
+	data := struct {
+		Site     *models.SiteData
+		Category models.Category
+		Kind     string
+		Name     string
+		Series   string // back-compat for series.html
+		Posts    []models.Page
+		Domain   string
+		Vars     map[string]interface{}
+		Data     map[string]interface{}
+	}{
+		Site:     g.siteData,
+		Category: models.Category{Name: name, Slug: slug},
+		Kind:     kind,
+		Name:     name,
+		Series:   name,
+		Posts:    ordered,
+		Domain:   g.config.Domain,
+		Vars:     g.config.Variables,
+		Data:     g.data,
+	}
+	outputPath := filepath.Join(g.config.OutputDir, kind, slug, "index.html")
+	if err := g.ensureWithinOutput(outputPath); err != nil {
+		fmt.Printf("   ⚠️  Skipping %s %q with unsafe slug: %v\n", kind, name, err)
+		return nil
+	}
+	// #nosec G301 -- Web content directories need to be world-traversable
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return err
+	}
+	if err := g.renderTemplate(primaryTmpl, outputPath, data); err != nil {
+		if err := g.renderTemplate("category.html", outputPath, data); err != nil {
+			fmt.Printf("   ⚠️  Failed to generate %s %s: %v\n", kind, name, err)
 		}
 	}
 	return nil
+}
+
+// generateSeries renders a landing page per series at /series/{slug}/ (AX-005),
+// consuming the shared collection renderer.
+func (g *Generator) generateSeries() error {
+	groups := make(map[string][]models.Page)
+	for _, post := range g.siteData.Posts {
+		if post.Series != "" {
+			groups[post.Series] = append(groups[post.Series], post)
+		}
+	}
+	for _, name := range sortedKeys(groups) {
+		if err := g.renderArchive("series", name, slugify(name), groups[name], "series.html", true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// generateTags renders a listing per tag at /tag/{slug}/ using tag.html (fallback
+// category.html), and returns the tag→slug map for the sitemap (BLOG-004).
+func (g *Generator) generateTags() (map[string]string, error) {
+	groups := make(map[string][]models.Page)
+	for _, post := range g.siteData.Posts {
+		for _, tag := range post.Tags {
+			groups[tag] = append(groups[tag], post)
+		}
+	}
+	slugs := make(map[string]string, len(groups))
+	for _, name := range sortedKeys(groups) {
+		slug := slugify(name)
+		slugs[name] = slug
+		if err := g.renderArchive("tag", name, slug, groups[name], "tag.html", false); err != nil {
+			return nil, err
+		}
+	}
+	return slugs, nil
+}
+
+// generateAuthors renders a listing per author at /author/{slug}/ using author.html
+// (fallback category.html), and returns the author→slug map for the sitemap (BLOG-005).
+func (g *Generator) generateAuthors() (map[string]string, error) {
+	groups := make(map[int][]models.Page)
+	for _, post := range g.siteData.Posts {
+		if post.Author != 0 {
+			groups[post.Author] = append(groups[post.Author], post)
+		}
+	}
+	slugs := make(map[string]string)
+	ids := make([]int, 0, len(groups))
+	for id := range groups {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	for _, id := range ids {
+		name, slug := g.authorNameSlug(id)
+		if slug == "" {
+			continue
+		}
+		slugs[slug] = slug
+		if err := g.renderArchive("author", name, slug, groups[id], "author.html", false); err != nil {
+			return nil, err
+		}
+	}
+	return slugs, nil
+}
+
+// authorNameSlug resolves an author ID to a display name and URL slug (BLOG-005).
+func (g *Generator) authorNameSlug(id int) (name, slug string) {
+	if a, ok := g.siteData.Authors[id]; ok {
+		name = a.Name
+		if a.Slug != "" {
+			return name, slugify(a.Slug)
+		}
+		return name, slugify(a.Name)
+	}
+	return fmt.Sprintf("author-%d", id), fmt.Sprintf("author-%d", id)
+}
+
+// sortedKeys returns the map keys sorted for deterministic output.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // slugify converts an arbitrary label into a URL-safe slug (lowercase, spaces and
@@ -1112,12 +1265,20 @@ func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 func (g *Generator) loadTemplates() error {
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template)
 
+	pageLinks := g.buildPageLinks()
+	funcs := g.buildTemplateFuncs(pageLinks)
+
+	// Non-Go engine (pongo2/mustache/handlebars): load the theme's own templates
+	// through the selected engine instead of html/template. No Go defaults are
+	// scaffolded — alt-engine themes must ship templates in that engine's syntax
+	// (GO-007).
+	if g.config.Engine != "" && !strings.EqualFold(g.config.Engine, engine.EngineGo) {
+		return g.loadEngineTemplates(templatePath, funcs)
+	}
+
 	if err := g.ensureTemplates(templatePath); err != nil {
 		return err
 	}
-
-	pageLinks := g.buildPageLinks()
-	funcs := g.buildTemplateFuncs(pageLinks)
 
 	tmpl, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
@@ -1135,6 +1296,77 @@ func (g *Generator) loadTemplates() error {
 
 	g.tmpl = tmpl
 	return nil
+}
+
+// loadEngineTemplates parses every theme template (root + layouts/) through the
+// configured non-Go engine, keyed by base filename (GO-007).
+func (g *Generator) loadEngineTemplates(templatePath string, funcs template.FuncMap) error {
+	eng, err := engine.New(g.config.Engine)
+	if err != nil {
+		return err
+	}
+	g.engine = eng
+	g.engineTmpls = make(map[string]engine.Template)
+
+	patterns := []string{
+		filepath.Join(templatePath, "*.html"),
+		filepath.Join(templatePath, "layouts", "*.html"),
+	}
+	loaded := 0
+	for _, pat := range patterns {
+		files, _ := filepath.Glob(pat)
+		for _, f := range files {
+			t, perr := eng.ParseFile(f, funcs)
+			if perr != nil {
+				return fmt.Errorf("parsing %s template %s: %w", eng.Name(), filepath.Base(f), perr)
+			}
+			g.engineTmpls[filepath.Base(f)] = t
+			loaded++
+		}
+	}
+	if loaded == 0 {
+		return fmt.Errorf("no %s templates found in %s (alt-engine themes must ship their own templates)", eng.Name(), templatePath)
+	}
+	return nil
+}
+
+// renderWithEngine renders a named template via the configured non-Go engine (GO-007).
+func (g *Generator) renderWithEngine(templateName, outputPath string, data interface{}) error {
+	t, ok := g.engineTmpls[templateName]
+	if !ok {
+		// Mirror html/template's message so existing fallback logic keeps working.
+		return fmt.Errorf("no such template %q", templateName)
+	}
+	file, err := os.Create(outputPath) // #nosec G304 -- CLI tool creates user's output files
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	return t.Execute(file, g.prepAltData(data))
+}
+
+// prepAltData adapts the Go template context for non-Go engines: template.HTML
+// values become plain strings and the raw-markdown Content field is pre-rendered
+// to HTML (alt engines have no safeHTML function). Non-map data passes through
+// unchanged so archive structs still work via reflection (GO-007).
+func (g *Generator) prepAltData(data interface{}) interface{} {
+	m, ok := data.(map[string]interface{})
+	if !ok {
+		return data
+	}
+	out := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		if hv, isHTML := v.(template.HTML); isHTML {
+			if k == "Content" {
+				out[k] = g.convertMarkdownToHTML(string(hv))
+			} else {
+				out[k] = string(hv)
+			}
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // buildPageLinks creates a map of page titles to URLs for autolinking
@@ -1252,7 +1484,8 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		s = g.processShortcodes(s) // Process shortcodes first
 		s = cleanMarkdownArtifacts(s)
 		s = autolinkListItems(s, pageLinks)
-		s = convertMarkdownToHTML(s)
+		s = g.replaceTOCMarker(s)
+		s = g.convertMarkdownToHTML(s)
 		s = fixMediaPaths(s, g.siteData.Media)
 		if g.config.RewriteMdLinks {
 			s = rewriteMdLinks(s, mdLinkMap)
@@ -1306,18 +1539,95 @@ func linkifyListItem(line, content string, pageLinks map[string]string) string {
 	return line
 }
 
-// convertMarkdownToHTML converts markdown content to HTML
-func convertMarkdownToHTML(s string) string {
+// convertMarkdownToHTML converts markdown content to HTML using the generator's
+// configured renderer (footnotes/highlighting/heading-IDs per config).
+func (g *Generator) convertMarkdownToHTML(s string) string {
+	md := g.md
+	if md == nil {
+		md = buildMarkdown(g.config)
+	}
 	var buf bytes.Buffer
-	md := goldmark.New(
-		goldmark.WithExtensions(extension.Table),
-		goldmark.WithRendererOptions(html.WithUnsafe()),
-	)
 	if err := md.Convert([]byte(s), &buf); err != nil {
 		fmt.Printf("   ⚠️  Warning: markdown conversion failed: %v\n", err)
 		return s
 	}
 	return buf.String()
+}
+
+// tocHTML builds a table of contents from the headings in markdown source, using
+// the same auto-generated anchor IDs goldmark emits, up to toc_depth (AX-002).
+// Returns a flat <ul> with per-level classes (toc-h1..toc-h6) for CSS indentation.
+func (g *Generator) tocHTML(mdSource string) template.HTML {
+	maxDepth := g.config.TOCDepth
+	if maxDepth <= 0 {
+		maxDepth = 3
+	}
+	src := []byte(mdSource)
+	doc := g.md.Parser().Parse(text.NewReader(src))
+
+	var b strings.Builder
+	count := 0
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		h, ok := n.(*ast.Heading)
+		if !ok || h.Level > maxDepth {
+			return ast.WalkContinue, nil
+		}
+		id := ""
+		if v, ok := h.AttributeString("id"); ok {
+			if idBytes, ok := v.([]byte); ok {
+				id = string(idBytes)
+			}
+		}
+		fmt.Fprintf(&b, `<li class="toc-h%d"><a href="#%s">%s</a></li>`,
+			h.Level, stdhtml.EscapeString(id), stdhtml.EscapeString(nodeText(h, src))) // #nosec G104
+		count++
+		return ast.WalkContinue, nil
+	})
+	if count == 0 {
+		return ""
+	}
+	return template.HTML(`<ul class="toc">` + b.String() + `</ul>`) // #nosec G203 -- id/text escaped above
+}
+
+// nodeText concatenates the plain text of an AST node's inline children, using the
+// non-deprecated Text.Segment API (AX-002).
+func nodeText(n ast.Node, src []byte) string {
+	var b strings.Builder
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if t, ok := c.(*ast.Text); ok {
+			b.Write(t.Segment.Value(src))
+		} else {
+			b.WriteString(nodeText(c, src))
+		}
+	}
+	return b.String()
+}
+
+// tocContext returns the .TOC value: populated only when toc is enabled (AX-002).
+func (g *Generator) tocContext(mdSource string) template.HTML {
+	if !g.config.TOC {
+		return ""
+	}
+	return g.tocHTML(mdSource)
+}
+
+// tocMarkerRe matches the [toc] placeholder that expands to a table of contents.
+var tocMarkerRe = regexp.MustCompile(`(?i)\[toc\]`)
+
+// replaceTOCMarker replaces a [toc] marker in content with the generated TOC.
+// The marker is explicit author intent, so it works regardless of the toc config.
+func (g *Generator) replaceTOCMarker(s string) string {
+	if !tocMarkerRe.MatchString(s) {
+		return s
+	}
+	toc := string(g.tocHTML(tocMarkerRe.ReplaceAllString(s, "")))
+	// Surround the injected HTML block with blank lines so goldmark treats it as a
+	// standalone block and keeps parsing the markdown that follows (otherwise the
+	// rest of the document is swallowed into one raw-HTML block).
+	return tocMarkerRe.ReplaceAllString(s, "\n\n"+toc+"\n\n")
 }
 
 // processShortcodes replaces {{shortcode_name}} with rendered HTML.
@@ -1617,6 +1927,20 @@ func (g *Generator) generateSite() error {
 		return fmt.Errorf("generating series: %w", err)
 	}
 
+	// Generate tag archives (BLOG-004)
+	tagSlugs, err := g.generateTags()
+	if err != nil {
+		return fmt.Errorf("generating tags: %w", err)
+	}
+	g.tagSlugs = tagSlugs
+
+	// Generate author archives (BLOG-005)
+	authorSlugs, err := g.generateAuthors()
+	if err != nil {
+		return fmt.Errorf("generating authors: %w", err)
+	}
+	g.authorSlugs = authorSlugs
+
 	return nil
 }
 
@@ -1790,6 +2114,8 @@ func (g *Generator) generatePage(page models.Page) error {
 				return err
 			}
 		}
+		g.injectSEO(outputPath, page, false)
+		g.writeJSONOutput(page, outputPath)
 	}
 
 	g.writeAliasStubs(page)
@@ -1835,6 +2161,8 @@ func (g *Generator) generatePost(post models.Page) error {
 		if err := g.renderTemplate("post.html", outputPath, data); err != nil {
 			return err
 		}
+		g.injectSEO(outputPath, post, true)
+		g.writeJSONOutput(post, outputPath)
 	}
 
 	g.writeAliasStubs(post)
@@ -1880,6 +2208,89 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 	}
 }
 
+// injectSEO adds a generator-level SEO block (OpenGraph, Twitter Card, JSON-LD)
+// plus a feed alternate link and hreflang alternates into a rendered page, but
+// only the parts the theme did not already provide (SEO-003). Disabled by seo_off.
+func (g *Generator) injectSEO(outputPath string, page models.Page, isPost bool) {
+	if g.config.SEOOff {
+		return
+	}
+	data, err := os.ReadFile(outputPath) // #nosec G304 -- CLI reads its own output
+	if err != nil {
+		return
+	}
+	s := string(data)
+	var b strings.Builder
+
+	if !strings.Contains(s, "og:title") {
+		b.WriteString(g.buildOpenGraph(page, isPost))
+	}
+	if g.config.Feed && !strings.Contains(s, "application/atom+xml") {
+		fmt.Fprintf(&b, `<link rel="alternate" type="application/atom+xml" title=%q href="/feed.xml">`+"\n",
+			stdhtml.EscapeString(g.config.Domain))
+	}
+	if !strings.Contains(s, "hreflang") {
+		b.WriteString(string(g.hreflangTags(page)))
+	}
+	if b.Len() == 0 {
+		return
+	}
+
+	var out string
+	if i := strings.LastIndex(s, "</head>"); i >= 0 {
+		out = s[:i] + b.String() + s[i:]
+	} else {
+		out = b.String() + s
+	}
+	// #nosec G306,G703 -- CLI rewrites its own just-rendered output file
+	_ = os.WriteFile(outputPath, []byte(out), 0644)
+}
+
+// buildOpenGraph renders OpenGraph + Twitter Card + JSON-LD markup for a page (SEO-003).
+func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
+	title := page.Title
+	desc := page.Description
+	url := page.GetCanonical(g.config.Domain)
+	ogType := "website"
+	ldType := "WebSite"
+	if isPost {
+		ogType = "article"
+		ldType = "Article"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, `<meta property="og:title" content=%q>`+"\n", title)
+	if desc != "" {
+		fmt.Fprintf(&b, `<meta property="og:description" content=%q>`+"\n", desc)
+	}
+	fmt.Fprintf(&b, `<meta property="og:type" content=%q>`+"\n", ogType)
+	fmt.Fprintf(&b, `<meta property="og:url" content=%q>`+"\n", url)
+	if page.FeaturedImage != "" {
+		fmt.Fprintf(&b, `<meta property="og:image" content=%q>`+"\n", page.FeaturedImage)
+	}
+	fmt.Fprintf(&b, `<meta name="twitter:card" content="summary_large_image">`+"\n")
+	fmt.Fprintf(&b, `<meta name="twitter:title" content=%q>`+"\n", title)
+	if desc != "" {
+		fmt.Fprintf(&b, `<meta name="twitter:description" content=%q>`+"\n", desc)
+	}
+	ld := map[string]interface{}{
+		"@context": "https://schema.org",
+		"@type":    ldType,
+		"name":     title,
+		"headline": title,
+		"url":      url,
+	}
+	if desc != "" {
+		ld["description"] = desc
+	}
+	if isPost && !page.Date.IsZero() {
+		ld["datePublished"] = page.Date.UTC().Format(time.RFC3339)
+	}
+	if j, err := json.Marshal(ld); err == nil {
+		b.WriteString(`<script type="application/ld+json">` + string(j) + "</script>\n")
+	}
+	return b.String()
+}
+
 // aliasStubHTML returns a minimal redirect page (meta-refresh + canonical +
 // noindex) pointing at target (SEO-002).
 func aliasStubHTML(target string) string {
@@ -1910,6 +2321,8 @@ func (g *Generator) generateCategories() error {
 		data := struct {
 			Site     *models.SiteData
 			Category models.Category
+			Kind     string
+			Name     string
 			Posts    []models.Page
 			Domain   string
 			Vars     map[string]interface{}
@@ -1917,7 +2330,9 @@ func (g *Generator) generateCategories() error {
 		}{
 			Site:     g.siteData,
 			Category: cat,
-			Posts:    posts,
+			Kind:     "category",
+			Name:     cat.Name,
+			Posts:    sortPostsByDate(posts),
 			Domain:   g.config.Domain,
 			Vars:     g.config.Variables,
 			Data:     g.data,
@@ -1944,8 +2359,12 @@ func (g *Generator) generateCategories() error {
 	return nil
 }
 
-// renderTemplate renders a template to a file
+// renderTemplate renders a template to a file, dispatching to the configured
+// non-Go engine when one is active (GO-007).
 func (g *Generator) renderTemplate(templateName, outputPath string, data interface{}) error {
+	if g.engine != nil {
+		return g.renderWithEngine(templateName, outputPath, data)
+	}
 	file, err := os.Create(outputPath) // #nosec G304 -- CLI tool creates user's output files
 	if err != nil {
 		return err
@@ -1995,10 +2414,11 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Category":      page.Category,
 		"Layout":        page.Layout,
 		"Template":      page.Template,
-		// Computed metadata (BLOG-006 / AX-004)
+		// Computed metadata (BLOG-006 / AX-004 / AX-002)
 		"WordCount":   page.WordCount,
 		"ReadingTime": page.ReadingTime,
 		"HasMath":     page.HasMath,
+		"TOC":         g.tocContext(page.Content),
 		// Series navigation (AX-005)
 		"Series":          page.Series,
 		"SeriesPrevURL":   page.SeriesPrevURL,
@@ -2407,18 +2827,171 @@ func (g *Generator) generateSitemap() error {
 	// Categories
 	for _, cat := range g.siteData.Categories {
 		if cat.ID != 1 { // Skip "Bez kategorii"
-			sb.WriteString("  <url>\n")
-			fmt.Fprintf(&sb, "    <loc>https://%s/category/%s/</loc>\n", g.config.Domain, cat.Slug)
-			sb.WriteString("    <changefreq>weekly</changefreq>\n")
-			sb.WriteString("    <priority>0.5</priority>\n")
-			sb.WriteString("  </url>\n")
+			g.writeSitemapArchive(&sb, "category", cat.Slug)
 		}
+	}
+
+	// Tag archives (BLOG-004)
+	for _, slug := range sortedValues(g.tagSlugs) {
+		g.writeSitemapArchive(&sb, "tag", slug)
+	}
+
+	// Author archives (BLOG-005)
+	for _, slug := range sortedValues(g.authorSlugs) {
+		g.writeSitemapArchive(&sb, "author", slug)
 	}
 
 	sb.WriteString("</urlset>\n")
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "sitemap.xml"), []byte(sb.String()), 0644)
+}
+
+// writeSitemapArchive appends a sitemap entry for an archive page (category/tag/author).
+func (g *Generator) writeSitemapArchive(sb *strings.Builder, kind, slug string) {
+	sb.WriteString("  <url>\n")
+	fmt.Fprintf(sb, "    <loc>https://%s/%s/%s/</loc>\n", g.config.Domain, kind, slug)
+	sb.WriteString("    <changefreq>weekly</changefreq>\n")
+	sb.WriteString("    <priority>0.5</priority>\n")
+	sb.WriteString("  </url>\n")
+}
+
+// sortedValues returns the deduplicated, sorted values of a string map.
+func sortedValues(m map[string]string) []string {
+	seen := make(map[string]bool, len(m))
+	var out []string
+	for _, v := range m {
+		if v != "" && !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// generateFeeds writes an Atom feed at the site root plus one per category and tag
+// when feeds are enabled (BLOG-002). Item count is capped by feed_items (default 20);
+// feed_full_content switches between rendered content and the excerpt/summary.
+func (g *Generator) generateFeeds() error {
+	if !g.config.Feed {
+		return nil
+	}
+	g.log("📰 Generating Atom feeds...")
+	limit := g.config.FeedItems
+	if limit <= 0 {
+		limit = 20
+	}
+	base := "https://" + g.config.Domain
+
+	if err := g.writeFeed("feed.xml", g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
+		return err
+	}
+
+	catPosts := make(map[int][]models.Page)
+	for _, p := range g.siteData.Posts {
+		for _, id := range p.Categories {
+			catPosts[id] = append(catPosts[id], p)
+		}
+	}
+	for id, posts := range catPosts {
+		cat, ok := g.siteData.Categories[id]
+		if !ok || cat.ID == 1 {
+			continue
+		}
+		slug := models.SanitizeRelPath(cat.Slug)
+		if slug == "" {
+			continue
+		}
+		rel := filepath.Join("category", slug, "feed.xml")
+		if err := g.writeFeed(rel, cat.Name, base+"/category/"+slug+"/", posts, limit); err != nil {
+			return err
+		}
+	}
+
+	tagPosts := make(map[string][]models.Page)
+	for _, p := range g.siteData.Posts {
+		for _, tag := range p.Tags {
+			tagPosts[tag] = append(tagPosts[tag], p)
+		}
+	}
+	for name, slug := range g.tagSlugs {
+		rel := filepath.Join("tag", slug, "feed.xml")
+		if err := g.writeFeed(rel, name, base+"/tag/"+slug+"/", tagPosts[name], limit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeFeed renders an Atom 1.0 feed for up to limit newest posts and writes it to
+// relPath under the output directory (BLOG-002). All text is XML-escaped.
+func (g *Generator) writeFeed(relPath, title, altURL string, posts []models.Page, limit int) error {
+	ordered := sortPostsByDate(posts)
+	if len(ordered) > limit {
+		ordered = ordered[:limit]
+	}
+	updated := time.Time{}
+	for _, p := range ordered {
+		if m := g.lastModFor(p); m.After(updated) {
+			updated = m
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	sb.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom">` + "\n")
+	fmt.Fprintf(&sb, "  <title>%s</title>\n", stdhtml.EscapeString(title))
+	fmt.Fprintf(&sb, "  <link href=%q rel=\"alternate\"/>\n", altURL)
+	fmt.Fprintf(&sb, "  <link href=%q rel=\"self\"/>\n", "https://"+g.config.Domain+"/"+filepath.ToSlash(relPath))
+	fmt.Fprintf(&sb, "  <id>%s</id>\n", altURL)
+	if !updated.IsZero() {
+		fmt.Fprintf(&sb, "  <updated>%s</updated>\n", updated.UTC().Format(time.RFC3339))
+	}
+	for _, p := range ordered {
+		g.writeFeedEntry(&sb, p)
+	}
+	sb.WriteString("</feed>\n")
+
+	outPath := filepath.Join(g.config.OutputDir, filepath.FromSlash(relPath))
+	if err := g.ensureWithinOutput(outPath); err != nil {
+		return err
+	}
+	// #nosec G301 -- Web content directories need to be world-traversable
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return err
+	}
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(outPath, []byte(sb.String()), 0644)
+}
+
+// writeFeedEntry appends one Atom <entry> for a post (BLOG-002).
+func (g *Generator) writeFeedEntry(sb *strings.Builder, p models.Page) {
+	canonical := p.GetCanonical(g.config.Domain)
+	sb.WriteString("  <entry>\n")
+	fmt.Fprintf(sb, "    <title>%s</title>\n", stdhtml.EscapeString(p.Title))
+	fmt.Fprintf(sb, "    <link href=%q/>\n", canonical)
+	fmt.Fprintf(sb, "    <id>%s</id>\n", canonical)
+	if !p.Date.IsZero() {
+		fmt.Fprintf(sb, "    <published>%s</published>\n", p.Date.UTC().Format(time.RFC3339))
+	}
+	if m := g.lastModFor(p); !m.IsZero() {
+		fmt.Fprintf(sb, "    <updated>%s</updated>\n", m.UTC().Format(time.RFC3339))
+	}
+	if g.config.FeedFullContent {
+		htmlBody := g.convertMarkdownToHTML(p.Content)
+		fmt.Fprintf(sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(htmlBody))
+	} else {
+		summary := p.Excerpt
+		if summary == "" {
+			summary = tmplStripHTML(g.convertMarkdownToHTML(p.Content))
+			if len(summary) > 300 {
+				summary = summary[:300]
+			}
+		}
+		fmt.Fprintf(sb, "    <summary>%s</summary>\n", stdhtml.EscapeString(summary))
+	}
+	sb.WriteString("  </entry>\n")
 }
 
 // generateRobots creates robots.txt

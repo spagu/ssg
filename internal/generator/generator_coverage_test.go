@@ -552,8 +552,9 @@ func TestAutolinkListItems(t *testing.T) {
 }
 
 func TestConvertMarkdownToHTML(t *testing.T) {
-	result := convertMarkdownToHTML("# Hello")
-	if !strings.Contains(result, "<h1>Hello</h1>") {
+	g := &Generator{config: Config{}}
+	result := g.convertMarkdownToHTML("# Hello")
+	if !strings.Contains(result, "<h1") || !strings.Contains(result, "Hello</h1>") {
 		t.Errorf("Expected h1, got: %s", result)
 	}
 }
@@ -2384,12 +2385,13 @@ func TestConvertMarkdownToHTMLVariants(t *testing.T) {
 		want  string
 	}{
 		{"**bold**", "<strong>bold</strong>"},
-		{"# Heading", "<h1>Heading</h1>"},
+		{"# Heading", "Heading</h1>"}, // auto heading IDs add id="heading" (AX-002)
 		{"[link](http://example.com)", `<a href="http://example.com">link</a>`},
 		{"", ""},
 	}
+	g := &Generator{config: Config{}}
 	for _, tt := range tests {
-		got := convertMarkdownToHTML(tt.input)
+		got := g.convertMarkdownToHTML(tt.input)
 		if tt.want != "" && !strings.Contains(got, tt.want) {
 			t.Errorf("convertMarkdownToHTML(%q) = %q, want to contain %q", tt.input, got, tt.want)
 		}
@@ -2398,7 +2400,7 @@ func TestConvertMarkdownToHTMLVariants(t *testing.T) {
 
 func TestConvertMarkdownTable(t *testing.T) {
 	md := "| A | B |\n|---|---|\n| 1 | 2 |"
-	got := convertMarkdownToHTML(md)
+	got := (&Generator{config: Config{}}).convertMarkdownToHTML(md)
 	if !strings.Contains(got, "<table>") {
 		t.Errorf("expected table in output, got: %s", got)
 	}
@@ -2935,7 +2937,7 @@ func TestGenerateSiteMkdirError(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestConvertMarkdownToHTMLEmpty(t *testing.T) {
-	got := convertMarkdownToHTML("")
+	got := (&Generator{config: Config{}}).convertMarkdownToHTML("")
 	if got != "" {
 		t.Errorf("expected empty string, got %q", got)
 	}

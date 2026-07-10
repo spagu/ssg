@@ -127,8 +127,8 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
 | **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.6.0/ssg_1.3.0_amd64.deb && sudo dpkg -i ssg_1.3.0_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.6.0/ssg-1.3.0-1.x86_64.rpm` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.0/ssg_1.8.0_amd64.deb && sudo dpkg -i ssg_1.8.0_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.0/ssg-1.8.0-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |
 | **OpenBSD** | From ports: `/usr/ports/www/ssg` |
 
@@ -142,6 +142,12 @@ Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/
 | macOS | [ssg-darwin-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-darwin-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
 | FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
 | Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
+
+> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.0`).
+> For an older version, replace it with the tag you want — every release (with per-version
+> changes) is listed on the [Releases page](https://github.com/spagu/ssg/releases) and in
+> the [CHANGELOG](CHANGELOG.md). Tarball/ZIP links use `/releases/latest/` so they always
+> resolve to the newest build.
 
 ### From Source
 
@@ -287,6 +293,21 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | Option | Description |
 |--------|-------------|
 | `--math` | Opt-in math: detects `$$…$$` / ` ```math ` and injects KaTeX only on pages that use it |
+| `--highlight` | Syntax-highlight code blocks via Chroma |
+| `--highlight-style=NAME` | Chroma style (e.g. `github`, `monokai`, `dracula`) |
+| `--toc` | Expose `.TOC` to templates (`[toc]` in content always expands) |
+| `--toc-depth=N` | Max heading level in the TOC (default: `3`) |
+
+**Feeds, SEO & Search:**
+
+| Option | Description |
+|--------|-------------|
+| `--feed` | Generate an Atom `feed.xml` at the root and per category/tag |
+| `--feed-items=N` | Max items per feed (default: `20`) |
+| `--check-links` / `--check-links=strict` | Validate internal links; `strict` fails the build on a dead link |
+| `--search-index` | Emit `search-index.json` for client-side search |
+| `--outputs=html,json` | Per-page output formats (`json` writes `index.json` next to `index.html`) |
+| `--seo-off` | Disable the generator-level OG/Twitter/JSON-LD injection |
 
 **Skip Minification:**
 
@@ -308,6 +329,7 @@ flowchart TD
 |--------|-------------|
 | `--webp` | Convert images to WebP format (requires `cwebp`) |
 | `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
+| `--reconvert-images` | Force reconversion even if a WebP already exists |
 | `--image-sizes=A,B,C` | Responsive widths (px) → WebP variants + `<img srcset>` (no upscaling), e.g. `480,960,1600` |
 | `--image-sizes-attr=VAL` | Value of the generated `sizes` attribute (default: `100vw`) |
 
@@ -338,7 +360,7 @@ flowchart TD
 
 | Option | Description |
 |--------|-------------|
-| `--engine=ENGINE` | Template engine: `go` (default, only implemented engine; others rejected) |
+| `--engine=ENGINE` | Template engine: `go` (default), `pongo2`, `mustache`, `handlebars`. Non-Go engines render themes authored in that engine's syntax (no Go FuncMap/inheritance) |
 | `--online-theme=URL` | Download theme from URL (GitHub, GitLab, or direct ZIP) |
 
 **MDDB Content Source ([github.com/tradik/mddb](https://github.com/tradik/mddb)):**

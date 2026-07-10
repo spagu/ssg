@@ -6,21 +6,21 @@ import (
 	"github.com/spagu/ssg/internal/config"
 )
 
-// TestValidateTemplateEngine is a regression test for GO-002: only the Go
-// engine is actually wired into rendering, so unsupported engines must be
-// rejected with an error instead of being silently ignored.
+// TestValidateTemplateEngine covers GO-007: all four back-ends now render, so the
+// pongo2/mustache/handlebars engines (and their aliases) are accepted; only an
+// entirely unknown engine is rejected.
 func TestValidateTemplateEngine(t *testing.T) {
 	// engine value -> whether an error is expected.
 	wantErrByEngine := map[string]bool{
 		"":           false, // empty defaults to go
 		"go":         false,
 		"GO":         false, // case-insensitive
-		"pongo2":     true,  // recognized but not implemented
-		"jinja2":     true,  // pongo2 alias
-		"mustache":   true,
-		"handlebars": true,
-		"hbs":        true, // handlebars alias
-		"twig":       true, // entirely unknown
+		"pongo2":     false, // now wired (GO-007)
+		"jinja2":     false, // pongo2 alias
+		"mustache":   false,
+		"handlebars": false,
+		"hbs":        false, // handlebars alias
+		"twig":       true,  // entirely unknown
 	}
 	for eng, wantErr := range wantErrByEngine {
 		eng, wantErr := eng, wantErr

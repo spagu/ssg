@@ -236,85 +236,28 @@ func TestExtractMedia(t *testing.T) {
 	}
 }
 
-func TestToMetadata(t *testing.T) {
-	docs := []Document{
-		{
-			Collection: "categories",
-			Key:        "tech",
-			Metadata: map[string]any{
-				"id":          float64(1),
-				"name":        "Technology",
-				"description": "Tech posts",
-				"link":        "/category/tech/",
-				"count":       float64(10),
-				"parent":      float64(0),
-			},
-		},
-		{
-			Collection: "media",
-			Key:        "img-1",
-			Metadata: map[string]any{
-				"id":         float64(100),
-				"media_type": "image",
-				"mime_type":  "image/png",
-				"source_url": "https://example.com/img.png",
-			},
-		},
-		{
-			Collection: "users",
-			Key:        "admin",
-			Metadata: map[string]any{
-				"id":   float64(1),
-				"name": "Admin",
-			},
-		},
-		{
-			Collection: "unknown",
-			Key:        "other",
-			Metadata:   map[string]any{},
-		},
+func TestExtractHelpers(t *testing.T) {
+	cat := ExtractCategory(Document{Key: "tech", Metadata: map[string]any{
+		"id": float64(1), "name": "Technology", "description": "Tech posts",
+		"link": "/category/tech/", "count": float64(10), "parent": float64(0),
+	}})
+	if cat.Name != "Technology" || cat.ID != 1 {
+		t.Errorf("ExtractCategory = %+v", cat)
 	}
 
-	metadata, err := ToMetadata(docs)
-	if err != nil {
-		t.Fatalf("ToMetadata() error = %v", err)
+	media := ExtractMedia(Document{Key: "img-1", Metadata: map[string]any{
+		"id": float64(100), "media_type": "image", "mime_type": "image/png",
+		"source_url": "https://example.com/img.png",
+	}})
+	if media.MediaType != "image" || media.ID != 100 {
+		t.Errorf("ExtractMedia = %+v", media)
 	}
 
-	if len(metadata.Categories) != 1 {
-		t.Errorf("len(Categories) = %v, want 1", len(metadata.Categories))
-	}
-	if metadata.Categories[0].Name != "Technology" {
-		t.Errorf("Categories[0].Name = %v, want Technology", metadata.Categories[0].Name)
-	}
-
-	if len(metadata.Media) != 1 {
-		t.Errorf("len(Media) = %v, want 1", len(metadata.Media))
-	}
-	if metadata.Media[0].MediaType != "image" {
-		t.Errorf("Media[0].MediaType = %v, want image", metadata.Media[0].MediaType)
-	}
-
-	if len(metadata.Users) != 1 {
-		t.Errorf("len(Users) = %v, want 1", len(metadata.Users))
-	}
-	if metadata.Users[0].Name != "Admin" {
-		t.Errorf("Users[0].Name = %v, want Admin", metadata.Users[0].Name)
-	}
-}
-
-func TestToMetadata_EmptyDocs(t *testing.T) {
-	metadata, err := ToMetadata(nil)
-	if err != nil {
-		t.Fatalf("ToMetadata() error = %v", err)
-	}
-	if len(metadata.Categories) != 0 {
-		t.Error("expected no categories")
-	}
-	if len(metadata.Media) != 0 {
-		t.Error("expected no media")
-	}
-	if len(metadata.Users) != 0 {
-		t.Error("expected no users")
+	author := ExtractAuthor(Document{Key: "admin", Metadata: map[string]any{
+		"id": float64(1), "name": "Admin",
+	}})
+	if author.Name != "Admin" || author.ID != 1 {
+		t.Errorf("ExtractAuthor = %+v", author)
 	}
 }
 

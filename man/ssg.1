@@ -201,6 +201,37 @@ Page URL pattern (same tokens).
 .B \-\-math
 Opt-in math: detect \fB$$...$$\fR / \fB```math\fR blocks and inject KaTeX only on
 pages that use it.
+.TP
+.B \-\-highlight
+Syntax-highlight code blocks via Chroma.
+.TP
+.BR \-\-highlight\-style =\fINAME
+Chroma style (default: \fBgithub\fR).
+.TP
+.B \-\-toc
+Expose \fB.TOC\fR to templates; the \fB[toc]\fR marker in content always expands.
+.TP
+.BR \-\-toc\-depth =\fIN
+Maximum heading level included in the TOC (default: 3).
+.SS Feeds, SEO and Search
+.TP
+.B \-\-feed
+Generate an Atom \fBfeed.xml\fR at the root and per category/tag.
+.TP
+.BR \-\-feed\-items =\fIN
+Maximum items per feed (default: 20).
+.TP
+.BR \-\-check\-links "[=" \fIstrict ]
+Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.B \-\-search\-index
+Emit \fBsearch-index.json\fR for client-side search.
+.TP
+.BR \-\-outputs =\fILIST
+Per-page output formats, e.g. \fBhtml,json\fR (json writes index.json).
+.TP
+.B \-\-seo\-off
+Disable the generator-level OpenGraph/Twitter/JSON-LD injection.
 .SS Internationalization
 .TP
 .BR \-\-languages =\fILIST

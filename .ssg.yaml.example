@@ -47,6 +47,28 @@ paginate: 0          # Posts per index page; 0 disables pagination (else adds /p
 
 # Authoring
 math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
+highlight: false     # Syntax highlighting for code blocks via Chroma
+highlight_style: "github"  # Chroma style (e.g. github, monokai, dracula)
+toc: false           # Expose .TOC (table of contents); [toc] in content always expands
+toc_depth: 3         # Max heading level included in the TOC
+
+# Blog feeds & archives
+feed: false          # Generate Atom feed.xml at root + per category/tag
+feed_items: 20       # Max items per feed
+feed_full_content: false  # true = full rendered content, false = summary/excerpt
+
+# SEO
+seo_off: false       # Disable the generator-level OG/Twitter/JSON-LD injection
+check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
+
+# Asset bundling — concatenate groups before minify/fingerprint (reference the bundle in templates)
+# bundles:
+#   app.css: ["reset.css", "layout.css", "theme.css"]
+#   app.js:  ["vendor.js", "main.js"]
+
+# Output formats & search
+outputs: ["html"]    # add "json" for a headless index.json next to each index.html
+search_index: false  # Emit search-index.json (title/url/tags/excerpt/text) for client-side search
 
 # Data files — data/*.yaml|*.json exposed to templates as {{.Data.*}} (nested by subdir)
 data_dir: "data"

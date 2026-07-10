@@ -200,29 +200,8 @@ func parseDate(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse date: %s", s)
 }
 
-// ToMetadata extracts models.Metadata from mddb documents
-func ToMetadata(docs []Document) (*models.Metadata, error) {
-	metadata := &models.Metadata{}
-
-	for _, doc := range docs {
-		switch doc.Collection {
-		case "categories":
-			cat := ExtractCategory(doc)
-			metadata.Categories = append(metadata.Categories, cat)
-		case "media":
-			media := ExtractMedia(doc)
-			metadata.Media = append(metadata.Media, media)
-		case "users":
-			author := ExtractAuthor(doc)
-			metadata.Users = append(metadata.Users, author)
-		}
-	}
-
-	return metadata, nil
-}
-
 // ExtractCategory builds a models.Category from an mddb category Document.
-// Shared by the metadata converter and the generator's mddb loader (DRY, GO-010).
+// Shared by the generator's mddb metadata loader (DRY, GO-006/GO-010).
 func ExtractCategory(doc Document) models.Category {
 	cat := models.Category{
 		Slug: doc.Key,

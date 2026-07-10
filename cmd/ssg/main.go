@@ -292,26 +292,22 @@ func setupTemplateEngine(cfg *config.Config) {
 	}
 }
 
-// validateTemplateEngine checks that the requested template engine is actually
-// supported for rendering. The generator currently renders exclusively with the
-// Go (html/template) engine; the pongo2/mustache/handlebars back-ends are not
-// wired into the rendering pipeline, so requesting them previously produced
-// misleading output rendered with Go anyway (GO-002). We now reject them with a
-// clear error instead of silently ignoring the flag.
+// validateTemplateEngine checks that the requested template engine is supported.
+// All four back-ends now render for real (GO-007): the generator loads the theme's
+// templates through the selected engine. Alt-engine themes must be authored in
+// that engine's syntax (pongo2/mustache/handlebars have no Go FuncMap/inheritance).
 func validateTemplateEngine(cfg *config.Config) error {
 	if cfg.Engine == "" {
 		return nil
 	}
 	switch strings.ToLower(cfg.Engine) {
-	case engine.EngineGo:
+	case engine.EngineGo,
+		engine.EnginePongo2, "jinja2", "django",
+		engine.EngineMustache,
+		engine.EngineHandlebars, "hbs":
 		return nil
-	case engine.EnginePongo2, "jinja2", "django",
-		engine.EngineMustache, engine.EngineHandlebars, "hbs":
-		return fmt.Errorf(
-			"template engine %q is not yet implemented; only 'go' is currently supported for rendering",
-			cfg.Engine)
 	default:
-		return fmt.Errorf("unknown template engine: %s (supported: go)", cfg.Engine)
+		return fmt.Errorf("unknown template engine: %s (supported: go, pongo2, mustache, handlebars)", cfg.Engine)
 	}
 }
 
@@ -391,6 +387,18 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Languages:         cfg.Languages,
 		DefaultLanguage:   cfg.DefaultLanguage,
 		Hooks:             cfg.Hooks,
+		Feed:              cfg.Feed,
+		FeedItems:         cfg.FeedItems,
+		FeedFullContent:   cfg.FeedFullContent,
+		Highlight:         cfg.Highlight,
+		HighlightStyle:    cfg.HighlightStyle,
+		TOC:               cfg.TOC,
+		TOCDepth:          cfg.TOCDepth,
+		SEOOff:            cfg.SEOOff,
+		CheckLinks:        cfg.CheckLinks,
+		Bundles:           cfg.Bundles,
+		Outputs:           cfg.Outputs,
+		SearchIndex:       cfg.SearchIndex,
 		Mddb: generator.MddbConfig{
 			Enabled:       cfg.Mddb.Enabled,
 			URL:           cfg.Mddb.URL,
@@ -458,6 +466,18 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.LastmodFromGit = true
 	case "--math":
 		cfg.Math = true
+	case "--feed":
+		cfg.Feed = true
+	case "--highlight":
+		cfg.Highlight = true
+	case "--toc":
+		cfg.TOC = true
+	case "--search-index":
+		cfg.SearchIndex = true
+	case "--seo-off":
+		cfg.SEOOff = true
+	case "--check-links":
+		cfg.CheckLinks = "warn"
 	case "--clean":
 		cfg.Clean = true
 	case "--quiet", "-q":
@@ -572,6 +592,22 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--paginate=")); err == nil && n >= 0 {
 			cfg.Paginate = n
 		}
+	case strings.HasPrefix(arg, "--feed-items="):
+		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--feed-items=")); err == nil && n > 0 {
+			cfg.FeedItems = n
+		}
+	case strings.HasPrefix(arg, "--highlight-style="):
+		cfg.HighlightStyle = strings.TrimPrefix(arg, "--highlight-style=")
+	case strings.HasPrefix(arg, "--toc-depth="):
+		if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--toc-depth=")); err == nil && n > 0 {
+			cfg.TOCDepth = n
+		}
+	case strings.HasPrefix(arg, "--check-links="):
+		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
+			cfg.CheckLinks = v
+		}
+	case strings.HasPrefix(arg, "--outputs="):
+		cfg.Outputs = splitCSV(strings.TrimPrefix(arg, "--outputs="))
 	case strings.HasPrefix(arg, "--languages="):
 		cfg.Languages = splitCSV(strings.TrimPrefix(arg, "--languages="))
 	case strings.HasPrefix(arg, "--default-language="):

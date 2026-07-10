@@ -79,6 +79,15 @@ func Download(url, destDir string) error {
 		return fmt.Errorf("extracting theme: %w", err)
 	}
 
+	// A downloaded Hugo theme uses layouts/ + static/ + assets/ which the SSG
+	// generator does not understand natively; best-effort convert that structure
+	// into the flat SSG layout so the theme is at least usable (GO-010).
+	if _, err := os.Stat(filepath.Join(destDir, "layouts")); err == nil {
+		if err := ConvertHugoTheme(destDir, destDir); err != nil {
+			fmt.Printf("   ⚠️  Hugo theme conversion failed: %v\n", err)
+		}
+	}
+
 	fmt.Println("✅ Theme downloaded successfully")
 	return nil
 }

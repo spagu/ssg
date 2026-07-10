@@ -152,6 +152,39 @@ type Config struct {
 	// post_page. Trusted local config only; never sourced from content (PLAT-001).
 	Hooks map[string][]string `yaml:"hooks" toml:"hooks" json:"hooks"`
 
+	// Feed generates Atom feeds (feed.xml at root + per category/tag) (BLOG-002).
+	Feed            bool `yaml:"feed" toml:"feed" json:"feed"`
+	FeedItems       int  `yaml:"feed_items" toml:"feed_items" json:"feed_items"`                      // item cap (default 20)
+	FeedFullContent bool `yaml:"feed_full_content" toml:"feed_full_content" json:"feed_full_content"` // true=full content, false=summary
+
+	// Syntax highlighting via Chroma (AX-001).
+	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
+	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")
+
+	// Table of contents (AX-002): .TOC context + [toc] shortcode.
+	TOC      bool `yaml:"toc" toml:"toc" json:"toc"`
+	TOCDepth int  `yaml:"toc_depth" toml:"toc_depth" json:"toc_depth"` // max heading level (default 3)
+
+	// SEOOff disables the generator-level SEO partial (OG/Twitter/JSON-LD) that is
+	// otherwise injected into pages lacking their own OpenGraph tags (SEO-003).
+	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"`
+
+	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
+	// (non-zero exit on a dead internal link) (SEO-005).
+	CheckLinks string `yaml:"check_links" toml:"check_links" json:"check_links"`
+
+	// Bundles concatenate groups of CSS/JS into one artifact before minify/fingerprint
+	// (ASSET-002): {"app.css": ["reset.css","theme.css"]}.
+	Bundles map[string][]string `yaml:"bundles" toml:"bundles" json:"bundles"`
+
+	// Outputs lists per-page output formats; "html" always emitted, add "json" for a
+	// headless JSON representation next to index.html (PLAT-003).
+	Outputs []string `yaml:"outputs" toml:"outputs" json:"outputs"`
+
+	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
+	// client-side search widget (PLAT-004).
+	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`
+
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`
@@ -166,15 +199,19 @@ type Config struct {
 // DefaultConfig returns configuration with default values
 func DefaultConfig() *Config {
 	return &Config{
-		ContentDir:     "content",
-		TemplatesDir:   "templates",
-		OutputDir:      "output",
-		StaticDir:      "static",
-		DataDir:        "data",
-		Host:           "127.0.0.1",
-		Port:           8888,
-		WebPQuality:    60,
-		ImageSizesAttr: "100vw",
+		ContentDir:      "content",
+		TemplatesDir:    "templates",
+		OutputDir:       "output",
+		StaticDir:       "static",
+		DataDir:         "data",
+		Host:            "127.0.0.1",
+		Port:            8888,
+		WebPQuality:     60,
+		ImageSizesAttr:  "100vw",
+		FeedItems:       20,
+		FeedFullContent: false,
+		HighlightStyle:  "github",
+		TOCDepth:        3,
 		Mddb: MddbConfig{
 			Timeout:       30,
 			BatchSize:     1000,

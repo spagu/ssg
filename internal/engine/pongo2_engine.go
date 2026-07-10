@@ -75,12 +75,15 @@ func dataToPongo2Context(data interface{}) pongo2.Context {
 	return ctx
 }
 
-// registerPongo2Filter registers a Go function as a pongo2 filter
-func registerPongo2Filter(name string, fn interface{}) {
-	// Try to register as filter - simplified version
-	// Full implementation would need reflection to adapt function signatures
-	_ = pongo2.RegisterFilter(name, func(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
-		// Basic passthrough for now
+// registerPongo2Filter registers a Go function as a pongo2 filter. pongo2 returns
+// an error when a filter name is already registered (Parse runs per file), so skip
+// if present. The filter is a passthrough — pongo2 templates consume context
+// variables directly rather than Go FuncMap helpers (GO-007).
+func registerPongo2Filter(name string, _ interface{}) {
+	if pongo2.FilterExists(name) {
+		return
+	}
+	_ = pongo2.RegisterFilter(name, func(in *pongo2.Value, _ *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
 		return in, nil
 	})
 }

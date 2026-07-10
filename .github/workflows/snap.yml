@@ -19,6 +19,7 @@ jobs:
     snap:
         name: Build Snap (${{ matrix.arch }})
         runs-on: ${{ matrix.runner }}
+        timeout-minutes: 30
         strategy:
             matrix:
                 include:

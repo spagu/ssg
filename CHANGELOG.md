@@ -5,10 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.0] - Unreleased
+## [1.8.0] - 2026-07-10
 
-First feature wave from the post-1.7.x roadmap (`audit/roadmap/`) plus a batch of audit
-fixes. Every new feature is opt-in behind a config flag; default behaviour is unchanged.
+Feature release from the post-1.7.x roadmap (`audit/roadmap/`) plus audit fixes. Every new
+feature is opt-in behind a config flag; default behaviour is unchanged.
 
 ### Added
 - ✨ **Configurable permalinks (SEO-001)** — `permalinks:` per content type with tokens
@@ -46,8 +46,28 @@ fixes. Every new feature is opt-in behind a config flag; default behaviour is un
   signature, skipping touch-only (mtime-but-not-bytes) events; any real change still
   triggers a full, correct rebuild.
 - ✨ **Single source of version truth (DOC-005)** — `VERSION` file + `scripts/sync-version.sh`
-  (`--check`) propagate the version into every packaging manifest; FreeBSD/OpenBSD/deb/rpm/
-  brew/install.sh bumped to 1.7.15.
+  (`--check`) + Makefile `-X main.Version`; the version propagates into every packaging
+  manifest (FreeBSD/OpenBSD/deb/rpm/brew/install.sh).
+- ✨ **Collection renderer + archives (BLOG-001/004/005)** — shared archive renderer powers
+  `/tag/{slug}/` and `/author/{slug}/` listings (`tag.html`/`author.html`, fallback
+  `category.html`), included in the sitemap.
+- ✨ **Atom feeds (BLOG-002)** — `feed: true` writes `feed.xml` at the root and per
+  category/tag; `feed_items` / `feed_full_content`. Closes the FE-010 feed gap.
+- ✨ **Generator SEO partial (SEO-003)** — OpenGraph + Twitter Card + JSON-LD (Article/WebSite)
+  injected into pages lacking their own OG tags, plus feed + hreflang links; `seo_off` opts out.
+- ✨ **Internal link checker (SEO-005)** — `--check-links[=warn|strict]` validates internal
+  href/src against the output tree (no network); strict fails the build.
+- ✨ **Syntax highlighting (AX-001)** — `highlight: true` renders code blocks via Chroma;
+  `highlight_style`.
+- ✨ **Table of contents (AX-002)** — `toc: true` exposes `.TOC`; `[toc]` expands inline;
+  `toc_depth`; anchors use goldmark auto heading IDs.
+- ✨ **Footnotes (AX-003)** — goldmark footnote syntax (`[^1]`) is enabled by default.
+- ✨ **Asset bundling (ASSET-002)** — `bundles:` concatenates CSS/JS groups before
+  minify/fingerprint.
+- ✨ **Output formats & search (PLAT-003/PLAT-004)** — `outputs: [html, json]` writes a
+  per-page `index.json`; `search_index: true` writes `search-index.json` for client-side search.
+- ✨ **Alternate template engines (GO-007)** — `--engine=pongo2|mustache|handlebars` now
+  render for real; themes must be authored in that engine's syntax.
 
 ### Security
 - 🔒 **mddb API key not sent over plaintext (SEC-007)** — the HTTP client refuses to attach
@@ -61,6 +81,21 @@ fixes. Every new feature is opt-in behind a config flag; default behaviour is un
   opening `---` is treated as published content instead of yielding empty output.
 - 🐛 **`datetime` attribute leading space (FE-009)** — `<time datetime>` in the krowy/imd
   themes no longer emits `datetime=" 2026-…"` (invalid machine date).
+- 🐛 **Hugo theme conversion wired (GO-010)** — `--online-theme` now converts a downloaded
+  Hugo theme's `layouts/`+`static/`+`assets/` into the SSG layout; dead `ToMetadata` removed.
+- 🐛 **Dead/broken `base.html` removed (FE-007)** — the unused krowy/simple `base.html` (with
+  invalid `{{template " description"}}` names) are gone.
+
+### Privacy / DevOps / Docs
+- 🔏 **No Google Fonts CDN (FE-003)** — first-party themes drop external font requests and
+  use a system font stack (no visitor IP leak to Google).
+- 🐳 **Container hardening** — `docker-compose.yml` gains log caps, healthchecks and
+  resource limits/reservations via a YAML anchor (OPS-003); the Dockerfile gains a
+  `HEALTHCHECK` (OPS-004); every CI job gets `timeout-minutes` (OPS-007).
+- 📚 **Docs/Makefile** — README deb/rpm versions and INSTALL.md artifact links corrected and
+  made version-resilient (DOC-002/DOC-004); complete `.PHONY` and demo targets on
+  `test-content` (DOC-007/DOC-008); CHANGELOG compare links (DOC-011); `make security`
+  target running gosec + govulncheck (DOC-012).
 
 ### Removed
 - 🧹 **`LICENSE.md` duplication (DOC-010)** — `LICENSE.md` is now a pointer to the canonical
@@ -699,3 +734,12 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Single binary output
 - Dependencies: gopkg.in/yaml.v3, github.com/yuin/goldmark
 - Cross-platform build support (Linux, macOS, Windows)
+
+<!-- Compare links (DOC-011) -->
+[1.8.0]: https://github.com/spagu/ssg/compare/v1.7.15...v1.8.0
+[1.7.15]: https://github.com/spagu/ssg/compare/v1.7.14...v1.7.15
+[1.7.14]: https://github.com/spagu/ssg/compare/v1.7.13...v1.7.14
+[1.7.13]: https://github.com/spagu/ssg/compare/v1.7.12...v1.7.13
+[1.7.12]: https://github.com/spagu/ssg/compare/v1.7.11...v1.7.12
+[1.7.11]: https://github.com/spagu/ssg/compare/v1.7.10...v1.7.11
+[1.7.10]: https://github.com/spagu/ssg/compare/v1.7.9...v1.7.10
