@@ -130,8 +130,8 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
 | **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.1/ssg_1.8.1_amd64.deb && sudo dpkg -i ssg_1.8.1_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.1/ssg-1.8.1-1.x86_64.rpm` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.2/ssg_1.8.2_amd64.deb && sudo dpkg -i ssg_1.8.2_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.2/ssg-1.8.2-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |
 | **OpenBSD** | From ports: `/usr/ports/www/ssg` |
 
@@ -146,7 +146,7 @@ Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/
 | FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
 | Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
 
-> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.1`).
+> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.2`).
 > For an older version, replace it with the tag you want — every release (with per-version
 > changes) is listed on the [Releases page](https://github.com/spagu/ssg/releases) and in
 > the [CHANGELOG](CHANGELOG.md). Tarball/ZIP links use `/releases/latest/` so they always
@@ -193,11 +193,113 @@ ssg <source> <template> <domain> [options]
 
 ### Arguments
 
-| Argument | Description |
-|----------|-------------|
-| `source` | Source folder name (inside content-dir) |
-| `template` | Template name (inside templates-dir) |
-| `domain` | Target domain for the generated site |
+`ssg` takes **three positional arguments** (source, template, domain) followed by any
+number of `--flags`. Each positional maps to a directory or value:
+
+| Argument | Required | Meaning | Resolves to |
+|----------|----------|---------|-------------|
+| `source` | ✅ (unless `mddb` or config sets it) | Name of the content folder to build | `<content-dir>/<source>/` (default `content/<source>/`) |
+| `template` | ✅ | Name of the theme to render with | `<templates-dir>/<template>/` (default `templates/<template>/`) |
+| `domain` | ✅ | Canonical domain of the site (no scheme) | Used for canonical URLs, sitemap, feeds, OG tags |
+
+**Example:** `ssg my-blog krowy example.com` reads content from `content/my-blog/`, renders
+it with the theme in `templates/krowy/`, treats `https://example.com` as the site root, and
+writes the result to `output/`. Any of the three can instead come from a config file (see
+[Configuration File](#configuration-file)); with `mddb` enabled, `source` is optional
+because content is fetched from the database instead of local files.
+
+### 📂 Project & Content Structure
+
+This is the layout `ssg` expects. **You author Markdown under `content/<source>/` and themes
+under `templates/<template>/`; everything in `output/` is generated — never edit it by hand.**
+
+```text
+my-project/
+├── .ssg.yaml                     # optional config (flags can also be passed on the CLI)
+├── content/
+│   └── my-blog/                  # ← the "source" argument
+│       ├── metadata.json         # site metadata: title, categories, users, media (see below)
+│       ├── pages/                # standalone pages (About, Contact, …) — rendered at /slug/
+│       │   ├── about.md
+│       │   └── legal/privacy.md  # subfolders allowed; loaded recursively
+│       ├── posts/                # blog posts, grouped in ONE level of subfolders
+│       │   ├── 2025/01/hello.md  # subfolder is just organisation (year/month, topic, …)
+│       │   └── news/update.md    # the real category comes from each post's frontmatter
+│       └── media/                # images/files referenced by content (optional)
+├── templates/
+│   └── krowy/                    # ← the "template" argument (a theme)
+│       ├── base.html  index.html  post.html  page.html  category.html
+│       ├── css/  js/             # theme assets, copied to output/
+│       └── layouts/  partials/   # optional extra templates
+├── data/                         # optional *.yaml/*.json exposed to templates as {{.Data.*}}
+├── static/                       # optional files copied verbatim to output/
+└── output/                       # ← generated site (deploy this; do not edit)
+```
+
+**Key rules a first-time user (or an AI agent) must know:**
+
+1. **Pages** live directly in `content/<source>/pages/` (recursively). Each becomes `/<slug>/`.
+2. **Posts** live in `content/<source>/posts/<subfolder>/…` — posts **must** sit inside a
+   subfolder of `posts/`, not directly in `posts/`. The subfolder name is just organisation;
+   a post's **category is taken from its `categories:` frontmatter**, not the folder.
+3. **`metadata.json`** (in `content/<source>/`) declares the site title, categories, authors
+   (`users`) and media. Posts/pages reference categories and authors by ID **or** by name/slug
+   (resolved via this file). Minimal example:
+   ```json
+   {
+     "title": "My Blog",
+     "description": "Thoughts and notes",
+     "url": "https://example.com",
+     "language": "en",
+     "categories": [{ "id": 1, "name": "News", "slug": "news" }],
+     "users":      [{ "id": 1, "name": "Ada Lovelace", "slug": "ada" }],
+     "media":      []
+   }
+   ```
+4. **Only `status: publish`** pages/posts are rendered — drafts (any other status) are skipped.
+
+**Minimal end-to-end example** (from an empty directory to a live-preview site):
+
+```bash
+mkdir -p content/my-blog/pages content/my-blog/posts/general templates   # dirs
+
+# 1) site metadata
+cat > content/my-blog/metadata.json <<'JSON'
+{ "title": "My Blog", "url": "https://example.com", "language": "en",
+  "categories": [{ "id": 1, "name": "General", "slug": "general" }],
+  "users": [{ "id": 1, "name": "Me", "slug": "me" }], "media": [] }
+JSON
+
+# 2) one page and one post (note: post goes under posts/<subfolder>/)
+cat > content/my-blog/pages/about.md <<'MD'
+---
+title: About
+slug: about
+status: publish
+type: page
+---
+Hello — this is the about page.
+MD
+
+cat > content/my-blog/posts/general/hello.md <<'MD'
+---
+title: Hello World
+slug: hello-world
+status: publish
+type: post
+date: 2026-04-01
+categories: [General]
+author: 1
+---
+My first post.
+MD
+
+# 3) build with a built-in theme and preview at http://127.0.0.1:8888
+ssg my-blog simple example.com --http --watch
+```
+
+> No `templates/simple/` on disk? The built-in `simple` and `krowy` themes are bundled and
+> auto-scaffolded on first use, so the command above works with just your content.
 
 ### Configuration File
 
@@ -329,7 +431,7 @@ applied automatically by the server.
 | `--check-links` / `--check-links=strict` | Validate internal links; `strict` fails the build on a dead link |
 | `--search-index` | Emit `search-index.json` for client-side search |
 | `--outputs=html,json` | Per-page output formats (`json` writes `index.json` next to `index.html`) |
-| `--seo-off` | Disable the generator-level OG/Twitter/JSON-LD injection |
+| `--seo` | Opt in to generator-level SEO: inject OpenGraph/Twitter Card/JSON-LD into pages that lack their own (non-destructive; off by default since v1.8.2). `--seo-off` / `seo_off` are accepted as deprecated no-ops |
 
 **Skip Minification:**
 
@@ -758,6 +860,29 @@ Becomes in the rendered HTML:
 - Priority: exact source filename → lowercase filename → slug-derived name
 - Unknown `.md` links are left untouched
 - Disabled by default to avoid breaking sites that serve raw `.md` files
+
+### Common Recipes (task → command)
+
+A quick lookup from *what you want to do* to *the exact invocation*. Replace
+`my-content` / `krowy` / `example.com` with your own source / template / domain.
+
+| Goal | Command |
+|------|---------|
+| Preview locally while editing | `ssg my-content krowy example.com --http --watch` |
+| One-off production build | `ssg my-content krowy example.com --clean --minify-all` |
+| Optimise images to WebP + responsive sizes | `ssg my-content krowy example.com --webp --image-sizes=480,960,1600` |
+| Fingerprint assets for immutable caching | `ssg my-content krowy example.com --minify-all --fingerprint` |
+| Blog with feed, tags, reading time, search | `ssg my-content krowy example.com --feed --search-index` |
+| Add social/SEO meta (opt-in) | `ssg my-content krowy example.com --seo` |
+| Package for upload | `ssg my-content krowy example.com --zip` (or `--targz` / `--tarxz`) |
+| Publish straight to Cloudflare Pages | `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… ssg my-content krowy example.com --deploy=cloudflare --deploy-project=my-site` |
+| Serve publicly over HTTPS + HTTP/3 | `ssg my-content krowy example.com --http --port=443 --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip` |
+| Use a downloaded Hugo/Jinja theme | `ssg my-content mytheme example.com --engine=pongo2 --online-theme=https://github.com/user/theme` |
+| Build everything from a config file | `ssg --config .ssg.yaml` |
+
+Flags are **composable** — combine any of the above (e.g. `--clean --minify-all --webp
+--fingerprint --feed --deploy=cloudflare --deploy-project=my-site`). Everything is off by
+default unless noted, so a bare `ssg <source> <template> <domain>` just renders HTML.
 
 ### Examples
 
@@ -1216,6 +1341,54 @@ All content after frontmatter becomes the page content.
 No `## Excerpt` or `## Content` markers needed.
 
 This is simpler for pages that don't need excerpts.
+```
+
+### Frontmatter Reference
+
+Every `.md` file starts with a YAML frontmatter block (between `---` lines). Only `title`
+is truly required; everything else has sensible defaults. Unknown keys are kept and exposed
+to templates as `{{.customField}}`.
+
+| Field | Type | Applies to | Purpose |
+|-------|------|-----------|---------|
+| `title` | string | page, post | Page/post title (required) |
+| `slug` | string | page, post | URL segment; defaults to the filename without `.md` |
+| `status` | string | page, post | Only `publish` is rendered; anything else is skipped (draft) |
+| `type` | string | page, post | `page` or `post` — controls the template and URL scheme |
+| `date` | date | post | Publication date (`YYYY-MM-DD`); drives date-based URLs and feed order |
+| `modified` | date | page, post | Last-modified date (falls back to file mtime / git with `--lastmod-from-git`) |
+| `categories` | list | post | Category IDs **or** names/slugs (resolved via `metadata.json`) |
+| `author` | int/string | post | Author ID **or** name/slug (resolved via `metadata.json` `users`) |
+| `tags` | list | post | Free-form tags; each gets a listing at `/tag/<slug>/` |
+| `series` | string | post | Groups posts into a series listing at `/series/<slug>/` |
+| `excerpt` | string | page, post | Short summary for listings, meta description and feeds |
+| `description` | string | page, post | SEO meta description (falls back to `excerpt`) |
+| `keywords` | string | page, post | SEO meta keywords |
+| `link` | string | page, post | Explicit URL path — overrides slug/permalink patterns |
+| `canonical` | string | page, post | Explicit canonical URL |
+| `aliases` | list | page, post | Old paths that should redirect here (meta-refresh + canonical) |
+| `featured_image` | string | page, post | OpenGraph/`og:image` and theme hero image |
+| `layout` | string | page, post | Theme layout name; `redirect` marks a redirect stub |
+| `template` | string | page, post | Override the specific template file used to render this item |
+| `robots` | string | page, post | e.g. `noindex, follow` — also excludes the item from the sitemap |
+| `sitemap` | string | page, post | `no` excludes the item from `sitemap.xml` |
+| `lang` | string | page, post | Content language (drives `/<lang>/…` prefixing when `languages:` is set) |
+
+```yaml
+---
+title: "Understanding WebP"
+slug: understanding-webp
+status: publish
+type: post
+date: 2026-04-01
+categories: [Guides]        # by name → resolved to an ID via metadata.json
+author: "Ada Lovelace"      # by name → resolved via metadata.json users
+tags: [images, performance]
+excerpt: "Why WebP shrinks your images without visible quality loss."
+featured_image: /media/webp-hero.png
+---
+
+Full markdown content goes here…
 ```
 
 ### Flexible Author & Categories

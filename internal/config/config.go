@@ -192,9 +192,12 @@ type Config struct {
 	TOC      bool `yaml:"toc" toml:"toc" json:"toc"`
 	TOCDepth int  `yaml:"toc_depth" toml:"toc_depth" json:"toc_depth"` // max heading level (default 3)
 
-	// SEOOff disables the generator-level SEO partial (OG/Twitter/JSON-LD) that is
-	// otherwise injected into pages lacking their own OpenGraph tags (SEO-003).
-	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"`
+	// SEO opts in to the generator-level SEO partial (OpenGraph/Twitter/JSON-LD)
+	// injected into pages that lack their own OpenGraph tags (SEO-003). Off by default
+	// so ssg never rewrites your rendered <head> unless you ask (v1.8.2). The legacy
+	// `seo_off` key / `--seo-off` flag are still accepted as no-ops for compatibility.
+	SEO    bool `yaml:"seo" toml:"seo" json:"seo"`
+	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: injection is now opt-in
 
 	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
 	// (non-zero exit on a dead internal link) (SEO-005).

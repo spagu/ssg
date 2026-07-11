@@ -69,7 +69,9 @@ feed_items: 20       # Max items per feed
 feed_full_content: false  # true = full rendered content, false = summary/excerpt
 
 # SEO
-seo_off: false       # Disable the generator-level OG/Twitter/JSON-LD injection
+seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
+                     # non-destructive — only fills pages that lack their own tags).
+                     # Legacy seo_off / --seo-off are still accepted as no-ops.
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
 
 # Asset bundling — concatenate groups before minify/fingerprint (reference the bundle in templates)
