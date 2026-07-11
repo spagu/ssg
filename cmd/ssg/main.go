@@ -433,7 +433,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		HighlightStyle:    cfg.HighlightStyle,
 		TOC:               cfg.TOC,
 		TOCDepth:          cfg.TOCDepth,
-		SEOOff:            cfg.SEOOff,
+		SEO:               cfg.SEO,
 		CheckLinks:        cfg.CheckLinks,
 		Bundles:           cfg.Bundles,
 		Outputs:           cfg.Outputs,
@@ -474,6 +474,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.CheckLinks = "warn"
 		return true
 	}
+	if arg == "--seo-off" { // deprecated no-op: SEO injection is opt-in since v1.8.2
+		cfg.SEO = false
+		return true
+	}
 	toggles := map[string]*bool{
 		"--zip": &cfg.Zip, "-zip": &cfg.Zip,
 		"--targz": &cfg.TarGz, "--tarxz": &cfg.TarXz,
@@ -492,7 +496,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--lastmod-from-git": &cfg.LastmodFromGit,
 		"--math":             &cfg.Math, "--feed": &cfg.Feed,
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
-		"--search-index": &cfg.SearchIndex, "--seo-off": &cfg.SEOOff,
+		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean":      &cfg.Clean,
 		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
@@ -1099,6 +1103,8 @@ func printUsage() {
 	fmt.Println("Authoring:")
 	fmt.Println("  --math                 - Render math: inject KaTeX only on pages containing $$…$$")
 	fmt.Println("  --sanitize-html        - Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)")
+	fmt.Println("  --seo                  - Inject OpenGraph/Twitter/JSON-LD into pages lacking their own")
+	fmt.Println("                           (opt-in since v1.8.2; --seo-off is a deprecated no-op)")
 	fmt.Println("  --timezone=ZONE        - IANA zone for content dates in permalinks/templates (e.g. Europe/Warsaw);")
 	fmt.Println("                           per-language overrides via language_timezones: in .ssg.yaml")
 	fmt.Println("")

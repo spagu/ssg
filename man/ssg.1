@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-10" "1.8.1" "SSG Manual"
+.TH SSG 1 "2026-07-11" "1.8.2" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -49,11 +49,11 @@ current directory.
 .SS Template Engine
 .TP
 .BR \-\-engine =\fIENGINE
-Template engine to use. Only
+Template engine to use:
 .BR go
-(default) is implemented;
-.BR pongo2 ", " mustache " and " handlebars
-are not yet implemented and are rejected with an error.
+(default),
+.BR pongo2 ", " mustache " or " handlebars .
+Non-Go engines render the theme's own templates verbatim in that engine's syntax.
 .TP
 .BR \-\-online\-theme =\fIURL
 Download theme from a URL. Supports GitHub, GitLab repositories, or direct
@@ -269,8 +269,10 @@ Emit \fBsearch-index.json\fR for client-side search.
 .BR \-\-outputs =\fILIST
 Per-page output formats, e.g. \fBhtml,json\fR (json writes index.json).
 .TP
-.B \-\-seo\-off
-Disable the generator-level OpenGraph/Twitter/JSON-LD injection.
+.B \-\-seo
+Opt in to generator-level OpenGraph/Twitter/JSON-LD injection into pages that lack
+their own tags (non-destructive). Off by default since v1.8.2; the legacy
+\fB\-\-seo\-off\fR flag and \fBseo_off\fR config key are accepted as deprecated no-ops.
 .SS Internationalization
 .TP
 .BR \-\-languages =\fILIST

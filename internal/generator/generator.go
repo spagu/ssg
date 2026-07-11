@@ -166,7 +166,7 @@ type Config struct {
 	HighlightStyle  string
 	TOC             bool
 	TOCDepth        int
-	SEOOff          bool
+	SEO             bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
 	CheckLinks      string
 	Bundles         map[string][]string
 	Outputs         []string
@@ -2419,9 +2419,10 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 
 // injectSEO adds a generator-level SEO block (OpenGraph, Twitter Card, JSON-LD)
 // plus a feed alternate link and hreflang alternates into a rendered page, but
-// only the parts the theme did not already provide (SEO-003). Disabled by seo_off.
+// only the parts the theme did not already provide (SEO-003). Opt-in via `seo`
+// (v1.8.2): a no-op unless SEO injection is explicitly enabled.
 func (g *Generator) injectSEO(outputPath string, page models.Page, isPost bool) {
-	if g.config.SEOOff {
+	if !g.config.SEO {
 		return
 	}
 	data, err := os.ReadFile(outputPath) // #nosec G304 -- CLI reads its own output
