@@ -260,8 +260,9 @@ func ExtractCategory(doc Document) models.Category {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		cat.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		cat.ID = id
 	}
 	if name, ok := doc.Metadata["name"].(string); ok {
 		cat.Name = name
@@ -272,11 +273,11 @@ func ExtractCategory(doc Document) models.Category {
 	if link, ok := doc.Metadata["link"].(string); ok {
 		cat.Link = link
 	}
-	if count, ok := doc.Metadata["count"].(float64); ok {
-		cat.Count = int(count)
+	if count, ok := asInt(doc.Metadata["count"]); ok {
+		cat.Count = count
 	}
-	if parent, ok := doc.Metadata["parent"].(float64); ok {
-		cat.Parent = int(parent)
+	if parent, ok := asInt(doc.Metadata["parent"]); ok {
+		cat.Parent = parent
 	}
 
 	return cat
@@ -290,8 +291,9 @@ func ExtractMedia(doc Document) models.MediaItem {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		media.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		media.ID = id
 	}
 	if mediaType, ok := doc.Metadata["media_type"].(string); ok {
 		media.MediaType = mediaType
@@ -308,11 +310,11 @@ func ExtractMedia(doc Document) models.MediaItem {
 		}
 	}
 	if details, ok := doc.Metadata["media_details"].(map[string]interface{}); ok {
-		if width, ok := details["width"].(float64); ok {
-			media.MediaDetails.Width = models.FlexInt(int(width))
+		if width, ok := asInt(details["width"]); ok {
+			media.MediaDetails.Width = models.FlexInt(width)
 		}
-		if height, ok := details["height"].(float64); ok {
-			media.MediaDetails.Height = models.FlexInt(int(height))
+		if height, ok := asInt(details["height"]); ok {
+			media.MediaDetails.Height = models.FlexInt(height)
 		}
 		if file, ok := details["file"].(string); ok {
 			media.MediaDetails.File = file
@@ -329,8 +331,9 @@ func ExtractAuthor(doc Document) models.Author {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		author.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		author.ID = id
 	}
 	if name, ok := doc.Metadata["name"].(string); ok {
 		author.Name = name

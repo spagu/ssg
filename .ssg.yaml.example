@@ -88,6 +88,13 @@ data_dir: "data"
 # languages: ["pl", "en"]
 # default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
 
+# Timezone for content dates (permalink :year/:month/:day tokens and the
+# Date/Modified template context). IANA names; empty = no conversion (UTC as parsed).
+# timezone: "Europe/Warsaw"
+# language_timezones:        # per-language override (wins over timezone: for that lang)
+#   en: "America/New_York"
+#   pl: "Europe/Warsaw"
+
 # Build hooks — exec commands per lifecycle phase. TRUSTED LOCAL CONFIG ONLY: argv-split
 # (no shell), time-limited. Env: SSG_OUTPUT_DIR, SSG_PHASE, SSG_PAGE_PATH (post_page).
 # hooks:

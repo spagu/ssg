@@ -3,7 +3,7 @@ package deploy
 import (
 	"bytes"
 	"context"
-	"crypto/sha1" // #nosec G505 -- Netlify's deploy API keys files by SHA-1 digest; not used for security
+	"crypto/sha1" // #nosec G505 -- Netlify's deploy API keys files by SHA-1 digest; not security. NOSONAR S4790
 	"encoding/hex"
 	"encoding/json"
 	"fmt"

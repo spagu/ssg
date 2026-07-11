@@ -25,6 +25,11 @@ formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP
   (`archive/tar` + `compress/gzip`; `github.com/ulikunitz/xz`).
 - ✨ **HTML sanitization (FE-005)** — `--sanitize-html` / `sanitize_html: true` runs raw
   HTML in markdown through the bluemonday UGC policy.
+- ✨ **Timezone-aware dates (I18N-001)** — `timezone: Europe/Warsaw` / `--timezone=` renders
+  content dates (permalink `:year/:month/:day` tokens, `Date`/`Modified` template context)
+  in an IANA zone; `language_timezones:` overrides it per content language. The IANA db is
+  embedded (`time/tzdata`) so static/Windows builds resolve zones. Empty = previous
+  behaviour (no conversion).
 - 🚀 **Native deploy (`--deploy=`)** — SSG publishes the output tree itself, no external
   CLI. Providers: **Cloudflare Pages** (Direct Upload API — blake3 manifest, upload only
   what changed), **GitHub Pages** (force-push to `gh-pages`), **Netlify** (digest deploy
@@ -54,6 +59,62 @@ formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP
   description de-hardcoded to `{{.Domain}}`.
 - 🔒 **SonarCloud S5445** — the autocert cache (Let's Encrypt private keys) no longer falls
   back to the shared, world-predictable system temp dir; it uses per-user cache/home paths.
+- 🔒 **SEC-014** — `--sanitize-html` now holds on every render path: alt engines
+  (pongo2/mustache/handlebars), full-content feeds and raw `{{.Content}}` (plain string →
+  auto-escape when the sanitizer is on). Trusted shortcode output ([youtube]/[embed],
+  custom shortcodes) survives sanitization via token protection (GO-037); hostile iframes
+  in content do not.
+- 🔒 **SEC-015** — generator SEO meta tags HTML-escape attribute values (Go `%q` allowed
+  attribute injection through titles/descriptions).
+- 🔧 **GO-033** — `Alt-Svc` (HTTP/3 advertisement) is built from the configured port instead
+  of quic-go's `SetQUICHeaders` (which needs a live listener); present from the first TCP
+  response; `TestAltSvcMiddleware` green again.
+- 🔧 **GO-012/019/020/034** — server: `--gzip` no longer corrupts Range requests;
+  `--max-conns` enforced in `--tls-auto` mode too; `--tls-domain=a.com,b.com` split into a
+  proper autocert whitelist; autocert `:80` bind failures logged; IPv6 `--host` handled via
+  `net.JoinHostPort`.
+- 🔧 **GO-013/014/015/030/031/041 (mddb)** — `--mddb-lang` actually filters (HTTP body +
+  client-side; gRPC proto has no lang field → client-side); single-element
+  tags/categories/aliases no longer dropped; pagination survives a missing/malformed
+  `X-Total-Count` and server-clamped page sizes; gRPC string IDs normalized (`asInt`);
+  `AddedAt==0` no longer becomes 1970-01-01 and dates are pinned UTC (reproducible URLs);
+  checksum query URL-escaped.
+- 🔧 **GO-016/017/032/038 (webp)** — uppercase extensions (`Photo.JPG`) convert correctly;
+  originals deleted only when the .webp exists; reference rewriting is scoped to local
+  attribute/`url()` refs with existing targets (CDN URLs and prose untouched, `.HTML`/`.CSS`
+  processed); srcset includes the full-size original (RIFF-header width parser, no new
+  deps); `data-src` and self-closing `<img/>` are safe.
+- 🔧 **GO-021/022/023/037 (generator)** — feed summaries truncate by runes (valid UTF-8);
+  `--minify-html` preserves `<pre>/<textarea>/<script>/<style>`; a post whose `link` has no
+  path no longer overwrites the homepage; `--sanitize-html` no longer deletes video embeds.
+- 🔧 **GO-024/025/035/036/018/046 (CLI)** — ZIP/tar output `Close` errors propagate (no more
+  corrupt archives reported as success); watch mode no longer loses edits made during a
+  rebuild; symlinks archive correctly as symlink entries; space-separated flag values are
+  not miscounted as positional args; `--mddb-watch` (boolean form) works; vacuous
+  `handleConfigSkip` removed.
+- 🔧 **GO-026/027/039 (parser)** — frontmatter delimiter tolerant of trailing spaces/CRLF;
+  code-fence tracking (no more eaten `# comment` lines or hijacked `## Content-…` headings);
+  10 MB line buffer (base64 data-URIs parse); unclosed frontmatter is a clear error, not a
+  silent empty page.
+- 🔧 **GO-028/029/040 (themes)** — `.tar.gz` theme URLs rejected up-front with a clear
+  message; zip prefix stripped only when truly common to all entries (no more flattened
+  layouts); `main`→`master` branch fallback for GitHub/GitLab archives; extraction `Close`
+  errors propagate.
+- 🧹 **GO-042/043** — dead code removed: `mddb.ErrorResponse`, `models.Metadata.ExportedAt`,
+  unread `generator.Config` copies (`ImageSizes*`, `Mddb.Watch*`).
+
+### Performance
+- ⚡ **PERF-001** — `--lastmod-from-git` runs one `git log --name-only` scan (path→date map)
+  instead of one `git log` process per page/feed entry (minutes saved at 1k+ posts).
+- ⚡ **PERF-002** — shortcode templates are parsed once per build and cached (previously
+  stat+read+parse per occurrence per page).
+- ⚡ **PERF-003** — fingerprint reference rewriting precompiles its regexes once per walk
+  (was O(pages × assets) compiles + rescans).
+- ⚡ **PERF-006** — ~25 hot-path regexes hoisted to package level; `fixMediaPaths` rewrites
+  WordPress image URLs in a single pass (was a fresh regex + full-document rescan per image).
+- ⚡ **PERF-009/010/011** — link-checker target memoization; mddb metadata fetched with the
+  configured batch size (was hardcoded 100 → 10× fewer round trips); srcset variant stats
+  and width decodes memoized per build.
 
 ### Docs
 - 📚 **DOC-001** — `docs/STYLES.md` documents theme palettes with contrast ratios.

@@ -1138,3 +1138,208 @@ func TestDownloadGitHubURL(t *testing.T) {
 		t.Error("index.html not extracted")
 	}
 }
+
+// TestExtractZipRootLevelKeepsStructure covers GO-029: a ZIP whose entries do
+// not share a single top-level directory keeps its layout intact instead of
+// having the first entry's directory stripped from everything.
+func TestExtractZipRootLevelKeepsStructure(t *testing.T) {
+	tmpDir := t.TempDir()
+	destDir := filepath.Join(tmpDir, "extracted")
+
+	zipPath := filepath.Join(tmpDir, "mixed.zip")
+	if err := createTestZip(zipPath, map[string]string{
+		"index.html":    "<html></html>",
+		"css/style.css": "body {}",
+	}); err != nil {
+		t.Fatalf("Failed to create test zip: %v", err)
+	}
+
+	if err := extractZip(zipPath, destDir); err != nil {
+		t.Fatalf("extractZip failed: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(destDir, "index.html")); err != nil {
+		t.Errorf("index.html not extracted at root: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "css", "style.css")); err != nil {
+		t.Errorf("css/style.css not extracted with structure preserved: %v", err)
+	}
+}
+
+// TestDownloadRejectsTarGz covers GO-028: tar archives are rejected before any
+// download request with a clear message (the only extractor is ZIP).
+func TestDownloadRejectsTarGz(t *testing.T) {
+	requested := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requested = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	for _, ext := range []string{".tar.gz", ".tgz"} {
+		err := Download(server.URL+"/theme"+ext, filepath.Join(t.TempDir(), "out"))
+		if err == nil {
+			t.Fatalf("expected error for %s URL", ext)
+		}
+		if !strings.Contains(err.Error(), "only .zip archives are supported") {
+			t.Errorf("expected clear format error for %s, got: %v", ext, err)
+		}
+	}
+	if requested {
+		t.Error("tar archive must be rejected before any download request")
+	}
+}
+
+// TestDownloadMainToMasterFallback covers GO-040: when the main-branch archive
+// 404s, Download retries the master branch and succeeds.
+func TestDownloadMainToMasterFallback(t *testing.T) {
+	zipContent := createZipBytes(t, map[string]string{
+		"repo-master/index.html": "<html>master</html>",
+	})
+
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if strings.HasSuffix(r.URL.Path, "/archive/refs/heads/master.zip") {
+			w.Header().Set("Content-Type", "application/zip")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(zipContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	destDir := filepath.Join(t.TempDir(), "theme")
+	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", destDir)
+	if err != nil {
+		t.Fatalf("Download with master fallback failed: %v", err)
+	}
+
+	if len(paths) != 2 ||
+		!strings.HasSuffix(paths[0], "/archive/refs/heads/main.zip") ||
+		!strings.HasSuffix(paths[1], "/archive/refs/heads/master.zip") {
+		t.Errorf("expected main then master requests, got %v", paths)
+	}
+	if _, statErr := os.Stat(filepath.Join(destDir, "index.html")); statErr != nil {
+		t.Error("index.html not extracted from master archive")
+	}
+}
+
+// TestDownloadMainAndMasterFail covers GO-040: when both branches 404, the
+// master-branch error is propagated.
+func TestDownloadMainAndMasterFail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", filepath.Join(t.TempDir(), "out"))
+	if err == nil {
+		t.Fatal("expected error when both main and master fail")
+	}
+	if !strings.Contains(err.Error(), "HTTP 404") {
+		t.Errorf("expected HTTP 404 in error, got: %v", err)
+	}
+}
+
+// TestDownloadConvertsHugoTheme covers the GO-010 path inside Download: an
+// archive with a layouts/ directory triggers the Hugo-to-SSG conversion.
+func TestDownloadConvertsHugoTheme(t *testing.T) {
+	zipContent := createZipBytes(t, map[string]string{
+		"repo-main/layouts/index.html": "<html>hugo</html>",
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/zip")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(zipContent)
+	}))
+	defer server.Close()
+
+	destDir := filepath.Join(t.TempDir(), "theme")
+	if err := Download(server.URL+"/hugo.zip", destDir); err != nil {
+		t.Fatalf("Download failed: %v", err)
+	}
+
+	// Conversion copies layouts/* to the theme root.
+	if _, err := os.Stat(filepath.Join(destDir, "index.html")); err != nil {
+		t.Errorf("index.html not converted from layouts/: %v", err)
+	}
+}
+
+// TestDownloadHugoConversionWarning covers the best-effort branch in Download:
+// a failing Hugo conversion is reported as a warning, not a download error.
+func TestDownloadHugoConversionWarning(t *testing.T) {
+	// "layouts" as a plain file makes ConvertHugoTheme fail while the Stat
+	// check that gates the conversion still succeeds.
+	zipContent := createZipBytes(t, map[string]string{
+		"repo-main/layouts": "not a directory",
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/zip")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(zipContent)
+	}))
+	defer server.Close()
+
+	destDir := filepath.Join(t.TempDir(), "theme")
+	if err := Download(server.URL+"/broken-hugo.zip", destDir); err != nil {
+		t.Fatalf("Download should succeed despite conversion failure, got: %v", err)
+	}
+}
+
+// TestDownloadArchiveCreateTempError covers the temp-file creation failure in
+// downloadArchive.
+func TestDownloadArchiveCreateTempError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("zip bytes"))
+	}))
+	defer server.Close()
+
+	// Point TMPDIR at a non-existent directory so os.CreateTemp fails.
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+
+	_, err := downloadArchive(server.Client(), server.URL+"/theme.zip")
+	if err == nil {
+		t.Fatal("expected error when temp file cannot be created")
+	}
+	if !strings.Contains(err.Error(), "creating temp file") {
+		t.Errorf("expected temp-file error, got: %v", err)
+	}
+}
+
+// TestMasterFallbackURL covers GO-040: URL mapping for the branch fallback.
+func TestMasterFallbackURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "github main archive",
+			url:  "https://github.com/u/r/archive/refs/heads/main.zip",
+			want: "https://github.com/u/r/archive/refs/heads/master.zip",
+		},
+		{
+			name: "gitlab main archive",
+			url:  "https://gitlab.com/u/r/-/archive/main/archive.zip",
+			want: "https://gitlab.com/u/r/-/archive/master/archive.zip",
+		},
+		{
+			name: "direct zip has no fallback",
+			url:  "https://example.com/theme.zip",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := masterFallbackURL(tt.url); got != tt.want {
+				t.Errorf("masterFallbackURL(%q) = %q, want %q", tt.url, got, tt.want)
+			}
+		})
+	}
+}

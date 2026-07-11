@@ -82,3 +82,52 @@ func TestCreateTarGzBadSource(t *testing.T) {
 		t.Error("expected error writing to a missing directory")
 	}
 }
+
+// TestWriteTarballSymlink verifies GO-035: a symlink in the output tree is
+// archived as a proper link entry (target in the header, no body) instead of
+// aborting the whole archive with "write too long".
+func TestWriteTarballSymlink(t *testing.T) {
+	src := makeTree(t)
+	if err := os.Symlink("index.html", filepath.Join(src, "latest.html")); err != nil {
+		t.Skipf("symlinks not supported here: %v", err)
+	}
+
+	out := filepath.Join(t.TempDir(), "site.tar.gz")
+	if err := createTarGz(src, out); err != nil {
+		t.Fatalf("createTarGz with symlink: %v", err)
+	}
+
+	f, err := os.Open(out) // #nosec G304 -- test file
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatalf("gzip open: %v", err)
+	}
+
+	tr := tar.NewReader(gz)
+	var found bool
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			break
+		}
+		if hdr.Name == "latest.html" {
+			found = true
+			if hdr.Typeflag != tar.TypeSymlink {
+				t.Errorf("latest.html typeflag = %v, want TypeSymlink", hdr.Typeflag)
+			}
+			if hdr.Linkname != "index.html" {
+				t.Errorf("latest.html linkname = %q, want index.html", hdr.Linkname)
+			}
+			if hdr.Size != 0 {
+				t.Errorf("symlink entry size = %d, want 0", hdr.Size)
+			}
+		}
+	}
+	if !found {
+		t.Error("symlink entry missing from the archive")
+	}
+}

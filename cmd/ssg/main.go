@@ -12,11 +12,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata" // embed the IANA zone db so --timezone works in static/Windows builds (I18N-001)
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/deploy"
@@ -53,7 +55,10 @@ func main() {
 	runWatchOrServe(genCfg, cfg)
 }
 
-// applyMinifyAll sets all minify flags if minify_all is enabled
+// applyMinifyAll sets all minify flags if minify_all is enabled. config.Load
+// performs the same expansion for file-based configs, but this call is NOT
+// redundant: it is the only expansion point when --minify-all is given on the
+// command line (parsed after config load) or when no config file exists (GO-046).
 func applyMinifyAll(cfg *config.Config) {
 	if cfg.MinifyAll {
 		cfg.MinifyHTML = true
@@ -102,18 +107,29 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 
 	for {
 		time.Sleep(1 * time.Second)
-		if !hasChanges(dirs, lastBuild) {
-			continue
-		}
-		sig := contentSignature(dirs)
-		if sig == lastSig {
-			// mtime changed but bytes did not — skip the rebuild (PLAT-006).
-			lastBuild = time.Now()
-			continue
-		}
-		lastSig = sig
-		lastBuild = rebuildOnChange(genCfg, cfg)
+		lastBuild, lastSig = watchIteration(dirs, lastBuild, lastSig, func() {
+			rebuildOnChange(genCfg, cfg)
+		})
 	}
+}
+
+// watchIteration runs one poll of the watch loop: detect changes, skip
+// touch-only events, rebuild. It returns the updated lastBuild/lastSig pair.
+// The build timestamp is taken BEFORE the rebuild runs, so files edited while
+// the build is in progress are picked up on the next poll instead of being
+// lost (GO-025).
+func watchIteration(dirs []string, lastBuild time.Time, lastSig string, rebuild func()) (time.Time, string) {
+	if !hasChanges(dirs, lastBuild) {
+		return lastBuild, lastSig
+	}
+	sig := contentSignature(dirs)
+	if sig == lastSig {
+		// mtime changed but bytes did not — skip the rebuild (PLAT-006).
+		return time.Now(), lastSig
+	}
+	buildStart := time.Now()
+	rebuild()
+	return buildStart, sig
 }
 
 // watchDirs returns the directories watched for changes (content, templates, data).
@@ -207,8 +223,10 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	}
 }
 
-// rebuildOnChange handles rebuilding when changes are detected
-func rebuildOnChange(genCfg generator.Config, cfg *config.Config) time.Time {
+// rebuildOnChange handles rebuilding when changes are detected. It no longer
+// returns a completion timestamp: the watch loop stamps lastBuild before the
+// build starts so mid-build edits are not lost (GO-025).
+func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("\n🔄 Changes detected! Rebuilding...")
 	}
@@ -223,7 +241,6 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) time.Time {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes...")
 	}
-	return time.Now()
 }
 
 // configFlag selects the configuration file; it is consumed by loadConfig before
@@ -402,8 +419,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Permalinks:        cfg.Permalinks,
 		LastmodFromGit:    cfg.LastmodFromGit,
 		Fingerprint:       cfg.Fingerprint,
-		ImageSizes:        cfg.ImageSizes,
-		ImageSizesAttr:    cfg.ImageSizesAttr,
+		Timezone:          cfg.Timezone,
+		LanguageTimezones: cfg.LanguageTimezones,
 		Math:              cfg.Math,
 		Paginate:          cfg.Paginate,
 		Languages:         cfg.Languages,
@@ -423,16 +440,14 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		SearchIndex:       cfg.SearchIndex,
 		SanitizeHTML:      cfg.SanitizeHTML,
 		Mddb: generator.MddbConfig{
-			Enabled:       cfg.Mddb.Enabled,
-			URL:           cfg.Mddb.URL,
-			Protocol:      cfg.Mddb.Protocol,
-			APIKey:        cfg.Mddb.APIKey,
-			Collection:    cfg.Mddb.Collection,
-			Lang:          cfg.Mddb.Lang,
-			Timeout:       cfg.Mddb.Timeout,
-			BatchSize:     cfg.Mddb.BatchSize,
-			Watch:         cfg.Mddb.Watch,
-			WatchInterval: cfg.Mddb.WatchInterval,
+			Enabled:    cfg.Mddb.Enabled,
+			URL:        cfg.Mddb.URL,
+			Protocol:   cfg.Mddb.Protocol,
+			APIKey:     cfg.Mddb.APIKey,
+			Collection: cfg.Mddb.Collection,
+			Lang:       cfg.Mddb.Lang,
+			Timeout:    cfg.Mddb.Timeout,
+			BatchSize:  cfg.Mddb.BatchSize,
 		},
 	}
 }
@@ -479,8 +494,8 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
 		"--search-index": &cfg.SearchIndex, "--seo-off": &cfg.SEOOff,
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
-		"--clean": &cfg.Clean,
-		"--quiet": &cfg.Quiet, "-q": &cfg.Quiet,
+		"--clean":      &cfg.Clean,
+		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
 	}
 	if target, ok := toggles[arg]; ok {
 		*target = true
@@ -575,6 +590,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--image-sizes-attr=": &cfg.ImageSizesAttr,
 		"--highlight-style=":  &cfg.HighlightStyle,
 		"--default-language=": &cfg.DefaultLanguage,
+		"--timezone=":         &cfg.Timezone,
 		"--engine=":           &cfg.Engine,
 		"--online-theme=":     &cfg.OnlineTheme,
 		"--post-url-format=":  &cfg.PostURLFormat,
@@ -761,18 +777,21 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 }
 
 // resolveListenAddr computes the dev-server bind address and a user-facing URL.
-// SEC-012: it defaults to loopback and flags exposure when 0.0.0.0 is requested.
+// SEC-012: it defaults to loopback and flags exposure when an all-interfaces
+// address is requested. net.JoinHostPort brackets IPv6 literals so --host=::1
+// yields a valid listen address (GO-034).
 func resolveListenAddr(host string, port int) (addr, url string, exposed bool) {
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	addr = fmt.Sprintf("%s:%d", host, port)
+	portStr := strconv.Itoa(port)
+	addr = net.JoinHostPort(host, portStr)
 	display := host
-	if host == "0.0.0.0" {
+	if host == "0.0.0.0" || host == "::" {
 		display = "127.0.0.1"
 		exposed = true
 	}
-	url = fmt.Sprintf("http://%s:%d", display, port)
+	url = fmt.Sprintf("http://%s", net.JoinHostPort(display, portStr))
 	return addr, url, exposed
 }
 
@@ -922,66 +941,85 @@ func hasChanges(dirs []string, lastBuild time.Time) bool {
 	return changed
 }
 
+// createZip builds a ZIP archive of sourceDir at zipFileName. Errors from the
+// writer Close (which emits the ZIP central directory) and from the file Close
+// are propagated so a corrupt archive is never reported as success (GO-024).
 func createZip(sourceDir, zipFileName string) error {
 	zipFile, err := os.Create(zipFileName) // #nosec G304,G703 -- CLI tool creates user's output file
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
-	defer func() { _ = zipFile.Close() }()
+	if err := writeZip(sourceDir, zipFile); err != nil {
+		_ = zipFile.Close()
+		return err
+	}
+	if err := zipFile.Close(); err != nil {
+		return fmt.Errorf("closing zip file: %w", err)
+	}
+	return nil
+}
 
-	zipWriter := zip.NewWriter(zipFile)
-	defer func() { _ = zipWriter.Close() }()
+// writeZip streams every entry under sourceDir into a ZIP archive written to w.
+// The central directory is written by zip.Writer.Close, so its error must be
+// returned — swallowing it would deploy a truncated archive with exit code 0
+// (GO-024).
+func writeZip(sourceDir string, w io.Writer) error {
+	zipWriter := zip.NewWriter(w)
 
-	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error { // #nosec G703 -- CLI tool walks user's output dir
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error { // #nosec G703 -- CLI tool walks user's output dir
 		if err != nil {
 			return err
 		}
-
 		if path == sourceDir {
 			return nil
 		}
-
-		relPath, err := filepath.Rel(sourceDir, path)
-		if err != nil {
-			return fmt.Errorf("getting relative path: %w", err)
-		}
-
-		relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return fmt.Errorf("creating file header: %w", err)
-		}
-		header.Name = relPath
-
-		if info.IsDir() {
-			header.Name += "/"
-			_, err = zipWriter.CreateHeader(header)
-			return err
-		}
-
-		header.Method = zip.Deflate
-
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return fmt.Errorf("creating zip entry: %w", err)
-		}
-
-		file, err := os.Open(path) // #nosec G304,G122 -- CLI tool reads user's output files
-		if err != nil {
-			return fmt.Errorf("opening file: %w", err)
-		}
-		defer func() { _ = file.Close() }()
-
-		_, err = io.Copy(writer, file)
-		return err
+		return zipAddEntry(zipWriter, sourceDir, path, info)
 	})
-
 	if err != nil {
+		_ = zipWriter.Close()
 		return fmt.Errorf("walking directory: %w", err)
 	}
-
+	if err := zipWriter.Close(); err != nil {
+		return fmt.Errorf("finalizing zip: %w", err)
+	}
 	return nil
+}
+
+// zipAddEntry writes one file or directory entry (relative to sourceDir) into zw.
+func zipAddEntry(zw *zip.Writer, sourceDir, path string, info os.FileInfo) error {
+	relPath, err := filepath.Rel(sourceDir, path)
+	if err != nil {
+		return fmt.Errorf("getting relative path: %w", err)
+	}
+	relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
+
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return fmt.Errorf("creating file header: %w", err)
+	}
+	header.Name = relPath
+
+	if info.IsDir() {
+		header.Name += "/"
+		_, err = zw.CreateHeader(header)
+		return err
+	}
+
+	header.Method = zip.Deflate
+
+	writer, err := zw.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("creating zip entry: %w", err)
+	}
+
+	file, err := os.Open(path) // #nosec G304,G122 -- CLI tool reads user's output files
+	if err != nil {
+		return fmt.Errorf("opening file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	_, err = io.Copy(writer, file)
+	return err
 }
 
 func printUsage() {
@@ -1061,6 +1099,8 @@ func printUsage() {
 	fmt.Println("Authoring:")
 	fmt.Println("  --math                 - Render math: inject KaTeX only on pages containing $$…$$")
 	fmt.Println("  --sanitize-html        - Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)")
+	fmt.Println("  --timezone=ZONE        - IANA zone for content dates in permalinks/templates (e.g. Europe/Warsaw);")
+	fmt.Println("                           per-language overrides via language_timezones: in .ssg.yaml")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")

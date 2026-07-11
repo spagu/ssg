@@ -2,6 +2,8 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -39,6 +41,7 @@ func TestParseBoolFlags(t *testing.T) {
 		{"--minify-css", func(c *config.Config) bool { return c.MinifyCSS }, true},
 		{"--minify-js", func(c *config.Config) bool { return c.MinifyJS }, true},
 		{"--sourcemap", func(c *config.Config) bool { return c.SourceMap }, true},
+		{"--mddb-watch", func(c *config.Config) bool { return c.Mddb.Watch }, true}, // GO-018
 		{"--clean", func(c *config.Config) bool { return c.Clean }, true},
 		{"--quiet", func(c *config.Config) bool { return c.Quiet }, true},
 		{"-q", func(c *config.Config) bool { return c.Quiet }, true},
@@ -130,6 +133,7 @@ func TestParseEqualFlags(t *testing.T) {
 		{"engine", "--engine=pongo2", func(c *config.Config) interface{} { return c.Engine }, "pongo2"},
 		{"online-theme", "--online-theme=https://example.com/t", func(c *config.Config) interface{} { return c.OnlineTheme }, "https://example.com/t"},
 		{"post-url-format", "--post-url-format=slug", func(c *config.Config) interface{} { return c.PostURLFormat }, "slug"},
+		{"timezone", "--timezone=Europe/Warsaw", func(c *config.Config) interface{} { return c.Timezone }, "Europe/Warsaw"},
 		{"mddb-url", "--mddb-url=http://localhost:11023", func(c *config.Config) interface{} { return c.Mddb.URL }, "http://localhost:11023"},
 		{"mddb-url enables mddb", "--mddb-url=http://localhost:11023", func(c *config.Config) interface{} { return c.Mddb.Enabled }, true},
 		{"mddb-key", "--mddb-key=secret123", func(c *config.Config) interface{} { return c.Mddb.APIKey }, "secret123"},
@@ -143,7 +147,6 @@ func TestParseEqualFlags(t *testing.T) {
 		{"mddb-protocol http", "--mddb-protocol=http", func(c *config.Config) interface{} { return c.Mddb.Protocol }, "http"},
 		{"mddb-protocol grpc", "--mddb-protocol=grpc", func(c *config.Config) interface{} { return c.Mddb.Protocol }, "grpc"},
 		{"mddb-protocol invalid", "--mddb-protocol=websocket", func(c *config.Config) interface{} { return c.Mddb.Protocol }, ""},
-		{"mddb-watch", "--mddb-watch", func(c *config.Config) interface{} { return c.Mddb.Watch }, true},
 		{"mddb-watch-interval", "--mddb-watch-interval=10", func(c *config.Config) interface{} { return c.Mddb.WatchInterval }, 10},
 		{"mddb-watch-interval zero", "--mddb-watch-interval=0", func(c *config.Config) interface{} { return c.Mddb.WatchInterval }, 0},
 	}
@@ -235,23 +238,48 @@ func TestParseSeparateValueFlagsNoNextArg(t *testing.T) {
 	}
 }
 
-func TestHandleConfigSkip(t *testing.T) {
+// TestPositionalArgsOf verifies GO-036: values consumed by space-separated
+// value flags are never counted as positional arguments, while bool flags and
+// unknown flags do not swallow the following token.
+func TestPositionalArgsOf(t *testing.T) {
 	tests := []struct {
-		arg      string
-		expected int
+		name string
+		args []string
+		want []string
 	}{
-		{"--config", 0},
-		{"--other", 0},
-		{"--port", 0},
+		{"plain positionals", []string{"src", "tmpl", "dom.com"}, []string{"src", "tmpl", "dom.com"}},
+		{"space-separated value flag", []string{"--engine", "go", "src", "tmpl", "dom.com"}, []string{"src", "tmpl", "dom.com"}},
+		{"multiple value flags", []string{"--config", "c.yaml", "src", "--port", "9000", "tmpl", "dom.com"}, []string{"src", "tmpl", "dom.com"}},
+		{"equal form not skipped", []string{"--engine=go", "src", "tmpl", "dom.com"}, []string{"src", "tmpl", "dom.com"}},
+		{"bool flag keeps next token", []string{"--watch", "src", "tmpl", "dom.com"}, []string{"src", "tmpl", "dom.com"}},
+		{"value flag at end", []string{"src", "tmpl", "dom.com", "--engine"}, []string{"src", "tmpl", "dom.com"}},
+		{"no positionals", []string{"--engine", "go", "--zip"}, nil},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.arg, func(t *testing.T) {
-			got := handleConfigSkip(tt.arg)
-			if got != tt.expected {
-				t.Errorf("handleConfigSkip(%q) = %d, want %d", tt.arg, got, tt.expected)
+		t.Run(tt.name, func(t *testing.T) {
+			got := positionalArgsOf(tt.args)
+			if len(got) != len(tt.want) {
+				t.Fatalf("positionalArgsOf(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("positionalArgsOf(%v)[%d] = %q, want %q", tt.args, i, got[i], tt.want[i])
+				}
 			}
 		})
+	}
+}
+
+// TestValidateRequiredFieldsSkipsFlagValues covers the GO-036 defect scenario:
+// "ssg --engine go mysite simple example.com" must not treat "go" as <source>.
+func TestValidateRequiredFieldsSkipsFlagValues(t *testing.T) {
+	cfg := &config.Config{}
+	validateRequiredFields([]string{"--engine", "go", "mysite", "simple", "example.com"}, cfg)
+
+	if cfg.Source != "mysite" || cfg.Template != "simple" || cfg.Domain != "example.com" {
+		t.Errorf("got Source=%q Template=%q Domain=%q, want mysite/simple/example.com",
+			cfg.Source, cfg.Template, cfg.Domain)
 	}
 }
 
@@ -764,12 +792,8 @@ func TestCreateGeneratorConfigAllFields(t *testing.T) {
 	if genCfg.Mddb.BatchSize != 500 {
 		t.Error("Mddb.BatchSize mismatch")
 	}
-	if !genCfg.Mddb.Watch {
-		t.Error("Mddb.Watch mismatch")
-	}
-	if genCfg.Mddb.WatchInterval != 15 {
-		t.Error("Mddb.WatchInterval mismatch")
-	}
+	// Watch/WatchInterval intentionally have no generator-side copies (GO-043):
+	// the watch loop consumes cfg.Mddb.* directly in cmd/ssg.
 }
 
 func TestCreateGeneratorConfigShortcodes(t *testing.T) {
@@ -1183,9 +1207,9 @@ func TestRebuildOnChange(t *testing.T) {
 	}
 	cfg := &config.Config{OutputDir: outputDir, Quiet: true}
 
-	result := rebuildOnChange(genCfg, cfg)
-	if result.IsZero() {
-		t.Error("expected non-zero time from rebuildOnChange")
+	rebuildOnChange(genCfg, cfg)
+	if _, err := os.Stat(filepath.Join(outputDir, "index.html")); err != nil {
+		t.Errorf("expected rebuilt output: %v", err)
 	}
 }
 
@@ -1202,14 +1226,10 @@ func TestRebuildOnChangeFailure(t *testing.T) {
 	}
 	cfg := &config.Config{Quiet: false}
 
-	result := rebuildOnChange(genCfg, cfg)
+	rebuildOnChange(genCfg, cfg) // must not panic or exit on build failure
 
 	_ = w.Close()
 	os.Stderr = oldStderr
-
-	if result.IsZero() {
-		t.Error("expected non-zero time even on failure")
-	}
 }
 
 func TestRunWatchOrServeNoAction(t *testing.T) {
@@ -1521,13 +1541,13 @@ func TestRebuildOnChangeVerbose(t *testing.T) {
 	}
 	cfg := &config.Config{OutputDir: outputDir, Quiet: false}
 
-	result := rebuildOnChange(genCfg, cfg)
+	rebuildOnChange(genCfg, cfg)
 
 	_ = w.Close()
 	os.Stdout = oldStdout
 
-	if result.IsZero() {
-		t.Error("expected non-zero time")
+	if _, err := os.Stat(filepath.Join(outputDir, "index.html")); err != nil {
+		t.Errorf("expected rebuilt output: %v", err)
 	}
 }
 
@@ -2049,8 +2069,9 @@ func TestNewBuildFlags(t *testing.T) {
 	}
 }
 
-// TestResolveListenAddr verifies SEC-012: the dev server defaults to loopback
-// and only 0.0.0.0 is reported as exposing all interfaces.
+// TestResolveListenAddr verifies SEC-012 (loopback default, exposure flag for
+// all-interfaces binds) and GO-034 (IPv6 literals are bracketed via
+// net.JoinHostPort so --host=::1 produces a valid listen address).
 func TestResolveListenAddr(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -2064,6 +2085,8 @@ func TestResolveListenAddr(t *testing.T) {
 		{"explicit loopback", "127.0.0.1", 3000, "127.0.0.1:3000", "http://127.0.0.1:3000", false},
 		{"all interfaces flagged", "0.0.0.0", 8080, "0.0.0.0:8080", "http://127.0.0.1:8080", true},
 		{"custom host", "192.168.1.5", 9000, "192.168.1.5:9000", "http://192.168.1.5:9000", false},
+		{"IPv6 loopback bracketed", "::1", 8888, "[::1]:8888", "http://[::1]:8888", false},
+		{"IPv6 all interfaces flagged", "::", 8443, "[::]:8443", "http://127.0.0.1:8443", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2073,5 +2096,139 @@ func TestResolveListenAddr(t *testing.T) {
 					tt.host, tt.port, addr, url, exposed, tt.wantAddr, tt.wantURL, tt.wantExposed)
 			}
 		})
+	}
+}
+
+// TestParseFlagsMddbWatch verifies GO-018: the bare --mddb-watch flag (no "=")
+// reaches parseBoolFlags through the full parser and enables MDDB watch mode.
+func TestParseFlagsMddbWatch(t *testing.T) {
+	cfg := &config.Config{}
+	parseFlags([]string{"--mddb-url=http://localhost:11023", "--mddb-watch"}, cfg)
+
+	if !cfg.Mddb.Watch {
+		t.Error("--mddb-watch (space form) must set cfg.Mddb.Watch (GO-018)")
+	}
+	if !cfg.Mddb.Enabled {
+		t.Error("--mddb-url must enable MDDB mode")
+	}
+}
+
+// TestWatchIterationDetectsMidBuildEdit verifies GO-025: lastBuild is stamped
+// BEFORE the rebuild runs, so a file saved while the build is in progress is
+// still newer than lastBuild and triggers the next iteration.
+func TestWatchIterationDetectsMidBuildEdit(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("one"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dirs := []string{dir}
+
+	newBuild, newSig := watchIteration(dirs, time.Now().Add(-time.Hour), "stale", func() {
+		// Simulate an edit landing while the (slow) rebuild is running.
+		time.Sleep(10 * time.Millisecond)
+		if err := os.WriteFile(filepath.Join(dir, "b.md"), []byte("mid-build edit"), 0644); err != nil {
+			t.Error(err)
+		}
+	})
+
+	if newSig == "stale" {
+		t.Error("signature should be refreshed after a rebuild")
+	}
+	if !hasChanges(dirs, newBuild) {
+		t.Error("edit made during the rebuild must be detected on the next poll (GO-025)")
+	}
+}
+
+// TestWatchIterationNoDoubleRebuild verifies that the change which triggered a
+// rebuild does not re-trigger one, and that quiet polls rebuild nothing.
+func TestWatchIterationNoDoubleRebuild(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("one"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dirs := []string{dir}
+	time.Sleep(5 * time.Millisecond) // ensure the file mtime precedes buildStart
+
+	builds := 0
+	lastBuild, lastSig := watchIteration(dirs, time.Now().Add(-time.Hour), "stale", func() { builds++ })
+	if builds != 1 {
+		t.Fatalf("expected exactly one rebuild, got %d", builds)
+	}
+	if hasChanges(dirs, lastBuild) {
+		t.Error("the triggering change must not re-trigger a rebuild")
+	}
+
+	// A poll without changes must not rebuild and must keep lastBuild/lastSig.
+	b2, s2 := watchIteration(dirs, lastBuild, lastSig, func() { builds++ })
+	if builds != 1 {
+		t.Errorf("no rebuild expected without changes, got %d", builds)
+	}
+	if !b2.Equal(lastBuild) || s2 != lastSig {
+		t.Error("lastBuild/lastSig must be unchanged on a quiet poll")
+	}
+}
+
+// TestWatchIterationTouchOnlySkipsRebuild verifies the PLAT-006 gate inside the
+// extracted iteration: an mtime bump with identical bytes advances lastBuild
+// without rebuilding.
+func TestWatchIterationTouchOnlySkipsRebuild(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "a.md")
+	if err := os.WriteFile(file, []byte("one"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dirs := []string{dir}
+	sig := contentSignature(dirs)
+
+	// Touch: same bytes, newer mtime than lastBuild.
+	now := time.Now()
+	if err := os.Chtimes(file, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	builds := 0
+	newBuild, newSig := watchIteration(dirs, now.Add(-time.Hour), sig, func() { builds++ })
+	if builds != 0 {
+		t.Errorf("touch-only event must not rebuild, got %d builds", builds)
+	}
+	if newSig != sig {
+		t.Error("signature must be unchanged for a touch-only event")
+	}
+	if !newBuild.After(now.Add(-time.Hour)) {
+		t.Error("lastBuild must advance after a touch-only event")
+	}
+}
+
+// failWriter always fails, simulating a full disk during archive finalization.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
+// TestWriteZipCloseError verifies GO-024: an error from zip.Writer.Close (which
+// writes the ZIP central directory) is propagated instead of being swallowed.
+func TestWriteZipCloseError(t *testing.T) {
+	// An empty tree writes no entries during the walk; the only write happens in
+	// Close (end-of-central-directory record), so the error must come from there.
+	if err := writeZip(t.TempDir(), failWriter{}); err == nil {
+		t.Error("expected an error from zip finalization on a failing writer (GO-024)")
+	}
+}
+
+// TestWriteZipHappyPath verifies writeZip against a real buffer.
+func TestWriteZipHappyPath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html></html>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := writeZip(dir, &buf); err != nil {
+		t.Fatalf("writeZip: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("reading zip: %v", err)
+	}
+	if len(zr.File) != 1 || zr.File[0].Name != "index.html" {
+		t.Errorf("unexpected zip contents: %+v", zr.File)
 	}
 }

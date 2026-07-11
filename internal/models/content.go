@@ -303,10 +303,11 @@ type Title struct {
 	Rendered string `json:"rendered"`
 }
 
-// Metadata represents the full metadata.json structure
+// Metadata represents the full metadata.json structure. Unconsumed export
+// fields (e.g. exported_at) are simply not declared — the JSON decoder skips
+// them (GO-042).
 type Metadata struct {
 	Categories []Category  `json:"categories"`
-	ExportedAt string      `json:"exported_at"`
 	Media      []MediaItem `json:"media"`
 	Users      []Author    `json:"users"`
 }

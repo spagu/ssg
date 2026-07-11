@@ -127,6 +127,8 @@ func isInternalRef(ref string) bool {
 }
 
 // refResolves reports whether an internal ref maps to an existing output file.
+// Results are memoized per resolved target: site-wide refs like /css/style.css
+// would otherwise be stat'ed once per page (PERF-009).
 func (g *Generator) refResolves(ref, htmlDir string) bool {
 	// Strip query and fragment.
 	if i := strings.IndexAny(ref, "?#"); i >= 0 {
@@ -141,16 +143,34 @@ func (g *Generator) refResolves(ref, htmlDir string) bool {
 	} else {
 		target = filepath.Join(htmlDir, filepath.FromSlash(ref))
 	}
+	key := target
+	if strings.HasSuffix(ref, "/") {
+		key += string(filepath.Separator)
+	}
+	if g.refCache != nil {
+		if v, ok := g.refCache[key]; ok {
+			return v
+		}
+	}
+	v := refTargetExists(target, strings.HasSuffix(ref, "/"))
+	if g.refCache != nil {
+		g.refCache[key] = v
+	}
+	return v
+}
+
+// refTargetExists checks a resolved link-checker target on disk.
+func refTargetExists(target string, dirStyle bool) bool {
 	if info, err := os.Stat(target); err == nil {
 		if info.IsDir() {
-			_, e := os.Stat(filepath.Join(target, "index.html"))
+			_, e := os.Stat(filepath.Join(target, indexHTMLName))
 			return e == nil
 		}
 		return true
 	}
 	// Directory-style URL ending in "/" → index.html
-	if strings.HasSuffix(ref, "/") {
-		_, e := os.Stat(filepath.Join(target, "index.html"))
+	if dirStyle {
+		_, e := os.Stat(filepath.Join(target, indexHTMLName))
 		return e == nil
 	}
 	return false

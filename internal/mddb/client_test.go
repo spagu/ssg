@@ -475,8 +475,11 @@ func TestClient_Search_NoTotalCountHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
-	if total != 1 {
-		t.Errorf("total = %v, want 1 (fallback to len)", total)
+	// GO-015: a missing header means the total is unknown (0) — the batch
+	// length must NOT be reported as the collection total, or pagination
+	// would silently stop after the first batch.
+	if total != 0 {
+		t.Errorf("total = %v, want 0 (unknown without X-Total-Count)", total)
 	}
 	if len(docs) != 1 {
 		t.Errorf("len(docs) = %v, want 1", len(docs))

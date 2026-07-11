@@ -106,6 +106,15 @@ type Config struct {
 	// default date/slug behaviour, so this is not a breaking change (SEO-001).
 	Permalinks map[string]string `yaml:"permalinks" toml:"permalinks" json:"permalinks"`
 
+	// Timezone is the IANA zone (e.g. "Europe/Warsaw") used to render content
+	// dates: :year/:month/:day permalink tokens and the Date/Modified template
+	// context. Empty = no conversion (dates stay as parsed, i.e. UTC) — the
+	// pre-feature behaviour, so this is not a breaking change (I18N-001).
+	Timezone string `yaml:"timezone" toml:"timezone" json:"timezone"`
+	// LanguageTimezones overrides Timezone per content language (PLAT-005 langs),
+	// e.g. {en_US: "America/New_York", pl_PL: "Europe/Warsaw"} (I18N-001).
+	LanguageTimezones map[string]string `yaml:"language_timezones" toml:"language_timezones" json:"language_timezones"`
+
 	// LastmodFromGit derives sitemap <lastmod> from each source file's last git
 	// commit date instead of frontmatter (SEO-004). Falls back gracefully outside
 	// a git repository or for content without a source file (e.g. mddb).
