@@ -44,7 +44,8 @@ func deployVercel(ctx context.Context, o Options) (string, error) {
 	manifest := make([]vercelFile, 0, len(files))
 	seen := map[string]bool{}
 	for _, f := range files {
-		sum := sha1.Sum(f.Data) // #nosec G401 -- Vercel content-addresses files by SHA-1 (digest key, not a security use)
+		// #nosec G401 -- Vercel content-addresses files by SHA-1 (digest key, not a security use)
+		sum := sha1.Sum(f.Data) // NOSONAR S4790: SHA-1 is Vercel's content-address key per its API, not a security use
 		sha := hex.EncodeToString(sum[:])
 		manifest = append(manifest, vercelFile{File: f.Rel, SHA: sha, Size: len(f.Data)})
 		if seen[sha] {
