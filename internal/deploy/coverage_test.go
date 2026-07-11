@@ -57,10 +57,10 @@ func TestCloudflareCheckMissingFails(t *testing.T) {
 
 func TestCloudflareCreateDeployFails(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/accounts/a/pages/projects/p/upload-token":
+		switch r.URL.Path {
+		case "/accounts/a/pages/projects/p/upload-token":
 			_, _ = w.Write([]byte(`{"success":true,"result":{"jwt":"j"}}`))
-		case r.URL.Path == "/pages/assets/check-missing":
+		case "/pages/assets/check-missing":
 			_, _ = w.Write([]byte(`{"success":true,"result":[]}`)) // nothing to upload
 		default: // /deployments → malformed
 			_, _ = w.Write([]byte("nope"))
