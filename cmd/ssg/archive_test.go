@@ -97,7 +97,25 @@ func TestWriteTarballSymlink(t *testing.T) {
 		t.Fatalf("createTarGz with symlink: %v", err)
 	}
 
-	f, err := os.Open(out) // #nosec G304 -- test file
+	hdr := tarGzHeader(t, out, "latest.html")
+	if hdr == nil {
+		t.Fatal("symlink entry missing from the archive")
+	}
+	if hdr.Typeflag != tar.TypeSymlink {
+		t.Errorf("latest.html typeflag = %v, want TypeSymlink", hdr.Typeflag)
+	}
+	if hdr.Linkname != "index.html" {
+		t.Errorf("latest.html linkname = %q, want index.html", hdr.Linkname)
+	}
+	if hdr.Size != 0 {
+		t.Errorf("symlink entry size = %d, want 0", hdr.Size)
+	}
+}
+
+// tarGzHeader returns the tar header named `name` from a .tar.gz archive, or nil.
+func tarGzHeader(t *testing.T, path, name string) *tar.Header {
+	t.Helper()
+	f, err := os.Open(path) // #nosec G304 -- test file
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,28 +124,14 @@ func TestWriteTarballSymlink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gzip open: %v", err)
 	}
-
 	tr := tar.NewReader(gz)
-	var found bool
 	for {
 		hdr, err := tr.Next()
 		if err != nil {
-			break
+			return nil
 		}
-		if hdr.Name == "latest.html" {
-			found = true
-			if hdr.Typeflag != tar.TypeSymlink {
-				t.Errorf("latest.html typeflag = %v, want TypeSymlink", hdr.Typeflag)
-			}
-			if hdr.Linkname != "index.html" {
-				t.Errorf("latest.html linkname = %q, want index.html", hdr.Linkname)
-			}
-			if hdr.Size != 0 {
-				t.Errorf("symlink entry size = %d, want 0", hdr.Size)
-			}
+		if hdr.Name == name {
+			return hdr
 		}
-	}
-	if !found {
-		t.Error("symlink entry missing from the archive")
 	}
 }

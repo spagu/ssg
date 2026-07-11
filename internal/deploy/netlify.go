@@ -3,7 +3,7 @@ package deploy
 import (
 	"bytes"
 	"context"
-	"crypto/sha1" // #nosec G505 -- Netlify's deploy API keys files by SHA-1 digest; not security. NOSONAR S4790
+	"crypto/sha1" // #nosec G505 -- Netlify content-addresses files by SHA-1 (digest key, not a security use)
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -34,7 +34,7 @@ func deployNetlify(ctx context.Context, o Options) (string, error) {
 	digests := make(map[string]string, len(files)) // "/path" → sha1
 	byPath := make(map[string][]byte, len(files))
 	for _, f := range files {
-		sum := sha1.Sum(f.Data) // #nosec G401 -- Netlify content-addresses files by SHA-1; digest key, not security. NOSONAR S4790
+		sum := sha1.Sum(f.Data) // #nosec G401 -- Netlify content-addresses files by SHA-1 (digest key, not a security use)
 		path := "/" + f.Rel
 		digests[path] = hex.EncodeToString(sum[:])
 		byPath[path] = f.Data
