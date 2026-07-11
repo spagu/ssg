@@ -235,6 +235,12 @@ pages that use it.
 Sanitize raw HTML embedded in markdown through the bluemonday UGC policy
 (strips \fB<script>\fR and other unsafe markup).
 .TP
+.BR \-\-timezone =\fIZONE
+Render content dates (permalink \fB:year/:month/:day\fR tokens and the
+\fBDate\fR/\fBModified\fR template context) in the given IANA zone
+(e.g. \fBEurope/Warsaw\fR). Per-language overrides via
+\fBlanguage_timezones:\fR in the config file. Empty = no conversion.
+.TP
 .B \-\-highlight
 Syntax-highlight code blocks via Chroma.
 .TP

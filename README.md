@@ -447,6 +447,20 @@ sanitize_html: true   # or --sanitize-html
 Runs raw HTML embedded in markdown through the bluemonday UGC policy (strips `<script>`
 and other unsafe markup).
 
+#### Timezone-aware dates
+
+```yaml
+timezone: "Europe/Warsaw"   # or --timezone=Europe/Warsaw
+language_timezones:         # optional per-language override (wins for that lang)
+  en_US: "America/New_York"
+  pl_PL: "Europe/Warsaw"
+```
+
+Renders content dates — the `:year/:month/:day` permalink tokens and the `Date`/`Modified`
+template context — in the given IANA zone instead of UTC-as-parsed. Feeds and the sitemap
+stay in UTC (per spec). The zone database is embedded, so static and Windows binaries work
+without a system tzdata. Empty = previous behaviour (no conversion).
+
 ### New in v1.8.0
 
 All features below are **opt-in** behind a config key or flag; the default build is unchanged.
