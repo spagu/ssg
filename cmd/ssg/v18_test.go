@@ -78,3 +78,64 @@ func TestRunWatchOrServeNoop(t *testing.T) {
 		t.Fatal("runWatchOrServe blocked with no watch/http configured")
 	}
 }
+
+func TestServerAndArchiveFlags(t *testing.T) {
+	cfg := config.DefaultConfig()
+	parseFlags([]string{
+		"--tls-cert=c.pem", "--tls-key=k.pem", "--tls-auto", "--tls-domain=x.com",
+		"--gzip", "--http3", "--sanitize-html", "--targz", "--tarxz",
+		"--max-conns=50", "--mem-limit=256MiB",
+	}, cfg)
+	if cfg.TLSCert != "c.pem" || cfg.TLSKey != "k.pem" || !cfg.TLSAuto || cfg.TLSDomain != "x.com" {
+		t.Errorf("TLS flags not parsed: %+v", cfg)
+	}
+	if !cfg.Gzip || !cfg.HTTP3 || !cfg.SanitizeHTML || !cfg.TarGz || !cfg.TarXz {
+		t.Errorf("bool server/archive flags not parsed")
+	}
+	if cfg.MaxConns != 50 || cfg.MemLimit != "256MiB" {
+		t.Errorf("MaxConns/MemLimit not parsed: %d %q", cfg.MaxConns, cfg.MemLimit)
+	}
+}
+
+func TestMakeArchive(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "index.html"), []byte("<html></html>"), 0644)
+	cwd, _ := os.Getwd()
+	tmp := t.TempDir()
+	_ = os.Chdir(tmp)
+	defer func() { _ = os.Chdir(cwd) }()
+	cfg := &config.Config{Domain: "example.com", OutputDir: dir, Quiet: true}
+	if err := makeArchive(cfg, "tar.gz", createTarGz); err != nil {
+		t.Fatalf("makeArchive: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "example.com.tar.gz")); err != nil {
+		t.Errorf("archive not created: %v", err)
+	}
+}
+
+func TestMakeArchiveSuccessAndError(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{Domain: "example.com", OutputDir: dir, Quiet: false}
+
+	// Success: fn writes a file at the requested name (non-quiet → stat/print path).
+	got := ""
+	err := makeArchive(cfg, "tar.gz", func(src, out string) error {
+		got = out
+		return os.WriteFile(out, []byte("payload"), 0o644)
+	})
+	if err != nil {
+		t.Fatalf("makeArchive success: %v", err)
+	}
+	if got != "example.com.tar.gz" {
+		t.Errorf("archive name = %q, want example.com.tar.gz", got)
+	}
+	_ = os.Remove(got)
+
+	// Error: fn fails → wrapped error returned.
+	err = makeArchive(cfg, "tar.xz", func(_, _ string) error {
+		return os.ErrPermission
+	})
+	if err == nil {
+		t.Error("makeArchive should propagate the fn error")
+	}
+}

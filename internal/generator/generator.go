@@ -17,8 +17,11 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
@@ -54,16 +57,16 @@ type Shortcode struct {
 
 // MddbConfig holds MDDB connection settings for generator
 type MddbConfig struct {
-	Enabled       bool   // Enable mddb as content source
-	URL           string // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
-	Protocol      string // Connection protocol: "http" (default) or "grpc"
-	APIKey        string // Optional API key
-	Collection    string // Collection name for content
-	Lang          string // Language filter (e.g., "en_US")
-	Timeout       int    // Request timeout in seconds
-	BatchSize     int    // Batch size for pagination (default: 1000)
-	Watch         bool   // Enable watch mode for MDDB changes
-	WatchInterval int    // Watch interval in seconds (default: 30)
+	Enabled    bool   // Enable mddb as content source
+	URL        string // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
+	Protocol   string // Connection protocol: "http" (default) or "grpc"
+	APIKey     string // Optional API key
+	Collection string // Collection name for content
+	Lang       string // Language filter (e.g., "en_US")
+	Timeout    int    // Request timeout in seconds
+	BatchSize  int    // Batch size for pagination (default: 1000)
+	// Watch/WatchInterval live in the CLI config only — the watch loop runs in
+	// cmd/ssg, not in the generator (GO-043: dead copies removed).
 }
 
 // Config holds generator configuration
@@ -131,10 +134,14 @@ type Config struct {
 	// for immutable caching; runs as the terminal asset step (ASSET-001).
 	Fingerprint bool
 
-	// ImageSizes lists responsive width presets (px) for srcset emission (ASSET-004).
-	ImageSizes []int
-	// ImageSizesAttr is the generated sizes attribute value (default "100vw").
-	ImageSizesAttr string
+	// Responsive image presets (ASSET-004) are consumed directly by the webp
+	// package from the CLI config (GO-043: dead generator copies removed).
+
+	// Timezone renders content dates (permalink tokens, Date/Modified template
+	// context) in this IANA zone; LanguageTimezones overrides it per page
+	// language. Empty = no conversion (I18N-001).
+	Timezone          string
+	LanguageTimezones map[string]string
 
 	// Math enables opt-in KaTeX injection on pages containing math delimiters (AX-004).
 	Math bool
@@ -164,6 +171,10 @@ type Config struct {
 	Bundles         map[string][]string
 	Outputs         []string
 	SearchIndex     bool
+
+	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
+	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
+	SanitizeHTML bool
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -193,19 +204,98 @@ type Generator struct {
 	authorSlugs  map[string]string        // author slug → slug, for sitemap (BLOG-005)
 	engine       engine.Engine            // non-Go template engine when configured (GO-007)
 	engineTmpls  map[string]engine.Template
+	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
+
+	shortcodeTmpls map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
+	bracketRes     map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
+	gitOnce        sync.Once                      // guards the single git-log scan (PERF-001)
+	gitRoot        string                         // repo top-level dir for lastmod lookups (PERF-001)
+	gitTimes       map[string]time.Time           // repo-relative path → last commit date (PERF-001)
+	refCache       map[string]bool                // link-checker target memo (PERF-009)
+	siteLoc        *time.Location                 // resolved Timezone; nil = no conversion (I18N-001)
+	langLocs       map[string]*time.Location      // per-language zone overrides (I18N-001)
+}
+
+// resolveLocations loads the configured IANA zones; unknown names warn and are
+// skipped so a typo degrades to the no-conversion default instead of failing
+// the build (I18N-001).
+func resolveLocations(cfg Config) (*time.Location, map[string]*time.Location) {
+	load := func(name, scope string) *time.Location {
+		loc, err := time.LoadLocation(name)
+		if err != nil {
+			fmt.Printf("   ⚠️  Warning: unknown timezone %q for %s — dates left unconverted\n", name, scope)
+			return nil
+		}
+		return loc
+	}
+	var siteLoc *time.Location
+	if cfg.Timezone != "" {
+		siteLoc = load(cfg.Timezone, "site")
+	}
+	langLocs := make(map[string]*time.Location, len(cfg.LanguageTimezones))
+	for lang, name := range cfg.LanguageTimezones {
+		if loc := load(name, "language "+lang); loc != nil {
+			langLocs[lang] = loc
+		}
+	}
+	return siteLoc, langLocs
+}
+
+// pageLocation returns the render zone for a page: the per-language override
+// wins, then the site timezone, then nil (no conversion).
+func (g *Generator) pageLocation(p models.Page) *time.Location {
+	if loc, ok := g.langLocs[p.Lang]; ok {
+		return loc
+	}
+	return g.siteLoc
+}
+
+// pageDate converts a content date into the page's configured render zone.
+// Zero dates and unconfigured zones pass through untouched (I18N-001).
+func (g *Generator) pageDate(p models.Page, t time.Time) time.Time {
+	if t.IsZero() {
+		return t
+	}
+	if loc := g.pageLocation(p); loc != nil {
+		return t.In(loc)
+	}
+	return t
+}
+
+// bracketShortcodeRes holds the three bracket-syntax regexes for one shortcode
+// name; compiling them once per build instead of once per page keeps shortcode
+// expansion off the render hot path (PERF-006).
+type bracketShortcodeRes struct {
+	closing   *regexp.Regexp // [name attrs]inner[/name]
+	selfAttrs *regexp.Regexp // [name attr="val"]
+	simple    *regexp.Regexp // [name]
+}
+
+// compileBracketRes builds the bracket-syntax regexes for one shortcode name.
+func compileBracketRes(name string) bracketShortcodeRes {
+	q := regexp.QuoteMeta(name)
+	return bracketShortcodeRes{
+		closing:   regexp.MustCompile(`\[` + q + `((?:\s+\w+="[^"]*")*)\]([\s\S]*?)\[/` + q + `\]`),
+		selfAttrs: regexp.MustCompile(`\[` + q + `(\s+\w+="[^"]*"(?:\s+\w+="[^"]*")*)\]`),
+		simple:    regexp.MustCompile(`\[` + q + `\]`),
+	}
 }
 
 // New creates a new Generator instance
 func New(cfg Config) (*Generator, error) {
 	// Build shortcode map for quick lookup
 	scMap := make(map[string]Shortcode)
+	bracketRes := make(map[string]bracketShortcodeRes, len(cfg.Shortcodes))
 	for _, sc := range cfg.Shortcodes {
 		scMap[sc.Name] = sc
+		bracketRes[sc.Name] = compileBracketRes(sc.Name)
 	}
 
 	// Resolve variables (expand $ENV_VAR references) and export as SSG_* env vars
 	cfg.Variables = resolveVariables(cfg.Variables)
 	exportVariablesToEnv(cfg.Variables, "SSG")
+
+	siteLoc, langLocs := resolveLocations(cfg) // I18N-001
 
 	return &Generator{
 		config: cfg,
@@ -215,9 +305,24 @@ func New(cfg Config) (*Generator, error) {
 			Media:      make(map[int]models.MediaItem),
 			Authors:    make(map[int]models.Author),
 		},
-		shortcodeMap: scMap,
-		md:           buildMarkdown(cfg),
+		shortcodeMap:   scMap,
+		md:             buildMarkdown(cfg),
+		sanitizer:      newSanitizer(cfg.SanitizeHTML),
+		shortcodeTmpls: make(map[string]*template.Template),
+		bracketRes:     bracketRes,
+		refCache:       make(map[string]bool),
+		siteLoc:        siteLoc,
+		langLocs:       langLocs,
 	}, nil
+}
+
+// newSanitizer returns a bluemonday UGC policy when sanitisation is enabled, else nil
+// (FE-005 / SEC-003).
+func newSanitizer(enabled bool) *bluemonday.Policy {
+	if !enabled {
+		return nil
+	}
+	return bluemonday.UGCPolicy()
 }
 
 // buildMarkdown assembles the goldmark renderer from config: tables + footnotes are
@@ -816,10 +921,13 @@ func containsMath(content string) bool {
 // using the tokens :year :month :day :slug :category (SEO-001). Empty date
 // segments collapse cleanly; the result is always confined to the output root.
 func (g *Generator) expandPermalink(pattern string, p models.Page) string {
+	// Date tokens honour the configured timezone so URLs match the site's
+	// local calendar, not the build host's or UTC (I18N-001).
+	date := g.pageDate(p, p.Date)
 	repl := strings.NewReplacer(
-		":year", fmt.Sprintf("%04d", p.Date.Year()),
-		":month", fmt.Sprintf("%02d", int(p.Date.Month())),
-		":day", fmt.Sprintf("%02d", p.Date.Day()),
+		":year", fmt.Sprintf("%04d", date.Year()),
+		":month", fmt.Sprintf("%02d", int(date.Month())),
+		":day", fmt.Sprintf("%02d", date.Day()),
 		":slug", p.Slug,
 		":category", g.permalinkCategorySlug(p),
 	)
@@ -1091,7 +1199,8 @@ func (g *Generator) loadContentFromMddb() error {
 // loadMetadataFromMddb loads categories, media, and users from mddb
 func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	// Load categories
-	catDocs, err := client.GetAll("categories", g.config.Mddb.Lang, 100)
+	// Batch size 0 → the client's configured default (PERF-010).
+	catDocs, err := client.GetAll("categories", g.config.Mddb.Lang, 0)
 	if err != nil {
 		// Categories collection might not exist - not critical
 		g.log("   ⚠️  Warning: could not load categories from mddb")
@@ -1103,7 +1212,7 @@ func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	}
 
 	// Load media
-	mediaDocs, err := client.GetAll("media", g.config.Mddb.Lang, 100)
+	mediaDocs, err := client.GetAll("media", g.config.Mddb.Lang, 0)
 	if err != nil {
 		// Media collection might not exist - not critical
 		g.log("   ⚠️  Warning: could not load media from mddb")
@@ -1115,7 +1224,7 @@ func (g *Generator) loadMetadataFromMddb(client mddb.MddbClient) error {
 	}
 
 	// Load users/authors
-	userDocs, err := client.GetAll("users", g.config.Mddb.Lang, 100)
+	userDocs, err := client.GetAll("users", g.config.Mddb.Lang, 0)
 	if err != nil {
 		// Users collection might not exist - not critical
 		g.log("   ⚠️  Warning: could not load users from mddb")
@@ -1369,11 +1478,21 @@ func (g *Generator) prepAltData(data interface{}) interface{} {
 	for k, v := range m {
 		if hv, isHTML := v.(template.HTML); isHTML {
 			if k == "Content" {
-				out[k] = g.convertMarkdownToHTML(string(hv))
+				// Sanitize like the Go-engine path does, so --sanitize-html
+				// holds for pongo2/mustache/handlebars too (SEC-014).
+				out[k] = g.sanitizeHTML(g.convertMarkdownToHTML(string(hv)))
 			} else {
 				out[k] = string(hv)
 			}
 			continue
+		}
+		// With the sanitizer on, Content is passed as a plain string (SEC-014);
+		// alt engines still need it pre-rendered to HTML.
+		if k == "Content" {
+			if sv, isStr := v.(string); isStr {
+				out[k] = g.sanitizeHTML(g.convertMarkdownToHTML(sv))
+				continue
+			}
 		}
 		out[k] = v
 	}
@@ -1492,7 +1611,21 @@ func tmplDict(values ...interface{}) (map[string]interface{}, error) {
 // tmplSafeHTML returns the safeHTML template function
 func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[string]string) func(string) template.HTML {
 	return func(s string) template.HTML {
-		s = g.processShortcodes(s) // Process shortcodes first
+		// Shortcode output comes from author-controlled templates, not untrusted
+		// content: swap it for placeholder tokens so it survives the sanitizer
+		// while raw HTML in the content itself does not (SEC-014/GO-037).
+		var protected []string
+		protect := func(html string) string {
+			if g.sanitizer == nil || html == "" {
+				return html
+			}
+			protected = append(protected, html)
+			return fmt.Sprintf("ssg-protected-%d-token", len(protected)-1)
+		}
+		s = g.processShortcodesWith(s, func(sc Shortcode) string { return protect(g.renderShortcode(sc)) })
+		if g.sanitizer != nil {
+			s = processWPShortcodesWith(s, protect) // [youtube]/[embed] iframes (GO-037)
+		}
 		s = cleanMarkdownArtifacts(s)
 		s = autolinkListItems(s, pageLinks)
 		s = g.replaceTOCMarker(s)
@@ -1501,16 +1634,34 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		if g.config.RewriteMdLinks {
 			s = rewriteMdLinks(s, mdLinkMap)
 		}
-		return template.HTML(s) // #nosec G203 -- SSG intentionally renders markdown as HTML
+		if g.sanitizer != nil {
+			s = g.sanitizer.Sanitize(s) // FE-005 / SEC-003: strip XSS from untrusted content
+			for i, html := range protected {
+				s = strings.Replace(s, fmt.Sprintf("ssg-protected-%d-token", i), html, 1)
+			}
+		}
+		return template.HTML(s) // #nosec G203 -- rendered markdown (optionally sanitized, FE-005)
 	}
 }
 
+// sanitizeHTML applies the configured HTML sanitizer when enabled (SEC-014).
+func (g *Generator) sanitizeHTML(s string) string {
+	if g.sanitizer == nil {
+		return s
+	}
+	return g.sanitizer.Sanitize(s)
+}
+
+// Static content-cleanup patterns, compiled once (PERF-006).
+var (
+	mdStarLineRe = regexp.MustCompile(`(?m)^\s*\*\*\s*$`)
+	mdBoldRe     = regexp.MustCompile(`\*\*(.*?)\*\*`)
+)
+
 // cleanMarkdownArtifacts removes markdown artifacts and fixes bolding
 func cleanMarkdownArtifacts(s string) string {
-	starRegex := regexp.MustCompile(`(?m)^\s*\*\*\s*$`)
-	s = starRegex.ReplaceAllString(s, "")
-	boldRegex := regexp.MustCompile(`\*\*(.*?)\*\*`)
-	s = boldRegex.ReplaceAllString(s, "<strong>$1</strong>")
+	s = mdStarLineRe.ReplaceAllString(s, "")
+	s = mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
 	return s
 }
 
@@ -1641,62 +1792,78 @@ func (g *Generator) replaceTOCMarker(s string) string {
 	return tocMarkerRe.ReplaceAllString(s, "\n\n"+toc+"\n\n")
 }
 
+// shortcodeNameRe matches {{shortcode_name}} markers (PERF-006).
+var shortcodeNameRe = regexp.MustCompile(`\{\{(\w+)\}\}`)
+
 // processShortcodes replaces {{shortcode_name}} with rendered HTML.
 // When ShortcodeBrackets is enabled, also replaces [shortcode_name] for defined shortcodes only.
 func (g *Generator) processShortcodes(content string) string {
+	return g.processShortcodesWith(content, g.renderShortcode)
+}
+
+// processShortcodesWith is processShortcodes with a pluggable renderer, so the
+// sanitizing pipeline can wrap shortcode output in protected tokens (SEC-014).
+func (g *Generator) processShortcodesWith(content string, render func(Shortcode) string) string {
 	// Match {{shortcode_name}} pattern
-	re := regexp.MustCompile(`\{\{(\w+)\}\}`)
-	content = re.ReplaceAllStringFunc(content, func(match string) string {
+	content = shortcodeNameRe.ReplaceAllStringFunc(content, func(match string) string {
 		name := match[2 : len(match)-2]
 		sc, ok := g.shortcodeMap[name]
 		if !ok {
 			return "" // Remove undefined shortcodes
 		}
-		return g.renderShortcode(sc)
+		return render(sc)
 	})
 
 	// Match bracket shortcodes (only defined shortcodes, opt-in)
 	if g.config.ShortcodeBrackets && len(g.shortcodeMap) > 0 {
-		content = g.processBracketShortcodes(content)
+		content = g.processBracketShortcodesWith(content, render)
 	}
 
 	return content
 }
 
-// processBracketShortcodes handles WordPress-style bracket shortcodes:
+// processBracketShortcodesWith handles WordPress-style bracket shortcodes:
 //   - [name] — simple self-closing
 //   - [name attr="val" attr2="val2"] — with attributes
 //   - [name]inner content[/name] — with inner content
 //   - [name attr="val"]inner content[/name] — with both
-func (g *Generator) processBracketShortcodes(content string) string {
+//
+// Regexes are precompiled per shortcode in New() (PERF-006).
+func (g *Generator) processBracketShortcodesWith(content string, render func(Shortcode) string) string {
 	// Process each defined shortcode by name (avoids backreference limitation in Go regexp)
 	for name, baseSc := range g.shortcodeMap {
+		res, ok := g.bracketRes[name]
+		if !ok {
+			// Generators built as struct literals (tests) miss New()'s precompile.
+			res = compileBracketRes(name)
+			if g.bracketRes == nil {
+				g.bracketRes = make(map[string]bracketShortcodeRes)
+			}
+			g.bracketRes[name] = res
+		}
 		// First: closing-tag with optional attrs [name ...]...[/name]
-		reClosing := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `((?:\s+\w+="[^"]*")*)\]([\s\S]*?)\[/` + regexp.QuoteMeta(name) + `\]`)
-		content = reClosing.ReplaceAllStringFunc(content, func(match string) string {
-			parts := reClosing.FindStringSubmatch(match)
+		content = res.closing.ReplaceAllStringFunc(content, func(match string) string {
+			parts := res.closing.FindStringSubmatch(match)
 			if len(parts) < 3 {
 				return match
 			}
 			sc := g.shortcodeWithOverrides(baseSc, parts[1], parts[2])
-			return g.renderShortcode(sc)
+			return render(sc)
 		})
 
 		// Second: self-closing with attrs [name attr="val"]
-		reSelfAttrs := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `(\s+\w+="[^"]*"(?:\s+\w+="[^"]*")*)\]`)
-		content = reSelfAttrs.ReplaceAllStringFunc(content, func(match string) string {
-			parts := reSelfAttrs.FindStringSubmatch(match)
+		content = res.selfAttrs.ReplaceAllStringFunc(content, func(match string) string {
+			parts := res.selfAttrs.FindStringSubmatch(match)
 			if len(parts) < 2 {
 				return match
 			}
 			sc := g.shortcodeWithOverrides(baseSc, parts[1], "")
-			return g.renderShortcode(sc)
+			return render(sc)
 		})
 
 		// Third: simple [name]
-		reSimple := regexp.MustCompile(`\[` + regexp.QuoteMeta(name) + `\]`)
-		content = reSimple.ReplaceAllStringFunc(content, func(_ string) string {
-			return g.renderShortcode(baseSc)
+		content = res.simple.ReplaceAllStringFunc(content, func(_ string) string {
+			return render(baseSc)
 		})
 	}
 
@@ -1711,17 +1878,21 @@ func (g *Generator) shortcodeWithOverrides(base Shortcode, attrStr, innerContent
 	return sc
 }
 
+// shortcodeAttrRe matches key="value" attribute pairs (PERF-006).
+var shortcodeAttrRe = regexp.MustCompile(`(\w+)="([^"]*)"`)
+
 // parseShortcodeAttrs extracts key="value" pairs from an attribute string
 func parseShortcodeAttrs(s string) map[string]string {
 	attrs := make(map[string]string)
-	re := regexp.MustCompile(`(\w+)="([^"]*)"`)
-	for _, m := range re.FindAllStringSubmatch(s, -1) {
+	for _, m := range shortcodeAttrRe.FindAllStringSubmatch(s, -1) {
 		attrs[m[1]] = m[2]
 	}
 	return attrs
 }
 
-// renderShortcode renders a single shortcode to HTML using its template file
+// renderShortcode renders a single shortcode to HTML using its template file.
+// Parsed templates are cached for the build, so a shortcode used on every page
+// costs one disk read and one parse instead of thousands (PERF-002).
 func (g *Generator) renderShortcode(sc Shortcode) string {
 	if sc.Template == "" {
 		fmt.Printf("   ⚠️  Warning: shortcode '%s' has no template defined, skipping\n", sc.Name)
@@ -1730,14 +1901,15 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
 
-	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
-		fmt.Printf("   ⚠️  Warning: shortcode template not found: %s\n", templatePath)
-		return ""
+	tmpl, cached := g.shortcodeTmpls[templatePath]
+	if !cached {
+		tmpl = g.parseShortcodeTemplate(templatePath)
+		if g.shortcodeTmpls == nil { // struct-literal generators (tests) skip New()
+			g.shortcodeTmpls = make(map[string]*template.Template)
+		}
+		g.shortcodeTmpls[templatePath] = tmpl // nil is cached too: warn once, not per page
 	}
-
-	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(g.shortcodeFuncMap()).ParseFiles(templatePath)
-	if err != nil {
-		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
+	if tmpl == nil {
 		return ""
 	}
 
@@ -1748,6 +1920,20 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 	}
 
 	return buf.String()
+}
+
+// parseShortcodeTemplate loads one shortcode template from disk; nil on failure.
+func (g *Generator) parseShortcodeTemplate(templatePath string) *template.Template {
+	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		fmt.Printf("   ⚠️  Warning: shortcode template not found: %s\n", templatePath)
+		return nil
+	}
+	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(g.shortcodeFuncMap()).ParseFiles(templatePath)
+	if err != nil {
+		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
+		return nil
+	}
+	return tmpl
 }
 
 // shortcodeFuncMap returns template functions available in shortcode templates
@@ -1826,9 +2012,15 @@ func tmplHasValidCategories(p models.Page) bool {
 	return p.HasValidCategories()
 }
 
+// Template helper patterns, compiled once (PERF-006).
+var (
+	stripYoutubeRe = regexp.MustCompile(`\[youtube\][^\[]*\[/youtube\]`)
+	stripEmbedRe   = regexp.MustCompile(`\[embed\][^\[]*\[/embed\]`)
+	stripHTMLRe    = regexp.MustCompile(`<[^>]*>`)
+)
+
 func tmplThumbnailFromYoutube(s string) string {
-	youtubeRegex := regexp.MustCompile(`\[youtube\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/youtube\]`)
-	matches := youtubeRegex.FindStringSubmatch(s)
+	matches := wpVideoShortcodeRes[0].FindStringSubmatch(s)
 	if len(matches) >= 2 {
 		return fmt.Sprintf("https://img.youtube.com/vi/%s/hqdefault.jpg", matches[1])
 	}
@@ -1836,16 +2028,13 @@ func tmplThumbnailFromYoutube(s string) string {
 }
 
 func tmplStripShortcodes(s string) string {
-	youtubeRegex := regexp.MustCompile(`\[youtube\][^\[]*\[/youtube\]`)
-	s = youtubeRegex.ReplaceAllString(s, "")
-	embedRegex := regexp.MustCompile(`\[embed\][^\[]*\[/embed\]`)
-	s = embedRegex.ReplaceAllString(s, "")
+	s = stripYoutubeRe.ReplaceAllString(s, "")
+	s = stripEmbedRe.ReplaceAllString(s, "")
 	return strings.TrimSpace(s)
 }
 
 func tmplStripHTML(s string) string {
-	regex := regexp.MustCompile(`<[^>]*>`)
-	return strings.TrimSpace(regex.ReplaceAllString(s, ""))
+	return strings.TrimSpace(stripHTMLRe.ReplaceAllString(s, ""))
 }
 
 func (g *Generator) tmplRecentPosts(n int) []models.Page {
@@ -2147,10 +2336,19 @@ func (g *Generator) runPostPageHook(page models.Page) {
 
 // generatePost generates a single post
 func (g *Generator) generatePost(post models.Page) error {
+	// Same guard as generatePage: a post whose link has no path resolves to an
+	// empty output path and would silently overwrite the homepage (GO-023).
+	outputSubPath := post.GetOutputPath()
+	if outputSubPath == "" || outputSubPath == "." {
+		fmt.Printf("   ⚠️  Skipping post '%s' (slug: %s) - would overwrite main index.html\n", post.Title, post.Slug)
+		fmt.Printf("      Hint: Change the 'link' field in frontmatter or use a different slug\n")
+		return nil
+	}
+
 	// Convert post to flat map with Extra fields at top level
 	data := g.pageToTemplateData(post, true)
 
-	outputPaths := g.getOutputPaths(post.GetOutputPath())
+	outputPaths := g.getOutputPaths(outputSubPath)
 	for _, outputPath := range outputPaths {
 		// Reject any path that escapes the output directory (SEC-001).
 		if err := g.ensureWithinOutput(outputPath); err != nil {
@@ -2268,20 +2466,23 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 		ogType = "article"
 		ldType = "Article"
 	}
+	// HTML-escape attribute values. Go's %q backslash-escapes inner quotes,
+	// which HTML parsers read as end-of-attribute — an attribute-injection
+	// vector via untrusted titles/descriptions (SEC-015).
 	var b strings.Builder
-	fmt.Fprintf(&b, `<meta property="og:title" content=%q>`+"\n", title)
+	fmt.Fprintf(&b, `<meta property="og:title" content="%s">`+"\n", stdhtml.EscapeString(title))
 	if desc != "" {
-		fmt.Fprintf(&b, `<meta property="og:description" content=%q>`+"\n", desc)
+		fmt.Fprintf(&b, `<meta property="og:description" content="%s">`+"\n", stdhtml.EscapeString(desc))
 	}
-	fmt.Fprintf(&b, `<meta property="og:type" content=%q>`+"\n", ogType)
-	fmt.Fprintf(&b, `<meta property="og:url" content=%q>`+"\n", url)
+	fmt.Fprintf(&b, `<meta property="og:type" content="%s">`+"\n", stdhtml.EscapeString(ogType))
+	fmt.Fprintf(&b, `<meta property="og:url" content="%s">`+"\n", stdhtml.EscapeString(url))
 	if page.FeaturedImage != "" {
-		fmt.Fprintf(&b, `<meta property="og:image" content=%q>`+"\n", page.FeaturedImage)
+		fmt.Fprintf(&b, `<meta property="og:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
 	}
 	fmt.Fprintf(&b, `<meta name="twitter:card" content="summary_large_image">`+"\n")
-	fmt.Fprintf(&b, `<meta name="twitter:title" content=%q>`+"\n", title)
+	fmt.Fprintf(&b, `<meta name="twitter:title" content="%s">`+"\n", stdhtml.EscapeString(title))
 	if desc != "" {
-		fmt.Fprintf(&b, `<meta name="twitter:description" content=%q>`+"\n", desc)
+		fmt.Fprintf(&b, `<meta name="twitter:description" content="%s">`+"\n", stdhtml.EscapeString(desc))
 	}
 	ld := map[string]interface{}{
 		"@context": "https://schema.org",
@@ -2385,6 +2586,18 @@ func (g *Generator) renderTemplate(templateName, outputPath string, data interfa
 	return g.tmpl.ExecuteTemplate(file, templateName, data)
 }
 
+// contentContextValue returns the template-context value for raw page content.
+// Without the sanitizer it stays a template.HTML for backward compatibility.
+// With --sanitize-html it is a plain string, so a theme printing {{.Content}}
+// directly gets auto-escaped output instead of raw untrusted HTML; the safeHTML
+// pipeline (which sanitizes) is the only road to rendered markup (SEC-014).
+func (g *Generator) contentContextValue(content string) interface{} {
+	if g.sanitizer != nil {
+		return content
+	}
+	return template.HTML(content) // #nosec G203 -- SSG intentionally renders user's markdown as HTML
+}
+
 // pageToTemplateData converts a Page to a map for templates, flattening Extra fields to top level
 // This allows templates to use {{.dupa}} instead of {{.Page.Extra.dupa}}
 func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string]interface{} {
@@ -2402,15 +2615,15 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"ID":            page.ID,
 		"Title":         page.Title,
 		"Slug":          page.Slug,
-		"Date":          page.Date,
-		"Modified":      page.Modified,
+		"Date":          g.pageDate(page, page.Date),     // rendered in the configured zone (I18N-001)
+		"Modified":      g.pageDate(page, page.Modified), // rendered in the configured zone (I18N-001)
 		"Status":        page.Status,
 		"Type":          page.Type,
 		"Link":          page.Link,
 		"Author":        page.Author,
 		"Categories":    page.Categories,
 		"Excerpt":       page.Excerpt,
-		"Content":       template.HTML(page.Content), // #nosec G203 -- SSG intentionally renders user's markdown as HTML
+		"Content":       g.contentContextValue(page.Content),
 		"URLFormat":     page.URLFormat,
 		"PageFormat":    page.PageFormat,
 		"SourceDir":     page.SourceDir,
@@ -2632,64 +2845,82 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir string) error {
 	return nil
 }
 
+// Media-path rewrite patterns, compiled once instead of per rendered page;
+// wpSrcURLre replaces the per-image regex + full-document rescan that made this
+// O(images × content) per post (PERF-006).
+var (
+	wpImageIDRe       = regexp.MustCompile(`wp-image-(\d+)`)
+	wpSrcURLRe        = regexp.MustCompile(`(src=["'])(https?://[^"']*\.(?:jpg|jpeg|png|gif|webp))(["'])`)
+	mediaSrcRe        = regexp.MustCompile(`((?:src|href|srcset)=["'])media/`)
+	mediaSrcsetItemRe = regexp.MustCompile(`, media/`)
+	mediaThumbRe      = regexp.MustCompile(`(/media/\d+_[^"'\s]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))`)
+	mediaSrcsetSizeRe = regexp.MustCompile(`(/media/\d+_[^"'\s,]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))\s+(\d+w)`)
+)
+
+// buildWPMediaReplacements maps media filenames (sans extension) referenced via
+// wp-image-ID classes in content to their local /media/ paths.
+func buildWPMediaReplacements(content string, media map[int]models.MediaItem) map[string]string {
+	replacements := map[string]string{}
+	for _, match := range wpImageIDRe.FindAllStringSubmatch(content, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		var id int
+		_, _ = fmt.Sscanf(match[1], "%d", &id)
+		mediaItem, ok := media[id]
+		if !ok {
+			continue
+		}
+		// Get the filename from the media item
+		filename := filepath.Base(mediaItem.MediaDetails.File)
+		// Guard against empty/short media filenames: filepath.Base("") == "."
+		// so filename[:len-4] would panic (slice bounds out of range).
+		// Strip the extension safely instead (GO-001).
+		nameNoExt := strings.TrimSuffix(filename, filepath.Ext(filename))
+		if nameNoExt == "" || nameNoExt == "." {
+			continue
+		}
+		replacements[nameNoExt] = fmt.Sprintf("/media/%d_%s", id, filename)
+	}
+	return replacements
+}
+
 // fixMediaPaths converts relative media paths to absolute paths
 // and fixes WordPress thumbnail URLs to point to local files
 func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 	// First, fix WordPress absolute URLs using wp-image-ID class
 	// Pattern: wp-image-1048 ... src="http://...krowy.net/..." -> src="/media/1048_filename.jpg"
-	wpImageRegex := regexp.MustCompile(`wp-image-(\d+)`)
-	matches := wpImageRegex.FindAllStringSubmatch(content, -1)
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
-		}
-		idStr := match[1]
-		var id int
-		_, _ = fmt.Sscanf(idStr, "%d", &id)
-		if mediaItem, ok := media[id]; ok {
-			// Get the filename from the media item
-			filename := filepath.Base(mediaItem.MediaDetails.File)
-			// Guard against empty/short media filenames: filepath.Base("") == "."
-			// so filename[:len-4] would panic (slice bounds out of range).
-			// Strip the extension safely instead (GO-001).
-			nameNoExt := strings.TrimSuffix(filename, filepath.Ext(filename))
-			if nameNoExt == "" || nameNoExt == "." {
-				continue
+	replacements := buildWPMediaReplacements(content, media)
+	if len(replacements) > 0 {
+		// One pass over all src URLs; each candidate URL is matched against the
+		// known media filenames (PERF-006: no per-image full-document rescans).
+		content = wpSrcURLRe.ReplaceAllStringFunc(content, func(m string) string {
+			parts := wpSrcURLRe.FindStringSubmatch(m)
+			if len(parts) < 4 {
+				return m
 			}
-			localPath := fmt.Sprintf("/media/%d_%s", id, filename)
-
-			// Replace old WordPress URLs for this image
-			// Match patterns like src="http://...krowy.net/.../filename..."
-			oldURLRegex := regexp.MustCompile(`(src=["'])https?://[^"']*` + regexp.QuoteMeta(nameNoExt) + `[^"']*\.(jpg|jpeg|png|gif|webp)(["'])`)
-			content = oldURLRegex.ReplaceAllString(content, `${1}`+localPath+`${3}`)
-		}
+			for nameNoExt, localPath := range replacements {
+				if strings.Contains(parts[2], nameNoExt) {
+					return parts[1] + localPath + parts[3]
+				}
+			}
+			return m
+		})
 	}
 
-	// Fix src="media/..." to src="/media/..."
-	srcRegex := regexp.MustCompile(`(src=["'])media/`)
-	content = srcRegex.ReplaceAllString(content, `${1}/media/`)
-
-	// Fix href="media/..." to href="/media/..."
-	hrefRegex := regexp.MustCompile(`(href=["'])media/`)
-	content = hrefRegex.ReplaceAllString(content, `${1}/media/`)
-
-	// Fix srcset="media/..." to srcset="/media/..."
-	srcsetRegex := regexp.MustCompile(`(srcset=["'])media/`)
-	content = srcsetRegex.ReplaceAllString(content, `${1}/media/`)
+	// Fix src/href/srcset="media/..." to ".../media/..."
+	content = mediaSrcRe.ReplaceAllString(content, `${1}/media/`)
 
 	// Fix URLs in srcset attribute (multiple entries separated by comma)
-	srcsetItemRegex := regexp.MustCompile(`, media/`)
-	content = srcsetItemRegex.ReplaceAllString(content, `, /media/`)
+	content = mediaSrcsetItemRe.ReplaceAllString(content, `, /media/`)
 
 	// Remove WordPress thumbnail size suffixes from media paths
 	// e.g., /media/1048_IMG_0316_p-300x225.jpg -> /media/1048_IMG_0316_p.jpg
-	thumbnailRegex := regexp.MustCompile(`(/media/\d+_[^"'\s]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))`)
-	content = thumbnailRegex.ReplaceAllString(content, `${1}${2}`)
+	content = mediaThumbRe.ReplaceAllString(content, `${1}${2}`)
 
 	// Also handle srcset entries with size descriptors
 	// e.g., /media/1048_file-300x225.jpg 300w -> /media/1048_file.jpg 300w
-	srcsetThumbnailRegex := regexp.MustCompile(`(/media/\d+_[^"'\s,]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))\s+(\d+w)`)
-	content = srcsetThumbnailRegex.ReplaceAllString(content, `${1}${2} ${3}`)
+	content = mediaSrcsetSizeRe.ReplaceAllString(content, `${1}${2} ${3}`)
 
 	// Process WordPress shortcodes
 	content = processShortcodes(content)
@@ -2697,31 +2928,36 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 	return content
 }
 
+// WordPress video shortcode patterns, compiled once (PERF-006).
+var wpVideoShortcodeRes = []*regexp.Regexp{
+	// [youtube]URL[/youtube]
+	regexp.MustCompile(`\[youtube\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/youtube\]`),
+	// [embed]URL[/embed]
+	regexp.MustCompile(`\[embed\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/embed\]`),
+}
+
+// youtubeEmbedHTML renders the iframe embed for a YouTube video ID.
+func youtubeEmbedHTML(videoID string) string {
+	return fmt.Sprintf(`<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/%s" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`, videoID)
+}
+
 // processShortcodes converts WordPress shortcodes to HTML
 func processShortcodes(content string) string {
-	// YouTube shortcode: [youtube]URL[/youtube] -> iframe embed
-	youtubeRegex := regexp.MustCompile(`\[youtube\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/youtube\]`)
-	content = youtubeRegex.ReplaceAllStringFunc(content, func(match string) string {
-		// Extract video ID
-		submatches := youtubeRegex.FindStringSubmatch(match)
-		if len(submatches) < 2 {
-			return match
-		}
-		videoID := submatches[1]
-		return fmt.Sprintf(`<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/%s" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`, videoID)
-	})
+	return processWPShortcodesWith(content, func(html string) string { return html })
+}
 
-	// Also handle embed shortcode: [embed]URL[/embed]
-	embedRegex := regexp.MustCompile(`\[embed\]\s*(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)\s*\[/embed\]`)
-	content = embedRegex.ReplaceAllStringFunc(content, func(match string) string {
-		submatches := embedRegex.FindStringSubmatch(match)
-		if len(submatches) < 2 {
-			return match
-		}
-		videoID := submatches[1]
-		return fmt.Sprintf(`<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/%s" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`, videoID)
-	})
-
+// processWPShortcodesWith converts WordPress video shortcodes to HTML, passing
+// each embed through emit so the sanitizing pipeline can protect it (GO-037).
+func processWPShortcodesWith(content string, emit func(string) string) string {
+	for _, re := range wpVideoShortcodeRes {
+		content = re.ReplaceAllStringFunc(content, func(match string) string {
+			submatches := re.FindStringSubmatch(match)
+			if len(submatches) < 2 {
+				return match
+			}
+			return emit(youtubeEmbedHTML(submatches[1]))
+		})
+	}
 	return content
 }
 
@@ -2758,28 +2994,70 @@ func (g *Generator) lastModFor(p models.Page) time.Time {
 
 // gitLastMod returns the last commit date of a page's source file. It fails
 // gracefully (ok=false) outside a git repository, for untracked files, or for
-// content with no source file (e.g. mddb). Git is invoked with fixed arguments
-// and the path passed positionally, never through a shell.
+// content with no source file (e.g. mddb). Instead of spawning one `git log`
+// per page (an N+1 that costs minutes on large sites), a single history scan
+// builds a path→date map on first use (PERF-001).
 func (g *Generator) gitLastMod(p models.Page) (time.Time, bool) {
 	if p.SourceFile == "" {
 		return time.Time{}, false
 	}
-	path := filepath.Join(p.SourceDir, p.SourceFile)
-	// #nosec G204 -- fixed args; path is a positional file argument, never a shell
-	cmd := exec.Command("git", "log", "-1", "--format=%cI", "--", path) // NOSONAR S4036: git is intentionally resolved from PATH (portable across systems), reviewed
+	g.gitOnce.Do(func() { g.gitRoot, g.gitTimes = loadGitLastModTimes() })
+	if len(g.gitTimes) == 0 {
+		return time.Time{}, false
+	}
+	abs, err := filepath.Abs(filepath.Join(p.SourceDir, p.SourceFile))
+	if err != nil {
+		return time.Time{}, false
+	}
+	rel, err := filepath.Rel(g.gitRoot, abs)
+	if err != nil {
+		return time.Time{}, false
+	}
+	t, ok := g.gitTimes[filepath.ToSlash(rel)]
+	return t, ok
+}
+
+// loadGitLastModTimes runs one `git log --name-only` pass over the repository
+// and returns its top-level directory plus a map of repo-relative file path →
+// most recent commit date (PERF-001). Both git invocations use fixed arguments
+// and never go through a shell; failures degrade to an empty map.
+func loadGitLastModTimes() (string, map[string]time.Time) {
+	// #nosec G204 -- fixed args, never a shell
+	rootOut, err := exec.Command("git", "rev-parse", "--show-toplevel").Output() // NOSONAR S4036: git is intentionally resolved from PATH (portable across systems), reviewed
+	if err != nil {
+		return "", nil
+	}
+	root := strings.TrimSpace(string(rootOut))
+
+	// -c core.quotepath=off keeps non-ASCII paths literal in the output.
+	// #nosec G204 -- fixed args, never a shell
+	cmd := exec.Command("git", "-c", "core.quotepath=off", "log", "--format=%cI", "--name-only") // NOSONAR S4036: reviewed, see above
 	out, err := cmd.Output()
 	if err != nil {
-		return time.Time{}, false
+		return "", nil
 	}
-	ts := strings.TrimSpace(string(out))
-	if ts == "" {
-		return time.Time{}, false
+
+	times := make(map[string]time.Time)
+	var current time.Time
+	haveDate := false
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if t, err := time.Parse(time.RFC3339, line); err == nil {
+			current = t
+			haveDate = true
+			continue
+		}
+		// git log walks newest-first: the first date seen for a path is its last modification.
+		if haveDate {
+			if _, seen := times[line]; !seen {
+				times[line] = current
+			}
+		}
 	}
-	t, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return t, true
+	return root, times
 }
 
 func (g *Generator) generateSitemap() error {
@@ -2991,14 +3269,17 @@ func (g *Generator) writeFeedEntry(sb *strings.Builder, p models.Page) {
 		fmt.Fprintf(sb, "    <updated>%s</updated>\n", m.UTC().Format(time.RFC3339))
 	}
 	if g.config.FeedFullContent {
-		htmlBody := g.convertMarkdownToHTML(p.Content)
+		// Feed readers render this HTML — sanitize like page output (SEC-014).
+		htmlBody := g.sanitizeHTML(g.convertMarkdownToHTML(p.Content))
 		fmt.Fprintf(sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(htmlBody))
 	} else {
 		summary := p.Excerpt
 		if summary == "" {
 			summary = tmplStripHTML(g.convertMarkdownToHTML(p.Content))
-			if len(summary) > 300 {
-				summary = summary[:300]
+			// Truncate by runes, not bytes — a byte slice can cut a multibyte
+			// character in half and emit invalid UTF-8 into the feed (GO-021).
+			if utf8.RuneCountInString(summary) > 300 {
+				summary = string([]rune(summary)[:300])
 			}
 		}
 		fmt.Fprintf(sb, "    <summary>%s</summary>\n", stdhtml.EscapeString(summary))
@@ -3126,6 +3407,23 @@ func (g *Generator) minifyOutput() error {
 	})
 }
 
+// HTML/CSS/JS minification patterns, compiled once (PERF-006).
+var (
+	minIgnoreBlockRe = regexp.MustCompile(`(?s)<!--\s*htmlmin:ignore\s*-->(.*?)<!--\s*/htmlmin:ignore\s*-->`)
+	// Whitespace-sensitive elements minification must never touch (GO-022):
+	// <pre>/<textarea> render whitespace, <script>/<style> may break semantically.
+	minPreserveTagRe  = regexp.MustCompile(`(?is)<pre\b[^>]*>.*?</pre>|<textarea\b[^>]*>.*?</textarea>|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>`)
+	minHTMLCommentRe  = regexp.MustCompile(`<!--[\s\S]*?-->`)
+	minTagGapRe       = regexp.MustCompile(`>\s+<`)
+	minMultiSpaceRe   = regexp.MustCompile(`\s{2,}`)
+	minCSSCommentRe   = regexp.MustCompile(`/\*[\s\S]*?\*/`)
+	minCSSSpacesRe    = regexp.MustCompile(`\s*([:{};,])\s*`)
+	minJSLineCmtRe    = regexp.MustCompile(`(?m)^\s*//.*$`)
+	minJSEmptyLinesRe = regexp.MustCompile(`\n\s*\n`)
+	minLineCommentRe  = regexp.MustCompile(`^\s*//.*$`)
+	minIntraSpaceRe   = regexp.MustCompile(`[ \t]{2,}`)
+)
+
 // minifyHTMLFile removes unnecessary whitespace from HTML
 // Supports <!-- htmlmin:ignore --> ... <!-- /htmlmin:ignore --> to skip minification
 func minifyHTMLFile(path string) error {
@@ -3137,35 +3435,36 @@ func minifyHTMLFile(path string) error {
 	s := string(content)
 
 	// Extract and preserve htmlmin:ignore blocks
-	reIgnore := regexp.MustCompile(`(?s)<!--\s*htmlmin:ignore\s*-->(.*?)<!--\s*/htmlmin:ignore\s*-->`)
 	preservedBlocks := make(map[string]string)
-	blockIndex := 0
-	s = reIgnore.ReplaceAllStringFunc(s, func(match string) string {
+	preserve := func(inner string) string {
+		placeholder := fmt.Sprintf("__HTMLMIN_PRESERVE_%d__", len(preservedBlocks))
+		preservedBlocks[placeholder] = inner
+		return placeholder
+	}
+	s = minIgnoreBlockRe.ReplaceAllStringFunc(s, func(match string) string {
 		// Extract content between ignore tags
-		inner := reIgnore.FindStringSubmatch(match)
+		inner := minIgnoreBlockRe.FindStringSubmatch(match)
 		if len(inner) > 1 {
-			placeholder := fmt.Sprintf("__HTMLMIN_PRESERVE_%d__", blockIndex)
-			preservedBlocks[placeholder] = inner[1]
-			blockIndex++
-			return placeholder
+			return preserve(inner[1])
 		}
 		return match
 	})
 
+	// Preserve whitespace-sensitive blocks: collapsing runs inside <pre>/<code>
+	// joins highlighted code lines into unreadable one-liners (GO-022).
+	s = minPreserveTagRe.ReplaceAllStringFunc(s, preserve)
+
 	// Remove HTML comments (except conditionals)
-	reComment := regexp.MustCompile(`<!--[\s\S]*?-->`)
-	s = reComment.ReplaceAllStringFunc(s, func(match string) string {
+	s = minHTMLCommentRe.ReplaceAllStringFunc(s, func(match string) string {
 		if strings.HasPrefix(match, "<!--[if") {
 			return match
 		}
 		return ""
 	})
 	// Remove whitespace between tags
-	reSpace := regexp.MustCompile(`>\s+<`)
-	s = reSpace.ReplaceAllString(s, "><")
+	s = minTagGapRe.ReplaceAllString(s, "><")
 	// Collapse multiple whitespaces
-	reMultiSpace := regexp.MustCompile(`\s{2,}`)
-	s = reMultiSpace.ReplaceAllString(s, " ")
+	s = minMultiSpaceRe.ReplaceAllString(s, " ")
 	// Trim lines
 	s = strings.TrimSpace(s)
 
@@ -3187,17 +3486,14 @@ func minifyCSSFile(path string) error {
 
 	s := string(content)
 	// Remove CSS comments
-	reComment := regexp.MustCompile(`/\*[\s\S]*?\*/`)
-	s = reComment.ReplaceAllString(s, "")
+	s = minCSSCommentRe.ReplaceAllString(s, "")
 	// Remove newlines
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
 	// Remove spaces around : ; { } ,
-	reSpaces := regexp.MustCompile(`\s*([:{};,])\s*`)
-	s = reSpaces.ReplaceAllString(s, "$1")
+	s = minCSSSpacesRe.ReplaceAllString(s, "$1")
 	// Collapse multiple spaces
-	reMultiSpace := regexp.MustCompile(`\s{2,}`)
-	s = reMultiSpace.ReplaceAllString(s, " ")
+	s = minMultiSpaceRe.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)
 
 	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
@@ -3213,14 +3509,11 @@ func minifyJSFile(path string) error {
 
 	s := string(content)
 	// Remove single-line comments (but not in strings - simplified)
-	reSingleComment := regexp.MustCompile(`(?m)^\s*//.*$`)
-	s = reSingleComment.ReplaceAllString(s, "")
+	s = minJSLineCmtRe.ReplaceAllString(s, "")
 	// Remove multi-line comments
-	reMultiComment := regexp.MustCompile(`/\*[\s\S]*?\*/`)
-	s = reMultiComment.ReplaceAllString(s, "")
+	s = minCSSCommentRe.ReplaceAllString(s, "")
 	// Remove empty lines
-	reEmptyLines := regexp.MustCompile(`\n\s*\n`)
-	s = reEmptyLines.ReplaceAllString(s, "\n")
+	s = minJSEmptyLinesRe.ReplaceAllString(s, "\n")
 	// Trim
 	s = strings.TrimSpace(s)
 
@@ -3251,8 +3544,7 @@ func (g *Generator) minifyAssetFile(path string, full func(string) error, linePr
 // newlines they spanned, so total line count (and thus a line-level source map)
 // is preserved across removal.
 func blockCommentToNewlines(s string) string {
-	re := regexp.MustCompile(`/\*[\s\S]*?\*/`)
-	return re.ReplaceAllStringFunc(s, func(m string) string {
+	return minCSSCommentRe.ReplaceAllStringFunc(s, func(m string) string {
 		return strings.Repeat("\n", strings.Count(m, "\n"))
 	})
 }
@@ -3261,10 +3553,9 @@ func blockCommentToNewlines(s string) string {
 // keeps one output line per input line, so the emitted source map is exact.
 func minifyCSSLinePreserving(s string) string {
 	s = blockCommentToNewlines(s)
-	reMultiSpace := regexp.MustCompile(`[ \t]{2,}`)
 	lines := strings.Split(s, "\n")
 	for i, ln := range lines {
-		lines[i] = strings.TrimRight(reMultiSpace.ReplaceAllString(ln, " "), " \t")
+		lines[i] = strings.TrimRight(minIntraSpaceRe.ReplaceAllString(ln, " "), " \t")
 	}
 	return strings.Join(lines, "\n")
 }
@@ -3273,15 +3564,13 @@ func minifyCSSLinePreserving(s string) string {
 // keeping the line count stable, so the emitted source map is exact.
 func minifyJSLinePreserving(s string) string {
 	s = blockCommentToNewlines(s)
-	reLineComment := regexp.MustCompile(`^\s*//.*$`)
-	reMultiSpace := regexp.MustCompile(`[ \t]{2,}`)
 	lines := strings.Split(s, "\n")
 	for i, ln := range lines {
-		if reLineComment.MatchString(ln) {
+		if minLineCommentRe.MatchString(ln) {
 			lines[i] = ""
 			continue
 		}
-		lines[i] = strings.TrimRight(reMultiSpace.ReplaceAllString(ln, " "), " \t")
+		lines[i] = strings.TrimRight(minIntraSpaceRe.ReplaceAllString(ln, " "), " \t")
 	}
 	return strings.Join(lines, "\n")
 }
@@ -3449,7 +3738,10 @@ func (g *Generator) fingerprintOne(path string, manifest, byBasename map[string]
 }
 
 // rewriteHTMLAssetRefs updates asset references in every generated HTML file.
+// The rewriter (and its regexes) is built once for the whole walk instead of
+// once per file per asset (PERF-003).
 func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
+	rw := newAssetRefRewriter(byBasename)
 	return filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || fi.IsDir() || !strings.EqualFold(filepath.Ext(path), ".html") {
 			return err
@@ -3458,7 +3750,7 @@ func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
 		if e != nil {
 			return e
 		}
-		out := rewriteAssetRefs(string(content), byBasename)
+		out := rw.rewrite(string(content))
 		if out == string(content) {
 			return nil
 		}
@@ -3476,24 +3768,49 @@ func atImportCount(path string) int {
 	return strings.Count(string(content), "@import")
 }
 
-// rewriteAssetRefs replaces each known asset basename with its hashed basename
-// when it appears as a URL/path segment (bounded by a delimiter), covering
-// href/src attributes, CSS url() and @import. Basenames are applied longest-first
+// assetRefRewriter holds precompiled basename regexes so the fingerprint walk
+// compiles each pattern once instead of per file per asset (PERF-003).
+type assetRefRewriter struct {
+	res  []*regexp.Regexp
+	repl []string
+}
+
+// newAssetRefRewriter compiles one regex per known asset basename, longest-first
 // for deterministic, non-overlapping replacement (ASSET-001).
-func rewriteAssetRefs(s string, byBasename map[string]string) string {
-	if len(byBasename) == 0 {
-		return s
-	}
+func newAssetRefRewriter(byBasename map[string]string) *assetRefRewriter {
 	bases := make([]string, 0, len(byBasename))
 	for b := range byBasename {
 		bases = append(bases, b)
 	}
 	sort.Slice(bases, func(i, j int) bool { return len(bases[i]) > len(bases[j]) })
+	rw := &assetRefRewriter{
+		res:  make([]*regexp.Regexp, 0, len(bases)),
+		repl: make([]string, 0, len(bases)),
+	}
 	for _, base := range bases {
-		re := regexp.MustCompile(`([/"'(=])` + regexp.QuoteMeta(base) + `([)"'?#\s])`)
-		s = re.ReplaceAllString(s, `${1}`+byBasename[base]+`${2}`)
+		rw.res = append(rw.res, regexp.MustCompile(`([/"'(=])`+regexp.QuoteMeta(base)+`([)"'?#\s])`))
+		rw.repl = append(rw.repl, `${1}`+byBasename[base]+`${2}`)
+	}
+	return rw
+}
+
+// rewrite replaces each known asset basename with its hashed basename when it
+// appears as a URL/path segment (bounded by a delimiter), covering href/src
+// attributes, CSS url() and @import.
+func (rw *assetRefRewriter) rewrite(s string) string {
+	for i, re := range rw.res {
+		s = re.ReplaceAllString(s, rw.repl[i])
 	}
 	return s
+}
+
+// rewriteAssetRefs is the one-shot form used while hashing assets, where the
+// basename map still grows between calls.
+func rewriteAssetRefs(s string, byBasename map[string]string) string {
+	if len(byBasename) == 0 {
+		return s
+	}
+	return newAssetRefRewriter(byBasename).rewrite(s)
 }
 
 // katexVersion pins the KaTeX release injected for math pages (AX-004).

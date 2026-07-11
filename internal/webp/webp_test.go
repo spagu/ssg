@@ -8,8 +8,20 @@ import (
 	"testing"
 )
 
+// writeWebpFixtures creates dummy converted .webp files so UpdateReferences
+// treats the conversions as successful (GO-017).
+func writeWebpFixtures(t *testing.T, dir string, names ...string) {
+	t.Helper()
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("webp"), 0644); err != nil {
+			t.Fatalf("Failed to create webp fixture %s: %v", name, err)
+		}
+	}
+}
+
 func TestUpdateReferences(t *testing.T) {
 	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "image.webp", "photo.webp", "logo.webp", "bg.webp", "border.webp")
 
 	// Create test HTML file with image references
 	htmlContent := `<!DOCTYPE html>
@@ -95,6 +107,7 @@ func TestUpdateReferences(t *testing.T) {
 
 func TestUpdateReferencesWithSrcset(t *testing.T) {
 	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "small.webp", "medium.webp", "large.webp")
 
 	htmlContent := `<img srcset="small.jpg 100w, medium.jpeg 200w, large.png 300w">`
 	expectedHTML := `<img srcset="small.webp 100w, medium.webp 200w, large.webp 300w">`
@@ -120,6 +133,7 @@ func TestUpdateReferencesWithSrcset(t *testing.T) {
 
 func TestUpdateReferencesWithSingleQuotes(t *testing.T) {
 	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "image.webp", "photo.webp")
 
 	htmlContent := `<img src='image.jpg'><img src='photo.png'>`
 	expectedHTML := `<img src='image.webp'><img src='photo.webp'>`
@@ -176,6 +190,9 @@ func TestUpdateReferencesSubdirectory(t *testing.T) {
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
+
+	// Relative references resolve against the page's own directory (GO-017).
+	writeWebpFixtures(t, subDir, "image.webp")
 
 	htmlContent := `<img src="image.jpg">`
 	expectedHTML := `<img src="image.webp">`
@@ -869,5 +886,278 @@ func TestConvertDirectoryStatErrorInSecondPass(t *testing.T) {
 
 	if converted != 0 {
 		t.Errorf("Expected 0 conversions when file vanishes, got %d", converted)
+	}
+}
+
+// minimalPNG returns a 1x1 valid PNG for conversion tests.
+func minimalPNG() []byte {
+	return []byte{
+		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE,
+		0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54,
+		0x08, 0xD7, 0x63, 0xF8, 0xFF, 0xFF, 0x3F, 0x00,
+		0x05, 0xFE, 0x02, 0xFE, 0xDC, 0xCC, 0x59, 0xE7,
+		0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
+		0xAE, 0x42, 0x60, 0x82,
+	}
+}
+
+// TestWebpTargetPath covers GO-016: the original extension is stripped by
+// length, so uppercase extensions map to a single .webp sibling instead of a
+// doubled Photo.JPG.webp.
+func TestWebpTargetPath(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"Photo.JPG", "Photo.webp"},
+		{"foo.Png", "foo.webp"},
+		{"bar.JPEG", "bar.webp"},
+		{"image.jpg", "image.webp"},
+		{filepath.Join("dir", "IMG_1234.JPG"), filepath.Join("dir", "IMG_1234.webp")},
+	}
+	for _, tt := range tests {
+		if got := webpTargetPath(tt.in); got != tt.want {
+			t.Errorf("webpTargetPath(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+// TestConvertDirectoryUppercaseExistingWebp covers GO-016 in the first pass:
+// with the .webp target already on disk, uppercase originals are deleted and no
+// doubled Photo.JPG.webp appears.
+func TestConvertDirectoryUppercaseExistingWebp(t *testing.T) {
+	tmpDir := t.TempDir()
+	originals := []string{"Photo.JPG", "foo.Png", "bar.JPEG"}
+	for _, orig := range originals {
+		if err := os.WriteFile(filepath.Join(tmpDir, orig), []byte("img"), 0644); err != nil {
+			t.Fatalf("Failed to write original %s: %v", orig, err)
+		}
+	}
+	writeWebpFixtures(t, tmpDir, "Photo.webp", "foo.webp", "bar.webp")
+
+	converted, _, err := ConvertDirectory(tmpDir, ConvertOptions{Quality: 80, Quiet: true})
+	if err != nil {
+		t.Skipf("cwebp not available: %v", err)
+	}
+	if converted != 0 {
+		t.Errorf("Expected 0 conversions, got %d", converted)
+	}
+	for _, orig := range originals {
+		if _, statErr := os.Stat(filepath.Join(tmpDir, orig)); statErr == nil {
+			t.Errorf("original %s should be removed when its .webp exists", orig)
+		}
+		if _, statErr := os.Stat(filepath.Join(tmpDir, orig+".webp")); statErr == nil {
+			t.Errorf("doubled %s.webp must not appear (GO-016)", orig)
+		}
+	}
+}
+
+// TestConvertDirectoryUppercaseConversion covers GO-016 in the conversion pass:
+// Upper.PNG converts to Upper.webp, never Upper.PNG.webp, and the original is
+// only removed because the .webp actually exists.
+func TestConvertDirectoryUppercaseConversion(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "Upper.PNG"), minimalPNG(), 0644); err != nil {
+		t.Fatalf("Failed to write PNG: %v", err)
+	}
+
+	converted, _, err := ConvertDirectory(tmpDir, ConvertOptions{Quality: 80, Quiet: true})
+	if err != nil {
+		t.Skipf("cwebp not available: %v", err)
+	}
+	if converted != 1 {
+		t.Errorf("Expected 1 conversion, got %d", converted)
+	}
+	if _, statErr := os.Stat(filepath.Join(tmpDir, "Upper.webp")); statErr != nil {
+		t.Error("Upper.webp should be created (GO-016)")
+	}
+	if _, statErr := os.Stat(filepath.Join(tmpDir, "Upper.PNG.webp")); statErr == nil {
+		t.Error("doubled Upper.PNG.webp must not appear (GO-016)")
+	}
+	if _, statErr := os.Stat(filepath.Join(tmpDir, "Upper.PNG")); statErr == nil {
+		t.Error("original Upper.PNG should be removed after successful conversion")
+	}
+}
+
+// TestUpdateReferencesSkipsMissingWebp covers GO-017: a reference whose
+// conversion failed (no .webp on disk) must keep pointing at the original.
+func TestUpdateReferencesSkipsMissingWebp(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "converted.webp")
+
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(`<img src="converted.jpg"><img src="failed.jpg">`), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	want := `<img src="converted.webp"><img src="failed.jpg">`
+	if string(out) != want {
+		t.Errorf("failed-conversion ref must stay.\nExpected: %s\nGot:      %s", want, out)
+	}
+}
+
+// TestUpdateReferencesRemoteAndProse covers GO-017: http(s):// and
+// protocol-relative URLs plus prose text are never rewritten, even when a
+// matching local .webp exists.
+func TestUpdateReferencesRemoteAndProse(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "photo.webp", "local.webp", "x.webp")
+
+	html := `<img src="https://cdn.example.com/x.png">
+<img src="http://cdn.example.com/x.jpg">
+<img src="//cdn.example.com/x.jpeg">
+<p>see photo.jpg for details</p>
+<img src="local.jpg">`
+	want := `<img src="https://cdn.example.com/x.png">
+<img src="http://cdn.example.com/x.jpg">
+<img src="//cdn.example.com/x.jpeg">
+<p>see photo.jpg for details</p>
+<img src="local.webp">`
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	cssContent := `body{background:url(https://cdn.example.com/x.png)}`
+	cssPath := filepath.Join(tmpDir, "style.css")
+	if err := os.WriteFile(cssPath, []byte(cssContent), 0644); err != nil {
+		t.Fatalf("Failed to write CSS: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	outHTML, _ := os.ReadFile(htmlPath)
+	if string(outHTML) != want {
+		t.Errorf("remote/prose must stay untouched.\nExpected:\n%s\nGot:\n%s", want, outHTML)
+	}
+	outCSS, _ := os.ReadFile(cssPath)
+	if string(outCSS) != cssContent {
+		t.Errorf("remote CSS url() must stay untouched, got: %s", outCSS)
+	}
+}
+
+// TestUpdateReferencesUppercaseRefs covers GO-016/GO-017: references with
+// uppercase extensions are rewritten once their .webp exists.
+func TestUpdateReferencesUppercaseRefs(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "Photo.webp", "foo.webp", "bar.webp")
+
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(`<img src="Photo.JPG"><img src="foo.Png"><img src="bar.JPEG">`), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	want := `<img src="Photo.webp"><img src="foo.webp"><img src="bar.webp">`
+	if string(out) != want {
+		t.Errorf("uppercase refs not rewritten.\nExpected: %s\nGot:      %s", want, out)
+	}
+}
+
+// TestUpdateReferencesUppercaseFiles covers GO-017: files with uppercase
+// .HTML/.CSS extensions are scanned and rewritten too.
+func TestUpdateReferencesUppercaseFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "pic.webp")
+
+	htmlPath := filepath.Join(tmpDir, "page.HTML")
+	if err := os.WriteFile(htmlPath, []byte(`<img src="pic.jpg">`), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+	cssPath := filepath.Join(tmpDir, "style.CSS")
+	if err := os.WriteFile(cssPath, []byte(`body{background:url("pic.png")}`), 0644); err != nil {
+		t.Fatalf("Failed to write CSS: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	outHTML, _ := os.ReadFile(htmlPath)
+	if string(outHTML) != `<img src="pic.webp">` {
+		t.Errorf(".HTML file not rewritten (GO-017), got: %s", outHTML)
+	}
+	outCSS, _ := os.ReadFile(cssPath)
+	if string(outCSS) != `body{background:url("pic.webp")}` {
+		t.Errorf(".CSS file not rewritten (GO-017), got: %s", outCSS)
+	}
+}
+
+// TestUpdateReferencesDataSrcUntouched covers GO-017 scoping: only src/srcset/
+// href attributes are rewritten, so data-src (lazy-load) keeps its value.
+func TestUpdateReferencesDataSrcUntouched(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "lazy.webp")
+
+	orig := `<img data-src="lazy.jpg" alt="l">`
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(orig), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	if string(out) != orig {
+		t.Errorf("data-src must stay untouched, got: %s", out)
+	}
+}
+
+// TestUpdateReferencesAbsolutePath covers GO-017 resolution of "/"-rooted
+// references against the output root rather than the page directory.
+func TestUpdateReferencesAbsolutePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	imgDir := filepath.Join(tmpDir, "img")
+	if err := os.MkdirAll(imgDir, 0755); err != nil {
+		t.Fatalf("Failed to create img dir: %v", err)
+	}
+	writeWebpFixtures(t, imgDir, "abs.webp")
+
+	postDir := filepath.Join(tmpDir, "posts")
+	if err := os.MkdirAll(postDir, 0755); err != nil {
+		t.Fatalf("Failed to create posts dir: %v", err)
+	}
+	htmlPath := filepath.Join(postDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(`<img src="/img/abs.jpg">`), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	if string(out) != `<img src="/img/abs.webp">` {
+		t.Errorf("root-absolute ref not rewritten, got: %s", out)
+	}
+}
+
+// TestUpdateReferencesSrcsetEmptyEntry covers the empty srcset entry branch:
+// stray commas must not panic and remaining entries are still rewritten.
+func TestUpdateReferencesSrcsetEmptyEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "small.webp")
+
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(`<img srcset=", small.jpg 1x,">`), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	out, _ := os.ReadFile(htmlPath)
+	if string(out) != `<img srcset=", small.webp 1x,">` {
+		t.Errorf("srcset with empty entries mishandled, got: %s", out)
 	}
 }

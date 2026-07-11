@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -73,9 +74,20 @@ func (m *mddbDocument) toDocument(collection string) Document {
 		Lang:       m.Lang,
 		Content:    m.ContentMd,
 		Metadata:   metadata,
-		CreatedAt:  time.Unix(m.AddedAt, 0),
-		UpdatedAt:  time.Unix(m.UpdatedAt, 0),
+		CreatedAt:  unixToTime(m.AddedAt),
+		UpdatedAt:  unixToTime(m.UpdatedAt),
 	}
+}
+
+// unixToTime converts a Unix seconds timestamp to a UTC time.Time. A zero
+// timestamp means "no date": it maps to the zero time.Time so IsZero() guards
+// fire instead of publishing posts under /1970/01/01/, and .UTC() keeps
+// date-based URLs reproducible across build machines (GO-031).
+func unixToTime(sec int64) time.Time {
+	if sec == 0 {
+		return time.Time{}
+	}
+	return time.Unix(sec, 0).UTC()
 }
 
 // GetRequest represents a request to fetch a single document
@@ -89,16 +101,12 @@ type GetRequest struct {
 // SearchRequest represents a request to search documents
 type SearchRequest struct {
 	Collection string           `json:"collection"`
+	Lang       string           `json:"lang,omitempty"` // Language filter, e.g. "en_US" (GO-013)
 	FilterMeta map[string][]any `json:"filterMeta,omitempty"`
 	Sort       string           `json:"sort,omitempty"`   // Field to sort by (e.g., "updatedAt")
 	Asc        bool             `json:"asc,omitempty"`    // Sort ascending
 	Limit      int              `json:"limit,omitempty"`  // Max results
 	Offset     int              `json:"offset,omitempty"` // Skip results
-}
-
-// ErrorResponse represents an error from MDDB
-type ErrorResponse struct {
-	Error string `json:"error"`
 }
 
 // NewClient creates a new mddb client
@@ -175,7 +183,9 @@ func (c *Client) Get(req GetRequest) (*Document, error) {
 	return &doc, nil
 }
 
-// Search fetches multiple documents matching filters
+// Search fetches multiple documents matching filters. The returned total is
+// the server-reported X-Total-Count, or 0 when the header is absent/malformed
+// — callers must not treat the batch length as the collection total (GO-015).
 func (c *Client) Search(req SearchRequest) ([]Document, int, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -188,10 +198,18 @@ func (c *Client) Search(req SearchRequest) ([]Document, int, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Get total count from header
+	// Get total count from header; 0 means unknown (GO-015). A malformed
+	// value is logged instead of silently swallowed so truncated builds are
+	// diagnosable.
 	totalCount := 0
 	if tc := resp.Header.Get("X-Total-Count"); tc != "" {
-		totalCount, _ = strconv.Atoi(tc)
+		n, convErr := strconv.Atoi(tc)
+		if convErr != nil || n < 0 {
+			fmt.Fprintf(os.Stderr,
+				"Warning: mddb sent malformed X-Total-Count header %q; paginating until an empty batch (GO-015)\n", tc)
+		} else {
+			totalCount = n
+		}
 	}
 
 	var mddbDocs []mddbDocument
@@ -205,12 +223,65 @@ func (c *Client) Search(req SearchRequest) ([]Document, int, error) {
 		docs[i] = mddbDoc.toDocument(req.Collection)
 	}
 
-	// If no header, use array length
-	if totalCount == 0 {
-		totalCount = len(docs)
+	return docs, totalCount, nil
+}
+
+// filterDocsByLang drops documents in other languages. It is the client-side
+// safety net for GO-013: servers that ignore SearchRequest.Lang (and the gRPC
+// transport, whose proto SearchRequest has no lang field) still yield a
+// single-language result. Documents without a lang are kept so metadata
+// collections (categories, media, users) survive the filter.
+func filterDocsByLang(docs []Document, lang string) []Document {
+	if lang == "" {
+		return docs
+	}
+	filtered := make([]Document, 0, len(docs))
+	for _, doc := range docs {
+		if doc.Lang == "" || doc.Lang == lang {
+			filtered = append(filtered, doc)
+		}
+	}
+	return filtered
+}
+
+// getAllPaginated drives search until the collection is exhausted. One
+// coherent loop fixes GO-015 and GO-041: the offset advances by the number of
+// documents actually received (servers may clamp the page size below the
+// requested batch), the loop stops on an empty batch instead of trusting the
+// first batch length as a total, and a positive server-reported total still
+// allows an early stop without an extra request. Shared by the HTTP and gRPC
+// clients (DRY).
+func getAllPaginated(search func(SearchRequest) ([]Document, int, error),
+	collection, lang string, filterMeta map[string][]any, batchSize int) ([]Document, error) {
+	var allDocs []Document
+	offset := 0
+
+	for {
+		req := SearchRequest{
+			Collection: collection,
+			Lang:       lang, // GO-013: propagate the language filter
+			FilterMeta: filterMeta,
+			Limit:      batchSize,
+			Offset:     offset,
+		}
+
+		docs, total, err := search(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
+		}
+		if len(docs) == 0 {
+			break
+		}
+
+		allDocs = append(allDocs, filterDocsByLang(docs, lang)...)
+		offset += len(docs)
+
+		if total > 0 && offset >= total {
+			break
+		}
 	}
 
-	return docs, totalCount, nil
+	return allDocs, nil
 }
 
 // GetAll fetches all documents from a collection with pagination
@@ -219,65 +290,13 @@ func (c *Client) GetAll(collection string, lang string, batchSize int) ([]Docume
 		batchSize = c.batchSize
 	}
 
-	var allDocs []Document
-	offset := 0
-
-	for {
-		req := SearchRequest{
-			Collection: collection,
-			Limit:      batchSize,
-			Offset:     offset,
-		}
-
-		docs, total, err := c.Search(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
-		}
-
-		allDocs = append(allDocs, docs...)
-
-		if len(allDocs) >= total || len(docs) < batchSize {
-			break
-		}
-
-		offset += batchSize
-	}
-
-	return allDocs, nil
+	return getAllPaginated(c.Search, collection, lang, nil, batchSize)
 }
 
 // GetByType fetches all documents filtered by type (page or post) with pagination
 func (c *Client) GetByType(collection string, docType string, lang string) ([]Document, error) {
-	batchSize := c.batchSize
-
-	var allDocs []Document
-	offset := 0
-
-	for {
-		req := SearchRequest{
-			Collection: collection,
-			FilterMeta: map[string][]any{
-				"type": {docType},
-			},
-			Limit:  batchSize,
-			Offset: offset,
-		}
-
-		docs, total, err := c.Search(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
-		}
-
-		allDocs = append(allDocs, docs...)
-
-		if len(allDocs) >= total || len(docs) < batchSize {
-			break
-		}
-
-		offset += batchSize
-	}
-
-	return allDocs, nil
+	return getAllPaginated(c.Search, collection, lang,
+		map[string][]any{"type": {docType}}, c.batchSize)
 }
 
 // Health checks if the mddb server is available
@@ -305,7 +324,10 @@ type ChecksumResponse struct {
 
 // Checksum returns the checksum for a collection (for change detection)
 func (c *Client) Checksum(collection string) (*ChecksumResponse, error) {
-	endpoint := fmt.Sprintf("/v1/checksum?collection=%s", collection)
+	// GO-041: escape the collection name so '&', spaces etc. cannot alter the query
+	query := url.Values{}
+	query.Set("collection", collection)
+	endpoint := "/v1/checksum?" + query.Encode()
 	resp, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err

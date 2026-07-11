@@ -4,9 +4,9 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.4.x   | :white_check_mark: |
-| 1.3.x   | :white_check_mark: |
-| < 1.3   | :x:                |
+| 1.8.x   | :white_check_mark: |
+| 1.7.x   | :white_check_mark: |
+| < 1.7   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -57,7 +57,7 @@ SSG includes several security features:
 
 ## Security Updates
 
-Security updates are released as patch versions (e.g., 1.4.1, 1.4.2). Subscribe to releases on GitHub to stay informed.
+Security updates are released as patch versions (e.g., 1.8.1, 1.8.2). Subscribe to releases on GitHub to stay informed.
 
 ## Acknowledgments
 

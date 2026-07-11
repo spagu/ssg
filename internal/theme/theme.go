@@ -28,6 +28,12 @@ var (
 
 // Download downloads a theme from a URL (GitHub repo or direct archive)
 func Download(url, destDir string) error {
+	// GO-028: the only extractor is ZIP; a tar archive would download fully
+	// and then always fail with "not a valid zip file", so reject it up front.
+	if strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, ".tgz") {
+		return fmt.Errorf("unsupported theme archive format %q: only .zip archives are supported (use a .zip URL or a GitHub/GitLab repo URL)", url)
+	}
+
 	// Convert GitHub repo URL to archive URL
 	archiveURL := convertToArchiveURL(url)
 
@@ -44,38 +50,25 @@ func Download(url, destDir string) error {
 			return nil
 		},
 	}
-	resp, err := client.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
-	if err != nil {
-		return fmt.Errorf("downloading theme: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download theme: HTTP %d", resp.StatusCode)
-	}
-
-	// Save to temp file
-	tmpFile, err := os.CreateTemp("", "theme-*.zip")
+	tmpPath, err := downloadArchive(client, archiveURL)
 	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+		// GO-040: repos whose default branch is master 404 on the hardcoded
+		// main-branch archive URL; retry once with master before giving up.
+		fallbackURL := masterFallbackURL(archiveURL)
+		if fallbackURL == "" {
+			return err
+		}
+		fmt.Printf("   ⚠️  main branch failed (%v); retrying %s...\n", err, fallbackURL)
+		if tmpPath, err = downloadArchive(client, fallbackURL); err != nil {
+			return err
+		}
 	}
-	defer func() {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpFile.Name())
-	}()
-
-	// SEC-006: cap the total downloaded size; +1 lets us detect an overflow.
-	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxTotalSize+1))
-	if err != nil {
-		return fmt.Errorf("saving theme archive: %w", err)
-	}
-	if written > maxTotalSize {
-		return fmt.Errorf("theme archive exceeds %d bytes; refusing to extract", maxTotalSize)
-	}
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	// Extract
 	fmt.Printf("📦 Extracting theme to %s...\n", destDir)
-	if err := extractZip(tmpFile.Name(), destDir); err != nil {
+	if err := extractZip(tmpPath, destDir); err != nil {
 		return fmt.Errorf("extracting theme: %w", err)
 	}
 
@@ -90,6 +83,57 @@ func Download(url, destDir string) error {
 
 	fmt.Println("✅ Theme downloaded successfully")
 	return nil
+}
+
+// downloadArchive fetches archiveURL into a temporary file and returns its
+// path; the caller removes the file when done. The temp file's Close error is
+// checked because a failed write-side Close can mean truncated data (GO-040).
+func downloadArchive(client *http.Client, archiveURL string) (string, error) {
+	resp, err := client.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
+	if err != nil {
+		return "", fmt.Errorf("downloading theme: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download theme: HTTP %d", resp.StatusCode)
+	}
+
+	// Save to temp file
+	tmpFile, err := os.CreateTemp("", "theme-*.zip")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+
+	// SEC-006: cap the total downloaded size; +1 lets us detect an overflow.
+	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxTotalSize+1))
+	if cerr := tmpFile.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && written > maxTotalSize {
+		err = fmt.Errorf("theme archive exceeds %d bytes; refusing to extract", maxTotalSize)
+	}
+	if err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("saving theme archive: %w", err)
+	}
+	return tmpFile.Name(), nil
+}
+
+// masterFallbackURL returns the master-branch variant of a GitHub/GitLab
+// main-branch archive URL, or "" when no branch fallback applies (GO-040).
+func masterFallbackURL(archiveURL string) string {
+	const (
+		githubMain = "/archive/refs/heads/main.zip"
+		gitlabMain = "/-/archive/main/archive.zip"
+	)
+	switch {
+	case strings.HasSuffix(archiveURL, githubMain):
+		return strings.TrimSuffix(archiveURL, githubMain) + "/archive/refs/heads/master.zip"
+	case strings.HasSuffix(archiveURL, gitlabMain):
+		return strings.TrimSuffix(archiveURL, gitlabMain) + "/-/archive/master/archive.zip"
+	}
+	return ""
 }
 
 // convertToArchiveURL converts a GitHub repo URL to a ZIP archive URL
@@ -152,14 +196,24 @@ func extractZip(src, dest string) error {
 	return nil
 }
 
-// commonPrefix returns the top-level directory shared by the archive so it can
-// be stripped from extracted paths (e.g. "repo-main/").
+// commonPrefix returns the top-level directory shared by every archive entry
+// so it can be stripped from extracted paths (e.g. "repo-main/"). When the
+// entries do not all live under one top-level directory — e.g. a hand-rolled
+// ZIP with files at the root — nothing is stripped, so the theme layout is
+// preserved instead of being silently flattened (GO-029).
 func commonPrefix(files []*zip.File) string {
 	if len(files) == 0 {
 		return ""
 	}
 	// strings.Split always yields at least one element, so [0] is safe.
-	return strings.Split(files[0].Name, "/")[0] + "/"
+	prefix := strings.Split(files[0].Name, "/")[0] + "/"
+	for _, f := range files {
+		// The bare directory entry itself ("repo-main/") also matches.
+		if !strings.HasPrefix(f.Name, prefix) {
+			return ""
+		}
+	}
+	return prefix
 }
 
 // extractOneEntry resolves, validates and writes a single archive entry.
@@ -197,7 +251,7 @@ func extractOneEntry(f *zip.File, dest, prefix string, remainingTotal int64) (in
 // extractZipEntry writes a single archive entry to fpath with a fixed 0o644 mode
 // (SEC-010) and enforces the per-file and remaining-total size caps (SEC-006).
 // remainingTotal is the extraction budget left before the cumulative limit.
-func extractZipEntry(f *zip.File, fpath string, remainingTotal int64) (int64, error) {
+func extractZipEntry(f *zip.File, fpath string, remainingTotal int64) (written int64, err error) {
 	if remainingTotal <= 0 {
 		return 0, fmt.Errorf("archive exceeds total size limit of %d bytes", maxTotalSize)
 	}
@@ -208,7 +262,13 @@ func extractZipEntry(f *zip.File, fpath string, remainingTotal int64) (int64, er
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = outFile.Close() }()
+	// GO-040: a failed Close on the write side can mean truncated data (e.g.
+	// full disk); propagate it instead of discarding.
+	defer func() {
+		if cerr := outFile.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing extracted file %q: %w", fpath, cerr)
+		}
+	}()
 
 	rc, err := f.Open()
 	if err != nil {
@@ -298,7 +358,7 @@ func copyDir(src, dst string) error {
 }
 
 // copyFile copies a single file
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (err error) {
 	srcFile, err := os.Open(src) // #nosec G304 -- CLI tool copies user's theme files
 	if err != nil {
 		return err
@@ -309,7 +369,12 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = dstFile.Close() }()
+	// GO-040: propagate write-side Close errors (possible truncated data).
+	defer func() {
+		if cerr := dstFile.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing %q: %w", dst, cerr)
+		}
+	}()
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err

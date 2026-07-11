@@ -5,7 +5,7 @@
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
-<meta property="og:locale" content="pl_PL">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="{{.Domain}}">
 <meta property="og:image" content="https://{{.Domain}}/images/prairie.png">
 <meta property="og:image:width" content="1200">
@@ -38,8 +38,8 @@
     "@type": "WebSite",
     "name": "{{.Domain}}",
     "url": "https://{{.Domain}}/",
-    "description": "Wszystko o krowach, hodowli bydła i mleczarstwie",
-    "inLanguage": "pl-PL",
+    "description": "{{.Domain}}",
+    "inLanguage": "en-US",
     "potentialAction": {
         "@type": "SearchAction",
         "target": "https://{{.Domain}}/?s={search_term_string}",
@@ -87,7 +87,7 @@
     "name": "{{.Page.Title | decodeHTML}}",
     "description": "{{.Page.Excerpt | stripShortcodes | decodeHTML}}",
     "url": "{{getCanonical .Page .Domain}}",
-    "inLanguage": "pl-PL",
+    "inLanguage": "en-US",
     "isPartOf": {
         "@type": "WebSite",
         "name": "{{.Domain}}",

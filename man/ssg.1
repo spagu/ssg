@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-10" "1.8.0" "SSG Manual"
+.TH SSG 1 "2026-07-10" "1.8.1" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -105,6 +105,35 @@ automatically.
 .TP
 .B \-\-clean
 Remove the output directory before building.
+.SS Public Server Hardening (TLS/HTTP2/HTTP3)
+All options below are opt-in. Enabling TLS negotiates HTTP/2 automatically (ALPN).
+Security headers and cache-control are applied by the server automatically.
+.TP
+.BR \-\-tls\-cert =\fIFILE
+PEM certificate for the built-in server. Combined with \fB\-\-tls\-key\fR this
+serves HTTPS and enables HTTP/2.
+.TP
+.BR \-\-tls\-key =\fIFILE
+PEM private key paired with \fB\-\-tls\-cert\fR.
+.TP
+.B \-\-tls\-auto
+Obtain certificates automatically from Let's Encrypt (\fBautocert\fR). Requires
+\fB\-\-tls\-domain\fR and binding port 443.
+.TP
+.BR \-\-tls\-domain =\fIHOST
+Domain(s) authorized for automatic certificates (comma-separated).
+.TP
+.B \-\-http3
+Serve HTTP/3 (QUIC) alongside HTTP/2 and advertise it via \fBAlt\-Svc\fR. Requires TLS.
+.TP
+.B \-\-gzip
+gzip-compress responses when the client sends \fBAccept\-Encoding: gzip\fR.
+.TP
+.BR \-\-max\-conns =\fIN
+Cap the number of simultaneous connections (\fB0\fR = unlimited).
+.TP
+.BR \-\-mem\-limit =\fISIZE
+Runtime GC soft memory target, e.g. \fB512MiB\fR, \fB1GiB\fR.
 .SS Output Control
 .TP
 .B \-\-sitemap\-off
@@ -202,6 +231,16 @@ Page URL pattern (same tokens).
 Opt-in math: detect \fB$$...$$\fR / \fB```math\fR blocks and inject KaTeX only on
 pages that use it.
 .TP
+.B \-\-sanitize\-html
+Sanitize raw HTML embedded in markdown through the bluemonday UGC policy
+(strips \fB<script>\fR and other unsafe markup).
+.TP
+.BR \-\-timezone =\fIZONE
+Render content dates (permalink \fB:year/:month/:day\fR tokens and the
+\fBDate\fR/\fBModified\fR template context) in the given IANA zone
+(e.g. \fBEurope/Warsaw\fR). Per-language overrides via
+\fBlanguage_timezones:\fR in the config file. Empty = no conversion.
+.TP
 .B \-\-highlight
 Syntax-highlight code blocks via Chroma.
 .TP
@@ -260,7 +299,35 @@ Value of the generated \fBsizes\fR attribute (default: \fB100vw\fR).
 .SS Deployment
 .TP
 .B \-\-zip
-Create a ZIP deployment package for Cloudflare Pages.
+Create a ZIP archive of the output tree (Cloudflare Pages ready).
+.TP
+.B \-\-targz
+Create a gzip-compressed tarball (\fB.tar.gz\fR) of the output tree.
+.TP
+.B \-\-tarxz
+Create an xz-compressed tarball (\fB.tar.xz\fR) of the output tree.
+.SS Native Publish
+Deploy runs after the build (and after \fB\-\-webp\fR/\fB\-\-zip\fR). All secrets are
+read from the environment, never the config file.
+.TP
+.BR \-\-deploy =\fIPROVIDER
+Publish the output tree to \fIcloudflare\fR, \fIgithub-pages\fR, \fInetlify\fR,
+\fIvercel\fR, \fIftp\fR or \fIsftp\fR.
+.TP
+.BR \-\-deploy\-project =\fINAME
+Pages/site/project name (cloudflare, netlify, vercel).
+.TP
+.BR \-\-deploy\-branch =\fIBRANCH
+Target branch for cloudflare / github-pages (default \fBgh-pages\fR).
+.TP
+.BR \-\-deploy\-target =\fIURL
+An \fBftp://\fR/\fBsftp://\fR URL, or a git remote for github-pages.
+.PP
+Required environment per provider: \fBcloudflare\fR — CLOUDFLARE_API_TOKEN,
+CLOUDFLARE_ACCOUNT_ID; \fBgithub-pages\fR — GITHUB_TOKEN (https) or an SSH key;
+\fBnetlify\fR — NETLIFY_AUTH_TOKEN (+ NETLIFY_SITE_ID); \fBvercel\fR — VERCEL_TOKEN,
+VERCEL_ORG_ID; \fBftp\fR — FTP_USERNAME, FTP_PASSWORD; \fBsftp\fR — SSH_USERNAME,
+SSH_PASSWORD or SSH_KEY_FILE (the host must be present in known_hosts).
 .SS Paths
 .TP
 .BR \-\-content\-dir =\fIPATH
@@ -503,11 +570,47 @@ ssg my-site simple example.com --http --watch
 .fi
 .RE
 .PP
-Build with minification and WebP conversion:
+Build with minification, WebP conversion and multiple archives:
 .PP
 .RS
 .nf
-ssg my-site krowy example.com --clean --minify-all --webp --zip
+ssg my-site krowy example.com --clean --minify-all --webp --zip --targz --tarxz
+.fi
+.RE
+.PP
+Serve publicly over HTTPS with HTTP/3, gzip and a connection cap:
+.PP
+.RS
+.nf
+ssg my-site simple example.com --http --port=443 \\
+    --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip --max-conns=1024
+.fi
+.RE
+.PP
+Serve publicly with automatic Let's Encrypt certificates:
+.PP
+.RS
+.nf
+ssg my-site simple example.com --http --port=443 \\
+    --tls-auto --tls-domain=example.com --mem-limit=512MiB
+.fi
+.RE
+.PP
+Build and publish natively to Cloudflare Pages:
+.PP
+.RS
+.nf
+CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… \\
+    ssg my-site krowy example.com --deploy=cloudflare --deploy-project=my-site
+.fi
+.RE
+.PP
+Publish over SFTP with key-based auth:
+.PP
+.RS
+.nf
+SSH_KEY_FILE=~/.ssh/id_ed25519 \\
+    ssg my-site krowy example.com --deploy=sftp --deploy-target=sftp://deploy@example.com/var/www
 .fi
 .RE
 .PP

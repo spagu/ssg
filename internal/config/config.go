@@ -67,6 +67,24 @@ type Config struct {
 	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
 	Clean bool   `yaml:"clean" toml:"clean" json:"clean"`
 
+	// TLS for the built-in server (v1.8.1). Manual: point TLSCert/TLSKey at a
+	// certificate+key. Auto: TLSAuto obtains a Let's Encrypt cert for TLSDomain
+	// (needs a public domain and ports 80/443). Manual takes priority.
+	TLSCert   string `yaml:"tls_cert" toml:"tls_cert" json:"tls_cert"`
+	TLSKey    string `yaml:"tls_key" toml:"tls_key" json:"tls_key"`
+	TLSAuto   bool   `yaml:"tls_auto" toml:"tls_auto" json:"tls_auto"`
+	TLSDomain string `yaml:"tls_domain" toml:"tls_domain" json:"tls_domain"`
+
+	// Server hardening for public serving (v1.8.1). Cache-Control and security
+	// headers are applied automatically; these tune the rest.
+	Gzip     bool   `yaml:"gzip" toml:"gzip" json:"gzip"`                // gzip-compress responses on the fly
+	MaxConns int    `yaml:"max_conns" toml:"max_conns" json:"max_conns"` // cap concurrent connections (0 = unlimited)
+	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // soft runtime memory limit, e.g. "512MiB"
+	// HTTP3 also serves HTTP/3 (QUIC) alongside HTTPS/2 and advertises it via
+	// Alt-Svc. Requires TLS (QUIC is always encrypted). HTTP/2 is already automatic
+	// over TLS; this adds QUIC on the same UDP port (v1.8.1).
+	HTTP3 bool `yaml:"http3" toml:"http3" json:"http3"`
+
 	// Output Control
 	SitemapOff    bool   `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
@@ -87,6 +105,15 @@ type Config struct {
 	// :year :month :day :slug :category (e.g. "/:year/:month/:slug/"). Empty =
 	// default date/slug behaviour, so this is not a breaking change (SEO-001).
 	Permalinks map[string]string `yaml:"permalinks" toml:"permalinks" json:"permalinks"`
+
+	// Timezone is the IANA zone (e.g. "Europe/Warsaw") used to render content
+	// dates: :year/:month/:day permalink tokens and the Date/Modified template
+	// context. Empty = no conversion (dates stay as parsed, i.e. UTC) — the
+	// pre-feature behaviour, so this is not a breaking change (I18N-001).
+	Timezone string `yaml:"timezone" toml:"timezone" json:"timezone"`
+	// LanguageTimezones overrides Timezone per content language (PLAT-005 langs),
+	// e.g. {en_US: "America/New_York", pl_PL: "Europe/Warsaw"} (I18N-001).
+	LanguageTimezones map[string]string `yaml:"language_timezones" toml:"language_timezones" json:"language_timezones"`
 
 	// LastmodFromGit derives sitemap <lastmod> from each source file's last git
 	// commit date instead of frontmatter (SEO-004). Falls back gracefully outside
@@ -190,7 +217,24 @@ type Config struct {
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`
 
 	// Deployment
-	Zip bool `yaml:"zip" toml:"zip" json:"zip"`
+	Zip   bool `yaml:"zip" toml:"zip" json:"zip"`
+	TarGz bool `yaml:"targz" toml:"targz" json:"targz"` // create <domain>.tar.gz (v1.8.1)
+	TarXz bool `yaml:"tarxz" toml:"tarxz" json:"tarxz"` // create <domain>.tar.xz (v1.8.1)
+
+	// Native deployment (v1.8.1). Deploy names the provider; empty = no deploy.
+	// Supported: cloudflare, github-pages, netlify, vercel, ftp, sftp. All secrets
+	// (API tokens, passwords, SSH keys) come from the environment — never the config
+	// file. DeployProject = Pages/site/project name; DeployBranch = target branch
+	// (cloudflare/github-pages); DeployTarget = ftp/sftp URL or git remote.
+	Deploy        string `yaml:"deploy" toml:"deploy" json:"deploy"`
+	DeployProject string `yaml:"deploy_project" toml:"deploy_project" json:"deploy_project"`
+	DeployBranch  string `yaml:"deploy_branch" toml:"deploy_branch" json:"deploy_branch"`
+	DeployTarget  string `yaml:"deploy_target" toml:"deploy_target" json:"deploy_target"`
+
+	// SanitizeHTML runs rendered content through an HTML sanitizer (bluemonday
+	// UGCPolicy) before it reaches the template, neutralising stored XSS from an
+	// untrusted mddb source (FE-005 / SEC-003). Default off (trusted local content).
+	SanitizeHTML bool `yaml:"sanitize_html" toml:"sanitize_html" json:"sanitize_html"`
 
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`

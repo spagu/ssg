@@ -1,11 +1,12 @@
-# Example: Deploy static site to Cloudflare Pages using SSG
-# Copy this workflow to your repository and customize the inputs
+# Example: Build AND publish to Cloudflare Pages with SSG's native deploy.
+# SSG uploads the site itself via the Cloudflare Pages Direct Upload API — no wrangler.
+# Copy this workflow to your repository and customize the inputs.
 #
-# NOTE: Before public release, use:
-#   uses: spagu/ssg@main  (for latest from main branch)
-# After release:
-#   uses: spagu/ssg@v1    (for stable v1.x releases)
-#   uses: spagu/ssg@v1.3.0 (for specific version)
+# NOTE: use `uses: spagu/ssg@main` for the latest, or `@v1` after release.
+#
+# Required repository secrets:
+#   CLOUDFLARE_API_TOKEN   - token with the "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  - your Cloudflare account ID
 
 name: Deploy to Cloudflare Pages
 
@@ -20,28 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      deployments: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      # Use @main for development, @v1 after first release
-      - name: Generate static site
-        id: ssg
+      - name: Build and deploy to Cloudflare Pages
         uses: spagu/ssg@main
         with:
           source: "my-content" # Your content folder
           template: "krowy" # Template: 'simple' or 'krowy'
           domain: "example.com" # Your domain
           webp: "true" # Convert images to WebP
-          zip: "false" # Don't create ZIP, deploy directory
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: "my-site" # Your Cloudflare Pages project name
-          directory: ${{ steps.ssg.outputs.output-path }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          wranglerVersion: "3"
+          deploy: "cloudflare" # Native Direct Upload — no wrangler needed
+          deploy-project: "my-site" # Your Cloudflare Pages project name
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

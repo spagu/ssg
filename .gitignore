@@ -42,8 +42,9 @@ temp/
 content/*
 !content/test-content/
 
-# ZIP deployments
+# Archive deployments (--zip / --targz / --tarxz)
 *.zip
+*.tar.xz
 
 # Distribution/Packaging
 /dist/

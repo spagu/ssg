@@ -27,7 +27,7 @@ A fast and flexible [static site generator](https://en.wikipedia.org/wiki/Static
 
 SSG is perfect for creating:
 
-- � **Blogs** - Personal or professional blogs migrated from WordPress
+- 📰 **Blogs** - Personal or professional blogs migrated from WordPress
 - 🏢 **Corporate sites** - Fast, secure company websites
 - 📚 **Documentation** - Technical docs with clean SEO URLs
 - 🎨 **Portfolios** - Image galleries and creative showcases
@@ -56,11 +56,13 @@ Use SSG's embedded web server during development to instantly see changes to con
 ssg my-content krowy example.com --http --watch
 ```
 
-Then deploy to any static hosting:
-- **Cloudflare Pages** - Zero-config with our example workflow
-- **GitHub Pages** - Direct push deployment
-- **Netlify, Vercel** - Drag and drop or Git integration
-- **Any web server** - Just copy the output folder
+Then let SSG **publish it for you** with `--deploy=` (native, no external CLI):
+- **Cloudflare Pages** - `--deploy=cloudflare` (Direct Upload API)
+- **GitHub Pages** - `--deploy=github-pages` (force-push to gh-pages)
+- **Netlify / Vercel** - `--deploy=netlify` / `--deploy=vercel` (deploy APIs)
+- **Any web server** - `--deploy=ftp` / `--deploy=sftp`, or just copy the output folder
+
+See [Publishing (native deploy)](#-publishing-native-deploy) for details.
 
 ### Asset Processing
 
@@ -98,8 +100,9 @@ SSG includes powerful asset processing:
 ### Production
 - 🖼️ **WebP Conversion** - Optimized images (`--webp`)
 - 🗄️ **Minification** - HTML, CSS, JS (`--minify-all`)
-- 📦 **Deployment Package** - Cloudflare Pages ready (`--zip`)
-- 🐳 **Docker** - Multi-arch Alpine image
+- 📦 **Deployment Package** - ZIP / tar.gz / tar.xz (`--zip` `--targz` `--tarxz`)
+- 🔒 **Public Server** - Optional TLS, HTTP/2, HTTP/3, gzip, connection/memory limits
+- 🐳 **Docker** - Multi-arch Alpine image (amd64, arm64, armv7)
 
 ### Integration
 - 🎬 **GitHub Actions** - Use as CI/CD step
@@ -127,8 +130,8 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
 | **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.0/ssg_1.8.0_amd64.deb && sudo dpkg -i ssg_1.8.0_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.0/ssg-1.8.0-1.x86_64.rpm` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.1/ssg_1.8.1_amd64.deb && sudo dpkg -i ssg_1.8.1_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.1/ssg-1.8.1-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |
 | **OpenBSD** | From ports: `/usr/ports/www/ssg` |
 
@@ -143,7 +146,7 @@ Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/
 | FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
 | Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
 
-> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.0`).
+> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.1`).
 > For an older version, replace it with the tag you want — every release (with per-version
 > changes) is listed on the [Releases page](https://github.com/spagu/ssg/releases) and in
 > the [CHANGELOG](CHANGELOG.md). Tarball/ZIP links use `/releases/latest/` so they always
@@ -267,6 +270,24 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | `--watch` | Watch for changes and rebuild automatically |
 | `--clean` | Clean output directory before build |
 
+**Public Server Hardening (TLS / HTTP/2 / HTTP/3 — opt-in):**
+
+The built-in server can face the public internet directly. All options below are off by
+default; enabling TLS negotiates HTTP/2 automatically (ALPN).
+
+| Option | Description |
+|--------|-------------|
+| `--tls-cert=FILE` `--tls-key=FILE` | Serve HTTPS from a manual PEM certificate/key pair (enables HTTP/2) |
+| `--tls-auto` `--tls-domain=HOST` | Automatic Let's Encrypt certificates via `autocert` (bind port 443; comma-separate multiple domains) |
+| `--http3` | Serve HTTP/3 (QUIC) alongside HTTP/2 and advertise it via `Alt-Svc` (requires TLS) |
+| `--gzip` | gzip-compress responses when the client sends `Accept-Encoding: gzip` |
+| `--max-conns=N` | Cap simultaneous connections (`0` = unlimited) |
+| `--mem-limit=SIZE` | Runtime GC soft memory target, e.g. `512MiB`, `1GiB` |
+
+Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and HSTS
+under TLS) and cache-control (immutable for fingerprinted assets, `no-cache` for HTML) are
+applied automatically by the server.
+
 **Output Control:**
 
 | Option | Description |
@@ -293,6 +314,7 @@ See [.ssg.yaml.example](.ssg.yaml.example) for all options.
 | Option | Description |
 |--------|-------------|
 | `--math` | Opt-in math: detects `$$…$$` / ` ```math ` and injects KaTeX only on pages that use it |
+| `--sanitize-html` | Sanitize raw HTML embedded in markdown through the bluemonday UGC policy (strips `<script>` etc.) |
 | `--highlight` | Syntax-highlight code blocks via Chroma |
 | `--highlight-style=NAME` | Chroma style (e.g. `github`, `monokai`, `dracula`) |
 | `--toc` | Expose `.TOC` to templates (`[toc]` in content always expands) |
@@ -337,7 +359,9 @@ flowchart TD
 
 | Option | Description |
 |--------|-------------|
-| `--zip` | Create ZIP file for Cloudflare Pages |
+| `--zip` | Create a ZIP archive of the output tree (Cloudflare Pages ready) |
+| `--targz` | Create a gzip-compressed tarball (`.tar.gz`) of the output tree |
+| `--tarxz` | Create an xz-compressed tarball (`.tar.xz`) of the output tree |
 
 **Paths:**
 
@@ -384,6 +408,58 @@ flowchart TD
 | `--quiet`, `-q` | Suppress output (only exit codes) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
+
+### New in v1.8.1
+
+All additions below are **opt-in**; the default build (plain HTTP dev server, ZIP) is unchanged.
+
+#### Public-facing server (TLS · HTTP/2 · HTTP/3)
+
+```bash
+# Manual certificate — HTTP/2 negotiated automatically, plus HTTP/3 and gzip
+ssg my-site simple example.com --http --port=443 \
+    --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip --max-conns=1024
+
+# Automatic Let's Encrypt certificate for one or more domains
+ssg my-site simple example.com --http --port=443 \
+    --tls-auto --tls-domain=example.com --mem-limit=512MiB
+```
+
+The server adds security headers (`X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy`, HSTS under TLS) and cache-control (immutable for fingerprinted assets,
+`no-cache` for HTML) automatically.
+
+#### Extra archive formats
+
+```bash
+ssg my-site simple example.com --zip --targz --tarxz
+```
+
+`--targz` and `--tarxz` sit alongside `--zip`, producing `.tar.gz` / `.tar.xz` of the
+output tree.
+
+#### HTML sanitization
+
+```yaml
+sanitize_html: true   # or --sanitize-html
+```
+
+Runs raw HTML embedded in markdown through the bluemonday UGC policy (strips `<script>`
+and other unsafe markup).
+
+#### Timezone-aware dates
+
+```yaml
+timezone: "Europe/Warsaw"   # or --timezone=Europe/Warsaw
+language_timezones:         # optional per-language override (wins for that lang)
+  en_US: "America/New_York"
+  pl_PL: "Europe/Warsaw"
+```
+
+Renders content dates — the `:year/:month/:day` permalink tokens and the `Date`/`Modified`
+template context — in the given IANA zone instead of UTC-as-parsed. Feeds and the sitemap
+stay in UTC (per spec). The zone database is embedded, so static and Windows binaries work
+without a system tzdata. Empty = previous behaviour (no conversion).
 
 ### New in v1.8.0
 
@@ -753,26 +829,37 @@ output/
 
 ## 🔧 Template Engines
 
-SSG renders templates with the Go (`html/template`) engine.
+SSG renders templates with the Go (`html/template`) engine by default, and can also
+render themes authored in Pongo2, Mustache, or Handlebars (GO-007).
 
 ### Available Engines
 
 | Engine | Flag | Status |
 |--------|------|--------|
-| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items` |
-| Pongo2 | `--engine=pongo2` | 🚧 Not yet implemented (rejected with an error) |
-| Mustache | `--engine=mustache` | 🚧 Not yet implemented (rejected with an error) |
-| Handlebars | `--engine=handlebars` | 🚧 Not yet implemented (rejected with an error) |
+| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items`, full FuncMap + template inheritance |
+| Pongo2 (Jinja2/Django) | `--engine=pongo2` (aliases `jinja2`, `django`) | ✅ Supported — `{{ var }}`, `{% for %}`, filters |
+| Mustache | `--engine=mustache` | ✅ Supported — logic-less `{{var}}` / `{{#section}}` |
+| Handlebars | `--engine=handlebars` | ✅ Supported — `{{var}}`, `{{#each}}`, helpers |
 
-> **Note:** Only the Go engine is currently wired into the rendering pipeline.
-> Passing `--engine=pongo2`, `--engine=mustache`, or `--engine=handlebars` fails fast
-> with a clear "not yet implemented" error rather than silently rendering with Go.
+> **Note:** Non-Go engines render the theme's **own** templates verbatim in that engine's
+> syntax — they do **not** get the Go `html/template` FuncMap or block inheritance. Ship an
+> alt-engine theme with templates written for that engine; the same page context
+> (`.Page`, `.Site`, `.Posts`, `.Domain`, `.Vars`, `.Data`, …) is exposed to all of them.
 
 ### Usage Examples
 
 ```bash
 # Use the Go engine (default)
 ssg my-content mytheme example.com --engine=go
+
+# Render a Jinja2/Django-style theme
+ssg my-content mytheme example.com --engine=pongo2
+
+# Logic-less Mustache theme
+ssg my-content mytheme example.com --engine=mustache
+
+# Handlebars theme
+ssg my-content mytheme example.com --engine=handlebars
 ```
 
 ### Online Themes
@@ -905,6 +992,15 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `zip` | Create ZIP file | ❌ | `false` |
 | `minify` | Minify HTML, CSS, and JS | ❌ | `false` |
 | `clean` | Clean output directory before build | ❌ | `false` |
+| `engine` | Template engine: `go`, `pongo2`, `mustache`, `handlebars` | ❌ | `go` |
+| `online-theme` | Download a theme from a URL | ❌ | - |
+| `deploy` | Native deploy: `cloudflare`, `github-pages`, `netlify`, `vercel`, `ftp`, `sftp` | ❌ | - |
+| `deploy-project` | Pages/site/project name (cloudflare, netlify, vercel) | ❌ | - |
+| `deploy-branch` | Target branch (cloudflare, github-pages) | ❌ | - |
+| `deploy-target` | ftp/sftp URL or git remote | ❌ | - |
+
+> Deploy secrets (`CLOUDFLARE_API_TOKEN`, `NETLIFY_AUTH_TOKEN`, `VERCEL_TOKEN`, `FTP_PASSWORD`, …)
+> are read from the job `env:` — pass them as GitHub secrets, never as `with:` inputs.
 
 ### Action Outputs
 
@@ -914,42 +1010,74 @@ Use SSG as a GitHub Action in your CI/CD pipeline:
 | `zip-file` | Path to ZIP file (if --zip used) |
 | `zip-size` | Size of ZIP file in bytes |
 
-### Deploy to Cloudflare Pages
+## 🚀 Publishing (native deploy)
+
+SSG can publish the generated site **itself** — no `wrangler`, `netlify-cli`, `vercel`,
+or `rsync` required. Pick a provider with `--deploy=` and SSG uploads the output tree
+directly. **All secrets come from the environment**, never the config file.
+
+| Provider | `--deploy=` | Needs | Environment |
+|----------|-------------|-------|-------------|
+| Cloudflare Pages | `cloudflare` | `--deploy-project=<pages-project>` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| GitHub Pages | `github-pages` | `--deploy-target=<git-remote>` (or repo `origin`) | `GITHUB_TOKEN` (https) or an SSH key |
+| Netlify | `netlify` | `--deploy-project=<site-id>` | `NETLIFY_AUTH_TOKEN` (or `NETLIFY_SITE_ID`) |
+| Vercel | `vercel` | `--deploy-project=<project>` | `VERCEL_TOKEN`, `VERCEL_ORG_ID` |
+| FTP | `ftp` | `--deploy-target=ftp://host/path` | `FTP_USERNAME`, `FTP_PASSWORD` |
+| SFTP/SSH | `sftp` | `--deploy-target=sftp://user@host/path` | `SSH_PASSWORD` or `SSH_KEY_FILE` (host must be in `known_hosts`) |
+
+```bash
+# Cloudflare Pages (Direct Upload API — hashes files, uploads only what changed)
+export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…
+ssg my-content krowy example.com --deploy=cloudflare --deploy-project=my-site
+
+# GitHub Pages — force-pushes the output as a single commit to gh-pages
+export GITHUB_TOKEN=…
+ssg my-content krowy example.com \
+  --deploy=github-pages --deploy-target=https://github.com/user/repo.git
+
+# Netlify (digest-based deploy API) / Vercel (files + deployment API)
+NETLIFY_AUTH_TOKEN=… ssg my-content krowy example.com --deploy=netlify --deploy-project=<site-id>
+VERCEL_TOKEN=…       ssg my-content krowy example.com --deploy=vercel  --deploy-project=<project>
+
+# Any host over FTP or SFTP (SFTP verifies the host key against ~/.ssh/known_hosts)
+FTP_PASSWORD=…  ssg my-content krowy example.com --deploy=ftp  --deploy-target=ftp://user@ftp.example.com/public_html
+SSH_KEY_FILE=~/.ssh/id_ed25519 ssg my-content krowy example.com --deploy=sftp --deploy-target=sftp://deploy@example.com/var/www
+```
+
+Deploy runs **after** the build (and after any `--webp`/`--zip`), so it always ships
+the final, processed output. The provider name can also be set in config as `deploy:`.
+
+### Deploy from CI (GitHub Actions)
+
+The same flags work in CI — set the provider secrets as repository secrets:
 
 {% raw %}
 ```yaml
 name: Deploy
-
 on:
   push:
     branches: [main]
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: Generate site
-        id: ssg
+      - name: Build and deploy
         uses: spagu/ssg@v1
         with:
           source: 'my-content'
           template: 'krowy'
           domain: 'example.com'
           webp: 'true'
-
-      - name: Deploy to Cloudflare
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'my-site'
-          directory: ${{ steps.ssg.outputs.output-path }}
+          deploy: 'cloudflare'
+          deploy-project: 'my-site'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
 {% endraw %}
 
-> **📁 Complete workflow examples** are available in [`examples/workflows/`](examples/workflows/).
+> **📁 More workflow examples** are in [`examples/workflows/`](examples/workflows/).
 
 ## 📁 Project Structure
 

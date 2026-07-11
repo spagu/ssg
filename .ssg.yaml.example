@@ -19,6 +19,16 @@ port: 8888           # HTTP server port
 watch: false         # Watch for changes and rebuild
 clean: false         # Clean output before build
 
+# Public Server Hardening (opt-in; all off by default)
+tls_cert: ""         # Path to a PEM certificate (with tls_key → HTTPS + HTTP/2)
+tls_key: ""          # Path to the matching PEM private key
+tls_auto: false      # Automatic Let's Encrypt certificates (needs tls_domain, port 443)
+tls_domain: ""       # Domain(s) for autocert, comma-separated
+http3: false         # Serve HTTP/3 (QUIC) alongside HTTP/2 (requires TLS)
+gzip: false          # gzip-compress responses when the client accepts it
+max_conns: 0         # Cap simultaneous connections (0 = unlimited)
+mem_limit: ""        # Runtime GC soft memory target, e.g. "512MiB", "1GiB"
+
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
@@ -47,6 +57,7 @@ paginate: 0          # Posts per index page; 0 disables pagination (else adds /p
 
 # Authoring
 math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
+sanitize_html: false # Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)
 highlight: false     # Syntax highlighting for code blocks via Chroma
 highlight_style: "github"  # Chroma style (e.g. github, monokai, dracula)
 toc: false           # Expose .TOC (table of contents); [toc] in content always expands
@@ -77,6 +88,13 @@ data_dir: "data"
 # languages: ["pl", "en"]
 # default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
 
+# Timezone for content dates (permalink :year/:month/:day tokens and the
+# Date/Modified template context). IANA names; empty = no conversion (UTC as parsed).
+# timezone: "Europe/Warsaw"
+# language_timezones:        # per-language override (wins over timezone: for that lang)
+#   en: "America/New_York"
+#   pl: "Europe/Warsaw"
+
 # Build hooks — exec commands per lifecycle phase. TRUSTED LOCAL CONFIG ONLY: argv-split
 # (no shell), time-limited. Env: SSG_OUTPUT_DIR, SSG_PHASE, SSG_PAGE_PATH (post_page).
 # hooks:
@@ -97,7 +115,22 @@ reconvert_images: false  # Force reconvert even if WebP already exists
 # image_sizes_attr: "100vw"      # Value of the generated sizes attribute
 
 # Deployment
-zip: false           # Create ZIP for Cloudflare Pages
+zip: false           # Create ZIP archive of the output tree (Cloudflare Pages ready)
+targz: false         # Create gzip-compressed tarball (.tar.gz) of the output tree
+tarxz: false         # Create xz-compressed tarball (.tar.xz) of the output tree
+
+# Native publish (secrets ALWAYS come from the environment, never this file)
+deploy: ""           # "" (off) | cloudflare | github-pages | netlify | vercel | ftp | sftp
+deploy_project: ""   # Pages/site/project name (cloudflare, netlify, vercel)
+deploy_branch: ""    # Target branch (cloudflare, github-pages; default gh-pages)
+deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git remote URL
+# Required env per provider:
+#   cloudflare   → CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+#   github-pages → GITHUB_TOKEN (https remotes) or an SSH key
+#   netlify      → NETLIFY_AUTH_TOKEN (site via deploy_project or NETLIFY_SITE_ID)
+#   vercel       → VERCEL_TOKEN, VERCEL_ORG_ID (project via deploy_project)
+#   ftp          → FTP_USERNAME, FTP_PASSWORD
+#   sftp         → SSH_USERNAME, SSH_PASSWORD or SSH_KEY_FILE (host in known_hosts)
 
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder

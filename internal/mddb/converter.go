@@ -3,10 +3,84 @@ package mddb
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spagu/ssg/internal/models"
 )
+
+// asSlice normalizes a metadata value that may be either a scalar or a slice.
+// toDocument/protoMetaToMetadata flatten single-element meta arrays to their
+// scalar value, so a post with exactly one tag/category/alias arrives as a
+// scalar — asserting only .([]interface{}) silently drops the field (GO-014).
+func asSlice(v any) []any {
+	switch s := v.(type) {
+	case nil:
+		return nil
+	case []any:
+		return s
+	default:
+		return []any{v}
+	}
+}
+
+// asInt normalizes a numeric metadata value. HTTP/JSON delivers numbers as
+// float64, while the gRPC transport delivers every meta value as a string —
+// asserting .(float64) there silently yields 0 IDs (GO-030).
+func asInt(v any) (int, bool) {
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(n)); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// stringSliceMeta returns the string elements of a metadata value that may
+// arrive as a scalar or as a slice (GO-014). Non-string elements are skipped.
+func stringSliceMeta(v any) []string {
+	var out []string
+	for _, item := range asSlice(v) {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// applyCategories resolves flexible categories metadata onto the page:
+// numeric IDs (float64 from JSON, numeric strings over gRPC, GO-030) fill
+// Categories, while any non-numeric name switches the whole list to
+// CategoriesRaw for later resolution. A single category arrives flattened to
+// a scalar (GO-014).
+func applyCategories(page *models.Page, v any) {
+	cats := asSlice(v)
+	if len(cats) == 0 {
+		return
+	}
+
+	hasNames := false
+	for _, cat := range cats {
+		if id, ok := asInt(cat); ok {
+			page.Categories = append(page.Categories, id)
+		} else if _, isString := cat.(string); isString {
+			hasNames = true
+		}
+	}
+	if hasNames {
+		// Has non-numeric name values — store raw for later resolution
+		page.Categories = nil
+		page.CategoriesRaw = cats
+	}
+}
 
 // ToPage converts an mddb Document to a models.Page
 func (d *Document) ToPage() (*models.Page, error) {
@@ -20,8 +94,9 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Title = title
 	}
 
-	if id, ok := d.Metadata["id"].(float64); ok {
-		page.ID = int(id)
+	// IDs arrive as float64 over HTTP/JSON but as strings over gRPC (GO-030)
+	if id, ok := asInt(d.Metadata["id"]); ok {
+		page.ID = id
 	}
 
 	if slug, ok := d.Metadata["slug"].(string); ok {
@@ -42,12 +117,17 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Link = link
 	}
 
-	// Flexible author: accept int (float64 from JSON) or string
+	// Flexible author: accept an ID (float64 from JSON, numeric string over
+	// gRPC, GO-030) or a name string stored raw for later resolution
 	switch authorVal := d.Metadata["author"].(type) {
 	case float64:
 		page.Author = int(authorVal)
 	case string:
-		page.AuthorRaw = authorVal
+		if id, ok := asInt(authorVal); ok {
+			page.Author = id
+		} else {
+			page.AuthorRaw = authorVal
+		}
 	}
 
 	if excerpt, ok := d.Metadata["excerpt"].(string); ok {
@@ -74,23 +154,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Modified = d.UpdatedAt
 	}
 
-	// Flexible categories: accept []int (float64 from JSON) or []string
-	if cats, ok := d.Metadata["categories"].([]interface{}); ok {
-		hasStrings := false
-		for _, cat := range cats {
-			switch v := cat.(type) {
-			case float64:
-				page.Categories = append(page.Categories, int(v))
-			case string:
-				hasStrings = true
-			}
-		}
-		if hasStrings {
-			// Has string values — store raw for later resolution
-			page.Categories = nil
-			page.CategoriesRaw = cats
-		}
-	}
+	applyCategories(page, d.Metadata["categories"])
 
 	// SEO and additional standard fields
 	if desc, ok := d.Metadata["description"].(string); ok {
@@ -124,23 +188,12 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Template = template
 	}
 
-	// Parse tags
-	if tags, ok := d.Metadata["tags"].([]interface{}); ok {
-		for _, tag := range tags {
-			if tagStr, ok := tag.(string); ok {
-				page.Tags = append(page.Tags, tagStr)
-			}
-		}
-	}
+	// Parse tags — a single tag arrives flattened to a scalar (GO-014)
+	page.Tags = stringSliceMeta(d.Metadata["tags"])
 
-	// Parse aliases (old paths that redirect here, SEO-002)
-	if aliases, ok := d.Metadata["aliases"].([]interface{}); ok {
-		for _, a := range aliases {
-			if aliasStr, ok := a.(string); ok {
-				page.Aliases = append(page.Aliases, aliasStr)
-			}
-		}
-	}
+	// Parse aliases (old paths that redirect here, SEO-002); a single alias
+	// arrives flattened to a scalar (GO-014)
+	page.Aliases = stringSliceMeta(d.Metadata["aliases"])
 
 	// Series grouping (AX-005)
 	if series, ok := d.Metadata["series"].(string); ok {
@@ -207,8 +260,9 @@ func ExtractCategory(doc Document) models.Category {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		cat.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		cat.ID = id
 	}
 	if name, ok := doc.Metadata["name"].(string); ok {
 		cat.Name = name
@@ -219,11 +273,11 @@ func ExtractCategory(doc Document) models.Category {
 	if link, ok := doc.Metadata["link"].(string); ok {
 		cat.Link = link
 	}
-	if count, ok := doc.Metadata["count"].(float64); ok {
-		cat.Count = int(count)
+	if count, ok := asInt(doc.Metadata["count"]); ok {
+		cat.Count = count
 	}
-	if parent, ok := doc.Metadata["parent"].(float64); ok {
-		cat.Parent = int(parent)
+	if parent, ok := asInt(doc.Metadata["parent"]); ok {
+		cat.Parent = parent
 	}
 
 	return cat
@@ -237,8 +291,9 @@ func ExtractMedia(doc Document) models.MediaItem {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		media.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		media.ID = id
 	}
 	if mediaType, ok := doc.Metadata["media_type"].(string); ok {
 		media.MediaType = mediaType
@@ -255,11 +310,11 @@ func ExtractMedia(doc Document) models.MediaItem {
 		}
 	}
 	if details, ok := doc.Metadata["media_details"].(map[string]interface{}); ok {
-		if width, ok := details["width"].(float64); ok {
-			media.MediaDetails.Width = models.FlexInt(int(width))
+		if width, ok := asInt(details["width"]); ok {
+			media.MediaDetails.Width = models.FlexInt(width)
 		}
-		if height, ok := details["height"].(float64); ok {
-			media.MediaDetails.Height = models.FlexInt(int(height))
+		if height, ok := asInt(details["height"]); ok {
+			media.MediaDetails.Height = models.FlexInt(height)
 		}
 		if file, ok := details["file"].(string); ok {
 			media.MediaDetails.File = file
@@ -276,8 +331,9 @@ func ExtractAuthor(doc Document) models.Author {
 		Slug: doc.Key,
 	}
 
-	if id, ok := doc.Metadata["id"].(float64); ok {
-		author.ID = int(id)
+	// asInt: IDs arrive as float64 over HTTP/JSON, as strings over gRPC (GO-030)
+	if id, ok := asInt(doc.Metadata["id"]); ok {
+		author.ID = id
 	}
 	if name, ok := doc.Metadata["name"].(string); ok {
 		author.Name = name

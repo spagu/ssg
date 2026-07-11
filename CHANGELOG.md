@@ -5,6 +5,128 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-07-10
+
+Server-hardening and packaging release. The built-in server gains optional public-facing
+capabilities (TLS, HTTP/2, HTTP/3, compression, limits); the build gains extra archive
+formats. Every addition is opt-in; default behaviour (plain HTTP dev server, ZIP) is unchanged.
+
+### Added
+- ✨ **Optional server TLS** — `--tls-cert=`/`--tls-key=` (manual PEM) or `--tls-auto` +
+  `--tls-domain=` (automatic Let's Encrypt via `autocert`). HTTP/2 is negotiated
+  automatically over TLS (ALPN).
+- ✨ **HTTP/3 (QUIC)** — `--http3` serves HTTP/3 alongside HTTP/2 and advertises it via
+  `Alt-Svc` (requires TLS; `github.com/quic-go/quic-go/http3`).
+- ✨ **Server hardening middlewares** — `--gzip` (content compression), security headers
+  (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS under TLS),
+  cache-control (immutable for fingerprinted assets, `no-cache` for HTML), `--max-conns=N`
+  (connection cap via `netutil.LimitListener`), `--mem-limit=SIZE` (runtime GC soft limit).
+- ✨ **tar.gz / tar.xz archive output** — `--targz` and `--tarxz` alongside `--zip`
+  (`archive/tar` + `compress/gzip`; `github.com/ulikunitz/xz`).
+- ✨ **HTML sanitization (FE-005)** — `--sanitize-html` / `sanitize_html: true` runs raw
+  HTML in markdown through the bluemonday UGC policy.
+- ✨ **Timezone-aware dates (I18N-001)** — `timezone: Europe/Warsaw` / `--timezone=` renders
+  content dates (permalink `:year/:month/:day` tokens, `Date`/`Modified` template context)
+  in an IANA zone; `language_timezones:` overrides it per content language. The IANA db is
+  embedded (`time/tzdata`) so static/Windows builds resolve zones. Empty = previous
+  behaviour (no conversion).
+- 🚀 **Native deploy (`--deploy=`)** — SSG publishes the output tree itself, no external
+  CLI. Providers: **Cloudflare Pages** (Direct Upload API — blake3 manifest, upload only
+  what changed), **GitHub Pages** (force-push to `gh-pages`), **Netlify** (digest deploy
+  API), **Vercel** (files + deployments API), **FTP**, and **SFTP/SSH** (host-key verified
+  against `known_hosts`). Flags `--deploy-project`/`--deploy-branch`/`--deploy-target`; all
+  secrets come from the environment, never the config file. Runs after build + webp/zip.
+- 🧱 **ARM improvements** — `linux/arm/v7` (GOARM=7) release binary + Docker platform;
+  multi-arch cross-compile via buildx `TARGETARCH`/`TARGETVARIANT`.
+- 🔤 **Template engines documented as shipping** — README/CLI now correctly list pongo2,
+  mustache and handlebars as supported (they render the theme's own templates; GO-007).
+
+### Changed
+- ♻️ **Flag parsing refactor** — boolean and simple string `--flag=value` options are now
+  table-driven; the value switch is split into focused helpers (resolves SonarCloud
+  S1479/S3776/S1192, keeps each function under the complexity budget).
+- ♻️ **`build()` split** into `runWebP` / `runArchives` / `runDeploy` helpers.
+
+### Fixed
+- 🔧 **OPS-009** — homebrew tap push uses an `http.extraheader` auth header instead of
+  embedding the token in the remote URL.
+- 🔧 **OPS-011** — CI/Docker workflows add a `concurrency:` group (cancel in-progress for
+  branches, never for tags).
+- 🔧 **OPS-013** — pinned tool versions (golangci-lint v2.12.2, govulncheck v1.3.0).
+- 🔧 **FE-002** — theme muted-text colours raised to WCAG 2.2 AA (`krowy` 5.72:1,
+  `simple` 5.65:1).
+- 🔧 **FE-006 / FE-008** — OpenGraph/meta locale corrected to `en_US` / `en-US`; schema
+  description de-hardcoded to `{{.Domain}}`.
+- 🔒 **SonarCloud S5445** — the autocert cache (Let's Encrypt private keys) no longer falls
+  back to the shared, world-predictable system temp dir; it uses per-user cache/home paths.
+- 🔒 **SEC-014** — `--sanitize-html` now holds on every render path: alt engines
+  (pongo2/mustache/handlebars), full-content feeds and raw `{{.Content}}` (plain string →
+  auto-escape when the sanitizer is on). Trusted shortcode output ([youtube]/[embed],
+  custom shortcodes) survives sanitization via token protection (GO-037); hostile iframes
+  in content do not.
+- 🔒 **SEC-015** — generator SEO meta tags HTML-escape attribute values (Go `%q` allowed
+  attribute injection through titles/descriptions).
+- 🔧 **GO-033** — `Alt-Svc` (HTTP/3 advertisement) is built from the configured port instead
+  of quic-go's `SetQUICHeaders` (which needs a live listener); present from the first TCP
+  response; `TestAltSvcMiddleware` green again.
+- 🔧 **GO-012/019/020/034** — server: `--gzip` no longer corrupts Range requests;
+  `--max-conns` enforced in `--tls-auto` mode too; `--tls-domain=a.com,b.com` split into a
+  proper autocert whitelist; autocert `:80` bind failures logged; IPv6 `--host` handled via
+  `net.JoinHostPort`.
+- 🔧 **GO-013/014/015/030/031/041 (mddb)** — `--mddb-lang` actually filters (HTTP body +
+  client-side; gRPC proto has no lang field → client-side); single-element
+  tags/categories/aliases no longer dropped; pagination survives a missing/malformed
+  `X-Total-Count` and server-clamped page sizes; gRPC string IDs normalized (`asInt`);
+  `AddedAt==0` no longer becomes 1970-01-01 and dates are pinned UTC (reproducible URLs);
+  checksum query URL-escaped.
+- 🔧 **GO-016/017/032/038 (webp)** — uppercase extensions (`Photo.JPG`) convert correctly;
+  originals deleted only when the .webp exists; reference rewriting is scoped to local
+  attribute/`url()` refs with existing targets (CDN URLs and prose untouched, `.HTML`/`.CSS`
+  processed); srcset includes the full-size original (RIFF-header width parser, no new
+  deps); `data-src` and self-closing `<img/>` are safe.
+- 🔧 **GO-021/022/023/037 (generator)** — feed summaries truncate by runes (valid UTF-8);
+  `--minify-html` preserves `<pre>/<textarea>/<script>/<style>`; a post whose `link` has no
+  path no longer overwrites the homepage; `--sanitize-html` no longer deletes video embeds.
+- 🔧 **GO-024/025/035/036/018/046 (CLI)** — ZIP/tar output `Close` errors propagate (no more
+  corrupt archives reported as success); watch mode no longer loses edits made during a
+  rebuild; symlinks archive correctly as symlink entries; space-separated flag values are
+  not miscounted as positional args; `--mddb-watch` (boolean form) works; vacuous
+  `handleConfigSkip` removed.
+- 🔧 **GO-026/027/039 (parser)** — frontmatter delimiter tolerant of trailing spaces/CRLF;
+  code-fence tracking (no more eaten `# comment` lines or hijacked `## Content-…` headings);
+  10 MB line buffer (base64 data-URIs parse); unclosed frontmatter is a clear error, not a
+  silent empty page.
+- 🔧 **GO-028/029/040 (themes)** — `.tar.gz` theme URLs rejected up-front with a clear
+  message; zip prefix stripped only when truly common to all entries (no more flattened
+  layouts); `main`→`master` branch fallback for GitHub/GitLab archives; extraction `Close`
+  errors propagate.
+- 🧹 **GO-042/043** — dead code removed: `mddb.ErrorResponse`, `models.Metadata.ExportedAt`,
+  unread `generator.Config` copies (`ImageSizes*`, `Mddb.Watch*`).
+
+### Performance
+- ⚡ **PERF-001** — `--lastmod-from-git` runs one `git log --name-only` scan (path→date map)
+  instead of one `git log` process per page/feed entry (minutes saved at 1k+ posts).
+- ⚡ **PERF-002** — shortcode templates are parsed once per build and cached (previously
+  stat+read+parse per occurrence per page).
+- ⚡ **PERF-003** — fingerprint reference rewriting precompiles its regexes once per walk
+  (was O(pages × assets) compiles + rescans).
+- ⚡ **PERF-006** — ~25 hot-path regexes hoisted to package level; `fixMediaPaths` rewrites
+  WordPress image URLs in a single pass (was a fresh regex + full-document rescan per image).
+- ⚡ **PERF-009/010/011** — link-checker target memoization; mddb metadata fetched with the
+  configured batch size (was hardcoded 100 → 10× fewer round trips); srcset variant stats
+  and width decodes memoized per build.
+
+### Docs
+- 📚 **DOC-001** — `docs/STYLES.md` documents theme palettes with contrast ratios.
+- 📚 **DOC-006** — `SECURITY.md` Supported Versions refreshed to the 1.8.x line.
+
+### Testing
+- ✅ Coverage raised on the packages below 96%: `cmd/ssg` 65→80%, `internal/webp` 92→96.5%,
+  `internal/generator` 89→91.7%, `internal/theme` 94.8→95.5%. Added server, archive, mddb
+  (mock-server), sanitizer and WebP responsive-variant tests.
+- ✅ New `internal/deploy` package tested with mock HTTP servers (Cloudflare/Netlify/Vercel),
+  a local bare-repo git push (GitHub Pages), manifest/hash and URL/credential unit tests.
+
 ## [1.8.0] - 2026-07-10
 
 Feature release from the post-1.7.x roadmap (`audit/roadmap/`) plus audit fixes. Every new

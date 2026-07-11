@@ -159,8 +159,8 @@ func protoDocToDocument(doc *pb.Document, collection string) Document {
 		Lang:       doc.Lang,
 		Content:    doc.ContentMd,
 		Metadata:   protoMetaToMetadata(doc.Meta),
-		CreatedAt:  time.Unix(doc.AddedAt, 0),
-		UpdatedAt:  time.Unix(doc.UpdatedAt, 0),
+		CreatedAt:  unixToTime(doc.AddedAt),
+		UpdatedAt:  unixToTime(doc.UpdatedAt),
 	}
 }
 
@@ -216,6 +216,9 @@ func (c *GRPCClient) Search(req SearchRequest) ([]Document, int, error) {
 		offset = 2147483647
 	}
 
+	// Note: the proto SearchRequest message has no lang field, so req.Lang
+	// cannot be sent over the wire; GetAll/GetByType apply the language
+	// filter client-side via filterDocsByLang instead (GO-013).
 	protoReq := &pb.SearchRequest{
 		Collection: req.Collection,
 		Sort:       req.Sort,
@@ -247,65 +250,13 @@ func (c *GRPCClient) GetAll(collection string, lang string, batchSize int) ([]Do
 		batchSize = c.batchSize
 	}
 
-	var allDocs []Document
-	offset := 0
-
-	for {
-		req := SearchRequest{
-			Collection: collection,
-			Limit:      batchSize,
-			Offset:     offset,
-		}
-
-		docs, total, err := c.Search(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
-		}
-
-		allDocs = append(allDocs, docs...)
-
-		if len(allDocs) >= total || len(docs) < batchSize {
-			break
-		}
-
-		offset += batchSize
-	}
-
-	return allDocs, nil
+	return getAllPaginated(c.Search, collection, lang, nil, batchSize)
 }
 
 // GetByType fetches all documents filtered by type (page or post) with pagination
 func (c *GRPCClient) GetByType(collection string, docType string, lang string) ([]Document, error) {
-	batchSize := c.batchSize
-
-	var allDocs []Document
-	offset := 0
-
-	for {
-		req := SearchRequest{
-			Collection: collection,
-			FilterMeta: map[string][]any{
-				"type": {docType},
-			},
-			Limit:  batchSize,
-			Offset: offset,
-		}
-
-		docs, total, err := c.Search(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching batch at offset %d: %w", offset, err)
-		}
-
-		allDocs = append(allDocs, docs...)
-
-		if len(allDocs) >= total || len(docs) < batchSize {
-			break
-		}
-
-		offset += batchSize
-	}
-
-	return allDocs, nil
+	return getAllPaginated(c.Search, collection, lang,
+		map[string][]any{"type": {docType}}, c.batchSize)
 }
 
 // Health checks if the mddb server is available using Stats RPC
