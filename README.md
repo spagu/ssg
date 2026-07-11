@@ -836,10 +836,10 @@ render themes authored in Pongo2, Mustache, or Handlebars (GO-007).
 
 | Engine | Flag | Status |
 |--------|------|--------|
-| Go (default) | `--engine=go` | ✅ Supported — `.Variable`, `range .Items`, full FuncMap + template inheritance |
-| Pongo2 (Jinja2/Django) | `--engine=pongo2` (aliases `jinja2`, `django`) | ✅ Supported — `{{ var }}`, `{% for %}`, filters |
-| Mustache | `--engine=mustache` | ✅ Supported — logic-less `{{var}}` / `{{#section}}` |
-| Handlebars | `--engine=handlebars` | ✅ Supported — `{{var}}`, `{{#each}}`, helpers |
+| Go (default) | `--engine=go` | ✅ Supported — dot-variables, range/if blocks, full FuncMap + template inheritance |
+| Pongo2 (Jinja2/Django) | `--engine=pongo2` (aliases `jinja2`, `django`) | ✅ Supported — variables, for/if blocks, filters |
+| Mustache | `--engine=mustache` | ✅ Supported — logic-less variables and section blocks |
+| Handlebars | `--engine=handlebars` | ✅ Supported — variables, each blocks, helpers |
 
 > **Note:** Non-Go engines render the theme's **own** templates verbatim in that engine's
 > syntax — they do **not** get the Go `html/template` FuncMap or block inheritance. Ship an
