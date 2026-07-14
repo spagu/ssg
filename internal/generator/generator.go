@@ -28,6 +28,7 @@ import (
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
+	"github.com/spagu/ssg/internal/taxonomy"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/ast"
@@ -159,6 +160,10 @@ type Config struct {
 	LanguageConfigs []ssgi18n.LanguageConfig
 	I18n            ssgi18n.Config
 
+	// Taxonomies declares custom dynamic taxonomies / overrides the built-in
+	// category, tag and series definitions (taxonomies-feature.md).
+	Taxonomies map[string]taxonomy.DefinitionConfig
+
 	// Hooks are lifecycle exec commands (pre_build/post_build/post_page) from
 	// trusted local config only (PLAT-001).
 	Hooks map[string][]string
@@ -212,10 +217,11 @@ type Generator struct {
 	// the single-goroutine build, but must become per-render context before any
 	// future parallel rendering.
 	currentLang string
-	md          goldmark.Markdown // configured Markdown renderer (AX-001/002/003)
-	tagSlugs    map[string]string // tag name → slug, for sitemap/feeds (BLOG-004)
-	authorSlugs map[string]string // author slug → slug, for sitemap (BLOG-005)
-	engine      engine.Engine     // non-Go template engine when configured (GO-007)
+	md          goldmark.Markdown  // configured Markdown renderer (AX-001/002/003)
+	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
+	authorSlugs map[string]string  // author slug → slug, for sitemap (BLOG-005)
+	taxonomies  *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
+	engine      engine.Engine      // non-Go template engine when configured (GO-007)
 	engineTmpls map[string]engine.Template
 	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
@@ -467,6 +473,10 @@ func (g *Generator) Generate() error {
 	}
 
 	if err := g.runStep("🗂️  Loading data files...", g.loadData, "loading data files"); err != nil {
+		return err
+	}
+
+	if err := g.runStep("🏷️  Building taxonomies...", g.buildTaxonomies, "building taxonomies"); err != nil {
 		return err
 	}
 
@@ -1921,6 +1931,11 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	for name, fn := range g.imageFuncs() {
 		funcs[name] = fn
 	}
+	// Taxonomy helpers (taxonomies/taxonomy/taxonomyTerms/pageTerms/termURL/
+	// hasTerm/pagesByTerm) — taxonomies-feature.md.
+	for name, fn := range g.taxonomyFuncs() {
+		funcs[name] = fn
+	}
 	return funcs
 }
 
@@ -2510,6 +2525,11 @@ func (g *Generator) generateSite() error {
 		return fmt.Errorf("generating authors: %w", err)
 	}
 	g.authorSlugs = authorSlugs
+
+	// Generate custom taxonomy archives (taxonomies-feature.md)
+	if err := g.generateTaxonomies(); err != nil {
+		return fmt.Errorf("generating taxonomies: %w", err)
+	}
 
 	return nil
 }
@@ -3557,6 +3577,9 @@ func (g *Generator) generateSitemap() error {
 		g.writeSitemapArchive(&sb, "author", slug)
 	}
 
+	// Custom taxonomy indexes + term archives (taxonomies-feature.md)
+	g.writeTaxonomySitemap(&sb)
+
 	sb.WriteString("</urlset>\n")
 
 	// #nosec G306 -- Web content files need to be world-readable
@@ -3625,7 +3648,7 @@ func (g *Generator) generateFeeds() error {
 				return err
 			}
 		}
-		return nil
+		return g.generateTaxonomyFeeds(limit)
 	}
 
 	if err := g.writeFeed(feedFileName, g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
@@ -3665,7 +3688,7 @@ func (g *Generator) generateFeeds() error {
 			return err
 		}
 	}
-	return nil
+	return g.generateTaxonomyFeeds(limit)
 }
 
 // writeFeed renders an Atom 1.0 feed for up to limit newest posts and writes it to

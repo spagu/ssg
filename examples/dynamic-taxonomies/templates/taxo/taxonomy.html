@@ -1,0 +1,4 @@
+{{define "taxonomy.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Taxonomy.Label}}</title></head><body>
+<h1>{{.Taxonomy.Label}}</h1>
+<ul>{{range .Terms}}<li><a href="{{.URL}}">{{.Name}}</a> ({{.Count}}){{with .Description}} — {{.}}{{end}}</li>{{end}}</ul>
+</body></html>{{end}}

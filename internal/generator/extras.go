@@ -260,6 +260,7 @@ func (g *Generator) pageRecord(page models.Page) map[string]interface{} {
 		"type":            page.Type,
 		"tags":            page.Tags,
 		"categories":      page.Categories,
+		"taxonomies":      page.Taxonomies,
 		"excerpt":         page.Excerpt,
 		"wordCount":       page.WordCount,
 		"readingTime":     page.ReadingTime,
@@ -272,6 +273,24 @@ func (g *Generator) pageRecord(page models.Page) map[string]interface{} {
 
 // ─── PLAT-004: client-side search index ─────────────────────────────────────
 
+// searchRecord builds one search-index document for a page/post.
+func (g *Generator) searchRecord(p models.Page) map[string]interface{} {
+	record := map[string]interface{}{
+		"title":           p.Title,
+		"url":             p.GetURL(),
+		"lang":            p.Lang,
+		"locale":          p.Locale,
+		"translation_key": p.TranslationKey,
+		"tags":            p.Tags,
+		"excerpt":         p.Excerpt,
+		"text":            tmplStripHTML(g.convertMarkdownToHTML(p.Content)),
+	}
+	if len(p.Taxonomies) > 0 {
+		record["taxonomies"] = p.Taxonomies
+	}
+	return record
+}
+
 // generateSearchIndex writes search-index.json (all posts + pages) for a
 // client-side search widget when enabled (PLAT-004).
 func (g *Generator) generateSearchIndex() error {
@@ -283,16 +302,7 @@ func (g *Generator) generateSearchIndex() error {
 	docsByLang := make(map[string][]map[string]interface{})
 	add := func(pages []models.Page) {
 		for _, p := range pages {
-			record := map[string]interface{}{
-				"title":           p.Title,
-				"url":             p.GetURL(),
-				"lang":            p.Lang,
-				"locale":          p.Locale,
-				"translation_key": p.TranslationKey,
-				"tags":            p.Tags,
-				"excerpt":         p.Excerpt,
-				"text":            tmplStripHTML(g.convertMarkdownToHTML(p.Content)),
-			}
+			record := g.searchRecord(p)
 			docs = append(docs, record)
 			docsByLang[p.Lang] = append(docsByLang[p.Lang], record)
 		}

@@ -113,6 +113,27 @@ data_dir: "data"
 # languages: ["pl", "en"]
 # default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
 
+# Dynamic taxonomies (docs/TAXONOMIES.md) — category/tag/series are built in;
+# declare custom ones here. Frontmatter priority: taxonomies: map > direct
+# field > legacy fields. Term metadata: data/taxonomies/<name>.yaml.
+# taxonomies:
+#   technology:
+#     label: Technologies    # plural heading (default: title-cased name)
+#     singular: Technology   # singular heading
+#     path: technology       # URL segment, must be unique (default: name)
+#     field: technology      # frontmatter field read (default: name)
+#     multiple: true         # false = exactly one value per post (else build fails)
+#     archive: true          # emit /technology/ + /technology/<term>/
+#     feed: false            # Atom feed per term (needs global feed: true)
+#     sitemap: true          # include archives in sitemap.xml
+#     template: ""           # index template override (default chain: taxonomy-<name>.html
+#                            # → taxonomy.html → archive.html → category.html)
+#     term_template: ""      # term template override (taxonomy-<name>-term.html → …)
+#     sort: name             # term order: name | count | weight
+#     case_sensitive: false  # false merges "Go"/"go" into one term
+#     slugify: true          # slug from term name; collisions fail the build
+#     generate_empty: false  # archives for metadata-only terms with no posts
+
 # Timezone for content dates (permalink :year/:month/:day tokens and the
 # Date/Modified template context). IANA names; empty = no conversion (UTC as parsed).
 # timezone: "Europe/Warsaw"

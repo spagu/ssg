@@ -94,6 +94,12 @@ type Page struct {
 	// meta-refresh + canonical redirect stub excluded from the sitemap (SEO-002).
 	Aliases []string `yaml:"aliases,omitempty"`
 
+	// TaxonomiesFM is the raw frontmatter `taxonomies:` map (taxonomies-feature.md);
+	// Taxonomies is the resolved form filled by the generator after merging the
+	// map, direct fields and legacy category/tags/series by priority.
+	TaxonomiesFM map[string]interface{} `yaml:"-" json:"-"`
+	Taxonomies   map[string][]string    `yaml:"-"`
+
 	// Series groups posts into an ordered set with a landing page and prev/next
 	// navigation (AX-005). The neighbour fields are computed by the generator.
 	Series          string `yaml:"series,omitempty"`

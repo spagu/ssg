@@ -408,6 +408,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		DefaultLanguage:   cfg.DefaultLanguage,
 		LanguageConfigs:   cfg.LanguageConfigs,
 		I18n:              cfg.I18n,
+		Taxonomies:        cfg.Taxonomies,
 		Hooks:             cfg.Hooks,
 		Feed:              cfg.Feed,
 		FeedItems:         cfg.FeedItems,

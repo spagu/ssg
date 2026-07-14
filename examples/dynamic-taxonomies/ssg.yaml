@@ -1,0 +1,24 @@
+source: site
+template: taxo
+domain: example.com
+content_dir: examples/dynamic-taxonomies/content
+templates_dir: examples/dynamic-taxonomies/templates
+output_dir: examples/dynamic-taxonomies/output
+data_dir: examples/dynamic-taxonomies/data
+feed: true
+search_index: true
+
+# Dynamic taxonomies (docs/TAXONOMIES.md). category/tag/series are built in;
+# these three are custom and get /technology/, /difficulty/, /platform/ archives.
+taxonomies:
+  technology:
+    label: Technologies
+    singular: Technology
+    feed: true            # Atom feed per term: /technology/go/feed.xml
+  difficulty:
+    label: Difficulty levels
+    singular: Difficulty
+    multiple: false       # one value per post; two values fail the build
+    sort: weight          # ordered by data/taxonomies/difficulty.yaml weights
+  platform:
+    path: platforms       # custom URL segment: /platforms/linux/

@@ -312,6 +312,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 |---|---|
 | Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
+| Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
@@ -483,6 +484,7 @@ Development workflow and review requirements are in
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
+| [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |
 | [docs/TEMPLATES.md](docs/TEMPLATES.md) | Theme files, engines and rendering contexts |
 | [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) | Go template helper reference |
 | [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |

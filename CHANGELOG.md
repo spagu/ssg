@@ -7,10 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.4] - 2026-07-14
 
-Full internationalisation (audit/i18n-feature.md). Opt-in via `i18n.enabled`;
-single-language builds are byte-for-byte unchanged.
+Full internationalisation (audit/i18n-feature.md) and dynamic taxonomies
+(audit/taxonomies-feature.md). Opt-in via `i18n.enabled` / `taxonomies:`;
+builds using neither are byte-for-byte unchanged.
 
 ### Added
+- 🏷️ **Dynamic taxonomies** — declare any number of classifications in
+  `taxonomies:`; `category`/`tag`/`series` are auto-registered and keep their
+  legacy URLs, templates and feeds. Per-taxonomy config: `label/singular/path/
+  field/multiple/archive/feed/sitemap/template/term_template/sort/
+  case_sensitive/slugify/generate_empty`; names validated, paths unique,
+  `author`/`page`/language codes reserved.
+- 🏷️ **Frontmatter sources with priority** — generic `taxonomies:` map >
+  configured direct field > legacy fields; multi-value merge + dedupe,
+  single-value conflicts fail the build; generic `tag`/`series` values sync
+  back onto the legacy pipelines.
+- 🏷️ **Term normalization** — whitespace-collapsed, Unicode case-insensitive
+  identity (opt-out via `case_sensitive`), first-seen display name, slug
+  collisions and archive-vs-page URL collisions fail the build.
+- 🏷️ **Term metadata** — `data/taxonomies/<name>.yaml`: display name, slug,
+  description, `weight` (for `sort: weight`), free-form `data`;
+  `generate_empty` renders metadata-only terms.
+- 🏷️ **Archives** — `/technology/` index + `/technology/go/` term pages with
+  template fallback chains (`taxonomy-<name>.html` → `taxonomy.html` →
+  `archive.html` → `category.html`; `-term` variants for terms), pagination
+  (`/page/N/`), i18n language buckets and prefixes.
+- 🏷️ **Integrations** — sitemap entries (`sitemap: true`), Atom feed per term
+  (`feed: true`), `taxonomies` map in the search index and JSON output.
+- 🏷️ **Template helpers** — `taxonomies`, `taxonomy`, `taxonomyTerms`,
+  `pageTerms`, `termURL`, `hasTerm`, `pagesByTerm`.
+- 🏷️ Example project `examples/dynamic-taxonomies/` + guide `docs/TAXONOMIES.md`.
 - 🌍 **i18n core** — expanded language config (`code/locale/name/timezone`) next
   to the legacy compact list; startup validation (duplicate codes, unknown
   default, bad timezones, policy values, fallback cycles) fails the build with
@@ -39,10 +65,13 @@ single-language builds are byte-for-byte unchanged.
 - 🌍 Example project `examples/multilingual-site/` + full guide `docs/I18N.md`.
 
 ### Deferred (documented, follow-up phases)
-- Language-scoped taxonomy pages (categories/tags/authors/series are still
-  cross-language), language selector + `t` labels in the built-in themes
-  (output `<html lang>` is corrected at render time), localized month names in
-  `localizeDate`, plural rules.
+- Language-scoped LEGACY taxonomy pages (categories/tags/authors/series remain
+  cross-language; custom taxonomies ARE language-scoped), language selector +
+  `t` labels in the built-in themes (output `<html lang>` is corrected at
+  render time), localized month names in `localizeDate`, plural rules.
+- Taxonomies: hierarchical terms, term aliases/redirects, translated term
+  names, custom `path`/`template` overrides for the built-in
+  category/tag/series pipelines, author archive on the generic registry.
 
 ## [1.8.3] - 2026-07-14
 

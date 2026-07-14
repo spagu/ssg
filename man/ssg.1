@@ -445,6 +445,15 @@ For example \fBhref="AUTHENTICATION.md"\fR becomes
 Relative path prefixes (\fB./\fR, \fB../dir/\fR) are stripped — only the base
 filename is matched. Unknown \fB.md\fR links are left untouched. The feature is
 opt-in to avoid breaking sites that intentionally serve raw \fB.md\fR files.
+.SH TAXONOMIES
+\fBcategory\fR, \fBtag\fR and \fBseries\fR are built in; additional dynamic
+taxonomies are declared in the config file under the \fBtaxonomies\fR key
+(config-only, no CLI flag). Each taxonomy gets a term index (e.g.
+\fB/technology/\fR) and per-term archives (\fB/technology/go/\fR) with
+template fallback chains, optional per-term Atom feeds, sitemap entries and
+term metadata from \fBdata/taxonomies/<name>.yaml\fR. Frontmatter sources are
+merged by priority: the \fBtaxonomies:\fR map, then the configured field, then
+the legacy fields. See \fBdocs/TAXONOMIES.md\fR for the full reference.
 .SH CONFIG VARIABLES
 Define custom variables in \fB.ssg.yaml\fR under the \fBvariables\fR key. They are
 available in every template context as \fB{{.Vars.key}}\fR and exported as

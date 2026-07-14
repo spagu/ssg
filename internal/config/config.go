@@ -10,6 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
+	"github.com/spagu/ssg/internal/taxonomy"
 	"gopkg.in/yaml.v3"
 )
 
@@ -186,6 +187,10 @@ type Config struct {
 	// public `languages` key.
 	LanguageConfigs []ssgi18n.LanguageConfig `yaml:"-" toml:"-" json:"-"`
 	I18n            ssgi18n.Config           `yaml:"i18n" toml:"i18n" json:"i18n"`
+
+	// Taxonomies declares custom dynamic taxonomies and/or overrides the built-in
+	// category/tag/series definitions (taxonomies-feature.md).
+	Taxonomies map[string]taxonomy.DefinitionConfig `yaml:"taxonomies" toml:"taxonomies" json:"taxonomies"`
 
 	// Hooks are exec commands run at build lifecycle phases: pre_build, post_build,
 	// post_page. Trusted local config only; never sourced from content (PLAT-001).

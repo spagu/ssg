@@ -1,0 +1,13 @@
+# Difficulty levels ordered by weight (sort: weight in ssg.yaml).
+beginner:
+  name: Beginner
+  description: No prior experience needed.
+  weight: 30
+intermediate:
+  name: Intermediate
+  description: Comfortable with the language basics.
+  weight: 20
+advanced:
+  name: Advanced
+  description: Deep dives and sharp edges.
+  weight: 10

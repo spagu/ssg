@@ -220,6 +220,7 @@ var knownFields = map[string]bool{
 	"translation_key": true,
 	"robots":          true, "featured_image": true, "tags": true, "category": true,
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
+	"taxonomies": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -264,6 +265,10 @@ type PageFrontmatter struct {
 	Sitemap        string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
 	Aliases        []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
 	Series         string   `yaml:"series,omitempty"`  // series grouping (AX-005)
+
+	// Taxonomies is the generic assignment map (taxonomies-feature.md); it has
+	// priority over direct fields and legacy category/tags/series.
+	Taxonomies map[string]interface{} `yaml:"taxonomies,omitempty"`
 
 	// Template selection
 	Layout   string `yaml:"layout"`
@@ -383,6 +388,7 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Sitemap:        pf.Sitemap,
 		Aliases:        pf.Aliases,
 		Series:         pf.Series,
+		TaxonomiesFM:   pf.Taxonomies,
 		// Template selection
 		Layout:   pf.Layout,
 		Template: pf.Template,

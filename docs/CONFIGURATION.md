@@ -251,8 +251,17 @@ Templates read inline values from `.Attrs` and paired text from
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 
 Pagination writes page 1 at the site root and pages 2 onward under `/page/N/`.
-Themes receive `.Pager`. The search index contains title, URL, tags, excerpt and
-plain text intended for a client-side search widget.
+Themes receive `.Pager`. The search index contains title, URL, tags, excerpt,
+plain text and the per-post taxonomies map, intended for a client-side search
+widget.
+
+## Taxonomies
+
+`category`, `tag` and `series` are built in. The config-only `taxonomies:` map
+declares additional dynamic taxonomies with per-term archives, metadata files,
+optional per-term feeds and template helpers — the full reference (keys,
+frontmatter priority, normalization rules, template fallback chains) lives in
+[TAXONOMIES.md](TAXONOMIES.md).
 
 ## SEO and validation
 
