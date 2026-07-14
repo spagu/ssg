@@ -1,0 +1,1 @@
+{{define "index.html"}}<!doctype html><html lang="{{.Site.Language.Code}}"><head><title>{{t "navigation.home"}}</title></head><body><nav>{{range .Site.Languages}}<a href="{{languageURL .Code}}">{{.Name}}</a>{{end}}</nav>{{range .Posts}}<a href="{{.GetURL}}">{{.Title}}</a>{{end}}</body></html>{{end}}

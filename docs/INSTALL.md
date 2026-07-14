@@ -2,6 +2,11 @@
 
 This document provides installation instructions for SSG on all supported platforms.
 
+SSG ships as a single static binary of roughly **34 MB** (release builds,
+stripped). Since v1.8.4 it embeds pure-Go SQL drivers (MySQL/MariaDB,
+PostgreSQL, SQLite) for [external sources](EXTERNAL_SOURCES.md), which
+accounts for most of that size; no external libraries or runtimes are needed.
+
 ## Table of Contents
 
 - [Quick Install](#quick-install)
@@ -49,7 +54,7 @@ sudo apt install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.3
+VERSION=1.8.4
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -95,7 +100,7 @@ sudo dnf install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.3
+VERSION=1.8.4
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm

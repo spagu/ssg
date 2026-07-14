@@ -5,6 +5,117 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-07-14
+
+Full internationalisation (audit/i18n-feature.md), dynamic taxonomies
+(audit/taxonomies-feature.md), unified external sources
+(audit/ssg-external-sources-implementation-plan.md) and built-in server access
+control. Everything is opt-in; builds using none of it are byte-for-byte
+unchanged.
+
+### Added
+- 🔌 **External sources — one registry** (`external_sources:`) exposing every
+  source as `.ExternalData.<name>` (+ `.ExternalDataMeta`, `getExternal`/
+  `getExternalMeta` helpers) with deterministic ordering, bounded concurrency,
+  required/optional semantics, a unified error model (source/type/stage, never
+  credentials) and env-only secrets (`"$VAR"`; literals rejected). `.Data`
+  unchanged. Guide: `docs/EXTERNAL_SOURCES.md` + `examples/external-sources/`.
+- 🔌 **File connector** — YAML/JSON/TOML/CSV/XML with transport-independent
+  parsers, template-friendly XML mapping, size caps, sha256 checksums and the
+  `transform.select` dot-path unwrapper.
+- 🔌 **HTTP connector** — hardened client (HTTPS default, host allowlist with
+  wildcards, private/loopback IPs blocked at dial time → DNS-rebinding safe,
+  5-redirect cap with re-validation, response size limits, content-type
+  validation, query-free identifiers), bearer/basic/header auth, retries with
+  backoff on 5xx/429; shared disk cache (`<hash>.body` + `<hash>.meta.json`,
+  TTL + stale-if-error, corruption eviction), offline mode with
+  `fail_on_cache_miss`. CLI: `--offline`, `--refresh-external-sources`,
+  `--clear-external-cache`, `--external-source=NAME`.
+- 🔌 **SQL connector** — MySQL/MariaDB (go-sql-driver), PostgreSQL (pgx),
+  SQLite (pure-Go modernc.org/sqlite); queries only in config, statically
+  validated read-only (single SELECT/WITH statement), per-query `max_rows`
+  (exceeding errors instead of truncating), query timeouts, DSNs scrubbed from
+  errors.
+- 🔌 **CMS adapters** — WordPress (posts/pages/custom post types, users,
+  taxonomies → dynamic-taxonomy map, custom fields → `.Extra`, media), Drupal
+  8-11 (nodes, bodies, vocabularies, users, `path_alias` preserved as links,
+  dynamic `node__field_*` discovery) and Movable Type (released entries/pages,
+  authors, categories, tags, assets). `mode: content` merges imports into the
+  site before finalize (native URL/translation/taxonomy/collision treatment);
+  `mode: data` feeds only `.ExternalData`.
+- 🔒 **Server access control** (config-only) — `server_auth: basic` (users as
+  `login:$PASS_ENV`, constant-time compare) or `jwt` (HS256 bearer tokens,
+  single-algorithm by construction, exp/nbf honoured), `ip_allowlist`/
+  `ip_blocklist` (IPs/CIDRs, checked before anything else), `rate_limit`/
+  `rate_burst` per-IP token bucket (429 + Retry-After). X-Forwarded-For is
+  deliberately not trusted.
+- 🏷️ **Dynamic taxonomies** — declare any number of classifications in
+  `taxonomies:`; `category`/`tag`/`series` are auto-registered and keep their
+  legacy URLs, templates and feeds. Per-taxonomy config: `label/singular/path/
+  field/multiple/archive/feed/sitemap/template/term_template/sort/
+  case_sensitive/slugify/generate_empty`; names validated, paths unique,
+  `author`/`page`/language codes reserved.
+- 🏷️ **Frontmatter sources with priority** — generic `taxonomies:` map >
+  configured direct field > legacy fields; multi-value merge + dedupe,
+  single-value conflicts fail the build; generic `tag`/`series` values sync
+  back onto the legacy pipelines.
+- 🏷️ **Term normalization** — whitespace-collapsed, Unicode case-insensitive
+  identity (opt-out via `case_sensitive`), first-seen display name, slug
+  collisions and archive-vs-page URL collisions fail the build.
+- 🏷️ **Term metadata** — `data/taxonomies/<name>.yaml`: display name, slug,
+  description, `weight` (for `sort: weight`), free-form `data`;
+  `generate_empty` renders metadata-only terms.
+- 🏷️ **Archives** — `/technology/` index + `/technology/go/` term pages with
+  template fallback chains (`taxonomy-<name>.html` → `taxonomy.html` →
+  `archive.html` → `category.html`; `-term` variants for terms), pagination
+  (`/page/N/`), i18n language buckets and prefixes.
+- 🏷️ **Integrations** — sitemap entries (`sitemap: true`), Atom feed per term
+  (`feed: true`), `taxonomies` map in the search index and JSON output.
+- 🏷️ **Template helpers** — `taxonomies`, `taxonomy`, `taxonomyTerms`,
+  `pageTerms`, `termURL`, `hasTerm`, `pagesByTerm`.
+- 🏷️ Example project `examples/dynamic-taxonomies/` + guide `docs/TAXONOMIES.md`.
+- 🌍 **i18n core** — expanded language config (`code/locale/name/timezone`) next
+  to the legacy compact list; startup validation (duplicate codes, unknown
+  default, bad timezones, policy values, fallback cycles) fails the build with
+  descriptive errors. `translation_key` frontmatter (or a deterministic
+  path-derived key) groups content variants; duplicates fail/warn per policy;
+  output-path collisions (pages + aliases) fail the build.
+- 🌍 **Language-aware routing** — configurable `prefix_default_language`;
+  prefix logic centralised in `internal/i18n.Prefix` and applied to pages,
+  posts, aliases, home pages, pagination, feeds, search indexes and JSON output.
+- 🌍 **Translation dictionaries** — YAML/JSON catalogs in `i18n/` with nested
+  keys, named `{{placeholder}}` interpolation, per-language fallback chains and
+  `missing_translation` policies (warn default, error/empty/fallback).
+- 🌍 **Template helpers** — `t`, `hasTranslation`, `translationURL`,
+  `languageURL`, `localizeDate`; context: `.Site.Language/.Languages/
+  .DefaultLanguage/.LanguagePages/.LanguagePosts`, `.Page.Lang/.Locale/
+  .TranslationKey/.Translations` (with `IsCurrent`).
+- 🌍 **SEO** — dynamic `<html lang>`, per-translation canonical, hreflang with
+  `x-default` (falling back to the default-language root when a group has no
+  default variant), sitemap XHTML alternates, `og:locale`+`og:locale:alternate`,
+  JSON-LD `inLanguage`.
+- 🌍 **Language-aware `.md` links (§13)** — the rewriter resolves the
+  active-language translation, preserves explicit `file.<lang>.md` links,
+  applies the `content_fallback` chain only when enabled, warns once per
+  missing translation, and is deterministic (the previous flat map picked a
+  random language for translated filenames).
+- 🌍 Example project `examples/multilingual-site/` + full guide `docs/I18N.md`.
+
+### Deferred (documented, follow-up phases)
+- Language-scoped LEGACY taxonomy pages (categories/tags/authors/series remain
+  cross-language; custom taxonomies ARE language-scoped), language selector +
+  `t` labels in the built-in themes (output `<html lang>` is corrected at
+  render time), localized month names in `localizeDate`, plural rules.
+- Taxonomies: hierarchical terms, term aliases/redirects, translated term
+  names, custom `path`/`template` overrides for the built-in
+  category/tag/series pipelines, author archive on the generic registry.
+- External sources (phase 7): Ghost/Strapi/Contentful/Sanity/Notion/Airtable/
+  Google Sheets/GitHub/GitLab adapters, Drupal 7, Movable Type comments,
+  direct-URL helpers (`getJSON`/`getCSV`/`getXML`), file-source `watch`,
+  example CMS projects with seed scripts; MDDB on the connector interface.
+- Server auth: SSO and LDAP (deliberately out of scope — too heavy for the
+  built-in server), RS256/JWKS token verification.
+
 ## [1.8.3] - 2026-07-14
 
 Template query language, SCSS, accessibility and a performance batch

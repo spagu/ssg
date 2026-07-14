@@ -406,6 +406,10 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Paginate:          cfg.Paginate,
 		Languages:         cfg.Languages,
 		DefaultLanguage:   cfg.DefaultLanguage,
+		LanguageConfigs:   cfg.LanguageConfigs,
+		I18n:              cfg.I18n,
+		Taxonomies:        cfg.Taxonomies,
+		ExternalSources:   cfg.ExternalSources,
 		Hooks:             cfg.Hooks,
 		Feed:              cfg.Feed,
 		FeedItems:         cfg.FeedItems,
@@ -482,6 +486,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean":      &cfg.Clean,
 		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
+		// External sources (docs/EXTERNAL_SOURCES.md)
+		"--offline":                  &cfg.ExternalSources.Offline,
+		"--refresh-external-sources": &cfg.ExternalSources.Refresh,
+		"--clear-external-cache":     &cfg.ExternalSources.ClearCache,
 	}
 	if target, ok := toggles[arg]; ok {
 		*target = true
@@ -588,6 +596,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--mddb-key=":         &cfg.Mddb.APIKey,
 		"--mddb-collection=":  &cfg.Mddb.Collection,
 		"--mddb-lang=":        &cfg.Mddb.Lang,
+		"--external-source=":  &cfg.ExternalSources.Only,
 	}
 }
 
@@ -1123,6 +1132,12 @@ func printUsage() {
 	fmt.Println("  --output-dir=PATH      - Output directory (default: output)")
 	fmt.Println("  --static-dir=PATH      - Static passthrough directory copied verbatim to output (default: static)")
 	fmt.Println("  --data-dir=PATH        - Data files dir (*.yaml|*.json) exposed as .Data.* (default: data)")
+	fmt.Println("")
+	fmt.Println("External sources (docs/EXTERNAL_SOURCES.md):")
+	fmt.Println("  --offline                    - Serve external sources from the disk cache only")
+	fmt.Println("  --refresh-external-sources   - Force re-fetch, ignoring fresh cache entries")
+	fmt.Println("  --clear-external-cache       - Wipe the external-source disk cache before the build")
+	fmt.Println("  --external-source=NAME       - Narrow --refresh-external-sources to one source")
 	fmt.Println("")
 	fmt.Println("Other:")
 	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")

@@ -1,0 +1,6 @@
+{{define "index.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Field notes</title></head><body>
+<nav>{{range taxonomies}}{{if .URL}}<a href="{{.URL}}">{{.Label}}</a> {{end}}{{end}}</nav>
+<main>{{range .Posts}}<article><a href="{{.GetURL}}">{{.Title}}</a>
+<p>Technologies: {{range pageTerms "technology" .}}<a href="{{.URL}}">{{.Name}}</a> {{end}}</p>
+</article>{{end}}</main>
+</body></html>{{end}}

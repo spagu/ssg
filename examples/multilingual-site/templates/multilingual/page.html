@@ -1,0 +1,5 @@
+{{define "page.html"}}<!doctype html>
+<html lang="{{.Lang}}"><head><title>{{.Title}}</title>{{.Hreflang}}</head><body>
+<nav aria-label="Languages">{{range .Page.Translations}}<a href="{{.URL}}" hreflang="{{.Lang}}" {{if .IsCurrent}}aria-current="page"{{end}}>{{.Lang}}</a>{{end}}</nav>
+<main><h1>{{.Title}}</h1>{{.Page.Content | safeHTML}}</main>
+</body></html>{{end}}

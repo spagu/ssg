@@ -2163,7 +2163,7 @@ func TestRewriteMdLinksDisabled(t *testing.T) {
 	input := `<a href="auth.md">Auth</a>`
 	mdMap := gen.buildMdLinkMap()
 	// rewriteMdLinks called directly — should still work
-	got := rewriteMdLinks(input, mdMap)
+	got := gen.rewriteMdLinks(input, mdMap)
 	if got != `<a href="/auth/">Auth</a>` {
 		t.Errorf("rewriteMdLinks() = %q, want /auth/", got)
 	}
@@ -2459,12 +2459,13 @@ func TestResolveVariablesDefaultValue(t *testing.T) {
 }
 
 func TestRewriteMdLinksEdgeCases(t *testing.T) {
-	mdMap := map[string]string{
-		"readme.md": "/docs/",
+	mdMap := map[string]map[string]string{
+		"readme.md": {"": "/docs/"},
 	}
+	gen := &Generator{config: Config{}}
 	// multiple links in same string
 	input := `<a href="readme.md">R</a> and <a href="readme.md">R2</a>`
-	got := rewriteMdLinks(input, mdMap)
+	got := gen.rewriteMdLinks(input, mdMap)
 	if strings.Contains(got, `href="readme.md"`) {
 		t.Errorf("still contains readme.md: %s", got)
 	}

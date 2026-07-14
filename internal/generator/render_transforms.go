@@ -12,6 +12,7 @@ import (
 	"fmt"
 	stdhtml "html"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spagu/ssg/internal/models"
@@ -127,6 +128,20 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 // prettify or minify. Pages pass their models.Page for SEO; page-less HTML
 // (index, archives, alias stubs) passes nil.
 func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) string {
+	if g.config.I18n.Enabled {
+		lang := g.currentLang
+		if page != nil && page.Lang != "" {
+			lang = page.Lang
+		}
+		if lang != "" {
+			htmlLang := regexp.MustCompile(`(?i)<html([^>]*?)\s+lang=(?:"[^"]*"|'[^']*')`)
+			if htmlLang.MatchString(s) {
+				s = htmlLang.ReplaceAllString(s, `<html${1} lang="`+stdhtml.EscapeString(lang)+`"`)
+			} else {
+				s = strings.Replace(s, "<html", `<html lang="`+stdhtml.EscapeString(lang)+`"`, 1)
+			}
+		}
+	}
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
 	}

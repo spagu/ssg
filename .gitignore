@@ -52,7 +52,8 @@ content/*
 *.rpm
 *.snap
 *.tar.gz
-
+/.claude/
+/.claude/*
 /.agent/
 /.agent/*
 # Downloaded themes (created by --online-theme)
@@ -64,3 +65,6 @@ templates/hugo-*/
 
 # Image-processing cache (v1.8.3)
 .ssg-cache/
+
+# Example project build artifacts
+examples/*/output/

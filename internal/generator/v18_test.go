@@ -363,7 +363,9 @@ func TestFinalizeLoadedContent(t *testing.T) {
 	g.siteData.Pages = []models.Page{
 		{Slug: "about", Type: "page", Content: "plain", Lang: "pl"},
 	}
-	g.finalizeLoadedContent()
+	if err := g.finalizeLoadedContent(); err != nil {
+		t.Fatalf("finalizeLoadedContent: %v", err)
+	}
 
 	post := g.siteData.Posts[0]
 	if post.PermalinkPath != "2026/hi" {

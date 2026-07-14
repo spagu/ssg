@@ -1,0 +1,8 @@
+{{define "post.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Page.Title}}</title></head><body>
+<article><h1>{{.Page.Title}}</h1>{{.Content}}</article>
+<footer>
+<p>Difficulty: {{range pageTerms "difficulty" .Page}}<a href="{{.URL}}">{{.Name}}</a>{{end}}</p>
+<p>Platforms: {{range pageTerms "platform" .Page}}<a href="{{.URL}}">{{.Name}}</a> {{end}}</p>
+{{if hasTerm "technology" "Go" .Page}}<p>Part of our <a href="{{termURL "technology" "Go"}}">Go collection</a>.</p>{{end}}
+</footer>
+</body></html>{{end}}

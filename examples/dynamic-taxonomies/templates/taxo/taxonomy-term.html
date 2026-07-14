@@ -1,0 +1,7 @@
+{{define "taxonomy-term.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Taxonomy.Singular}}: {{.Term.Name}}</title></head><body>
+<h1>{{.Taxonomy.Singular}}: {{.Term.Name}}</h1>
+{{with .Term.Description}}<p>{{.}}</p>{{end}}
+<ul>{{range .Posts}}<li><a href="{{.GetURL}}">{{.Title}}</a></li>{{end}}</ul>
+{{if .Pager.PrevURL}}<a href="{{.Pager.PrevURL}}">Newer</a>{{end}}
+{{if .Pager.NextURL}}<a href="{{.Pager.NextURL}}">Older</a>{{end}}
+</body></html>{{end}}

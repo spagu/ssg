@@ -1,0 +1,31 @@
+source: site
+template: extern
+domain: example.com
+content_dir: examples/external-sources/content
+templates_dir: examples/external-sources/templates
+output_dir: examples/external-sources/output
+
+# Unified external sources (docs/EXTERNAL_SOURCES.md). Phase 1: local files;
+# http/sql/cms connectors follow the same config shape in later releases.
+external_sources:
+  enabled: true
+  defaults:
+    max_response_size: 5MB
+  sources:
+    products:
+      type: file
+      path: examples/external-sources/sources/products.json
+      transform:
+        select: data.items      # unwrap the API-style envelope
+    rates:
+      type: file
+      path: examples/external-sources/sources/rates.csv
+      csv:
+        header: true
+    navigation:
+      type: file
+      path: examples/external-sources/sources/navigation.yaml
+    legacy_feed:
+      type: file
+      path: examples/external-sources/sources/feed.xml
+      required: false           # optional: a missing file only warns

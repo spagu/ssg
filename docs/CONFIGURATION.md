@@ -251,8 +251,46 @@ Templates read inline values from `.Attrs` and paired text from
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 
 Pagination writes page 1 at the site root and pages 2 onward under `/page/N/`.
-Themes receive `.Pager`. The search index contains title, URL, tags, excerpt and
-plain text intended for a client-side search widget.
+Themes receive `.Pager`. The search index contains title, URL, tags, excerpt,
+plain text and the per-post taxonomies map, intended for a client-side search
+widget.
+
+## Taxonomies
+
+`category`, `tag` and `series` are built in. The config-only `taxonomies:` map
+declares additional dynamic taxonomies with per-term archives, metadata files,
+optional per-term feeds and template helpers — the full reference (keys,
+frontmatter priority, normalization rules, template fallback chains) lives in
+[TAXONOMIES.md](TAXONOMIES.md).
+
+## External sources
+
+The config-only `external_sources:` block feeds templates from local files
+(YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client + shared disk
+cache), read-only SQL queries (MySQL/MariaDB/PostgreSQL/SQLite) and CMS
+imports (WordPress, Drupal, Movable Type — merged into the site or exposed as
+data). Everything lands under `.ExternalData`; `.Data` is unchanged. Secrets
+come exclusively from environment variables. CLI: `--offline`,
+`--refresh-external-sources`, `--clear-external-cache`,
+`--external-source=NAME`. Full reference:
+[EXTERNAL_SOURCES.md](EXTERNAL_SOURCES.md).
+
+## Server access control
+
+| Key | Default | CLI | Purpose |
+|---|---:|---|---|
+| `server_auth` | empty | config only | `basic` or `jwt` (HS256); empty = open |
+| `server_users` | empty | config only | Basic-auth users as `login:$PASS_ENV` |
+| `jwt_secret` | empty | config only | HS256 shared secret, env reference |
+| `ip_allowlist` | empty | config only | Only these IPs/CIDRs may connect |
+| `ip_blocklist` | empty | config only | These IPs/CIDRs are refused first |
+| `rate_limit` | `0` | config only | Requests/second per client IP |
+| `rate_burst` | `0` | config only | Token-bucket size (default 2×rate) |
+
+The chain runs blocklist → allowlist → rate limiter → auth, before the file
+server. Passwords and the JWT secret must reference environment variables;
+`X-Forwarded-For` is not trusted. SSO and LDAP are deliberately not
+implemented.
 
 ## SEO and validation
 
@@ -303,6 +341,9 @@ language_timezones:
 |---|---:|---|---|
 | `languages` | empty | `--languages=pl,en` | Enable multilingual output |
 | `default_language` | empty | `--default-language` | Language kept at the root |
+
+For the opt-in expanded multilingual system, translation dictionaries and
+prefix/fallback policies, see [I18N.md](I18N.md).
 | `timezone` | empty | `--timezone` | IANA zone for content dates |
 | `language_timezones` | empty | config only | Per-language zone override |
 

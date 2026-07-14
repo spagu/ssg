@@ -217,8 +217,10 @@ var knownFields = map[string]bool{
 	"id": true, "title": true, "slug": true, "date": true, "modified": true,
 	"status": true, "type": true, "link": true, "author": true, "categories": true,
 	"description": true, "keywords": true, "lang": true, "canonical": true,
-	"robots": true, "featured_image": true, "tags": true, "category": true,
+	"translation_key": true,
+	"robots":          true, "featured_image": true, "tags": true, "category": true,
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
+	"taxonomies": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -251,17 +253,22 @@ type PageFrontmatter struct {
 	Categories []interface{} `yaml:"categories,omitempty"`
 
 	// SEO and metadata fields
-	Description   string   `yaml:"description"`
-	Keywords      string   `yaml:"keywords"`
-	Lang          string   `yaml:"lang"`
-	Canonical     string   `yaml:"canonical"`
-	Robots        string   `yaml:"robots"`
-	FeaturedImage string   `yaml:"featured_image"`
-	Tags          []string `yaml:"tags,omitempty"`
-	Category      string   `yaml:"category"`
-	Sitemap       string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
-	Aliases       []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
-	Series        string   `yaml:"series,omitempty"`  // series grouping (AX-005)
+	Description    string   `yaml:"description"`
+	Keywords       string   `yaml:"keywords"`
+	Lang           string   `yaml:"lang"`
+	TranslationKey string   `yaml:"translation_key"`
+	Canonical      string   `yaml:"canonical"`
+	Robots         string   `yaml:"robots"`
+	FeaturedImage  string   `yaml:"featured_image"`
+	Tags           []string `yaml:"tags,omitempty"`
+	Category       string   `yaml:"category"`
+	Sitemap        string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
+	Aliases        []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
+	Series         string   `yaml:"series,omitempty"`  // series grouping (AX-005)
+
+	// Taxonomies is the generic assignment map (taxonomies-feature.md); it has
+	// priority over direct fields and legacy category/tags/series.
+	Taxonomies map[string]interface{} `yaml:"taxonomies,omitempty"`
 
 	// Template selection
 	Layout   string `yaml:"layout"`
@@ -369,17 +376,19 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Categories:    catIDs,
 		CategoriesRaw: catRaw,
 		// SEO and metadata fields
-		Description:   pf.Description,
-		Keywords:      pf.Keywords,
-		Lang:          pf.Lang,
-		Canonical:     pf.Canonical,
-		Robots:        pf.Robots,
-		FeaturedImage: pf.FeaturedImage,
-		Tags:          pf.Tags,
-		Category:      pf.Category,
-		Sitemap:       pf.Sitemap,
-		Aliases:       pf.Aliases,
-		Series:        pf.Series,
+		Description:    pf.Description,
+		Keywords:       pf.Keywords,
+		Lang:           pf.Lang,
+		TranslationKey: pf.TranslationKey,
+		Canonical:      pf.Canonical,
+		Robots:         pf.Robots,
+		FeaturedImage:  pf.FeaturedImage,
+		Tags:           pf.Tags,
+		Category:       pf.Category,
+		Sitemap:        pf.Sitemap,
+		Aliases:        pf.Aliases,
+		Series:         pf.Series,
+		TaxonomiesFM:   pf.Taxonomies,
 		// Template selection
 		Layout:   pf.Layout,
 		Template: pf.Template,

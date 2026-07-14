@@ -1,6 +1,7 @@
 # Build artifacts
 /build/
 /output/
+examples/*/output/
 /ssg
 /ssg-*
 

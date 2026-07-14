@@ -31,7 +31,7 @@ func TestSanitizeInPipeline(t *testing.T) {
 	g.config.SanitizeHTML = true
 	g.sanitizer = newSanitizer(true)
 	g.md = buildMarkdown(g.config)
-	fn := g.tmplSafeHTML(map[string]string{}, map[string]string{})
+	fn := g.tmplSafeHTML(map[string]string{}, map[string]map[string]string{})
 	out := string(fn("hello <script>alert(1)</script> world"))
 	if strings.Contains(out, "<script>") {
 		t.Errorf("sanitizer not applied in pipeline: %s", out)

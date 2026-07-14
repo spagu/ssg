@@ -1,0 +1,5 @@
+<feed version="1">
+  <title>Legacy price feed</title>
+  <entry><name>Field notebook</name><stock>12</stock></entry>
+  <entry><name>Brass compass</name><stock>3</stock></entry>
+</feed>

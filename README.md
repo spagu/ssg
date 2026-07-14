@@ -312,13 +312,15 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 |---|---|
 | Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
+| Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
-| Localisation | Multiple languages, `hreflang`, default language and per-language timezones |
+| External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |
+| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default`, per-language feeds and search ([docs/I18N.md](docs/I18N.md)) |
 | Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
-| Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3 and resource limits |
+| Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
 
 ## Templates
@@ -482,6 +484,9 @@ Development workflow and review requirements are in
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
+| [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
+| [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |
+| [docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md) | External data: files, HTTP APIs, SQL, CMS imports, cache, security |
 | [docs/TEMPLATES.md](docs/TEMPLATES.md) | Theme files, engines and rendering contexts |
 | [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) | Go template helper reference |
 | [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |

@@ -1,0 +1,11 @@
+# Term metadata for the "technology" taxonomy (keys are normalized term names).
+go:
+  description: The Go programming language
+  weight: 10
+  data:
+    color: "#00ADD8"
+rust:
+  description: The Rust programming language
+  weight: 20
+  data:
+    color: "#B7410E"

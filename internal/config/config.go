@@ -9,6 +9,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/spagu/ssg/internal/externalsource"
+	ssgi18n "github.com/spagu/ssg/internal/i18n"
+	"github.com/spagu/ssg/internal/taxonomy"
 	"gopkg.in/yaml.v3"
 )
 
@@ -180,6 +183,31 @@ type Config struct {
 	// alternates (PLAT-005). Empty = single-language build (unchanged).
 	Languages       []string `yaml:"languages" toml:"languages" json:"languages"`
 	DefaultLanguage string   `yaml:"default_language" toml:"default_language" json:"default_language"`
+	// LanguageConfigs is populated when the expanded languages format is used.
+	// It is excluded from decoding because both formats intentionally share the
+	// public `languages` key.
+	LanguageConfigs []ssgi18n.LanguageConfig `yaml:"-" toml:"-" json:"-"`
+	I18n            ssgi18n.Config           `yaml:"i18n" toml:"i18n" json:"i18n"`
+
+	// Taxonomies declares custom dynamic taxonomies and/or overrides the built-in
+	// category/tag/series definitions (taxonomies-feature.md).
+	Taxonomies map[string]taxonomy.DefinitionConfig `yaml:"taxonomies" toml:"taxonomies" json:"taxonomies"`
+
+	// ExternalSources configures the unified external data system
+	// (ssg-external-sources-implementation-plan.md).
+	ExternalSources externalsource.Config `yaml:"external_sources" toml:"external_sources" json:"external_sources"`
+
+	// Built-in server access control (config-only; SSO/LDAP deferred):
+	// server_auth "basic"|"jwt", basic users as "login:$PASS_ENV", HS256 JWT
+	// secret from the environment, IP allow/block lists (IPs or CIDRs) and a
+	// per-IP token-bucket rate limiter.
+	ServerAuth  string   `yaml:"server_auth" toml:"server_auth" json:"server_auth"`
+	ServerUsers []string `yaml:"server_users" toml:"server_users" json:"server_users"`
+	JWTSecret   string   `yaml:"jwt_secret" toml:"jwt_secret" json:"jwt_secret"`
+	IPAllowlist []string `yaml:"ip_allowlist" toml:"ip_allowlist" json:"ip_allowlist"`
+	IPBlocklist []string `yaml:"ip_blocklist" toml:"ip_blocklist" json:"ip_blocklist"`
+	RateLimit   float64  `yaml:"rate_limit" toml:"rate_limit" json:"rate_limit"`
+	RateBurst   int      `yaml:"rate_burst" toml:"rate_burst" json:"rate_burst"`
 
 	// Hooks are exec commands run at build lifecycle phases: pre_build, post_build,
 	// post_page. Trusted local config only; never sourced from content (PLAT-001).
@@ -282,6 +310,16 @@ func Load(path string) (*Config, error) {
 
 	cfg := DefaultConfig()
 	ext := strings.ToLower(filepath.Ext(path))
+	var expanded []ssgi18n.LanguageConfig
+	switch ext {
+	case ".yaml", ".yml":
+		data, expanded, err = normalizeYAMLLanguages(data)
+	case ".json":
+		data, expanded, err = normalizeJSONLanguages(data)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("parsing expanded languages: %w", err)
+	}
 
 	switch ext {
 	case ".yaml", ".yml":
@@ -299,6 +337,8 @@ func Load(path string) (*Config, error) {
 	default:
 		return nil, fmt.Errorf("unsupported config format: %s (use .yaml, .toml, or .json)", ext)
 	}
+	cfg.LanguageConfigs = expanded
+	cfg.I18n = cfg.I18n.WithDefaults()
 
 	// Apply minify_all
 	if cfg.MinifyAll {
@@ -308,6 +348,64 @@ func Load(path string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func normalizeYAMLLanguages(data []byte) ([]byte, []ssgi18n.LanguageConfig, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return data, nil, err
+	}
+	if len(doc.Content) == 0 || len(doc.Content[0].Content) == 0 {
+		return data, nil, nil
+	}
+	root := doc.Content[0]
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value != "languages" {
+			continue
+		}
+		value := root.Content[i+1]
+		if value.Kind != yaml.SequenceNode || len(value.Content) == 0 || value.Content[0].Kind != yaml.MappingNode {
+			return data, nil, nil
+		}
+		var expanded []ssgi18n.LanguageConfig
+		if err := value.Decode(&expanded); err != nil {
+			return data, nil, err
+		}
+		codes := make([]string, len(expanded))
+		for j := range expanded {
+			codes[j] = expanded[j].Code
+		}
+		var replacement yaml.Node
+		if err := replacement.Encode(codes); err != nil {
+			return data, nil, err
+		}
+		root.Content[i+1] = &replacement
+		out, err := yaml.Marshal(&doc)
+		return out, expanded, err
+	}
+	return data, nil, nil
+}
+
+func normalizeJSONLanguages(data []byte) ([]byte, []ssgi18n.LanguageConfig, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return data, nil, err
+	}
+	v, ok := raw["languages"]
+	if !ok {
+		return data, nil, nil
+	}
+	var expanded []ssgi18n.LanguageConfig
+	if err := json.Unmarshal(v, &expanded); err != nil || len(expanded) == 0 || expanded[0].Code == "" {
+		return data, nil, nil
+	}
+	codes := make([]string, len(expanded))
+	for i := range expanded {
+		codes[i] = expanded[i].Code
+	}
+	raw["languages"], _ = json.Marshal(codes)
+	out, err := json.Marshal(raw)
+	return out, expanded, err
 }
 
 // FindConfigFile looks for default config files in current directory

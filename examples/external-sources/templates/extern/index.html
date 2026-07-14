@@ -1,0 +1,16 @@
+{{define "index.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Shop</title></head><body>
+<nav>{{range .ExternalData.navigation.links}}<a href="{{.url}}">{{.title}}</a> {{end}}</nav>
+<main>
+<h1>Catalogue</h1>
+<ul>{{range .ExternalData.products}}<li>{{.name}} — ${{.price}} <small>{{.sku}}</small></li>{{end}}</ul>
+<h2>Exchange rates</h2>
+<table>
+<thead><tr><th scope="col">Currency</th><th scope="col">Rate</th></tr></thead>
+<tbody>{{range getExternal "rates"}}<tr><td>{{.code}}</td><td>{{.rate}}</td></tr>{{end}}</tbody>
+</table>
+{{with getExternal "legacy_feed"}}<h2>{{.feed.title}}</h2>
+<ul>{{range .feed.entry}}<li>{{.name}}: {{.stock}} in stock</li>{{end}}</ul>{{end}}
+<p><small>Products fetched {{(getExternalMeta "products").FetchedAt.Format "2006-01-02"}} ({{(getExternalMeta "products").RecordCount}} records).</small></p>
+{{range .Posts}}<article><a href="{{.GetURL}}">{{.Title}}</a></article>{{end}}
+</main>
+</body></html>{{end}}

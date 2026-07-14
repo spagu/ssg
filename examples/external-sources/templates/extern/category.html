@@ -1,0 +1,4 @@
+{{define "category.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Name}}</title></head><body>
+<h1>{{.Name}}</h1>
+<ul>{{range .Posts}}<li><a href="{{.GetURL}}">{{.Title}}</a></li>{{end}}</ul>
+</body></html>{{end}}
