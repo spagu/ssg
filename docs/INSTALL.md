@@ -6,7 +6,7 @@ This document provides installation instructions for SSG on all supported platfo
 
 - [Quick Install](#quick-install)
 - [Linux - Debian/Ubuntu (DEB)](#linux---debianubuntu-deb)
-- [Linux - Fedora/RHEL/CentOS (RPM)](#linux---fedorarhel-rpm)
+- [Linux - Fedora/RHEL/CentOS (RPM)](#linux---fedorarhelcentos-rpm)
 - [Linux - Snap (Ubuntu)](#linux---snap-ubuntu)
 - [macOS - Homebrew](#macos---homebrew)
 - [macOS - Binary](#macos---binary)
@@ -261,7 +261,7 @@ scoop install ssg
 
 ### Requirements
 
-- Go 1.26 or later
+- Go 1.26.5 or later
 - Git
 
 ### Build and Install
