@@ -45,14 +45,14 @@ func TestResolveFormatInference(t *testing.T) {
 
 func TestResolveErrors(t *testing.T) {
 	cases := map[string]SourceConfig{
-		"bad name":         {Type: "file", Path: "a.yaml"},
-		"http needs url":   {Type: "http"},
-		"sql not yet":      {Type: "sql"},
-		"cms not yet":      {Type: "cms"},
-		"unknown type":     {Type: "carrier-pigeon", Path: "a.yaml"},
-		"missing path":     {Type: "file"},
-		"unknown format":   {Type: "file", Path: "a.parquet"},
-		"explicit unknown": {Type: "file", Path: "a.yaml", Format: "parquet"},
+		"bad name":          {Type: "file", Path: "a.yaml"},
+		"http needs url":    {Type: "http"},
+		"sql needs driver":  {Type: "sql"},
+		"cms needs adapter": {Type: "cms"},
+		"unknown type":      {Type: "carrier-pigeon", Path: "a.yaml"},
+		"missing path":      {Type: "file"},
+		"unknown format":    {Type: "file", Path: "a.parquet"},
+		"explicit unknown":  {Type: "file", Path: "a.yaml", Format: "parquet"},
 	}
 	for label, sc := range cases {
 		name := "src"
@@ -64,11 +64,11 @@ func TestResolveErrors(t *testing.T) {
 			t.Errorf("%s: expected error", label)
 		}
 	}
-	// Later-phase types name the phase in the error.
-	cfg := Config{Sources: map[string]SourceConfig{"cms": {Type: "cms"}}}
+	// Every connector type is implemented; unknown types list the supported set.
+	cfg := Config{Sources: map[string]SourceConfig{"x": {Type: "graphql"}}}
 	_, err := Resolve(cfg)
-	if err == nil || !strings.Contains(err.Error(), "phases 4-6") {
-		t.Fatalf("cms error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "file, http, sql, cms") {
+		t.Fatalf("unknown type error = %v", err)
 	}
 }
 

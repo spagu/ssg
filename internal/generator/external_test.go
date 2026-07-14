@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -86,6 +87,67 @@ func TestExternalSourcesRequiredFailure(t *testing.T) {
 	err = gen.Generate()
 	if err == nil || !strings.Contains(err.Error(), `external source "gone" (file) failed at read`) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// newWordPressFixture creates a minimal WordPress sqlite database.
+func newWordPressFixture(t *testing.T, tmp string) string {
+	t.Helper()
+	path := filepath.Join(tmp, "wp.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	for _, s := range []string{
+		`CREATE TABLE wp_users (ID INTEGER, display_name TEXT, user_nicename TEXT)`,
+		`INSERT INTO wp_users VALUES (7, 'Imported Author', 'imported-author')`,
+		`CREATE TABLE wp_term_taxonomy (term_taxonomy_id INTEGER, term_id INTEGER, taxonomy TEXT)`,
+		`CREATE TABLE wp_terms (term_id INTEGER, name TEXT, slug TEXT)`,
+		`CREATE TABLE wp_term_relationships (object_id INTEGER, term_taxonomy_id INTEGER)`,
+		`CREATE TABLE wp_postmeta (post_id INTEGER, meta_key TEXT, meta_value TEXT)`,
+		`CREATE TABLE wp_posts (ID INTEGER, post_title TEXT, post_name TEXT, post_content TEXT,
+		 post_excerpt TEXT, post_date TEXT, post_modified TEXT, post_status TEXT, post_type TEXT,
+		 post_author INTEGER, guid TEXT, post_mime_type TEXT)`,
+		`INSERT INTO wp_posts VALUES (101, 'Imported from WordPress', 'imported-from-wordpress',
+		 '<p>Legacy body.</p>', 'Legacy excerpt', '2026-04-01 09:00:00', '2026-04-01 09:00:00',
+		 'publish', 'post', 7, '', '')`,
+	} {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return path
+}
+
+// TestExternalSourcesCMSContentMerge: a WordPress source in content mode joins
+// the site — the imported post renders, lands on the index and in the sitemap,
+// and the import stays queryable under .ExternalData.
+func TestExternalSourcesCMSContentMerge(t *testing.T) {
+	tmp := t.TempDir()
+	writeExternalFixtures(t, tmp)
+	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
+	cfg := externalTestConfig(tmp)
+	cfg.ExternalSources.Sources["legacy_blog"] = externalsource.SourceConfig{
+		Type: "cms", Adapter: "wordpress", Driver: "sqlite",
+		Database: newWordPressFixture(t, tmp)}
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	out := filepath.Join(tmp, "output")
+	wantContains(t, "imported post", mustRead(t,
+		filepath.Join(out, "2026", "04", "01", "imported-from-wordpress", "index.html")), "x")
+	wantContains(t, "sitemap", mustRead(t, filepath.Join(out, "sitemap.xml")),
+		"/2026/04/01/imported-from-wordpress/")
+	if gen.siteData.Authors[7].Name != "Imported Author" {
+		t.Fatalf("authors = %+v", gen.siteData.Authors)
+	}
+	if gen.externalData["legacy_blog"] == nil {
+		t.Fatal("cms source must still expose .ExternalData")
 	}
 }
 

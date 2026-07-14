@@ -226,9 +226,11 @@ type Generator struct {
 	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
 	authorSlugs map[string]string  // author slug → slug, for sitemap (BLOG-005)
 	taxonomies  *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
-	// External sources (phase 1): .ExternalData / .ExternalDataMeta namespaces.
+	// External sources: .ExternalData / .ExternalDataMeta namespaces plus
+	// content-mode CMS imports merged into the site before finalize.
 	externalData map[string]interface{}
 	externalMeta map[string]externalsource.Metadata
+	cmsImports   []*externalsource.CMSImportResult
 	engine       engine.Engine // non-Go template engine when configured (GO-007)
 	engineTmpls  map[string]engine.Template
 	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
@@ -519,9 +521,15 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
-// loadPhase runs the input steps of the build: content, data files,
-// taxonomies, external sources and templates.
+// loadPhase runs the input steps of the build. External sources load FIRST so
+// content-mode CMS imports can merge into the site before finalize; content,
+// data files, taxonomies and templates follow.
 func (g *Generator) loadPhase() error {
+	if g.config.ExternalSources.Enabled {
+		if err := g.runStep("🔌 Loading external sources...", g.loadExternalSources, "loading external sources"); err != nil {
+			return err
+		}
+	}
 	if err := g.runStep("🔄 Loading content...", g.loadContent, "loading content"); err != nil {
 		return err
 	}
@@ -530,11 +538,6 @@ func (g *Generator) loadPhase() error {
 	}
 	if err := g.runStep("🏷️  Building taxonomies...", g.buildTaxonomies, "building taxonomies"); err != nil {
 		return err
-	}
-	if g.config.ExternalSources.Enabled {
-		if err := g.runStep("🔌 Loading external sources...", g.loadExternalSources, "loading external sources"); err != nil {
-			return err
-		}
 	}
 	return g.runStep("📝 Loading templates...", g.loadTemplates, "loading templates")
 }
@@ -726,6 +729,10 @@ func (g *Generator) loadContent() error {
 	if err != nil {
 		return err
 	}
+
+	// Content-mode CMS imports join the site before finalize so they get the
+	// same URL/translation/taxonomy treatment as native content.
+	g.mergeCMSContent()
 
 	return g.finalizeLoadedContent()
 }

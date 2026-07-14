@@ -56,6 +56,8 @@ func Load(cfg Config) (*Registry, []string, error) {
 				conn = httpConn
 			case "sql":
 				conn = SQLConnector{}
+			case "cms":
+				conn = CMSConnector{}
 			}
 			results[i], errs[i] = conn.Load(src)
 		}(i, src)
@@ -104,6 +106,18 @@ func newHTTPConnector(cfg Config) HTTPConnector {
 		staleIfError: staleIfError,
 		failOnMiss:   failOnMiss,
 	}
+}
+
+// CMSImports returns the content-mode CMS imports in deterministic order for
+// the generator to merge into the site.
+func (r *Registry) CMSImports() []*CMSImportResult {
+	var out []*CMSImportResult
+	for _, name := range r.Order {
+		if res := r.Results[name]; res.CMS != nil {
+			out = append(out, res.CMS)
+		}
+	}
+	return out
 }
 
 // Data returns the template-facing .ExternalData namespace.

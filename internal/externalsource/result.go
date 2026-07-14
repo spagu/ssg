@@ -15,12 +15,15 @@ type Metadata struct {
 	ContentType string    // parser format (yaml/json/toml/csv/xml)
 }
 
-// Result is one loaded source: its parsed data plus metadata.
+// Result is one loaded source: its parsed data plus metadata. CMS sources in
+// content mode additionally carry the unified import for the generator to
+// merge into the site.
 type Result struct {
 	Name     string
 	Type     string
 	Data     interface{}
 	Metadata Metadata
+	CMS      *CMSImportResult
 }
 
 // recordCount reports the number of top-level records in parsed data.

@@ -52,7 +52,8 @@ content/*
 *.rpm
 *.snap
 *.tar.gz
-
+/.claude/
+/.claude/*
 /.agent/
 /.agent/*
 # Downloaded themes (created by --online-theme)

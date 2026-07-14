@@ -92,6 +92,39 @@ type SourceConfig struct {
 	DSN      string                 `yaml:"dsn" toml:"dsn" json:"dsn"`
 	Database string                 `yaml:"database" toml:"database" json:"database"`
 	Queries  map[string]QueryConfig `yaml:"queries" toml:"queries" json:"queries"`
+
+	// CMS sources (phases 4-6) run over the same SQL drivers.
+	Adapter     string             `yaml:"adapter" toml:"adapter" json:"adapter"` // wordpress | drupal | movable_type
+	Mode        string             `yaml:"mode" toml:"mode" json:"mode"`          // content (default) | data
+	WordPress   WordPressOptions   `yaml:"wordpress" toml:"wordpress" json:"wordpress"`
+	Drupal      DrupalOptions      `yaml:"drupal" toml:"drupal" json:"drupal"`
+	MovableType MovableTypeOptions `yaml:"movable_type" toml:"movable_type" json:"movable_type"`
+}
+
+// WordPressOptions tune the WordPress adapter.
+type WordPressOptions struct {
+	TablePrefix         string   `yaml:"table_prefix" toml:"table_prefix" json:"table_prefix"` // default wp_
+	PostTypes           []string `yaml:"post_types" toml:"post_types" json:"post_types"`       // default [post, page]
+	Statuses            []string `yaml:"statuses" toml:"statuses" json:"statuses"`             // default [publish]
+	IncludeMedia        *bool    `yaml:"include_media" toml:"include_media" json:"include_media"`
+	IncludeCustomFields *bool    `yaml:"include_custom_fields" toml:"include_custom_fields" json:"include_custom_fields"`
+	IncludeTaxonomies   *bool    `yaml:"include_taxonomies" toml:"include_taxonomies" json:"include_taxonomies"`
+}
+
+// DrupalOptions tune the Drupal (8-11) adapter.
+type DrupalOptions struct {
+	Version       int      `yaml:"version" toml:"version" json:"version"` // informational; 8-11 share the schema
+	Bundles       []string `yaml:"bundles" toml:"bundles" json:"bundles"` // default [article, page]
+	PublishedOnly *bool    `yaml:"published_only" toml:"published_only" json:"published_only"`
+	IncludeFields *bool    `yaml:"include_fields" toml:"include_fields" json:"include_fields"` // node__field_* → .Extra
+}
+
+// MovableTypeOptions tune the Movable Type adapter.
+type MovableTypeOptions struct {
+	IncludeEntries  *bool `yaml:"include_entries" toml:"include_entries" json:"include_entries"`
+	IncludePages    *bool `yaml:"include_pages" toml:"include_pages" json:"include_pages"`
+	IncludeAssets   *bool `yaml:"include_assets" toml:"include_assets" json:"include_assets"`
+	IncludeComments bool  `yaml:"include_comments" toml:"include_comments" json:"include_comments"` // deferred; validated as unsupported
 }
 
 // QueryConfig is one named read-only query of a SQL source.
@@ -147,6 +180,13 @@ type Source struct {
 	DSN      string
 	Database string
 	Queries  map[string]Query
+
+	// CMS sources (phases 4-6).
+	Adapter     string
+	Mode        string // "content" | "data"
+	WordPress   WordPressOptions
+	Drupal      DrupalOptions
+	MovableType MovableTypeOptions
 }
 
 // nameRe matches the same identifier space as taxonomy names.
@@ -155,8 +195,8 @@ var nameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 // supportedFormats for the file connector.
 var supportedFormats = map[string]bool{"yaml": true, "json": true, "toml": true, "csv": true, "xml": true}
 
-// laterPhaseTypes are planned connector types not yet implemented.
-var laterPhaseTypes = map[string]string{"cms": "phases 4-6"}
+// cmsAdapters are the supported CMS adapters.
+var cmsAdapters = map[string]bool{"wordpress": true, "drupal": true, "movable_type": true}
 
 // sqlDrivers are the supported SQL engines ("mariadb" shares the mysql driver).
 var sqlDrivers = map[string]bool{"mysql": true, "mariadb": true, "postgres": true, "sqlite": true}
@@ -206,25 +246,50 @@ func resolveSource(name string, sc SourceConfig, defaults Defaults, maxSize int6
 	if !nameRe.MatchString(name) {
 		return Source{}, fmt.Errorf("invalid external source name %q (want lowercase letters, digits, _ or -)", name)
 	}
-	if phase, planned := laterPhaseTypes[sc.Type]; planned {
-		return Source{}, fmt.Errorf("external source %q: type %q is planned for %s and not available yet — supported: file, http, sql", name, sc.Type, phase)
-	}
-	if sc.Type != "file" && sc.Type != "http" && sc.Type != "sql" {
-		return Source{}, fmt.Errorf("external source %q: unsupported type %q (supported: file, http, sql)", name, sc.Type)
-	}
 	src := Source{Name: name, Type: sc.Type, Required: boolLayer(true, defaults.Required, sc.Required),
 		MaxSize: maxSize, Transform: sc.Transform, CSV: sc.CSV}
 	switch sc.Type {
 	case "sql":
 		return src, resolveSQL(&src, sc, defaults)
+	case "cms":
+		return src, resolveCMS(&src, sc, defaults)
 	case "http":
 		if err := resolveFormat(&src, sc); err != nil {
 			return Source{}, err
 		}
 		return src, resolveHTTP(&src, sc, defaults)
-	default:
+	case "file":
 		return src, resolveFormat(&src, sc)
+	default:
+		return Source{}, fmt.Errorf("external source %q: unsupported type %q (supported: file, http, sql, cms)", name, sc.Type)
 	}
+}
+
+// resolveCMS validates the adapter and shares the SQL connection rules.
+func resolveCMS(src *Source, sc SourceConfig, defaults Defaults) error {
+	if !cmsAdapters[sc.Adapter] {
+		return fmt.Errorf("external source %q: unsupported adapter %q (supported: wordpress, drupal, movable_type)", src.Name, sc.Adapter)
+	}
+	src.Adapter = sc.Adapter
+	switch sc.Mode {
+	case "", "content":
+		src.Mode = "content"
+	case "data":
+		src.Mode = "data"
+	default:
+		return fmt.Errorf("external source %q: unsupported mode %q (supported: content, data)", src.Name, sc.Mode)
+	}
+	if sc.MovableType.IncludeComments {
+		return fmt.Errorf("external source %q: movable_type.include_comments is not implemented yet (deferred)", src.Name)
+	}
+	src.WordPress = sc.WordPress
+	src.Drupal = sc.Drupal
+	src.MovableType = sc.MovableType
+	var err error
+	if src.Timeout, err = resolveDuration(sc.Timeout, defaults.Timeout, defaultTimeout); err != nil {
+		return fmt.Errorf("external source %q: timeout: %w", src.Name, err)
+	}
+	return resolveSQLConn(src, sc)
 }
 
 // boolLayer resolves hard default < defaults block < per-source override.
