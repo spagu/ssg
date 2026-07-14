@@ -13,9 +13,10 @@
 </head>
 
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     {{template "navigation.html" .}}
 
-    <main class="main-content">
+    <main id="main-content" class="main-content">
         <header class="category-header">
             <div class="container">
                 <h1 class="category-title">{{.Category.Name}}</h1>

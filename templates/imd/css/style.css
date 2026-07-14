@@ -381,3 +381,30 @@ p {
     height: 100%;
     border: none;
 }
+/* Skip-link (WCAG 2.2 2.4.1 Bypass Blocks, FE-004): visually hidden until focused */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: auto;
+}
+
+.skip-link:focus {
+    left: 1rem;
+    top: 1rem;
+    z-index: 1000;
+    background: #ffffff;
+    color: #1a1a1a;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Visible keyboard focus on interactive elements (FE-004) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+}

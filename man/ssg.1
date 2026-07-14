@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-11" "1.8.2" "SSG Manual"
+.TH SSG 1 "2026-07-14" "1.8.3" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -210,6 +210,15 @@ source is embedded.
 Content-hash CSS/JS to \fBname.<hash8>.ext\fR, write \fBassets-manifest.json\fR and
 rewrite references in HTML and CSS (\fBurl()\fR/\fB@import\fR). Deterministic across
 builds. Runs as the terminal asset step.
+.TP
+.B \-\-scss
+Compile \fB*.scss\fR files in the output to \fB*.css\fR via the optional
+\fBdart-sass\fR CLI before bundling/minify (partials \fB_*.scss\fR are only
+resolved through @use/@import; all .scss sources are removed from the output).
+A missing binary skips the step with a warning.
+.TP
+.BR \-\-sass\-binary =\fIPATH
+Explicit dart-sass binary; default is \fBsass\fR resolved from PATH.
 .TP
 .BR \-\-paginate =\fIN
 Posts per index page; adds \fB/page/N/\fR pages and a \fB.Pager\fR context. 0 disables

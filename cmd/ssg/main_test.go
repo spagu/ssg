@@ -2123,7 +2123,7 @@ func TestWatchIterationDetectsMidBuildEdit(t *testing.T) {
 	}
 	dirs := []string{dir}
 
-	newBuild, newSig := watchIteration(dirs, time.Now().Add(-time.Hour), "stale", func() {
+	newBuild, newSig := watchIteration(dirs, newFileSigCache(), time.Now().Add(-time.Hour), "stale", func() {
 		// Simulate an edit landing while the (slow) rebuild is running.
 		time.Sleep(10 * time.Millisecond)
 		if err := os.WriteFile(filepath.Join(dir, "b.md"), []byte("mid-build edit"), 0644); err != nil {
@@ -2150,7 +2150,7 @@ func TestWatchIterationNoDoubleRebuild(t *testing.T) {
 	time.Sleep(5 * time.Millisecond) // ensure the file mtime precedes buildStart
 
 	builds := 0
-	lastBuild, lastSig := watchIteration(dirs, time.Now().Add(-time.Hour), "stale", func() { builds++ })
+	lastBuild, lastSig := watchIteration(dirs, newFileSigCache(), time.Now().Add(-time.Hour), "stale", func() { builds++ })
 	if builds != 1 {
 		t.Fatalf("expected exactly one rebuild, got %d", builds)
 	}
@@ -2159,7 +2159,7 @@ func TestWatchIterationNoDoubleRebuild(t *testing.T) {
 	}
 
 	// A poll without changes must not rebuild and must keep lastBuild/lastSig.
-	b2, s2 := watchIteration(dirs, lastBuild, lastSig, func() { builds++ })
+	b2, s2 := watchIteration(dirs, newFileSigCache(), lastBuild, lastSig, func() { builds++ })
 	if builds != 1 {
 		t.Errorf("no rebuild expected without changes, got %d", builds)
 	}
@@ -2187,7 +2187,7 @@ func TestWatchIterationTouchOnlySkipsRebuild(t *testing.T) {
 	}
 
 	builds := 0
-	newBuild, newSig := watchIteration(dirs, now.Add(-time.Hour), sig, func() { builds++ })
+	newBuild, newSig := watchIteration(dirs, newFileSigCache(), now.Add(-time.Hour), sig, func() { builds++ })
 	if builds != 0 {
 		t.Errorf("touch-only event must not rebuild, got %d builds", builds)
 	}

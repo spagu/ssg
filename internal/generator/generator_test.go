@@ -3916,7 +3916,7 @@ func TestCopyColocatedAssets(t *testing.T) {
 	}
 
 	gen := &Generator{config: Config{Quiet: false}}
-	if err := gen.copyColocatedAssets(srcDir, dstDir); err != nil {
+	if err := gen.copyColocatedAssets(srcDir, dstDir, "![p](photo.png) and style.css"); err != nil {
 		t.Fatalf("copyColocatedAssets failed: %v", err)
 	}
 
@@ -3936,7 +3936,7 @@ func TestCopyColocatedAssets(t *testing.T) {
 
 func TestCopyColocatedAssetsNonExistentDir(t *testing.T) {
 	gen := &Generator{config: Config{Quiet: true}}
-	err := gen.copyColocatedAssets("/nonexistent/path", "/tmp/out")
+	err := gen.copyColocatedAssets("/nonexistent/path", "/tmp/out", "")
 	if err != nil {
 		t.Errorf("Expected nil for nonexistent source dir, got: %v", err)
 	}
@@ -3954,7 +3954,7 @@ func TestCopyColocatedAssetsQuietMode(t *testing.T) {
 	}
 
 	gen := &Generator{config: Config{Quiet: true}}
-	if err := gen.copyColocatedAssets(srcDir, dstDir); err != nil {
+	if err := gen.copyColocatedAssets(srcDir, dstDir, "photo.jpg"); err != nil {
 		t.Fatalf("copyColocatedAssets failed: %v", err)
 	}
 
@@ -3972,7 +3972,7 @@ func TestCopyColocatedAssetsEmptyDir(t *testing.T) {
 	}
 
 	gen := &Generator{config: Config{Quiet: true}}
-	if err := gen.copyColocatedAssets(srcDir, dstDir); err != nil {
+	if err := gen.copyColocatedAssets(srcDir, dstDir, ""); err != nil {
 		t.Fatalf("copyColocatedAssets failed: %v", err)
 	}
 
@@ -3997,7 +3997,7 @@ func TestCopyColocatedAssetsSkipsSubdirectories(t *testing.T) {
 	}
 
 	gen := &Generator{config: Config{Quiet: true}}
-	if err := gen.copyColocatedAssets(srcDir, dstDir); err != nil {
+	if err := gen.copyColocatedAssets(srcDir, dstDir, "top.png nested.png"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -4069,7 +4069,7 @@ func TestGeneratePostWithColocatedAssets(t *testing.T) {
 		Date:      time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
 		Type:      "post",
 		Status:    "publish",
-		Content:   "<p>Hello</p>",
+		Content:   "<p>Hello <img src=\"post-image.png\"></p>",
 		SourceDir: srcDir,
 	}
 
@@ -4120,7 +4120,7 @@ func TestGeneratePageWithColocatedAssets(t *testing.T) {
 		Slug:      "about",
 		Type:      "page",
 		Status:    "publish",
-		Content:   "<p>About us</p>",
+		Content:   "<p>About us <img src=\"about-photo.jpg\"></p>",
 		SourceDir: srcDir,
 	}
 

@@ -124,6 +124,12 @@ type Config struct {
 	// rewrites references in HTML and CSS for immutable caching (ASSET-001).
 	Fingerprint bool `yaml:"fingerprint" toml:"fingerprint" json:"fingerprint"`
 
+	// SCSS compiles *.scss in the output to *.css via the dart-sass CLI before
+	// bundling/minify (ASSET-003). Optional system tool like cwebp: when absent
+	// the step is skipped with a warning. SassBinary overrides PATH lookup.
+	SCSS       bool   `yaml:"scss" toml:"scss" json:"scss"`
+	SassBinary string `yaml:"sass_binary" toml:"sass_binary" json:"sass_binary"`
+
 	// Shortcodes
 	Shortcodes        []Shortcode `yaml:"shortcodes" toml:"shortcodes" json:"shortcodes"`
 	ShortcodeBrackets bool        `yaml:"shortcode_brackets" toml:"shortcode_brackets" json:"shortcode_brackets"` // Also match [shortcode] syntax (default: false)
