@@ -46,7 +46,7 @@ func TestResolveFormatInference(t *testing.T) {
 func TestResolveErrors(t *testing.T) {
 	cases := map[string]SourceConfig{
 		"bad name":         {Type: "file", Path: "a.yaml"},
-		"http not yet":     {Type: "http", Path: "x"},
+		"http needs url":   {Type: "http"},
 		"sql not yet":      {Type: "sql"},
 		"cms not yet":      {Type: "cms"},
 		"unknown type":     {Type: "carrier-pigeon", Path: "a.yaml"},
@@ -65,10 +65,10 @@ func TestResolveErrors(t *testing.T) {
 		}
 	}
 	// Later-phase types name the phase in the error.
-	cfg := Config{Sources: map[string]SourceConfig{"api": {Type: "http"}}}
+	cfg := Config{Sources: map[string]SourceConfig{"db": {Type: "sql"}}}
 	_, err := Resolve(cfg)
-	if err == nil || !strings.Contains(err.Error(), "phase 2") {
-		t.Fatalf("http error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "phase 3") {
+		t.Fatalf("sql error = %v", err)
 	}
 }
 
