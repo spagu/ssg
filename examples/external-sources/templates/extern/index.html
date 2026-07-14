@@ -4,7 +4,10 @@
 <h1>Catalogue</h1>
 <ul>{{range .ExternalData.products}}<li>{{.name}} — ${{.price}} <small>{{.sku}}</small></li>{{end}}</ul>
 <h2>Exchange rates</h2>
-<table>{{range getExternal "rates"}}<tr><td>{{.code}}</td><td>{{.rate}}</td></tr>{{end}}</table>
+<table>
+<thead><tr><th scope="col">Currency</th><th scope="col">Rate</th></tr></thead>
+<tbody>{{range getExternal "rates"}}<tr><td>{{.code}}</td><td>{{.rate}}</td></tr>{{end}}</tbody>
+</table>
 {{with getExternal "legacy_feed"}}<h2>{{.feed.title}}</h2>
 <ul>{{range .feed.entry}}<li>{{.name}}: {{.stock}} in stock</li>{{end}}</ul>{{end}}
 <p><small>Products fetched {{(getExternalMeta "products").FetchedAt.Format "2006-01-02"}} ({{(getExternalMeta "products").RecordCount}} records).</small></p>
