@@ -2,6 +2,11 @@
 
 This document provides installation instructions for SSG on all supported platforms.
 
+SSG ships as a single static binary of roughly **34 MB** (release builds,
+stripped). Since v1.8.4 it embeds pure-Go SQL drivers (MySQL/MariaDB,
+PostgreSQL, SQLite) for [external sources](EXTERNAL_SOURCES.md), which
+accounts for most of that size; no external libraries or runtimes are needed.
+
 ## Table of Contents
 
 - [Quick Install](#quick-install)

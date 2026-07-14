@@ -7,11 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.4] - 2026-07-14
 
-Full internationalisation (audit/i18n-feature.md) and dynamic taxonomies
-(audit/taxonomies-feature.md). Opt-in via `i18n.enabled` / `taxonomies:`;
-builds using neither are byte-for-byte unchanged.
+Full internationalisation (audit/i18n-feature.md), dynamic taxonomies
+(audit/taxonomies-feature.md), unified external sources
+(audit/ssg-external-sources-implementation-plan.md) and built-in server access
+control. Everything is opt-in; builds using none of it are byte-for-byte
+unchanged.
 
 ### Added
+- 🔌 **External sources — one registry** (`external_sources:`) exposing every
+  source as `.ExternalData.<name>` (+ `.ExternalDataMeta`, `getExternal`/
+  `getExternalMeta` helpers) with deterministic ordering, bounded concurrency,
+  required/optional semantics, a unified error model (source/type/stage, never
+  credentials) and env-only secrets (`"$VAR"`; literals rejected). `.Data`
+  unchanged. Guide: `docs/EXTERNAL_SOURCES.md` + `examples/external-sources/`.
+- 🔌 **File connector** — YAML/JSON/TOML/CSV/XML with transport-independent
+  parsers, template-friendly XML mapping, size caps, sha256 checksums and the
+  `transform.select` dot-path unwrapper.
+- 🔌 **HTTP connector** — hardened client (HTTPS default, host allowlist with
+  wildcards, private/loopback IPs blocked at dial time → DNS-rebinding safe,
+  5-redirect cap with re-validation, response size limits, content-type
+  validation, query-free identifiers), bearer/basic/header auth, retries with
+  backoff on 5xx/429; shared disk cache (`<hash>.body` + `<hash>.meta.json`,
+  TTL + stale-if-error, corruption eviction), offline mode with
+  `fail_on_cache_miss`. CLI: `--offline`, `--refresh-external-sources`,
+  `--clear-external-cache`, `--external-source=NAME`.
+- 🔌 **SQL connector** — MySQL/MariaDB (go-sql-driver), PostgreSQL (pgx),
+  SQLite (pure-Go modernc.org/sqlite); queries only in config, statically
+  validated read-only (single SELECT/WITH statement), per-query `max_rows`
+  (exceeding errors instead of truncating), query timeouts, DSNs scrubbed from
+  errors.
+- 🔌 **CMS adapters** — WordPress (posts/pages/custom post types, users,
+  taxonomies → dynamic-taxonomy map, custom fields → `.Extra`, media), Drupal
+  8-11 (nodes, bodies, vocabularies, users, `path_alias` preserved as links,
+  dynamic `node__field_*` discovery) and Movable Type (released entries/pages,
+  authors, categories, tags, assets). `mode: content` merges imports into the
+  site before finalize (native URL/translation/taxonomy/collision treatment);
+  `mode: data` feeds only `.ExternalData`.
+- 🔒 **Server access control** (config-only) — `server_auth: basic` (users as
+  `login:$PASS_ENV`, constant-time compare) or `jwt` (HS256 bearer tokens,
+  single-algorithm by construction, exp/nbf honoured), `ip_allowlist`/
+  `ip_blocklist` (IPs/CIDRs, checked before anything else), `rate_limit`/
+  `rate_burst` per-IP token bucket (429 + Retry-After). X-Forwarded-For is
+  deliberately not trusted.
 - 🏷️ **Dynamic taxonomies** — declare any number of classifications in
   `taxonomies:`; `category`/`tag`/`series` are auto-registered and keep their
   legacy URLs, templates and feeds. Per-taxonomy config: `label/singular/path/
@@ -72,6 +109,12 @@ builds using neither are byte-for-byte unchanged.
 - Taxonomies: hierarchical terms, term aliases/redirects, translated term
   names, custom `path`/`template` overrides for the built-in
   category/tag/series pipelines, author archive on the generic registry.
+- External sources (phase 7): Ghost/Strapi/Contentful/Sanity/Notion/Airtable/
+  Google Sheets/GitHub/GitLab adapters, Drupal 7, Movable Type comments,
+  direct-URL helpers (`getJSON`/`getCSV`/`getXML`), file-source `watch`,
+  example CMS projects with seed scripts; MDDB on the connector interface.
+- Server auth: SSO and LDAP (deliberately out of scope — too heavy for the
+  built-in server), RS256/JWKS token verification.
 
 ## [1.8.3] - 2026-07-14
 

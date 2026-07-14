@@ -197,6 +197,18 @@ type Config struct {
 	// (ssg-external-sources-implementation-plan.md).
 	ExternalSources externalsource.Config `yaml:"external_sources" toml:"external_sources" json:"external_sources"`
 
+	// Built-in server access control (config-only; SSO/LDAP deferred):
+	// server_auth "basic"|"jwt", basic users as "login:$PASS_ENV", HS256 JWT
+	// secret from the environment, IP allow/block lists (IPs or CIDRs) and a
+	// per-IP token-bucket rate limiter.
+	ServerAuth  string   `yaml:"server_auth" toml:"server_auth" json:"server_auth"`
+	ServerUsers []string `yaml:"server_users" toml:"server_users" json:"server_users"`
+	JWTSecret   string   `yaml:"jwt_secret" toml:"jwt_secret" json:"jwt_secret"`
+	IPAllowlist []string `yaml:"ip_allowlist" toml:"ip_allowlist" json:"ip_allowlist"`
+	IPBlocklist []string `yaml:"ip_blocklist" toml:"ip_blocklist" json:"ip_blocklist"`
+	RateLimit   float64  `yaml:"rate_limit" toml:"rate_limit" json:"rate_limit"`
+	RateBurst   int      `yaml:"rate_burst" toml:"rate_burst" json:"rate_burst"`
+
 	// Hooks are exec commands run at build lifecycle phases: pre_build, post_build,
 	// post_page. Trusted local config only; never sourced from content (PLAT-001).
 	Hooks map[string][]string `yaml:"hooks" toml:"hooks" json:"hooks"`

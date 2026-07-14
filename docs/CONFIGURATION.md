@@ -263,6 +263,35 @@ optional per-term feeds and template helpers — the full reference (keys,
 frontmatter priority, normalization rules, template fallback chains) lives in
 [TAXONOMIES.md](TAXONOMIES.md).
 
+## External sources
+
+The config-only `external_sources:` block feeds templates from local files
+(YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client + shared disk
+cache), read-only SQL queries (MySQL/MariaDB/PostgreSQL/SQLite) and CMS
+imports (WordPress, Drupal, Movable Type — merged into the site or exposed as
+data). Everything lands under `.ExternalData`; `.Data` is unchanged. Secrets
+come exclusively from environment variables. CLI: `--offline`,
+`--refresh-external-sources`, `--clear-external-cache`,
+`--external-source=NAME`. Full reference:
+[EXTERNAL_SOURCES.md](EXTERNAL_SOURCES.md).
+
+## Server access control
+
+| Key | Default | CLI | Purpose |
+|---|---:|---|---|
+| `server_auth` | empty | config only | `basic` or `jwt` (HS256); empty = open |
+| `server_users` | empty | config only | Basic-auth users as `login:$PASS_ENV` |
+| `jwt_secret` | empty | config only | HS256 shared secret, env reference |
+| `ip_allowlist` | empty | config only | Only these IPs/CIDRs may connect |
+| `ip_blocklist` | empty | config only | These IPs/CIDRs are refused first |
+| `rate_limit` | `0` | config only | Requests/second per client IP |
+| `rate_burst` | `0` | config only | Token-bucket size (default 2×rate) |
+
+The chain runs blocklist → allowlist → rate limiter → auth, before the file
+server. Passwords and the JWT secret must reference environment variables;
+`X-Forwarded-For` is not trusted. SSO and LDAP are deliberately not
+implemented.
+
 ## SEO and validation
 
 | Key | Default | CLI | Purpose |

@@ -16,6 +16,7 @@ import (
 
 	"github.com/quic-go/quic-go/http3"
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/serverauth"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/netutil"
 )
@@ -207,8 +208,9 @@ func autocertCacheDir() string {
 	return filepath.Join(".ssg", "autocert")
 }
 
-// buildServerHandler wraps the file server with cache-control, security-header and
-// (optional) gzip middleware.
+// buildServerHandler wraps the file server with cache-control, security-header,
+// (optional) gzip and (optional) access-control middleware. Access control is
+// outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	h := http.Handler(http.FileServer(http.Dir(cfg.OutputDir)))
 	h = cacheControlMiddleware(h)
@@ -216,7 +218,30 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	if cfg.Gzip {
 		h = gzipMiddleware(h)
 	}
+	authCfg := serverauth.Config{Auth: cfg.ServerAuth, Users: cfg.ServerUsers, JWTSecret: cfg.JWTSecret,
+		IPAllowlist: cfg.IPAllowlist, IPBlocklist: cfg.IPBlocklist,
+		RateLimit: cfg.RateLimit, RateBurst: cfg.RateBurst}
+	if authCfg.Enabled() {
+		wrapped, err := serverauth.Middleware(h, authCfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Server access-control config: %v\n", err)
+			os.Exit(1)
+		}
+		h = wrapped
+		if !cfg.Quiet {
+			fmt.Printf("   🔒 Access control: auth=%s allowlist=%d blocklist=%d rate=%g/s\n",
+				orOpen(cfg.ServerAuth), len(cfg.IPAllowlist), len(cfg.IPBlocklist), cfg.RateLimit)
+		}
+	}
 	return h
+}
+
+// orOpen labels an empty auth mode for the startup banner.
+func orOpen(mode string) string {
+	if mode == "" {
+		return "open"
+	}
+	return mode
 }
 
 // cacheControlHeader is the HTTP header name set by the cache middleware.

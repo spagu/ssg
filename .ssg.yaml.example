@@ -29,6 +29,16 @@ gzip: false          # gzip-compress responses when the client accepts it
 max_conns: 0         # Cap simultaneous connections (0 = unlimited)
 mem_limit: ""        # Runtime GC soft memory target, e.g. "512MiB", "1GiB"
 
+# Server access control (config-only; SSO/LDAP deliberately not implemented)
+server_auth: ""      # "" (open) | basic | jwt
+# server_users:        # basic: passwords ALWAYS from env, never literals
+#   - "admin:$SSG_ADMIN_PASS"
+# jwt_secret: "$JWT_SECRET"   # jwt: HS256 shared secret from env
+# ip_allowlist: ["203.0.113.0/24", "198.51.100.7"]  # only these may connect
+# ip_blocklist: ["192.0.2.0/24"]                    # refused before anything else
+rate_limit: 0        # Requests/second per client IP (0 = off)
+rate_burst: 0        # Token-bucket size (default 2×rate_limit)
+
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
@@ -88,6 +98,52 @@ search_index: false  # Emit search-index.json (title/url/tags/excerpt/text) for 
 
 # Data files — data/*.yaml|*.json exposed to templates as {{.Data.*}} (nested by subdir)
 data_dir: "data"
+
+# External sources (docs/EXTERNAL_SOURCES.md) — files, HTTP APIs, SQL, CMS imports
+# exposed as {{.ExternalData.<name>}} / getExternal "<name>". Secrets ($VARS) only
+# from the environment. CLI: --offline, --refresh-external-sources,
+# --clear-external-cache, --external-source=NAME.
+# external_sources:
+#   enabled: true
+#   cache_dir: .ssg-cache/external-sources
+#   offline: false            # serve HTTP sources from the disk cache only
+#   refresh: false            # ignore fresh cache entries, re-fetch
+#   stale_if_error: true      # serve an expired copy when a fetch fails
+#   fail_on_cache_miss: true  # offline + no cached copy = build failure
+#   max_concurrent_sources: 4
+#   allowed_hosts: []         # HTTP allowlist: "api.example.com", "*.example.com"
+#   defaults:
+#     timeout: 10s
+#     cache_ttl: 1h
+#     stale_ttl: 24h
+#     retries: 2
+#     retry_backoff: 500ms
+#     max_response_size: 5MB
+#     required: true          # required source failure aborts the build
+#   sources:
+#     catalog:                # local file: yaml/json/toml/csv/xml (by extension)
+#       type: file
+#       path: ./data/catalog.csv
+#       csv: {header: true, delimiter: ","}
+#     products_api:           # HTTPS by default; private IPs blocked at dial time
+#       type: http
+#       url: https://api.example.com/products
+#       format: json
+#       auth: {type: bearer, token: "$API_TOKEN"}
+#       transform: {select: data.items}
+#     inventory:              # read-only SQL; queries live ONLY in config
+#       type: sql
+#       driver: postgres      # mysql | mariadb | postgres | sqlite
+#       dsn: "$INVENTORY_DSN"
+#       queries:
+#         products: {sql: "SELECT id, name FROM products WHERE published = true", max_rows: 10000}
+#     legacy_blog:            # CMS import: wordpress | drupal | movable_type
+#       type: cms
+#       adapter: wordpress
+#       driver: mysql
+#       dsn: "$WORDPRESS_DSN"
+#       mode: content         # content = merge into the site; data = .ExternalData only
+#       wordpress: {table_prefix: wp_, post_types: [post, page], statuses: [publish]}
 
 # i18n / multilingual — language-prefixed output (/en/…) + hreflang alternates
 # Full i18n (docs/I18N.md): expanded languages + i18n: section
