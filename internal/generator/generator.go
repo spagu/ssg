@@ -23,6 +23,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
@@ -164,6 +165,10 @@ type Config struct {
 	// category, tag and series definitions (taxonomies-feature.md).
 	Taxonomies map[string]taxonomy.DefinitionConfig
 
+	// ExternalSources configures the unified external data system
+	// (ssg-external-sources-implementation-plan.md, phase 1: local files).
+	ExternalSources externalsource.Config
+
 	// Hooks are lifecycle exec commands (pre_build/post_build/post_page) from
 	// trusted local config only (PLAT-001).
 	Hooks map[string][]string
@@ -221,9 +226,12 @@ type Generator struct {
 	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
 	authorSlugs map[string]string  // author slug → slug, for sitemap (BLOG-005)
 	taxonomies  *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
-	engine      engine.Engine      // non-Go template engine when configured (GO-007)
-	engineTmpls map[string]engine.Template
-	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
+	// External sources (phase 1): .ExternalData / .ExternalDataMeta namespaces.
+	externalData map[string]interface{}
+	externalMeta map[string]externalsource.Metadata
+	engine       engine.Engine // non-Go template engine when configured (GO-007)
+	engineTmpls  map[string]engine.Template
+	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
 	shortcodeTmpls map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
 	bracketRes     map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
@@ -468,19 +476,7 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.runStep("🔄 Loading content...", g.loadContent, "loading content"); err != nil {
-		return err
-	}
-
-	if err := g.runStep("🗂️  Loading data files...", g.loadData, "loading data files"); err != nil {
-		return err
-	}
-
-	if err := g.runStep("🏷️  Building taxonomies...", g.buildTaxonomies, "building taxonomies"); err != nil {
-		return err
-	}
-
-	if err := g.runStep("📝 Loading templates...", g.loadTemplates, "loading templates"); err != nil {
+	if err := g.loadPhase(); err != nil {
 		return err
 	}
 
@@ -512,33 +508,7 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	// Per-file HTML transforms (SEO, math, relative links, prettify, HTML minify)
-	// are applied at render time in a single write (PERF-005); only genuinely
-	// global passes remain below.
-
-	// SCSS compiles before bundling so bundles/minify/fingerprint see CSS (ASSET-003).
-	if err := g.compileSCSSIfRequested(); err != nil {
-		return fmt.Errorf("compiling SCSS: %w", err)
-	}
-
-	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
-	if err := g.bundleIfRequested(); err != nil {
-		return fmt.Errorf("bundling assets: %w", err)
-	}
-
-	// CSS/JS minification must run after bundling; HTML was minified at render.
-	if err := g.minifyIfRequested(); err != nil {
-		return err
-	}
-
-	// Fingerprinting is the terminal asset step: it must run after bundling and
-	// minification so hashes reflect final byte content (ASSET-001).
-	if err := g.fingerprintIfRequested(); err != nil {
-		return err
-	}
-
-	// Link checking runs last, over the final output tree (SEO-005).
-	if err := g.checkLinksIfRequested(); err != nil {
+	if err := g.assetPhase(); err != nil {
 		return err
 	}
 
@@ -547,6 +517,51 @@ func (g *Generator) Generate() error {
 	}
 
 	return nil
+}
+
+// loadPhase runs the input steps of the build: content, data files,
+// taxonomies, external sources and templates.
+func (g *Generator) loadPhase() error {
+	if err := g.runStep("🔄 Loading content...", g.loadContent, "loading content"); err != nil {
+		return err
+	}
+	if err := g.runStep("🗂️  Loading data files...", g.loadData, "loading data files"); err != nil {
+		return err
+	}
+	if err := g.runStep("🏷️  Building taxonomies...", g.buildTaxonomies, "building taxonomies"); err != nil {
+		return err
+	}
+	if g.config.ExternalSources.Enabled {
+		if err := g.runStep("🔌 Loading external sources...", g.loadExternalSources, "loading external sources"); err != nil {
+			return err
+		}
+	}
+	return g.runStep("📝 Loading templates...", g.loadTemplates, "loading templates")
+}
+
+// assetPhase runs the global post-render passes. Per-file HTML transforms
+// (SEO, math, relative links, prettify, HTML minify) are applied at render
+// time in a single write (PERF-005); only genuinely global passes live here.
+func (g *Generator) assetPhase() error {
+	// SCSS compiles before bundling so bundles/minify/fingerprint see CSS (ASSET-003).
+	if err := g.compileSCSSIfRequested(); err != nil {
+		return fmt.Errorf("compiling SCSS: %w", err)
+	}
+	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
+	if err := g.bundleIfRequested(); err != nil {
+		return fmt.Errorf("bundling assets: %w", err)
+	}
+	// CSS/JS minification must run after bundling; HTML was minified at render.
+	if err := g.minifyIfRequested(); err != nil {
+		return err
+	}
+	// Fingerprinting is the terminal asset step: it must run after bundling and
+	// minification so hashes reflect final byte content (ASSET-001).
+	if err := g.fingerprintIfRequested(); err != nil {
+		return err
+	}
+	// Link checking runs last, over the final output tree (SEO-005).
+	return g.checkLinksIfRequested()
 }
 
 // hookTimeout bounds every lifecycle hook so a hung command cannot stall the build.
@@ -975,25 +990,27 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 		}
 	}
 	data := struct {
-		Site     *models.SiteData
-		Category models.Category
-		Kind     string
-		Name     string
-		Series   string // back-compat for series.html
-		Posts    []models.Page
-		Domain   string
-		Vars     map[string]interface{}
-		Data     map[string]interface{}
+		Site         *models.SiteData
+		Category     models.Category
+		Kind         string
+		Name         string
+		Series       string // back-compat for series.html
+		Posts        []models.Page
+		Domain       string
+		Vars         map[string]interface{}
+		Data         map[string]interface{}
+		ExternalData map[string]interface{}
 	}{
-		Site:     g.siteData,
-		Category: models.Category{Name: name, Slug: slug},
-		Kind:     kind,
-		Name:     name,
-		Series:   name,
-		Posts:    ordered,
-		Domain:   g.config.Domain,
-		Vars:     g.config.Variables,
-		Data:     g.data,
+		Site:         g.siteData,
+		Category:     models.Category{Name: name, Slug: slug},
+		Kind:         kind,
+		Name:         name,
+		Series:       name,
+		Posts:        ordered,
+		Domain:       g.config.Domain,
+		Vars:         g.config.Variables,
+		Data:         g.data,
+		ExternalData: g.externalData,
 	}
 	outputPath := filepath.Join(g.config.OutputDir, kind, slug, indexHTMLName)
 	if err := g.ensureWithinOutput(outputPath); err != nil {
@@ -1936,6 +1953,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	for name, fn := range g.taxonomyFuncs() {
 		funcs[name] = fn
 	}
+	// External-source helpers (getExternal/getExternalMeta).
+	for name, fn := range g.externalFuncs() {
+		funcs[name] = fn
+	}
 	return funcs
 }
 
@@ -2630,21 +2651,25 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		pages = g.siteData.LanguagePages
 	}
 	data := struct {
-		Site   *models.SiteData
-		Posts  []models.Page
-		Pages  []models.Page
-		Domain string
-		Vars   map[string]interface{}
-		Data   map[string]interface{}
-		Pager  Pager
+		Site             *models.SiteData
+		Posts            []models.Page
+		Pages            []models.Page
+		Domain           string
+		Vars             map[string]interface{}
+		Data             map[string]interface{}
+		ExternalData     map[string]interface{}
+		ExternalDataMeta map[string]externalsource.Metadata
+		Pager            Pager
 	}{
-		Site:   g.siteData,
-		Posts:  posts,
-		Pages:  pages,
-		Domain: g.config.Domain,
-		Vars:   g.config.Variables,
-		Data:   g.data,
-		Pager:  pager,
+		Site:             g.siteData,
+		Posts:            posts,
+		Pages:            pages,
+		Domain:           g.config.Domain,
+		Vars:             g.config.Variables,
+		Data:             g.data,
+		ExternalData:     g.externalData,
+		ExternalDataMeta: g.externalMeta,
+		Pager:            pager,
 	}
 	return g.renderTemplate(indexHTMLName, outPath, data)
 }
@@ -2954,23 +2979,25 @@ func (g *Generator) generateCategories() error {
 		}
 
 		data := struct {
-			Site     *models.SiteData
-			Category models.Category
-			Kind     string
-			Name     string
-			Posts    []models.Page
-			Domain   string
-			Vars     map[string]interface{}
-			Data     map[string]interface{}
+			Site         *models.SiteData
+			Category     models.Category
+			Kind         string
+			Name         string
+			Posts        []models.Page
+			Domain       string
+			Vars         map[string]interface{}
+			Data         map[string]interface{}
+			ExternalData map[string]interface{}
 		}{
-			Site:     g.siteData,
-			Category: cat,
-			Kind:     "category",
-			Name:     cat.Name,
-			Posts:    sortPostsByDate(posts),
-			Domain:   g.config.Domain,
-			Vars:     g.config.Variables,
-			Data:     g.data,
+			Site:         g.siteData,
+			Category:     cat,
+			Kind:         "category",
+			Name:         cat.Name,
+			Posts:        sortPostsByDate(posts),
+			Domain:       g.config.Domain,
+			Vars:         g.config.Variables,
+			Data:         g.data,
+			ExternalData: g.externalData,
 		}
 
 		// Sanitize the category slug so a malicious value cannot escape the
@@ -3024,10 +3051,12 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		g.siteData.LanguagePosts = languagePages(g.siteData.Posts, page.Lang)
 	}
 	data := map[string]interface{}{
-		"Site":   g.siteData,
-		"Domain": g.config.Domain,
-		"Vars":   g.config.Variables,
-		"Data":   g.data,
+		"Site":             g.siteData,
+		"Domain":           g.config.Domain,
+		"Vars":             g.config.Variables,
+		"Data":             g.data,
+		"ExternalData":     g.externalData,
+		"ExternalDataMeta": g.externalMeta,
 		// i18n (PLAT-005)
 		"Languages":       g.config.Languages,
 		"DefaultLanguage": g.config.DefaultLanguage,

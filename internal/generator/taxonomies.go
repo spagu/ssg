@@ -271,14 +271,15 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 
 	indexOut := filepath.Join(g.config.OutputDir, filepath.FromSlash(strings.Trim(base, "/")), indexHTMLName)
 	indexData := struct {
-		Site     *models.SiteData
-		Taxonomy TaxonomyInfo
-		Terms    []TaxonomyTerm
-		Lang     string
-		Domain   string
-		Vars     map[string]interface{}
-		Data     map[string]interface{}
-	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data}
+		Site         *models.SiteData
+		Taxonomy     TaxonomyInfo
+		Terms        []TaxonomyTerm
+		Lang         string
+		Domain       string
+		Vars         map[string]interface{}
+		Data         map[string]interface{}
+		ExternalData map[string]interface{}
+	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data, g.externalData}
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}
@@ -339,21 +340,22 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
 		data := struct {
-			Site     *models.SiteData
-			Taxonomy TaxonomyInfo
-			Term     TaxonomyTerm
-			Category models.Category
-			Kind     string
-			Name     string
-			Series   string
-			Posts    []models.Page
-			Pager    Pager
-			Lang     string
-			Domain   string
-			Vars     map[string]interface{}
-			Data     map[string]interface{}
+			Site         *models.SiteData
+			Taxonomy     TaxonomyInfo
+			Term         TaxonomyTerm
+			Category     models.Category
+			Kind         string
+			Name         string
+			Series       string
+			Posts        []models.Page
+			Pager        Pager
+			Lang         string
+			Domain       string
+			Vars         map[string]interface{}
+			Data         map[string]interface{}
+			ExternalData map[string]interface{}
 		}{g.siteData, info, term, models.Category{Name: term.Name, Slug: slug}, def.Name,
-			term.Name, term.Name, chunk.Posts, chunk.Pager, lang, g.config.Domain, g.config.Variables, g.data}
+			term.Name, term.Name, chunk.Posts, chunk.Pager, lang, g.config.Domain, g.config.Variables, g.data, g.externalData}
 		if err := g.renderTaxonomyPage(chain, outPath, data); err != nil {
 			return err
 		}

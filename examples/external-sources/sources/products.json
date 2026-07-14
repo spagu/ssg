@@ -1,0 +1,9 @@
+{
+  "data": {
+    "items": [
+      {"name": "Field notebook", "price": "9.99", "sku": "FN-01"},
+      {"name": "Brass compass", "price": "24.50", "sku": "BC-11"},
+      {"name": "Canvas satchel", "price": "39.00", "sku": "CS-02"}
+    ]
+  }
+}

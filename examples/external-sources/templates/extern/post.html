@@ -1,0 +1,4 @@
+{{define "post.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Page.Title}}</title></head><body>
+<article><h1>{{.Page.Title}}</h1>{{.Content}}</article>
+<aside><h2>Current rates</h2>{{range .ExternalData.rates}}<p>{{.code}}: {{.rate}}</p>{{end}}</aside>
+</body></html>{{end}}
