@@ -65,10 +65,10 @@ func TestResolveErrors(t *testing.T) {
 		}
 	}
 	// Later-phase types name the phase in the error.
-	cfg := Config{Sources: map[string]SourceConfig{"db": {Type: "sql"}}}
+	cfg := Config{Sources: map[string]SourceConfig{"cms": {Type: "cms"}}}
 	_, err := Resolve(cfg)
-	if err == nil || !strings.Contains(err.Error(), "phase 3") {
-		t.Fatalf("sql error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "phases 4-6") {
+		t.Fatalf("cms error = %v", err)
 	}
 }
 

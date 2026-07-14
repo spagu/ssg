@@ -51,8 +51,11 @@ func Load(cfg Config) (*Registry, []string, error) {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			var conn connector = fileConn
-			if src.Type == "http" {
+			switch src.Type {
+			case "http":
 				conn = httpConn
+			case "sql":
+				conn = SQLConnector{}
 			}
 			results[i], errs[i] = conn.Load(src)
 		}(i, src)

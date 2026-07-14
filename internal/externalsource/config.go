@@ -85,6 +85,25 @@ type SourceConfig struct {
 	StaleTTL     string            `yaml:"stale_ttl" toml:"stale_ttl" json:"stale_ttl"`
 	Retries      *int              `yaml:"retries" toml:"retries" json:"retries"`
 	RetryBackoff string            `yaml:"retry_backoff" toml:"retry_backoff" json:"retry_backoff"`
+
+	// SQL sources (phase 3). DSNs must reference environment variables; SQLite
+	// takes a local file path via database.
+	Driver   string                 `yaml:"driver" toml:"driver" json:"driver"` // mysql | mariadb | postgres | sqlite
+	DSN      string                 `yaml:"dsn" toml:"dsn" json:"dsn"`
+	Database string                 `yaml:"database" toml:"database" json:"database"`
+	Queries  map[string]QueryConfig `yaml:"queries" toml:"queries" json:"queries"`
+}
+
+// QueryConfig is one named read-only query of a SQL source.
+type QueryConfig struct {
+	SQL     string `yaml:"sql" toml:"sql" json:"sql"`
+	MaxRows int    `yaml:"max_rows" toml:"max_rows" json:"max_rows"` // default 10000
+}
+
+// Query is the resolved form of QueryConfig.
+type Query struct {
+	SQL     string
+	MaxRows int
 }
 
 // TransformConfig is the shared post-parse transformation layer. Phase 1
@@ -122,6 +141,12 @@ type Source struct {
 	StaleTTL     time.Duration
 	Retries      int
 	RetryBackoff time.Duration
+
+	// SQL sources (phase 3); DSN already env-expanded.
+	Driver   string
+	DSN      string
+	Database string
+	Queries  map[string]Query
 }
 
 // nameRe matches the same identifier space as taxonomy names.
@@ -131,7 +156,13 @@ var nameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 var supportedFormats = map[string]bool{"yaml": true, "json": true, "toml": true, "csv": true, "xml": true}
 
 // laterPhaseTypes are planned connector types not yet implemented.
-var laterPhaseTypes = map[string]string{"sql": "phase 3", "cms": "phases 4-6"}
+var laterPhaseTypes = map[string]string{"cms": "phases 4-6"}
+
+// sqlDrivers are the supported SQL engines ("mariadb" shares the mysql driver).
+var sqlDrivers = map[string]bool{"mysql": true, "mariadb": true, "postgres": true, "sqlite": true}
+
+// defaultMaxRows caps SQL query results unless max_rows overrides it.
+const defaultMaxRows = 10000
 
 // defaultMaxSize caps source payloads at 5MB unless configured otherwise.
 const defaultMaxSize = 5 << 20
@@ -176,28 +207,97 @@ func resolveSource(name string, sc SourceConfig, defaults Defaults, maxSize int6
 		return Source{}, fmt.Errorf("invalid external source name %q (want lowercase letters, digits, _ or -)", name)
 	}
 	if phase, planned := laterPhaseTypes[sc.Type]; planned {
-		return Source{}, fmt.Errorf("external source %q: type %q is planned for %s and not available yet — supported: file, http", name, sc.Type, phase)
+		return Source{}, fmt.Errorf("external source %q: type %q is planned for %s and not available yet — supported: file, http, sql", name, sc.Type, phase)
 	}
-	if sc.Type != "file" && sc.Type != "http" {
-		return Source{}, fmt.Errorf("external source %q: unsupported type %q (supported: file, http)", name, sc.Type)
+	if sc.Type != "file" && sc.Type != "http" && sc.Type != "sql" {
+		return Source{}, fmt.Errorf("external source %q: unsupported type %q (supported: file, http, sql)", name, sc.Type)
 	}
-	src := Source{Name: name, Type: sc.Type, Required: true, MaxSize: maxSize,
-		Transform: sc.Transform, CSV: sc.CSV}
-	if defaults.Required != nil {
-		src.Required = *defaults.Required
-	}
-	if sc.Required != nil {
-		src.Required = *sc.Required
-	}
-	if err := resolveFormat(&src, sc); err != nil {
-		return Source{}, err
-	}
-	if sc.Type == "http" {
-		if err := resolveHTTP(&src, sc, defaults); err != nil {
+	src := Source{Name: name, Type: sc.Type, Required: boolLayer(true, defaults.Required, sc.Required),
+		MaxSize: maxSize, Transform: sc.Transform, CSV: sc.CSV}
+	switch sc.Type {
+	case "sql":
+		return src, resolveSQL(&src, sc, defaults)
+	case "http":
+		if err := resolveFormat(&src, sc); err != nil {
 			return Source{}, err
 		}
+		return src, resolveHTTP(&src, sc, defaults)
+	default:
+		return src, resolveFormat(&src, sc)
 	}
-	return src, nil
+}
+
+// boolLayer resolves hard default < defaults block < per-source override.
+func boolLayer(hard bool, layers ...*bool) bool {
+	out := hard
+	for _, l := range layers {
+		if l != nil {
+			out = *l
+		}
+	}
+	return out
+}
+
+// resolveSQL validates driver, credentials and the read-only query set. SQL
+// sources have no parser format; the shared timeout still applies.
+func resolveSQL(src *Source, sc SourceConfig, defaults Defaults) error {
+	var err error
+	if src.Timeout, err = resolveDuration(sc.Timeout, defaults.Timeout, defaultTimeout); err != nil {
+		return fmt.Errorf("external source %q: timeout: %w", src.Name, err)
+	}
+	if err := resolveSQLConn(src, sc); err != nil {
+		return err
+	}
+	return resolveSQLQueries(src, sc)
+}
+
+// resolveSQLConn validates the driver and credentials (env-only DSNs).
+func resolveSQLConn(src *Source, sc SourceConfig) error {
+	if !sqlDrivers[sc.Driver] {
+		return fmt.Errorf("external source %q: unsupported driver %q (supported: mysql, mariadb, postgres, sqlite)", src.Name, sc.Driver)
+	}
+	src.Driver = sc.Driver
+	src.Database = sc.Database
+	if sc.Driver == "sqlite" {
+		if sc.Database == "" {
+			return fmt.Errorf("external source %q: database (file path) is required for sqlite", src.Name)
+		}
+		return nil
+	}
+	if sc.DSN == "" {
+		return fmt.Errorf("external source %q: dsn is required for driver %q", src.Name, sc.Driver)
+	}
+	if !strings.HasPrefix(sc.DSN, "$") {
+		return fmt.Errorf("external source %q: dsn must reference an environment variable (e.g. \"$PRODUCT_DB_DSN\"), not a literal", src.Name)
+	}
+	dsn, err := expandEnvRef(src.Name, "dsn", sc.DSN)
+	if err != nil {
+		return err
+	}
+	src.DSN = dsn
+	return nil
+}
+
+// resolveSQLQueries validates names, read-only statements and row limits.
+func resolveSQLQueries(src *Source, sc SourceConfig) error {
+	if len(sc.Queries) == 0 {
+		return fmt.Errorf("external source %q: at least one query is required", src.Name)
+	}
+	src.Queries = make(map[string]Query, len(sc.Queries))
+	for qname, qc := range sc.Queries {
+		if !nameRe.MatchString(qname) {
+			return fmt.Errorf("external source %q: invalid query name %q (want lowercase letters, digits, _ or -)", src.Name, qname)
+		}
+		if err := validateReadOnlySQL(qc.SQL); err != nil {
+			return fmt.Errorf("external source %q: query %q: %w", src.Name, qname, err)
+		}
+		maxRows := qc.MaxRows
+		if maxRows <= 0 {
+			maxRows = defaultMaxRows
+		}
+		src.Queries[qname] = Query{SQL: qc.SQL, MaxRows: maxRows}
+	}
+	return nil
 }
 
 // resolveFormat fills the parser format from config or the path/URL extension.
