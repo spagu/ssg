@@ -1,288 +1,104 @@
-# SSG - Static Site Generator
+# SSG — Static Site Generator
 
-[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.26.5+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![CI](https://github.com/spagu/ssg/actions/workflows/ci.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
 [![codecov](https://codecov.io/gh/spagu/ssg/branch/main/graph/badge.svg)](https://codecov.io/gh/spagu/ssg)
-[![GitHub Action](https://img.shields.io/badge/GitHub_Action-Available-2088FF?logo=github-actions&logoColor=white)](action.yml)
-[![GitHub issues](https://img.shields.io/github/issues/spagu/ssg)](https://github.com/spagu/ssg/issues)
-[![GitHub stars](https://img.shields.io/github/stars/spagu/ssg)](https://github.com/spagu/ssg/stargazers)
 [![GitHub Release](https://img.shields.io/github/v/release/spagu/ssg?style=flat&color=blue)](https://github.com/spagu/ssg/releases)
-[![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
-[![GitHub forks](https://img.shields.io/github/forks/spagu/ssg)](https://github.com/spagu/ssg/network)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/spagu/ssg/badge)](https://securityscorecards.dev/viewer/?uri=github.com/spagu/ssg)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 
-A fast and flexible [static site generator](https://en.wikipedia.org/wiki/Static_site_generator) built in [Go](https://go.dev/), designed for simplicity and speed.
+SSG is a fast static site generator written in Go. It turns Markdown with YAML
+frontmatter into a complete website with clean URLs, templates, feeds, search,
+image processing and optional native deployment.
 
-[Website](https://github.com/spagu/ssg) | [Installation](#-installation) | [Documentation](#-usage) | [Contributing](CONTRIBUTORS.md) | [Security](SECURITY.md)
+It works especially well for blogs and WordPress migrations, but can also build
+documentation, company sites, portfolios and landing pages.
 
----
+[Quick start](#quick-start) · [Content model](#content-model) ·
+[Configuration](#configuration) · [Templates](#templates) ·
+[Deployment](#deployment) · [Documentation](#documentation)
 
-## 🔍 Overview
+## Why SSG?
 
-**SSG** is a static site generator written in [Go](https://go.dev/), optimized for converting WordPress exports (Markdown with YAML frontmatter) to blazing-fast static websites. With its simple architecture, multiple template engine support, and powerful asset pipelines, SSG renders a complete site in milliseconds.
+- Fast, deterministic builds with a single Go binary
+- Markdown content with YAML frontmatter
+- Built-in `simple` and `krowy` themes
+- Go, Pongo2, Mustache and Handlebars template engines
+- Sitemap, robots.txt, Atom feeds, search index and SEO metadata
+- WebP conversion, responsive images, SCSS, minification and fingerprinting
+- Local server with automatic rebuilds
+- Native deployment to Cloudflare Pages, GitHub Pages, Netlify, Vercel, FTP and SFTP
+- GitHub Action and multi-architecture Docker images
 
-### What Can You Build?
+Most advanced features are opt-in. A basic command only reads content, renders
+HTML and writes the result to `output/`.
 
-SSG is perfect for creating:
+## Quick start
 
-- 📰 **Blogs** - Personal or professional blogs migrated from WordPress
-- 🏢 **Corporate sites** - Fast, secure company websites
-- 📚 **Documentation** - Technical docs with clean SEO URLs
-- 🎨 **Portfolios** - Image galleries and creative showcases
-- 📄 **Landing pages** - Marketing and product pages
-- 📝 **Personal sites** - Resumes, CVs, and personal branding
+### 1. Install SSG
 
-### Key Capabilities
-
-| Feature | Description |
-|---------|-------------|
-| **⚡ Lightning Fast** | Go-powered generation completes in milliseconds |
-| **🎭 Multiple Engines** | Go templates, Pongo2 (Jinja2), Mustache, Handlebars |
-| **🌐 Hugo Themes** | Download and use Hugo themes from GitHub |
-| **🖼️ Image Pipeline** | WebP conversion with quality control |
-| **📦 Asset Bundling** | HTML, CSS, JS minification |
-| **🔄 Live Reload** | Built-in server with file watching |
-| **🐳 Docker Ready** | Minimal Alpine image (~15MB) |
-| **🎬 CI/CD Native** | First-class GitHub Actions support |
-
-### Development Workflow
-
-Use SSG's embedded web server during development to instantly see changes to content, structure, and presentation. The watch mode automatically rebuilds your site when files change:
-
-```bash
-# Start development server with auto-rebuild
-ssg my-content krowy example.com --http --watch
-```
-
-Then let SSG **publish it for you** with `--deploy=` (native, no external CLI):
-- **Cloudflare Pages** - `--deploy=cloudflare` (Direct Upload API)
-- **GitHub Pages** - `--deploy=github-pages` (force-push to gh-pages)
-- **Netlify / Vercel** - `--deploy=netlify` / `--deploy=vercel` (deploy APIs)
-- **Any web server** - `--deploy=ftp` / `--deploy=sftp`, or just copy the output folder
-
-See [Publishing (native deploy)](#-publishing-native-deploy) for details.
-
-### Asset Processing
-
-SSG includes powerful asset processing:
-
-- **Image Processing** - Convert JPG/PNG to WebP with configurable quality
-- **Co-located Assets** - Images placed next to Markdown files are auto-copied to output
-- **HTML Minification** - Remove whitespace, comments, optimize output
-- **CSS Minification** - Bundle and compress stylesheets
-- **JS Minification** - Optimize JavaScript files
-- **SEO Automation** - Sitemap, robots.txt, clean URLs, meta tags
-
-## ✨ Features
-
-### Core Features
-- 🚀 **Fast generation** - Go-powered, millisecond builds
-- 📝 **Markdown** - Full support with YAML frontmatter
-- 🎨 **Built-in templates** - `simple` (dark) and `krowy` (green/natural)
-- 📱 **Responsive** - Mobile-first design
-- ♿ **Accessible** - WCAG 2.2 compliant
-- 🔍 **SEO** - Clean URLs, sitemap, robots.txt
-
-### Template Engines
-- 🔧 **Go Templates** - Default, powerful templating (`.Variable`)
-- 🐍 **Pongo2** - Jinja2/Django syntax (for loops, filters)
-- 👨‍🦱 **Mustache** - Logic-less templates (sections)
-- 🔨 **Handlebars** - Semantic templates (each blocks)
-
-### Development
-- 🌐 **HTTP Server** - Built-in dev server (`--http`)
-- 👀 **Watch Mode** - Auto-rebuild on changes (`--watch`)
-- 📄 **Config Files** - YAML, TOML, JSON support
-- 🧹 **Clean Builds** - Fresh output (`--clean`)
-
-### Production
-- 🖼️ **WebP Conversion** - Optimized images (`--webp`)
-- 🗄️ **Minification** - HTML, CSS, JS (`--minify-all`)
-- 📦 **Deployment Package** - ZIP / tar.gz / tar.xz (`--zip` `--targz` `--tarxz`)
-- 🔒 **Public Server** - Optional TLS, HTTP/2, HTTP/3, gzip, connection/memory limits
-- 🐳 **Docker** - Multi-arch Alpine image (amd64, arm64, armv7)
-
-### Integration
-- 🎬 **GitHub Actions** - Use as CI/CD step
-- 🌍 **Online Themes** - Download Hugo themes from URL
-- 📁 **WordPress** - Import from WP exports
-- 🗃️ **MDDB** - Fetch content from [MDDB](https://github.com/tradik/mddb) markdown database
-
-## 📦 Requirements
-
-- Go 1.26 or later
-- Make (optional, for Makefile)
-- `cwebp` (optional, for WebP conversion)
-- `sass` (dart-sass, optional — for `--scss` compilation)
-
-## 🚀 Installation
-
-### Quick Install (Linux/macOS)
+Linux and macOS:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 ```
 
-### Package Managers
+Other supported installation methods:
 
-| Platform | Command |
-|----------|---------|
-| **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
-| **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.3/ssg_1.8.3_amd64.deb && sudo dpkg -i ssg_1.8.3_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.3/ssg-1.8.3-1.x86_64.rpm` |
-| **FreeBSD** | `pkg install ssg` or from ports |
-| **OpenBSD** | From ports: `/usr/ports/www/ssg` |
+| Method | Command or location |
+|---|---|
+| Homebrew | `brew install spagu/tap/ssg` |
+| Snap | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
+| Release binaries and packages | [GitHub Releases](https://github.com/spagu/ssg/releases) |
+| Docker Hub | `docker pull tradik/ssg:latest` |
+| GitHub Container Registry | `docker pull ghcr.io/spagu/ssg:latest` |
+| Build from source | `make build` |
 
-### Binary Downloads
+For platform-specific instructions, see [docs/INSTALL.md](docs/INSTALL.md).
 
-Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/releases):
-
-| Platform | AMD64 | ARM64 |
-|----------|-------|-------|
-| Linux | [ssg-linux-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-linux-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
-| macOS | [ssg-darwin-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-darwin-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
-| FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
-| Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
-
-> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.3`).
-> For an older version, replace it with the tag you want — every release (with per-version
-> changes) is listed on the [Releases page](https://github.com/spagu/ssg/releases) and in
-> the [CHANGELOG](CHANGELOG.md). Tarball/ZIP links use `/releases/latest/` so they always
-> resolve to the newest build.
-
-### From Source
-
-```bash
-git clone https://github.com/spagu/ssg.git
-cd ssg
-make build
-sudo make install
-```
-
-### Docker
-
-```bash
-# Pull from Docker Hub
-docker pull tradik/ssg:latest
-
-# Or from GitHub Container Registry
-docker pull ghcr.io/spagu/ssg:latest
-
-# Run SSG in container
-docker run --rm -v $(pwd):/site tradik/ssg:latest \
-    my-content krowy example.com --webp
-
-# Or use docker-compose
-docker compose run --rm ssg my-content krowy example.com
-
-# Development server with watch mode
-docker compose up dev
-```
-
-📖 **Full installation guide:** [docs/INSTALL.md](docs/INSTALL.md)
-
-## 💻 Usage
-
-### Syntax
-
-```bash
-ssg <source> <template> <domain> [options]
-```
-
-### Arguments
-
-`ssg` takes **three positional arguments** (source, template, domain) followed by any
-number of `--flags`. Each positional maps to a directory or value:
-
-| Argument | Required | Meaning | Resolves to |
-|----------|----------|---------|-------------|
-| `source` | ✅ (unless `mddb` or config sets it) | Name of the content folder to build | `<content-dir>/<source>/` (default `content/<source>/`) |
-| `template` | ✅ | Name of the theme to render with | `<templates-dir>/<template>/` (default `templates/<template>/`) |
-| `domain` | ✅ | Canonical domain of the site (no scheme) | Used for canonical URLs, sitemap, feeds, OG tags |
-
-**Example:** `ssg my-blog krowy example.com` reads content from `content/my-blog/`, renders
-it with the theme in `templates/krowy/`, treats `https://example.com` as the site root, and
-writes the result to `output/`. Any of the three can instead come from a config file (see
-[Configuration File](#configuration-file)); with `mddb` enabled, `source` is optional
-because content is fetched from the database instead of local files.
-
-### 📂 Project & Content Structure
-
-This is the layout `ssg` expects. **You author Markdown under `content/<source>/` and themes
-under `templates/<template>/`; everything in `output/` is generated — never edit it by hand.**
+### 2. Create the smallest useful site
 
 ```text
-my-project/
-├── .ssg.yaml                     # optional config (flags can also be passed on the CLI)
-├── content/
-│   └── my-blog/                  # ← the "source" argument
-│       ├── metadata.json         # site metadata: title, categories, users, media (see below)
-│       ├── pages/                # standalone pages (About, Contact, …) — rendered at /slug/
-│       │   ├── about.md
-│       │   └── legal/privacy.md  # subfolders allowed; loaded recursively
-│       ├── posts/                # blog posts, grouped in ONE level of subfolders
-│       │   ├── 2025/01/hello.md  # subfolder is just organisation (year/month, topic, …)
-│       │   └── news/update.md    # the real category comes from each post's frontmatter
-│       └── media/                # images/files referenced by content (optional)
-├── templates/
-│   └── krowy/                    # ← the "template" argument (a theme)
-│       ├── base.html  index.html  post.html  page.html  category.html
-│       ├── css/  js/             # theme assets, copied to output/
-│       └── layouts/  partials/   # optional extra templates
-├── data/                         # optional *.yaml/*.json exposed to templates as {{.Data.*}}
-├── static/                       # optional files copied verbatim to output/
-└── output/                       # ← generated site (deploy this; do not edit)
+content/
+└── my-blog/
+    ├── metadata.json
+    ├── pages/
+    │   └── about.md
+    └── posts/
+        └── general/
+            └── hello.md
 ```
 
-**Key rules a first-time user (or an AI agent) must know:**
+`content/my-blog/metadata.json`:
 
-1. **Pages** live directly in `content/<source>/pages/` (recursively). Each becomes `/<slug>/`.
-2. **Posts** live in `content/<source>/posts/<subfolder>/…` — posts **must** sit inside a
-   subfolder of `posts/`, not directly in `posts/`. The subfolder name is just organisation;
-   a post's **category is taken from its `categories:` frontmatter**, not the folder.
-3. **`metadata.json`** (in `content/<source>/`) declares the site title, categories, authors
-   (`users`) and media. Posts/pages reference categories and authors by ID **or** by name/slug
-   (resolved via this file). Minimal example:
-   ```json
-   {
-     "title": "My Blog",
-     "description": "Thoughts and notes",
-     "url": "https://example.com",
-     "language": "en",
-     "categories": [{ "id": 1, "name": "News", "slug": "news" }],
-     "users":      [{ "id": 1, "name": "Ada Lovelace", "slug": "ada" }],
-     "media":      []
-   }
-   ```
-4. **Only `status: publish`** pages/posts are rendered — drafts (any other status) are skipped.
-
-**Minimal end-to-end example** (from an empty directory to a live-preview site):
-
-```bash
-mkdir -p content/my-blog/pages content/my-blog/posts/general templates   # dirs
-
-# 1) site metadata
-cat > content/my-blog/metadata.json <<'JSON'
-{ "title": "My Blog", "url": "https://example.com", "language": "en",
+```json
+{
+  "title": "My Blog",
+  "description": "Thoughts and notes",
+  "url": "https://example.com",
+  "language": "en",
   "categories": [{ "id": 1, "name": "General", "slug": "general" }],
-  "users": [{ "id": 1, "name": "Me", "slug": "me" }], "media": [] }
-JSON
+  "users": [{ "id": 1, "name": "Editor", "slug": "editor" }],
+  "media": []
+}
+```
 
-# 2) one page and one post (note: post goes under posts/<subfolder>/)
-cat > content/my-blog/pages/about.md <<'MD'
+`content/my-blog/pages/about.md`:
+
+```markdown
 ---
 title: About
 slug: about
 status: publish
 type: page
 ---
-Hello — this is the about page.
-MD
 
-cat > content/my-blog/posts/general/hello.md <<'MD'
+This is my first page.
+```
+
+`content/my-blog/posts/general/hello.md`:
+
+```markdown
 ---
 title: Hello World
 slug: hello-world
@@ -292,1291 +108,390 @@ date: 2026-04-01
 categories: [General]
 author: 1
 ---
-My first post.
-MD
 
-# 3) build with a built-in theme and preview at http://127.0.0.1:8888
+This is my first post.
+```
+
+### 3. Build and preview
+
+```bash
 ssg my-blog simple example.com --http --watch
 ```
 
-> No `templates/simple/` on disk? The built-in `simple` and `krowy` themes are bundled and
-> auto-scaffolded on first use, so the command above works with just your content.
+Open <http://127.0.0.1:8888>. SSG rebuilds the site when its files change.
+The generated site is written to `output/`; do not edit that directory by hand.
 
-### Configuration File
+The `simple` and `krowy` themes are embedded in the binary and scaffolded when
+first used, so this example does not require a local `templates/simple/` folder.
 
-SSG supports configuration files in YAML, TOML, or JSON format. Auto-detects: `.ssg.yaml`, `.ssg.toml`, `.ssg.json`
+## Command model
+
+```text
+ssg <source> <template> <domain> [options]
+```
+
+| Argument | Meaning | Default location or use |
+|---|---|---|
+| `source` | Content collection name | `content/<source>/` |
+| `template` | Theme name | `templates/<template>/` or an embedded theme |
+| `domain` | Canonical host without a scheme | Canonical URLs, feeds, sitemap and SEO |
+
+Example:
 
 ```bash
-# Use explicit config file
-ssg --config .ssg.yaml
+ssg my-blog krowy example.com --clean --minify-all
+```
 
-# Or just create .ssg.yaml and run ssg (auto-detected)
+This reads `content/my-blog/`, uses the `krowy` theme, treats
+`https://example.com` as the canonical site root and writes to `output/`.
+
+All three values may instead be provided by a configuration file. In MDDB mode,
+content is fetched remotely and the source argument is optional.
+
+## Content model
+
+SSG uses explicit locations and predictable output rules. These rules are useful
+both when authoring a site manually and when generating one programmatically.
+
+### Directory contract
+
+```text
+project/
+├── .ssg.yaml                  # optional configuration
+├── content/
+│   └── <source>/
+│       ├── metadata.json      # required for a local content source
+│       ├── pages/             # recursively loaded pages
+│       ├── posts/
+│       │   └── <group>/       # at least one directory below posts/
+│       │       └── post.md    # deeper nesting is allowed
+│       └── media/             # optional content media
+├── templates/
+│   └── <template>/            # optional when using an embedded theme
+├── data/                      # optional YAML/JSON template data
+├── static/                    # optional files copied verbatim
+└── output/                    # generated; safe to delete and rebuild
+```
+
+Important invariants:
+
+1. Pages are loaded recursively from `pages/`.
+2. Posts must be inside at least one subdirectory of `posts/`. Files directly in
+   `posts/` are ignored. Below the first subdirectory, nesting is recursive.
+3. A post's category comes from its `categories` frontmatter, not its directory.
+4. Local builds require `metadata.json` at the root of the selected source.
+5. Files with frontmatter are rendered only when `status: publish` is present.
+6. A plain Markdown file without frontmatter is treated as published content.
+7. `output/` contains generated artifacts and must not be used as source content.
+
+The directory names can be changed with `pages_path`, `posts_path`,
+`content_dir`, `templates_dir`, `data_dir`, `static_dir` and `output_dir`.
+
+### Frontmatter reference
+
+For predictable results, pages and posts should define `title`, `status` and
+`type`. Posts should additionally define `date`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `title` | string | Display title |
+| `slug` | string | URL segment; defaults to the Markdown filename |
+| `status` | string | Only `publish` is rendered when frontmatter exists |
+| `type` | string | `page` or `post`; affects templates and URL generation |
+| `date` | date | Post publication date in `YYYY-MM-DD` form |
+| `modified` | date | Last modification date |
+| `categories` | list | Category IDs, names or slugs from `metadata.json` |
+| `author` | integer/string | Author ID, name or slug from `metadata.json` |
+| `tags` | list | Free-form tags; generates `/tag/<slug>/` listings |
+| `series` | string | Generates a `/series/<slug>/` listing and navigation |
+| `excerpt` | string | Summary for listings, feeds and metadata |
+| `description` | string | SEO description; falls back to the excerpt |
+| `link` | string | Explicit URL path; overrides normal URL rules |
+| `canonical` | string | Explicit canonical URL |
+| `aliases` | list | Previous paths that should redirect to this item |
+| `featured_image` | string | Hero and Open Graph image |
+| `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
+| `template` | string | Page template file override |
+| `robots` | string | Robots directive; `noindex` also excludes from sitemap |
+| `sitemap` | string | Set to `no` to exclude from `sitemap.xml` |
+| `lang` | string | Content language for multilingual builds |
+
+Unknown frontmatter keys are preserved and exposed to templates. Author and
+category matching is case-insensitive; unresolved values are ignored.
+
+### Excerpts
+
+Markdown can use explicit export-style sections:
+
+```markdown
+## Excerpt
+A short description used in listings.
+
+## Content
+The complete article starts here.
+```
+
+Without these exact markers, all Markdown after the frontmatter becomes content.
+
+## Configuration
+
+SSG automatically detects `.ssg.yaml`, `.ssg.toml` or `.ssg.json`:
+
+```bash
 ssg
 ```
 
-Example `.ssg.yaml`:
+An explicit file can be selected with:
+
+```bash
+ssg --config path/to/site.yaml
+```
+
+Minimal `.ssg.yaml`:
 
 ```yaml
-source: "my-content"
-template: "krowy"
-domain: "example.com"
+source: my-blog
+template: simple
+domain: example.com
 
-http: true
-watch: true
 clean: true
-webp: true
-webp_quality: 80
-minify_all: true
-page_format: "directory"  # "directory" (slug/index.html), "flat" (slug.html), or "both"
-```
-
-Example `.ssg.yaml` with MDDB:
-
-```yaml
-template: "krowy"
-domain: "example.com"
-
-# MDDB content source (replaces local files)
-mddb:
-  enabled: true
-  url: "http://localhost:11023"  # HTTP port
-  # url: "localhost:11024"       # gRPC port (faster)
-  protocol: "http"               # "http" (default) or "grpc"
-  collection: "blog"
-  lang: "en_US"
-  api_key: ""                    # optional
-  timeout: 30
-  batch_size: 1000
-  watch: true                    # auto-rebuild on content changes
-  watch_interval: 30             # polling interval in seconds
-
 minify_all: true
 ```
 
-See [.ssg.yaml.example](.ssg.yaml.example) for all options.
+Common options:
 
-### Options
+| Goal | Configuration key | CLI flag |
+|---|---|---|
+| Development server | `http: true` | `--http` |
+| Automatic rebuilds | `watch: true` | `--watch` |
+| Clean output first | `clean: true` | `--clean` |
+| Minify HTML/CSS/JS | `minify_all: true` | `--minify-all` |
+| Convert images to WebP | `webp: true` | `--webp` |
+| Responsive images | `image_sizes: [480, 960]` | `--image-sizes=480,960` |
+| Fingerprint CSS/JS | `fingerprint: true` | `--fingerprint` |
+| Compile SCSS | `scss: true` | `--scss` |
+| Generate Atom feeds | `feed: true` | `--feed` |
+| Generate search index | `search_index: true` | `--search-index` |
+| Add SEO metadata | `seo: true` | `--seo` |
+| Validate internal links | `check_links: strict` | `--check-links=strict` |
+| Create ZIP package | `zip: true` | `--zip` |
 
-**Configuration:**
+WebP output requires the optional `cwebp` executable. SCSS compilation requires
+the optional Dart Sass `sass` executable. Other native image operations use Go,
+but selecting WebP as their output format also requires `cwebp`.
 
-| Option | Description |
-|--------|-------------|
-| `--config=FILE` | Load config from YAML/TOML/JSON file |
-
-**Server & Development:**
-
-| Option | Description |
-|--------|-------------|
-| `--http` | Start built-in HTTP server (default port: 8888) |
-| `--host=ADDR` | Dev server bind address (default: `127.0.0.1`; use `0.0.0.0` to expose on all interfaces) |
-| `--port=PORT` | HTTP server port (default: `8888`) |
-| `--watch` | Watch for changes and rebuild automatically |
-| `--clean` | Clean output directory before build |
-
-**Public Server Hardening (TLS / HTTP/2 / HTTP/3 — opt-in):**
-
-The built-in server can face the public internet directly. All options below are off by
-default; enabling TLS negotiates HTTP/2 automatically (ALPN).
-
-| Option | Description |
-|--------|-------------|
-| `--tls-cert=FILE` `--tls-key=FILE` | Serve HTTPS from a manual PEM certificate/key pair (enables HTTP/2) |
-| `--tls-auto` `--tls-domain=HOST` | Automatic Let's Encrypt certificates via `autocert` (bind port 443; comma-separate multiple domains) |
-| `--http3` | Serve HTTP/3 (QUIC) alongside HTTP/2 and advertise it via `Alt-Svc` (requires TLS) |
-| `--gzip` | gzip-compress responses when the client sends `Accept-Encoding: gzip` |
-| `--max-conns=N` | Cap simultaneous connections (`0` = unlimited) |
-| `--mem-limit=SIZE` | Runtime GC soft memory target, e.g. `512MiB`, `1GiB` |
-
-Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and HSTS
-under TLS) and cache-control (immutable for fingerprinted assets, `no-cache` for HTML) are
-applied automatically by the server.
-
-**Output Control:**
-
-| Option | Description |
-|--------|-------------|
-| `--sitemap-off` | Disable sitemap.xml generation. Pages with `robots: "noindex"`, `layout: "redirect"`, or `sitemap: "no"` are excluded automatically |
-| `--robots-off` | Disable robots.txt generation |
-| `--pretty-html` | Prettify HTML (remove all blank lines) |
-| `--relative-links` | Convert absolute URLs to relative links |
-| `--post-url-format=FMT` | Post URL format: `date` (default: `/YYYY/MM/DD/slug/`) or `slug` (`/slug/`) |
-| `--page-format=FMT` | Page output: `directory` (default: `slug/index.html`), `flat` (`slug.html`), `both` |
-| `--minify-all` | Minify HTML, CSS, and JS |
-| `--minify-html` | Minify HTML output |
-| `--minify-css` | Minify CSS output |
-| `--minify-js` | Minify JS output |
-| `--sourcemap` | Emit v3 source maps (`*.js.map`/`*.css.map`) for minified JS/CSS (minification is line-preserving so mappings are exact) |
-| `--fingerprint` | Content-hash CSS/JS to `name.<hash8>.ext` + `assets-manifest.json`, rewriting references in HTML/CSS (immutable caching) |
-| `--scss` | Compile `*.scss` → `*.css` via the optional [dart-sass](https://sass-lang.com/dart-sass/) CLI before bundling/minify; partials (`_*.scss`) resolve via `@use`, all `.scss` sources are removed from the output. Missing binary = skip with a warning |
-| `--sass-binary=PATH` | Explicit dart-sass binary (default: `sass` from PATH) |
-| `--paginate=N` | Posts per index page; adds `/page/N/` + a `.Pager` context. `0` = disabled (default) |
-| `--lastmod-from-git` | Derive sitemap `<lastmod>` from each source file's last git commit (fallback: `modified`/`date`) |
-| `--permalink-post=PAT` | Post URL pattern with tokens `:year :month :day :slug :category` (e.g. `/:year/:month/:slug/`) |
-| `--permalink-page=PAT` | Page URL pattern (same tokens) |
-
-**Authoring:**
-
-| Option | Description |
-|--------|-------------|
-| `--math` | Opt-in math: detects `$$…$$` / ` ```math ` and injects KaTeX only on pages that use it |
-| `--sanitize-html` | Sanitize raw HTML embedded in markdown through the bluemonday UGC policy (strips `<script>` etc.) |
-| `--highlight` | Syntax-highlight code blocks via Chroma |
-| `--highlight-style=NAME` | Chroma style (e.g. `github`, `monokai`, `dracula`) |
-| `--toc` | Expose `.TOC` to templates (`[toc]` in content always expands) |
-| `--toc-depth=N` | Max heading level in the TOC (default: `3`) |
-
-**Feeds, SEO & Search:**
-
-| Option | Description |
-|--------|-------------|
-| `--feed` | Generate an Atom `feed.xml` at the root and per category/tag |
-| `--feed-items=N` | Max items per feed (default: `20`) |
-| `--check-links` / `--check-links=strict` | Validate internal links; `strict` fails the build on a dead link |
-| `--search-index` | Emit `search-index.json` for client-side search |
-| `--outputs=html,json` | Per-page output formats (`json` writes `index.json` next to `index.html`) |
-| `--seo` | Opt in to generator-level SEO: inject OpenGraph/Twitter Card/JSON-LD into pages that lack their own (non-destructive; off by default since v1.8.2). `--seo-off` / `seo_off` are accepted as deprecated no-ops |
-
-**Skip Minification:**
-
-Use HTML comments to preserve whitespace in specific sections (e.g., Mermaid diagrams):
-
-```html
-<!-- htmlmin:ignore -->
-<pre class="mermaid">
-flowchart TD
-    A --> B
-    B --> C
-</pre>
-<!-- /htmlmin:ignore -->
-```
-
-**Image Processing (Native Go - no external tools needed):**
-
-| Option | Description |
-|--------|-------------|
-| `--webp` | Convert images to WebP format (requires `cwebp`) |
-| `--webp-quality=N` | WebP compression quality 1-100 (default: `60`) |
-| `--reconvert-images` | Force reconversion even if a WebP already exists |
-| `--image-sizes=A,B,C` | Responsive widths (px) → WebP variants + `<img srcset>` (no upscaling), e.g. `480,960,1600` |
-| `--image-sizes-attr=VAL` | Value of the generated `sizes` attribute (default: `100vw`) |
-
-**Deployment:**
-
-| Option | Description |
-|--------|-------------|
-| `--zip` | Create a ZIP archive of the output tree (Cloudflare Pages ready) |
-| `--targz` | Create a gzip-compressed tarball (`.tar.gz`) of the output tree |
-| `--tarxz` | Create an xz-compressed tarball (`.tar.xz`) of the output tree |
-
-**Paths:**
-
-| Option | Description |
-|--------|-------------|
-| `--content-dir=PATH` | Content directory (default: `content`) |
-| `--templates-dir=PATH` | Templates directory (default: `templates`) |
-| `--output-dir=PATH` | Output directory (default: `output`) |
-| `--static-dir=PATH` | Static passthrough directory copied verbatim to output (default: `static`) |
-| `--data-dir=PATH` | Data files dir (`*.yaml`/`*.json`) exposed as `.Data.*` (default: `data`) |
-
-**Internationalization:**
-
-| Option | Description |
-|--------|-------------|
-| `--languages=pl,en` | Enable multilingual output; non-default languages are emitted under `/<lang>/…` with `hreflang` alternates |
-| `--default-language=pl` | The default language (not prefixed in URLs) |
-
-**Template Engine:**
-
-| Option | Description |
-|--------|-------------|
-| `--engine=ENGINE` | Template engine: `go` (default), `pongo2`, `mustache`, `handlebars`. Non-Go engines render themes authored in that engine's syntax (no Go FuncMap/inheritance) |
-| `--online-theme=URL` | Download theme from URL (GitHub, GitLab, or direct ZIP) |
-
-**MDDB Content Source ([github.com/tradik/mddb](https://github.com/tradik/mddb)):**
-
-| Option | Description |
-|--------|-------------|
-| `--mddb-url=URL` | MDDB server URL (enables mddb mode). HTTP: `http://localhost:11023`, gRPC: `localhost:11024` |
-| `--mddb-protocol=PROTO` | Connection protocol: `http` (default) or `grpc` |
-| `--mddb-collection=NAME` | Collection name for pages/posts |
-| `--mddb-key=KEY` | API key for authentication (optional) |
-| `--mddb-lang=LANG` | Language filter (e.g., `en_US`, `pl_PL`) |
-| `--mddb-timeout=SEC` | Request timeout in seconds (default: `30`) |
-| `--mddb-batch-size=N` | Batch size for pagination (default: `1000`) |
-| `--mddb-watch` | Watch MDDB for changes and rebuild automatically |
-| `--mddb-watch-interval=SEC` | Polling interval for watch mode (default: `30`) |
-
-**Other:**
-
-| Option | Description |
-|--------|-------------|
-| `--quiet`, `-q` | Suppress output (only exit codes) |
-| `--version`, `-v` | Show version |
-| `--help`, `-h` | Show help |
-
-### New in v1.8.1
-
-All additions below are **opt-in**; the default build (plain HTTP dev server, ZIP) is unchanged.
-
-#### Public-facing server (TLS · HTTP/2 · HTTP/3)
+The canonical configuration reference is [.ssg.yaml.example](.ssg.yaml.example).
+The CLI also provides an installed-version reference:
 
 ```bash
-# Manual certificate — HTTP/2 negotiated automatically, plus HTTP/3 and gzip
-ssg my-site simple example.com --http --port=443 \
-    --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip --max-conns=1024
-
-# Automatic Let's Encrypt certificate for one or more domains
-ssg my-site simple example.com --http --port=443 \
-    --tls-auto --tls-domain=example.com --mem-limit=512MiB
+ssg --help
 ```
 
-The server adds security headers (`X-Content-Type-Options`, `X-Frame-Options`,
-`Referrer-Policy`, HSTS under TLS) and cache-control (immutable for fingerprinted assets,
-`no-cache` for HTML) automatically.
-
-#### Extra archive formats
-
-```bash
-ssg my-site simple example.com --zip --targz --tarxz
-```
-
-`--targz` and `--tarxz` sit alongside `--zip`, producing `.tar.gz` / `.tar.xz` of the
-output tree.
-
-#### HTML sanitization
-
-```yaml
-sanitize_html: true   # or --sanitize-html
-```
-
-Runs raw HTML embedded in markdown through the bluemonday UGC policy (strips `<script>`
-and other unsafe markup).
-
-#### Timezone-aware dates
-
-```yaml
-timezone: "Europe/Warsaw"   # or --timezone=Europe/Warsaw
-language_timezones:         # optional per-language override (wins for that lang)
-  en_US: "America/New_York"
-  pl_PL: "Europe/Warsaw"
-```
-
-Renders content dates — the `:year/:month/:day` permalink tokens and the `Date`/`Modified`
-template context — in the given IANA zone instead of UTC-as-parsed. Feeds and the sitemap
-stay in UTC (per spec). The zone database is embedded, so static and Windows binaries work
-without a system tzdata. Empty = previous behaviour (no conversion).
-
-### New in v1.8.0
-
-All features below are **opt-in** behind a config key or flag; the default build is unchanged.
-
-#### Configurable permalinks (migration)
-
-Preserve or remap WordPress URL structure. Tokens: `:year :month :day :slug :category`.
-
-```yaml
-permalinks:
-  post: "/:year/:month/:slug/"
-  page: "/:slug/"
-```
-
-The frontmatter `link:` field still takes priority over any pattern, and all expanded paths
-are sanitized (cannot escape the output directory).
-
-#### Frontmatter aliases (redirects)
-
-```yaml
-# in a post/page frontmatter
-aliases:
-  - /old/permalink/
-  - /2019/legacy-path/
-```
-
-Each alias becomes a `meta-refresh` + `<link rel="canonical">` + `noindex` stub pointing at the
-page's canonical URL. Aliases are excluded from `sitemap.xml`; a collision with a real page is
-skipped with a warning.
-
-#### Pagination
-
-```yaml
-paginate: 10
-```
-
-Page 1 is the site root; pages 2…N are written to `/page/N/`. Templates receive a `.Pager`:
-
-```html
-{{if gt .Pager.Total 1}}
-  {{if .Pager.PrevURL}}<a rel="prev" href="{{.Pager.PrevURL}}">Prev</a>{{end}}
-  <span>Page {{.Pager.Current}} / {{.Pager.Total}}</span>
-  {{if .Pager.NextURL}}<a rel="next" href="{{.Pager.NextURL}}">Next</a>{{end}}
-{{end}}
-```
-
-#### Reading time & word count
-
-Exposed to every engine as `.WordCount` and `.ReadingTime` (minutes, 200 wpm):
-
-```html
-<span>{{.ReadingTime}} min read · {{.WordCount}} words</span>
-```
-
-#### Source maps
-
-`--sourcemap` (with `--minify-js`/`--minify-css`) emits real v3 `*.js.map` / `*.css.map`
-alongside minified assets. Minification becomes line-preserving so the mapping is exact and
-the original source is embedded (`sourcesContent`).
-
-#### Asset fingerprinting (cache busting)
-
-```yaml
-fingerprint: true
-```
-
-Renames CSS/JS to `name.<hash8>.ext`, writes `assets-manifest.json`, and rewrites references in
-HTML and inside CSS (`url()` / `@import`, hashed in dependency order). Two identical builds
-produce byte-identical names. Recommended headers: hashed assets
-`Cache-Control: public, max-age=31536000, immutable`; HTML `no-cache`.
-
-#### Responsive images
-
-```yaml
-webp: true
-image_sizes: [480, 960, 1600]
-image_sizes_attr: "100vw"
-```
-
-For each image the WebP pipeline emits `name-<width>.webp` variants (never upscaling) and adds
-`srcset`/`sizes` to `<img>` tags, keeping the original as the fallback `src`.
-
-#### Math (KaTeX)
-
-```yaml
-math: true
-```
-
-Pages containing `$$…$$` (or ` ```math ` blocks) get KaTeX assets injected **only where needed**;
-`.HasMath` is exposed to templates. Display math uses `$$…$$`, inline uses `\(…\)` (so `$` for
-currency is safe).
-
-#### Series
-
-```yaml
-# in a post frontmatter
-series: "Learn Go"
-```
-
-Generates a `/series/{slug}/` landing page (`series.html`, falling back to `category.html`) and
-exposes `.SeriesPrevURL` / `.SeriesPrevTitle` / `.SeriesNextURL` / `.SeriesNextTitle`.
-
-#### Data files
-
-Files under `data/` (`*.yaml`, `*.yml`, `*.json`) are loaded into `.Data.*`, nested by
-subdirectory — `data/authors/bob.yaml` → `{{.Data.authors.bob.name}}`.
-
-#### Internationalization
-
-```yaml
-languages: ["pl", "en"]
-default_language: "pl"
-```
-
-Non-default languages are emitted under `/<lang>/…`. Templates receive `.Lang`, `.Languages`,
-`.DefaultLanguage`, `.Translations` (for a language switcher) and `.Hreflang` (ready-to-drop
-`<link rel="alternate" hreflang>` markup incl. `x-default`).
-
-#### Build hooks
-
-```yaml
-hooks:
-  pre_build:  ["./scripts/prepare.sh"]
-  post_build: ["./scripts/deploy.sh"]
-  post_page:  []
-```
-
-> ⚠️ **Security:** hooks run as **local, trusted config only** — argv-split (no shell),
-> time-limited (60 s), and never sourced from content. Context is passed via the environment:
-> `SSG_OUTPUT_DIR`, `SSG_PHASE`, and `SSG_PAGE_PATH` (for `post_page`). `pre_build`/`post_build`
-> failures fail the build; `post_page` failures are logged and non-fatal.
-
-#### `lastmod` from git
-
-`--lastmod-from-git` (or `lastmod_from_git: true`) sets sitemap `<lastmod>` to each source
-file's last commit date, falling back to `modified`/`date` outside a git repo or for mddb content.
-
-#### Incremental watch
-
-`--watch` now hashes watched content and skips rebuilds when files were touched but their bytes
-did not change. Any real change still triggers a full, correct rebuild.
-
-### Shortcodes
-
-Define reusable content snippets in your config file. Each shortcode requires a template file:
-
-```yaml
-shortcodes:
-  - name: "thunderpick"
-    template: "shortcodes/banner.html"  # Required: template in theme folder
-    title: "Thunderpick"
-    text: "100% up to $1000 + 5% rakeback"
-    url: "https://example.com/promo"
-    logo: "/assets/images/thunderpick.png"
-    legal: "18+. Gamble Responsibly. T&Cs Apply."
-```
-
-Create the template file (e.g., `templates/your-theme/shortcodes/banner.html`):
-
-```html
-<div class="promo-banner">
-  <a href="{{.URL}}">
-    {{if .Logo}}<img src="{{.Logo}}" alt="{{.Name}}">{{end}}
-    <strong>{{.Title}}</strong>
-    <span>{{.Text}}</span>
-  </a>
-  {{if .Legal}}<small>{{.Legal}}</small>{{end}}
-</div>
-```
-
-Use in markdown content with `{{shortcode_name}}`:
-
-```markdown
-Check out this amazing offer:
-
-{{thunderpick}}
-
-Don't miss it!
-```
-
-**Available template variables:** `{{.Name}}`, `{{.Title}}`, `{{.Text}}`, `{{.URL}}`, `{{.Logo}}`, `{{.Legal}}`, `{{.Data.key}}`
-
-#### WordPress-style bracket syntax
-
-Enable `[shortcode_name]` syntax (in addition to `{{shortcode_name}}`):
-
-```yaml
-shortcode_brackets: true  # default: false
-```
-
-When enabled, `[thunderpick]` in content is replaced with the rendered shortcode HTML — but only for shortcodes defined in your config. Unknown `[tags]` are left untouched.
-
-Bracket shortcodes also support **attributes** and **closing tags**:
-
-```markdown
-<!-- Self-closing with attributes -->
-[link url="https://example.com" label="Click here"]
-
-<!-- With inner content -->
-[box]This content is wrapped in a box.[/box]
-
-<!-- Combined -->
-[alert type="warning"]Watch out for this![/alert]
-```
-
-In the shortcode template, use `{{.Attrs.key}}` for inline attributes and `{{.InnerContent}}` for content between tags. Config-defined fields (Title, Text, etc.) remain available alongside inline attrs.
-
-### Config Variables
-
-Define custom variables in `.ssg.yaml` that are available in every template as `{{.Vars.key}}` and automatically exported as `SSG_*` environment variables:
-
-```yaml
-variables:
-  gtm: "GTM-XXXXXXX"          # {{.Vars.gtm}}, exported as SSG_GTM
-  analytics_id: "$GA_ID"       # Value resolved from $GA_ID env var at build time
-  api:
-    endpoint: "https://api.example.com"  # {{.Vars.api.endpoint}}, exported as SSG_API_ENDPOINT
-```
-
-Use in templates:
-
-```html
-<!-- GTM snippet using a config variable -->
-{{if .Vars.gtm}}
-<script>(function(w,d,s,l,i){...})(window,document,'script','dataLayer','{{.Vars.gtm}}');</script>
-{{end}}
-```
-
-**Features:**
-- Flat and nested structures supported
-- Values starting with `$` are resolved from OS environment variables at build time
-- All variables exported as env vars: `SSG_GTM`, `SSG_API_ENDPOINT`, etc.
-- Available in index, page, post, and category templates
-
-### Custom Content Paths
-
-Override the default `pages/` and `posts/` subdirectory names:
-
-```yaml
-pages_path: "docs"      # reads from content/{source}/docs/ instead of pages/
-posts_path: "articles"  # reads from content/{source}/articles/ instead of posts/
-```
-
-### Static Passthrough Directory
-
-Anything placed in the project-level `static/` directory is copied **verbatim** into
-the output during generation — every file and subdirectory, recursively. This is the
-place for assets that SSG does not generate itself: `downloads/`, `assets/`, `scripts/`,
-`styles/`, `manifest.json`, favicons, etc.
-
-```
-static/
-├── downloads/guide.pdf   →  output/downloads/guide.pdf
-├── assets/app.css        →  output/assets/app.css
-└── manifest.json         →  output/manifest.json
-```
-
-Point it elsewhere (or disable it by naming a non-existent path) with `static_dir:`
-in config or `--static-dir=PATH` on the CLI. A missing directory is a silent no-op,
-so sites that do not use one are unaffected.
-
-### Slug Handling
-
-Slugs come from the `slug:` frontmatter field. When not set, the slug is automatically derived from the source filename (without `.md` extension).
-
-By default slugs are **lowercased** (`API.md` → `/api/`). To preserve original casing:
-
-```yaml
-preserve_slug_case: true   # API.md → /API/, Hello-World.md → /Hello-World/
-```
-
-### Rewrite `.md` Links
-
-When Markdown files cross-reference each other with `.md` links, enable automatic rewriting to final output URLs:
-
-```yaml
-rewrite_md_links: true
-```
-
-```markdown
-See [Authentication](AUTHENTICATION.md) for details.
-See [Quickstart](../quickstart/README.md) or [API](./API.md).
-```
-
-Becomes in the rendered HTML:
-
-```html
-<a href="/authentication/">Authentication</a>
-<a href="/quickstart/">Quickstart</a>
-<a href="/api/">API</a>
-```
-
-**How it works:**
-- Matches the base filename (strips `./` and `../dir/` prefixes)
-- Priority: exact source filename → lowercase filename → slug-derived name
-- Unknown `.md` links are left untouched
-- Disabled by default to avoid breaking sites that serve raw `.md` files
-
-### Common Recipes (task → command)
-
-A quick lookup from *what you want to do* to *the exact invocation*. Replace
-`my-content` / `krowy` / `example.com` with your own source / template / domain.
-
-| Goal | Command |
-|------|---------|
-| Preview locally while editing | `ssg my-content krowy example.com --http --watch` |
-| One-off production build | `ssg my-content krowy example.com --clean --minify-all` |
-| Optimise images to WebP + responsive sizes | `ssg my-content krowy example.com --webp --image-sizes=480,960,1600` |
-| Fingerprint assets for immutable caching | `ssg my-content krowy example.com --minify-all --fingerprint` |
-| Blog with feed, tags, reading time, search | `ssg my-content krowy example.com --feed --search-index` |
-| Add social/SEO meta (opt-in) | `ssg my-content krowy example.com --seo` |
-| Package for upload | `ssg my-content krowy example.com --zip` (or `--targz` / `--tarxz`) |
-| Publish straight to Cloudflare Pages | `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… ssg my-content krowy example.com --deploy=cloudflare --deploy-project=my-site` |
-| Serve publicly over HTTPS + HTTP/3 | `ssg my-content krowy example.com --http --port=443 --tls-cert=cert.pem --tls-key=key.pem --http3 --gzip` |
-| Use a downloaded Hugo/Jinja theme | `ssg my-content mytheme example.com --engine=pongo2 --online-theme=https://github.com/user/theme` |
-| Build everything from a config file | `ssg --config .ssg.yaml` |
-
-Flags are **composable** — combine any of the above (e.g. `--clean --minify-all --webp
---fingerprint --feed --deploy=cloudflare --deploy-project=my-site`). Everything is off by
-default unless noted, so a bare `ssg <source> <template> <domain>` just renders HTML.
-
-### Examples
-
-```bash
-# Development mode: HTTP server + auto-rebuild on changes
-./build/ssg my-content krowy example.com --http --watch
-
-# HTTP server on custom port
-./build/ssg my-content krowy example.com --http --port=3000
-
-# Generate site with krowy template
-./build/ssg krowy.net.2026-01-13110345 krowy krowy.net
-
-# Generate with simple template (dark theme)
-./build/ssg krowy.net.2026-01-13110345 simple krowy.net
-
-# Generate with WebP conversion and ZIP package
-./build/ssg krowy.net.2026-01-13110345 krowy krowy.net --webp --zip
-
-# Use custom directories
-./build/ssg my-content my-template example.com \
-  --content-dir=/data/content \
-  --templates-dir=/data/templates \
-  --output-dir=/var/www/html
-
-# Or using Makefile
-make generate        # krowy template
-make generate-simple # simple template
-make serve           # generate and run local server
-make deploy          # generate with WebP + ZIP for Cloudflare Pages
-
-# Fetch content from MDDB server (HTTP)
-./build/ssg --mddb-url=http://localhost:11023 --mddb-collection=blog krowy example.com
-
-# Use gRPC connection (faster)
-./build/ssg --mddb-url=localhost:11024 --mddb-protocol=grpc --mddb-collection=blog krowy example.com
-
-# MDDB with language filter and API key
-./build/ssg --mddb-url=https://mddb.example.com --mddb-collection=site \
-  --mddb-lang=en_US --mddb-key=secret krowy example.com --minify-all
-
-# Watch MDDB for changes and auto-rebuild
-./build/ssg --mddb-url=http://localhost:11023 --mddb-collection=blog \
-  --mddb-watch --mddb-watch-interval=15 krowy example.com --http
-```
-
-### Output
-
-Generated files will be in the `output/` folder:
-
-```
-output/
-├── index.html          # Homepage
+## Common recipes
+
+| Task | Command |
+|---|---|
+| Preview while editing | `ssg my-blog simple example.com --http --watch` |
+| Production build | `ssg my-blog simple example.com --clean --minify-all` |
+| WebP and responsive images | `ssg my-blog simple example.com --webp --image-sizes=480,960,1600` |
+| Feed, search and SEO | `ssg my-blog simple example.com --feed --search-index --seo` |
+| Immutable asset names | `ssg my-blog simple example.com --minify-all --fingerprint` |
+| Strict link validation | `ssg my-blog simple example.com --check-links=strict` |
+| Create deployment archives | `ssg my-blog simple example.com --zip --targz --tarxz` |
+| Use a Pongo2 theme | `ssg my-blog my-theme example.com --engine=pongo2` |
+| Use only configuration | `ssg --config .ssg.yaml` |
+
+Options are composable unless a specific option documents otherwise.
+
+## Capability map
+
+This is a discovery index, not a second configuration reference. Exact defaults
+and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
+
+| Area | Available capabilities |
+|---|---|
+| Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization |
+| Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
+| SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
+| Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
+| Data | YAML/JSON data files, custom variables and static passthrough files |
+| Localisation | Multiple languages, `hreflang`, default language and per-language timezones |
+| Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
+| Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
+| Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3 and resource limits |
+| Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
+
+## Templates
+
+### Engines
+
+| Engine | Value | Syntax family |
+|---|---|---|
+| Go templates | `go` | Go `html/template`; default and full helper support |
+| Pongo2 | `pongo2` | Jinja2/Django |
+| Mustache | `mustache` | Logic-less Mustache |
+| Handlebars | `handlebars` | Handlebars blocks and helpers |
+
+Select an engine with `--engine=<value>` or `engine: <value>`. Non-Go themes must
+contain templates authored in their selected syntax; they do not receive the Go
+template FuncMap or Go block inheritance.
+
+### Theme files
+
+A typical Go theme contains:
+
+```text
+templates/my-theme/
+├── base.html
+├── index.html
+├── page.html
+├── post.html
+├── category.html
 ├── css/
-│   └── style.css       # Stylesheet
 ├── js/
-│   └── main.js         # JavaScript
-├── media/              # Media files
-├── {slug}/             # Pages and posts (SEO URLs)
-│   └── index.html
-├── category/
-│   └── {category-slug}/
-│       └── index.html
-├── sitemap.xml         # Sitemap for search engines
-├── robots.txt          # Robots file
-├── _headers            # Cloudflare Pages headers
-└── _redirects          # Cloudflare Pages redirects
+├── layouts/
+└── partials/
 ```
 
-## 🔧 Template Engines
+Missing standard templates receive built-in fallbacks. Themes may also be
+downloaded with `--online-theme=<URL>`.
 
-SSG renders templates with the Go (`html/template`) engine by default, and can also
-render themes authored in Pongo2, Mustache, or Handlebars (GO-007).
+Common Go template values:
 
-### Available Engines
+| Value | Meaning |
+|---|---|
+| `.Title`, `.Content`, `.Excerpt` | Current page/post content |
+| `.URL`, `.CanonicalURL` | Relative and canonical URLs |
+| `.Date`, `.Modified` | Content dates |
+| `.Site.Pages`, `.Site.Posts` | Site collections |
+| `.Data` | Data loaded from `data/` |
+| `.Vars` | Custom configuration variables |
+| `.Pager` | Pagination state when enabled |
 
-| Engine | Flag | Status |
-|--------|------|--------|
-| Go (default) | `--engine=go` | ✅ Supported — dot-variables, range/if blocks, full FuncMap + template inheritance |
-| Pongo2 (Jinja2/Django) | `--engine=pongo2` (aliases `jinja2`, `django`) | ✅ Supported — variables, for/if blocks, filters |
-| Mustache | `--engine=mustache` | ✅ Supported — logic-less variables and section blocks |
-| Handlebars | `--engine=handlebars` | ✅ Supported — variables, each blocks, helpers |
+For collection helpers, conditionals and image functions, see
+[docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) and
+[docs/IMAGES.md](docs/IMAGES.md).
 
-> **Note:** Non-Go engines render the theme's **own** templates verbatim in that engine's
-> syntax — they do **not** get the Go `html/template` FuncMap or block inheritance. Ship an
-> alt-engine theme with templates written for that engine; the same page context
-> (`.Page`, `.Site`, `.Posts`, `.Domain`, `.Vars`, `.Data`, …) is exposed to all of them.
+## Generated output
 
-### Usage Examples
+Depending on enabled features, `output/` can contain:
+
+```text
+output/
+├── index.html
+├── <page-slug>/index.html
+├── <year>/<month>/<day>/<post-slug>/index.html
+├── category/<category-slug>/index.html
+├── tag/<tag-slug>/index.html
+├── series/<series-slug>/index.html
+├── css/
+├── js/
+├── media/
+├── sitemap.xml
+├── robots.txt
+├── feed.xml
+└── search-index.json
+```
+
+URL layouts can be changed with `page_format`, `post_url_format`, explicit
+permalink patterns or an item's `link` field.
+
+## Deployment
+
+SSG can deploy the generated output without provider-specific CLIs. Credentials
+are read from environment variables, never from content files.
+
+| Provider | Flag | Required environment |
+|---|---|---|
+| Cloudflare Pages | `--deploy=cloudflare` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| GitHub Pages | `--deploy=github-pages` | `GITHUB_TOKEN` or SSH credentials |
+| Netlify | `--deploy=netlify` | `NETLIFY_AUTH_TOKEN` |
+| Vercel | `--deploy=vercel` | `VERCEL_TOKEN`, `VERCEL_ORG_ID` |
+| FTP | `--deploy=ftp` | `FTP_USERNAME`, `FTP_PASSWORD` |
+| SFTP | `--deploy=sftp` | `SSH_PASSWORD` or `SSH_KEY_FILE` |
+
+Example:
 
 ```bash
-# Use the Go engine (default)
-ssg my-content mytheme example.com --engine=go
-
-# Render a Jinja2/Django-style theme
-ssg my-content mytheme example.com --engine=pongo2
-
-# Logic-less Mustache theme
-ssg my-content mytheme example.com --engine=mustache
-
-# Handlebars theme
-ssg my-content mytheme example.com --engine=handlebars
+CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... \
+  ssg my-blog simple example.com \
+  --deploy=cloudflare --deploy-project=my-site
 ```
 
-### Online Themes
+Deployment runs after generation and post-processing.
 
-Download themes directly from GitHub, GitLab, or any ZIP URL:
-
-```bash
-# Download Hugo theme from GitHub
-ssg my-content bearblog example.com --online-theme=https://github.com/janraasch/hugo-bearblog
-
-# Download from any URL
-ssg my-content mytheme example.com --online-theme=https://example.com/theme.zip
-```
-
-The theme will be downloaded and extracted to `templates/{template-name}/`.
-
-### Template Syntax Comparison
-
-**Go Templates:**
-
-{% raw %}
-```html
-{{ range .Posts }}
-  <h2>{{ .Title }}</h2>
-  <p>{{ .Content }}</p>
-{{ end }}
-```
-{% endraw %}
-
-**Pongo2 (Jinja2):**
-
-{% raw %}
-```html
-{% for post in Posts %}
-  <h2>{{ post.Title }}</h2>
-  <p>{{ post.Content }}</p>
-{% endfor %}
-```
-{% endraw %}
-
-**Mustache:**
-
-{% raw %}
-```html
-{{#Posts}}
-  <h2>{{Title}}</h2>
-  <p>{{Content}}</p>
-{{/Posts}}
-```
-{% endraw %}
-
-**Handlebars:**
-
-{% raw %}
-```html
-{{#each Posts}}
-  <h2>{{Title}}</h2>
-  <p>{{Content}}</p>
-{{/each}}
-```
-{% endraw %}
-
-## 🎬 GitHub Actions
-
-Use SSG as a GitHub Action in your CI/CD pipeline:
-
-### Versioning
-
-| Reference | Description |
-|-----------|-------------|
-| `spagu/ssg@main` | Latest from main branch (development) |
-| `spagu/ssg@v1` | Latest stable v1.x release |
-| `spagu/ssg@v1.6.0` | Specific version |
-
-> **Note:** Use `@main` until a stable release is published.
-
-### Basic Usage
+## GitHub Actions
 
 ```yaml
-- name: Generate static site
-  uses: spagu/ssg@main  # or @v1 after release
-  with:
-    source: 'my-content'
-    template: 'krowy'
-    domain: 'example.com'
-```
+name: Build site
 
-### Full Configuration
-
-{% raw %}
-```yaml
-- name: Generate static site
-  id: ssg
-  uses: spagu/ssg@v1
-  with:
-    source: 'my-content'           # Content folder (inside content/)
-    template: 'krowy'              # Template: 'simple' or 'krowy'
-    domain: 'example.com'          # Target domain
-    version: 'latest'              # Optional: SSG version (default: latest)
-    content-dir: 'content'         # Optional: content directory path
-    templates-dir: 'templates'     # Optional: templates directory path
-    output-dir: 'output'           # Optional: output directory path
-    webp: 'true'                   # Optional: convert images to WebP
-    webp-quality: '80'             # Optional: WebP quality 1-100 (default: 60)
-    zip: 'true'                    # Optional: create ZIP for deployment
-    minify: 'true'                 # Optional: minify HTML/CSS/JS
-    clean: 'true'                  # Optional: clean output before build
-
-- name: Show outputs
-  run: |
-    echo "Output path: ${{ steps.ssg.outputs.output-path }}"
-    echo "ZIP file: ${{ steps.ssg.outputs.zip-file }}"
-    echo "ZIP size: ${{ steps.ssg.outputs.zip-size }} bytes"
-```
-{% endraw %}
-
-### Action Inputs
-
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `source` | Content source folder name | ✅ | - |
-| `template` | Template name | ✅ | `simple` |
-| `domain` | Target domain | ✅ | - |
-| `version` | SSG version to download | ❌ | `latest` |
-| `content-dir` | Path to content directory | ❌ | `content` |
-| `templates-dir` | Path to templates directory | ❌ | `templates` |
-| `output-dir` | Path to output directory | ❌ | `output` |
-| `webp` | Convert images to WebP | ❌ | `false` |
-| `webp-quality` | WebP compression quality 1-100 | ❌ | `60` |
-| `zip` | Create ZIP file | ❌ | `false` |
-| `minify` | Minify HTML, CSS, and JS | ❌ | `false` |
-| `clean` | Clean output directory before build | ❌ | `false` |
-| `engine` | Template engine: `go`, `pongo2`, `mustache`, `handlebars` | ❌ | `go` |
-| `online-theme` | Download a theme from a URL | ❌ | - |
-| `deploy` | Native deploy: `cloudflare`, `github-pages`, `netlify`, `vercel`, `ftp`, `sftp` | ❌ | - |
-| `deploy-project` | Pages/site/project name (cloudflare, netlify, vercel) | ❌ | - |
-| `deploy-branch` | Target branch (cloudflare, github-pages) | ❌ | - |
-| `deploy-target` | ftp/sftp URL or git remote | ❌ | - |
-
-> Deploy secrets (`CLOUDFLARE_API_TOKEN`, `NETLIFY_AUTH_TOKEN`, `VERCEL_TOKEN`, `FTP_PASSWORD`, …)
-> are read from the job `env:` — pass them as GitHub secrets, never as `with:` inputs.
-
-### Action Outputs
-
-| Output | Description |
-|--------|-------------|
-| `output-path` | Path to generated site directory |
-| `zip-file` | Path to ZIP file (if --zip used) |
-| `zip-size` | Size of ZIP file in bytes |
-
-## 🚀 Publishing (native deploy)
-
-SSG can publish the generated site **itself** — no `wrangler`, `netlify-cli`, `vercel`,
-or `rsync` required. Pick a provider with `--deploy=` and SSG uploads the output tree
-directly. **All secrets come from the environment**, never the config file.
-
-| Provider | `--deploy=` | Needs | Environment |
-|----------|-------------|-------|-------------|
-| Cloudflare Pages | `cloudflare` | `--deploy-project=<pages-project>` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
-| GitHub Pages | `github-pages` | `--deploy-target=<git-remote>` (or repo `origin`) | `GITHUB_TOKEN` (https) or an SSH key |
-| Netlify | `netlify` | `--deploy-project=<site-id>` | `NETLIFY_AUTH_TOKEN` (or `NETLIFY_SITE_ID`) |
-| Vercel | `vercel` | `--deploy-project=<project>` | `VERCEL_TOKEN`, `VERCEL_ORG_ID` |
-| FTP | `ftp` | `--deploy-target=ftp://host/path` | `FTP_USERNAME`, `FTP_PASSWORD` |
-| SFTP/SSH | `sftp` | `--deploy-target=sftp://user@host/path` | `SSH_PASSWORD` or `SSH_KEY_FILE` (host must be in `known_hosts`) |
-
-```bash
-# Cloudflare Pages (Direct Upload API — hashes files, uploads only what changed)
-export CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=…
-ssg my-content krowy example.com --deploy=cloudflare --deploy-project=my-site
-
-# GitHub Pages — force-pushes the output as a single commit to gh-pages
-export GITHUB_TOKEN=…
-ssg my-content krowy example.com \
-  --deploy=github-pages --deploy-target=https://github.com/user/repo.git
-
-# Netlify (digest-based deploy API) / Vercel (files + deployment API)
-NETLIFY_AUTH_TOKEN=… ssg my-content krowy example.com --deploy=netlify --deploy-project=<site-id>
-VERCEL_TOKEN=…       ssg my-content krowy example.com --deploy=vercel  --deploy-project=<project>
-
-# Any host over FTP or SFTP (SFTP verifies the host key against ~/.ssh/known_hosts)
-FTP_PASSWORD=…  ssg my-content krowy example.com --deploy=ftp  --deploy-target=ftp://user@ftp.example.com/public_html
-SSH_KEY_FILE=~/.ssh/id_ed25519 ssg my-content krowy example.com --deploy=sftp --deploy-target=sftp://deploy@example.com/var/www
-```
-
-Deploy runs **after** the build (and after any `--webp`/`--zip`), so it always ships
-the final, processed output. The provider name can also be set in config as `deploy:`.
-
-### Deploy from CI (GitHub Actions)
-
-The same flags work in CI — set the provider secrets as repository secrets:
-
-{% raw %}
-```yaml
-name: Deploy
 on:
   push:
     branches: [main]
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Build and deploy
-        uses: spagu/ssg@v1
+      - uses: spagu/ssg@v1
         with:
-          source: 'my-content'
-          template: 'krowy'
-          domain: 'example.com'
-          webp: 'true'
-          deploy: 'cloudflare'
-          deploy-project: 'my-site'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-```
-{% endraw %}
-
-> **📁 More workflow examples** are in [`examples/workflows/`](examples/workflows/).
-
-## 📁 Project Structure
-
-```
-ssg/
-├── cmd/
-│   └── ssg/
-│       └── main.go           # CLI entry point
-├── internal/
-│   ├── generator/
-│   │   ├── generator.go      # Generator logic
-│   │   ├── generator_test.go # Generator tests
-│   │   └── templates.go      # Default HTML templates
-│   ├── models/
-│   │   └── content.go        # Data models
-│   └── parser/
-│       ├── markdown.go       # Markdown parser
-│       └── markdown_test.go  # Parser tests
-├── content/                  # Source data
-│   └── {source}/
-│       ├── metadata.json
-│       ├── media/
-│       ├── pages/
-│       │   ├── about.md
-│       │   └── about-photo.png  # Co-located asset (auto-copied)
-│       └── posts/
-├── templates/                # Templates
-│   ├── simple/
-│   │   ├── css/
-│   │   └── js/
-│   └── krowy/
-│       ├── css/
-│       └── js/
-├── output/                   # Generated site (gitignored)
-├── go.mod
-├── go.sum
-├── Makefile
-├── README.md
-├── CHANGELOG.md
-├── .gitignore
-└── .dockerignore
+          source: my-blog
+          template: simple
+          domain: example.com
+          clean: "true"
+          minify: "true"
 ```
 
-## 🎨 Templates
+All supported inputs and outputs are defined in [action.yml](action.yml). Deployment
+workflow examples are available in [examples/workflows](examples/workflows/).
 
-### simple - Modern Dark Theme
+## Development
 
-Elegant dark theme with glassmorphism and gradients:
-- Dark background: `#0f0f0f`
-- Cards: `#222222`
-- Accent: purple gradient `#6366f1` → `#a855f7`
-- Hover animations and micro-interactions
-
-### krowy - Green Farm Theme
-
-Natural light theme inspired by krowy.net:
-- Light background: `#f8faf5`
-- Cards: `#ffffff`
-- Accent: green `#2d7d32`
-- Cow icon 🐄 in logo
-- Nature and ecology focus
-
-## 🎨 Styles/Colors
-
-### Color Guidelines (WCAG 2.2 Compliant)
-
-#### Simple Template (Dark)
-```css
-/* Background */
---color-bg-primary: #0f0f0f;
---color-bg-secondary: #1a1a1a;
---color-bg-card: #222222;
-
-/* Text (minimum contrast 4.5:1) */
---color-text-primary: #ffffff;
---color-text-secondary: #b3b3b3;
---color-text-muted: #808080;
-
-/* Accent */
---color-accent: #6366f1;
---gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-```
-
-#### Krowy Template (Light)
-```css
-/* Background */
---color-bg-primary: #f8faf5;
---color-bg-secondary: #ffffff;
---color-bg-card: #ffffff;
-
-/* Text (minimum contrast 4.5:1) */
---color-text-primary: #1a2e1a;
---color-text-secondary: #3d5a3d;
---color-text-muted: #6b8a6b;
-
-/* Accent */
---color-accent: #2d7d32;
---gradient-primary: linear-gradient(135deg, #2d7d32 0%, #43a047 50%, #66bb6a 100%);
-```
-
-Detailed style documentation: [docs/STYLES.md](docs/STYLES.md)
-
-## 📝 Content Format
-
-SSG supports two markdown content formats:
-
-### Standard Format (with section markers)
-
-```markdown
----
-title: "My Post"
-slug: "my-post"
-status: publish
-type: post
-date: 2026-04-01
----
-
-## Excerpt
-Short description for listings and meta tags.
-
-## Content
-Full markdown content goes here...
-```
-
-### Simple Format (without markers)
-
-```markdown
----
-title: "My Post"
-slug: "my-post"
-status: publish
-type: page
----
-
-All content after frontmatter becomes the page content.
-No `## Excerpt` or `## Content` markers needed.
-
-This is simpler for pages that don't need excerpts.
-```
-
-### Frontmatter Reference
-
-Every `.md` file starts with a YAML frontmatter block (between `---` lines). Only `title`
-is truly required; everything else has sensible defaults. Unknown keys are kept and exposed
-to templates as `{{.customField}}`.
-
-| Field | Type | Applies to | Purpose |
-|-------|------|-----------|---------|
-| `title` | string | page, post | Page/post title (required) |
-| `slug` | string | page, post | URL segment; defaults to the filename without `.md` |
-| `status` | string | page, post | Only `publish` is rendered; anything else is skipped (draft) |
-| `type` | string | page, post | `page` or `post` — controls the template and URL scheme |
-| `date` | date | post | Publication date (`YYYY-MM-DD`); drives date-based URLs and feed order |
-| `modified` | date | page, post | Last-modified date (falls back to file mtime / git with `--lastmod-from-git`) |
-| `categories` | list | post | Category IDs **or** names/slugs (resolved via `metadata.json`) |
-| `author` | int/string | post | Author ID **or** name/slug (resolved via `metadata.json` `users`) |
-| `tags` | list | post | Free-form tags; each gets a listing at `/tag/<slug>/` |
-| `series` | string | post | Groups posts into a series listing at `/series/<slug>/` |
-| `excerpt` | string | page, post | Short summary for listings, meta description and feeds |
-| `description` | string | page, post | SEO meta description (falls back to `excerpt`) |
-| `keywords` | string | page, post | SEO meta keywords |
-| `link` | string | page, post | Explicit URL path — overrides slug/permalink patterns |
-| `canonical` | string | page, post | Explicit canonical URL |
-| `aliases` | list | page, post | Old paths that should redirect here (meta-refresh + canonical) |
-| `featured_image` | string | page, post | OpenGraph/`og:image` and theme hero image |
-| `layout` | string | page, post | Theme layout name; `redirect` marks a redirect stub |
-| `template` | string | page, post | Override the specific template file used to render this item |
-| `robots` | string | page, post | e.g. `noindex, follow` — also excludes the item from the sitemap |
-| `sitemap` | string | page, post | `no` excludes the item from `sitemap.xml` |
-| `lang` | string | page, post | Content language (drives `/<lang>/…` prefixing when `languages:` is set) |
-
-```yaml
----
-title: "Understanding WebP"
-slug: understanding-webp
-status: publish
-type: post
-date: 2026-04-01
-categories: [Guides]        # by name → resolved to an ID via metadata.json
-author: "Ada Lovelace"      # by name → resolved via metadata.json users
-tags: [images, performance]
-excerpt: "Why WebP shrinks your images without visible quality loss."
-featured_image: /media/webp-hero.png
----
-
-Full markdown content goes here…
-```
-
-### Flexible Author & Categories
-
-The `author` and `categories` fields accept both integer IDs and string values:
-
-```yaml
-# Integer IDs (classic)
-author: 3
-categories:
-  - 1
-  - 5
-
-# String names — resolved to IDs via metadata lookup
-author: "Jan Kowalski"
-categories:
-  - "Humor"
-  - "Technology"
-
-# String slugs — also resolved
-author: "jan-kowalski"
-categories:
-  - "humor"
-  - "technology"
-```
-
-Resolution is case-insensitive. Numeric strings (e.g., `author: "42"`) are parsed as integers automatically. Unresolved strings (no matching author/category in metadata) are silently ignored.
-
-### Template Variables
-
-All fields are available at template root level:
-
-| Variable | Description |
-|----------|-------------|
-| `{{.Title}}` | Page/post title |
-| `{{.Slug}}` | URL slug |
-| `{{.Content}}` | Rendered HTML content |
-| `{{.Excerpt}}` | Content excerpt |
-| `{{.Date}}` | Publication date |
-| `{{.URL}}` | Page URL path |
-| `{{.CanonicalURL}}` | Full canonical URL |
-| `{{.Description}}` | SEO meta description |
-| `{{.customField}}` | Any custom frontmatter field |
-
-For backward compatibility, `{{.Page.Title}}` and `{{.Post.Title}}` also work.
-
-### Template Helpers — collections & conditionals
-
-*Since v1.8.3*, Go templates can query content directly — filter, sort, group,
-slice and test collections in a pipeline (the collection is always the **last**
-argument, so helpers chain):
-
-{% raw %}
-```gotemplate
-{{ $recentGuides := .Site.Pages
-    | where "Type" "guide"
-    | sort "Modified" "desc"
-    | first 5
-}}
-{{ range $recentGuides }}<h2>{{ .Title }}</h2>{{ end }}
-
-{{ if in .Page.Type (slice "guide" "tutorial") }}supported{{ end }}
-{{ .Site.Posts | related .Page 3 }}   {{/* related content by tags/categories/author */}}
-```
-{% endraw %}
-
-| Group | Helpers |
-|-------|---------|
-| Collections | `where` `filter` `sort` `first` `last` `limit` `offset` `groupBy` `uniq` `uniqBy` `reverse` `slice` `pluck` `indexBy` |
-| Conditionals | `in` `notIn` `contains` `startsWith` `endsWith` `matches` `isNil` `isEmpty` `ternary` |
-| Content | `latest` `published` `byTag` `byCategory` `byAuthor` `related` |
-
-Helpers never mutate their input and never panic — invalid usage (missing field,
-bad operator, invalid regex) fails the render with a descriptive error. Note
-that `if/else if`, `range`, `with`, `eq/lt/gt…` and `and/or/not` are **native**
-Go template features (use them directly), and native `switch/case` does not
-exist. Registering `slice` overrides Go's builtin sub-slicing function.
-
-**Full reference with signatures, operators, comparison rules and limitations:
-[docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md).**
-
-### Image Processing in Templates
-
-*Since v1.8.3*, templates and shortcodes can resize, crop, filter and convert
-images at build time — with a deterministic content-addressed cache, EXIF
-orientation normalization, focal-point crops and responsive `srcset` sets:
-
-{% raw %}
-```gotemplate
-{{ $img := imageResize "images/hero.jpg" (dict "width" 1200 "height" 630 "mode" "fill" "format" "webp") }}
-<img src="{{ $img.URL }}" width="{{ $img.Width }}" height="{{ $img.Height }}" alt="">
-
-{{ $set := imageSrcSet "images/hero.jpg" (dict "widths" (slice 480 768 1200)) }}
-<img src="{{ $set.Default.URL }}" srcset="{{ $set.SrcSet }}" sizes="100vw" alt="">
-```
-{% endraw %}
-
-Helpers: `imageInfo` · `imageResize` (scale/fit_width/fit_height/fit/fill) ·
-`imageCrop` (rect/anchor/focal) · `imageFilter` (10 filters) · `imageProcess`
-(ordered pipeline) · `imageSrcSet`. Variants land in `/processed_images/…`
-named by a content hash, so repeated builds reuse the cache. Sources resolve
-from `assets/`, the static dir, the content dir and the theme; path traversal
-and symlink escapes are rejected. WebP output uses the optional `cwebp` tool.
-
-**Full reference: [docs/IMAGES.md](docs/IMAGES.md).**
-
-## 🏗️ Architecture
-
-```mermaid
-flowchart TB
-    subgraph Input["📥 Input"]
-        A[content/source] --> B[metadata.json]
-        A --> C[pages/*.md]
-        A --> D[posts/**/*.md]
-        A --> E[media/*]
-    end
-
-    subgraph Processing["⚙️ Processing"]
-        F[Parser] --> G[Models]
-        G --> H[Generator]
-        T[Templates] --> H
-    end
-
-    subgraph Output["📤 Output"]
-        H --> I[output/]
-        I --> J[index.html]
-        I --> K[pages/]
-        I --> L[posts/]
-        I --> M[category/]
-        I --> N[css/]
-        I --> O[js/]
-        I --> P[media/]
-    end
-
-    B --> F
-    C --> F
-    D --> F
-    E --> P
-```
-
-## 🧪 Testing
+Building SSG itself requires Go 1.26.5 or newer. Earlier Go 1.26 releases contain
+standard-library vulnerabilities relevant to this project.
 
 ```bash
-# Run all tests
-make test
-
-# Tests with coverage
-make test-coverage
-
-# Open coverage report
-open coverage.html
+git clone https://github.com/spagu/ssg.git
+cd ssg
+make all
 ```
 
-## 🛠️ Development
+Useful targets:
 
-### Available Make Commands
+| Command | Purpose |
+|---|---|
+| `make build` | Build `build/ssg` |
+| `make test` | Run tests |
+| `make test-coverage` | Run tests and generate coverage |
+| `make lint` | Run static checks |
+| `make security` | Run security scanners |
+| `make all` | Dependencies, lint, tests and build |
+| `make install` | Install the binary and manual page |
 
-```bash
-make help           # Show all commands
-make all            # deps + lint + test + build
-make build          # Build binary
-make test           # Run tests
-make lint           # Check code
-make run            # Build and run
-make generate       # Generate site (krowy template)
-make generate-simple # Generate site (simple template)
-make serve          # Generate and serve locally
-make deploy         # Generate with WebP + ZIP for Cloudflare Pages
-make clean          # Clean artifacts
-make install        # Install binary and man page to /usr/local
-```
+Development workflow and review requirements are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Please follow
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Existing contributors are listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
 
-### Creating Your Own Template
+## Documentation
 
-1. Create a folder in `templates/your-template-name/`
-2. Add files:
-   - `css/style.css`
-   - `js/main.js` (optional)
-   - `index.html`, `page.html`, `post.html`, `category.html` (optional)
-3. HTML templates are generated automatically if missing
+| Document | Scope |
+|---|---|
+| [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
+| [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
+| [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
+| [docs/TEMPLATES.md](docs/TEMPLATES.md) | Theme files, engines and rendering contexts |
+| [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) | Go template helper reference |
+| [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Native providers, archives and GitHub Actions |
+| [docs/STYLES.md](docs/STYLES.md) | Built-in theme style guide |
+| [examples/README.md](examples/README.md) | Example projects and workflows |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development and contribution workflow |
+| [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting policy |
 
-## 📄 License
+## License
 
-BSD 3-Clause License - see [LICENSE](LICENSE)
-
-## 👥 Authors
-
-- **spagu** - [GitHub](https://github.com/spagu)
+SSG is distributed under the [BSD 3-Clause License](LICENSE).

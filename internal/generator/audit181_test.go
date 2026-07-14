@@ -204,6 +204,7 @@ func TestGitLastModBatchScan(t *testing.T) {
 		}
 	}
 	run("init", "-q")
+	run("config", "commit.gpgsign", "false")
 	sub := filepath.Join(repo, "content")
 	if err := os.MkdirAll(sub, 0755); err != nil {
 		t.Fatal(err)

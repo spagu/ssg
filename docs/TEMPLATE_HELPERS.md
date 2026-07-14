@@ -200,6 +200,90 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 
 ---
 
+## Classic utility helpers
+
+SSG registers several helper functions in the Go template engine for date formatting, HTML cleaning, metadata lookup, and logic controls.
+
+### HTML and String Utilities
+* **`safeHTML value`** — Returns `template.HTML` to prevent the Go template engine from auto-escaping HTML. Necessary when rendering custom templates or shortcode outputs.
+  ```gotemplate
+  {{ .Content | safeHTML }}
+  ```
+* **`decodeHTML value`** — Unescapes standard HTML entity sequences (e.g. `&amp;` becomes `&`).
+  ```gotemplate
+  {{ decodeHTML .Title }}
+  ```
+* **`stripHTML value`** — Strips all HTML tags (`<...>` pattern) from the string.
+  ```gotemplate
+  {{ .Content | stripHTML }}
+  ```
+* **`stripShortcodes value`** — Strips YouTube and embed WordPress-style bracket shortcodes (`[youtube]...[/youtube]`, `[embed]...[/embed]`) from the text.
+  ```gotemplate
+  {{ .Content | stripShortcodes }}
+  ```
+
+### Date Formatting
+* **`formatDate value`** — Formats a date. If a string is passed, it returns it as-is.
+  ```gotemplate
+  {{ formatDate .Date }}
+  ```
+* **`formatDatePL date`** — Formats a Go `time.Time` date using Polish month names (e.g., `14 lipca 2026`).
+  ```gotemplate
+  {{ formatDatePL .Date }}
+  ```
+
+### Taxonomy and Metadata Lookup
+* **`getCategoryName id`** — Looks up and returns the name of a category by its integer ID from `metadata.json`.
+  ```gotemplate
+  {{ getCategoryName .Category }}
+  ```
+* **`getCategorySlug id`** — Looks up and returns the slug of a category by its integer ID from `metadata.json`.
+  ```gotemplate
+  {{ getCategorySlug .Category }}
+  ```
+* **`isValidCategory id`** — Returns `true` if the category ID is not `1` (ID `1` is commonly reserved for "Bez kategorii").
+  ```gotemplate
+  {{ if isValidCategory .Category }}...{{ end }}
+  ```
+* **`getAuthorName id`** — Looks up and returns the name of an author by their integer ID from `metadata.json`.
+  ```gotemplate
+  {{ getAuthorName .Author }}
+  ```
+* **`hasValidCategories page`** — Returns `true` if the page or post has categories assigned other than ID `1`.
+  ```gotemplate
+  {{ if hasValidCategories . }}...{{ end }}
+  ```
+
+### Pages and URLs
+* **`getURL page`** — Helper function that returns the calculated URL path for the page or post. Equivalent to calling `.GetURL`.
+  ```gotemplate
+  {{ getURL . }}
+  ```
+* **`getCanonical page`** — Helper function that returns the full canonical URL for the page or post. Equivalent to calling `.GetCanonical .Domain`.
+  ```gotemplate
+  {{ getCanonical . }}
+  ```
+
+### Miscellaneous Helpers
+* **`thumbnailFromYoutube value`** — Extracts the YouTube video ID from a YouTube WordPress-style shortcode and returns its high-quality video thumbnail URL (`https://img.youtube.com/vi/<id>/hqdefault.jpg`).
+  ```gotemplate
+  {{ thumbnailFromYoutube .Content }}
+  ```
+* **`recentPosts n`** — Returns a list of the first `n` posts. Safely clamps the count at both ends to prevent slice panics.
+  ```gotemplate
+  {{ range recentPosts 5 }}...{{ end }}
+  ```
+* **`default defaultVal val`** — Returns `defaultVal` if `val` is empty, `nil`, `""`, or `0`. Otherwise returns `val`.
+  ```gotemplate
+  {{ default "No title" .Title }}
+  ```
+* **`dict key1 val1 key2 val2 ...`** — Creates a dictionary (map) from key-value arguments. Useful for passing complex parameters into other helpers like `imageResize`.
+  ```gotemplate
+  {{ $image := imageResize "photo.jpg" (dict "width" 300 "height" 200 "mode" "fill") }}
+  ```
+
+---
+
 ## Availability
 
 - **Theme templates** (`base/index/post/page/category.html`, layouts, partials):

@@ -468,16 +468,25 @@ variables:
 .fi
 .RE
 .SH TEMPLATE ENGINES
-SSG renders templates with the Go engine. Other engines are recognized by the
-\fB\-\-engine\fR flag but are not yet implemented (they are rejected with an error).
+SSG supports rendering templates with four different template engines.
+Select the engine with the
+.B \-\-engine
+flag or the
+.B engine
+configuration option.
 .TP
 .B go
 Go's standard \fBhtml/template\fR package (default). Uses \fB{{ .Field }}\fR
-syntax. This is the only engine currently wired into rendering.
+syntax. Provides the full helper FuncMap and Go block inheritance.
 .TP
-.B pongo2 ", " mustache ", " handlebars
-Not yet implemented. Requesting any of these fails with a clear error instead of
-silently rendering with the Go engine.
+.B pongo2
+Jinja2/Django-like template syntax. Non-Go engines must contain templates authored in their respective syntax.
+.TP
+.B mustache
+Logic-less templates using the Mustache syntax family.
+.TP
+.B handlebars
+Handlebars blocks and helpers.
 .SH TEMPLATE VARIABLES
 All page/post fields are available at the template root level for direct access.
 Custom metadata fields from MDDB frontmatter are also flattened to root level.
@@ -670,8 +679,36 @@ Default templates directory containing theme files.
 .I output/
 Default output directory for generated HTML.
 .SH ENVIRONMENT
-SSG does not use environment variables. All configuration is done via
-command-line flags or configuration files.
+SSG uses the following environment variables:
+.TP
+.B CLOUDFLARE_API_TOKEN ", " CLOUDFLARE_ACCOUNT_ID
+Credentials for the Cloudflare Pages deployment provider.
+.TP
+.B GITHUB_TOKEN
+Authentication token for the GitHub Pages deployment provider.
+.TP
+.B NETLIFY_AUTH_TOKEN ", " NETLIFY_SITE_ID
+Credentials for the Netlify deployment provider.
+.TP
+.B VERCEL_TOKEN ", " VERCEL_ORG_ID
+Credentials for the Vercel deployment provider.
+.TP
+.B FTP_USERNAME ", " FTP_PASSWORD
+Credentials for the FTP deployment provider.
+.TP
+.B SSH_USERNAME ", " SSH_PASSWORD ", " SSH_KEY_FILE ", " SSH_KEY_PASSPHRASE ", " SSH_KNOWN_HOSTS
+Credentials and settings for the SFTP deployment provider.
+.TP
+.B SSG_OUTPUT_DIR ", " SSG_PHASE ", " SSG_PAGE_PATH
+Context variables supplied to custom build hooks during execution.
+.PP
+Additionally, any custom variables defined under the
+.B variables
+key in configuration are exported to build hooks with the
+.B SSG_
+prefix. Values starting with
+.B $
+in configuration are resolved from matching host environment variables at build time.
 .SH BUGS
 Report bugs at: https://github.com/spagu/ssg/issues
 .SH AUTHORS

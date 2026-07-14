@@ -2,7 +2,8 @@
 # SSG uploads the site itself via the Cloudflare Pages Direct Upload API — no wrangler.
 # Copy this workflow to your repository and customize the inputs.
 #
-# NOTE: use `uses: spagu/ssg@main` for the latest, or `@v1` after release.
+# Use `@v1` for the latest stable v1 release. Use `@main` only to test
+# unreleased changes.
 #
 # Required repository secrets:
 #   CLOUDFLARE_API_TOKEN   - token with the "Cloudflare Pages: Edit" permission
@@ -26,7 +27,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Build and deploy to Cloudflare Pages
-        uses: spagu/ssg@main
+        uses: spagu/ssg@v1
         with:
           source: "my-content" # Your content folder
           template: "krowy" # Template: 'simple' or 'krowy'

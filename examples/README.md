@@ -2,6 +2,9 @@
 
 This directory contains example GitHub Actions workflows for deploying sites built with SSG.
 
+For the complete provider, credential, input and output reference, see
+[`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
+
 ## Available Examples
 
 ### [`cloudflare-pages.yml`](workflows/cloudflare-pages.yml)
@@ -49,6 +52,10 @@ All examples use the SSG GitHub Action:
 | `clean` | Clean output before build | `false` |
 | `engine` | Template engine | `go` |
 | `online-theme` | Download theme from URL | - |
+| `deploy` | Native deployment provider | - |
+| `deploy-project` | Provider project/site name | - |
+| `deploy-branch` | Provider branch | - |
+| `deploy-target` | Git, FTP or SFTP target | - |
 
 ### Available Outputs
 
