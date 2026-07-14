@@ -16,6 +16,7 @@ const baseTemplate = `{{define "base"}}<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
@@ -95,6 +96,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
@@ -167,6 +169,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
@@ -223,6 +226,7 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
@@ -291,6 +295,7 @@ const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">

@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] - 2026-07-14
+
+Template query language, SCSS, accessibility and a performance batch
+(PERF-004/005/007/008). All new features are opt-in; performance changes keep
+output byte-equivalent for generated pages.
+
+### Added
+- ✨ **Template collection & conditional helpers** — Go templates can now query
+  content in pipelines (collection is always the last argument):
+  `where` `filter` (eq/ne/gt/ge/lt/le/contains/notContains/in/notIn) `sort`
+  `first` `last` `limit` `offset` `groupBy` `uniq` `uniqBy` `reverse` `slice`
+  `pluck` `indexBy`; conditionals `in` `notIn` `contains` `startsWith`
+  `endsWith` `matches` (cached RE2) `isNil` `isEmpty` `ternary`; content
+  wrappers `latest` `published` `byTag` `byCategory` `byAuthor` `related`.
+  Generic over structs/pointers/maps via reflection, never mutate input, never
+  panic — invalid usage fails the render with a descriptive error. Safe subset
+  also exposed to shortcode templates. Note: registering `slice` overrides Go's
+  builtin sub-slicing. Full reference: `docs/TEMPLATE_HELPERS.md`.
+- 🎨 **SCSS/Sass compilation (ASSET-003)** — `--scss` / `scss: true` compiles
+  `*.scss` → `*.css` via the optional dart-sass CLI before bundling/minify
+  (partials `_*.scss` resolve via `@use`; all `.scss` sources are removed from
+  the output). Missing binary skips the step with a warning (cwebp philosophy);
+  `--sass-binary=` overrides PATH lookup; paths hardened per SEC-011.
+- 🖼️ **Image processing in templates** (`audit/images-processing-feature.md`) —
+  `imageInfo`, `imageResize` (scale/fit_width/fit_height/fit/fill), `imageCrop`
+  (explicit rect, 9 anchors + compass aliases, focal points), `imageFilter`
+  (grayscale/invert/sepia/brightness/contrast/saturation/gamma/blur/sharpen/
+  opacity), `imageProcess` (ordered pipeline) and `imageSrcSet` (responsive
+  variants). Deterministic content-addressed cache (`.ssg-cache/images/`) with
+  atomic publishing into `processed_images/`; EXIF orientation normalized and
+  metadata stripped; path traversal/symlink escapes rejected; decompression-bomb
+  limits; animated GIFs error instead of silently flattening. JPEG/PNG pure Go
+  (disintegration/imaging); WebP via the optional cwebp tool. Available in theme
+  AND shortcode templates. Reference: `docs/IMAGES.md`.
+- ♿ **Skip-links (FE-004, WCAG 2.2 2.4.1)** — every theme (krowy, simple, imd,
+  engine examples, ananke, embedded defaults) gains a visually-hidden
+  "Skip to content" link before the navigation plus `:focus-visible` outlines.
+
+### Performance
+- ⚡ **Markdown render cache (PERF-004)** — each unique markdown body is
+  converted by goldmark exactly once per build; feeds, search index, JSON
+  output and both page-format paths reuse the memo (verified by a
+  conversion-counter test).
+- ⚡ **Single-write HTML pipeline (PERF-005)** — SEO block, KaTeX injection,
+  relative links, prettify and HTML minification are applied in memory at
+  render time, so each page is written once instead of being re-read/re-written
+  by up to 8 tree-walks. Only genuinely global passes remain (bundling, CSS/JS
+  minify, fingerprint, link check). Behaviour note: HTML copied verbatim from
+  `static/` is no longer post-processed (matching its documented contract).
+- ⚡ **Co-located assets only where referenced (PERF-007)** — a post's category
+  directory assets are copied only into posts that actually reference them by
+  filename, eliminating O(posts × assets) duplication and output-dir bloat.
+- ⚡ **Watch-mode signature cache (PERF-008)** — the content signature streams
+  file hashes (no whole-file loads) and caches them per path keyed by
+  size+mtime, so a change event re-hashes only what changed; touch-only events
+  still skip rebuilds (PLAT-006 semantics preserved).
+
 ## [1.8.2] - 2026-07-11
 
 ### Changed

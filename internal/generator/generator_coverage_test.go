@@ -17,7 +17,7 @@ import (
 func TestCopyColocatedAssetsNonexistentDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	gen := &Generator{config: Config{Quiet: true}}
-	err := gen.copyColocatedAssets(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dst"))
+	err := gen.copyColocatedAssets(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dst"), "")
 	if err != nil {
 		t.Errorf("Expected nil error for nonexistent source dir, got: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestCopyColocatedAssetsNoAssets(t *testing.T) {
 
 	dstDir := filepath.Join(tmpDir, "dst")
 	gen := &Generator{config: Config{Quiet: false}}
-	if err := gen.copyColocatedAssets(srcDir, dstDir); err != nil {
+	if err := gen.copyColocatedAssets(srcDir, dstDir, ""); err != nil {
 		t.Fatalf("copyColocatedAssets failed: %v", err)
 	}
 }
@@ -1658,8 +1658,8 @@ func TestPrettifyIfRequestedError(t *testing.T) {
 func TestMinifyIfRequestedError(t *testing.T) {
 	gen := &Generator{
 		config: Config{
-			MinifyHTML: true,
-			OutputDir:  "/nonexistent/path",
+			MinifyCSS: true, // HTML is minified at render time now (PERF-005)
+			OutputDir: "/nonexistent/path",
 		},
 	}
 	err := gen.minifyIfRequested()

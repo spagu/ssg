@@ -23,6 +23,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
@@ -133,6 +134,8 @@ type Config struct {
 	// Fingerprint enables content-hash asset names + manifest + reference rewrite
 	// for immutable caching; runs as the terminal asset step (ASSET-001).
 	Fingerprint bool
+	SCSS        bool   // compile *.scss via dart-sass (ASSET-003)
+	SassBinary  string // explicit dart-sass path; empty = PATH lookup
 
 	// Responsive image presets (ASSET-004) are consumed directly by the webp
 	// package from the CLI config (GO-043: dead generator copies removed).
@@ -214,6 +217,17 @@ type Generator struct {
 	refCache       map[string]bool                // link-checker target memo (PERF-009)
 	siteLoc        *time.Location                 // resolved Timezone; nil = no conversion (I18N-001)
 	langLocs       map[string]*time.Location      // per-language zone overrides (I18N-001)
+
+	// mdCache memoizes goldmark conversions keyed by the exact markdown source, so
+	// feeds, the search index, JSON output and per-path renders do not re-convert
+	// the same content (PERF-004). mdConversions counts REAL conversions and backs
+	// the once-per-content acceptance test. Builds are single-goroutine.
+	mdCache       map[string]string
+	mdConversions int
+
+	// images is the lazily-built processor behind the image* template helpers
+	// (audit/images-processing-feature.md).
+	images *images.Processor
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -309,6 +323,7 @@ func New(cfg Config) (*Generator, error) {
 		md:             buildMarkdown(cfg),
 		sanitizer:      newSanitizer(cfg.SanitizeHTML),
 		shortcodeTmpls: make(map[string]*template.Template),
+		mdCache:        make(map[string]string),
 		bracketRes:     bracketRes,
 		refCache:       make(map[string]bool),
 		siteLoc:        siteLoc,
@@ -449,16 +464,13 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.injectMathIfRequested(); err != nil {
-		return err
-	}
+	// Per-file HTML transforms (SEO, math, relative links, prettify, HTML minify)
+	// are applied at render time in a single write (PERF-005); only genuinely
+	// global passes remain below.
 
-	if err := g.convertRelativeLinksIfRequested(); err != nil {
-		return err
-	}
-
-	if err := g.prettifyIfRequested(); err != nil {
-		return err
+	// SCSS compiles before bundling so bundles/minify/fingerprint see CSS (ASSET-003).
+	if err := g.compileSCSSIfRequested(); err != nil {
+		return fmt.Errorf("compiling SCSS: %w", err)
 	}
 
 	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
@@ -466,6 +478,7 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("bundling assets: %w", err)
 	}
 
+	// CSS/JS minification must run after bundling; HTML was minified at render.
 	if err := g.minifyIfRequested(); err != nil {
 		return err
 	}
@@ -596,14 +609,44 @@ func (g *Generator) prettifyIfRequested() error {
 	return nil
 }
 
-// minifyIfRequested minifies output if configured
+// minifyIfRequested minifies CSS/JS assets if configured. It runs after
+// bundling; HTML minification happens per file at render time (PERF-005).
 func (g *Generator) minifyIfRequested() error {
-	if !g.config.MinifyHTML && !g.config.MinifyCSS && !g.config.MinifyJS {
+	if !g.config.MinifyCSS && !g.config.MinifyJS {
 		return nil
 	}
-	g.log("🗜️  Minifying output...")
-	if err := g.minifyOutput(); err != nil {
+	g.log("🗜️  Minifying assets...")
+	if err := g.minifyAssetsOutput(); err != nil {
 		return fmt.Errorf("minifying output: %w", err)
+	}
+	return nil
+}
+
+// minifyAssetsOutput minifies CSS and JS files in the output directory. HTML is
+// deliberately excluded — it is minified in memory at render time (PERF-005).
+func (g *Generator) minifyAssetsOutput() error {
+	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		if merr := g.minifyAssetByExt(path); merr != nil {
+			return fmt.Errorf("minifying %s: %w", path, merr)
+		}
+		return nil
+	})
+}
+
+// minifyAssetByExt minifies one asset file when its type's minification is on.
+func (g *Generator) minifyAssetByExt(path string) error {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".css":
+		if g.config.MinifyCSS {
+			return g.minifyAssetFile(path, minifyCSSFile, minifyCSSLinePreserving)
+		}
+	case ".js":
+		if g.config.MinifyJS {
+			return g.minifyAssetFile(path, minifyJSFile, minifyJSLinePreserving)
+		}
 	}
 	return nil
 }
@@ -1451,18 +1494,23 @@ func (g *Generator) loadEngineTemplates(templatePath string, funcs template.Func
 }
 
 // renderWithEngine renders a named template via the configured non-Go engine (GO-007).
-func (g *Generator) renderWithEngine(templateName, outputPath string, data interface{}) error {
+func (g *Generator) renderWithEngine(templateName, outputPath string, data interface{}, page *models.Page, isPost bool) error {
 	t, ok := g.engineTmpls[templateName]
 	if !ok {
 		// Mirror html/template's message so existing fallback logic keeps working.
 		return fmt.Errorf("no such template %q", templateName)
 	}
-	file, err := os.Create(outputPath) // #nosec G304 -- CLI tool creates user's output files
-	if err != nil {
+	// Render into memory so the per-file transforms produce one write (PERF-005).
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, g.prepAltData(data)); err != nil {
 		return err
 	}
-	defer func() { _ = file.Close() }()
-	return t.Execute(file, g.prepAltData(data))
+	out := buf.String()
+	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
+		out = g.transformHTMLPage(out, page, isPost)
+	}
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(outputPath, []byte(out), 0644)
 }
 
 // prepAltData adapts the Go template context for non-Go engines: template.HTML
@@ -1563,7 +1611,7 @@ func rewriteMdLinks(html string, mdLinkMap map[string]string) string {
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"safeHTML":             g.tmplSafeHTML(pageLinks, mdLinkMap),
 		"decodeHTML":           tmplDecodeHTML,
 		"formatDate":           tmplFormatDate,
@@ -1581,7 +1629,48 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"recentPosts":          g.tmplRecentPosts,
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
+
+		// Collection helpers (v1.8.3): the collection is the FINAL argument so
+		// helpers chain in pipelines — see docs/TEMPLATE_HELPERS.md.
+		"where":   tmplWhere,
+		"filter":  tmplFilter,
+		"sort":    tmplSortBy,
+		"first":   tmplFirst,
+		"last":    tmplLast,
+		"limit":   tmplLimit,
+		"offset":  tmplOffset,
+		"groupBy": tmplGroupBy,
+		"uniq":    tmplUniq,
+		"uniqBy":  tmplUniqBy,
+		"reverse": tmplReverse,
+		"slice":   tmplSliceOf, // NOTE: overrides Go's builtin slice(str,i,j)
+		"pluck":   tmplPluck,
+		"indexBy": tmplIndexBy,
+
+		// Conditional helpers (v1.8.3).
+		"in":         tmplIn,
+		"notIn":      tmplNotIn,
+		"contains":   tmplContains,
+		"startsWith": strings.HasPrefix,
+		"endsWith":   strings.HasSuffix,
+		"matches":    tmplMatches,
+		"isNil":      tmplIsNil,
+		"isEmpty":    tmplIsEmpty,
+		"ternary":    tmplTernary,
+
+		// Content helpers (v1.8.3): wrappers over the generic ones.
+		"latest":     tmplLatest,
+		"published":  tmplPublished,
+		"byTag":      tmplByTag,
+		"byCategory": g.tmplByCategory,
+		"byAuthor":   g.tmplByAuthor,
+		"related":    tmplRelated,
 	}
+	// Image-processing helpers (imageInfo/Resize/Crop/Process/Filter/SrcSet).
+	for name, fn := range g.imageFuncs() {
+		funcs[name] = fn
+	}
+	return funcs
 }
 
 // tmplDefault returns the default value if the given value is empty
@@ -1704,6 +1793,13 @@ func linkifyListItem(line, content string, pageLinks map[string]string) string {
 // convertMarkdownToHTML converts markdown content to HTML using the generator's
 // configured renderer (footnotes/highlighting/heading-IDs per config).
 func (g *Generator) convertMarkdownToHTML(s string) string {
+	// Memoized per exact source: feeds, search index, JSON output and both
+	// page-format paths reuse one conversion instead of 6–8 (PERF-004).
+	if g.mdCache != nil {
+		if html, ok := g.mdCache[s]; ok {
+			return html
+		}
+	}
 	md := g.md
 	if md == nil {
 		md = buildMarkdown(g.config)
@@ -1713,7 +1809,12 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		fmt.Printf("   ⚠️  Warning: markdown conversion failed: %v\n", err)
 		return s
 	}
-	return buf.String()
+	out := buf.String()
+	if g.mdCache != nil {
+		g.mdCache[s] = out
+		g.mdConversions++
+	}
+	return out
 }
 
 // tocHTML builds a table of contents from the headings in markdown source, using
@@ -1938,7 +2039,7 @@ func (g *Generator) parseShortcodeTemplate(templatePath string) *template.Templa
 
 // shortcodeFuncMap returns template functions available in shortcode templates
 func (g *Generator) shortcodeFuncMap() template.FuncMap {
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"safeHTML": func(s string) template.HTML {
 			return template.HTML(s) // #nosec G203 -- shortcode content is author-controlled
 		},
@@ -1953,7 +2054,25 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"stripHTML":       tmplStripHTML,
 		"default":         tmplDefault,
 		"dict":            tmplDict,
+
+		// Safe, deterministic conditional helpers (v1.8.3). Collection helpers
+		// that depend on site-wide data stay normal-template-only by design.
+		"slice":      tmplSliceOf,
+		"in":         tmplIn,
+		"notIn":      tmplNotIn,
+		"contains":   tmplContains,
+		"startsWith": strings.HasPrefix,
+		"endsWith":   strings.HasSuffix,
+		"matches":    tmplMatches,
+		"isNil":      tmplIsNil,
+		"isEmpty":    tmplIsEmpty,
+		"ternary":    tmplTernary,
 	}
+	// Image-processing helpers — shortcodes are a primary use case for them.
+	for name, fn := range g.imageFuncs() {
+		funcs[name] = fn
+	}
+	return funcs
 }
 
 func tmplDecodeHTML(s string) string {
@@ -2291,7 +2410,7 @@ func (g *Generator) generatePage(page models.Page) error {
 
 		// Copy co-located assets only to the directory-style path (avoid duplicates)
 		if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
-			if err := g.copyColocatedAssets(page.SourceDir, outputDir); err != nil {
+			if err := g.copyColocatedAssets(page.SourceDir, outputDir, page.Content); err != nil {
 				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
 			}
 		}
@@ -2304,17 +2423,18 @@ func (g *Generator) generatePage(page models.Page) error {
 			templateName = page.Template + ".html"
 		}
 
-		if err := g.renderTemplate(templateName, outputPath, data); err != nil {
+		// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
+		// single write (PERF-005).
+		if err := g.renderPageTemplate(templateName, outputPath, data, &page, false); err != nil {
 			// Fallback to page.html if custom template not found
 			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
-				if err := g.renderTemplate(pageHTMLName, outputPath, data); err != nil {
+				if err := g.renderPageTemplate(pageHTMLName, outputPath, data, &page, false); err != nil {
 					return err
 				}
 			} else {
 				return err
 			}
 		}
-		g.injectSEO(outputPath, page, false)
 		g.writeJSONOutput(page, outputPath)
 	}
 
@@ -2362,15 +2482,15 @@ func (g *Generator) generatePost(post models.Page) error {
 
 		// Copy co-located assets only to the directory-style path (avoid duplicates)
 		if post.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
-			if err := g.copyColocatedAssets(post.SourceDir, outputDir); err != nil {
+			if err := g.copyColocatedAssets(post.SourceDir, outputDir, post.Content); err != nil {
 				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for post %s: %v\n", post.Slug, err)
 			}
 		}
 
-		if err := g.renderTemplate("post.html", outputPath, data); err != nil {
+		// Render + per-file transforms in a single write (PERF-005).
+		if err := g.renderPageTemplate("post.html", outputPath, data, &post, true); err != nil {
 			return err
 		}
-		g.injectSEO(outputPath, post, true)
 		g.writeJSONOutput(post, outputPath)
 	}
 
@@ -2410,8 +2530,11 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 			fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
 			continue
 		}
+		// Alias stubs get the same per-file transforms as rendered pages (PERF-005),
+		// matching the former tree-walk behaviour (minify/prettify/relative links).
+		stub := g.transformHTMLPage(aliasStubHTML(target), nil, false)
 		// #nosec G306 -- Web content files need to be world-readable
-		if err := os.WriteFile(outPath, []byte(aliasStubHTML(target)), 0644); err != nil {
+		if err := os.WriteFile(outPath, []byte(stub), 0644); err != nil {
 			fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
 		}
 	}
@@ -2429,28 +2552,9 @@ func (g *Generator) injectSEO(outputPath string, page models.Page, isPost bool) 
 	if err != nil {
 		return
 	}
-	s := string(data)
-	var b strings.Builder
-
-	if !strings.Contains(s, "og:title") {
-		b.WriteString(g.buildOpenGraph(page, isPost))
-	}
-	if g.config.Feed && !strings.Contains(s, "application/atom+xml") {
-		fmt.Fprintf(&b, `<link rel="alternate" type="application/atom+xml" title=%q href="/feed.xml">`+"\n",
-			stdhtml.EscapeString(g.config.Domain))
-	}
-	if !strings.Contains(s, "hreflang") {
-		b.WriteString(string(g.hreflangTags(page)))
-	}
-	if b.Len() == 0 {
+	out := g.seoHTMLString(string(data), page, isPost)
+	if out == string(data) {
 		return
-	}
-
-	var out string
-	if i := strings.LastIndex(s, "</head>"); i >= 0 {
-		out = s[:i] + b.String() + s[i:]
-	} else {
-		out = b.String() + s
 	}
 	// #nosec G306,G703 -- CLI rewrites its own just-rendered output file
 	_ = os.WriteFile(outputPath, []byte(out), 0644)
@@ -2575,16 +2679,7 @@ func (g *Generator) generateCategories() error {
 // renderTemplate renders a template to a file, dispatching to the configured
 // non-Go engine when one is active (GO-007).
 func (g *Generator) renderTemplate(templateName, outputPath string, data interface{}) error {
-	if g.engine != nil {
-		return g.renderWithEngine(templateName, outputPath, data)
-	}
-	file, err := os.Create(outputPath) // #nosec G304 -- CLI tool creates user's output files
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
-
-	return g.tmpl.ExecuteTemplate(file, templateName, data)
+	return g.renderPageTemplate(templateName, outputPath, data, nil, false)
 }
 
 // contentContextValue returns the template-context value for raw page content.
@@ -2809,7 +2904,7 @@ func isContentAsset(name string) bool {
 
 // copyColocatedAssets copies non-markdown files from a content source directory
 // to the corresponding output directory of the generated page/post
-func (g *Generator) copyColocatedAssets(sourceDir, outputDir string) error {
+func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) error {
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
 		return nil // Source dir might not exist, that's fine
@@ -2821,6 +2916,13 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir string) error {
 			continue
 		}
 		if !isContentAsset(entry.Name()) {
+			continue
+		}
+		// PERF-007: a post's SourceDir is its whole category directory, so copying
+		// every asset would duplicate them into every sibling post's output dir
+		// (O(posts × assets) I/O and disk bloat). Copy only assets this page
+		// actually references by filename.
+		if !strings.Contains(content, entry.Name()) {
 			continue
 		}
 
@@ -3432,50 +3534,9 @@ func minifyHTMLFile(path string) error {
 	if err != nil {
 		return err
 	}
-
-	s := string(content)
-
-	// Extract and preserve htmlmin:ignore blocks
-	preservedBlocks := make(map[string]string)
-	preserve := func(inner string) string {
-		placeholder := fmt.Sprintf("__HTMLMIN_PRESERVE_%d__", len(preservedBlocks))
-		preservedBlocks[placeholder] = inner
-		return placeholder
-	}
-	s = minIgnoreBlockRe.ReplaceAllStringFunc(s, func(match string) string {
-		// Extract content between ignore tags
-		inner := minIgnoreBlockRe.FindStringSubmatch(match)
-		if len(inner) > 1 {
-			return preserve(inner[1])
-		}
-		return match
-	})
-
-	// Preserve whitespace-sensitive blocks: collapsing runs inside <pre>/<code>
-	// joins highlighted code lines into unreadable one-liners (GO-022).
-	s = minPreserveTagRe.ReplaceAllStringFunc(s, preserve)
-
-	// Remove HTML comments (except conditionals)
-	s = minHTMLCommentRe.ReplaceAllStringFunc(s, func(match string) string {
-		if strings.HasPrefix(match, "<!--[if") {
-			return match
-		}
-		return ""
-	})
-	// Remove whitespace between tags
-	s = minTagGapRe.ReplaceAllString(s, "><")
-	// Collapse multiple whitespaces
-	s = minMultiSpaceRe.ReplaceAllString(s, " ")
-	// Trim lines
-	s = strings.TrimSpace(s)
-
-	// Restore preserved blocks
-	for placeholder, content := range preservedBlocks {
-		s = strings.ReplaceAll(s, placeholder, content)
-	}
-
+	// Delegates to the render-time string transform (PERF-005, one source of truth).
 	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(s), 0644)
+	return os.WriteFile(path, []byte(minifyHTMLString(string(content))), 0644)
 }
 
 // minifyCSSFile removes unnecessary whitespace and comments from CSS
@@ -3873,28 +3934,9 @@ func prettifyHTMLFile(path string) error {
 	if err != nil {
 		return err
 	}
-
-	s := string(content)
-
-	// Normalize line endings (handle CRLF)
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
-
-	// Split into lines and filter out empty/whitespace-only lines
-	lines := strings.Split(s, "\n")
-	var result []string
-	for _, line := range lines {
-		trimmed := strings.TrimRight(line, " \t") // Remove trailing whitespace
-		if strings.TrimSpace(trimmed) != "" {     // Keep only non-empty lines
-			result = append(result, trimmed)
-		}
-	}
-
-	// Join with newlines and ensure file ends with single newline
-	s = strings.Join(result, "\n") + "\n"
-
+	// Delegates to the render-time string transform (PERF-005, one source of truth).
 	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(s), 0644)
+	return os.WriteFile(path, []byte(prettifyHTMLString(string(content))), 0644)
 }
 
 // convertToRelativeLinks converts absolute URLs to relative links in all HTML files
@@ -3916,50 +3958,7 @@ func convertToRelativeLinksFile(path string, domain string) error {
 	if err != nil {
 		return err
 	}
-
-	s := string(content)
-
-	// Build patterns for the domain (with and without trailing slash, http and https)
-	// Remove protocol if present to get base domain
-	baseDomain := domain
-	baseDomain = strings.TrimPrefix(baseDomain, "https://")
-	baseDomain = strings.TrimPrefix(baseDomain, "http://")
-	baseDomain = strings.TrimSuffix(baseDomain, "/")
-
-	// Replace patterns: href="https://domain/path" -> href="/path"
-	// and src="https://domain/path" -> src="/path"
-	patterns := []string{
-		"https://" + baseDomain,
-		"http://" + baseDomain,
-		"//" + baseDomain,
-	}
-
-	for _, pattern := range patterns {
-		// Replace href="pattern/..." with href="/..."
-		// Replace href="pattern" with href="/"
-		s = strings.ReplaceAll(s, `href="`+pattern+`"`, `href="/"`)
-		s = strings.ReplaceAll(s, `href='`+pattern+`'`, `href='/'`)
-		s = strings.ReplaceAll(s, `href="`+pattern+`/`, `href="/`)
-		s = strings.ReplaceAll(s, `href='`+pattern+`/`, `href='/`)
-
-		// Replace src="pattern/..." with src="/..."
-		s = strings.ReplaceAll(s, `src="`+pattern+`"`, `src="/"`)
-		s = strings.ReplaceAll(s, `src='`+pattern+`'`, `src='/'`)
-		s = strings.ReplaceAll(s, `src="`+pattern+`/`, `src="/`)
-		s = strings.ReplaceAll(s, `src='`+pattern+`/`, `src='/`)
-
-		// Replace action="pattern/..." with action="/..."
-		s = strings.ReplaceAll(s, `action="`+pattern+`"`, `action="/"`)
-		s = strings.ReplaceAll(s, `action='`+pattern+`'`, `action='/'`)
-		s = strings.ReplaceAll(s, `action="`+pattern+`/`, `action="/`)
-		s = strings.ReplaceAll(s, `action='`+pattern+`/`, `action='/`)
-
-		// Replace url(pattern/...) in inline styles
-		s = strings.ReplaceAll(s, `url(`+pattern+`/`, `url(/`)
-		s = strings.ReplaceAll(s, `url("`+pattern+`/`, `url("/`)
-		s = strings.ReplaceAll(s, `url('`+pattern+`/`, `url('/`)
-	}
-
+	// Delegates to the render-time string transform (PERF-005, one source of truth).
 	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(s), 0644)
+	return os.WriteFile(path, []byte(relativizeHTMLString(string(content), domain)), 0644)
 }

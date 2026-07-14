@@ -8,8 +8,6 @@ package main
 import (
 	"archive/zip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -102,12 +100,15 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
 	dirs := watchDirs(cfg)
+	// One cache for the whole loop: unchanged files keep their hash between
+	// polls, so a change event never re-reads the entire content tree (PERF-008).
+	sigCache := newFileSigCache()
 	lastBuild := time.Now()
-	lastSig := contentSignature(dirs)
+	lastSig := sigCache.signature(dirs)
 
 	for {
 		time.Sleep(1 * time.Second)
-		lastBuild, lastSig = watchIteration(dirs, lastBuild, lastSig, func() {
+		lastBuild, lastSig = watchIteration(dirs, sigCache, lastBuild, lastSig, func() {
 			rebuildOnChange(genCfg, cfg)
 		})
 	}
@@ -118,11 +119,11 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 // The build timestamp is taken BEFORE the rebuild runs, so files edited while
 // the build is in progress are picked up on the next poll instead of being
 // lost (GO-025).
-func watchIteration(dirs []string, lastBuild time.Time, lastSig string, rebuild func()) (time.Time, string) {
+func watchIteration(dirs []string, sigCache *fileSigCache, lastBuild time.Time, lastSig string, rebuild func()) (time.Time, string) {
 	if !hasChanges(dirs, lastBuild) {
 		return lastBuild, lastSig
 	}
-	sig := contentSignature(dirs)
+	sig := sigCache.signature(dirs)
 	if sig == lastSig {
 		// mtime changed but bytes did not — skip the rebuild (PLAT-006).
 		return time.Now(), lastSig
@@ -139,28 +140,6 @@ func watchDirs(cfg *config.Config) []string {
 		dirs = append(dirs, cfg.DataDir)
 	}
 	return dirs
-}
-
-// contentSignature returns a hash of the bytes of every file under dirs, so a
-// rebuild can be skipped when nothing actually changed (PLAT-006). Deterministic:
-// filepath.Walk visits entries in lexical order.
-func contentSignature(dirs []string) string {
-	h := sha256.New()
-	for _, dir := range dirs {
-		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error { // #nosec G703 -- best-effort watch signature
-			if err != nil || info.IsDir() {
-				return nil
-			}
-			data, rerr := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own content dirs; path from local Walk
-			if rerr != nil {
-				return nil
-			}
-			_, _ = fmt.Fprintf(h, "%s:%d:", path, len(data))
-			_, _ = h.Write(data)
-			return nil
-		})
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // runMddbWatchLoop continuously polls MDDB checksum and rebuilds on changes
@@ -419,6 +398,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Permalinks:        cfg.Permalinks,
 		LastmodFromGit:    cfg.LastmodFromGit,
 		Fingerprint:       cfg.Fingerprint,
+		SCSS:              cfg.SCSS,
+		SassBinary:        cfg.SassBinary,
 		Timezone:          cfg.Timezone,
 		LanguageTimezones: cfg.LanguageTimezones,
 		Math:              cfg.Math,
@@ -493,6 +474,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--minify-all":     &cfg.MinifyAll,
 		"--minify-html":    &cfg.MinifyHTML, "--minify-css": &cfg.MinifyCSS, "--minify-js": &cfg.MinifyJS,
 		"--sourcemap": &cfg.SourceMap, "--fingerprint": &cfg.Fingerprint,
+		"--scss":             &cfg.SCSS,
 		"--lastmod-from-git": &cfg.LastmodFromGit,
 		"--math":             &cfg.Math, "--feed": &cfg.Feed,
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
@@ -592,6 +574,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--static-dir=":       &cfg.StaticDir,
 		"--data-dir=":         &cfg.DataDir,
 		"--image-sizes-attr=": &cfg.ImageSizesAttr,
+		"--sass-binary=":      &cfg.SassBinary,
 		"--highlight-style=":  &cfg.HighlightStyle,
 		"--default-language=": &cfg.DefaultLanguage,
 		"--timezone=":         &cfg.Timezone,
@@ -1096,6 +1079,8 @@ func printUsage() {
 	fmt.Println("  --minify-js            - Minify JS output")
 	fmt.Println("  --sourcemap            - Emit v3 source maps (*.js.map/*.css.map) for minified JS/CSS")
 	fmt.Println("  --fingerprint          - Content-hash CSS/JS names + manifest for immutable caching")
+	fmt.Println("  --scss                 - Compile *.scss via dart-sass before bundling/minify (optional tool)")
+	fmt.Println("  --sass-binary=PATH     - Explicit dart-sass binary (default: `sass` from PATH)")
 	fmt.Println("  --lastmod-from-git     - Derive sitemap <lastmod> from each file's last git commit")
 	fmt.Println("  --permalink-post=PAT   - Post URL pattern, tokens :year :month :day :slug :category")
 	fmt.Println("  --permalink-page=PAT   - Page URL pattern (same tokens)")

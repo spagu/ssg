@@ -115,6 +115,7 @@ SSG includes powerful asset processing:
 - Go 1.26 or later
 - Make (optional, for Makefile)
 - `cwebp` (optional, for WebP conversion)
+- `sass` (dart-sass, optional — for `--scss` compilation)
 
 ## 🚀 Installation
 
@@ -130,8 +131,8 @@ curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
 |----------|---------|
 | **Homebrew** (macOS/Linux) | `brew install spagu/tap/ssg` |
 | **Snap** (Ubuntu) | `snap install static-site-generator && sudo snap alias static-site-generator ssg` |
-| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.2/ssg_1.8.2_amd64.deb && sudo dpkg -i ssg_1.8.2_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.2/ssg-1.8.2-1.x86_64.rpm` |
+| **Debian/Ubuntu** | `wget https://github.com/spagu/ssg/releases/download/v1.8.3/ssg_1.8.3_amd64.deb && sudo dpkg -i ssg_1.8.3_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install https://github.com/spagu/ssg/releases/download/v1.8.3/ssg-1.8.3-1.x86_64.rpm` |
 | **FreeBSD** | `pkg install ssg` or from ports |
 | **OpenBSD** | From ports: `/usr/ports/www/ssg` |
 
@@ -146,7 +147,7 @@ Download pre-built binaries from [GitHub Releases](https://github.com/spagu/ssg/
 | FreeBSD | [ssg-freebsd-amd64.tar.gz](https://github.com/spagu/ssg/releases/latest) | [ssg-freebsd-arm64.tar.gz](https://github.com/spagu/ssg/releases/latest) |
 | Windows | [ssg-windows-amd64.zip](https://github.com/spagu/ssg/releases/latest) | [ssg-windows-arm64.zip](https://github.com/spagu/ssg/releases/latest) |
 
-> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.2`).
+> **Previous versions:** the DEB/RPM commands above pin the current release (`v1.8.3`).
 > For an older version, replace it with the tag you want — every release (with per-version
 > changes) is listed on the [Releases page](https://github.com/spagu/ssg/releases) and in
 > the [CHANGELOG](CHANGELOG.md). Tarball/ZIP links use `/releases/latest/` so they always
@@ -406,6 +407,8 @@ applied automatically by the server.
 | `--minify-js` | Minify JS output |
 | `--sourcemap` | Emit v3 source maps (`*.js.map`/`*.css.map`) for minified JS/CSS (minification is line-preserving so mappings are exact) |
 | `--fingerprint` | Content-hash CSS/JS to `name.<hash8>.ext` + `assets-manifest.json`, rewriting references in HTML/CSS (immutable caching) |
+| `--scss` | Compile `*.scss` → `*.css` via the optional [dart-sass](https://sass-lang.com/dart-sass/) CLI before bundling/minify; partials (`_*.scss`) resolve via `@use`, all `.scss` sources are removed from the output. Missing binary = skip with a warning |
+| `--sass-binary=PATH` | Explicit dart-sass binary (default: `sass` from PATH) |
 | `--paginate=N` | Posts per index page; adds `/page/N/` + a `.Pager` context. `0` = disabled (default) |
 | `--lastmod-from-git` | Derive sitemap `<lastmod>` from each source file's last git commit (fallback: `modified`/`date`) |
 | `--permalink-post=PAT` | Post URL pattern with tokens `:year :month :day :slug :category` (e.g. `/:year/:month/:slug/`) |
@@ -1434,6 +1437,66 @@ All fields are available at template root level:
 | `{{.customField}}` | Any custom frontmatter field |
 
 For backward compatibility, `{{.Page.Title}}` and `{{.Post.Title}}` also work.
+
+### Template Helpers — collections & conditionals
+
+*Since v1.8.3*, Go templates can query content directly — filter, sort, group,
+slice and test collections in a pipeline (the collection is always the **last**
+argument, so helpers chain):
+
+{% raw %}
+```gotemplate
+{{ $recentGuides := .Site.Pages
+    | where "Type" "guide"
+    | sort "Modified" "desc"
+    | first 5
+}}
+{{ range $recentGuides }}<h2>{{ .Title }}</h2>{{ end }}
+
+{{ if in .Page.Type (slice "guide" "tutorial") }}supported{{ end }}
+{{ .Site.Posts | related .Page 3 }}   {{/* related content by tags/categories/author */}}
+```
+{% endraw %}
+
+| Group | Helpers |
+|-------|---------|
+| Collections | `where` `filter` `sort` `first` `last` `limit` `offset` `groupBy` `uniq` `uniqBy` `reverse` `slice` `pluck` `indexBy` |
+| Conditionals | `in` `notIn` `contains` `startsWith` `endsWith` `matches` `isNil` `isEmpty` `ternary` |
+| Content | `latest` `published` `byTag` `byCategory` `byAuthor` `related` |
+
+Helpers never mutate their input and never panic — invalid usage (missing field,
+bad operator, invalid regex) fails the render with a descriptive error. Note
+that `if/else if`, `range`, `with`, `eq/lt/gt…` and `and/or/not` are **native**
+Go template features (use them directly), and native `switch/case` does not
+exist. Registering `slice` overrides Go's builtin sub-slicing function.
+
+**Full reference with signatures, operators, comparison rules and limitations:
+[docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md).**
+
+### Image Processing in Templates
+
+*Since v1.8.3*, templates and shortcodes can resize, crop, filter and convert
+images at build time — with a deterministic content-addressed cache, EXIF
+orientation normalization, focal-point crops and responsive `srcset` sets:
+
+{% raw %}
+```gotemplate
+{{ $img := imageResize "images/hero.jpg" (dict "width" 1200 "height" 630 "mode" "fill" "format" "webp") }}
+<img src="{{ $img.URL }}" width="{{ $img.Width }}" height="{{ $img.Height }}" alt="">
+
+{{ $set := imageSrcSet "images/hero.jpg" (dict "widths" (slice 480 768 1200)) }}
+<img src="{{ $set.Default.URL }}" srcset="{{ $set.SrcSet }}" sizes="100vw" alt="">
+```
+{% endraw %}
+
+Helpers: `imageInfo` · `imageResize` (scale/fit_width/fit_height/fit/fill) ·
+`imageCrop` (rect/anchor/focal) · `imageFilter` (10 filters) · `imageProcess`
+(ordered pipeline) · `imageSrcSet`. Variants land in `/processed_images/…`
+named by a content hash, so repeated builds reuse the cache. Sources resolve
+from `assets/`, the static dir, the content dir and the theme; path traversal
+and symlink escapes are rejected. WebP output uses the optional `cwebp` tool.
+
+**Full reference: [docs/IMAGES.md](docs/IMAGES.md).**
 
 ## 🏗️ Architecture
 

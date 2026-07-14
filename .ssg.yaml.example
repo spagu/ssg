@@ -44,6 +44,9 @@ sourcemap: false     # Emit v3 source maps (*.js.map/*.css.map) for minified JS/
                      # (minification becomes line-preserving so mappings are exact)
 fingerprint: false   # Content-hash CSS/JS → name.<hash8>.ext + assets-manifest.json,
                      # rewriting references in HTML and CSS (immutable caching)
+scss: false          # Compile *.scss → *.css via dart-sass before bundling/minify (ASSET-003);
+                     # optional tool — missing binary skips the step with a warning
+sass_binary: ""      # Explicit dart-sass path; empty = look up `sass` in PATH
 
 # SEO & Migration
 lastmod_from_git: false   # sitemap <lastmod> from each file's last git commit (fallback: modified/date)
