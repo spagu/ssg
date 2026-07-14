@@ -28,6 +28,17 @@ output byte-equivalent for generated pages.
   (partials `_*.scss` resolve via `@use`; all `.scss` sources are removed from
   the output). Missing binary skips the step with a warning (cwebp philosophy);
   `--sass-binary=` overrides PATH lookup; paths hardened per SEC-011.
+- 🖼️ **Image processing in templates** (`audit/images-processing-feature.md`) —
+  `imageInfo`, `imageResize` (scale/fit_width/fit_height/fit/fill), `imageCrop`
+  (explicit rect, 9 anchors + compass aliases, focal points), `imageFilter`
+  (grayscale/invert/sepia/brightness/contrast/saturation/gamma/blur/sharpen/
+  opacity), `imageProcess` (ordered pipeline) and `imageSrcSet` (responsive
+  variants). Deterministic content-addressed cache (`.ssg-cache/images/`) with
+  atomic publishing into `processed_images/`; EXIF orientation normalized and
+  metadata stripped; path traversal/symlink escapes rejected; decompression-bomb
+  limits; animated GIFs error instead of silently flattening. JPEG/PNG pure Go
+  (disintegration/imaging); WebP via the optional cwebp tool. Available in theme
+  AND shortcode templates. Reference: `docs/IMAGES.md`.
 - ♿ **Skip-links (FE-004, WCAG 2.2 2.4.1)** — every theme (krowy, simple, imd,
   engine examples, ananke, embedded defaults) gains a visually-hidden
   "Skip to content" link before the navigation plus `:focus-visible` outlines.

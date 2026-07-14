@@ -61,3 +61,6 @@ templates/hugo-*/
 
 # Audit reports (local only)
 /audit/
+
+# Image-processing cache (v1.8.3)
+.ssg-cache/

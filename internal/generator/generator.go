@@ -23,6 +23,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
@@ -223,6 +224,10 @@ type Generator struct {
 	// the once-per-content acceptance test. Builds are single-goroutine.
 	mdCache       map[string]string
 	mdConversions int
+
+	// images is the lazily-built processor behind the image* template helpers
+	// (audit/images-processing-feature.md).
+	images *images.Processor
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -1606,7 +1611,7 @@ func rewriteMdLinks(html string, mdLinkMap map[string]string) string {
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"safeHTML":             g.tmplSafeHTML(pageLinks, mdLinkMap),
 		"decodeHTML":           tmplDecodeHTML,
 		"formatDate":           tmplFormatDate,
@@ -1661,6 +1666,11 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"byAuthor":   g.tmplByAuthor,
 		"related":    tmplRelated,
 	}
+	// Image-processing helpers (imageInfo/Resize/Crop/Process/Filter/SrcSet).
+	for name, fn := range g.imageFuncs() {
+		funcs[name] = fn
+	}
+	return funcs
 }
 
 // tmplDefault returns the default value if the given value is empty
@@ -2029,7 +2039,7 @@ func (g *Generator) parseShortcodeTemplate(templatePath string) *template.Templa
 
 // shortcodeFuncMap returns template functions available in shortcode templates
 func (g *Generator) shortcodeFuncMap() template.FuncMap {
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"safeHTML": func(s string) template.HTML {
 			return template.HTML(s) // #nosec G203 -- shortcode content is author-controlled
 		},
@@ -2058,6 +2068,11 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"isEmpty":    tmplIsEmpty,
 		"ternary":    tmplTernary,
 	}
+	// Image-processing helpers — shortcodes are a primary use case for them.
+	for name, fn := range g.imageFuncs() {
+		funcs[name] = fn
+	}
+	return funcs
 }
 
 func tmplDecodeHTML(s string) string {

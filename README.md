@@ -1473,6 +1473,31 @@ exist. Registering `slice` overrides Go's builtin sub-slicing function.
 **Full reference with signatures, operators, comparison rules and limitations:
 [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md).**
 
+### Image Processing in Templates
+
+*Since v1.8.3*, templates and shortcodes can resize, crop, filter and convert
+images at build time — with a deterministic content-addressed cache, EXIF
+orientation normalization, focal-point crops and responsive `srcset` sets:
+
+{% raw %}
+```gotemplate
+{{ $img := imageResize "images/hero.jpg" (dict "width" 1200 "height" 630 "mode" "fill" "format" "webp") }}
+<img src="{{ $img.URL }}" width="{{ $img.Width }}" height="{{ $img.Height }}" alt="">
+
+{{ $set := imageSrcSet "images/hero.jpg" (dict "widths" (slice 480 768 1200)) }}
+<img src="{{ $set.Default.URL }}" srcset="{{ $set.SrcSet }}" sizes="100vw" alt="">
+```
+{% endraw %}
+
+Helpers: `imageInfo` · `imageResize` (scale/fit_width/fit_height/fit/fill) ·
+`imageCrop` (rect/anchor/focal) · `imageFilter` (10 filters) · `imageProcess`
+(ordered pipeline) · `imageSrcSet`. Variants land in `/processed_images/…`
+named by a content hash, so repeated builds reuse the cache. Sources resolve
+from `assets/`, the static dir, the content dir and the theme; path traversal
+and symlink escapes are rejected. WebP output uses the optional `cwebp` tool.
+
+**Full reference: [docs/IMAGES.md](docs/IMAGES.md).**
+
 ## 🏗️ Architecture
 
 ```mermaid
