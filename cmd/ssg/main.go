@@ -406,6 +406,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Paginate:          cfg.Paginate,
 		Languages:         cfg.Languages,
 		DefaultLanguage:   cfg.DefaultLanguage,
+		LanguageConfigs:   cfg.LanguageConfigs,
+		I18n:              cfg.I18n,
 		Hooks:             cfg.Hooks,
 		Feed:              cfg.Feed,
 		FeedItems:         cfg.FeedItems,

@@ -23,6 +23,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
+	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
@@ -155,6 +156,8 @@ type Config struct {
 	// Languages / DefaultLanguage drive language-aware output + hreflang (PLAT-005).
 	Languages       []string
 	DefaultLanguage string
+	LanguageConfigs []ssgi18n.LanguageConfig
+	I18n            ssgi18n.Config
 
 	// Hooks are lifecycle exec commands (pre_build/post_build/post_page) from
 	// trusted local config only (PLAT-001).
@@ -185,6 +188,7 @@ const defaultStaticDir = "static"
 
 // Shared string literals (avoids scattered duplicates).
 const (
+	httpsScheme      = "https://" // shared URL scheme prefix (S1192)
 	indexHTMLName    = "index.html"
 	pageHTMLName     = "page.html"
 	categoryHTMLName = "category.html"
@@ -202,12 +206,18 @@ type Generator struct {
 	shortcodeMap map[string]Shortcode     // Map of shortcode name to shortcode
 	data         map[string]interface{}   // Data files loaded into .Data.* (PLAT-002)
 	translations map[string][]Translation // slug → language variants (PLAT-005)
-	md           goldmark.Markdown        // configured Markdown renderer (AX-001/002/003)
-	tagSlugs     map[string]string        // tag name → slug, for sitemap/feeds (BLOG-004)
-	authorSlugs  map[string]string        // author slug → slug, for sitemap (BLOG-005)
-	engine       engine.Engine            // non-Go template engine when configured (GO-007)
-	engineTmpls  map[string]engine.Template
-	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
+	catalog      *ssgi18n.Catalog
+	// currentLang is the language of the page being rendered. Mutable per-render
+	// state (set in pageToTemplateData / the per-language index loop): correct for
+	// the single-goroutine build, but must become per-render context before any
+	// future parallel rendering.
+	currentLang string
+	md          goldmark.Markdown // configured Markdown renderer (AX-001/002/003)
+	tagSlugs    map[string]string // tag name → slug, for sitemap/feeds (BLOG-004)
+	authorSlugs map[string]string // author slug → slug, for sitemap (BLOG-005)
+	engine      engine.Engine     // non-Go template engine when configured (GO-007)
+	engineTmpls map[string]engine.Template
+	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
 	shortcodeTmpls map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
 	bracketRes     map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
@@ -224,6 +234,7 @@ type Generator struct {
 	// the once-per-content acceptance test. Builds are single-goroutine.
 	mdCache       map[string]string
 	mdConversions int
+	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
 
 	// images is the lazily-built processor behind the image* template helpers
 	// (audit/images-processing-feature.md).
@@ -297,6 +308,31 @@ func compileBracketRes(name string) bracketShortcodeRes {
 
 // New creates a new Generator instance
 func New(cfg Config) (*Generator, error) {
+	cfg.I18n = cfg.I18n.WithDefaults()
+	languages := ssgi18n.Normalize(cfg.Languages, cfg.LanguageConfigs, cfg.LanguageTimezones)
+	if err := ssgi18n.Validate(languages, cfg.DefaultLanguage, cfg.I18n); err != nil {
+		return nil, err
+	}
+	// Expanded language timezones feed the existing date-rendering path. Copy
+	// the legacy map first so constructing a generator never mutates its caller.
+	mergedTZ := make(map[string]string, len(cfg.LanguageTimezones)+len(languages))
+	for code, zone := range cfg.LanguageTimezones {
+		mergedTZ[code] = zone
+	}
+	for _, lang := range languages {
+		if lang.Timezone != "" {
+			mergedTZ[lang.Code] = lang.Timezone
+		}
+	}
+	cfg.LanguageTimezones = mergedTZ
+	var catalog *ssgi18n.Catalog
+	if cfg.I18n.Enabled {
+		var err error
+		catalog, err = ssgi18n.LoadCatalog(cfg.I18n.TranslationsDir, languages)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Build shortcode map for quick lookup
 	scMap := make(map[string]Shortcode)
 	bracketRes := make(map[string]bracketShortcodeRes, len(cfg.Shortcodes))
@@ -328,6 +364,8 @@ func New(cfg Config) (*Generator, error) {
 		refCache:       make(map[string]bool),
 		siteLoc:        siteLoc,
 		langLocs:       langLocs,
+		catalog:        catalog,
+		currentLang:    cfg.DefaultLanguage,
 	}, nil
 }
 
@@ -664,22 +702,38 @@ func (g *Generator) loadContent() error {
 		return err
 	}
 
-	g.finalizeLoadedContent()
-	return nil
+	return g.finalizeLoadedContent()
 }
 
 // finalizeLoadedContent computes derived per-page fields once, for every content
 // source: reading stats (BLOG-006) and configured permalink paths (SEO-001).
 // Runs after metadata is loaded so category slugs are resolvable.
-func (g *Generator) finalizeLoadedContent() {
+func (g *Generator) finalizeLoadedContent() error {
+	languages := ssgi18n.Normalize(g.config.Languages, g.config.LanguageConfigs, g.config.LanguageTimezones)
+	g.siteData.Languages = languages
+	g.siteData.DefaultLanguage = g.config.DefaultLanguage
 	finalize := func(pages []models.Page, defaultType string) {
 		for i := range pages {
+			if g.config.I18n.Enabled && pages[i].Lang == "" {
+				pages[i].Lang = g.config.DefaultLanguage
+			}
+			if lang, ok := ssgi18n.Language(languages, pages[i].Lang); ok {
+				pages[i].Locale = lang.Locale
+			} else if g.config.I18n.Enabled {
+				// Validation below turns this into a descriptive build error/warning.
+				pages[i].Locale = pages[i].Lang
+			}
+			if g.config.I18n.Enabled && pages[i].TranslationKey == "" {
+				pages[i].TranslationKey = generatedTranslationKey(pages[i])
+			}
 			pages[i].ComputeReadingStats()
 			if g.config.Math {
 				pages[i].HasMath = containsMath(pages[i].Content)
 			}
 			// Language prefix for non-default languages (PLAT-005).
-			if len(g.config.Languages) > 0 && pages[i].Lang != "" && pages[i].Lang != g.config.DefaultLanguage {
+			if g.config.I18n.Enabled {
+				pages[i].LangPrefix = ssgi18n.Prefix(pages[i].Lang, g.config.DefaultLanguage, g.config.I18n)
+			} else if len(g.config.Languages) > 0 && pages[i].Lang != "" && pages[i].Lang != g.config.DefaultLanguage {
 				pages[i].LangPrefix = pages[i].Lang
 			}
 			typ := pages[i].Type
@@ -695,6 +749,77 @@ func (g *Generator) finalizeLoadedContent() {
 	finalize(g.siteData.Posts, "post")
 	g.computeSeriesLinks()
 	g.computeTranslations()
+	if g.config.I18n.Enabled {
+		if err := g.validateI18nContent(languages); err != nil {
+			return err
+		}
+		if err := g.detectContentCollisions(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func generatedTranslationKey(p models.Page) string {
+	name := strings.TrimSuffix(filepath.ToSlash(p.SourceFile), filepath.Ext(p.SourceFile))
+	name = regexp.MustCompile(`(?i)[._-](?:[a-z]{2}(?:-[A-Z]{2})?)$`).ReplaceAllString(name, "")
+	if name == "" {
+		name = p.Slug
+	}
+	return strings.ToLower(name)
+}
+
+func (g *Generator) validateI18nContent(languages []ssgi18n.LanguageConfig) error {
+	known := map[string]bool{}
+	for _, l := range languages {
+		known[l.Code] = true
+	}
+	seen := map[string]string{}
+	all := append(append([]models.Page{}, g.siteData.Pages...), g.siteData.Posts...)
+	for _, p := range all {
+		if !known[p.Lang] {
+			msg := fmt.Sprintf("content %q uses unconfigured language %q", p.SourceFile, p.Lang)
+			if g.config.I18n.InvalidLanguage == "warn" {
+				fmt.Printf("   ⚠️  %s\n", msg)
+				continue
+			}
+			return fmt.Errorf("%s", msg)
+		}
+		key := p.TranslationKey + "\x00" + p.Lang
+		if previous, ok := seen[key]; ok {
+			msg := fmt.Sprintf("duplicate translation key %q for language %q (%s and %s)", p.TranslationKey, p.Lang, previous, p.SourceFile)
+			if g.config.I18n.DuplicateTranslation == "warn" {
+				fmt.Printf("   ⚠️  %s\n", msg)
+				continue
+			}
+			return fmt.Errorf("%s", msg)
+		}
+		seen[key] = p.SourceFile
+	}
+	return nil
+}
+
+func (g *Generator) detectContentCollisions() error {
+	seen := map[string]string{}
+	all := append(append([]models.Page{}, g.siteData.Pages...), g.siteData.Posts...)
+	for _, p := range all {
+		path := p.GetOutputPath()
+		if previous, ok := seen[path]; ok {
+			return fmt.Errorf("i18n output collision at %q between %s and %s", path, previous, p.SourceFile)
+		}
+		seen[path] = p.SourceFile
+		for _, alias := range p.Aliases {
+			rel := models.SanitizeRelPath(alias)
+			if p.LangPrefix != "" {
+				rel = models.SanitizeRelPath(p.LangPrefix + "/" + rel)
+			}
+			if previous, ok := seen[rel]; ok {
+				return fmt.Errorf("i18n output collision at alias %q between %s and %s", rel, previous, p.SourceFile)
+			}
+			seen[rel] = p.SourceFile
+		}
+	}
+	return nil
 }
 
 // translationsFor returns the language variants of a page (PLAT-005).
@@ -702,7 +827,11 @@ func (g *Generator) translationsFor(p models.Page) []Translation {
 	if g.translations == nil {
 		return nil
 	}
-	return g.translations[strings.ToLower(p.Slug)]
+	key := strings.ToLower(p.Slug)
+	if g.config.I18n.Enabled {
+		key = p.TranslationKey
+	}
+	return g.translations[key]
 }
 
 // hreflangTags builds <link rel="alternate" hreflang> markup for a page's
@@ -715,13 +844,21 @@ func (g *Generator) hreflangTags(p models.Page) template.HTML {
 	}
 	domain := stdhtml.EscapeString(g.config.Domain)
 	var b strings.Builder
+	hasDefault := false
 	for _, t := range trs {
 		lang := stdhtml.EscapeString(t.Lang)
-		href := "https://" + domain + stdhtml.EscapeString(t.URL)
+		href := httpsScheme + domain + stdhtml.EscapeString(t.URL)
 		fmt.Fprintf(&b, `<link rel="alternate" hreflang="%s" href="%s">`+"\n", lang, href)
 		if t.IsDefault {
+			hasDefault = true
 			fmt.Fprintf(&b, `<link rel="alternate" hreflang="x-default" href="%s">`+"\n", href)
 		}
+	}
+	if !hasDefault {
+		// No default-language variant in this group: x-default points at the
+		// default-language site root instead (i18n §9).
+		root := httpsScheme + domain + stdhtml.EscapeString(g.languageURL(g.config.DefaultLanguage))
+		fmt.Fprintf(&b, `<link rel="alternate" hreflang="x-default" href="%s">`+"\n", root)
 	}
 	return template.HTML(b.String()) // #nosec G203 -- values are HTML-escaped above
 }
@@ -729,7 +866,11 @@ func (g *Generator) hreflangTags(p models.Page) template.HTML {
 // Translation is one language variant of a page for language switchers / hreflang.
 type Translation struct {
 	Lang      string
+	Locale    string
+	Title     string
 	URL       string
+	Canonical string
+	IsCurrent bool
 	IsDefault bool
 }
 
@@ -743,15 +884,32 @@ func (g *Generator) computeTranslations() {
 	add := func(pages []models.Page) {
 		for i := range pages {
 			key := strings.ToLower(pages[i].Slug)
+			if g.config.I18n.Enabled {
+				key = pages[i].TranslationKey
+			}
 			g.translations[key] = append(g.translations[key], Translation{
 				Lang:      pages[i].Lang,
+				Locale:    pages[i].Locale,
+				Title:     pages[i].Title,
 				URL:       pages[i].GetURL(),
+				Canonical: pages[i].GetCanonical(g.config.Domain),
 				IsDefault: pages[i].Lang == g.config.DefaultLanguage || pages[i].Lang == "",
 			})
 		}
 	}
 	add(g.siteData.Pages)
 	add(g.siteData.Posts)
+	if g.config.I18n.Enabled {
+		attach := func(pages []models.Page) {
+			for i := range pages {
+				for _, tr := range g.translationsFor(pages[i]) {
+					pages[i].Translations = append(pages[i].Translations, models.TranslationLink{Lang: tr.Lang, Locale: tr.Locale, Title: tr.Title, URL: tr.URL, Canonical: tr.Canonical, IsCurrent: tr.Lang == pages[i].Lang})
+				}
+			}
+		}
+		attach(g.siteData.Pages)
+		attach(g.siteData.Posts)
+	}
 }
 
 // computeSeriesLinks fills SeriesPrev/Next for every post that belongs to a series
@@ -1565,47 +1723,135 @@ func (g *Generator) buildPageLinks() map[string]string {
 // Priority order: exact SourceFile match > lowercase SourceFile > slug variants.
 // This ensures that the actual filename on disk (e.g. "AUTHENTICATION.md") is always
 // preferred over slug-derived names, so slug and filename can differ independently.
-func (g *Generator) buildMdLinkMap() map[string]string {
-	mdLinks := make(map[string]string)
+// buildMdLinkMap indexes every recognizable .md link key to its per-language
+// URLs. Language-aware (i18n §13): translated variants of the same filename or
+// slug no longer overwrite each other — the renderer picks the right language
+// at rewrite time. First writer wins per (key, language), so the map is
+// deterministic across builds (pages, then posts, in load order).
+func (g *Generator) buildMdLinkMap() map[string]map[string]string {
+	mdLinks := make(map[string]map[string]string)
+	add := func(key, lang, url string) {
+		if key == "" {
+			return
+		}
+		byLang := mdLinks[key]
+		if byLang == nil {
+			byLang = make(map[string]string)
+			mdLinks[key] = byLang
+		}
+		if _, exists := byLang[lang]; !exists {
+			byLang[lang] = url
+		}
+	}
 	allPages := append(g.siteData.Pages, g.siteData.Posts...)
 	for _, p := range allPages {
 		url := p.GetURL()
+		lang := p.Lang // "" in single-language builds
+
+		addAll := func(key string) {
+			add(key, lang, url)
+			// Enrich the key with the whole translation group, so a link written
+			// against any variant's filename/slug resolves in every language (§13).
+			for _, tr := range p.Translations {
+				add(key, tr.Lang, tr.URL)
+			}
+		}
 
 		// 1. Actual source filename — highest priority (e.g. "AUTHENTICATION.md")
 		if p.SourceFile != "" {
-			mdLinks[p.SourceFile] = url
-			mdLinks[strings.ToLower(p.SourceFile)] = url
+			addAll(p.SourceFile)
+			addAll(strings.ToLower(p.SourceFile))
 		}
 
 		// 2. Slug-derived variants — fallback when SourceFile not available (e.g. mddb source)
-		slug := p.Slug
-		mdLinks[slug+".md"] = url
-		mdLinks[strings.ToUpper(slug)+".md"] = url
-		mdLinks[slug] = url
+		addAll(p.Slug + ".md")
+		addAll(strings.ToUpper(p.Slug) + ".md")
+		addAll(p.Slug)
 	}
 	return mdLinks
 }
 
+// resolveMdLink picks the URL for one link key given the rendering language
+// (i18n §13): the requested-language translation wins; otherwise the
+// content-fallback chain (fallback_languages → default language) applies only
+// when content_fallback is enabled. Returns ok=false when unresolvable.
+func (g *Generator) resolveMdLink(byLang map[string]string, lang string) (string, bool) {
+	if len(byLang) == 0 {
+		return "", false
+	}
+	if url, ok := byLang[lang]; ok {
+		return url, true
+	}
+	if g.config.I18n.ContentFallback {
+		chain := append([]string{}, g.config.I18n.FallbackLanguages[lang]...)
+		chain = append(chain, g.config.DefaultLanguage)
+		for _, candidate := range chain {
+			if url, ok := byLang[candidate]; ok {
+				return url, true
+			}
+		}
+	}
+	return "", false
+}
+
+// mdLinkSuffixRe captures a language suffix in a link filename (about.en.md).
+var mdLinkSuffixRe = regexp.MustCompile(`\.([a-z]{2}(?:-[A-Z]{2})?)\.md$`)
+
+// explicitMdLinkLang detects an explicit language choice embedded in the link
+// itself (e.g. "about.en.md" from a Polish page): such links keep the author's
+// language instead of the rendering language (§13 "preserve explicit links").
+func (g *Generator) explicitMdLinkLang(base, fallback string) string {
+	m := mdLinkSuffixRe.FindStringSubmatch(base)
+	if m == nil {
+		return fallback
+	}
+	if _, ok := ssgi18n.Language(g.siteData.Languages, m[1]); ok {
+		return m[1]
+	}
+	return fallback
+}
+
 // rewriteMdLinks replaces relative .md hrefs in HTML with final output URLs.
-// Handles: href="file.md", href="./file.md", href="../dir/file.md"
+// Handles: href="file.md", href="./file.md", href="../dir/file.md". Rendering
+// language comes from g.currentLang (set before each page render); unresolved
+// multilingual targets warn once per (link, language) and are left as-is.
 var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
 
-func rewriteMdLinks(html string, mdLinkMap map[string]string) string {
+func (g *Generator) rewriteMdLinks(html string, mdLinkMap map[string]map[string]string) string {
 	return mdLinkRe.ReplaceAllStringFunc(html, func(match string) string {
 		// Extract path from href="..."
 		inner := match[6 : len(match)-1] // strip href=" and "
 		// Get base filename (last path segment)
 		base := filepath.Base(inner)
-		if url, ok := mdLinkMap[base]; ok {
+		lang := g.explicitMdLinkLang(base, g.currentLang)
+		if url, ok := g.resolveMdLink(mdLinkMap[base], lang); ok {
 			return `href="` + url + `"`
 		}
 		// Try without .md extension
 		noExt := strings.TrimSuffix(base, ".md")
-		if url, ok := mdLinkMap[noExt]; ok {
+		if url, ok := g.resolveMdLink(mdLinkMap[noExt], lang); ok {
 			return `href="` + url + `"`
 		}
+		g.warnMdLink(base, lang, mdLinkMap)
 		return match // no match — leave as-is
 	})
+}
+
+// warnMdLink reports a .md link whose target translation is missing (i18n §13),
+// once per (link, language) to avoid flooding the build log.
+func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[string]string) {
+	if !g.config.I18n.Enabled || len(mdLinkMap[base]) == 0 {
+		return // plain unknown link: keep the historical silent pass-through
+	}
+	key := base + "\x00" + lang
+	if g.mdLinkWarned == nil {
+		g.mdLinkWarned = map[string]bool{}
+	}
+	if g.mdLinkWarned[key] {
+		return
+	}
+	g.mdLinkWarned[key] = true
+	fmt.Printf("   ⚠️  link %q has no %q translation (enable i18n.content_fallback or add the translation)\n", base, lang)
 }
 
 // buildTemplateFuncs creates the template function map
@@ -1629,6 +1875,11 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"recentPosts":          g.tmplRecentPosts,
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
+		"t":                    g.translationValue,
+		"hasTranslation":       func(lang string, page any) bool { return g.translationURL(lang, page) != "" },
+		"translationURL":       g.translationURL,
+		"languageURL":          g.languageURL,
+		"localizeDate":         g.localizeDate,
 
 		// Collection helpers (v1.8.3): the collection is the FINAL argument so
 		// helpers chain in pipelines — see docs/TEMPLATE_HELPERS.md.
@@ -1698,7 +1949,7 @@ func tmplDict(values ...interface{}) (map[string]interface{}, error) {
 }
 
 // tmplSafeHTML returns the safeHTML template function
-func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[string]string) func(string) template.HTML {
+func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[string]map[string]string) func(string) template.HTML {
 	return func(s string) template.HTML {
 		// Shortcode output comes from author-controlled templates, not untrusted
 		// content: swap it for placeholder tokens so it survives the sanitizer
@@ -1721,7 +1972,7 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		s = g.convertMarkdownToHTML(s)
 		s = fixMediaPaths(s, g.siteData.Media)
 		if g.config.RewriteMdLinks {
-			s = rewriteMdLinks(s, mdLinkMap)
+			s = g.rewriteMdLinks(s, mdLinkMap)
 		}
 		if g.sanitizer != nil {
 			s = g.sanitizer.Sanitize(s) // FE-005 / SEC-003: strip XSS from untrusted content
@@ -2277,12 +2528,33 @@ type Pager struct {
 // paginate > 0 (BLOG-003). With paginate == 0 the behaviour is unchanged: a single
 // index page listing every post.
 func (g *Generator) generateIndex() error {
-	posts := g.siteData.Posts
+	if g.config.I18n.Enabled {
+		for _, lang := range g.siteData.Languages {
+			g.currentLang = lang.Code
+			g.siteData.Language = lang
+			g.siteData.LanguagePages = languagePages(g.siteData.Pages, lang.Code)
+			g.siteData.LanguagePosts = languagePages(g.siteData.Posts, lang.Code)
+			prefix := ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n)
+			if err := g.generateLanguageIndex(g.siteData.LanguagePosts, prefix); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return g.generateLanguageIndex(g.siteData.Posts, "")
+}
+
+func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) error {
 	per := g.config.Paginate
+	root := filepath.Join(g.config.OutputDir, prefix)
+	// #nosec G301 -- Web content directories need to be world-traversable
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return err
+	}
 
 	if per <= 0 || len(posts) <= per {
 		return g.renderIndexPage(posts, Pager{Current: 1, Total: 1, PerPage: per},
-			filepath.Join(g.config.OutputDir, indexHTMLName))
+			filepath.Join(root, indexHTMLName))
 	}
 
 	total := (len(posts) + per - 1) / per
@@ -2294,15 +2566,15 @@ func (g *Generator) generateIndex() error {
 		}
 		pager := Pager{Current: page, Total: total, PerPage: per}
 		if page > 1 {
-			pager.PrevURL = pageURL(page - 1)
+			pager.PrevURL = pageURLWithPrefix(prefix, page-1)
 		}
 		if page < total {
-			pager.NextURL = pageURL(page + 1)
+			pager.NextURL = pageURLWithPrefix(prefix, page+1)
 		}
 
-		outPath := filepath.Join(g.config.OutputDir, indexHTMLName)
+		outPath := filepath.Join(root, indexHTMLName)
 		if page > 1 {
-			outPath = filepath.Join(g.config.OutputDir, "page", fmt.Sprintf("%d", page), indexHTMLName)
+			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", page), indexHTMLName)
 			// #nosec G301 -- Web content directories need to be world-traversable
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
@@ -2317,14 +2589,26 @@ func (g *Generator) generateIndex() error {
 
 // pageURL returns the URL for paginated index page n (page 1 is the site root).
 func pageURL(n int) string {
-	if n <= 1 {
-		return "/"
+	return pageURLWithPrefix("", n)
+}
+
+func pageURLWithPrefix(prefix string, n int) string {
+	root := "/"
+	if prefix != "" {
+		root += strings.Trim(prefix, "/") + "/"
 	}
-	return fmt.Sprintf("/page/%d/", n)
+	if n <= 1 {
+		return root
+	}
+	return fmt.Sprintf("%spage/%d/", root, n)
 }
 
 // renderIndexPage renders one index page with the given posts and pager.
 func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath string) error {
+	pages := g.siteData.Pages
+	if g.config.I18n.Enabled {
+		pages = g.siteData.LanguagePages
+	}
 	data := struct {
 		Site   *models.SiteData
 		Posts  []models.Page
@@ -2336,7 +2620,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 	}{
 		Site:   g.siteData,
 		Posts:  posts,
-		Pages:  g.siteData.Pages,
+		Pages:  pages,
 		Domain: g.config.Domain,
 		Vars:   g.config.Variables,
 		Data:   g.data,
@@ -2510,6 +2794,9 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 	target := page.GetURL()
 	for _, alias := range page.Aliases {
 		rel := models.SanitizeRelPath(alias)
+		if g.config.I18n.Enabled && page.LangPrefix != "" {
+			rel = models.SanitizeRelPath(page.LangPrefix + "/" + rel)
+		}
 		if rel == "" || rel == "." {
 			continue
 		}
@@ -2581,6 +2868,14 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	}
 	fmt.Fprintf(&b, `<meta property="og:type" content="%s">`+"\n", stdhtml.EscapeString(ogType))
 	fmt.Fprintf(&b, `<meta property="og:url" content="%s">`+"\n", stdhtml.EscapeString(url))
+	if page.Locale != "" {
+		fmt.Fprintf(&b, `<meta property="og:locale" content="%s">`+"\n", stdhtml.EscapeString(strings.ReplaceAll(page.Locale, "-", "_")))
+		for _, tr := range page.Translations {
+			if !tr.IsCurrent && tr.Locale != "" {
+				fmt.Fprintf(&b, `<meta property="og:locale:alternate" content="%s">`+"\n", stdhtml.EscapeString(strings.ReplaceAll(tr.Locale, "-", "_")))
+			}
+		}
+	}
 	if page.FeaturedImage != "" {
 		fmt.Fprintf(&b, `<meta property="og:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
 	}
@@ -2595,6 +2890,9 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 		"name":     title,
 		"headline": title,
 		"url":      url,
+	}
+	if page.Locale != "" {
+		ld["inLanguage"] = page.Locale
 	}
 	if desc != "" {
 		ld["description"] = desc
@@ -2697,6 +2995,14 @@ func (g *Generator) contentContextValue(content string) interface{} {
 // pageToTemplateData converts a Page to a map for templates, flattening Extra fields to top level
 // This allows templates to use {{.dupa}} instead of {{.Page.Extra.dupa}}
 func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string]interface{} {
+	if g.config.I18n.Enabled {
+		g.currentLang = page.Lang
+		if lang, ok := ssgi18n.Language(g.siteData.Languages, page.Lang); ok {
+			g.siteData.Language = lang
+		}
+		g.siteData.LanguagePages = languagePages(g.siteData.Pages, page.Lang)
+		g.siteData.LanguagePosts = languagePages(g.siteData.Posts, page.Lang)
+	}
 	data := map[string]interface{}{
 		"Site":   g.siteData,
 		"Domain": g.config.Domain,
@@ -2708,32 +3014,34 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Translations":    g.translationsFor(page),
 		"Hreflang":        g.hreflangTags(page),
 		// Standard Page fields
-		"ID":            page.ID,
-		"Title":         page.Title,
-		"Slug":          page.Slug,
-		"Date":          g.pageDate(page, page.Date),     // rendered in the configured zone (I18N-001)
-		"Modified":      g.pageDate(page, page.Modified), // rendered in the configured zone (I18N-001)
-		"Status":        page.Status,
-		"Type":          page.Type,
-		"Link":          page.Link,
-		"Author":        page.Author,
-		"Categories":    page.Categories,
-		"Excerpt":       page.Excerpt,
-		"Content":       g.contentContextValue(page.Content),
-		"URLFormat":     page.URLFormat,
-		"PageFormat":    page.PageFormat,
-		"SourceDir":     page.SourceDir,
-		"Description":   page.Description,
-		"Keywords":      page.Keywords,
-		"Lang":          page.Lang,
-		"Canonical":     page.Canonical,
-		"Robots":        page.Robots,
-		"Sitemap":       page.Sitemap,
-		"FeaturedImage": page.FeaturedImage,
-		"Tags":          page.Tags,
-		"Category":      page.Category,
-		"Layout":        page.Layout,
-		"Template":      page.Template,
+		"ID":             page.ID,
+		"Title":          page.Title,
+		"Slug":           page.Slug,
+		"Date":           g.pageDate(page, page.Date),     // rendered in the configured zone (I18N-001)
+		"Modified":       g.pageDate(page, page.Modified), // rendered in the configured zone (I18N-001)
+		"Status":         page.Status,
+		"Type":           page.Type,
+		"Link":           page.Link,
+		"Author":         page.Author,
+		"Categories":     page.Categories,
+		"Excerpt":        page.Excerpt,
+		"Content":        g.contentContextValue(page.Content),
+		"URLFormat":      page.URLFormat,
+		"PageFormat":     page.PageFormat,
+		"SourceDir":      page.SourceDir,
+		"Description":    page.Description,
+		"Keywords":       page.Keywords,
+		"Lang":           page.Lang,
+		"Locale":         page.Locale,
+		"TranslationKey": page.TranslationKey,
+		"Canonical":      page.Canonical,
+		"Robots":         page.Robots,
+		"Sitemap":        page.Sitemap,
+		"FeaturedImage":  page.FeaturedImage,
+		"Tags":           page.Tags,
+		"Category":       page.Category,
+		"Layout":         page.Layout,
+		"Template":       page.Template,
 		// Computed metadata (BLOG-006 / AX-004 / AX-002)
 		"WordCount":   page.WordCount,
 		"ReadingTime": page.ReadingTime,
@@ -3168,7 +3476,11 @@ func (g *Generator) generateSitemap() error {
 
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
 	sb.WriteString("\n")
-	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`)
+	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"`)
+	if g.config.I18n.Enabled {
+		sb.WriteString(` xmlns:xhtml="http://www.w3.org/1999/xhtml"`)
+	}
+	sb.WriteString(`>`)
 	sb.WriteString("\n")
 
 	// Homepage — skip if any index page has noindex
@@ -3180,11 +3492,20 @@ func (g *Generator) generateSitemap() error {
 		}
 	}
 	if !skipHomepage {
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
-		sb.WriteString("    <changefreq>daily</changefreq>\n")
-		sb.WriteString("    <priority>1.0</priority>\n")
-		sb.WriteString(sitemapURLClose)
+		if g.config.I18n.Enabled {
+			for _, lang := range g.siteData.Languages {
+				sb.WriteString(sitemapURLOpen)
+				fmt.Fprintf(&sb, "    <loc>https://%s%s</loc>\n", g.config.Domain, g.languageURL(lang.Code))
+				sb.WriteString("    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n")
+				sb.WriteString(sitemapURLClose)
+			}
+		} else {
+			sb.WriteString(sitemapURLOpen)
+			fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
+			sb.WriteString("    <changefreq>daily</changefreq>\n")
+			sb.WriteString("    <priority>1.0</priority>\n")
+			sb.WriteString(sitemapURLClose)
+		}
 	}
 
 	// Pages
@@ -3194,6 +3515,7 @@ func (g *Generator) generateSitemap() error {
 		}
 		sb.WriteString(sitemapURLOpen)
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
+		g.writeSitemapAlternates(&sb, page)
 		if lastmod := g.lastModFor(page); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
 		}
@@ -3209,6 +3531,7 @@ func (g *Generator) generateSitemap() error {
 		}
 		sb.WriteString(sitemapURLOpen)
 		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
+		g.writeSitemapAlternates(&sb, post)
 		if lastmod := g.lastModFor(post); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
 		}
@@ -3238,6 +3561,18 @@ func (g *Generator) generateSitemap() error {
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "sitemap.xml"), []byte(sb.String()), 0644)
+}
+
+func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page) {
+	if !g.config.I18n.Enabled {
+		return
+	}
+	for _, tr := range page.Translations {
+		fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Lang), stdhtml.EscapeString(tr.Canonical))
+		if tr.Lang == g.config.DefaultLanguage {
+			fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Canonical))
+		}
+	}
 }
 
 // writeSitemapArchive appends a sitemap entry for an archive page (category/tag/author).
@@ -3275,7 +3610,23 @@ func (g *Generator) generateFeeds() error {
 	if limit <= 0 {
 		limit = 20
 	}
-	base := "https://" + g.config.Domain
+	base := httpsScheme + g.config.Domain
+	if g.config.I18n.Enabled {
+		for _, lang := range g.siteData.Languages {
+			posts := languagePages(g.siteData.Posts, lang.Code)
+			prefix := ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n)
+			rel := feedFileName
+			rootURL := "/"
+			if prefix != "" {
+				rel = filepath.Join(prefix, feedFileName)
+				rootURL = "/" + prefix + "/"
+			}
+			if err := g.writeFeed(rel, g.config.Domain+" ("+lang.Name+")", base+rootURL, posts, limit); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	if err := g.writeFeed(feedFileName, g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
 		return err
@@ -3333,10 +3684,14 @@ func (g *Generator) writeFeed(relPath, title, altURL string, posts []models.Page
 
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	sb.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom">` + "\n")
+	sb.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom"`)
+	if len(ordered) > 0 && ordered[0].Locale != "" {
+		fmt.Fprintf(&sb, ` xml:lang="%s"`, stdhtml.EscapeString(ordered[0].Locale))
+	}
+	sb.WriteString(">\n")
 	fmt.Fprintf(&sb, "  <title>%s</title>\n", stdhtml.EscapeString(title))
 	fmt.Fprintf(&sb, "  <link href=%q rel=\"alternate\"/>\n", altURL)
-	fmt.Fprintf(&sb, "  <link href=%q rel=\"self\"/>\n", "https://"+g.config.Domain+"/"+filepath.ToSlash(relPath))
+	fmt.Fprintf(&sb, "  <link href=%q rel=\"self\"/>\n", httpsScheme+g.config.Domain+"/"+filepath.ToSlash(relPath))
 	fmt.Fprintf(&sb, "  <id>%s</id>\n", altURL)
 	if !updated.IsZero() {
 		fmt.Fprintf(&sb, "  <updated>%s</updated>\n", updated.UTC().Format(time.RFC3339))

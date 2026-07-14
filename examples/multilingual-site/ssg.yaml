@@ -1,0 +1,21 @@
+source: site
+template: multilingual
+domain: example.com
+content_dir: examples/multilingual-site/content
+templates_dir: examples/multilingual-site/templates
+output_dir: examples/multilingual-site/output
+languages:
+  - code: pl
+    locale: pl-PL
+    name: Polski
+  - code: en
+    locale: en-GB
+    name: English
+default_language: pl
+i18n:
+  enabled: true
+  translations_dir: examples/multilingual-site/i18n
+  dictionary_fallback: true
+  fallback_languages:
+    pl: [en]
+    en: []

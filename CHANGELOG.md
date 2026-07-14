@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-07-14
+
+Full internationalisation (audit/i18n-feature.md). Opt-in via `i18n.enabled`;
+single-language builds are byte-for-byte unchanged.
+
+### Added
+- 🌍 **i18n core** — expanded language config (`code/locale/name/timezone`) next
+  to the legacy compact list; startup validation (duplicate codes, unknown
+  default, bad timezones, policy values, fallback cycles) fails the build with
+  descriptive errors. `translation_key` frontmatter (or a deterministic
+  path-derived key) groups content variants; duplicates fail/warn per policy;
+  output-path collisions (pages + aliases) fail the build.
+- 🌍 **Language-aware routing** — configurable `prefix_default_language`;
+  prefix logic centralised in `internal/i18n.Prefix` and applied to pages,
+  posts, aliases, home pages, pagination, feeds, search indexes and JSON output.
+- 🌍 **Translation dictionaries** — YAML/JSON catalogs in `i18n/` with nested
+  keys, named `{{placeholder}}` interpolation, per-language fallback chains and
+  `missing_translation` policies (warn default, error/empty/fallback).
+- 🌍 **Template helpers** — `t`, `hasTranslation`, `translationURL`,
+  `languageURL`, `localizeDate`; context: `.Site.Language/.Languages/
+  .DefaultLanguage/.LanguagePages/.LanguagePosts`, `.Page.Lang/.Locale/
+  .TranslationKey/.Translations` (with `IsCurrent`).
+- 🌍 **SEO** — dynamic `<html lang>`, per-translation canonical, hreflang with
+  `x-default` (falling back to the default-language root when a group has no
+  default variant), sitemap XHTML alternates, `og:locale`+`og:locale:alternate`,
+  JSON-LD `inLanguage`.
+- 🌍 **Language-aware `.md` links (§13)** — the rewriter resolves the
+  active-language translation, preserves explicit `file.<lang>.md` links,
+  applies the `content_fallback` chain only when enabled, warns once per
+  missing translation, and is deterministic (the previous flat map picked a
+  random language for translated filenames).
+- 🌍 Example project `examples/multilingual-site/` + full guide `docs/I18N.md`.
+
+### Deferred (documented, follow-up phases)
+- Language-scoped taxonomy pages (categories/tags/authors/series are still
+  cross-language), language selector + `t` labels in the built-in themes
+  (output `<html lang>` is corrected at render time), localized month names in
+  `localizeDate`, plural rules.
+
 ## [1.8.3] - 2026-07-14
 
 Template query language, SCSS, accessibility and a performance batch

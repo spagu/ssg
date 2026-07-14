@@ -4566,12 +4566,13 @@ func TestNormalizeSlug(t *testing.T) {
 }
 
 func TestRewriteMdLinks(t *testing.T) {
-	mdLinkMap := map[string]string{
-		"authentication.md": "/docs/authentication/",
-		"authentication":    "/docs/authentication/",
-		"API.md":            "/docs/api/",
-		"api":               "/docs/api/",
+	mdLinkMap := map[string]map[string]string{
+		"authentication.md": {"": "/docs/authentication/"},
+		"authentication":    {"": "/docs/authentication/"},
+		"API.md":            {"": "/docs/api/"},
+		"api":               {"": "/docs/api/"},
 	}
+	gen := &Generator{config: Config{}}
 
 	tests := []struct {
 		name  string
@@ -4612,7 +4613,7 @@ func TestRewriteMdLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := rewriteMdLinks(tt.input, mdLinkMap)
+			got := gen.rewriteMdLinks(tt.input, mdLinkMap)
 			if got != tt.want {
 				t.Errorf("rewriteMdLinks() = %q, want %q", got, tt.want)
 			}
@@ -4637,20 +4638,20 @@ func TestBuildMdLinkMap(t *testing.T) {
 	m := gen.buildMdLinkMap()
 
 	// SourceFile exact match
-	if m["AUTHENTICATION.md"] != "/authentication/" {
-		t.Errorf("AUTHENTICATION.md = %q, want /authentication/", m["AUTHENTICATION.md"])
+	if m["AUTHENTICATION.md"][""] != "/authentication/" {
+		t.Errorf("AUTHENTICATION.md = %q, want /authentication/", m["AUTHENTICATION.md"][""])
 	}
 	// SourceFile lowercase
-	if m["authentication.md"] != "/authentication/" {
-		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"])
+	if m["authentication.md"][""] != "/authentication/" {
+		t.Errorf("authentication.md = %q, want /authentication/", m["authentication.md"][""])
 	}
 	// slug-derived fallback
-	if m["hello-world.md"] != "/hello-world/" {
-		t.Errorf("hello-world.md = %q, want /hello-world/", m["hello-world.md"])
+	if m["hello-world.md"][""] != "/hello-world/" {
+		t.Errorf("hello-world.md = %q, want /hello-world/", m["hello-world.md"][""])
 	}
 	// slug without extension
-	if m["authentication"] != "/authentication/" {
-		t.Errorf("authentication = %q, want /authentication/", m["authentication"])
+	if m["authentication"][""] != "/authentication/" {
+		t.Errorf("authentication = %q, want /authentication/", m["authentication"][""])
 	}
 }
 

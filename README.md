@@ -315,7 +315,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
-| Localisation | Multiple languages, `hreflang`, default language and per-language timezones |
+| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default`, per-language feeds and search ([docs/I18N.md](docs/I18N.md)) |
 | Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3 and resource limits |
@@ -482,6 +482,7 @@ Development workflow and review requirements are in
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
+| [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
 | [docs/TEMPLATES.md](docs/TEMPLATES.md) | Theme files, engines and rendering contexts |
 | [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) | Go template helper reference |
 | [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |

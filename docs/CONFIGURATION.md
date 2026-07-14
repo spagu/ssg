@@ -303,6 +303,9 @@ language_timezones:
 |---|---:|---|---|
 | `languages` | empty | `--languages=pl,en` | Enable multilingual output |
 | `default_language` | empty | `--default-language` | Language kept at the root |
+
+For the opt-in expanded multilingual system, translation dictionaries and
+prefix/fallback policies, see [I18N.md](I18N.md).
 | `timezone` | empty | `--timezone` | IANA zone for content dates |
 | `language_timezones` | empty | config only | Per-language zone override |
 

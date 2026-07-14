@@ -64,3 +64,6 @@ templates/hugo-*/
 
 # Image-processing cache (v1.8.3)
 .ssg-cache/
+
+# Example project build artifacts
+examples/*/output/

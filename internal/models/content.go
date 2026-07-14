@@ -10,7 +10,18 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spagu/ssg/internal/i18n"
 )
+
+type TranslationLink struct {
+	Lang      string
+	Locale    string
+	Title     string
+	URL       string
+	Canonical string
+	IsCurrent bool
+}
 
 // FlexInt is an int that can be unmarshaled from either int or string JSON
 type FlexInt int
@@ -66,15 +77,18 @@ type Page struct {
 	SourceFile    string        `yaml:"-"` // Source filename (e.g. "AUTHENTICATION.md") for .md link rewriting
 
 	// SEO and metadata fields
-	Description   string   `yaml:"description"`
-	Keywords      string   `yaml:"keywords"`
-	Lang          string   `yaml:"lang"`
-	Canonical     string   `yaml:"canonical"`
-	Robots        string   `yaml:"robots"`
-	Sitemap       string   `yaml:"sitemap"`
-	FeaturedImage string   `yaml:"featured_image"`
-	Tags          []string `yaml:"tags,omitempty"`
-	Category      string   `yaml:"category"`
+	Description    string            `yaml:"description"`
+	Keywords       string            `yaml:"keywords"`
+	Lang           string            `yaml:"lang"`
+	Locale         string            `yaml:"-"`
+	TranslationKey string            `yaml:"translation_key"`
+	Translations   []TranslationLink `yaml:"-"`
+	Canonical      string            `yaml:"canonical"`
+	Robots         string            `yaml:"robots"`
+	Sitemap        string            `yaml:"sitemap"`
+	FeaturedImage  string            `yaml:"featured_image"`
+	Tags           []string          `yaml:"tags,omitempty"`
+	Category       string            `yaml:"category"`
 
 	// Aliases are old paths that should redirect here. Each generates a
 	// meta-refresh + canonical redirect stub excluded from the sitemap (SEO-002).
@@ -314,12 +328,17 @@ type Metadata struct {
 
 // SiteData holds all parsed content for template rendering
 type SiteData struct {
-	Domain     string
-	Pages      []Page
-	Posts      []Page
-	Categories map[int]Category
-	Media      map[int]MediaItem
-	Authors    map[int]Author
+	Domain          string
+	Pages           []Page
+	Posts           []Page
+	Categories      map[int]Category
+	Media           map[int]MediaItem
+	Authors         map[int]Author
+	Language        i18n.LanguageConfig
+	Languages       []i18n.LanguageConfig
+	DefaultLanguage string
+	LanguagePages   []Page
+	LanguagePosts   []Page
 }
 
 // ResolveFlexibleFields resolves raw author/category strings to integer IDs

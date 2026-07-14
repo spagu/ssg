@@ -90,6 +90,26 @@ search_index: false  # Emit search-index.json (title/url/tags/excerpt/text) for 
 data_dir: "data"
 
 # i18n / multilingual — language-prefixed output (/en/…) + hreflang alternates
+# Full i18n (docs/I18N.md): expanded languages + i18n: section
+# languages:
+#   - code: pl
+#     locale: pl-PL
+#     name: Polski
+#     timezone: Europe/Warsaw
+#   - code: en
+#     locale: en-GB
+#     name: English
+# i18n:
+#   enabled: true
+#   prefix_default_language: false  # true → /pl/… for the default language too
+#   translations_dir: i18n          # per-language dictionaries: i18n/pl.yaml, i18n/en.json
+#   dictionary_fallback: true       # t: missing key walks fallback_languages
+#   content_fallback: false         # .md links may fall back to another language's page
+#   missing_translation: warn       # warn | error | empty | fallback
+#   invalid_language: fail          # fail | warn
+#   duplicate_translation: fail     # fail | warn
+#   fallback_languages:
+#     pl: [en]
 # languages: ["pl", "en"]
 # default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
 

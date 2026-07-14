@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/models"
 	"golang.org/x/net/html"
 )
@@ -252,17 +253,20 @@ func (g *Generator) writeJSONOutput(page models.Page, htmlPath string) {
 // pageRecord is the stable JSON representation of a page (PLAT-003 / PLAT-004).
 func (g *Generator) pageRecord(page models.Page) map[string]interface{} {
 	return map[string]interface{}{
-		"schema":      1,
-		"title":       page.Title,
-		"url":         page.GetURL(),
-		"date":        page.Date,
-		"type":        page.Type,
-		"tags":        page.Tags,
-		"categories":  page.Categories,
-		"excerpt":     page.Excerpt,
-		"wordCount":   page.WordCount,
-		"readingTime": page.ReadingTime,
-		"content":     tmplStripHTML(g.convertMarkdownToHTML(page.Content)),
+		"schema":          1,
+		"title":           page.Title,
+		"url":             page.GetURL(),
+		"date":            page.Date,
+		"type":            page.Type,
+		"tags":            page.Tags,
+		"categories":      page.Categories,
+		"excerpt":         page.Excerpt,
+		"wordCount":       page.WordCount,
+		"readingTime":     page.ReadingTime,
+		"lang":            page.Lang,
+		"locale":          page.Locale,
+		"translation_key": page.TranslationKey,
+		"content":         tmplStripHTML(g.convertMarkdownToHTML(page.Content)),
 	}
 }
 
@@ -276,24 +280,46 @@ func (g *Generator) generateSearchIndex() error {
 	}
 	g.log("🔎 Building search index...")
 	var docs []map[string]interface{}
+	docsByLang := make(map[string][]map[string]interface{})
 	add := func(pages []models.Page) {
 		for _, p := range pages {
-			docs = append(docs, map[string]interface{}{
-				"title":   p.Title,
-				"url":     p.GetURL(),
-				"tags":    p.Tags,
-				"excerpt": p.Excerpt,
-				"text":    tmplStripHTML(g.convertMarkdownToHTML(p.Content)),
-			})
+			record := map[string]interface{}{
+				"title":           p.Title,
+				"url":             p.GetURL(),
+				"lang":            p.Lang,
+				"locale":          p.Locale,
+				"translation_key": p.TranslationKey,
+				"tags":            p.Tags,
+				"excerpt":         p.Excerpt,
+				"text":            tmplStripHTML(g.convertMarkdownToHTML(p.Content)),
+			}
+			docs = append(docs, record)
+			docsByLang[p.Lang] = append(docsByLang[p.Lang], record)
 		}
 	}
 	add(g.siteData.Posts)
 	add(g.siteData.Pages)
 
-	data, err := json.Marshal(docs)
-	if err != nil {
-		return err
+	if !g.config.I18n.Enabled {
+		data, err := json.Marshal(docs)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(g.config.OutputDir, "search-index.json"), data, 0644) // #nosec G306
 	}
-	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(filepath.Join(g.config.OutputDir, "search-index.json"), data, 0644)
+	for _, lang := range g.siteData.Languages {
+		data, err := json.Marshal(docsByLang[lang.Code])
+		if err != nil {
+			return err
+		}
+		dir := filepath.Join(g.config.OutputDir, ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n))
+		// #nosec G301 -- Web content directories need to be world-traversable
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dir, "search-index.json"), data, 0644); err != nil {
+			return err
+		} // #nosec G306
+	}
+	return nil
 }
