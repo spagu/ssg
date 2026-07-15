@@ -201,7 +201,11 @@ const (
 	httpsScheme      = "https://" // shared URL scheme prefix (S1192)
 	indexHTMLName    = "index.html"
 	pageHTMLName     = "page.html"
+	postHTMLName     = "post.html"
 	categoryHTMLName = "category.html"
+	tagHTMLName      = "tag.html"
+	seriesHTMLName   = "series.html"
+	authorHTMLName   = "author.html"
 	htmlGlobPattern  = "*.html"
 	feedFileName     = "feed.xml"
 	sitemapURLOpen   = "  <url>\n"
@@ -231,9 +235,13 @@ type Generator struct {
 	externalData map[string]interface{}
 	externalMeta map[string]externalsource.Metadata
 	cmsImports   []*externalsource.CMSImportResult
-	engine       engine.Engine // non-Go template engine when configured (GO-007)
-	engineTmpls  map[string]engine.Template
-	sanitizer    *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
+
+	// ownedURLs caches content URLs for archive-collision checks (GO-050);
+	// built lazily by archiveURLOwner after content is finalized.
+	ownedURLs   map[string]string
+	engine      engine.Engine // non-Go template engine when configured (GO-007)
+	engineTmpls map[string]engine.Template
+	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
 	shortcodeTmpls map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
 	bracketRes     map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
@@ -990,6 +998,13 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 	if slug == "" {
 		return nil
 	}
+	// Explicit content wins: a page/post/alias that already owns /kind/slug/
+	// (e.g. a hand-written /author/ian-zane/ profile) suppresses the
+	// auto-generated archive instead of being silently overwritten (GO-050).
+	if owner, taken := g.archiveURLOwner(kind, slug); taken {
+		fmt.Printf("   ⚠️  Skipping auto %s archive /%s/%s/: %s already owns that URL\n", kind, kind, slug, owner)
+		return nil
+	}
 	ordered := sortPostsByDate(posts)
 	if ascending {
 		for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
@@ -1028,6 +1043,11 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
+	// A define-shell template (file present, body empty — GO-051) would render
+	// a blank archive; treat it as absent so the category.html fallback applies.
+	if !g.hasTemplate(primaryTmpl) {
+		primaryTmpl = categoryHTMLName
+	}
 	if err := g.renderTemplate(primaryTmpl, outputPath, data); err != nil {
 		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
 			fmt.Printf("   ⚠️  Failed to generate %s %s: %v\n", kind, name, err)
@@ -1046,7 +1066,7 @@ func (g *Generator) generateSeries() error {
 		}
 	}
 	for _, name := range sortedKeys(groups) {
-		if err := g.renderArchive("series", name, slugify(name), groups[name], "series.html", true); err != nil {
+		if err := g.renderArchive("series", name, slugify(name), groups[name], seriesHTMLName, true); err != nil {
 			return err
 		}
 	}
@@ -1065,8 +1085,13 @@ func (g *Generator) generateTags() (map[string]string, error) {
 	slugs := make(map[string]string, len(groups))
 	for _, name := range sortedKeys(groups) {
 		slug := slugify(name)
+		if owner, taken := g.archiveURLOwner("tag", slug); taken {
+			// Suppressed archives stay out of the sitemap/feed slug map (GO-050).
+			fmt.Printf("   ⚠️  Skipping auto tag archive /tag/%s/: %s already owns that URL\n", slug, owner)
+			continue
+		}
 		slugs[name] = slug
-		if err := g.renderArchive("tag", name, slug, groups[name], "tag.html", false); err != nil {
+		if err := g.renderArchive("tag", name, slug, groups[name], tagHTMLName, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1093,8 +1118,13 @@ func (g *Generator) generateAuthors() (map[string]string, error) {
 		if slug == "" {
 			continue
 		}
+		if owner, taken := g.archiveURLOwner("author", slug); taken {
+			// Suppressed archives stay out of the sitemap slug map (GO-050).
+			fmt.Printf("   ⚠️  Skipping auto author archive /author/%s/: %s already owns that URL\n", slug, owner)
+			continue
+		}
 		slugs[slug] = slug
-		if err := g.renderArchive("author", name, slug, groups[id], "author.html", false); err != nil {
+		if err := g.renderArchive("author", name, slug, groups[id], authorHTMLName, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1639,6 +1669,7 @@ func (g *Generator) loadTemplates() error {
 	if err != nil {
 		return fmt.Errorf("parsing templates: %w", err)
 	}
+	warnShellTemplates(tmpl, g.config.Quiet)
 
 	// Also load templates from layouts subdirectory if it exists
 	layoutsPath := filepath.Join(templatePath, "layouts", htmlGlobPattern)
@@ -1938,6 +1969,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"contains":   tmplContains,
 		"startsWith": strings.HasPrefix,
 		"endsWith":   strings.HasSuffix,
+		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
+		"hasSuffix":  strings.HasSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -2357,6 +2390,8 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"contains":   tmplContains,
 		"startsWith": strings.HasPrefix,
 		"endsWith":   strings.HasSuffix,
+		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
+		"hasSuffix":  strings.HasSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -2487,7 +2522,7 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 		"base.html":      baseTemplate,
 		indexHTMLName:    indexTemplate,
 		pageHTMLName:     pageTemplate,
-		"post.html":      postTemplate,
+		postHTMLName:     postTemplate,
 		categoryHTMLName: categoryTemplate,
 	}
 
@@ -2824,7 +2859,7 @@ func (g *Generator) generatePost(post models.Page) error {
 		}
 
 		// Render + per-file transforms in a single write (PERF-005).
-		if err := g.renderPageTemplate("post.html", outputPath, data, &post, true); err != nil {
+		if err := g.renderPageTemplate(postHTMLName, outputPath, data, &post, true); err != nil {
 			return err
 		}
 		g.writeJSONOutput(post, outputPath)
@@ -3010,6 +3045,11 @@ func (g *Generator) generateCategories() error {
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
 		catSlug := models.SanitizeRelPath(cat.Slug)
+		// Explicit content wins over the auto category archive (GO-050).
+		if owner, taken := g.archiveURLOwner("category", catSlug); taken {
+			fmt.Printf("   ⚠️  Skipping auto category archive /category/%s/: %s already owns that URL\n", catSlug, owner)
+			continue
+		}
 		outputPath := filepath.Join(g.config.OutputDir, "category", catSlug, indexHTMLName)
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
@@ -3026,6 +3066,36 @@ func (g *Generator) generateCategories() error {
 	}
 
 	return nil
+}
+
+// executedByFileName lists the template names ssg executes directly by file
+// name; a define-shell under one of these names is almost certainly a theme
+// bug worth flagging (GO-051).
+var executedByFileName = []string{
+	indexHTMLName, postHTMLName, pageHTMLName, categoryHTMLName,
+	tagHTMLName, seriesHTMLName, authorHTMLName,
+	"taxonomy.html", "taxonomy-term.html", "archive.html",
+}
+
+// warnShellTemplates flags theme files that ssg executes by file name but
+// whose body is empty because the file only holds {{define}} blocks for OTHER
+// names — e.g. author.html copied from category.html with the define still
+// reading "category.html". Such shells silently fall back (GO-051); the
+// warning tells the author how to activate the file.
+func warnShellTemplates(tmpl *template.Template, quiet bool) {
+	if quiet || tmpl == nil {
+		return
+	}
+	for _, name := range executedByFileName {
+		t := tmpl.Lookup(name)
+		if t == nil || t.Tree == nil || t.Tree.Root == nil {
+			continue
+		}
+		if strings.TrimSpace(t.Tree.Root.String()) == "" {
+			fmt.Printf("   ⚠️  Template file %s only contains {{define}} blocks for other names — "+
+				"rename a define to %q to activate it (falling back for now)\n", name, name)
+		}
+	}
 }
 
 // renderTemplate renders a template to a file, dispatching to the configured
@@ -3596,12 +3666,8 @@ func (g *Generator) generateSitemap() error {
 		sb.WriteString(sitemapURLClose)
 	}
 
-	// Categories
-	for _, cat := range g.siteData.Categories {
-		if cat.ID != 1 { // Skip "Bez kategorii"
-			g.writeSitemapArchive(&sb, "category", cat.Slug)
-		}
-	}
+	// Categories (archives suppressed by an explicit page stay out too, GO-050)
+	g.writeSitemapCategories(&sb)
 
 	// Tag archives (BLOG-004)
 	for _, slug := range sortedValues(g.tagSlugs) {
@@ -3630,6 +3696,19 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 		fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Lang), stdhtml.EscapeString(tr.Canonical))
 		if tr.Lang == g.config.DefaultLanguage {
 			fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Canonical))
+		}
+	}
+}
+
+// writeSitemapCategories appends the category archive entries, skipping
+// "Bez kategorii" and archives suppressed by an explicit page (GO-050).
+func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
+	for _, cat := range g.siteData.Categories {
+		if _, taken := g.archiveURLOwner("category", models.SanitizeRelPath(cat.Slug)); taken {
+			continue
+		}
+		if cat.ID != 1 { // Skip "Bez kategorii"
+			g.writeSitemapArchive(sb, "category", cat.Slug)
 		}
 	}
 }

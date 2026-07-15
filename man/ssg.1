@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-14" "1.8.4" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.5" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -297,6 +297,11 @@ Convert images to WebP format. Requires \fBcwebp\fR to be installed.
 .TP
 .BR \-\-webp\-quality =\fIN
 WebP compression quality, 1\-100 (default: 60).
+.TP
+.B \-\-webp\-keep\-original
+Emit each \fB.webp\fR next to its original instead of replacing it. Safe for
+themes with hardcoded \fB.png\fR/\fB.jpg\fR references (favicons, logos,
+og:image). The default replaces originals (historical behaviour).
 .TP
 .B \-\-reconvert\-images
 Force reconversion of images even if WebP versions already exist.

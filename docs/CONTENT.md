@@ -86,6 +86,31 @@ Only the following shapes are consumed:
 
 Additional export fields are allowed but are not exposed as site metadata.
 
+## Author archives
+
+Every author referenced by at least one **post** gets an automatic archive at
+`/author/<slug>/`:
+
+- The `author` frontmatter field accepts an ID (`1`), a name (`Ada Lovelace`)
+  or a slug (`ada`); all three resolve through the `users` block above. An ID
+  with no `users` entry falls back to `author-<id>`.
+- Archives list **posts only** — pages never join an author archive, even with
+  an `author` field.
+- Templates: `author.html` renders the archive (context: `.Name`, `.Posts`
+  newest-first, `.Kind` = `author`); missing `author.html` falls back to
+  `category.html`. Archives appear in the sitemap.
+- The author archive stays on this fixed pipeline; it is not configurable via
+  `taxonomies:` (migrating it onto the generic registry is a documented
+  deferred item), and `author` is a reserved path custom taxonomies cannot
+  claim.
+
+**Explicit content wins (v1.8.5).** If a page, post or alias already owns an
+archive URL — say a hand-written profile with `link: /author/ada/` — the
+auto-generated archive for that URL is skipped with a build warning instead of
+silently overwriting your page, and the suppressed archive stays out of the
+sitemap and feeds. The same rule protects `/category/…`, `/tag/…` and
+`/series/…` URLs.
+
 ## Markdown and frontmatter
 
 For predictable output, authored content should use YAML frontmatter:

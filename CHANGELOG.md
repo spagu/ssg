@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-07-15
+
+Author-archive safety, define-shell template fallback and Hugo-compatible
+string helpers (GO-050/GO-051).
+
+### Fixed
+- 🛡️ **Explicit content wins over auto archives** — a page/post/alias that
+  already owns `/author/<slug>/`, `/category/…`, `/tag/…` or `/series/…` used
+  to be **silently overwritten** by the auto-generated archive (archives render
+  last). The archive is now skipped with a build warning, and suppressed
+  archives stay out of the sitemap and slug maps used for feeds.
+- 🛡️ **Define-shell templates no longer render blank pages** — copying
+  `category.html` to `author.html` in a `{{define}}`-based theme left the
+  define name unchanged, and the whitespace-only file-level template rendered
+  a **blank archive**. Shells are now treated as absent (the category.html
+  fallback applies, matching pre-1.8 behaviour) and the build prints a warning
+  telling the author to rename the define. Applies to every template executed
+  by file name (index/post/page/category/tag/series/author/taxonomy*).
+
+### Added
+- 🖼️ **Non-destructive WebP mode** — `webp_keep_original: true`
+  (`--webp-keep-original`, action input `webp-keep-original`) emits each
+  `.webp` NEXT TO its original instead of replacing it, so themes with
+  hardcoded `.png`/`.jpg` references (favicons, logos, `og:image`) keep
+  working while rewritten `<img>` references serve WebP. The default remains
+  the historical replace-in-place behaviour.
+- 🎬 **GitHub Action traceability** — the resolved ssg version is logged on
+  every run (a `::notice::` when `version: latest` was used) and exposed as
+  the `version` output; docs now recommend pinning `version:` for production
+  deploys.
+- 🧩 `hasPrefix` / `hasSuffix` template helpers — Hugo-compatible aliases of
+  `startsWith` / `endsWith` (also in shortcode templates).
+- 📖 Author archives documented in `docs/CONTENT.md`: the `users` block in
+  `metadata.json`, `author:` accepting ID/name/slug, posts-only listings, the
+  `author.html` → `category.html` fallback, the reserved `author` path and the
+  new collision rule. (Migrating the author archive onto the generic taxonomy
+  registry remains a documented deferred item.)
+
 ## [1.8.4] - 2026-07-14
 
 Full internationalisation (audit/i18n-feature.md), dynamic taxonomies

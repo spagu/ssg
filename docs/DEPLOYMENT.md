@@ -218,6 +218,20 @@ jobs:
 Pin a full released tag instead of `@v1` when reproducibility is more important
 than automatic compatible updates. Use `@main` only to test unreleased changes.
 
+**Pin the binary too.** The action's `version` input defaults to `latest`, so
+every deploy silently picks up the newest ssg release the moment it ships —
+including behaviour changes. For production sites, pin it:
+
+```yaml
+- uses: spagu/ssg@v1
+  with:
+    version: v1.8.5   # exact ssg release used for the build
+```
+
+Since v1.8.5 the action logs the resolved version on every run (a `::notice::`
+when `latest` was used) and exposes it as the `version` output, so unpinned
+builds are at least traceable.
+
 ### Action inputs
 
 The action intentionally exposes a stable subset of the complete CLI:

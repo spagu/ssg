@@ -218,6 +218,18 @@ func (g *Generator) takenContentURLs() map[string]string {
 	return taken
 }
 
+// archiveURLOwner reports which content page/post/alias (if any) already owns
+// a legacy archive URL (/kind/slug/). Explicit content always wins over an
+// auto-generated archive: the archive is skipped instead of silently
+// overwriting the page (GO-050). The map is built once per generator.
+func (g *Generator) archiveURLOwner(kind, slug string) (string, bool) {
+	if g.ownedURLs == nil {
+		g.ownedURLs = g.takenContentURLs()
+	}
+	owner, taken := g.ownedURLs["/"+kind+"/"+slug+"/"]
+	return owner, taken
+}
+
 // checkTaxonomyURLs verifies one taxonomy's index and term URLs against taken output URLs.
 func (g *Generator) checkTaxonomyURLs(def taxonomy.Definition, taken map[string]string) error {
 	for _, lang := range g.taxonomyLangs() {
@@ -393,13 +405,22 @@ func (g *Generator) renderTaxonomyPage(chain []string, outPath string, data inte
 	return nil
 }
 
-// hasTemplate reports whether a template name exists in the active engine's set.
+// hasTemplate reports whether a template name exists in the active engine's
+// set WITH a non-whitespace body. ParseGlob names every file by its basename
+// even when the file only holds {{define}} blocks for other names — executing
+// such a shell writes a whitespace-only page, which is never what a theme
+// author meant (GO-051), so shells count as absent and fallbacks apply.
 func (g *Generator) hasTemplate(name string) bool {
 	if g.engine != nil {
 		_, ok := g.engineTmpls[name]
 		return ok
 	}
-	return g.tmpl != nil && g.tmpl.Lookup(name) != nil
+	if g.tmpl == nil {
+		return false
+	}
+	t := g.tmpl.Lookup(name)
+	return t != nil && t.Tree != nil && t.Tree.Root != nil &&
+		strings.TrimSpace(t.Tree.Root.String()) != ""
 }
 
 // taxonomyIndexChain is the index-page template fallback order: explicit

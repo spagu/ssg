@@ -23,6 +23,12 @@ type ConvertOptions struct {
 	Quiet   bool  // Suppress output
 	Force   bool  // Force reconversion even if WebP exists
 	Sizes   []int // Responsive width presets (px); empty = single size (ASSET-004)
+	// KeepOriginal emits the .webp NEXT TO the original instead of replacing
+	// it, so themes with hardcoded .png/.jpg references (favicons, logos,
+	// og:image) keep working while <img> src references are still rewritten
+	// to .webp (GO-052). Default false preserves the historical
+	// replace-in-place behaviour.
+	KeepOriginal bool
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -46,11 +52,13 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		ext := strings.ToLower(filepath.Ext(path))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
 			webpPath := webpTargetPath(path)
-			// If WebP already exists, just delete the original (unless Force reconvert)
+			// If WebP already exists, skip conversion (unless Force reconvert);
+			// in replace mode the leftover original is deleted, in keep mode it stays.
 			if !opts.Force {
 				if _, statErr := os.Stat(webpPath); statErr == nil {
-					// WebP exists - delete the original jpg/png from output
-					_ = os.Remove(path) // #nosec G122 -- CLI tool operates on user's output files
+					if !opts.KeepOriginal {
+						_ = os.Remove(path) // #nosec G122 -- CLI tool operates on user's output files
+					}
 					skipped++
 					return nil
 				}
@@ -114,9 +122,12 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 			generateResponsiveVariants(path, webpPath, opts)
 		}
 
-		// Remove original
-		if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
-			fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+		// Replace mode removes the original; keep mode leaves it next to the
+		// .webp so hardcoded extension references stay valid (GO-052).
+		if !opts.KeepOriginal {
+			if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
+				fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+			}
 		}
 
 		converted++

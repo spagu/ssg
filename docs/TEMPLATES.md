@@ -58,6 +58,15 @@ Standard template roles:
 | `category.html` | Categories and fallback for other archives |
 | `tag.html` | Tag archive when present |
 | `author.html` | Author archive when present |
+
+**Define names must match file names.** Templates are selected by their
+*define* name, not the file name. If your theme wraps templates in
+`{{define "…"}}` blocks, copying `category.html` to `author.html` is not
+enough — the copy still defines `category.html`. Rename the define to
+`author.html` to activate it. Since v1.8.5 such a "shell" file falls back
+gracefully (never a blank page) and the build prints a warning naming the fix.
+Themes without `{{define}}` blocks are matched by file name and need no
+renaming.
 | `series.html` | Series archive when present |
 | `layouts/<name>.html` | A page with frontmatter `layout: <name>` |
 | `<name>.html` | A page with frontmatter `template: <name>` |
