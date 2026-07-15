@@ -430,17 +430,20 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 	)
 }
 
-// headingIDTransformer overwrites every heading's auto id with
-// slugify(visible text), de-duplicated per document with -N suffixes.
-// "### [Ian Zane](/authors/ian-zane/) — Generalist" gets id
-// "ian-zane-generalist" instead of "ian-zaneauthorsian-zane--generalist"
-// (issue #26). The TOC (AX-002) reads the same attribute, so intra-page
-// anchors stay consistent.
+// headingIDTransformer fixes the auto ids of headings that CONTAIN a link or
+// image: goldmark derives ids from the raw source line, so
+// "### [Ian Zane](/authors/ian-zane/) — Generalist" became
+// id="ian-zaneauthorsian-zane--generalist" (issue #26). Only such headings are
+// recomputed to slugify(visible text) — plain headings keep goldmark's ids
+// bit-for-bit, so anchors on pre-1.8.6 sites stay valid. De-duplication spans
+// the whole document (kept goldmark ids included). The TOC (AX-002) reads the
+// same attribute, so intra-page anchors stay consistent.
 type headingIDTransformer struct{}
 
 // Transform implements gmparser.ASTTransformer.
 func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ gmparser.Context) {
 	used := map[string]bool{}
+	var affected []*ast.Heading
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
@@ -449,6 +452,16 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 		if !ok {
 			return ast.WalkContinue, nil
 		}
+		if headingHasLink(h) {
+			affected = append(affected, h)
+		} else if v, ok := h.AttributeString("id"); ok {
+			if idBytes, ok := v.([]byte); ok {
+				used[string(idBytes)] = true // keep goldmark's id, reserve it
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	for _, h := range affected {
 		id := slugify(nodeText(h, reader.Source()))
 		if id == "" {
 			id = "heading"
@@ -459,8 +472,25 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 		}
 		used[id] = true
 		h.SetAttributeString("id", []byte(id))
+	}
+}
+
+// headingHasLink reports whether a heading contains a link, autolink or image
+// node — the cases where goldmark's raw-source id leaks the destination URL.
+func headingHasLink(h ast.Node) bool {
+	found := false
+	_ = ast.Walk(h, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch n.Kind() {
+		case ast.KindLink, ast.KindAutoLink, ast.KindImage:
+			found = true
+			return ast.WalkStop, nil
+		}
 		return ast.WalkContinue, nil
 	})
+	return found
 }
 
 // resolveVariables replaces values starting with $ with the corresponding environment variable.
@@ -1123,17 +1153,12 @@ func (g *Generator) generateTags() (map[string]string, error) {
 			groups[tag] = append(groups[tag], post)
 		}
 	}
-	// metadata.json tag slugs win over derived ones, mirroring categories
-	// (issue #27): a WordPress export's canonical slug survives the migration.
-	metaSlugs := make(map[string]string, len(g.siteData.Tags))
-	for _, t := range g.siteData.Tags {
-		if t.Name != "" && t.Slug != "" {
-			metaSlugs[strings.ToLower(t.Name)] = t.Slug
-		}
-	}
 	slugs := make(map[string]string, len(groups))
 	for _, name := range sortedKeys(groups) {
-		slug := metaSlugs[strings.ToLower(name)]
+		// Canonical export slugs apply ONLY to tags resolved from numeric ids
+		// (issue #27); hand-written names keep their historical derived slugs,
+		// so pre-1.8.6 tag URLs never change.
+		slug := g.siteData.TagSlugs[strings.ToLower(name)]
 		if slug == "" {
 			slug = slugify(name)
 		}

@@ -345,7 +345,12 @@ type SiteData struct {
 	Media      map[int]MediaItem
 	Authors    map[int]Author
 	// Tags maps WordPress tag term ids to their name/slug (issue #27).
-	Tags            map[int]Category
+	Tags map[int]Category
+	// TagSlugs maps lowercased tag names RESOLVED FROM NUMERIC IDS to the
+	// export's canonical slug. Only id-resolved tags get canonical slugs, so
+	// hand-written tag names keep their historical derived URLs (issue #27,
+	// backward compatible by construction).
+	TagSlugs        map[string]string
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string
@@ -371,11 +376,14 @@ func (sd *SiteData) ResolveFlexibleFields() {
 		catBySlug[strings.ToLower(c.Slug)] = c.ID
 	}
 
+	if sd.TagSlugs == nil {
+		sd.TagSlugs = make(map[string]string)
+	}
 	resolvePages := func(pages []Page) {
 		for i := range pages {
 			resolveAuthor(&pages[i], authorByName, authorBySlug)
 			resolveCategories(&pages[i], catByName, catBySlug)
-			resolveTags(&pages[i], sd.Tags)
+			resolveTags(&pages[i], sd.Tags, sd.TagSlugs)
 		}
 	}
 
@@ -385,8 +393,10 @@ func (sd *SiteData) ResolveFlexibleFields() {
 
 // resolveTags replaces numeric WordPress tag ids in a page's tags with the
 // term names from metadata.json `tags`, mirroring how author ids resolve via
-// `users` (issue #27). Non-numeric values and unknown ids pass through.
-func resolveTags(p *Page, tags map[int]Category) {
+// `users` (issue #27). The canonical export slug is recorded ONLY for
+// id-resolved names, so hand-written tags keep their historical derived
+// slugs. Non-numeric values and unknown ids pass through.
+func resolveTags(p *Page, tags map[int]Category, tagSlugs map[string]string) {
 	if len(tags) == 0 || len(p.Tags) == 0 {
 		return
 	}
@@ -397,6 +407,9 @@ func resolveTags(p *Page, tags map[int]Category) {
 		}
 		if term, ok := tags[id]; ok && term.Name != "" {
 			p.Tags[i] = term.Name
+			if term.Slug != "" {
+				tagSlugs[strings.ToLower(term.Name)] = term.Slug
+			}
 		}
 	}
 }

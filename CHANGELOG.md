@@ -13,16 +13,18 @@ Fixes for the two open WordPress-migration issues.
 - 🔗 **Heading anchor ids derive from visible text** (#26) — a heading
   containing a Markdown link leaked the href into its auto id
   (`### [Ian Zane](/authors/ian-zane/) — Generalist` →
-  `id="ian-zaneauthorsian-zane--generalist"`). Ids are now
-  `slugify(visible text)` (`id="ian-zane-generalist"`), de-duplicated with
-  `-N` suffixes; the TOC uses the same ids, so intra-page anchors and
-  skip-links stay stable.
+  `id="ian-zaneauthorsian-zane--generalist"`). Link/image-bearing headings now
+  get `slugify(visible text)` (`id="ian-zane-generalist"`), de-duplicated with
+  `-N` suffixes; the TOC uses the same ids. **Backward compatible:** plain
+  headings keep goldmark's ids bit-for-bit, so existing anchors never change —
+  only the malformed link-bearing ids do.
 - 🏷️ **Numeric WordPress tag ids resolve via metadata.json** (#27) —
   `tags: [1691]` produced a raw `/tag/1691/` archive even when the export's
   `tags` collection carried the term. Numeric tag values now resolve to the
-  term name (like `author:` resolves via `users`), and tag archives use the
-  export's canonical slug when available. Unknown ids and plain names pass
-  through unchanged.
+  term name (like `author:` resolves via `users`), and those id-resolved tags
+  archive under the export's canonical slug. **Backward compatible:**
+  hand-written tag names keep their historical derived slugs, and unknown
+  ids/plain names pass through unchanged — pre-1.8.6 tag URLs never move.
 
 ## [1.8.5] - 2026-07-15
 

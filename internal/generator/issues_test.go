@@ -28,6 +28,13 @@ func TestHeadingIDFromVisibleText(t *testing.T) {
 	// Empty-text heading falls back to a stable id.
 	html = g.convertMarkdownToHTML("## ![](/img/logo.png)\n")
 	wantContains(t, "empty heading", html, `<h2 id="heading">`)
+
+	// BACKWARD COMPAT: plain headings keep goldmark's ids bit-for-bit —
+	// punctuation quirks ("foo--bar") included — so anchors on pre-1.8.6
+	// sites stay valid; only link-bearing headings are recomputed.
+	html = g.convertMarkdownToHTML("## Foo & Bar\n\n## my_heading\n")
+	wantContains(t, "plain headings unchanged", html,
+		`<h2 id="foo--bar">`, `<h2 id="my-heading">`)
 }
 
 // TestNumericTagIDsResolve (#27): numeric WordPress tag ids in frontmatter
@@ -39,9 +46,10 @@ func TestNumericTagIDsResolve(t *testing.T) {
 		`{"categories":[],"exported_at":"","media":[],
 		  "users":[{"id":101,"name":"Ian Zane","slug":"ian-zane"}],
 		  "tags":[{"id":1691,"name":"eSports Betting","slug":"esports-betting"},
-		          {"id":1700,"name":"Śląsk News","slug":"slask-news"}]}`)
+		          {"id":1700,"name":"Śląsk News","slug":"slask-news"},
+		          {"id":1800,"name":"Hand Written","slug":"custom-hand"}]}`)
 	mustWrite(t, filepath.Join(tmp, "content", "site", "posts", "news", "one.md"),
-		"---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\nauthor: 101\ntags:\n  - 1691\n  - 1700\n  - 9999\n  - plain-tag\n---\n\nBody.\n")
+		"---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\nauthor: 101\ntags:\n  - 1691\n  - 1700\n  - 9999\n  - plain-tag\n  - Hand Written\n---\n\nBody.\n")
 	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
 	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
 		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
@@ -55,7 +63,7 @@ func TestNumericTagIDsResolve(t *testing.T) {
 	out := filepath.Join(tmp, "output")
 	// Resolved names on the post.
 	post := gen.siteData.Posts[0]
-	if got := strings.Join(post.Tags, "|"); got != "eSports Betting|Śląsk News|9999|plain-tag" {
+	if got := strings.Join(post.Tags, "|"); got != "eSports Betting|Śląsk News|9999|plain-tag|Hand Written" {
 		t.Fatalf("tags = %q", got)
 	}
 	// Archives under metadata slugs (canonical WordPress slug wins over
@@ -71,6 +79,15 @@ func TestNumericTagIDsResolve(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(out, "tag", "9999", "index.html")); err != nil {
 		t.Fatal("unknown numeric ids must pass through unchanged")
+	}
+	// BACKWARD COMPAT: hand-written tag names keep their historical DERIVED
+	// slug even when metadata carries a different canonical one — pre-1.8.6
+	// tag URLs never change; canonical slugs apply only to id-resolved tags.
+	if _, err := os.Stat(filepath.Join(out, "tag", "hand-written", "index.html")); err != nil {
+		t.Fatal("hand-written tag must keep its derived slug")
+	}
+	if _, err := os.Stat(filepath.Join(out, "tag", "custom-hand", "index.html")); err == nil {
+		t.Fatal("canonical slug must not apply to hand-written tag names")
 	}
 	wantContains(t, "sitemap", mustRead(t, filepath.Join(out, "sitemap.xml")),
 		"/tag/esports-betting/", "/tag/slask-news/")
