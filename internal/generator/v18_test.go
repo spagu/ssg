@@ -52,10 +52,10 @@ func TestIdentityLineMappings(t *testing.T) {
 }
 
 func TestPageURL(t *testing.T) {
-	if pageURL(1) != "/" {
+	if pageURLWithPrefix("", 1) != "/" {
 		t.Error("page 1 should be /")
 	}
-	if pageURL(3) != "/page/3/" {
+	if pageURLWithPrefix("", 3) != "/page/3/" {
 		t.Error("page 3 should be /page/3/")
 	}
 }
@@ -191,22 +191,18 @@ func TestLastModFor(t *testing.T) {
 }
 
 func TestInjectMath(t *testing.T) {
-	g := newTestGen(t, "")
-	g.config.Math = true
-	out := g.config.OutputDir
-	_ = os.WriteFile(filepath.Join(out, "a.html"), []byte("<head></head><body>$$x^2$$</body>"), 0644)
-	_ = os.WriteFile(filepath.Join(out, "b.html"), []byte("<head></head><body>no math</body>"), 0644)
-
-	if err := g.injectMathIfRequested(); err != nil {
-		t.Fatalf("injectMath: %v", err)
-	}
-	a, _ := os.ReadFile(filepath.Join(out, "a.html"))
-	b, _ := os.ReadFile(filepath.Join(out, "b.html"))
-	if !strings.Contains(string(a), "katex.min.css") {
+	a := mathHTMLString("<head></head><body>$$x^2$$</body>")
+	b := mathHTMLString("<head></head><body>no math</body>")
+	if !strings.Contains(a, "katex.min.css") {
 		t.Error("math page should get KaTeX")
 	}
-	if strings.Contains(string(b), "katex") {
+	if strings.Contains(b, "katex") {
 		t.Error("non-math page should not get KaTeX")
+	}
+	// Already-wired page stays unchanged.
+	wired := `<head><link rel="stylesheet" href="katex.min.css"></head><body>$$x^2$$</body>`
+	if mathHTMLString(wired) != wired {
+		t.Error("already-wired page should not be modified")
 	}
 }
 

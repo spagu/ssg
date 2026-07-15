@@ -41,6 +41,7 @@ func startServer(cfg *config.Config) {
 	}
 
 	handler := buildServerHandler(cfg, mode != "")
+	warnTLSMisconfig(cfg, mode)
 
 	// HTTP/3 (QUIC) requires TLS; when enabled it runs alongside HTTPS and TCP
 	// responses advertise it via Alt-Svc so browsers upgrade (v1.8.1).
@@ -123,6 +124,25 @@ func serverTLSMode(cfg *config.Config) string {
 		return "auto"
 	}
 	return ""
+}
+
+// warnTLSMisconfig makes every silent TLS/HTTP3 degradation loud (GO-056):
+// incomplete flag pairs used to fall back to plain HTTP with no diagnostic,
+// so users believed they were serving HTTPS or HTTP/3 when they were not.
+func warnTLSMisconfig(cfg *config.Config, mode string) {
+	if mode == "" {
+		switch {
+		case cfg.TLSAuto && cfg.TLSDomain == "":
+			fmt.Fprintln(os.Stderr, "⚠️  --tls-auto needs --tls-domain=<domain>; serving plain HTTP")
+		case cfg.TLSCert != "" && cfg.TLSKey == "":
+			fmt.Fprintln(os.Stderr, "⚠️  --tls-cert given without --tls-key; serving plain HTTP")
+		case cfg.TLSKey != "" && cfg.TLSCert == "":
+			fmt.Fprintln(os.Stderr, "⚠️  --tls-key given without --tls-cert; serving plain HTTP")
+		}
+	}
+	if cfg.HTTP3 && mode == "" {
+		fmt.Fprintln(os.Stderr, "⚠️  --http3 requires TLS (--tls-auto or --tls-cert/--tls-key); HTTP/3 disabled")
+	}
 }
 
 // logServerStart prints a one-line startup banner unless quiet.

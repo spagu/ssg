@@ -74,11 +74,3 @@ func (c *fileSigCache) signature(dirs []string) string {
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
-
-// contentSignature returns a content hash of every file under dirs, so a
-// rebuild can be skipped when nothing actually changed (PLAT-006). One-shot
-// variant with a throwaway cache; the watch loop holds a persistent
-// fileSigCache instead so unchanged files are never re-read (PERF-008).
-func contentSignature(dirs []string) string {
-	return newFileSigCache().signature(dirs)
-}

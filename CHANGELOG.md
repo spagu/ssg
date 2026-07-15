@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.7] - 2026-07-15
+
+Completion of 15 unfinished-feature findings from the 2026-07-15 audit round
+(GO-053…GO-062, DOC-013…DOC-016, FE-011): half-wired flags, silent
+degradations, and documentation that promised more than the code delivered.
+
+### Added
+- 📦 **Embedded starter themes** (DOC-013) — `simple` and `krowy` are now
+  compiled into the binary with `go:embed` and extracted (HTML **and** assets)
+  on first use, so `ssg my-blog simple example.com` finally matches the README
+  Quick Start without a repository checkout. Unknown themes still scaffold the
+  generic starter.
+- 🧹 **Image-cache garbage collection** (GO-057) — `--images-gc`
+  (`images_gc: true`) prunes cache entries the finished build no longer
+  references; `--images-gc-dry` reports what it would reclaim. Runs after
+  generation and never fails the build.
+- 🔀 **HTTP external-source pagination** (GO-062) — `pagination:` per source
+  with `mode: page` (incrementing query param) or `mode: link` (`Link
+  rel="next"`), `per_page`, `start_page`, and a `max_pages` guard (default 10,
+  max 1000). Pages aggregate into one JSON array; hitting the cap warns.
+- 💬 **Movable Type comment import** (GO-058) — `movable_type.include_comments:
+  true` imports visible (`comment_visible = 1`) comments into each entry's
+  `.Extra["comments"]`. Previously the option hard-failed as "deferred".
+
+### Changed
+- 🧩 **Every value flag accepts both `--flag=value` and `--flag value`**
+  (GO-053) — the space form used to leak silently into positional arguments, so
+  `--deploy cloudflare` quietly skipped the deploy. Both spellings now share one
+  parser; unexpected positionals warn, and a value flag with no value warns.
+- 🎛️ **Alt-engine helper parity** (GO-054) — pongo2 exposes the SSG FuncMap as
+  real filters and Handlebars as real helpers (reflection adapter); Mustache
+  reports its logic-less limitation once. Helpers an engine cannot express fail
+  loudly instead of the old passthrough/ignore/`recover` silence. New support
+  matrix in `docs/TEMPLATES.md`.
+- 🔢 **Fenced `` ```math `` blocks render** (GO-055) — they are rewritten to
+  `$$…$$` display math before conversion, so detection and KaTeX injection
+  agree. Docs corrected: inline `\(…\)` is not supported.
+- 🔊 **Loud TLS/HTTP-3 degradations** (GO-056) — `--http3` without TLS, and
+  incomplete TLS pairs (`--tls-auto` without `--tls-domain`, cert without key),
+  now warn instead of silently serving plain HTTP.
+- ⚙️ **`seo_off` honoured** (GO-059) — the deprecated config key now forces SEO
+  off with a deprecation warning instead of being a silent no-op.
+- 🧰 **`getExternal`/`getExternalMeta` work in shortcode templates** (DOC-016).
+
+### Fixed
+- 🔒 **Generic scaffold no longer leaks to Google Fonts** (FE-011) — the
+  fallback template used a system font stack; no external CDN, neutral English
+  copy, `lang="en"` (was Polish text with a `fonts.googleapis.com` link,
+  contradicting the project's own privacy rule).
+- 🗺️ **Cloudflare deploy error names the real flag** (GO-060) —
+  `--deploy-project` instead of the non-existent `--cf-project`.
+- 📖 **Docs/CLI discoverability** (DOC-014/DOC-015) — `--feed`, `--toc`,
+  `--highlight`, `--paginate`, `--languages`, `--outputs`, `--check-links` and
+  more are now in `--help` and the man page; README deploy table fixes
+  (`VERCEL_ORG_ID` optional, SFTP needs `SSH_USERNAME`); Action `version`
+  output documented.
+
+### Removed
+- 🧟 **13 dead legacy transform helpers** (GO-061) — the pre-PERF-005 tree-walk
+  functions (`minifyOutput`, `injectSEO`, `convertToRelativeLinks`, … and
+  one-shot `contentSignature`) were reachable only from tests; removed, with
+  their tests re-pointed at the live string transforms.
+
+## [1.8.6] - 2026-07-15
+
+Fixes for the two open WordPress-migration issues.
+
+### Fixed
+- 🔗 **Heading anchor ids derive from visible text** (#26) — a heading
+  containing a Markdown link leaked the href into its auto id
+  (`### [Ian Zane](/authors/ian-zane/) — Generalist` →
+  `id="ian-zaneauthorsian-zane--generalist"`). Link/image-bearing headings now
+  get `slugify(visible text)` (`id="ian-zane-generalist"`), de-duplicated with
+  `-N` suffixes; the TOC uses the same ids. **Backward compatible:** plain
+  headings keep goldmark's ids bit-for-bit, so existing anchors never change —
+  only the malformed link-bearing ids do.
+- 🏷️ **Numeric WordPress tag ids resolve via metadata.json** (#27) —
+  `tags: [1691]` produced a raw `/tag/1691/` archive even when the export's
+  `tags` collection carried the term. Numeric tag values now resolve to the
+  term name (like `author:` resolves via `users`), and those id-resolved tags
+  archive under the export's canonical slug. **Backward compatible:**
+  hand-written tag names keep their historical derived slugs, and unknown
+  ids/plain names pass through unchanged — pre-1.8.6 tag URLs never move.
+
 ## [1.8.5] - 2026-07-15
 
 Author-archive safety, define-shell template fallback and Hugo-compatible
@@ -1081,6 +1165,13 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
+[1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
+[1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
+[1.8.5]: https://github.com/spagu/ssg/compare/v1.8.4...v1.8.5
+[1.8.4]: https://github.com/spagu/ssg/compare/v1.8.3...v1.8.4
+[1.8.3]: https://github.com/spagu/ssg/compare/v1.8.2...v1.8.3
+[1.8.2]: https://github.com/spagu/ssg/compare/v1.8.1...v1.8.2
+[1.8.1]: https://github.com/spagu/ssg/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/spagu/ssg/compare/v1.7.15...v1.8.0
 [1.7.15]: https://github.com/spagu/ssg/compare/v1.7.14...v1.7.15
 [1.7.14]: https://github.com/spagu/ssg/compare/v1.7.13...v1.7.14

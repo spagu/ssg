@@ -118,7 +118,7 @@ func TestEnsureTemplates(t *testing.T) {
 	}
 }
 
-func TestPrettifyHTMLFile(t *testing.T) {
+func TestPrettifyHTMLString(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -244,37 +244,16 @@ func TestPrettifyHTMLFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			htmlPath := filepath.Join(tmpDir, "test.html")
+			result := prettifyHTMLString(tt.input)
 
-			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
-
-			if err := prettifyHTMLFile(htmlPath); err != nil {
-				t.Fatalf("prettifyHTMLFile failed: %v", err)
-			}
-
-			result, err := os.ReadFile(htmlPath)
-			if err != nil {
-				t.Fatalf("Failed to read result file: %v", err)
-			}
-
-			if string(result) != tt.expected {
-				t.Errorf("prettifyHTMLFile mismatch:\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.input, tt.expected, string(result))
+			if result != tt.expected {
+				t.Errorf("prettifyHTMLString mismatch:\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.input, tt.expected, result)
 			}
 		})
 	}
 }
 
-func TestPrettifyHTMLFileNotFound(t *testing.T) {
-	err := prettifyHTMLFile("/nonexistent/path/to/file.html")
-	if err == nil {
-		t.Error("Expected error for nonexistent file, got nil")
-	}
-}
-
-func TestConvertToRelativeLinksFile(t *testing.T) {
+func TestRelativizeHTMLString(t *testing.T) {
 	tests := []struct {
 		name     string
 		domain   string
@@ -365,33 +344,12 @@ func TestConvertToRelativeLinksFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			htmlPath := filepath.Join(tmpDir, "test.html")
+			result := relativizeHTMLString(tt.input, tt.domain)
 
-			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
-
-			if err := convertToRelativeLinksFile(htmlPath, tt.domain); err != nil {
-				t.Fatalf("convertToRelativeLinksFile failed: %v", err)
-			}
-
-			result, err := os.ReadFile(htmlPath)
-			if err != nil {
-				t.Fatalf("Failed to read result file: %v", err)
-			}
-
-			if string(result) != tt.expected {
-				t.Errorf("convertToRelativeLinksFile mismatch:\nDomain: %s\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.domain, tt.input, tt.expected, string(result))
+			if result != tt.expected {
+				t.Errorf("relativizeHTMLString mismatch:\nDomain: %s\nInput:\n%q\n\nExpected:\n%q\n\nGot:\n%q", tt.domain, tt.input, tt.expected, result)
 			}
 		})
-	}
-}
-
-func TestConvertToRelativeLinksFileNotFound(t *testing.T) {
-	err := convertToRelativeLinksFile("/nonexistent/path/to/file.html", "https://example.com")
-	if err == nil {
-		t.Error("Expected error for nonexistent file, got nil")
 	}
 }
 
@@ -478,10 +436,10 @@ func TestProcessConfigShortcodes(t *testing.T) {
 			}
 			g, _ := New(cfg)
 
-			result := g.processShortcodes(tt.input)
+			result := g.processShortcodesWith(tt.input, g.renderShortcode)
 
 			if result != tt.expected {
-				t.Errorf("processShortcodes mismatch:\nInput: %q\nExpected:\n%s\n\nGot:\n%s", tt.input, tt.expected, result)
+				t.Errorf("processShortcodesWith mismatch:\nInput: %q\nExpected:\n%s\n\nGot:\n%s", tt.input, tt.expected, result)
 			}
 		})
 	}
@@ -496,7 +454,7 @@ func TestShortcodeWithoutTemplate(t *testing.T) {
 	g, _ := New(cfg)
 
 	// Should return empty string and print warning
-	result := g.processShortcodes("Test {{notemplate}} here")
+	result := g.processShortcodesWith("Test {{notemplate}} here", g.renderShortcode)
 	expected := "Test  here"
 
 	if result != expected {
@@ -521,7 +479,7 @@ func TestShortcodeWithMissingTemplateFile(t *testing.T) {
 	g, _ := New(cfg)
 
 	// Should return empty string when template file doesn't exist
-	result := g.processShortcodes("Test {{missing}} here")
+	result := g.processShortcodesWith("Test {{missing}} here", g.renderShortcode)
 	expected := "Test  here"
 
 	if result != expected {
@@ -530,9 +488,7 @@ func TestShortcodeWithMissingTemplateFile(t *testing.T) {
 }
 
 func TestPrettifyOutput(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create test HTML files with blank lines
+	// HTML with blank lines is prettified at render time (PERF-005).
 	htmlContent := `<!DOCTYPE html>
 
 
@@ -549,57 +505,18 @@ func TestPrettifyOutput(t *testing.T) {
 </html>
 `
 
-	// Create directory structure
-	if err := os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755); err != nil {
-		t.Fatalf("Failed to create subdir: %v", err)
+	if got := prettifyHTMLString(htmlContent); got != expectedContent {
+		t.Errorf("HTML not properly prettified:\nExpected:\n%q\nGot:\n%q", expectedContent, got)
 	}
 
-	// Create HTML files
-	if err := os.WriteFile(filepath.Join(tmpDir, "index.html"), []byte(htmlContent), 0644); err != nil {
-		t.Fatalf("Failed to create index.html: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "subdir", "page.html"), []byte(htmlContent), 0644); err != nil {
-		t.Fatalf("Failed to create page.html: %v", err)
-	}
-
-	// Create non-HTML file (should be ignored)
-	if err := os.WriteFile(filepath.Join(tmpDir, "style.css"), []byte("body { }"), 0644); err != nil {
-		t.Fatalf("Failed to create style.css: %v", err)
-	}
-
-	gen := &Generator{
-		config: Config{
-			OutputDir:  tmpDir,
-			PrettyHTML: true,
-		},
-	}
-
-	if err := gen.prettifyOutput(); err != nil {
-		t.Fatalf("prettifyOutput failed: %v", err)
-	}
-
-	// Verify HTML files were prettified
-	for _, path := range []string{
-		filepath.Join(tmpDir, "index.html"),
-		filepath.Join(tmpDir, "subdir", "page.html"),
-	} {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("Failed to read %s: %v", path, err)
-		}
-		if string(content) != expectedContent {
-			t.Errorf("File %s not properly prettified:\nExpected:\n%q\nGot:\n%q", path, expectedContent, string(content))
-		}
-	}
-
-	// Verify CSS file was not modified
-	cssContent, _ := os.ReadFile(filepath.Join(tmpDir, "style.css"))
-	if string(cssContent) != "body { }" {
-		t.Error("CSS file was incorrectly modified")
+	// Non-HTML content is untouched by the transform pipeline: only .html
+	// output goes through prettifyHTMLString (see renderPageTemplate).
+	if got := prettifyHTMLString("body { }\n"); got != "body { }\n" {
+		t.Errorf("Plain content was incorrectly modified: %q", got)
 	}
 }
 
-func TestMinifyHTMLFile(t *testing.T) {
+func TestMinifyHTMLString(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -653,33 +570,12 @@ whitespace
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			htmlPath := filepath.Join(tmpDir, "test.html")
+			result := minifyHTMLString(tt.input)
 
-			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
-				t.Fatalf("Failed to write test file: %v", err)
-			}
-
-			if err := minifyHTMLFile(htmlPath); err != nil {
-				t.Fatalf("minifyHTMLFile failed: %v", err)
-			}
-
-			result, err := os.ReadFile(htmlPath)
-			if err != nil {
-				t.Fatalf("Failed to read result file: %v", err)
-			}
-
-			if string(result) != tt.expected {
-				t.Errorf("Expected %q, got %q", tt.expected, string(result))
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
 		})
-	}
-}
-
-func TestMinifyHTMLFileNotFound(t *testing.T) {
-	err := minifyHTMLFile("/nonexistent/file.html")
-	if err == nil {
-		t.Error("Expected error for nonexistent file")
 	}
 }
 
@@ -884,14 +780,16 @@ func TestFixMediaPaths(t *testing.T) {
 func TestMinifyOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test files
+	// HTML is minified in memory at render time (PERF-005).
 	htmlContent := `<html>  <body>  Hello  </body>  </html>`
+	if contains(minifyHTMLString(htmlContent), "  ") {
+		t.Error("HTML still contains multiple spaces")
+	}
+
+	// CSS/JS assets are minified by the post-bundling walk.
 	cssContent := `body { color: red; }`
 	jsContent := "// comment\nvar x = 1;"
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "test.html"), []byte(htmlContent), 0644); err != nil {
-		t.Fatalf("Failed to create HTML file: %v", err)
-	}
 	if err := os.WriteFile(filepath.Join(tmpDir, "test.css"), []byte(cssContent), 0644); err != nil {
 		t.Fatalf("Failed to create CSS file: %v", err)
 	}
@@ -901,21 +799,14 @@ func TestMinifyOutput(t *testing.T) {
 
 	gen := &Generator{
 		config: Config{
-			OutputDir:  tmpDir,
-			MinifyHTML: true,
-			MinifyCSS:  true,
-			MinifyJS:   true,
+			OutputDir: tmpDir,
+			MinifyCSS: true,
+			MinifyJS:  true,
 		},
 	}
 
-	if err := gen.minifyOutput(); err != nil {
-		t.Fatalf("minifyOutput failed: %v", err)
-	}
-
-	// Verify HTML was minified
-	html, _ := os.ReadFile(filepath.Join(tmpDir, "test.html"))
-	if contains(string(html), "  ") {
-		t.Error("HTML file still contains multiple spaces")
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Fatalf("minifyAssetsOutput failed: %v", err)
 	}
 
 	// Verify CSS was minified
@@ -1353,28 +1244,23 @@ func TestMinifyOutputPartial(t *testing.T) {
 	htmlContent := "<html>  <body>  </body>  </html>"
 	cssContent := "body { color: red; }"
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "test.html"), []byte(htmlContent), 0644); err != nil {
-		t.Fatalf("Failed to create HTML: %v", err)
+	if contains(minifyHTMLString(htmlContent), "  ") {
+		t.Error("HTML should be minified")
 	}
+
 	if err := os.WriteFile(filepath.Join(tmpDir, "test.css"), []byte(cssContent), 0644); err != nil {
 		t.Fatalf("Failed to create CSS: %v", err)
 	}
 
 	gen := &Generator{
 		config: Config{
-			OutputDir:  tmpDir,
-			MinifyHTML: true,
-			MinifyCSS:  false,
+			OutputDir: tmpDir,
+			MinifyCSS: false,
 		},
 	}
 
-	if err := gen.minifyOutput(); err != nil {
-		t.Fatalf("minifyOutput failed: %v", err)
-	}
-
-	html, _ := os.ReadFile(filepath.Join(tmpDir, "test.html"))
-	if contains(string(html), "  ") {
-		t.Error("HTML should be minified")
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Fatalf("minifyAssetsOutput failed: %v", err)
 	}
 
 	css, _ := os.ReadFile(filepath.Join(tmpDir, "test.css"))
@@ -2861,28 +2747,15 @@ func TestGenerateCloudflareFilesHeadersError(t *testing.T) {
 	}
 }
 
-func TestPrettifyOutputError(t *testing.T) {
-	gen := &Generator{
-		config: Config{
-			OutputDir: "/nonexistent/path",
-		},
-	}
-
-	err := gen.prettifyOutput()
-	if err == nil {
-		t.Error("Expected error when output dir doesn't exist")
-	}
-}
-
 func TestMinifyOutputError(t *testing.T) {
 	gen := &Generator{
 		config: Config{
-			OutputDir:  "/nonexistent/path",
-			MinifyHTML: true,
+			OutputDir: "/nonexistent/path",
+			MinifyCSS: true,
 		},
 	}
 
-	err := gen.minifyOutput()
+	err := gen.minifyAssetsOutput()
 	if err == nil {
 		t.Error("Expected error when output dir doesn't exist")
 	}
@@ -3128,15 +3001,14 @@ func TestMinifyOutputOnlyJS(t *testing.T) {
 
 	gen := &Generator{
 		config: Config{
-			OutputDir:  tmpDir,
-			MinifyHTML: false,
-			MinifyCSS:  false,
-			MinifyJS:   true,
+			OutputDir: tmpDir,
+			MinifyCSS: false,
+			MinifyJS:  true,
 		},
 	}
 
-	if err := gen.minifyOutput(); err != nil {
-		t.Fatalf("minifyOutput failed: %v", err)
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Fatalf("minifyAssetsOutput failed: %v", err)
 	}
 
 	js, _ := os.ReadFile(filepath.Join(tmpDir, "test.js"))
@@ -3823,10 +3695,7 @@ func TestFixMediaPathsNoMediaMapping(t *testing.T) {
 	}
 }
 
-func TestMinifyHTMLFileConditionalComment(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlFile := filepath.Join(tmpDir, "test.html")
-
+func TestMinifyHTMLStringConditionalComment(t *testing.T) {
 	// HTML with conditional comment that should be preserved
 	content := `<!DOCTYPE html>
 <!--[if IE]><p>You are using IE</p><![endif]-->
@@ -3834,16 +3703,7 @@ func TestMinifyHTMLFileConditionalComment(t *testing.T) {
 <body>  Text  here  </body>
 </html>`
 
-	if err := os.WriteFile(htmlFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to create file: %v", err)
-	}
-
-	if err := minifyHTMLFile(htmlFile); err != nil {
-		t.Fatalf("minifyHTMLFile failed: %v", err)
-	}
-
-	minified, _ := os.ReadFile(htmlFile)
-	result := string(minified)
+	result := minifyHTMLString(content)
 
 	// Conditional comment should be preserved
 	if !strings.Contains(result, "<!--[if IE]>") {
@@ -4012,12 +3872,6 @@ func TestCopyColocatedAssetsSkipsSubdirectories(t *testing.T) {
 }
 
 func TestConvertToRelativeLinks(t *testing.T) {
-	tmpDir := t.TempDir()
-	outputDir := filepath.Join(tmpDir, "output")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
 	htmlContent := `<html>
 <body>
 <a href="https://example.com/about/">About</a>
@@ -4026,18 +3880,7 @@ func TestConvertToRelativeLinks(t *testing.T) {
 </body>
 </html>`
 
-	htmlFile := filepath.Join(outputDir, "index.html")
-	if err := os.WriteFile(htmlFile, []byte(htmlContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	gen := &Generator{config: Config{OutputDir: outputDir, Domain: "example.com"}}
-	if err := gen.convertToRelativeLinks(); err != nil {
-		t.Fatalf("convertToRelativeLinks failed: %v", err)
-	}
-
-	result, _ := os.ReadFile(htmlFile)
-	resultStr := string(result)
+	resultStr := relativizeHTMLString(htmlContent, "example.com")
 
 	if strings.Contains(resultStr, "https://example.com/about/") {
 		t.Error("Should have converted internal link to relative")

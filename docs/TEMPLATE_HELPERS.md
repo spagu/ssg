@@ -290,9 +290,12 @@ SSG registers several helper functions in the Go template engine for date format
 
 - **Theme templates** (`base/index/post/page/category.html`, layouts, partials):
   every helper above.
-- **Shortcode templates**: only the safe, deterministic subset — `slice`, `in`,
-  `notIn`, `contains`, `startsWith`, `endsWith`, `matches`, `isNil`, `isEmpty`,
-  `ternary`. Collection helpers that walk site-wide data stay theme-only.
+- **Shortcode templates**: the safe, deterministic subset — `slice`, `in`,
+  `notIn`, `contains`, `startsWith`, `endsWith`, `hasPrefix`, `hasSuffix`,
+  `matches`, `isNil`, `isEmpty`, `ternary` — plus the image helpers
+  (`imageResize`, `imageSrcSet`, …) and the read-only external-source helpers
+  (`getExternal`, `getExternalMeta`). Collection helpers that walk site-wide
+  data stay theme-only.
 - **Alt engines** (pongo2/mustache/handlebars): not applicable — those engines
   ship their own filter syntax; these helpers are Go-template only.
 

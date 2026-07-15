@@ -174,6 +174,10 @@ type Config struct {
 	ImageSizes []int `yaml:"image_sizes" toml:"image_sizes" json:"image_sizes"`
 	// ImageSizesAttr is the value of the generated sizes attribute (default "100vw").
 	ImageSizesAttr string `yaml:"image_sizes_attr" toml:"image_sizes_attr" json:"image_sizes_attr"`
+	// ImagesGC prunes image-cache entries not referenced by the current build
+	// after generation; ImagesGCDry only reports what would be removed (GO-057).
+	ImagesGC    bool `yaml:"images_gc" toml:"images_gc" json:"images_gc"`
+	ImagesGCDry bool `yaml:"images_gc_dry" toml:"images_gc_dry" json:"images_gc_dry"`
 
 	// Math enables opt-in math rendering: math delimiters ($$…$$) are detected
 	// and KaTeX assets are injected only on pages that use them (AX-004).
@@ -233,9 +237,10 @@ type Config struct {
 	// SEO opts in to the generator-level SEO partial (OpenGraph/Twitter/JSON-LD)
 	// injected into pages that lack their own OpenGraph tags (SEO-003). Off by default
 	// so ssg never rewrites your rendered <head> unless you ask (v1.8.2). The legacy
-	// `seo_off` key / `--seo-off` flag are still accepted as no-ops for compatibility.
+	// `seo_off` key / `--seo-off` flag still force SEO off, with a deprecation
+	// warning at load time (GO-059).
 	SEO    bool `yaml:"seo" toml:"seo" json:"seo"`
-	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: injection is now opt-in
+	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
 
 	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
 	// (non-zero exit on a dead internal link) (SEO-005).
@@ -349,6 +354,12 @@ func Load(path string) (*Config, error) {
 		cfg.MinifyHTML = true
 		cfg.MinifyCSS = true
 		cfg.MinifyJS = true
+	}
+
+	// Honour the deprecated seo_off key instead of silently ignoring it (GO-059).
+	if cfg.SEOOff {
+		cfg.SEO = false
+		fmt.Fprintln(os.Stderr, "⚠️  Config key seo_off is deprecated; use seo: false")
 	}
 
 	return cfg, nil

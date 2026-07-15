@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.5" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.7" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -281,7 +281,8 @@ Per-page output formats, e.g. \fBhtml,json\fR (json writes index.json).
 .B \-\-seo
 Opt in to generator-level OpenGraph/Twitter/JSON-LD injection into pages that lack
 their own tags (non-destructive). Off by default since v1.8.2; the legacy
-\fB\-\-seo\-off\fR flag and \fBseo_off\fR config key are accepted as deprecated no-ops.
+\fB\-\-seo\-off\fR flag and \fBseo_off\fR config key force it off and print a
+deprecation warning.
 .SS Internationalization
 .TP
 .BR \-\-languages =\fILIST
@@ -312,6 +313,13 @@ Responsive widths in px (e.g. \fB480,960,1600\fR): emit WebP variants and
 .TP
 .BR \-\-image\-sizes\-attr =\fIVAL
 Value of the generated \fBsizes\fR attribute (default: \fB100vw\fR).
+.TP
+.B \-\-images\-gc
+After the build, delete image-cache entries the site no longer references.
+.TP
+.B \-\-images\-gc\-dry
+Report what \fB\-\-images\-gc\fR would delete (file count and bytes) without
+deleting anything.
 .SS Deployment
 .TP
 .B \-\-zip

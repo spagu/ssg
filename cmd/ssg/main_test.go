@@ -2178,7 +2178,7 @@ func TestWatchIterationTouchOnlySkipsRebuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	dirs := []string{dir}
-	sig := contentSignature(dirs)
+	sig := newFileSigCache().signature(dirs)
 
 	// Touch: same bytes, newer mtime than lastBuild.
 	now := time.Now()

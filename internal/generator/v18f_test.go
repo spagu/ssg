@@ -24,6 +24,24 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
+// buildSite runs the standard fixture build (content/ + templates/simple/ →
+// output/) rooted at tmp and returns the generator and its output directory,
+// failing the test on any construction or generation error. Shared by the
+// archive/heading/tag tests to keep the boilerplate in one place.
+func buildSite(t *testing.T, tmp string) (*Generator, string) {
+	t.Helper()
+	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
+		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	return gen, filepath.Join(tmp, "output")
+}
+
 // writeSimpleTemplates writes the five core theme templates with a static body.
 func writeSimpleTemplates(t *testing.T, tmplDir string) {
 	t.Helper()

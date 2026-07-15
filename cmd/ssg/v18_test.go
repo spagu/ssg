@@ -54,13 +54,13 @@ func TestWatchDirs(t *testing.T) {
 func TestContentSignature(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "a.md"), []byte("hello"), 0644)
-	sig1 := contentSignature([]string{dir})
-	sig2 := contentSignature([]string{dir})
+	sig1 := newFileSigCache().signature([]string{dir})
+	sig2 := newFileSigCache().signature([]string{dir})
 	if sig1 != sig2 {
 		t.Errorf("signature not stable for identical content")
 	}
 	_ = os.WriteFile(filepath.Join(dir, "a.md"), []byte("changed"), 0644)
-	if contentSignature([]string{dir}) == sig1 {
+	if newFileSigCache().signature([]string{dir}) == sig1 {
 		t.Errorf("signature should change when content changes")
 	}
 }

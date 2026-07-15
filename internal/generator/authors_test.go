@@ -32,16 +32,7 @@ func TestExplicitPageWinsOverAutoArchives(t *testing.T) {
 	tmp := t.TempDir()
 	writeAuthorsFixture(t, tmp)
 	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
-	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-		OutputDir: filepath.Join(tmp, "output"), Quiet: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	out := filepath.Join(tmp, "output")
+	gen, out := buildSite(t, tmp)
 	// The explicit pages survive at the archive URLs.
 	// (writeSimpleTemplates renders a static body, so presence + no archive
 	// overwrite is asserted via the sitemap and slug maps below.)
@@ -80,16 +71,8 @@ func TestAuthorArchiveGeneratedWithoutCollision(t *testing.T) {
 	writeSimpleTemplates(t, tmplDir)
 	mustWrite(t, filepath.Join(tmplDir, "author.html"),
 		`{{define "author.html"}}<html><body>AUTHOR {{.Name}}{{range .Posts}}[{{.Title}}]{{end}}</body></html>{{end}}`)
-	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-		OutputDir: filepath.Join(tmp, "output"), Quiet: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	archive := mustRead(t, filepath.Join(tmp, "output", "author", "ian-zane", "index.html"))
+	gen, out := buildSite(t, tmp)
+	archive := mustRead(t, filepath.Join(out, "author", "ian-zane", "index.html"))
 	wantContains(t, "author archive", archive, "AUTHOR Ian Zane", "[Post by ID]", "[Post by name]")
 	if gen.authorSlugs["ian-zane"] != "ian-zane" {
 		t.Fatalf("authorSlugs = %+v", gen.authorSlugs)
@@ -162,15 +145,7 @@ func TestHasPrefixSuffixAliases(t *testing.T) {
 		`{{define "index.html"}}<html><body>`+
 			`p:{{hasPrefix "/author/ian" "/author/"}} s:{{hasSuffix "file.md" ".md"}} `+
 			`legacy:{{startsWith "abc" "a"}}{{endsWith "abc" "c"}}</body></html>{{end}}`)
-	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-		OutputDir: filepath.Join(tmp, "output"), Quiet: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	wantContains(t, "index", mustRead(t, filepath.Join(tmp, "output", "index.html")),
+	_, out := buildSite(t, tmp)
+	wantContains(t, "index", mustRead(t, filepath.Join(out, "index.html")),
 		"p:true", "s:true", "legacy:truetrue")
 }

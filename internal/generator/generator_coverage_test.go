@@ -246,51 +246,28 @@ func TestConvertRelativeLinksIfRequested(t *testing.T) {
 		{"enabled with domain", true, "example.com", false},
 	}
 
+	input := `<a href="https://example.com/page">Link</a>`
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-
-			if !tt.expectSkip {
-				if err := os.WriteFile(filepath.Join(tmpDir, "test.html"), []byte(`<a href="https://example.com/page">Link</a>`), 0644); err != nil {
-					t.Fatalf("Failed to create html: %v", err)
-				}
-			}
-
 			gen := &Generator{
 				config: Config{
 					RelativeLinks: tt.relativeLinks,
 					Domain:        tt.domain,
-					OutputDir:     tmpDir,
 					Quiet:         true,
 				},
 			}
 
-			err := gen.convertRelativeLinksIfRequested()
-			if err != nil {
-				t.Fatalf("convertRelativeLinksIfRequested failed: %v", err)
-			}
+			out := gen.transformHTMLPage(input, nil, false)
 
-			if !tt.expectSkip {
-				content, _ := os.ReadFile(filepath.Join(tmpDir, "test.html"))
-				if strings.Contains(string(content), "https://example.com") {
-					t.Error("Links should have been converted to relative")
+			if tt.expectSkip {
+				if out != input {
+					t.Errorf("Expected content untouched when relativize is skipped, got: %q", out)
 				}
+			} else if strings.Contains(out, "https://example.com") {
+				t.Error("Links should have been converted to relative")
 			}
 		})
-	}
-}
-
-func TestConvertToRelativeLinksError(t *testing.T) {
-	gen := &Generator{
-		config: Config{
-			OutputDir: "/nonexistent/path",
-			Domain:    "example.com",
-		},
-	}
-
-	err := gen.convertToRelativeLinks()
-	if err == nil {
-		t.Error("Expected error for nonexistent output dir")
 	}
 }
 
@@ -622,9 +599,10 @@ func TestPrettifyIfRequestedSkipsWhenMinify(t *testing.T) {
 			MinifyHTML: true,
 		},
 	}
-	err := gen.prettifyIfRequested()
-	if err != nil {
-		t.Errorf("Expected nil when MinifyHTML overrides PrettyHTML, got: %v", err)
+	input := "<html>\n\n<body>  <p>Hi</p>  </body>\n\n</html>\n"
+	out := gen.transformHTMLPage(input, nil, false)
+	if out != minifyHTMLString(input) {
+		t.Errorf("Expected MinifyHTML to override PrettyHTML, got: %q", out)
 	}
 }
 
@@ -761,19 +739,19 @@ func TestProcessShortcodesBracketSyntax(t *testing.T) {
 	}
 
 	// [promo] should be replaced (defined shortcode)
-	result := gen.processShortcodes("Hello [promo] world")
+	result := gen.processShortcodesWith("Hello [promo] world", gen.renderShortcode)
 	if strings.Contains(result, "[promo]") {
 		t.Errorf("Expected [promo] to be replaced, got: %s", result)
 	}
 
 	// [unknown] should NOT be replaced (undefined)
-	result = gen.processShortcodes("Hello [unknown] world")
+	result = gen.processShortcodesWith("Hello [unknown] world", gen.renderShortcode)
 	if !strings.Contains(result, "[unknown]") {
 		t.Errorf("Expected [unknown] to remain untouched, got: %s", result)
 	}
 
 	// {{promo}} should also work
-	result = gen.processShortcodes("Hello {{promo}} world")
+	result = gen.processShortcodesWith("Hello {{promo}} world", gen.renderShortcode)
 	if strings.Contains(result, "{{promo}}") {
 		t.Errorf("Expected {{promo}} to be replaced, got: %s", result)
 	}
@@ -788,13 +766,13 @@ func TestProcessShortcodesBracketDisabled(t *testing.T) {
 	}
 
 	// [promo] should NOT be replaced when disabled
-	result := gen.processShortcodes("Hello [promo] world")
+	result := gen.processShortcodesWith("Hello [promo] world", gen.renderShortcode)
 	if !strings.Contains(result, "[promo]") {
 		t.Errorf("Expected [promo] to remain when brackets disabled, got: %s", result)
 	}
 
 	// {{promo}} should still work
-	result = gen.processShortcodes("Hello {{promo}} world")
+	result = gen.processShortcodesWith("Hello {{promo}} world", gen.renderShortcode)
 	if strings.Contains(result, "{{promo}}") {
 		t.Errorf("Expected {{promo}} to be replaced, got: %s", result)
 	}
@@ -818,7 +796,7 @@ func TestProcessShortcodesBracketWithTemplate(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes("Before [banner] After")
+	result := gen.processShortcodesWith("Before [banner] After", gen.renderShortcode)
 	if strings.Contains(result, "[banner]") {
 		t.Errorf("Expected [banner] to be replaced, got: %s", result)
 	}
@@ -834,7 +812,7 @@ func TestProcessShortcodesBracketEmptyMap(t *testing.T) {
 	}
 
 	// Should not crash with empty map
-	result := gen.processShortcodes("Hello [anything] world")
+	result := gen.processShortcodesWith("Hello [anything] world", gen.renderShortcode)
 	if !strings.Contains(result, "[anything]") {
 		t.Errorf("Expected [anything] to remain with empty map, got: %s", result)
 	}
@@ -858,7 +836,7 @@ func TestProcessBracketShortcodesWithAttrs(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes(`Check [link url="https://example.com" label="Click here"] now`)
+	result := gen.processShortcodesWith(`Check [link url="https://example.com" label="Click here"] now`, gen.renderShortcode)
 	if strings.Contains(result, "[link") {
 		t.Errorf("Expected [link ...] to be replaced, got: %s", result)
 	}
@@ -888,7 +866,7 @@ func TestProcessBracketShortcodesWithClosingTag(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes("Before [box]Hello World[/box] After")
+	result := gen.processShortcodesWith("Before [box]Hello World[/box] After", gen.renderShortcode)
 	if strings.Contains(result, "[box]") || strings.Contains(result, "[/box]") {
 		t.Errorf("Expected [box]...[/box] to be replaced, got: %s", result)
 	}
@@ -918,7 +896,7 @@ func TestProcessBracketShortcodesWithAttrsAndClosingTag(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes(`[alert type="warning"]Watch out![/alert]`)
+	result := gen.processShortcodesWith(`[alert type="warning"]Watch out![/alert]`, gen.renderShortcode)
 	if strings.Contains(result, "[alert") || strings.Contains(result, "[/alert]") {
 		t.Errorf("Expected shortcode to be replaced, got: %s", result)
 	}
@@ -937,13 +915,13 @@ func TestProcessBracketShortcodesUnknownWithAttrs(t *testing.T) {
 	}
 
 	// Unknown shortcode with attrs should remain untouched
-	result := gen.processShortcodes(`[unknown attr="val"]`)
+	result := gen.processShortcodesWith(`[unknown attr="val"]`, gen.renderShortcode)
 	if !strings.Contains(result, `[unknown attr="val"]`) {
 		t.Errorf("Expected unknown shortcode to remain, got: %s", result)
 	}
 
 	// Unknown closing shortcode should remain untouched
-	result = gen.processShortcodes(`[unknown]content[/unknown]`)
+	result = gen.processShortcodesWith(`[unknown]content[/unknown]`, gen.renderShortcode)
 	if !strings.Contains(result, `[unknown]content[/unknown]`) {
 		t.Errorf("Expected unknown closing shortcode to remain, got: %s", result)
 	}
@@ -968,7 +946,7 @@ func TestProcessBracketShortcodesMultilineContent(t *testing.T) {
 	}
 
 	input := "[code]\nline 1\nline 2\nline 3\n[/code]"
-	result := gen.processShortcodes(input)
+	result := gen.processShortcodesWith(input, gen.renderShortcode)
 	if strings.Contains(result, "[code]") {
 		t.Errorf("Expected [code]...[/code] to be replaced, got: %s", result)
 	}
@@ -996,7 +974,7 @@ func TestProcessBracketShortcodesConfigFieldsPreserved(t *testing.T) {
 	}
 
 	// Config fields should be preserved alongside inline attrs
-	result := gen.processShortcodes(`[promo extra="bonus"]`)
+	result := gen.processShortcodesWith(`[promo extra="bonus"]`, gen.renderShortcode)
 	if !strings.Contains(result, "Config Title") {
 		t.Errorf("Expected config Title preserved, got: %s", result)
 	}
@@ -1027,7 +1005,7 @@ func TestShortcodeSafeHTMLInTemplate(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes(`[wrap]<img src="/photo.jpg" alt="Photo">[/wrap]`)
+	result := gen.processShortcodesWith(`[wrap]<img src="/photo.jpg" alt="Photo">[/wrap]`, gen.renderShortcode)
 	if strings.Contains(result, "&lt;img") {
 		t.Errorf("Expected HTML not to be escaped, got: %s", result)
 	}
@@ -1059,7 +1037,7 @@ func TestShortcodeInnerContentSafeHTML(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes(`[vc_column]<img src="/media/images/photo.jpg" alt="Photo">[/vc_column]`)
+	result := gen.processShortcodesWith(`[vc_column]<img src="/media/images/photo.jpg" alt="Photo">[/vc_column]`, gen.renderShortcode)
 	if strings.Contains(result, "&lt;img") || strings.Contains(result, "&#34;") {
 		t.Errorf("Expected unescaped HTML, got: %s", result)
 	}
@@ -1347,18 +1325,9 @@ func TestMinifyHTMLFileEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			htmlPath := filepath.Join(tmpDir, "test.html")
-
-			if err := os.WriteFile(htmlPath, []byte(tt.input), 0644); err != nil {
-				t.Fatalf("Failed to write: %v", err)
-			}
-			if err := minifyHTMLFile(htmlPath); err != nil {
-				t.Fatalf("minifyHTMLFile failed: %v", err)
-			}
-			result, _ := os.ReadFile(htmlPath)
-			if string(result) != tt.expected {
-				t.Errorf("Expected %q, got %q", tt.expected, string(result))
+			result := minifyHTMLString(tt.input)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
 		})
 	}
@@ -1641,20 +1610,6 @@ Content`
 	}
 }
 
-func TestPrettifyIfRequestedError(t *testing.T) {
-	gen := &Generator{
-		config: Config{
-			PrettyHTML: true,
-			MinifyHTML: false,
-			OutputDir:  "/nonexistent/path",
-		},
-	}
-	err := gen.prettifyIfRequested()
-	if err == nil {
-		t.Error("Expected error for nonexistent output dir")
-	}
-}
-
 func TestMinifyIfRequestedError(t *testing.T) {
 	gen := &Generator{
 		config: Config{
@@ -1663,20 +1618,6 @@ func TestMinifyIfRequestedError(t *testing.T) {
 		},
 	}
 	err := gen.minifyIfRequested()
-	if err == nil {
-		t.Error("Expected error for nonexistent output dir")
-	}
-}
-
-func TestConvertRelativeLinksIfRequestedError(t *testing.T) {
-	gen := &Generator{
-		config: Config{
-			RelativeLinks: true,
-			Domain:        "example.com",
-			OutputDir:     "/nonexistent/path",
-		},
-	}
-	err := gen.convertRelativeLinksIfRequested()
 	if err == nil {
 		t.Error("Expected error for nonexistent output dir")
 	}
@@ -1704,7 +1645,7 @@ func TestRenderShortcodeTemplateExecuteError(t *testing.T) {
 		},
 	}
 
-	result := gen.processShortcodes("{{bad}}")
+	result := gen.processShortcodesWith("{{bad}}", gen.renderShortcode)
 	if result != "" {
 		t.Errorf("Expected empty result for failed shortcode, got %q", result)
 	}
@@ -1792,9 +1733,6 @@ func TestMinifyOutputSubdir(t *testing.T) {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(subDir, "page.html"), []byte("<html>  <body>  </body>  </html>"), 0644); err != nil {
-		t.Fatalf("Failed to create HTML: %v", err)
-	}
 	if err := os.WriteFile(filepath.Join(subDir, "style.css"), []byte("body { color: red; }"), 0644); err != nil {
 		t.Fatalf("Failed to create CSS: %v", err)
 	}
@@ -1804,42 +1742,19 @@ func TestMinifyOutputSubdir(t *testing.T) {
 
 	gen := &Generator{
 		config: Config{
-			OutputDir:  tmpDir,
-			MinifyHTML: true,
-			MinifyCSS:  true,
-			MinifyJS:   true,
+			OutputDir: tmpDir,
+			MinifyCSS: true,
+			MinifyJS:  true,
 		},
 	}
 
-	if err := gen.minifyOutput(); err != nil {
-		t.Fatalf("minifyOutput failed: %v", err)
-	}
-}
-
-func TestPrettifyOutputSubdir(t *testing.T) {
-	tmpDir := t.TempDir()
-	subDir := filepath.Join(tmpDir, "sub")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create subdir: %v", err)
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Fatalf("minifyAssetsOutput failed: %v", err)
 	}
 
-	htmlContent := "<!DOCTYPE html>\n\n\n<html>\n<body>\n</body>\n</html>"
-	if err := os.WriteFile(filepath.Join(subDir, "page.html"), []byte(htmlContent), 0644); err != nil {
-		t.Fatalf("Failed to create HTML: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "other.txt"), []byte("text"), 0644); err != nil {
-		t.Fatalf("Failed to create txt: %v", err)
-	}
-
-	gen := &Generator{
-		config: Config{
-			OutputDir:  tmpDir,
-			PrettyHTML: true,
-		},
-	}
-
-	if err := gen.prettifyOutput(); err != nil {
-		t.Fatalf("prettifyOutput failed: %v", err)
+	css, _ := os.ReadFile(filepath.Join(subDir, "style.css"))
+	if strings.Contains(string(css), " ") {
+		t.Error("CSS in subdir should be minified")
 	}
 }
 
@@ -2335,16 +2250,15 @@ func TestMinifyOutputNoFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	gen := &Generator{
 		config: Config{
-			OutputDir:  tmpDir,
-			MinifyHTML: true,
-			MinifyCSS:  false,
-			MinifyJS:   false,
-			Quiet:      true,
+			OutputDir: tmpDir,
+			MinifyCSS: false,
+			MinifyJS:  false,
+			Quiet:     true,
 		},
 	}
 	// empty dir — should not error
-	if err := gen.minifyOutput(); err != nil {
-		t.Errorf("minifyOutput() on empty dir = %v", err)
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Errorf("minifyAssetsOutput() on empty dir = %v", err)
 	}
 }
 
@@ -2514,16 +2428,6 @@ func TestGeneratePostWithLayout(t *testing.T) {
 	}
 	if err := gen.generatePost(post); err != nil {
 		t.Errorf("generatePost() = %v", err)
-	}
-}
-
-func TestPrettifyOutputNoFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-	gen := &Generator{
-		config: Config{OutputDir: tmpDir, PrettyHTML: true, Quiet: true},
-	}
-	if err := gen.prettifyOutput(); err != nil {
-		t.Errorf("prettifyOutput() on empty dir = %v", err)
 	}
 }
 
@@ -3196,7 +3100,7 @@ func TestGenerateGenerateSiteErrorCov(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// minifyOutput: CSS and JS paths
+// minifyAssetsOutput: CSS and JS paths
 // ---------------------------------------------------------------------------
 
 func TestMinifyOutputCSSAndJS(t *testing.T) {
@@ -3214,8 +3118,8 @@ func TestMinifyOutputCSSAndJS(t *testing.T) {
 		MinifyJS:  true,
 		Quiet:     true,
 	}}
-	if err := gen.minifyOutput(); err != nil {
-		t.Errorf("minifyOutput CSS+JS: %v", err)
+	if err := gen.minifyAssetsOutput(); err != nil {
+		t.Errorf("minifyAssetsOutput CSS+JS: %v", err)
 	}
 }
 

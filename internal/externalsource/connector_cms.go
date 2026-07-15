@@ -108,13 +108,18 @@ func cmsDataView(r *CMSImportResult) map[string]interface{} {
 	}
 }
 
-// cmsPageView flattens one imported page for the data namespace.
+// cmsPageView flattens one imported page for the data namespace. Imported
+// comments (GO-058) are exposed under "comments" when present.
 func cmsPageView(p models.Page) map[string]interface{} {
-	return map[string]interface{}{
+	view := map[string]interface{}{
 		"id": p.ID, "title": p.Title, "slug": p.Slug, "type": p.Type, "status": p.Status,
 		"date": p.Date, "modified": p.Modified, "excerpt": p.Excerpt, "content": p.Content,
 		"author": p.Author, "category": p.Category, "tags": p.Tags, "link": p.Link,
 	}
+	if comments, ok := p.Extra["comments"]; ok {
+		view["comments"] = comments
+	}
+	return view
 }
 
 // ─── shared adapter helpers ──────────────────────────────────────────────────

@@ -145,24 +145,16 @@ func TestFeedSummaryTruncationRuneSafe(t *testing.T) {
 // ─── GO-022: minification must not corrupt <pre>/<code> ─────────────────────
 
 func TestMinifyHTMLPreservesPreBlocks(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "i.html")
 	pre := "<pre><code>line1\n  indented\n\nline3</code></pre>"
 	html := "<html>\n  <body>\n    " + pre + "\n  <script>\nvar a = 1;\n</script>\n</body>\n</html>"
-	if err := os.WriteFile(path, []byte(html), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := minifyHTMLFile(path); err != nil {
-		t.Fatal(err)
-	}
-	out, _ := os.ReadFile(path)
-	if !strings.Contains(string(out), pre) {
+	out := minifyHTMLString(html)
+	if !strings.Contains(out, pre) {
 		t.Errorf("pre block must survive minification unchanged:\n%s", out)
 	}
-	if !strings.Contains(string(out), "var a = 1;") {
+	if !strings.Contains(out, "var a = 1;") {
 		t.Errorf("script content must survive minification:\n%s", out)
 	}
-	if strings.Contains(string(out), "<body>\n") {
+	if strings.Contains(out, "<body>\n") {
 		t.Errorf("outside pre, whitespace should still be minified:\n%s", out)
 	}
 }

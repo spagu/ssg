@@ -130,7 +130,7 @@ func TestContentSignatureWrapper(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "f.md"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if contentSignature([]string{dir}) == "" {
+	if newFileSigCache().signature([]string{dir}) == "" {
 		t.Error("wrapper must return a signature")
 	}
 }

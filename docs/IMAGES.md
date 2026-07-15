@@ -110,7 +110,11 @@ is the largest generated variant unless `defaultWidth` picks another.
 
 Key = `sha256(source bytes + normalized ops JSON + processor version)` → name
 `<base>.<hash10>.<ext>`. Repeated and clean builds produce identical filenames;
-concurrent identical requests process once. `Generator.ImagesGC(dryRun)`
-removes cache entries not referenced by the current build (used by tests and
-future CLI wiring).
+concurrent identical requests process once.
+
+Garbage collection (GO-057): `--images-gc` (config `images_gc: true`) deletes
+cache entries the just-finished build no longer references; `--images-gc-dry`
+(`images_gc_dry: true`) only reports the file count and bytes that would be
+reclaimed. GC runs after generation and never fails the build — errors are
+reported as warnings.
 {% endraw %}

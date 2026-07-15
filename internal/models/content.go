@@ -330,16 +330,27 @@ type Metadata struct {
 	Categories []Category  `json:"categories"`
 	Media      []MediaItem `json:"media"`
 	Users      []Author    `json:"users"`
+	// Tags mirrors the WordPress export's tag terms (id/name/slug), used to
+	// resolve numeric tag ids in frontmatter the same way users resolves
+	// author ids (issue #27). The Category shape fits tag terms as-is.
+	Tags []Category `json:"tags"`
 }
 
 // SiteData holds all parsed content for template rendering
 type SiteData struct {
-	Domain          string
-	Pages           []Page
-	Posts           []Page
-	Categories      map[int]Category
-	Media           map[int]MediaItem
-	Authors         map[int]Author
+	Domain     string
+	Pages      []Page
+	Posts      []Page
+	Categories map[int]Category
+	Media      map[int]MediaItem
+	Authors    map[int]Author
+	// Tags maps WordPress tag term ids to their name/slug (issue #27).
+	Tags map[int]Category
+	// TagSlugs maps lowercased tag names RESOLVED FROM NUMERIC IDS to the
+	// export's canonical slug. Only id-resolved tags get canonical slugs, so
+	// hand-written tag names keep their historical derived URLs (issue #27,
+	// backward compatible by construction).
+	TagSlugs        map[string]string
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string
@@ -365,15 +376,42 @@ func (sd *SiteData) ResolveFlexibleFields() {
 		catBySlug[strings.ToLower(c.Slug)] = c.ID
 	}
 
+	if sd.TagSlugs == nil {
+		sd.TagSlugs = make(map[string]string)
+	}
 	resolvePages := func(pages []Page) {
 		for i := range pages {
 			resolveAuthor(&pages[i], authorByName, authorBySlug)
 			resolveCategories(&pages[i], catByName, catBySlug)
+			resolveTags(&pages[i], sd.Tags, sd.TagSlugs)
 		}
 	}
 
 	resolvePages(sd.Pages)
 	resolvePages(sd.Posts)
+}
+
+// resolveTags replaces numeric WordPress tag ids in a page's tags with the
+// term names from metadata.json `tags`, mirroring how author ids resolve via
+// `users` (issue #27). The canonical export slug is recorded ONLY for
+// id-resolved names, so hand-written tags keep their historical derived
+// slugs. Non-numeric values and unknown ids pass through.
+func resolveTags(p *Page, tags map[int]Category, tagSlugs map[string]string) {
+	if len(tags) == 0 || len(p.Tags) == 0 {
+		return
+	}
+	for i, raw := range p.Tags {
+		id, err := strconv.Atoi(strings.TrimSpace(raw))
+		if err != nil {
+			continue
+		}
+		if term, ok := tags[id]; ok && term.Name != "" {
+			p.Tags[i] = term.Name
+			if term.Slug != "" {
+				tagSlugs[strings.ToLower(term.Name)] = term.Slug
+			}
+		}
+	}
 }
 
 // resolveAuthor resolves AuthorRaw to Author ID

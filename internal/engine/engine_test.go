@@ -496,9 +496,9 @@ func TestPongo2WithCustomFilter(t *testing.T) {
 		t.Fatalf("failed to execute: %v", err)
 	}
 
-	// The filter returns passthrough, so result should still be "test"
-	if buf.String() != "test" {
-		t.Errorf("expected 'test', got '%s'", buf.String())
+	// FuncMap helpers are now real pongo2 filters (GO-054), so the filter runs.
+	if buf.String() != "filtered:test" {
+		t.Errorf("expected 'filtered:test', got '%s'", buf.String())
 	}
 }
 

@@ -1,9 +1,10 @@
 // Package externalsource implements the unified external data system
-// (audit/ssg-external-sources-implementation-plan.md), phase 1: local file
-// sources (YAML/JSON/TOML/CSV/XML) behind one registry, one result/metadata
+// (audit/ssg-external-sources-implementation-plan.md): local file sources
+// (YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client, disk cache,
+// retries, optional pagination), read-only SQL queries and CMS imports
+// (WordPress, Drupal, Movable Type) behind one registry, one result/metadata
 // model and one error model, exposed to templates as .ExternalData without
-// touching the existing .Data namespace. HTTP, SQL and CMS connectors are
-// later phases and are rejected with a descriptive error for now.
+// touching the existing .Data namespace.
 package externalsource
 
 import (
@@ -64,6 +65,20 @@ type AuthConfig struct {
 	Value    string `yaml:"value" toml:"value" json:"value"`
 }
 
+// PaginationConfig fetches multi-page HTTP sources (GO-062). mode "page"
+// increments a query parameter from start_page; mode "link" follows the
+// Link rel="next" response header. Pages are aggregated as one JSON array,
+// so pagination requires format "json". max_pages is a hard guard against
+// runaway cursors.
+type PaginationConfig struct {
+	Mode         string `yaml:"mode" toml:"mode" json:"mode"`                               // page | link
+	Param        string `yaml:"param" toml:"param" json:"param"`                            // mode=page query parameter (default "page")
+	StartPage    int    `yaml:"start_page" toml:"start_page" json:"start_page"`             // mode=page first page number (default 1)
+	PerPage      int    `yaml:"per_page" toml:"per_page" json:"per_page"`                   // page-size parameter value; only sent when > 0
+	PerPageParam string `yaml:"per_page_param" toml:"per_page_param" json:"per_page_param"` // page-size parameter name (default "per_page")
+	MaxPages     int    `yaml:"max_pages" toml:"max_pages" json:"max_pages"`                // hard page limit (default 10, max 1000)
+}
+
 // SourceConfig is one declared source (YAML/TOML/JSON shape).
 type SourceConfig struct {
 	Type      string          `yaml:"type" toml:"type" json:"type"`
@@ -78,6 +93,7 @@ type SourceConfig struct {
 	Headers      map[string]string `yaml:"headers" toml:"headers" json:"headers"`
 	Query        map[string]string `yaml:"query" toml:"query" json:"query"`
 	Auth         AuthConfig        `yaml:"auth" toml:"auth" json:"auth"`
+	Pagination   PaginationConfig  `yaml:"pagination" toml:"pagination" json:"pagination"`
 	AllowHTTP    bool              `yaml:"allow_http" toml:"allow_http" json:"allow_http"`          // permit plain http:// (default: HTTPS only)
 	AllowPrivate bool              `yaml:"allow_private" toml:"allow_private" json:"allow_private"` // permit localhost/private IPs (self-hosted APIs)
 	Timeout      string            `yaml:"timeout" toml:"timeout" json:"timeout"`
@@ -124,7 +140,7 @@ type MovableTypeOptions struct {
 	IncludeEntries  *bool `yaml:"include_entries" toml:"include_entries" json:"include_entries"`
 	IncludePages    *bool `yaml:"include_pages" toml:"include_pages" json:"include_pages"`
 	IncludeAssets   *bool `yaml:"include_assets" toml:"include_assets" json:"include_assets"`
-	IncludeComments bool  `yaml:"include_comments" toml:"include_comments" json:"include_comments"` // deferred; validated as unsupported
+	IncludeComments bool  `yaml:"include_comments" toml:"include_comments" json:"include_comments"` // GO-058: visible comments → .Extra["comments"]
 }
 
 // QueryConfig is one named read-only query of a SQL source.
@@ -162,11 +178,14 @@ type Source struct {
 	Transform TransformConfig
 	CSV       CSVOptions
 
-	// HTTP sources (phase 2); secret values already env-expanded.
+	// HTTP sources (phase 2); secret values already env-expanded. Pagination
+	// carries resolved defaults (param, start_page, per_page_param, max_pages);
+	// an empty Mode means single-request fetching.
 	URL          string
 	Headers      map[string]string
 	Query        map[string]string
 	Auth         AuthConfig
+	Pagination   PaginationConfig
 	AllowHTTP    bool
 	AllowPrivate bool
 	Timeout      time.Duration
@@ -215,6 +234,13 @@ const (
 	defaultRetries      = 2
 	defaultRetryBackoff = 500 * time.Millisecond
 	defaultConcurrency  = 4
+)
+
+// Pagination bounds (GO-062): default page limit and the hard ceiling that
+// guards against infinite cursors.
+const (
+	defaultMaxPages = 10
+	hardMaxPages    = 1000
 )
 
 // Resolve validates the configuration and returns the sources in
@@ -278,9 +304,6 @@ func resolveCMS(src *Source, sc SourceConfig, defaults Defaults) error {
 		src.Mode = "data"
 	default:
 		return fmt.Errorf("external source %q: unsupported mode %q (supported: content, data)", src.Name, sc.Mode)
-	}
-	if sc.MovableType.IncludeComments {
-		return fmt.Errorf("external source %q: movable_type.include_comments is not implemented yet (deferred)", src.Name)
 	}
 	src.WordPress = sc.WordPress
 	src.Drupal = sc.Drupal
@@ -437,6 +460,49 @@ func resolveHTTP(src *Source, sc SourceConfig, defaults Defaults) error {
 	if src.Retries < 0 {
 		return fmt.Errorf("external source %q: retries must be >= 0", src.Name)
 	}
+	return resolvePagination(src, sc)
+}
+
+// resolvePagination validates the optional pagination block (GO-062) and
+// fills its defaults. Pages are aggregated as one JSON array, so pagination
+// is limited to format "json".
+func resolvePagination(src *Source, sc SourceConfig) error {
+	pc := sc.Pagination
+	if pc == (PaginationConfig{}) {
+		return nil // pagination not configured
+	}
+	switch pc.Mode {
+	case "page", "link":
+	case "":
+		return fmt.Errorf("external source %q: pagination.mode is required (supported: page, link)", src.Name)
+	default:
+		return fmt.Errorf("external source %q: unsupported pagination.mode %q (supported: page, link)", src.Name, pc.Mode)
+	}
+	if src.Format != "json" {
+		return fmt.Errorf("external source %q: pagination requires format \"json\" (pages are aggregated as a JSON array)", src.Name)
+	}
+	if pc.Param == "" {
+		pc.Param = "page"
+	}
+	if pc.PerPageParam == "" {
+		pc.PerPageParam = "per_page"
+	}
+	if pc.PerPage < 0 {
+		return fmt.Errorf("external source %q: pagination.per_page must be >= 0", src.Name)
+	}
+	if pc.StartPage == 0 {
+		pc.StartPage = 1
+	}
+	if pc.StartPage < 0 {
+		return fmt.Errorf("external source %q: pagination.start_page must be >= 1", src.Name)
+	}
+	if pc.MaxPages == 0 {
+		pc.MaxPages = defaultMaxPages
+	}
+	if pc.MaxPages < 1 || pc.MaxPages > hardMaxPages {
+		return fmt.Errorf("external source %q: pagination.max_pages must be between 1 and %d", src.Name, hardMaxPages)
+	}
+	src.Pagination = pc
 	return nil
 }
 

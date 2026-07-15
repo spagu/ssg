@@ -125,10 +125,44 @@ Syntax comparison:
 {{/each}}
 ```
 
-Non-Go engines receive the same data model adapted to their renderer, but do
-not receive Go's FuncMap or Go template inheritance. Their theme files must be
-written in the selected engine's syntax. Rendered Markdown content is provided
-as HTML for these engines.
+Non-Go engines receive the same data model adapted to their renderer. Their
+theme files must be written in the selected engine's syntax, and Go template
+inheritance (`{{define}}`/`{{template}}`) does not apply. Rendered Markdown
+content is provided as HTML for these engines.
+
+### Helper support across engines (GO-054)
+
+SSG hands every engine the same helper library. Pongo2 exposes helpers as
+**filters** (`{{ value|helper }}`, `{{ value|helper:arg }}`); Handlebars
+exposes them as **helpers** (`{{helper value}}`). Mustache is logic-less and
+cannot call helpers at all. Anything an engine cannot express is reported once
+at build time — never silently ignored.
+
+| Helper group | Go | Pongo2 | Handlebars | Mustache |
+|---|:--:|:--:|:--:|:--:|
+| Classic (`safeHTML`, `formatDate`, `stripHTML`, `default`, `dict`, …) | ✅ | ✅¹ | ✅ | ❌ |
+| Conditionals (`in`, `contains`, `startsWith`, `ternary`, `matches`, …) | ✅ | ✅ | ✅ | ❌ |
+| Image (`imageResize`, `imageSrcSet`, `imageInfo`, …) | ✅ | ✅ | ✅ | ❌ |
+| External sources (`getExternal`, `getExternalMeta`) | ✅ | ✅ | ✅ | ❌ |
+| i18n (`t`) | ✅ | ✅ | ✅ | ❌ |
+| Collection (`where`, `filter`, `sortBy`, `groupBy`, `pluck`, …) | ✅ | ⚠️² | ⚠️² | ❌ |
+
+¹ Helpers returning HTML are marked safe automatically; pipe through pongo2's
+own `|safe` only if you compose further. ² Helpers with more than two arguments
+(pongo2) or more than three (Handlebars), and variadic helpers, cannot be
+adapted — calling one raises a visible error (pongo2) or renders a
+`[helper X error: …]` marker (Handlebars) plus a build warning, so the failure
+is never silent.
+
+### Engine limitations
+
+- **Mustache**: logic-less by design — no helpers, filters, or expressions.
+  Prepare any derived values in front matter or switch to Pongo2/Handlebars.
+- **Pongo2**: helper results that are already HTML are returned as safe values;
+  plain strings are auto-escaped like any pongo2 output.
+- **Partials/inheritance**: alt-engine themes load each template file
+  independently; use that engine's native include mechanism, not Go's
+  `{{define}}`.
 
 ## Rendering contexts
 

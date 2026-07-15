@@ -1,9 +1,12 @@
-// Package generator - templates.go contains default HTML templates
+// Package generator - templates.go contains the generic fallback templates
+// scaffolded when a theme has no local files and is not one of the embedded
+// starter themes (DOC-013). No external CDN references — system font stack
+// only (FE-011), neutral English copy, lang="en".
 package generator
 
 // baseTemplate is the base HTML layout template with embedded content blocks
 const baseTemplate = `{{define "base"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,9 +14,7 @@ const baseTemplate = `{{define "base"}}<!DOCTYPE html>
     <meta name="description" content="{{template "description" .}}">
     <link rel="canonical" href="https://{{.Domain}}{{template "canonical" .}}">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -50,20 +51,20 @@ const baseTemplate = `{{define "base"}}<!DOCTYPE html>
 </html>{{end}}`
 
 // indexTemplate is the homepage template
-const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{end}}
-{{define "index-description"}}Witamy na stronie {{.Domain}}{{end}}
+const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
+{{define "index-description"}}Welcome to {{.Domain}}{{end}}
 {{define "index-canonical"}}/{{end}}
 {{define "index-content"}}
 <section class="hero" id="hero">
     <div class="container">
-        <h1 class="hero-title">Witamy na {{.Domain}}</h1>
-        <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
+        <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+        <p class="hero-subtitle">Latest articles and updates</p>
     </div>
 </section>
 
 <section class="posts-section" id="posts-section">
     <div class="container">
-        <h2 class="section-title">Najnowsze wpisy</h2>
+        <h2 class="section-title">Latest posts</h2>
         <div class="posts-grid" id="posts-grid">
             {{range .Posts}}
             <article class="post-card" id="post-card-{{.Slug}}">
@@ -74,7 +75,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
                     {{.Date.Format "2 January 2006"}}
                 </time>
                 <p class="post-excerpt">{{.Excerpt}}</p>
-                <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                <a href="/{{.Slug}}/" class="read-more">Read more →</a>
             </article>
             {{end}}
         </div>
@@ -83,17 +84,15 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
 {{end}}
 
 {{define "index.html"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Domain}} - Strona główna</title>
-    <meta name="description" content="Witamy na stronie {{.Domain}}">
+    <title>{{.Domain}} - Home</title>
+    <meta name="description" content="Welcome to {{.Domain}}">
     <link rel="canonical" href="https://{{.Domain}}/">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -118,14 +117,14 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
     <main class="main-content" id="main-content">
         <section class="hero" id="hero">
             <div class="container">
-                <h1 class="hero-title">Witamy na {{.Domain}}</h1>
-                <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
+                <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+                <p class="hero-subtitle">Latest articles and updates</p>
             </div>
         </section>
 
         <section class="posts-section" id="posts-section">
             <div class="container">
-                <h2 class="section-title">Najnowsze wpisy</h2>
+                <h2 class="section-title">Latest posts</h2>
                 <div class="posts-grid" id="posts-grid">
                     {{range .Posts}}
                     <article class="post-card" id="post-card-{{.Slug}}">
@@ -136,7 +135,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
                             {{.Date.Format "2 January 2006"}}
                         </time>
                         <p class="post-excerpt">{{.Excerpt}}</p>
-                        <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                        <a href="/{{.Slug}}/" class="read-more">Read more →</a>
                     </article>
                     {{end}}
                 </div>
@@ -156,7 +155,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Strona główna{{en
 
 // pageTemplate is the static page template
 const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -164,9 +163,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
     <meta name="description" content="{{.Page.Excerpt}}">
     <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -213,7 +210,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
 
 // postTemplate is the blog post template
 const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -221,9 +218,7 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
     <meta name="description" content="{{.Post.Excerpt}}">
     <link rel="canonical" href="https://{{.Domain}}/{{.Post.Slug}}/">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -282,17 +277,15 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
 
 // categoryTemplate is the category listing template
 const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Category.Name}} - {{.Domain}}</title>
-    <meta name="description" content="Artykuły z kategorii {{.Category.Name}}">
+    <meta name="description" content="Posts in category {{.Category.Name}}">
     <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -333,7 +326,7 @@ const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
                             {{.Date.Format "2 January 2006"}}
                         </time>
                         <p class="post-excerpt">{{.Excerpt}}</p>
-                        <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                        <a href="/{{.Slug}}/" class="read-more">Read more →</a>
                     </article>
                     {{end}}
                 </div>
