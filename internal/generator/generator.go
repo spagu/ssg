@@ -37,6 +37,7 @@ import (
 	gmparser "github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
+	gmutil "github.com/yuin/goldmark/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -378,6 +379,7 @@ func New(cfg Config) (*Generator, error) {
 			Categories: make(map[int]models.Category),
 			Media:      make(map[int]models.MediaItem),
 			Authors:    make(map[int]models.Author),
+			Tags:       make(map[int]models.Category),
 		},
 		shortcodeMap:   scMap,
 		md:             buildMarkdown(cfg),
@@ -417,9 +419,48 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 	}
 	return goldmark.New(
 		goldmark.WithExtensions(exts...),
-		goldmark.WithParserOptions(gmparser.WithAutoHeadingID()),
+		goldmark.WithParserOptions(
+			gmparser.WithAutoHeadingID(),
+			// Recompute heading ids from the VISIBLE text (issue #26): the
+			// built-in generator derives them from the raw source line, so a
+			// heading containing a Markdown link leaks the href into its id.
+			gmparser.WithASTTransformers(gmutil.Prioritized(headingIDTransformer{}, 900)),
+		),
 		goldmark.WithRendererOptions(html.WithUnsafe()),
 	)
+}
+
+// headingIDTransformer overwrites every heading's auto id with
+// slugify(visible text), de-duplicated per document with -N suffixes.
+// "### [Ian Zane](/authors/ian-zane/) — Generalist" gets id
+// "ian-zane-generalist" instead of "ian-zaneauthorsian-zane--generalist"
+// (issue #26). The TOC (AX-002) reads the same attribute, so intra-page
+// anchors stay consistent.
+type headingIDTransformer struct{}
+
+// Transform implements gmparser.ASTTransformer.
+func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ gmparser.Context) {
+	used := map[string]bool{}
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		h, ok := n.(*ast.Heading)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		id := slugify(nodeText(h, reader.Source()))
+		if id == "" {
+			id = "heading"
+		}
+		base := id
+		for i := 1; used[id]; i++ {
+			id = fmt.Sprintf("%s-%d", base, i)
+		}
+		used[id] = true
+		h.SetAttributeString("id", []byte(id))
+		return ast.WalkContinue, nil
+	})
 }
 
 // resolveVariables replaces values starting with $ with the corresponding environment variable.
@@ -1082,9 +1123,20 @@ func (g *Generator) generateTags() (map[string]string, error) {
 			groups[tag] = append(groups[tag], post)
 		}
 	}
+	// metadata.json tag slugs win over derived ones, mirroring categories
+	// (issue #27): a WordPress export's canonical slug survives the migration.
+	metaSlugs := make(map[string]string, len(g.siteData.Tags))
+	for _, t := range g.siteData.Tags {
+		if t.Name != "" && t.Slug != "" {
+			metaSlugs[strings.ToLower(t.Name)] = t.Slug
+		}
+	}
 	slugs := make(map[string]string, len(groups))
 	for _, name := range sortedKeys(groups) {
-		slug := slugify(name)
+		slug := metaSlugs[strings.ToLower(name)]
+		if slug == "" {
+			slug = slugify(name)
+		}
 		if owner, taken := g.archiveURLOwner("tag", slug); taken {
 			// Suppressed archives stay out of the sitemap/feed slug map (GO-050).
 			fmt.Printf("   ⚠️  Skipping auto tag archive /tag/%s/: %s already owns that URL\n", slug, owner)
@@ -1553,6 +1605,10 @@ func (g *Generator) loadMetadata(path string) error {
 
 	for _, author := range metadata.Users {
 		g.siteData.Authors[author.ID] = author
+	}
+
+	for _, tag := range metadata.Tags {
+		g.siteData.Tags[tag.ID] = tag // numeric-tag-id resolution (issue #27)
 	}
 
 	return nil

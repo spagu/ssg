@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.6] - 2026-07-15
+
+Fixes for the two open WordPress-migration issues.
+
+### Fixed
+- 🔗 **Heading anchor ids derive from visible text** (#26) — a heading
+  containing a Markdown link leaked the href into its auto id
+  (`### [Ian Zane](/authors/ian-zane/) — Generalist` →
+  `id="ian-zaneauthorsian-zane--generalist"`). Ids are now
+  `slugify(visible text)` (`id="ian-zane-generalist"`), de-duplicated with
+  `-N` suffixes; the TOC uses the same ids, so intra-page anchors and
+  skip-links stay stable.
+- 🏷️ **Numeric WordPress tag ids resolve via metadata.json** (#27) —
+  `tags: [1691]` produced a raw `/tag/1691/` archive even when the export's
+  `tags` collection carried the term. Numeric tag values now resolve to the
+  term name (like `author:` resolves via `users`), and tag archives use the
+  export's canonical slug when available. Unknown ids and plain names pass
+  through unchanged.
+
 ## [1.8.5] - 2026-07-15
 
 Author-archive safety, define-shell template fallback and Hugo-compatible

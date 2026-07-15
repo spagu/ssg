@@ -330,16 +330,22 @@ type Metadata struct {
 	Categories []Category  `json:"categories"`
 	Media      []MediaItem `json:"media"`
 	Users      []Author    `json:"users"`
+	// Tags mirrors the WordPress export's tag terms (id/name/slug), used to
+	// resolve numeric tag ids in frontmatter the same way users resolves
+	// author ids (issue #27). The Category shape fits tag terms as-is.
+	Tags []Category `json:"tags"`
 }
 
 // SiteData holds all parsed content for template rendering
 type SiteData struct {
-	Domain          string
-	Pages           []Page
-	Posts           []Page
-	Categories      map[int]Category
-	Media           map[int]MediaItem
-	Authors         map[int]Author
+	Domain     string
+	Pages      []Page
+	Posts      []Page
+	Categories map[int]Category
+	Media      map[int]MediaItem
+	Authors    map[int]Author
+	// Tags maps WordPress tag term ids to their name/slug (issue #27).
+	Tags            map[int]Category
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string
@@ -369,11 +375,30 @@ func (sd *SiteData) ResolveFlexibleFields() {
 		for i := range pages {
 			resolveAuthor(&pages[i], authorByName, authorBySlug)
 			resolveCategories(&pages[i], catByName, catBySlug)
+			resolveTags(&pages[i], sd.Tags)
 		}
 	}
 
 	resolvePages(sd.Pages)
 	resolvePages(sd.Posts)
+}
+
+// resolveTags replaces numeric WordPress tag ids in a page's tags with the
+// term names from metadata.json `tags`, mirroring how author ids resolve via
+// `users` (issue #27). Non-numeric values and unknown ids pass through.
+func resolveTags(p *Page, tags map[int]Category) {
+	if len(tags) == 0 || len(p.Tags) == 0 {
+		return
+	}
+	for i, raw := range p.Tags {
+		id, err := strconv.Atoi(strings.TrimSpace(raw))
+		if err != nil {
+			continue
+		}
+		if term, ok := tags[id]; ok && term.Name != "" {
+			p.Tags[i] = term.Name
+		}
+	}
 }
 
 // resolveAuthor resolves AuthorRaw to Author ID

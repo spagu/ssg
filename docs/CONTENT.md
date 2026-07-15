@@ -82,6 +82,7 @@ Only the following shapes are consumed:
 |---|---|
 | `categories` | `id`, `count`, `description`, `link`, `name`, `slug`, `parent` |
 | `users` | `id`, `name`, `slug` |
+| `tags` | `id`, `name`, `slug` — resolves numeric ids in `tags:` frontmatter and supplies canonical archive slugs (v1.8.6) |
 | `media` | `id`, `slug`, `title.rendered`, `media_type`, `mime_type`, `source_url`, `media_details.width`, `media_details.height`, `media_details.file` |
 
 Additional export fields are allowed but are not exposed as site metadata.
