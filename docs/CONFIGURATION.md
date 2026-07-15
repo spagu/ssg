@@ -179,12 +179,20 @@ HTML regions can opt out of minification:
 |---|---:|---|---|
 | `webp` | `false` | `--webp` | Convert copied JPG/PNG images to WebP |
 | `webp_quality` | `60` | `--webp-quality` | Quality from 1 to 100 |
+| `webp_keep_original` | `false` | `--webp-keep-original` | Keep originals next to the `.webp` files |
 | `reconvert_images` | `false` | `--reconvert-images` | Ignore existing conversion result |
 | `image_sizes` | empty | `--image-sizes` | Responsive widths; no upscaling |
 | `image_sizes_attr` | `100vw` | `--image-sizes-attr` | Generated HTML `sizes` value |
 
 WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).
+
+By default WebP conversion **replaces** each original in the output (the
+historical behaviour): `logo.png` becomes `logo.webp` and `<img src>`
+references are rewritten. Themes that hardcode extensions outside rewritten
+attributes — favicons, logos, `og:image` — 404 in that mode. Set
+`webp_keep_original: true` to emit the `.webp` next to the original: rewritten
+references serve WebP, hardcoded ones keep working (v1.8.5).
 
 ## Authoring
 

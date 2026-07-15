@@ -469,8 +469,9 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--tls-auto": &cfg.TLSAuto, "--gzip": &cfg.Gzip, "--http3": &cfg.HTTP3,
 		"--sanitize-html": &cfg.SanitizeHTML,
 		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
-		"--reconvert-images": &cfg.ReconvertImages,
-		"--watch":            &cfg.Watch, "-watch": &cfg.Watch,
+		"--webp-keep-original": &cfg.WebPKeepOriginal,
+		"--reconvert-images":   &cfg.ReconvertImages,
+		"--watch":              &cfg.Watch, "-watch": &cfg.Watch,
 		"--http": &cfg.HTTP, "-http": &cfg.HTTP,
 		"--sitemap-off": &cfg.SitemapOff, "--robots-off": &cfg.RobotsOff,
 		"--pretty-html": &cfg.PrettyHTML, "--pretty": &cfg.PrettyHTML,
@@ -814,10 +815,11 @@ func runWebP(cfg *config.Config) error {
 		return nil
 	}
 	opts := webp.ConvertOptions{
-		Quality: cfg.WebPQuality,
-		Quiet:   cfg.Quiet,
-		Force:   cfg.ReconvertImages,
-		Sizes:   cfg.ImageSizes,
+		Quality:      cfg.WebPQuality,
+		Quiet:        cfg.Quiet,
+		Force:        cfg.ReconvertImages,
+		Sizes:        cfg.ImageSizes,
+		KeepOriginal: cfg.WebPKeepOriginal,
 	}
 	converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
 	if err != nil {
@@ -1105,6 +1107,8 @@ func printUsage() {
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
+	fmt.Println("  --webp-keep-original   - Keep originals next to .webp files (safe for themes")
+	fmt.Println("                           with hardcoded .png/.jpg refs); default replaces them")
 	fmt.Println("  --reconvert-images     - Force reconvert even if WebP already exists")
 	fmt.Println("  --image-sizes=A,B,C    - Responsive widths (px) → WebP variants + srcset (e.g. 480,960,1600)")
 	fmt.Println("  --image-sizes-attr=VAL - Value of the generated sizes attribute (default: 100vw)")

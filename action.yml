@@ -49,6 +49,10 @@ inputs:
     description: "WebP compression quality 1-100 (default: 60)"
     required: false
     default: "60"
+  webp-keep-original:
+    description: "Keep original images next to the .webp files instead of replacing them (true/false); safe for themes with hardcoded .png/.jpg references"
+    required: false
+    default: "false"
   zip:
     description: "Create ZIP file for Cloudflare Pages deployment (true/false)"
     required: false
@@ -87,6 +91,9 @@ inputs:
     default: ""
 
 outputs:
+  version:
+    description: "The ssg version actually used (resolved when inputs.version is 'latest')"
+    value: ${{ steps.download.outputs.version }}
   output-path:
     description: "Path to the generated site output directory"
     value: ${{ steps.generate.outputs.output-path }}
@@ -136,7 +143,12 @@ runs:
             echo "::error::Failed to get latest version"
             exit 1
           fi
+          # Unpinned deploys silently pick up new releases; make the resolved
+          # version visible so behaviour changes are traceable, and expose it
+          # as an output. Pin inputs.version to avoid surprise upgrades.
+          echo "::notice::ssg version 'latest' resolved to ${VERSION} — pin the 'version' input to avoid surprise upgrades"
         fi
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
         echo "📦 Downloading SSG $VERSION for $OS/$ARCH..."
 
@@ -210,6 +222,7 @@ runs:
         IN_OUTPUT_DIR: ${{ inputs.output-dir }}
         IN_WEBP: ${{ inputs.webp }}
         IN_WEBP_QUALITY: ${{ inputs.webp-quality }}
+        IN_WEBP_KEEP: ${{ inputs.webp-keep-original }}
         IN_ZIP: ${{ inputs.zip }}
         IN_MINIFY: ${{ inputs.minify }}
         IN_CLEAN: ${{ inputs.clean }}
@@ -241,6 +254,9 @@ runs:
         FLAGS=()
         if [[ "$IN_WEBP" == "true" ]]; then
           FLAGS+=(--webp --webp-quality="$IN_WEBP_QUALITY")
+          if [[ "$IN_WEBP_KEEP" == "true" ]]; then
+            FLAGS+=(--webp-keep-original)
+          fi
         fi
         if [[ "$IN_ZIP" == "true" ]]; then
           FLAGS+=(--zip)

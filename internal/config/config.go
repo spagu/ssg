@@ -163,6 +163,10 @@ type Config struct {
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
 	WebPQuality     int  `yaml:"webp_quality" toml:"webp_quality" json:"webp_quality"`
 	ReconvertImages bool `yaml:"reconvert_images" toml:"reconvert_images" json:"reconvert_images"` // Force reconvert even if WebP exists
+	// WebPKeepOriginal emits .webp files next to the originals instead of
+	// replacing them, so themes with hardcoded .png/.jpg references keep
+	// working (GO-052). Default false = historical replace-in-place.
+	WebPKeepOriginal bool `yaml:"webp_keep_original" toml:"webp_keep_original" json:"webp_keep_original"`
 
 	// ImageSizes lists responsive width presets (px). For each image the WebP
 	// pipeline emits a variant per width (no upscaling) and rewrites <img> with

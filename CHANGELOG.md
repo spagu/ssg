@@ -25,6 +25,16 @@ string helpers (GO-050/GO-051).
   by file name (index/post/page/category/tag/series/author/taxonomy*).
 
 ### Added
+- 🖼️ **Non-destructive WebP mode** — `webp_keep_original: true`
+  (`--webp-keep-original`, action input `webp-keep-original`) emits each
+  `.webp` NEXT TO its original instead of replacing it, so themes with
+  hardcoded `.png`/`.jpg` references (favicons, logos, `og:image`) keep
+  working while rewritten `<img>` references serve WebP. The default remains
+  the historical replace-in-place behaviour.
+- 🎬 **GitHub Action traceability** — the resolved ssg version is logged on
+  every run (a `::notice::` when `version: latest` was used) and exposed as
+  the `version` output; docs now recommend pinning `version:` for production
+  deploys.
 - 🧩 `hasPrefix` / `hasSuffix` template helpers — Hugo-compatible aliases of
   `startsWith` / `endsWith` (also in shortcode templates).
 - 📖 Author archives documented in `docs/CONTENT.md`: the `users` block in
