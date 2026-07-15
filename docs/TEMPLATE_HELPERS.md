@@ -177,6 +177,8 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 | `contains` | `contains container value → bool` | `{{ if contains .Page.Tags "ssg" }}` — string→substring, slice→element, map→key |
 | `startsWith` | `startsWith value prefix → bool` | `{{ if startsWith .Page.Slug "guide-" }}` |
 | `endsWith` | `endsWith value suffix → bool` | `{{ if endsWith .Page.SourceFile ".md" }}` |
+| `hasPrefix` | Hugo-compatible alias of `startsWith` (v1.8.5) | `{{ if hasPrefix .Page.Slug "guide-" }}` |
+| `hasSuffix` | Hugo-compatible alias of `endsWith` (v1.8.5) | `{{ if hasSuffix .Page.SourceFile ".md" }}` |
 | `matches` | `matches pattern value → bool` | ``{{ if matches `^guide-` .Page.Slug }}`` — RE2; compiled patterns are cached; invalid patterns error |
 | `isNil` | `isNil value → bool` | true for nil interfaces/pointers/maps/slices/funcs/chans; never panics |
 | `isEmpty` | `isEmpty value → bool` | Go template truthiness: nil, `""`, `0`, `false`, empty slice/map ⇒ empty. Structs are never empty (zero `time.Time` included — use `.IsZero`) |

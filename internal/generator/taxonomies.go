@@ -218,6 +218,18 @@ func (g *Generator) takenContentURLs() map[string]string {
 	return taken
 }
 
+// archiveURLOwner reports which content page/post/alias (if any) already owns
+// a legacy archive URL (/kind/slug/). Explicit content always wins over an
+// auto-generated archive: the archive is skipped instead of silently
+// overwriting the page (GO-050). The map is built once per generator.
+func (g *Generator) archiveURLOwner(kind, slug string) (string, bool) {
+	if g.ownedURLs == nil {
+		g.ownedURLs = g.takenContentURLs()
+	}
+	owner, taken := g.ownedURLs["/"+kind+"/"+slug+"/"]
+	return owner, taken
+}
+
 // checkTaxonomyURLs verifies one taxonomy's index and term URLs against taken output URLs.
 func (g *Generator) checkTaxonomyURLs(def taxonomy.Definition, taken map[string]string) error {
 	for _, lang := range g.taxonomyLangs() {

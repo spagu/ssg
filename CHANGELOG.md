@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-07-15
+
+Author-archive safety and Hugo-compatible string helpers (GO-050).
+
+### Fixed
+- 🛡️ **Explicit content wins over auto archives** — a page/post/alias that
+  already owns `/author/<slug>/`, `/category/…`, `/tag/…` or `/series/…` used
+  to be **silently overwritten** by the auto-generated archive (archives render
+  last). The archive is now skipped with a build warning, and suppressed
+  archives stay out of the sitemap and slug maps used for feeds.
+
+### Added
+- 🧩 `hasPrefix` / `hasSuffix` template helpers — Hugo-compatible aliases of
+  `startsWith` / `endsWith` (also in shortcode templates).
+- 📖 Author archives documented in `docs/CONTENT.md`: the `users` block in
+  `metadata.json`, `author:` accepting ID/name/slug, posts-only listings, the
+  `author.html` → `category.html` fallback, the reserved `author` path and the
+  new collision rule. (Migrating the author archive onto the generic taxonomy
+  registry remains a documented deferred item.)
+
 ## [1.8.4] - 2026-07-14
 
 Full internationalisation (audit/i18n-feature.md), dynamic taxonomies
