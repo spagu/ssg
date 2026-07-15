@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	_ "time/tzdata" // embed the IANA zone db so --timezone works in static/Windows builds (I18N-001)
 
@@ -259,11 +260,16 @@ func loadConfig(args []string) *config.Config {
 
 // validateRequiredFields validates and populates required config fields
 func validateRequiredFields(args []string, cfg *config.Config) {
+	positionalArgs := positionalArgsOf(args)
+	// GO-053: never swallow extra positionals silently — they are almost always
+	// a mistyped flag form (e.g. "--paginate 10" works, but a typo would not).
+	if len(positionalArgs) > 3 {
+		fmt.Fprintf(os.Stderr, "⚠️  Ignoring unexpected positional arguments: %s\n",
+			strings.Join(positionalArgs[3:], " "))
+	}
 	if cfg.Source != "" && cfg.Template != "" && cfg.Domain != "" {
 		return
 	}
-
-	positionalArgs := positionalArgsOf(args)
 
 	if len(positionalArgs) >= 3 {
 		cfg.Source = positionalArgs[0]
@@ -277,8 +283,9 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 
 // positionalArgsOf extracts positional arguments, skipping flags and the values
 // consumed by space-separated value flags so e.g. "--engine go" never leaks "go"
-// into <source>/<template>/<domain> (GO-036).
+// into <source>/<template>/<domain> (GO-036, GO-053).
 func positionalArgsOf(args []string) []string {
+	known := valueFlags()
 	var positional []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -286,7 +293,7 @@ func positionalArgsOf(args []string) []string {
 			positional = append(positional, arg)
 			continue
 		}
-		if separateValueFlags[arg] && i+1 < len(args) {
+		if !strings.Contains(arg, "=") && known[arg] && i+1 < len(args) {
 			i++ // skip the flag's value (GO-036)
 		}
 	}
@@ -471,7 +478,8 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
 		"--webp-keep-original": &cfg.WebPKeepOriginal,
 		"--reconvert-images":   &cfg.ReconvertImages,
-		"--watch":              &cfg.Watch, "-watch": &cfg.Watch,
+		"--images-gc":          &cfg.ImagesGC, "--images-gc-dry": &cfg.ImagesGCDry,
+		"--watch": &cfg.Watch, "-watch": &cfg.Watch,
 		"--http": &cfg.HTTP, "-http": &cfg.HTTP,
 		"--sitemap-off": &cfg.SitemapOff, "--robots-off": &cfg.RobotsOff,
 		"--pretty-html": &cfg.PrettyHTML, "--pretty": &cfg.PrettyHTML,
@@ -692,84 +700,51 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	}
 }
 
-// separateValueFlags lists the flags that consume the following argument when
-// given in "--flag value" form. Shared by parseSeparateValueFlags and the
-// positional-argument scanner so flag values are never miscounted as
-// positionals (GO-036).
-var separateValueFlags = map[string]bool{
-	"--webp-quality": true, "--port": true, configFlag: true,
-	"--content-dir": true, "--templates-dir": true, "--output-dir": true,
-	"--engine": true, "--online-theme": true,
-	"--post-url-format": true, "--page-format": true,
-	"--mddb-url": true, "--mddb-key": true, "--mddb-collection": true,
-	"--mddb-lang": true, "--mddb-timeout": true, "--mddb-batch-size": true,
-	"--mddb-protocol": true, "--mddb-watch-interval": true,
+// extraEqualValueFlags lists the "--flag=value" options handled outside the
+// stringEqualFlags table (the int/mddb/misc dispatchers in parseEqualFlags).
+// Together with stringEqualFlags they form the complete set of value-taking
+// flags (GO-053). --check-links is absent by design: its bare form is a
+// boolean toggle, so only the "=" spelling can carry a mode.
+var extraEqualValueFlags = []string{
+	"--webp-quality", "--max-conns", "--paginate", "--feed-items", "--toc-depth",
+	"--port", "--mddb-timeout", "--mddb-batch-size", "--mddb-watch-interval",
+	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
+	"--permalink-page", "--outputs", "--languages", "--page-format",
 }
 
-// stringSeparateFlags maps "--flag value" plain string options to their target
-// field, mirroring stringEqualFlags so parseSeparateValueFlags stays small.
-func stringSeparateFlags(cfg *config.Config) map[string]*string {
-	return map[string]*string{
-		"--content-dir":     &cfg.ContentDir,
-		"--templates-dir":   &cfg.TemplatesDir,
-		"--output-dir":      &cfg.OutputDir,
-		"--engine":          &cfg.Engine,
-		"--online-theme":    &cfg.OnlineTheme,
-		"--post-url-format": &cfg.PostURLFormat,
-		"--mddb-key":        &cfg.Mddb.APIKey,
-		"--mddb-collection": &cfg.Mddb.Collection,
-		"--mddb-lang":       &cfg.Mddb.Lang,
+// valueFlags returns every flag that consumes a value, in bare (no "=") form —
+// the single source of truth shared by the space-form parser and the
+// positional scanner, so a value like "--deploy cloudflare" is parsed instead
+// of leaking into <source>/<template>/<domain> (GO-036, GO-053).
+var valueFlags = sync.OnceValue(func() map[string]bool {
+	names := map[string]bool{configFlag: true}
+	var cfg config.Config
+	for prefix := range stringEqualFlags(&cfg) {
+		names[strings.TrimSuffix(prefix, "=")] = true
 	}
-}
-
-// setIntSeparate parses a "--flag N" value and applies it when it passes the
-// [minVal, maxVal] range (maxVal <= 0 means no upper bound).
-func setIntSeparate(value string, minVal, maxVal int, apply func(int)) {
-	if n, err := strconv.Atoi(value); err == nil && n >= minVal && (maxVal <= 0 || n <= maxVal) {
-		apply(n)
+	for _, name := range extraEqualValueFlags {
+		names[name] = true
 	}
-}
+	return names
+})
 
-// parseSeparateValueFlags handles --flag value format, returns skip count.
-// Unknown flags, and known flags at the end of the argument list (no value to
-// consume), skip nothing (GO-046: the old handleConfigSkip helper was a
-// guaranteed no-op and has been removed in favour of this guard).
+// parseSeparateValueFlags handles the "--flag value" form by delegating to the
+// "=" parser, so both spellings share one implementation and every value flag
+// accepts both (GO-053). Returns the number of extra args consumed. A known
+// value flag with nothing left to consume warns instead of failing silently.
 func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 	arg := args[i]
-	if !separateValueFlags[arg] || i+1 >= len(args) {
+	if !valueFlags()[arg] {
 		return 0
 	}
-
-	nextArg := args[i+1]
-	if target, ok := stringSeparateFlags(cfg)[arg]; ok {
-		*target = nextArg
-		return 1
+	if i+1 >= len(args) {
+		fmt.Fprintf(os.Stderr, "⚠️  Flag %s expects a value (%s=<value> or %s <value>)\n", arg, arg, arg)
+		return 0
 	}
-	switch arg {
-	case "--webp-quality":
-		setIntSeparate(nextArg, 1, 100, func(n int) { cfg.WebPQuality = n })
-	case "--port":
-		setIntSeparate(nextArg, 0, 0, func(n int) { cfg.Port = n })
-	case "--page-format":
-		if nextArg == "directory" || nextArg == "flat" || nextArg == "both" {
-			cfg.PageFormat = nextArg
-		}
-	case configFlag:
-		// Skip the value; --config was already processed by loadConfig.
-	case "--mddb-url":
-		cfg.Mddb.URL = nextArg
-		cfg.Mddb.Enabled = true
-	case "--mddb-timeout":
-		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.Timeout = n })
-	case "--mddb-batch-size":
-		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.BatchSize = n })
-	case "--mddb-protocol":
-		if nextArg == "http" || nextArg == "grpc" {
-			cfg.Mddb.Protocol = nextArg
-		}
-	case "--mddb-watch-interval":
-		setIntSeparate(nextArg, 1, 0, func(n int) { cfg.Mddb.WatchInterval = n })
+	if arg == configFlag {
+		return 1 // value already consumed by loadConfig
 	}
+	parseEqualFlags(arg+"="+args[i+1], cfg)
 	return 1
 }
 
@@ -800,6 +775,7 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 	if err := gen.Generate(); err != nil {
 		return fmt.Errorf("generating site: %w", err)
 	}
+	runImagesGC(gen, cfg)
 	if err := runWebP(cfg); err != nil {
 		return err
 	}
@@ -807,6 +783,29 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 		return err
 	}
 	return runDeploy(cfg)
+}
+
+// runImagesGC prunes image-cache entries not referenced by this build when
+// --images-gc / --images-gc-dry is set (GO-057). Best-effort: a GC failure
+// warns without failing the build that just succeeded.
+func runImagesGC(gen *generator.Generator, cfg *config.Config) {
+	if !cfg.ImagesGC && !cfg.ImagesGCDry {
+		return
+	}
+	dry := cfg.ImagesGCDry
+	files, bytes, err := gen.ImagesGC(dry)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Image cache GC: %v\n", err)
+		return
+	}
+	if cfg.Quiet {
+		return
+	}
+	verb := "removed"
+	if dry {
+		verb = "would remove"
+	}
+	fmt.Printf("   🧹 Image cache GC: %s %d file(s), %d bytes\n", verb, files, bytes)
 }
 
 // runWebP converts output images to WebP and rewrites references when --webp is set.
@@ -1097,12 +1096,29 @@ func printUsage() {
 	fmt.Println("  --permalink-page=PAT   - Page URL pattern (same tokens)")
 	fmt.Println("")
 	fmt.Println("Authoring:")
-	fmt.Println("  --math                 - Render math: inject KaTeX only on pages containing $$…$$")
+	fmt.Println("  --math                 - Render math: inject KaTeX on pages with $$…$$ or fenced ```math blocks")
+	fmt.Println("  --highlight            - Syntax-highlight fenced code blocks (Chroma)")
+	fmt.Println("  --highlight-style=NAME - Chroma style for --highlight (default: github)")
+	fmt.Println("  --toc                  - Insert a table of contents on pages that opt in")
+	fmt.Println("  --toc-depth=N          - Max heading depth for the TOC (default: 3)")
 	fmt.Println("  --sanitize-html        - Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)")
 	fmt.Println("  --seo                  - Inject OpenGraph/Twitter/JSON-LD into pages lacking their own")
-	fmt.Println("                           (opt-in since v1.8.2; --seo-off is a deprecated no-op)")
+	fmt.Println("                           (opt-in since v1.8.2; --seo-off / seo_off forces it off, deprecated)")
 	fmt.Println("  --timezone=ZONE        - IANA zone for content dates in permalinks/templates (e.g. Europe/Warsaw);")
 	fmt.Println("                           per-language overrides via language_timezones: in .ssg.yaml")
+	fmt.Println("")
+	fmt.Println("Feeds, Search & Listings:")
+	fmt.Println("  --feed                 - Generate an Atom feed (feed.xml)")
+	fmt.Println("  --feed-items=N         - Max entries in the feed (default: 20)")
+	fmt.Println("  --search-index         - Emit search-index.json for client-side search")
+	fmt.Println("  --paginate=N           - Posts per index page; 0 disables pagination (default)")
+	fmt.Println("  --outputs=LIST         - Extra output formats per page, comma-separated (e.g. json)")
+	fmt.Println("  --check-links          - Validate internal links after build (warn mode)")
+	fmt.Println("  --check-links=MODE     - warn | strict (strict fails the build on dead links)")
+	fmt.Println("")
+	fmt.Println("Internationalisation (docs/I18N.md):")
+	fmt.Println("  --languages=LIST       - Build languages, comma-separated (e.g. en,pl)")
+	fmt.Println("  --default-language=LC  - Default (unprefixed) language (default: first of --languages)")
 	fmt.Println("")
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
@@ -1112,6 +1128,8 @@ func printUsage() {
 	fmt.Println("  --reconvert-images     - Force reconvert even if WebP already exists")
 	fmt.Println("  --image-sizes=A,B,C    - Responsive widths (px) → WebP variants + srcset (e.g. 480,960,1600)")
 	fmt.Println("  --image-sizes-attr=VAL - Value of the generated sizes attribute (default: 100vw)")
+	fmt.Println("  --images-gc            - After the build, delete image-cache entries it no longer references")
+	fmt.Println("  --images-gc-dry        - Report what --images-gc would delete, without deleting")
 	fmt.Println("")
 	fmt.Println("Deployment:")
 	fmt.Println("  --zip                  - Create ZIP archive of the output tree")
@@ -1147,6 +1165,9 @@ func printUsage() {
 	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")
 	fmt.Println("  --version, -v          - Show version")
 	fmt.Println("  --help, -h             - Show this help")
+	fmt.Println("")
+	fmt.Println("Every value flag accepts both --flag=value and --flag value (GO-053).")
+	fmt.Println("Single-dash aliases exist for a few toggles: -zip -webp -watch -http (and --pretty for --pretty-html).")
 	fmt.Println("")
 	fmt.Println("Examples:")
 	fmt.Println("  ssg my-site simple example.com --http --watch")

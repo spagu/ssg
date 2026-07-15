@@ -408,9 +408,9 @@ are read from environment variables, never from content files.
 | Cloudflare Pages | `--deploy=cloudflare` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub Pages | `--deploy=github-pages` | `GITHUB_TOKEN` or SSH credentials |
 | Netlify | `--deploy=netlify` | `NETLIFY_AUTH_TOKEN` |
-| Vercel | `--deploy=vercel` | `VERCEL_TOKEN`, `VERCEL_ORG_ID` |
+| Vercel | `--deploy=vercel` | `VERCEL_TOKEN` (optional `VERCEL_ORG_ID` for team scope) |
 | FTP | `--deploy=ftp` | `FTP_USERNAME`, `FTP_PASSWORD` |
-| SFTP | `--deploy=sftp` | `SSH_PASSWORD` or `SSH_KEY_FILE` |
+| SFTP | `--deploy=sftp` | `SSH_USERNAME` + `SSH_PASSWORD` or `SSH_KEY_FILE` |
 
 Example:
 

@@ -267,6 +267,7 @@ added to the command argument array.
 | `output-path` | Generated site directory |
 | `zip-file` | ZIP path when `zip` is enabled |
 | `zip-size` | ZIP size in bytes |
+| `version` | Resolved ssg version used for the build (GO-052) |
 
 Example artifact upload:
 

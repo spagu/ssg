@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"os"
@@ -28,8 +29,12 @@ func (e *MustacheEngine) Name() string {
 
 // Parse parses template content
 func (e *MustacheEngine) Parse(name, content string, funcs template.FuncMap) (Template, error) {
-	// Note: Mustache doesn't support custom functions in the same way
-	// Functions would need to be passed as data
+	// Mustache is logic-less: FuncMap helpers cannot be called from templates
+	// at all. Say so once per build instead of silently ignoring them (GO-054).
+	if len(funcs) > 0 {
+		warnHelpersOnce(EngineMustache, fmt.Sprintf(
+			"mustache engine: template helpers are not supported (logic-less); %d helper(s) unavailable", len(funcs)))
+	}
 	tmpl, err := mustache.ParseString(content)
 	if err != nil {
 		return nil, err

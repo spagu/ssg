@@ -216,6 +216,13 @@ func movableTypeFixture(t *testing.T) string {
 		`INSERT INTO mt_objecttag VALUES (1, 30, 'entry')`,
 		`CREATE TABLE mt_asset (asset_id INTEGER, asset_label TEXT, asset_url TEXT, asset_file_path TEXT)`,
 		`INSERT INTO mt_asset VALUES (40, 'Cover', '%r/cover.jpg', '/site/cover.jpg')`,
+		`CREATE TABLE mt_comment (comment_id INTEGER, comment_entry_id INTEGER, comment_author TEXT,
+		 comment_email TEXT, comment_url TEXT, comment_created_on TEXT, comment_text TEXT, comment_visible INTEGER)`,
+		`INSERT INTO mt_comment VALUES (50, 1, 'Anna', 'anna@example.com', 'https://anna.example.com',
+		 '2026-02-03 10:00:00', 'Lovely read.', 1)`,
+		`INSERT INTO mt_comment VALUES (51, 1, 'Bert', '', '', '2026-02-02 08:00:00', 'First!', 1)`,
+		`INSERT INTO mt_comment VALUES (52, 1, 'Spam Bot', 'spam@spam.example', '', '2026-02-04 10:00:00', 'Buy pills', 0)`,
+		`INSERT INTO mt_comment VALUES (53, 2, 'Carol', '', '', '2026-02-05 09:00:00', 'Page comment.', 1)`,
 	})
 }
 
@@ -253,13 +260,72 @@ func TestMovableTypeAdapter(t *testing.T) {
 	}
 }
 
+// TestMovableTypeCommentsSkippedByDefault pins the include_comments=false
+// default (GO-058): no comment query, no .Extra, no data-view key.
+func TestMovableTypeCommentsSkippedByDefault(t *testing.T) {
+	src := cmsSource("movable_type", movableTypeFixture(t), "content")
+	res, err := CMSConnector{}.Load(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.CMS.Posts[0].Extra != nil {
+		t.Fatalf("comments must be skipped by default: %#v", res.CMS.Posts[0].Extra)
+	}
+	view := res.Data.(map[string]interface{})["posts"].([]interface{})[0].(map[string]interface{})
+	if _, ok := view["comments"]; ok {
+		t.Fatal("data view must not expose comments by default")
+	}
+}
+
+// TestMovableTypeComments covers include_comments=true (GO-058): visible
+// comments attach to their entry as .Extra["comments"] ordered by creation
+// time, hidden comments are excluded, and the data view exposes the list.
+func TestMovableTypeComments(t *testing.T) {
+	src := cmsSource("movable_type", movableTypeFixture(t), "content")
+	src.MovableType.IncludeComments = true
+	res, err := CMSConnector{}.Load(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := res.CMS.Posts[0]
+	comments, ok := post.Extra["comments"].([]map[string]interface{})
+	if !ok || len(comments) != 2 {
+		t.Fatalf("comments = %#v", post.Extra)
+	}
+	// Ordered by creation time; the hidden comment (comment_visible=0) is excluded.
+	if comments[0]["author"] != "Bert" || comments[0]["body"] != "First!" {
+		t.Fatalf("first comment = %#v", comments[0])
+	}
+	if comments[1]["author"] != "Anna" || comments[1]["email"] != "anna@example.com" ||
+		comments[1]["url"] != "https://anna.example.com" || comments[1]["body"] != "Lovely read." {
+		t.Fatalf("second comment = %#v", comments[1])
+	}
+	if d, ok := comments[1]["date"].(time.Time); !ok || d.Year() != 2026 || d.Month() != 2 {
+		t.Fatalf("comment date = %#v", comments[1]["date"])
+	}
+	// Comments on MT pages attach the same way.
+	pageComments, ok := res.CMS.Pages[0].Extra["comments"].([]map[string]interface{})
+	if !ok || len(pageComments) != 1 || pageComments[0]["author"] != "Carol" {
+		t.Fatalf("page comments = %#v", res.CMS.Pages[0].Extra)
+	}
+	// The data view exposes the same list for mode: data templates.
+	view := res.Data.(map[string]interface{})["posts"].([]interface{})[0].(map[string]interface{})
+	if got, ok := view["comments"].([]map[string]interface{}); !ok || len(got) != 2 {
+		t.Fatalf("data view comments = %#v", view["comments"])
+	}
+	// include_comments now resolves instead of being rejected as deferred.
+	if _, err := Resolve(Config{Sources: map[string]SourceConfig{"mt": {Type: "cms", Adapter: "movable_type",
+		Driver: "sqlite", Database: "x.db", MovableType: MovableTypeOptions{IncludeComments: true}}}}); err != nil {
+		t.Fatalf("include_comments must resolve: %v", err)
+	}
+}
+
 // ─── shared CMS plumbing ─────────────────────────────────────────────────────
 
 func TestCMSResolveMatrix(t *testing.T) {
 	cases := map[string]SourceConfig{
 		"bad adapter": {Type: "cms", Adapter: "ghost", Driver: "sqlite", Database: "x.db"},
 		"bad mode":    {Type: "cms", Adapter: "wordpress", Mode: "hybrid", Driver: "sqlite", Database: "x.db"},
-		"comments":    {Type: "cms", Adapter: "movable_type", Driver: "sqlite", Database: "x.db", MovableType: MovableTypeOptions{IncludeComments: true}},
 		"no db":       {Type: "cms", Adapter: "wordpress", Driver: "sqlite"},
 		"bad driver":  {Type: "cms", Adapter: "wordpress", Driver: "oracle", Database: "x.db"},
 	}

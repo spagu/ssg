@@ -1,9 +1,11 @@
 package engine
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/aymerick/raymond"
 )
@@ -28,10 +30,15 @@ func (e *HandlebarsEngine) Name() string {
 
 // Parse parses template content
 func (e *HandlebarsEngine) Parse(name, content string, funcs template.FuncMap) (Template, error) {
-	// Register helpers from funcs
+	// Register FuncMap helpers as raymond helpers via the reflection adapter
+	// (GO-054); anything not adaptable is reported once, never swallowed.
+	var unsupported []string
 	for fname, fn := range funcs {
-		registerHandlebarsHelper(fname, fn)
+		if !registerHandlebarsHelper(fname, fn) {
+			unsupported = append(unsupported, fname)
+		}
 	}
+	warnUnsupported(EngineHandlebars, unsupported)
 
 	tmpl, err := raymond.Parse(content)
 	if err != nil {
@@ -59,12 +66,56 @@ func (t *HandlebarsTemplate) Execute(w io.Writer, data interface{}) error {
 	return err
 }
 
-// registerHandlebarsHelper registers a Go function as a Handlebars helper.
-// raymond panics when the same helper name is registered twice (Parse runs per
-// template) or when a Go func does not match its helper contract; recover makes
-// this idempotent — the first registration sticks and later attempts are harmless
-// no-ops, so template loading never crashes (GO-007).
-func registerHandlebarsHelper(name string, fn interface{}) {
-	defer func() { _ = recover() }()
-	raymond.RegisterHelper(name, fn)
+// raymondRegistered remembers registered helper names (raymond panics on
+// duplicates) and whether the source helper was adaptable (GO-054).
+var raymondRegistered sync.Map // name → supported bool
+
+// registerHandlebarsHelper registers a Go FuncMap helper as a raymond helper
+// through the reflection adapter (GO-054). Fixed arities 0–3 are wrapped;
+// variadic or wider signatures are reported as unsupported. A runtime
+// conversion failure renders a visible "[helper X error: …]" marker and warns
+// on stderr — the old recover() silently dropped such helpers entirely.
+func registerHandlebarsHelper(name string, fn interface{}) bool {
+	if supported, seen := raymondRegistered.Load(name); seen {
+		return supported.(bool)
+	}
+	adapter, err := adaptHelper(fn)
+	numIn := 0
+	if err == nil {
+		t := adapter.fn.Type()
+		if t.IsVariadic() || t.NumIn() > 3 {
+			err = fmt.Errorf("arity not expressible as a handlebars helper")
+		} else {
+			numIn = t.NumIn()
+		}
+	}
+	if err != nil {
+		raymondRegistered.Store(name, false)
+		return false
+	}
+	raymondRegistered.Store(name, true)
+
+	call := func(args ...interface{}) interface{} {
+		res, cerr := adapter.call(args...)
+		if cerr != nil {
+			warnHelpersOnce(EngineHandlebars+":"+name,
+				fmt.Sprintf("handlebars helper %q failed: %v", name, cerr))
+			return fmt.Sprintf("[helper %s error: %v]", name, cerr)
+		}
+		if s, safe := helperResultString(res); safe {
+			return raymond.SafeString(s)
+		}
+		return res
+	}
+	switch numIn {
+	case 0:
+		raymond.RegisterHelper(name, func() interface{} { return call() })
+	case 1:
+		raymond.RegisterHelper(name, func(a interface{}) interface{} { return call(a) })
+	case 2:
+		raymond.RegisterHelper(name, func(a, b interface{}) interface{} { return call(a, b) })
+	default:
+		raymond.RegisterHelper(name, func(a, b, c interface{}) interface{} { return call(a, b, c) })
+	}
+	return true
 }

@@ -66,7 +66,7 @@ func (c *CloudflarePages) Validate() error {
 	case c.cfg.AccountID == "":
 		return fmt.Errorf("missing CLOUDFLARE_ACCOUNT_ID")
 	case c.cfg.Project == "":
-		return fmt.Errorf("missing Cloudflare Pages project name (--cf-project)")
+		return fmt.Errorf("missing Cloudflare Pages project name (--deploy-project=<name> or deploy_project in config)")
 	}
 	return nil
 }

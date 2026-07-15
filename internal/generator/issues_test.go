@@ -51,16 +51,7 @@ func TestNumericTagIDsResolve(t *testing.T) {
 	mustWrite(t, filepath.Join(tmp, "content", "site", "posts", "news", "one.md"),
 		"---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\nauthor: 101\ntags:\n  - 1691\n  - 1700\n  - 9999\n  - plain-tag\n  - Hand Written\n---\n\nBody.\n")
 	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
-	gen, err := New(Config{Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-		OutputDir: filepath.Join(tmp, "output"), Quiet: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	out := filepath.Join(tmp, "output")
+	gen, out := buildSite(t, tmp)
 	// Resolved names on the post.
 	post := gen.siteData.Posts[0]
 	if got := strings.Join(post.Tags, "|"); got != "eSports Betting|Śląsk News|9999|plain-tag|Hand Written" {

@@ -9,8 +9,8 @@ import (
 
 // movableTypeAdapter imports a Movable Type database (plan phase 6):
 // mt_entry (entries and pages), mt_author, mt_category/mt_placement,
-// mt_tag/mt_objecttag and mt_asset. Only released entries (status 2) are
-// imported; comments are deferred.
+// mt_tag/mt_objecttag, mt_asset and — with include_comments (GO-058) —
+// visible mt_comment rows. Only released entries (status 2) are imported.
 type movableTypeAdapter struct{}
 
 // mtStatusRelease is Movable Type's "published" entry status.
@@ -33,6 +33,12 @@ func (movableTypeAdapter) Import(ctx context.Context, db *sql.DB, src Source) (*
 	if err != nil {
 		return nil, err
 	}
+	rel := mtRelations{categories: entryCats, tags: entryTags}
+	if opt.IncludeComments {
+		if rel.comments, err = mtComments(ctx, db); err != nil {
+			return nil, err
+		}
+	}
 	classes := make([]string, 0, 2)
 	if boolLayer(true, opt.IncludeEntries) {
 		classes = append(classes, "entry")
@@ -41,7 +47,7 @@ func (movableTypeAdapter) Import(ctx context.Context, db *sql.DB, src Source) (*
 		classes = append(classes, "page")
 	}
 	if len(classes) > 0 {
-		if err := mtEntries(ctx, db, src, classes, entryCats, entryTags, result); err != nil {
+		if err := mtEntries(ctx, db, src, classes, rel, result); err != nil {
 			return nil, err
 		}
 	}
@@ -116,9 +122,39 @@ func mtTags(ctx context.Context, db *sql.DB, result *CMSImportResult) (map[int][
 	return out, nil
 }
 
+// mtComments loads visible comments per entry (GO-058): entry id → list of
+// {author, email, url, date, body} maps, ordered by creation time. Hidden
+// (unapproved/spam) comments are excluded.
+func mtComments(ctx context.Context, db *sql.DB) (map[int][]map[string]interface{}, error) {
+	rows, err := queryMaps(ctx, db, "SELECT comment_entry_id, comment_author, comment_email, comment_url,"+
+		" comment_created_on, comment_text FROM mt_comment WHERE comment_visible = 1"+
+		" ORDER BY comment_created_on, comment_id")
+	if err != nil {
+		return nil, err
+	}
+	out := map[int][]map[string]interface{}{}
+	for _, r := range rows {
+		id := asInt(r["comment_entry_id"])
+		out[id] = append(out[id], map[string]interface{}{
+			"author": asString(r["comment_author"]), "email": asString(r["comment_email"]),
+			"url": asString(r["comment_url"]), "date": cmsTime(r["comment_created_on"]),
+			"body": asString(r["comment_text"]),
+		})
+	}
+	return out, nil
+}
+
+// mtRelations groups the per-entry lookups joined onto entries and pages.
+type mtRelations struct {
+	categories map[int][]string
+	tags       map[int][]string
+	comments   map[int][]map[string]interface{} // GO-058; nil unless include_comments
+}
+
 // mtEntries loads released entries/pages and maps them onto Page models.
+// Matching comments (when loaded) land in the page's .Extra["comments"].
 func mtEntries(ctx context.Context, db *sql.DB, src Source, classes []string,
-	entryCats, entryTags map[int][]string, result *CMSImportResult) error {
+	rel mtRelations, result *CMSImportResult) error {
 	driver, _ := driverAndDSN(src)
 	query := "SELECT entry_id, entry_title, entry_basename, entry_text, entry_text_more, entry_excerpt," +
 		" entry_authored_on, entry_modified_on, entry_class, entry_author_id FROM mt_entry" +
@@ -142,13 +178,16 @@ func mtEntries(ctx context.Context, db *sql.DB, src Source, classes []string,
 			ID: id, Title: asString(r["entry_title"]), Slug: fallbackSlug(asString(r["entry_basename"]), asString(r["entry_title"])),
 			Content: content, Excerpt: asString(r["entry_excerpt"]),
 			Date: cmsTime(r["entry_authored_on"]), Modified: cmsTime(r["entry_modified_on"]),
-			Status: "publish", Author: asInt(r["entry_author_id"]), Tags: entryTags[id],
+			Status: "publish", Author: asInt(r["entry_author_id"]), Tags: rel.tags[id],
 		}
-		if cats := entryCats[id]; len(cats) > 0 {
+		if cats := rel.categories[id]; len(cats) > 0 {
 			page.Category = cats[0]
 			for _, c := range cats {
 				page.CategoriesRaw = append(page.CategoriesRaw, c)
 			}
+		}
+		if comments := rel.comments[id]; len(comments) > 0 {
+			page.Extra = map[string]interface{}{"comments": comments}
 		}
 		if asString(r["entry_class"]) == "page" {
 			page.Type = "page"

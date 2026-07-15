@@ -91,24 +91,17 @@ func TestBuildOpenGraphAndInjectSEO(t *testing.T) {
 		t.Errorf("open graph incomplete: %s", og)
 	}
 
-	out := g.config.OutputDir
 	page := models.Page{Title: "T", Description: "D", Slug: "s", Type: "post"}
-	path := filepath.Join(out, "index.html")
-	_ = os.WriteFile(path, []byte("<html><head></head><body></body></html>"), 0644)
 	g.config.SEO = true // opt-in (v1.8.2): injection only runs when enabled
-	g.injectSEO(path, page, true)
-	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), "og:title") || !strings.Contains(string(data), "application/atom+xml") {
-		t.Errorf("injectSEO missing tags: %s", data)
+	data := g.seoHTMLString("<html><head></head><body></body></html>", page, true)
+	if !strings.Contains(data, "og:title") || !strings.Contains(data, "application/atom+xml") {
+		t.Errorf("seoHTMLString missing tags: %s", data)
 	}
 
 	// Opt-out (default): injection is a no-op unless SEO is enabled.
 	g.config.SEO = false
-	path2 := filepath.Join(out, "b.html")
-	_ = os.WriteFile(path2, []byte("<html><head></head></html>"), 0644)
-	g.injectSEO(path2, page, true)
-	d2, _ := os.ReadFile(path2)
-	if strings.Contains(string(d2), "og:title") {
+	d2 := g.seoHTMLString("<html><head></head></html>", page, true)
+	if strings.Contains(d2, "og:title") {
 		t.Errorf("SEO off (default) should disable injection")
 	}
 }

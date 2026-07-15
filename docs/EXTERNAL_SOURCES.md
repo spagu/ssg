@@ -119,6 +119,33 @@ Security, always on:
 - Responses are size-capped; clearly conflicting `Content-Type`s are rejected.
 - Error messages carry the URL without its query string.
 
+### Pagination (GO-062)
+
+By default an HTTP source fetches exactly one response. Paginated APIs
+(WordPress REST returns 10 posts per page!) can opt in per source:
+
+```yaml
+posts_api:
+  type: http
+  url: https://api.example.com/posts
+  format: json            # pagination aggregates pages into one JSON array
+  pagination:
+    mode: page            # page | link
+    param: page           # query parameter for mode=page (default: page)
+    start_page: 1         # first page number (default: 1)
+    per_page: 100         # page-size value; sent only when > 0
+    per_page_param: per_page  # page-size parameter name (default: per_page)
+    max_pages: 10         # hard guard, default 10, max 1000
+```
+
+`mode: page` increments the query parameter from `start_page`; `mode: link`
+follows the `Link: rel="next"` response header (RFC 8288, relative targets
+resolved). Fetching stops on an empty (or non-array) JSON page, a missing
+next link, or `max_pages` — hitting the cap prints a warning so truncation is
+never silent. Pages are aggregated into a single JSON array before transforms;
+each page request reuses the standard auth/retry/size-cap machinery, and the
+aggregated result is what lands in the disk cache.
+
 Retries with linear backoff cover network errors, 429 and 5xx. Successful
 payloads land in the shared disk cache (`<hash>.body` + `<hash>.meta.json`,
 sha256-verified; corrupted entries are evicted). Within `cache_ttl` the cache
@@ -215,15 +242,22 @@ drupal:
 ### Movable Type
 
 `mt_entry` (released entries and pages), `mt_author`,
-`mt_category`/`mt_placement`, `mt_tag`/`mt_objecttag` and `mt_asset`.
-Comments are deferred.
+`mt_category`/`mt_placement`, `mt_tag`/`mt_objecttag`, `mt_asset` and —
+opt-in — visible `mt_comment` rows (GO-058).
 
 ```yaml
 movable_type:
   include_entries: true
   include_pages: true
   include_assets: true
+  include_comments: true   # visible comments → the page's .Extra["comments"]
 ```
+
+With `include_comments: true` each imported entry carries its approved
+(`comment_visible = 1`) comments as a list of maps (author, email, url,
+created_on, text) under `.Extra["comments"]`, ready for templates. Unapproved
+and spam comments are never imported. Default `false` — identical behaviour
+to previous releases.
 
 ## Template API
 
@@ -269,7 +303,7 @@ deliberately no scripting, `eval` or embedded query runtime.
 
 - Direct-URL template helpers (`getJSON`/`getCSV`/`getXML`).
 - Adapters: Ghost, Strapi, Contentful, Sanity, Notion, Airtable,
-  Google Sheets, GitHub, GitLab; Drupal 7; Movable Type comments.
+  Google Sheets, GitHub, GitLab; Drupal 7.
 - `watch: true` rebuilds on file-source changes.
 - Example CMS projects with seed scripts.
 {% endraw %}

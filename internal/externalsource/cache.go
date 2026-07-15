@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 )
 
@@ -64,6 +65,14 @@ func cacheKey(src Source) string {
 		for _, k := range keys {
 			write(k, m[k])
 		}
+	}
+	// Paginated sources (GO-062) cache one aggregated payload per source; the
+	// pagination settings are part of the fingerprint so changing them forces
+	// a re-fetch. Written only when configured, so pre-pagination cache
+	// entries of plain sources stay valid.
+	if p := src.Pagination; p.Mode != "" {
+		write(p.Mode, p.Param, p.PerPageParam,
+			strconv.Itoa(p.StartPage), strconv.Itoa(p.PerPage), strconv.Itoa(p.MaxPages))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

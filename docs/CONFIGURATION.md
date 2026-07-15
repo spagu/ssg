@@ -205,9 +205,12 @@ references serve WebP, hardcoded ones keep working (v1.8.5).
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
 
-Math detection recognises display `$$...$$`, inline `\(...\)` and fenced
-`math` blocks. Sanitisation is recommended for untrusted remote content; it is
-off for trusted local authoring to avoid changing intentional HTML.
+Math detection recognises display `$$...$$` and fenced ```` ```math ````
+blocks (fences are rewritten to display math before rendering, GO-055).
+Inline `\(...\)` is **not** supported — CommonMark backslash-escaping would
+consume the delimiters. Sanitisation is recommended for untrusted remote
+content; it is off for trusted local authoring to avoid changing intentional
+HTML.
 
 ### Shortcodes
 

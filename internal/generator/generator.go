@@ -730,30 +730,6 @@ func (g *Generator) generateSitemapAndRobots() error {
 	return nil
 }
 
-// convertRelativeLinksIfRequested converts absolute URLs to relative if configured
-func (g *Generator) convertRelativeLinksIfRequested() error {
-	if !g.config.RelativeLinks || g.config.Domain == "" {
-		return nil
-	}
-	g.log("🔗 Converting to relative links...")
-	if err := g.convertToRelativeLinks(); err != nil {
-		return fmt.Errorf("converting to relative links: %w", err)
-	}
-	return nil
-}
-
-// prettifyIfRequested prettifies HTML if configured
-func (g *Generator) prettifyIfRequested() error {
-	if !g.config.PrettyHTML || g.config.MinifyHTML {
-		return nil
-	}
-	g.log("✨ Prettifying HTML output...")
-	if err := g.prettifyOutput(); err != nil {
-		return fmt.Errorf("prettifying output: %w", err)
-	}
-	return nil
-}
-
 // minifyIfRequested minifies CSS/JS assets if configured. It runs after
 // bundling; HTML minification happens per file at render time (PERF-005).
 func (g *Generator) minifyIfRequested() error {
@@ -2201,6 +2177,11 @@ func linkifyListItem(line, content string, pageLinks map[string]string) string {
 // convertMarkdownToHTML converts markdown content to HTML using the generator's
 // configured renderer (footnotes/highlighting/heading-IDs per config).
 func (g *Generator) convertMarkdownToHTML(s string) string {
+	// Fenced ```math blocks become $$ display math before conversion, so the
+	// KaTeX injection gate and browser auto-render both see them (GO-055).
+	if g.config.Math {
+		s = mathFencesToDisplay(s)
+	}
 	// Memoized per exact source: feeds, search index, JSON output and both
 	// page-format paths reuse one conversion instead of 6–8 (PERF-004).
 	if g.mdCache != nil {
@@ -2304,14 +2285,10 @@ func (g *Generator) replaceTOCMarker(s string) string {
 // shortcodeNameRe matches {{shortcode_name}} markers (PERF-006).
 var shortcodeNameRe = regexp.MustCompile(`\{\{(\w+)\}\}`)
 
-// processShortcodes replaces {{shortcode_name}} with rendered HTML.
-// When ShortcodeBrackets is enabled, also replaces [shortcode_name] for defined shortcodes only.
-func (g *Generator) processShortcodes(content string) string {
-	return g.processShortcodesWith(content, g.renderShortcode)
-}
-
-// processShortcodesWith is processShortcodes with a pluggable renderer, so the
-// sanitizing pipeline can wrap shortcode output in protected tokens (SEC-014).
+// processShortcodesWith replaces {{shortcode_name}} with HTML from a pluggable
+// renderer, so the sanitizing pipeline can wrap shortcode output in protected
+// tokens (SEC-014). When ShortcodeBrackets is enabled, also replaces
+// [shortcode_name] for defined shortcodes only.
 func (g *Generator) processShortcodesWith(content string, render func(Shortcode) string) string {
 	// Match {{shortcode_name}} pattern
 	content = shortcodeNameRe.ReplaceAllStringFunc(content, func(match string) string {
@@ -2482,6 +2459,11 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 	for name, fn := range g.imageFuncs() {
 		funcs[name] = fn
 	}
+	// External-source helpers (read-only), so `getExternal` really does work
+	// in every context as EXTERNAL_SOURCES.md promises (DOC-016).
+	for name, fn := range g.externalFuncs() {
+		funcs[name] = fn
+	}
 	return funcs
 }
 
@@ -2595,6 +2577,15 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 		}
 	}
 	if hasHTMLTemplates {
+		return nil
+	}
+
+	// Bundled starter theme first (DOC-013): extract the full embedded tree
+	// (HTML + assets) so the CLI honours the README promise for simple/krowy.
+	if ok, err := scaffoldEmbeddedTheme(g.config.Template, templatePath); err != nil {
+		return err
+	} else if ok {
+		fmt.Printf("   📦 Extracted embedded theme %q into %s\n", g.config.Template, templatePath)
 		return nil
 	}
 
@@ -2751,11 +2742,8 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 	return nil
 }
 
-// pageURL returns the URL for paginated index page n (page 1 is the site root).
-func pageURL(n int) string {
-	return pageURLWithPrefix("", n)
-}
-
+// pageURLWithPrefix returns the URL for paginated index page n under prefix
+// (page 1 is the section root; an empty prefix means the site root).
 func pageURLWithPrefix(prefix string, n int) string {
 	root := "/"
 	if prefix != "" {
@@ -2993,26 +2981,6 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 			fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
 		}
 	}
-}
-
-// injectSEO adds a generator-level SEO block (OpenGraph, Twitter Card, JSON-LD)
-// plus a feed alternate link and hreflang alternates into a rendered page, but
-// only the parts the theme did not already provide (SEO-003). Opt-in via `seo`
-// (v1.8.2): a no-op unless SEO injection is explicitly enabled.
-func (g *Generator) injectSEO(outputPath string, page models.Page, isPost bool) {
-	if !g.config.SEO {
-		return
-	}
-	data, err := os.ReadFile(outputPath) // #nosec G304 -- CLI reads its own output
-	if err != nil {
-		return
-	}
-	out := g.seoHTMLString(string(data), page, isPost)
-	if out == string(data) {
-		return
-	}
-	// #nosec G306,G703 -- CLI rewrites its own just-rendered output file
-	_ = os.WriteFile(outputPath, []byte(out), 0644)
 }
 
 // buildOpenGraph renders OpenGraph + Twitter Card + JSON-LD markup for a page (SEO-003).
@@ -4032,58 +4000,6 @@ func (g *Generator) generateCloudflareFiles() error {
 	return nil
 }
 
-// prettifyOutput prettifies HTML files in the output directory
-func (g *Generator) prettifyOutput() error {
-	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".html" {
-			if err := prettifyHTMLFile(path); err != nil {
-				return fmt.Errorf("prettifying %s: %w", path, err)
-			}
-		}
-
-		return nil
-	})
-}
-
-// minifyOutput minifies HTML, CSS, and JS files in the output directory
-func (g *Generator) minifyOutput() error {
-	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-
-		switch ext {
-		case ".html":
-			if g.config.MinifyHTML {
-				if err := minifyHTMLFile(path); err != nil {
-					return fmt.Errorf("minifying %s: %w", path, err)
-				}
-			}
-		case ".css":
-			if g.config.MinifyCSS {
-				if err := g.minifyAssetFile(path, minifyCSSFile, minifyCSSLinePreserving); err != nil {
-					return fmt.Errorf("minifying %s: %w", path, err)
-				}
-			}
-		case ".js":
-			if g.config.MinifyJS {
-				if err := g.minifyAssetFile(path, minifyJSFile, minifyJSLinePreserving); err != nil {
-					return fmt.Errorf("minifying %s: %w", path, err)
-				}
-			}
-		}
-
-		return nil
-	})
-}
-
 // HTML/CSS/JS minification patterns, compiled once (PERF-006).
 var (
 	minIgnoreBlockRe = regexp.MustCompile(`(?s)<!--\s*htmlmin:ignore\s*-->(.*?)<!--\s*/htmlmin:ignore\s*-->`)
@@ -4100,18 +4016,6 @@ var (
 	minLineCommentRe  = regexp.MustCompile(`^\s*//.*$`)
 	minIntraSpaceRe   = regexp.MustCompile(`[ \t]{2,}`)
 )
-
-// minifyHTMLFile removes unnecessary whitespace from HTML
-// Supports <!-- htmlmin:ignore --> ... <!-- /htmlmin:ignore --> to skip minification
-func minifyHTMLFile(path string) error {
-	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
-	if err != nil {
-		return err
-	}
-	// Delegates to the render-time string transform (PERF-005, one source of truth).
-	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(minifyHTMLString(string(content))), 0644)
-}
 
 // minifyCSSFile removes unnecessary whitespace and comments from CSS
 func minifyCSSFile(path string) error {
@@ -4452,31 +4356,6 @@ func rewriteAssetRefs(s string, byBasename map[string]string) string {
 // katexVersion pins the KaTeX release injected for math pages (AX-004).
 const katexVersion = "0.16.11"
 
-// injectMathIfRequested injects KaTeX assets into HTML pages that contain math,
-// only when math rendering is enabled (AX-004).
-func (g *Generator) injectMathIfRequested() error {
-	if !g.config.Math {
-		return nil
-	}
-	g.log("➗ Injecting math (KaTeX) assets...")
-	return filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
-		if err != nil || fi.IsDir() || !strings.EqualFold(filepath.Ext(path), ".html") {
-			return err
-		}
-		content, e := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own output; path from local Walk
-		if e != nil {
-			return e
-		}
-		s := string(content)
-		// Only pages that actually contain display math, and not already wired.
-		if !strings.Contains(s, "$$") || strings.Contains(s, "katex.min.css") {
-			return nil
-		}
-		// #nosec G306,G703,G122 -- CLI writes its own output; path from local Walk
-		return os.WriteFile(path, []byte(injectKatexAssets(s)), 0644)
-	})
-}
-
 // injectKatexAssets adds the KaTeX stylesheet to <head> and the KaTeX + auto-render
 // scripts plus an init call before </body>. Display math uses $$…$$ and inline math
 // uses \(…\) to avoid clashing with currency ($). Loaded with crossorigin; for
@@ -4500,39 +4379,4 @@ func injectKatexAssets(html string) string {
 		html += body
 	}
 	return html
-}
-
-// prettifyHTMLFile cleans up HTML by removing all blank lines for cleaner output
-func prettifyHTMLFile(path string) error {
-	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
-	if err != nil {
-		return err
-	}
-	// Delegates to the render-time string transform (PERF-005, one source of truth).
-	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(prettifyHTMLString(string(content))), 0644)
-}
-
-// convertToRelativeLinks converts absolute URLs to relative links in all HTML files
-func (g *Generator) convertToRelativeLinks() error {
-	return filepath.Walk(g.config.OutputDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-		if strings.HasSuffix(strings.ToLower(path), ".html") {
-			return convertToRelativeLinksFile(path, g.config.Domain)
-		}
-		return nil
-	})
-}
-
-// convertToRelativeLinksFile converts absolute URLs to relative links in a single HTML file
-func convertToRelativeLinksFile(path string, domain string) error {
-	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
-	if err != nil {
-		return err
-	}
-	// Delegates to the render-time string transform (PERF-005, one source of truth).
-	// #nosec G306,G703 -- Web content files need to be world-readable, CLI tool writes user's output
-	return os.WriteFile(path, []byte(relativizeHTMLString(string(content), domain)), 0644)
 }
