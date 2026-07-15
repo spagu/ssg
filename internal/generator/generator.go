@@ -201,7 +201,11 @@ const (
 	httpsScheme      = "https://" // shared URL scheme prefix (S1192)
 	indexHTMLName    = "index.html"
 	pageHTMLName     = "page.html"
+	postHTMLName     = "post.html"
 	categoryHTMLName = "category.html"
+	tagHTMLName      = "tag.html"
+	seriesHTMLName   = "series.html"
+	authorHTMLName   = "author.html"
 	htmlGlobPattern  = "*.html"
 	feedFileName     = "feed.xml"
 	sitemapURLOpen   = "  <url>\n"
@@ -1039,6 +1043,11 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return err
 	}
+	// A define-shell template (file present, body empty — GO-051) would render
+	// a blank archive; treat it as absent so the category.html fallback applies.
+	if !g.hasTemplate(primaryTmpl) {
+		primaryTmpl = categoryHTMLName
+	}
 	if err := g.renderTemplate(primaryTmpl, outputPath, data); err != nil {
 		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
 			fmt.Printf("   ⚠️  Failed to generate %s %s: %v\n", kind, name, err)
@@ -1057,7 +1066,7 @@ func (g *Generator) generateSeries() error {
 		}
 	}
 	for _, name := range sortedKeys(groups) {
-		if err := g.renderArchive("series", name, slugify(name), groups[name], "series.html", true); err != nil {
+		if err := g.renderArchive("series", name, slugify(name), groups[name], seriesHTMLName, true); err != nil {
 			return err
 		}
 	}
@@ -1082,7 +1091,7 @@ func (g *Generator) generateTags() (map[string]string, error) {
 			continue
 		}
 		slugs[name] = slug
-		if err := g.renderArchive("tag", name, slug, groups[name], "tag.html", false); err != nil {
+		if err := g.renderArchive("tag", name, slug, groups[name], tagHTMLName, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1115,7 +1124,7 @@ func (g *Generator) generateAuthors() (map[string]string, error) {
 			continue
 		}
 		slugs[slug] = slug
-		if err := g.renderArchive("author", name, slug, groups[id], "author.html", false); err != nil {
+		if err := g.renderArchive("author", name, slug, groups[id], authorHTMLName, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1660,6 +1669,7 @@ func (g *Generator) loadTemplates() error {
 	if err != nil {
 		return fmt.Errorf("parsing templates: %w", err)
 	}
+	warnShellTemplates(tmpl, g.config.Quiet)
 
 	// Also load templates from layouts subdirectory if it exists
 	layoutsPath := filepath.Join(templatePath, "layouts", htmlGlobPattern)
@@ -2512,7 +2522,7 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 		"base.html":      baseTemplate,
 		indexHTMLName:    indexTemplate,
 		pageHTMLName:     pageTemplate,
-		"post.html":      postTemplate,
+		postHTMLName:     postTemplate,
 		categoryHTMLName: categoryTemplate,
 	}
 
@@ -2849,7 +2859,7 @@ func (g *Generator) generatePost(post models.Page) error {
 		}
 
 		// Render + per-file transforms in a single write (PERF-005).
-		if err := g.renderPageTemplate("post.html", outputPath, data, &post, true); err != nil {
+		if err := g.renderPageTemplate(postHTMLName, outputPath, data, &post, true); err != nil {
 			return err
 		}
 		g.writeJSONOutput(post, outputPath)
@@ -3056,6 +3066,36 @@ func (g *Generator) generateCategories() error {
 	}
 
 	return nil
+}
+
+// executedByFileName lists the template names ssg executes directly by file
+// name; a define-shell under one of these names is almost certainly a theme
+// bug worth flagging (GO-051).
+var executedByFileName = []string{
+	indexHTMLName, postHTMLName, pageHTMLName, categoryHTMLName,
+	tagHTMLName, seriesHTMLName, authorHTMLName,
+	"taxonomy.html", "taxonomy-term.html", "archive.html",
+}
+
+// warnShellTemplates flags theme files that ssg executes by file name but
+// whose body is empty because the file only holds {{define}} blocks for OTHER
+// names — e.g. author.html copied from category.html with the define still
+// reading "category.html". Such shells silently fall back (GO-051); the
+// warning tells the author how to activate the file.
+func warnShellTemplates(tmpl *template.Template, quiet bool) {
+	if quiet || tmpl == nil {
+		return
+	}
+	for _, name := range executedByFileName {
+		t := tmpl.Lookup(name)
+		if t == nil || t.Tree == nil || t.Tree.Root == nil {
+			continue
+		}
+		if strings.TrimSpace(t.Tree.Root.String()) == "" {
+			fmt.Printf("   ⚠️  Template file %s only contains {{define}} blocks for other names — "+
+				"rename a define to %q to activate it (falling back for now)\n", name, name)
+		}
+	}
 }
 
 // renderTemplate renders a template to a file, dispatching to the configured

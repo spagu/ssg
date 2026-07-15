@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.5] - 2026-07-15
 
-Author-archive safety and Hugo-compatible string helpers (GO-050).
+Author-archive safety, define-shell template fallback and Hugo-compatible
+string helpers (GO-050/GO-051).
 
 ### Fixed
 - 🛡️ **Explicit content wins over auto archives** — a page/post/alias that
@@ -15,6 +16,13 @@ Author-archive safety and Hugo-compatible string helpers (GO-050).
   to be **silently overwritten** by the auto-generated archive (archives render
   last). The archive is now skipped with a build warning, and suppressed
   archives stay out of the sitemap and slug maps used for feeds.
+- 🛡️ **Define-shell templates no longer render blank pages** — copying
+  `category.html` to `author.html` in a `{{define}}`-based theme left the
+  define name unchanged, and the whitespace-only file-level template rendered
+  a **blank archive**. Shells are now treated as absent (the category.html
+  fallback applies, matching pre-1.8 behaviour) and the build prints a warning
+  telling the author to rename the define. Applies to every template executed
+  by file name (index/post/page/category/tag/series/author/taxonomy*).
 
 ### Added
 - 🧩 `hasPrefix` / `hasSuffix` template helpers — Hugo-compatible aliases of

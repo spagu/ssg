@@ -98,6 +98,59 @@ func TestAuthorArchiveGeneratedWithoutCollision(t *testing.T) {
 		"/author/ian-zane/")
 }
 
+// TestDefineShellTemplateFallsBack: author.html copied from category.html with
+// the {{define "category.html"}} left unchanged is a whitespace-only shell —
+// it must fall back to category.html instead of writing a blank archive, and
+// a correctly-named define must activate the file (GO-051).
+func TestDefineShellTemplateFallsBack(t *testing.T) {
+	tmp := t.TempDir()
+	writeAuthorsFixture(t, tmp)
+	for _, p := range []string{"ian.md", "cli.md"} {
+		if err := os.Remove(filepath.Join(tmp, "content", "site", "pages", p)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tmplDir := filepath.Join(tmp, "templates", "simple")
+	writeSimpleTemplates(t, tmplDir)
+	mustWrite(t, filepath.Join(tmplDir, "category.html"),
+		`{{define "category.html"}}<html><body>CATEGORY-BODY {{.Name}}</body></html>{{end}}`)
+	// The esj-style probe: file author.html, define still "category.html".
+	mustWrite(t, filepath.Join(tmplDir, "author.html"),
+		`{{define "category.html"}}<html><body>AUTHORTPL {{.Name}}</body></html>{{end}}`)
+	cfg := Config{Source: "site", Template: "simple", Domain: "example.com",
+		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true}
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	archive := mustRead(t, filepath.Join(tmp, "output", "author", "ian-zane", "index.html"))
+	if strings.TrimSpace(archive) == "" {
+		t.Fatal("shell template must not produce a blank archive")
+	}
+	// The shell "author.html" is treated as absent, so the archive renders
+	// through the category.html fallback (whichever file's define parsed last
+	// supplies that body) — never as a whitespace-only page.
+	wantContains(t, "fallback archive", archive, "Ian Zane")
+
+	// A correctly-named define activates the file.
+	mustWrite(t, filepath.Join(tmplDir, "author.html"),
+		`{{define "author.html"}}<html><body>REAL-AUTHOR {{.Name}}</body></html>{{end}}`)
+	gen2, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen2.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	wantContains(t, "activated author.html",
+		mustRead(t, filepath.Join(tmp, "output", "author", "ian-zane", "index.html")),
+		"REAL-AUTHOR Ian Zane")
+}
+
 // TestHasPrefixSuffixAliases: the Hugo-compatible aliases resolve alongside
 // startsWith/endsWith (v1.8.5).
 func TestHasPrefixSuffixAliases(t *testing.T) {

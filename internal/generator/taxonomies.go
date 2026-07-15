@@ -405,13 +405,22 @@ func (g *Generator) renderTaxonomyPage(chain []string, outPath string, data inte
 	return nil
 }
 
-// hasTemplate reports whether a template name exists in the active engine's set.
+// hasTemplate reports whether a template name exists in the active engine's
+// set WITH a non-whitespace body. ParseGlob names every file by its basename
+// even when the file only holds {{define}} blocks for other names — executing
+// such a shell writes a whitespace-only page, which is never what a theme
+// author meant (GO-051), so shells count as absent and fallbacks apply.
 func (g *Generator) hasTemplate(name string) bool {
 	if g.engine != nil {
 		_, ok := g.engineTmpls[name]
 		return ok
 	}
-	return g.tmpl != nil && g.tmpl.Lookup(name) != nil
+	if g.tmpl == nil {
+		return false
+	}
+	t := g.tmpl.Lookup(name)
+	return t != nil && t.Tree != nil && t.Tree.Root != nil &&
+		strings.TrimSpace(t.Tree.Root.String()) != ""
 }
 
 // taxonomyIndexChain is the index-page template fallback order: explicit
