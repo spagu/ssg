@@ -123,52 +123,63 @@ func TestHTTPPaginationMaxPagesGuard(t *testing.T) {
 	}
 }
 
-func TestHTTPPaginationNonArrayResponses(t *testing.T) {
+// pageConfig is the shared paged config used by the non-array stop tests.
+func pageConfig() PaginationConfig {
+	return PaginationConfig{Mode: "page", Param: "page", StartPage: 1, PerPageParam: "per_page", MaxPages: 10}
+}
+
+// countingServer serves body via handler and counts requests thread-safely.
+func countingServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, func() int) {
+	t.Helper()
 	var mu sync.Mutex
 	hits := 0
 	srv := httptest.NewServer(jsonHandler(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		hits++
 		mu.Unlock()
-		switch r.URL.Path {
-		case "/object":
-			_, _ = fmt.Fprint(w, `{"items":[1,2]}`)
-		case "/mixed":
-			if r.URL.Query().Get("page") == "1" {
-				_, _ = fmt.Fprint(w, `["a"]`)
-			} else {
-				_, _ = fmt.Fprint(w, `{"done":true}`)
-			}
-		case "/empty-body":
-			if r.URL.Query().Get("page") == "2" {
-				return // 200 with an empty body → natural stop
-			}
-			_, _ = fmt.Fprint(w, `["a"]`)
-		}
+		handler(w, r)
 	}))
-	defer srv.Close()
-	conn := testConnector(t)
-	p := PaginationConfig{Mode: "page", Param: "page", StartPage: 1, PerPageParam: "per_page", MaxPages: 10}
+	t.Cleanup(srv.Close)
+	return srv, func() int { mu.Lock(); defer mu.Unlock(); return hits }
+}
 
-	// A non-array first page is kept verbatim, with a warning, after one request.
-	res, err := conn.Load(pagedSource("obj", srv.URL+"/object", p))
-	if err != nil || hits != 1 {
-		t.Fatalf("object page: hits=%d err=%v", hits, err)
+func TestHTTPPaginationNonArrayFirstPageKept(t *testing.T) {
+	srv, hits := countingServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"items":[1,2]}`)
+	})
+	res, err := testConnector(t).Load(pagedSource("obj", srv.URL, pageConfig()))
+	if err != nil || hits() != 1 {
+		t.Fatalf("object page: hits=%d err=%v", hits(), err)
 	}
 	if _, ok := res.Data.(map[string]interface{}); !ok {
 		t.Fatalf("object payload = %#v", res.Data)
 	}
-	// A non-array later page stops pagination, keeping the collected items.
-	hits = 0
-	res, err = conn.Load(pagedSource("mixed", srv.URL+"/mixed", p))
-	if err != nil || hits != 2 || res.Metadata.RecordCount != 1 {
-		t.Fatalf("mixed pages: hits=%d meta=%+v err=%v", hits, res.Metadata, err)
+}
+
+func TestHTTPPaginationNonArrayLaterPageStops(t *testing.T) {
+	srv, hits := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			_, _ = fmt.Fprint(w, `["a"]`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"done":true}`)
+	})
+	res, err := testConnector(t).Load(pagedSource("mixed", srv.URL, pageConfig()))
+	if err != nil || hits() != 2 || res.Metadata.RecordCount != 1 {
+		t.Fatalf("mixed pages: hits=%d meta=%+v err=%v", hits(), res.Metadata, err)
 	}
-	// An empty body stops pagination.
-	hits = 0
-	res, err = conn.Load(pagedSource("empty", srv.URL+"/empty-body", p))
-	if err != nil || hits != 2 || res.Metadata.RecordCount != 1 {
-		t.Fatalf("empty body: hits=%d meta=%+v err=%v", hits, res.Metadata, err)
+}
+
+func TestHTTPPaginationEmptyBodyStops(t *testing.T) {
+	srv, hits := countingServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "2" {
+			return // 200 with an empty body → natural stop
+		}
+		_, _ = fmt.Fprint(w, `["a"]`)
+	})
+	res, err := testConnector(t).Load(pagedSource("empty", srv.URL, pageConfig()))
+	if err != nil || hits() != 2 || res.Metadata.RecordCount != 1 {
+		t.Fatalf("empty body: hits=%d meta=%+v err=%v", hits(), res.Metadata, err)
 	}
 }
 
