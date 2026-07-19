@@ -1,32 +1,36 @@
 # Homebrew formula for SSG - Static Site Generator
 # Install: brew install spagu/tap/ssg
 # Or: brew tap spagu/tap && brew install ssg
+#
+# NOTE: this file is the reference copy. The published formula lives at
+# https://github.com/spagu/homebrew-tap/blob/main/ssg.rb and is regenerated on
+# every tag by the "Update Homebrew tap" step in .github/workflows/ci.yml.
 
 class Ssg < Formula
   desc "Fast static site generator written in Go"
   homepage "https://github.com/spagu/ssg"
-  version "1.8.6"
+  version "1.8.7"
   license "BSD-3-Clause"
 
   on_macos do
     on_arm do
-      url "https://github.com/spagu/ssg/releases/download/v1.7.13/ssg-darwin-arm64.tar.gz"
-      sha256 "66b16a4c7190cfad2273c956d681bbaac859df3b01cc897e1fe4192d4ded0687"
+      url "https://github.com/spagu/ssg/releases/download/v1.8.7/ssg-darwin-arm64.tar.gz"
+      sha256 "339168be6005853362be1de8c9a38940186b6da17e9a67a3b161f92130e26c12"
     end
     on_intel do
-      url "https://github.com/spagu/ssg/releases/download/v1.7.13/ssg-darwin-amd64.tar.gz"
-      sha256 "4249df263492c2b8936238b345cfc6d9e36591669e70fc6468b285ed0f603aed"
+      url "https://github.com/spagu/ssg/releases/download/v1.8.7/ssg-darwin-amd64.tar.gz"
+      sha256 "427c02b3ef85449a45eee8990da0afefda59656e0ca8c51f0140fbb9bea700e9"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/spagu/ssg/releases/download/v1.7.13/ssg-linux-arm64.tar.gz"
-      sha256 "90040595646a70f964f11be42074092d314c453c185774f20981c0b5757aa075"
+      url "https://github.com/spagu/ssg/releases/download/v1.8.7/ssg-linux-arm64.tar.gz"
+      sha256 "b0ff8632d19b4d55990f3fd94f089a89690c18a1e6bd9d6cfdd8123afa89cffd"
     end
     on_intel do
-      url "https://github.com/spagu/ssg/releases/download/v1.7.13/ssg-linux-amd64.tar.gz"
-      sha256 "63dde71b6fcb7fb934bbe6cad4b44bf92c20dcf38f1d93f1f6c1e6a7fb15ee6f"
+      url "https://github.com/spagu/ssg/releases/download/v1.8.7/ssg-linux-amd64.tar.gz"
+      sha256 "bfd9c3e5e31a5e676f57105dc604fb74410f0022b86df3d35d6b0e239987ffff"
     end
   end
 

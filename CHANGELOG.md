@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- 🍺 **Homebrew tap was never updated after v1.7.14** (OPS-012) — the CI step
+  authenticated to `spagu/homebrew-tap` with `AUTHORIZATION: bearer <PAT>`,
+  which GitHub's git-over-HTTPS endpoint rejects with 401 (it expects Basic
+  auth; that an invalid header also breaks *anonymous* clones of a public repo
+  is what made this look like an expired token). Now uses
+  `basic base64(x-access-token:<PAT>)`, the same form `actions/checkout` uses.
+- 🔊 **Silent tap failures are now loud** (OPS-012) — tap publishing moved out
+  of the `release` job into `.github/workflows/homebrew.yml`, which **fails**
+  on a missing token, a failed clone/push, or missing checksums, and writes the
+  outcome to the job summary. Previously every failure path was
+  `::warning::` + `exit 0`, so releases from v1.7.15 through v1.8.7 reported
+  success while Homebrew users stayed on 1.7.14 for a week.
+
+### Added
+- 🔁 **Manually runnable tap publish** (OPS-012) — `.github/workflows/homebrew.yml`
+  accepts `workflow_dispatch` with a version input, so a failed tap publish is
+  repaired by re-running that one workflow instead of cutting a new tag.
+  Re-running the *release* is not a fix: it rebuilds the binaries and changes
+  their published SHA-256 sums.
+
+### Changed
+- 🔖 `scripts/sync-version.sh` now syncs and drift-checks the **download URLs**
+  in `packaging/brew/ssg.rb`, not just its `version` field — the old check
+  passed while the file claimed `version "1.8.6"` with v1.7.13 URLs.
+  Checksums stay owned by the workflow; they exist only after a release builds.
+
 ## [1.8.7] - 2026-07-15
 
 Completion of 15 unfinished-feature findings from the 2026-07-15 audit round

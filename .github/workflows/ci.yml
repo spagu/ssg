@@ -379,6 +379,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true'
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -445,88 +447,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Homebrew tap
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-
-          # Get SHA256 checksums from release archives
-          cd release
-          SHA_DARWIN_ARM64=$(sha256sum ssg-darwin-arm64.tar.gz | awk '{print $1}')
-          SHA_DARWIN_AMD64=$(sha256sum ssg-darwin-amd64.tar.gz | awk '{print $1}')
-          SHA_LINUX_ARM64=$(sha256sum ssg-linux-arm64.tar.gz | awk '{print $1}')
-          SHA_LINUX_AMD64=$(sha256sum ssg-linux-amd64.tar.gz | awk '{print $1}')
-          cd ..
-
-          # Generate updated formula
-          cat > /tmp/ssg.rb << FORMULA
-          # Homebrew formula for SSG - Static Site Generator
-          # Install: brew install spagu/tap/ssg
-          # Or: brew tap spagu/tap && brew install ssg
-
-          class Ssg < Formula
-            desc "Fast static site generator written in Go"
-            homepage "https://github.com/spagu/ssg"
-            version "${VERSION}"
-            license "BSD-3-Clause"
-
-            on_macos do
-              on_arm do
-                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-darwin-arm64.tar.gz"
-                sha256 "${SHA_DARWIN_ARM64}"
-              end
-              on_intel do
-                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-darwin-amd64.tar.gz"
-                sha256 "${SHA_DARWIN_AMD64}"
-              end
-            end
-
-            on_linux do
-              on_arm do
-                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-linux-arm64.tar.gz"
-                sha256 "${SHA_LINUX_ARM64}"
-              end
-              on_intel do
-                url "https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-linux-amd64.tar.gz"
-                sha256 "${SHA_LINUX_AMD64}"
-              end
-            end
-
-            def install
-              bin.install "ssg"
-            end
-
-            test do
-              system "#{bin}/ssg", "--help"
-            end
-          end
-          FORMULA
-
-          # Updating the tap is best-effort: a missing/expired HOMEBREW_TAP_TOKEN
-          # must NOT fail the release — the GitHub Release is already published
-          # above. We warn and exit 0 instead (OPS-009).
-          if [ -z "${GH_TOKEN}" ]; then
-            echo "::warning::HOMEBREW_TAP_TOKEN is not set; skipping Homebrew tap update"
-            exit 0
-          fi
-
-          # Push to homebrew-tap repo. OPS-009: pass the token via a per-command
-          # http.extraheader instead of embedding it in the clone URL, so it is
-          # never written to the cloned repo's .git/config.
-          AUTH_HEADER="AUTHORIZATION: bearer ${GH_TOKEN}"
-          if ! git -c http.extraheader="${AUTH_HEADER}" clone https://github.com/spagu/homebrew-tap.git /tmp/homebrew-tap; then
-            echo "::warning::Could not clone homebrew-tap (check HOMEBREW_TAP_TOKEN); skipping tap update"
-            exit 0
-          fi
-          cp /tmp/ssg.rb /tmp/homebrew-tap/ssg.rb
-          cd /tmp/homebrew-tap
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ssg.rb
-          git commit -m "ssg: update to v${VERSION}" || echo "No changes to commit"
-          if ! git -c http.extraheader="${AUTH_HEADER}" push; then
-            echo "::warning::Could not push to homebrew-tap (check HOMEBREW_TAP_TOKEN permissions); skipping tap update"
-            exit 0
-          fi
+  # Publishing to Homebrew is a separate concern from publishing the release,
+  # with its own failure modes — so it is a separate job in a separate,
+  # hand-runnable workflow (OPS-012). A broken tap turns THAT workflow red
+  # while the already-published release above stays green.
+  homebrew:
+    name: Update Homebrew Tap
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/homebrew.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit

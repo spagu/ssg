@@ -171,6 +171,24 @@ Do not create tags or publish packages as part of an ordinary contribution.
 Maintainers handle releases. User-visible changes should be recorded in
 `CHANGELOG.md` under the appropriate release section.
 
+### Republishing the Homebrew tap (maintainers)
+
+Tagging runs `.github/workflows/homebrew.yml`, which regenerates
+`spagu/homebrew-tap/ssg.rb` from the release's `checksums.sha256`. If that
+fails, fix it and re-run **that workflow alone**:
+
+> Actions → **Homebrew Tap** → *Run workflow* → version, e.g. `1.8.7`
+
+It is idempotent and needs no new tag. **Do not re-run the release workflow to
+fix the tap**: it rebuilds the binaries, so the release assets get new SHA-256
+sums and anyone who already downloaded or pinned the old ones is broken.
+
+The push uses the `HOMEBREW_TAP_TOKEN` secret with
+`AUTHORIZATION: basic base64(x-access-token:<PAT>)`. GitHub's git-over-HTTPS
+endpoint rejects `bearer` with a PAT — and because a malformed header also
+blocks otherwise-anonymous clones of the public tap, that failure looks
+exactly like an expired token.
+
 ## Pull request checklist
 
 - [ ] The change is focused and its behaviour is explained.

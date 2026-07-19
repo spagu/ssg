@@ -25,7 +25,13 @@ apply() {
 sync() {
   apply "packaging/freebsd/Makefile"     "s/^(DISTVERSION=[[:space:]]*).*/\1${VERSION}/"
   apply "packaging/openbsd/Makefile"     "s/^(V=[[:space:]]*).*/\1${VERSION}/"
+  # The brew formula carries the version twice: the version field and the four
+  # download URLs. Syncing only the field let ssg.rb claim 1.8.6 while every
+  # URL still pointed at v1.7.13 (OPS-012). The sha256 lines cannot be synced
+  # here — they are only knowable once the release is built, so
+  # .github/workflows/homebrew.yml regenerates the published formula.
   apply "packaging/brew/ssg.rb"          "s/^([[:space:]]*version[[:space:]]+\").*(\")/\1${VERSION}\2/"
+  apply "packaging/brew/ssg.rb"          "s|(releases/download/)v[^/]+/|\1v${VERSION}/|"
   apply "packaging/deb/control.template" "s/^(Version:[[:space:]]*).*/\1${VERSION}/"
   apply "packaging/rpm/ssg.spec"         "s/^(Version:[[:space:]]*).*/\1${VERSION}/"
   apply "install.sh"                     "s/^(VERSION=\"\\\$\{SSG_VERSION:-)[^}]*(\}\")/\1${VERSION}\2/"
@@ -36,6 +42,10 @@ check() {
   grep -qE "^DISTVERSION=[[:space:]]*${VERSION}$"  "$ROOT/packaging/freebsd/Makefile"     || { echo "freebsd Makefile drift"; rc=1; }
   grep -qE "^V=[[:space:]]*${VERSION}$"             "$ROOT/packaging/openbsd/Makefile"     || { echo "openbsd Makefile drift"; rc=1; }
   grep -qE "version[[:space:]]+\"${VERSION}\""      "$ROOT/packaging/brew/ssg.rb"          || { echo "brew formula drift";   rc=1; }
+  if grep -oE "releases/download/v[^/]+/" "$ROOT/packaging/brew/ssg.rb" |
+     grep -qv "^releases/download/v${VERSION}/$"; then
+    echo "brew formula URL drift"; rc=1
+  fi
   grep -qE "^Version:[[:space:]]*${VERSION}$"       "$ROOT/packaging/deb/control.template" || { echo "deb control drift";    rc=1; }
   grep -qE "^Version:[[:space:]]*${VERSION}$"       "$ROOT/packaging/rpm/ssg.spec"         || { echo "rpm spec drift";       rc=1; }
   grep -qE "SSG_VERSION:-${VERSION}\}"              "$ROOT/install.sh"                     || { echo "install.sh drift";     rc=1; }
