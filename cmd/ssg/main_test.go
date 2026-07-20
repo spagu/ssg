@@ -2232,3 +2232,32 @@ func TestWriteZipHappyPath(t *testing.T) {
 		t.Errorf("unexpected zip contents: %+v", zr.File)
 	}
 }
+
+// TestParseFlagsWatchRunner verifies parsing of --wrangler, --workerd, and --watch-runner.
+func TestParseFlagsWatchRunner(t *testing.T) {
+	tests := []struct {
+		args        []string
+		wantWatch   bool
+		wantRunner  string
+	}{
+		{[]string{"--wrangler"}, true, "wrangler"},
+		{[]string{"-wrangler"}, true, "wrangler"},
+		{[]string{"--workerd"}, true, "workerd"},
+		{[]string{"-workerd"}, true, "workerd"},
+		{[]string{"--watch-runner=wrangler"}, true, "wrangler"},
+		{[]string{"--watch-runner", "workerd"}, true, "workerd"},
+		{[]string{"--watch-runner", "custom command"}, true, "custom command"},
+	}
+
+	for _, tc := range tests {
+		cfg := &config.Config{}
+		parseFlags(tc.args, cfg)
+		if cfg.Watch != tc.wantWatch {
+			t.Errorf("parseFlags(%v) cfg.Watch = %v, want %v", tc.args, cfg.Watch, tc.wantWatch)
+		}
+		if cfg.WatchRunner != tc.wantRunner {
+			t.Errorf("parseFlags(%v) cfg.WatchRunner = %q, want %q", tc.args, cfg.WatchRunner, tc.wantRunner)
+		}
+	}
+}
+

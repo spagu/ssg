@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-07-20
+
+### Added
+- ⚡ **Watch Runner Support** — added support for spawning background watch runners (emulators) alongside the file watch loop: `--wrangler` (executes `npx wrangler dev`), `--workerd` (executes `workerd serve`), or `--watch-runner="cmd"` (runs any custom command). Automatically coordinates execution and handles process output/cleanup.
+
 ### Fixed
+- 🗂️ **Enriched YAML parsing errors** (issue #31) — if a YAML data file under `data/` fails to parse, `ssg` now scans the file for space-preceded hash characters (` #`) and prints precise line-number diagnostic hints to help debug unquoted comment issues.
 - 🍺 **Homebrew tap was never updated after v1.7.14** (OPS-012) — the CI step
   authenticated to `spagu/homebrew-tap` with `AUTHORIZATION: bearer <PAT>`,
   which GitHub's git-over-HTTPS endpoint rejects with 401 (it expects Basic
@@ -1194,6 +1200,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.8...HEAD
+[1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/spagu/ssg/compare/v1.8.4...v1.8.5

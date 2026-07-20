@@ -38,7 +38,6 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	gmutil "github.com/yuin/goldmark/util"
-	"gopkg.in/yaml.v3"
 )
 
 // Shortcode defines a reusable content snippet
@@ -1264,94 +1263,6 @@ func (g *Generator) permalinkCategorySlug(p models.Page) string {
 		}
 	}
 	return "uncategorized"
-}
-
-// loadData loads every *.yaml|*.yml|*.json under DataDir into the .Data.* template
-// namespace (PLAT-002). Nested subdirectories become nested maps
-// (data/authors/bio.yaml → .Data.authors.bio). A missing directory is a no-op.
-func (g *Generator) loadData() error {
-	dir := g.config.DataDir
-	if dir == "" {
-		dir = "data"
-	}
-	info, err := os.Stat(dir)
-	if err != nil || !info.IsDir() {
-		return nil // no data directory → no .Data (not an error)
-	}
-
-	data := make(map[string]interface{})
-	walkErr := filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
-		if err != nil || fi.IsDir() {
-			return err
-		}
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".yaml" && ext != ".yml" && ext != ".json" {
-			return nil
-		}
-		raw, rerr := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own data dir; path from local Walk, not attacker-controlled
-		if rerr != nil {
-			return rerr
-		}
-		var parsed interface{}
-		if ext == ".json" {
-			if e := json.Unmarshal(raw, &parsed); e != nil {
-				return fmt.Errorf("parsing data file %s: %w", path, e)
-			}
-		} else {
-			if e := yaml.Unmarshal(raw, &parsed); e != nil {
-				return fmt.Errorf("parsing data file %s: %w", path, e)
-			}
-		}
-		rel, _ := filepath.Rel(dir, path)
-		rel = strings.TrimSuffix(rel, filepath.Ext(rel))
-		keys := strings.Split(filepath.ToSlash(rel), "/")
-		setNestedData(data, keys, normalizeYAMLValue(parsed))
-		return nil
-	})
-	if walkErr != nil {
-		return walkErr
-	}
-	g.data = data
-	return nil
-}
-
-// setNestedData inserts value into m following the key path, creating intermediate
-// maps as needed (used to mirror the data/ directory tree under .Data.*).
-func setNestedData(m map[string]interface{}, keys []string, value interface{}) {
-	for i := 0; i < len(keys)-1; i++ {
-		next, ok := m[keys[i]].(map[string]interface{})
-		if !ok {
-			next = make(map[string]interface{})
-			m[keys[i]] = next
-		}
-		m = next
-	}
-	m[keys[len(keys)-1]] = value
-}
-
-// normalizeYAMLValue converts map[interface{}]interface{} (produced by some YAML
-// shapes) into map[string]interface{} recursively so html/template can index it.
-func normalizeYAMLValue(v interface{}) interface{} {
-	switch val := v.(type) {
-	case map[interface{}]interface{}:
-		out := make(map[string]interface{}, len(val))
-		for k, vv := range val {
-			out[fmt.Sprintf("%v", k)] = normalizeYAMLValue(vv)
-		}
-		return out
-	case map[string]interface{}:
-		for k, vv := range val {
-			val[k] = normalizeYAMLValue(vv)
-		}
-		return val
-	case []interface{}:
-		for i, vv := range val {
-			val[i] = normalizeYAMLValue(vv)
-		}
-		return val
-	default:
-		return v
-	}
 }
 
 // normalizeSlug returns the slug to use for a page.

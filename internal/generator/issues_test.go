@@ -83,3 +83,39 @@ func TestNumericTagIDsResolve(t *testing.T) {
 	wantContains(t, "sitemap", mustRead(t, filepath.Join(out, "sitemap.xml")),
 		"/tag/esports-betting/", "/tag/slask-news/")
 }
+
+func TestIssue31YamlComment(t *testing.T) {
+	yamlContent := `requests:
+  - id: test-entry
+    answer: some text mentioning issue #24-71 here
+      continued on next line.
+    status: open`
+
+	tmp := t.TempDir()
+	mustWrite(t, filepath.Join(tmp, "content", "metadata.json"), `{"categories":[],"exported_at":"","media":[],"users":[],"tags":[]}`)
+	mustWrite(t, filepath.Join(tmp, "content", "posts", "news", "one.md"), "---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\n---\n\nBody.\n")
+	mustWrite(t, filepath.Join(tmp, "data", "repro.yaml"), yamlContent)
+	writeSimpleTemplates(t, filepath.Join(tmp, "templates"))
+	
+	gen, err := New(Config{
+		Domain:       "example.com",
+		ContentDir:   filepath.Join(tmp, "content"),
+		TemplatesDir: filepath.Join(tmp, "templates"),
+		DataDir:      filepath.Join(tmp, "data"),
+		OutputDir:    filepath.Join(tmp, "output"),
+		Quiet:        true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = gen.Generate()
+	if err == nil {
+		t.Fatal("expected error due to invalid yaml syntax, but got none")
+	}
+	expectedHint := "Line 3: \"answer: some text mentioning issue #24-71 here\" contains ' #' (space followed by hash)"
+	if !strings.Contains(err.Error(), expectedHint) {
+		t.Fatalf("expected error to contain hint %q, but got: %v", expectedHint, err)
+	}
+}
+
+
