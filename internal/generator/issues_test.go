@@ -118,4 +118,52 @@ func TestIssue31YamlComment(t *testing.T) {
 	}
 }
 
+func TestDataParserCoverage(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", Quiet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	data := make(map[string]interface{})
+
+	// 1. JSON parse error
+	jsonFile := filepath.Join(tmp, "invalid.json")
+	if err := os.WriteFile(jsonFile, []byte(`{"key": "value"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.parseDataFile(jsonFile, ".json", tmp, data); err == nil {
+		t.Error("expected error parsing invalid JSON")
+	}
+
+	// 2. YAML parse error without space+#, but with a comment line
+	yamlFile := filepath.Join(tmp, "invalid.yaml")
+	if err := os.WriteFile(yamlFile, []byte("# comment line\nkey: val\nkey2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.parseDataFile(yamlFile, ".yaml", tmp, data); err == nil {
+		t.Error("expected error parsing invalid YAML")
+	}
+
+	// Clean up invalid files before walking
+	_ = os.Remove(jsonFile)
+	_ = os.Remove(yamlFile)
+
+	// 3. Skip non-yaml/json files
+	txtFile := filepath.Join(tmp, "skipped.txt")
+	if err := os.WriteFile(txtFile, []byte("text"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	g.config.DataDir = tmp
+	if err := g.loadData(); err != nil {
+		t.Errorf("expected no error with skipped file, got %v", err)
+	}
+
+	// 4. Non-existent data directory
+	g.config.DataDir = filepath.Join(tmp, "non-existent-dir")
+	if err := g.loadData(); err != nil {
+		t.Errorf("expected no error with non-existent data dir, got %v", err)
+	}
+}
+
+
 
