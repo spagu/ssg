@@ -27,7 +27,7 @@ COPY . .
 
 # Build a static binary for the target architecture (GOARM derived from the
 # buildx variant, e.g. "v7" -> GOARM=7 for 32-bit ARM).
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} GOARM=${TARGETVARIANT#v} \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
     go build -ldflags="-s -w -X main.Version=1.8.8" -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image

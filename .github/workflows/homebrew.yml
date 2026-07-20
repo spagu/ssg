@@ -75,7 +75,7 @@ jobs:
           fi
 
           BASE_URL="https://github.com/spagu/ssg/releases/download/v${VERSION}"
-          curl -fsSL --retry 6 --retry-delay 5 --retry-all-errors \
+          curl --proto '=https' -fsSL --retry 6 --retry-delay 5 --retry-all-errors \
             "${BASE_URL}/checksums.sha256" -o /tmp/checksums.sha256 \
             || fail "No checksums.sha256 in the v${VERSION} release — does that release exist?"
 

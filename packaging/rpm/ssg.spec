@@ -51,7 +51,7 @@ install -Dm644 man/ssg.1 %{buildroot}%{_mandir}/man1/ssg.1
 
 * Mon Mar 30 2026 spagu <spagu@github.com> - 1.7.9-1
 - Updated Go dependencies to latest versions
-- Updated Alpine base image to 3.23
+- Updated Alpine base image to 3.24
 - Updated GitHub Actions to latest versions
 - Added comprehensive man page (ssg.1)
 - Updated snapcraft base to core24
