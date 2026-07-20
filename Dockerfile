@@ -31,7 +31,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
     go build -ldflags="-s -w -X main.Version=1.8.8" -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install runtime dependencies (cwebp)
 RUN apk add --no-cache libwebp-tools
