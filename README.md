@@ -264,6 +264,9 @@ Common options:
 |---|---|---|
 | Development server | `http: true` | `--http` |
 | Automatic rebuilds | `watch: true` | `--watch` |
+| Cloudflare Wrangler | `watch_runner: wrangler` | `--wrangler` |
+| Cloudflare Workerd | `watch_runner: workerd` | `--workerd` |
+| Custom watch command | `watch_runner: "cmd"` | `--watch-runner="cmd"` |
 | Clean output first | `clean: true` | `--clean` |
 | Minify HTML/CSS/JS | `minify_all: true` | `--minify-all` |
 | Convert images to WebP | `webp: true` | `--webp` |

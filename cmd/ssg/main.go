@@ -12,10 +12,13 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	_ "time/tzdata" // embed the IANA zone db so --timezone works in static/Windows builds (I18N-001)
 
@@ -99,6 +102,16 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes in content and templates...")
+	}
+	if cfg.WatchRunner != "" {
+		cmd := startWatchRunner(cfg.WatchRunner, cfg.Quiet)
+		if cmd != nil {
+			defer func() {
+				if cmd.Process != nil {
+					_ = cmd.Process.Kill()
+				}
+			}()
+		}
 	}
 	dirs := watchDirs(cfg)
 	// One cache for the whole loop: unchanged files keep their hash between
@@ -457,11 +470,24 @@ func parseFlags(args []string, cfg *config.Config) {
 		}
 		i += parseValueFlags(args, i, cfg)
 	}
+	if cfg.WatchRunner != "" {
+		cfg.Watch = true
+	}
 }
 
 // parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
 // on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
+	if arg == "--wrangler" || arg == "-wrangler" {
+		cfg.WatchRunner = "wrangler"
+		cfg.Watch = true
+		return true
+	}
+	if arg == "--workerd" || arg == "-workerd" {
+		cfg.WatchRunner = "workerd"
+		cfg.Watch = true
+		return true
+	}
 	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
 		cfg.CheckLinks = "warn"
 		return true
@@ -606,6 +632,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--mddb-collection=":  &cfg.Mddb.Collection,
 		"--mddb-lang=":        &cfg.Mddb.Lang,
 		"--external-source=":  &cfg.ExternalSources.Only,
+		"--watch-runner=":     &cfg.WatchRunner,
 	}
 }
 
@@ -1188,4 +1215,57 @@ func printUsage() {
 	fmt.Println("  # With language filter and API key")
 	fmt.Println("  ssg --mddb-url=https://mddb.example.com --mddb-collection=site \\")
 	fmt.Println("      --mddb-lang=en_US --mddb-key=secret krowy example.com")
+}
+
+// startWatchRunner spawns a background watch runner process (e.g. wrangler, workerd, or a custom command)
+func startWatchRunner(runner string, quiet bool) *exec.Cmd {
+	var cmdName string
+	var cmdArgs []string
+
+	switch runner {
+	case "wrangler":
+		if !quiet {
+			fmt.Println("⚡ Starting wrangler dev server (npx wrangler dev)...")
+		}
+		cmdName = "npx"
+		cmdArgs = []string{"wrangler", "dev"}
+	case "workerd":
+		if !quiet {
+			fmt.Println("⚡ Starting workerd serve...")
+		}
+		cmdName = "workerd"
+		cmdArgs = []string{"serve"}
+	default:
+		parts := strings.Fields(runner)
+		if len(parts) == 0 {
+			return nil
+		}
+		if !quiet {
+			fmt.Printf("⚡ Starting custom watch runner: %s...\n", runner)
+		}
+		cmdName = parts[0]
+		cmdArgs = parts[1:]
+	}
+
+	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Failed to start watch runner %q: %v\n", runner, err)
+		return nil
+	}
+
+	// Clean up child process on exit signals
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		os.Exit(0)
+	}()
+
+	return cmd
 }

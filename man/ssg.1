@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.7" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.8" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -102,6 +102,15 @@ HTTP server port (default: 8888).
 .B \-\-watch
 Watch content and template directories for file changes and rebuild
 automatically.
+.TP
+.B \-\-wrangler
+In watch mode, launch the Cloudflare Wrangler emulator in the background (\fBnpx wrangler dev\fR). Automatically sets \fB\-\-watch\fR.
+.TP
+.B \-\-workerd
+In watch mode, launch the Cloudflare Workerd emulator in the background (\fBworkerd serve\fR). Automatically sets \fB\-\-watch\fR.
+.TP
+.BR \-\-watch\-runner =\fICMD
+Spawns a custom background runner or command during watch mode. Automatically sets \fB\-\-watch\fR.
 .TP
 .B \-\-clean
 Remove the output directory before building.

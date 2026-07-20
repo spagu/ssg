@@ -83,3 +83,87 @@ func TestNumericTagIDsResolve(t *testing.T) {
 	wantContains(t, "sitemap", mustRead(t, filepath.Join(out, "sitemap.xml")),
 		"/tag/esports-betting/", "/tag/slask-news/")
 }
+
+func TestIssue31YamlComment(t *testing.T) {
+	yamlContent := `requests:
+  - id: test-entry
+    answer: some text mentioning issue #24-71 here
+      continued on next line.
+    status: open`
+
+	tmp := t.TempDir()
+	mustWrite(t, filepath.Join(tmp, "content", "metadata.json"), `{"categories":[],"exported_at":"","media":[],"users":[],"tags":[]}`)
+	mustWrite(t, filepath.Join(tmp, "content", "posts", "news", "one.md"), "---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\n---\n\nBody.\n")
+	mustWrite(t, filepath.Join(tmp, "data", "repro.yaml"), yamlContent)
+	writeSimpleTemplates(t, filepath.Join(tmp, "templates"))
+	
+	gen, err := New(Config{
+		Domain:       "example.com",
+		ContentDir:   filepath.Join(tmp, "content"),
+		TemplatesDir: filepath.Join(tmp, "templates"),
+		DataDir:      filepath.Join(tmp, "data"),
+		OutputDir:    filepath.Join(tmp, "output"),
+		Quiet:        true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = gen.Generate()
+	if err == nil {
+		t.Fatal("expected error due to invalid yaml syntax, but got none")
+	}
+	expectedHint := "Line 3: \"answer: some text mentioning issue #24-71 here\" contains ' #' (space followed by hash)"
+	if !strings.Contains(err.Error(), expectedHint) {
+		t.Fatalf("expected error to contain hint %q, but got: %v", expectedHint, err)
+	}
+}
+
+func TestDataParserCoverage(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", Quiet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	data := make(map[string]interface{})
+
+	// 1. JSON parse error
+	jsonFile := filepath.Join(tmp, "invalid.json")
+	if err := os.WriteFile(jsonFile, []byte(`{"key": "value"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.parseDataFile(jsonFile, ".json", tmp, data); err == nil {
+		t.Error("expected error parsing invalid JSON")
+	}
+
+	// 2. YAML parse error without space+#, but with a comment line
+	yamlFile := filepath.Join(tmp, "invalid.yaml")
+	if err := os.WriteFile(yamlFile, []byte("# comment line\nkey: val\nkey2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.parseDataFile(yamlFile, ".yaml", tmp, data); err == nil {
+		t.Error("expected error parsing invalid YAML")
+	}
+
+	// Clean up invalid files before walking
+	_ = os.Remove(jsonFile)
+	_ = os.Remove(yamlFile)
+
+	// 3. Skip non-yaml/json files
+	txtFile := filepath.Join(tmp, "skipped.txt")
+	if err := os.WriteFile(txtFile, []byte("text"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	g.config.DataDir = tmp
+	if err := g.loadData(); err != nil {
+		t.Errorf("expected no error with skipped file, got %v", err)
+	}
+
+	// 4. Non-existent data directory
+	g.config.DataDir = filepath.Join(tmp, "non-existent-dir")
+	if err := g.loadData(); err != nil {
+		t.Errorf("expected no error with non-existent data dir, got %v", err)
+	}
+}
+
+
+

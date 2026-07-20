@@ -76,7 +76,10 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `host` | `127.0.0.1` | `--host` | Bind address |
 | `port` | `8888` | `--port` | TCP port |
 | `watch` | `false` | `--watch` | Rebuild after local file changes |
+| `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
+
+`watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
 
 `watch` monitors content, templates and data. Touch-only changes whose bytes are
 unchanged do not trigger a rebuild; actual changes still cause a full build.

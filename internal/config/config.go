@@ -68,6 +68,7 @@ type Config struct {
 	Host  string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
 	Port  int    `yaml:"port" toml:"port" json:"port"`
 	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
+	WatchRunner string `yaml:"watch_runner" toml:"watch_runner" json:"watch_runner"`
 	Clean bool   `yaml:"clean" toml:"clean" json:"clean"`
 
 	// TLS for the built-in server (v1.8.1). Manual: point TLSCert/TLSKey at a
