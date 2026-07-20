@@ -32,35 +32,40 @@ func (g *Generator) loadData() error {
 		if ext != ".yaml" && ext != ".yml" && ext != ".json" {
 			return nil
 		}
-		raw, rerr := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own data dir; path from local Walk, not attacker-controlled
-		if rerr != nil {
-			return rerr
-		}
-		var parsed interface{}
-		if ext == ".json" {
-			if e := json.Unmarshal(raw, &parsed); e != nil {
-				return fmt.Errorf("parsing data file %s: %w", path, e)
-			}
-		} else {
-			if e := yaml.Unmarshal(raw, &parsed); e != nil {
-				// Enrich error with hints for common YAML pitfalls like space+#
-				errWrapped := fmt.Errorf("parsing data file %s: %w", path, e)
-				if hint := suggestYAMLHint(raw); hint != "" {
-					errWrapped = fmt.Errorf("%w\n%s", errWrapped, hint)
-				}
-				return errWrapped
-			}
-		}
-		rel, _ := filepath.Rel(dir, path)
-		rel = strings.TrimSuffix(rel, filepath.Ext(rel))
-		keys := strings.Split(filepath.ToSlash(rel), "/")
-		setNestedData(data, keys, normalizeYAMLValue(parsed))
-		return nil
+		return g.parseDataFile(path, ext, dir, data)
 	})
 	if walkErr != nil {
 		return walkErr
 	}
 	g.data = data
+	return nil
+}
+
+// parseDataFile reads and unmarshals a single JSON or YAML data file, then stores it in the data map.
+func (g *Generator) parseDataFile(path string, ext string, dir string, data map[string]interface{}) error {
+	raw, rerr := os.ReadFile(path) // #nosec G304,G122 -- CLI reads its own data dir; path from local Walk, not attacker-controlled
+	if rerr != nil {
+		return rerr
+	}
+	var parsed interface{}
+	if ext == ".json" {
+		if e := json.Unmarshal(raw, &parsed); e != nil {
+			return fmt.Errorf("parsing data file %s: %w", path, e)
+		}
+	} else {
+		if e := yaml.Unmarshal(raw, &parsed); e != nil {
+			// Enrich error with hints for common YAML pitfalls like space+#
+			errWrapped := fmt.Errorf("parsing data file %s: %w", path, e)
+			if hint := suggestYAMLHint(raw); hint != "" {
+				errWrapped = fmt.Errorf("%w\n%s", errWrapped, hint)
+			}
+			return errWrapped
+		}
+	}
+	rel, _ := filepath.Rel(dir, path)
+	rel = strings.TrimSuffix(rel, filepath.Ext(rel))
+	keys := strings.Split(filepath.ToSlash(rel), "/")
+	setNestedData(data, keys, normalizeYAMLValue(parsed))
 	return nil
 }
 
