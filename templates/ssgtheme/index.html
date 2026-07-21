@@ -48,7 +48,7 @@
                 integration test.
             </p>
             <ul class="cards">
-                {{ range .Site.Pages }}
+                {{ range .Site.Pages }}{{ if not .Extra.hide_from_lists }}
                 <li>
                     <a class="card" href="{{ .GetURL }}">
                         <h3>{{ .Title }}</h3>
@@ -56,7 +56,7 @@
                         <p>{{ .Excerpt }}</p>
                     </a>
                 </li>
-                {{ end }}
+                {{ end }}{{ end }}
             </ul>
         </section>
 

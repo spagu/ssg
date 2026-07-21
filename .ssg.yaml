@@ -15,11 +15,14 @@ content_sources:
   - path: docs
     type: page
     category: Documentation
-  # Posts. Filed under one category so /category/blog/ becomes the blog index
-  # the header links to.
+  # Posts. The index lives at /blog/ (pages/blog.md with layout: blog), not at
+  # the built-in /category/blog/ archive.
   - path: blog
     type: post
     category: Blog
+  # Standalone pages that are not documentation — currently just the blog index.
+  - path: pages
+    type: page
 
 # Docs cross-link each other as CONFIGURATION.md, which only resolves in a
 # repository view; rewrite_md_links turns those into the built page URLs
@@ -40,9 +43,12 @@ shortcode_errors: strict
 # so cards, feeds and meta descriptions are not blank.
 auto_excerpt: true
 
-# Posts live at /slug/ rather than /YYYY/MM/DD/slug/: these are guides that stay
-# relevant, and a date in the URL only makes them look stale. Slugs are unique
-# across pages and posts, so the flat namespace is safe here.
+# Posts live under /blog/, without the publication date: these are guides that
+# stay relevant, and a date in the path only makes them look stale. The
+# permalink pattern outranks post_url_format, which stays as the fallback.
+permalinks:
+  post: "/blog/:slug/"
+
 post_url_format: slug
 
 pretty_html: true
@@ -66,7 +72,7 @@ variables:
     - label: Configuration
       url: /configuration/
     - label: Blog
-      url: /category/blog/
+      url: /blog/
     - label: Themes
       url: /templates/
     - label: Deployment

@@ -1,0 +1,49 @@
+{{/*
+  The blog index, selected by a page with frontmatter `layout: blog`.
+
+  It exists so posts have a home at /blog/ rather than at the built-in
+  /category/blog/ archive: the page carries `link: /blog/`, which is the highest
+  URL precedence there is, and lists every post from the site data.
+*/}}
+{{define "blog.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title .Domain) }}
+    <title>{{ $title }}</title>
+{{ template "sc-head" (dict
+    "Title" $title
+    "Desc" .Page.Description
+    "Canonical" "/blog/"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "sc-header" . }}
+
+<main class="main-content" id="main-content">
+    <div class="container">
+        <section class="sections" id="blog">
+            <p class="eyebrow">Writing</p>
+            <h1 class="section-title">{{ .Page.Title }}</h1>
+            <div class="section-lead">{{ .Page.Content | safeHTML }}</div>
+
+            <ul class="cards">
+                {{ range .Site.Posts }}
+                <li>
+                    <a class="card" href="{{ .GetURL }}">
+                        <h3>{{ .Title }}</h3>
+                        <p class="card-meta">
+                            <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 January 2006" }}</time>
+                            · {{ .ReadingTime }} min read
+                        </p>
+                        <p>{{ .Excerpt }}</p>
+                    </a>
+                </li>
+                {{ end }}
+            </ul>
+        </section>
+    </div>
+</main>
+
+{{ template "sc-footer" . }}
+</body>
+</html>{{end}}

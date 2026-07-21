@@ -153,7 +153,7 @@
                     <div class="col">
                         <h2>Guides</h2>
                         <ul>
-                            {{ range $i, $p := $pages }}{{ if lt $i $half }}
+                            {{ range $i, $p := $pages }}{{ if and (lt $i $half) (not $p.Extra.hide_from_lists) }}
                             <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
                             {{ end }}{{ end }}
                         </ul>
@@ -161,7 +161,7 @@
                     <div class="col">
                         <h2>Reference</h2>
                         <ul>
-                            {{ range $i, $p := $pages }}{{ if ge $i $half }}
+                            {{ range $i, $p := $pages }}{{ if and (ge $i $half) (not $p.Extra.hide_from_lists) }}
                             <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
                             {{ end }}{{ end }}
                         </ul>
