@@ -107,8 +107,13 @@ already live on `<project>.pages.dev` by then, and the usual failure is a token
 without `Zone:DNS:Edit`, which is a permissions decision rather than a build
 problem. The job summary says which of the two happened.
 
+A pull request runs the same build with `--check-links=strict` and stops there:
+nothing is created in Cloudflare and nothing is uploaded, but a dead link or an
+unrenderable shortcode in a new post fails the check before review rather than
+after the merge. Only a push to the default branch deploys.
+
 `workflow_dispatch` only becomes available once the workflow file is on the
-default branch, so the first run happens on merge.
+default branch, so the first manual run happens after a merge.
 
 ## GitHub Pages
 

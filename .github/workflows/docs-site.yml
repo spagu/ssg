@@ -34,6 +34,19 @@ on:
       - "cmd/**"
       - "internal/**"
       - ".github/workflows/docs-site.yml"
+  # A pull request builds the site but does not deploy it: a dead link or an
+  # unrenderable shortcode in a new post is caught in review, not by a failed
+  # production run after the merge.
+  pull_request:
+    paths:
+      - "docs/**"
+      - "blog/**"
+      - "templates/ssgtheme/**"
+      - "assets/**"
+      - ".ssg.yaml"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/docs-site.yml"
   workflow_dispatch:
     inputs:
       project:
@@ -44,8 +57,8 @@ on:
 # One deployment at a time: Pages serialises them anyway, and a queued run
 # would only publish an older tree.
 concurrency:
-  group: docs-site
-  cancel-in-progress: false
+  group: docs-site-${{ github.event.pull_request.number || 'main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -53,6 +66,8 @@ permissions:
 jobs:
   deploy:
     name: Build and deploy
+    # Pull requests reach the build steps and stop before anything is created
+    # or uploaded; the deploy steps below are gated on the event.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -81,7 +96,14 @@ jobs:
       # Idempotent: creates the Pages project on the first run, does nothing on
       # every run after. SSG uploads deployments but does not create projects,
       # and a missing project fails the upload with a bare 404.
+      # Everything above runs for a pull request too. Everything from here down
+      # touches Cloudflare, so it is skipped there.
+      - name: Verify the site builds (pull request)
+        if: github.event_name == 'pull_request'
+        run: ./build/ssg --config .ssg.yaml --check-links=strict
+
       - name: Ensure the Pages project exists
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           projects="${CF_API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
@@ -105,6 +127,7 @@ jobs:
       # .ssg.yaml) on an unrenderable shortcode, --check-links=strict on a dead
       # internal link. Nothing half-built reaches the CDN.
       - name: Build and deploy to Cloudflare Pages
+        if: github.event_name != 'pull_request'
         run: |
           ./build/ssg --config .ssg.yaml \
             --check-links=strict \
@@ -118,6 +141,7 @@ jobs:
       # problem.
       - name: Attach the custom domain
         id: domain
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -135,6 +159,7 @@ jobs:
           echo "Attached. DNS and the certificate are provisioned by Cloudflare."
 
       - name: Summary
+        if: github.event_name != 'pull_request'
         run: |
           {
             echo "### Documentation site deployed"
