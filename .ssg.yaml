@@ -40,6 +40,11 @@ shortcode_errors: strict
 # so cards, feeds and meta descriptions are not blank.
 auto_excerpt: true
 
+# Posts live at /slug/ rather than /YYYY/MM/DD/slug/: these are guides that stay
+# relevant, and a date in the URL only makes them look stale. Slugs are unique
+# across pages and posts, so the flat namespace is safe here.
+post_url_format: slug
+
 pretty_html: true
 sitemap_off: false
 robots_off: false
