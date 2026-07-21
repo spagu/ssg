@@ -7,14 +7,18 @@
 # exist on main (content_sources, link_rewrites, auto_excerpt).
 #
 # Required repository secrets:
-#   CLOUDFLARE_API_TOKEN   - token with the "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_API_TOKEN   - "Cloudflare Pages: Edit" permission. Attaching the
+#                            custom domain additionally needs Zone:DNS:Edit on
+#                            the domain's zone; without it that one step warns
+#                            and the deployment still publishes.
 #   CLOUDFLARE_ACCOUNT_ID  - the Cloudflare account that owns the project
 #
-# Optional repository variable:
+# Optional repository variables:
 #   CLOUDFLARE_PAGES_PROJECT - Pages project name (default: ssg-docs)
+#   DOCS_DOMAIN              - custom domain (default: ssg.tradik.com)
 #
-# The custom domain (ssg.tradik.com) is attached to the Pages project once, in
-# Cloudflare; this workflow only uploads deployments.
+# Both the project and the custom domain are created on the first run and left
+# alone afterwards, so there is nothing to click in the dashboard.
 
 name: Docs Site
 
@@ -50,6 +54,12 @@ jobs:
     name: Build and deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PROJECT: ${{ inputs.project || vars.CLOUDFLARE_PAGES_PROJECT || 'ssg-docs' }}
+      DOCS_DOMAIN: ${{ vars.DOCS_DOMAIN || 'ssg.tradik.com' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_API: https://api.cloudflare.com/client/v4
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -67,6 +77,28 @@ jobs:
       - name: Build ssg from this commit
         run: go build -ldflags "-s -w -X main.Version=$(cat VERSION)" -o build/ssg ./cmd/ssg
 
+      # Idempotent: creates the Pages project on the first run, does nothing on
+      # every run after. SSG uploads deployments but does not create projects,
+      # and a missing project fails the upload with a bare 404.
+      - name: Ensure the Pages project exists
+        run: |
+          set -euo pipefail
+          projects="${CF_API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects"
+          code=$(curl -sS -o /tmp/project.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "${projects}/${PROJECT}")
+          case "$code" in
+            200) echo "Pages project ${PROJECT} already exists." ; exit 0 ;;
+            404) ;;
+            *) echo "::error::Cloudflare returned ${code} while looking up ${PROJECT}"
+               cat /tmp/project.json ; exit 1 ;;
+          esac
+          echo "Creating Pages project ${PROJECT}…"
+          curl -sS --fail-with-body -X POST "$projects" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${PROJECT}\",\"production_branch\":\"main\"}" >/dev/null
+          echo "Created ${PROJECT}."
+
       # One invocation: SSG deploys only after a successful generate, and both
       # gates abort before that point — shortcode_errors: strict (set in
       # .ssg.yaml) on an unrenderable shortcode, --check-links=strict on a dead
@@ -78,10 +110,28 @@ jobs:
             --deploy=cloudflare \
             --deploy-project="${PROJECT}" \
             --deploy-branch=main
-        env:
-          PROJECT: ${{ inputs.project || vars.CLOUDFLARE_PAGES_PROJECT || 'ssg-docs' }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Also idempotent. A failure here must not fail the run: the deployment is
+      # already live on <project>.pages.dev, and the usual cause is a token
+      # without Zone:DNS:Edit, which is a permissions decision, not a build
+      # problem.
+      - name: Attach the custom domain
+        id: domain
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          domains="${CF_API}/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}/domains"
+          if curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$domains" \
+             | grep -q "\"name\":\"${DOCS_DOMAIN}\""; then
+            echo "${DOCS_DOMAIN} is already attached to ${PROJECT}."
+            exit 0
+          fi
+          echo "Attaching ${DOCS_DOMAIN} to ${PROJECT}…"
+          curl -sS --fail-with-body -X POST "$domains" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${DOCS_DOMAIN}\"}" >/dev/null
+          echo "Attached. DNS and the certificate are provisioned by Cloudflare."
 
       - name: Summary
         run: |
@@ -90,7 +140,14 @@ jobs:
             echo
             echo "- Project: \`${PROJECT}\`"
             echo "- Commit: \`${GITHUB_SHA::7}\`"
-            echo "- URL: https://ssg.tradik.com/"
+            echo "- Preview: https://${PROJECT}.pages.dev/"
+            if [[ "${DOMAIN_OUTCOME}" == "success" ]]; then
+              echo "- Site: https://${DOCS_DOMAIN}/"
+            else
+              echo "- ⚠️ Custom domain \`${DOCS_DOMAIN}\` was not attached — see the"
+              echo "  \"Attach the custom domain\" step. The token likely lacks"
+              echo "  Zone:DNS:Edit; attach it once in the dashboard instead."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
         env:
-          PROJECT: ${{ inputs.project || vars.CLOUDFLARE_PAGES_PROJECT || 'ssg-docs' }}
+          DOMAIN_OUTCOME: ${{ steps.domain.outcome }}

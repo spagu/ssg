@@ -58,7 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   built by `.github/workflows/docs-site.yml` from `docs/` via `content_sources`,
   using the `ssg` binary from the commit being deployed. `shortcode_errors:
   strict` plus `--check-links=strict` gate the upload, so a broken shortcode or
-  a dead internal link fails the run instead of publishing a hole.
+  a dead internal link fails the run instead of publishing a hole. The workflow
+  creates the Pages project and attaches the custom domain on its first run, so
+  setup is two repository secrets and nothing in the dashboard.
 
 ### Removed
 - 🧹 **Jekyll GitHub Pages workflow** — it built the whole repository root as a

@@ -91,11 +91,24 @@ a working example of everything above:
   only after a successful generate, so a broken page never reaches the CDN.
 - `cwebp` is installed in the runner because the hero image is encoded as WebP.
 
-To point it at a different Cloudflare account or project, set the repository
-secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and optionally the
-repository variable `CLOUDFLARE_PAGES_PROJECT` (default `ssg-docs`). The custom
-domain is attached to the Pages project once, in Cloudflare; the workflow only
-uploads deployments.
+Setup is two repository secrets and nothing else:
+
+| Secret / variable | Required | Purpose |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | yes | *Cloudflare Pages: Edit*. Attaching the custom domain additionally needs *Zone:DNS:Edit* on that zone. |
+| `CLOUDFLARE_ACCOUNT_ID` | yes | Account that owns the project |
+| `CLOUDFLARE_PAGES_PROJECT` | no | Pages project name (default `ssg-docs`) |
+| `DOCS_DOMAIN` | no | Custom domain (default `ssg.tradik.com`) |
+
+The workflow creates the Pages project and attaches the custom domain on its
+first run, and leaves both alone afterwards — there is nothing to click in the
+dashboard. Domain attachment is deliberately non-fatal: the deployment is
+already live on `<project>.pages.dev` by then, and the usual failure is a token
+without `Zone:DNS:Edit`, which is a permissions decision rather than a build
+problem. The job summary says which of the two happened.
+
+`workflow_dispatch` only becomes available once the workflow file is on the
+default branch, so the first run happens on merge.
 
 ## GitHub Pages
 
