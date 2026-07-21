@@ -81,6 +81,10 @@ Every length comes from a token (`--space-*`, `--radius-*`). Motion is capped at
 - The mobile menu and colour-scheme toggle carry `aria-expanded` /
   `aria-pressed`; Escape closes the menu and returns focus to its button.
 - Nothing depends on JavaScript to be readable or navigable.
+- Over a hero photograph the copy keeps its ratios by construction: the scrim
+  is a horizontal gradient, heaviest under the text column. Measured on the
+  built page, the heading reads 16.3:1 and the lead paragraph 8.7:1 (5.8:1 over
+  the brightest patch of the photo) — AA throughout, AAA for the heading.
 
 ## Analytics
 
@@ -112,6 +116,8 @@ so these define names are callable from any role template. See
 
 | Variable | Effect |
 |---|---|
+| `variables.logo` | Brand mark beside the site name, resized at build time (header 36 px, footer 48 px tall). **Must carry its own alpha** — a logo saved on a white plate shows as a white box in dark mode. Rendered as PNG so a site without `cwebp` still builds. |
+| `variables.hero_image` | Optional homepage hero photograph, resized to 1920/900 WebP and laid under a scrim that keeps the copy at AA/AAA contrast. Unset ⇒ a plain hero. |
 | `variables.nav` | Header navigation: a list of `{label, url}`. Fixed and hand-picked — the footer carries the full guide directory, so the bar stays one line however many guides exist. |
 | `variables.github_repo` | `owner/name`; enables the header star count, fetched client-side and hidden when GitHub does not answer or the repository has no stars |
 | `variables.version` | Shown as `SSG vX.Y.Z` beside the navigation, linking to that release |
@@ -119,6 +125,8 @@ so these define names are callable from any role template. See
 
 ```yaml
 variables:
+  logo: logo.png          # assets/logo.png — transparent PNG
+  hero_image: river.jpg   # assets/river.jpg
   github_repo: spagu/ssg
   version: "1.8.10"
   nav:

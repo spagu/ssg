@@ -42,7 +42,8 @@ search_index: true
 variables:
   project_name: SSG
   repository_url: https://github.com/spagu/ssg
-  hero_image: river.jpg           # content/river.jpg, resized at build time
+  logo: logo.png                  # assets/logo.png, transparent, resized at build time
+  hero_image: river.jpg           # assets/river.jpg, resized at build time
   github_repo: spagu/ssg          # enables the header star count
   version: "1.8.10"
 

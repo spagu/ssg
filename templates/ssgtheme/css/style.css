@@ -178,6 +178,19 @@ a:hover {
   text-decoration: none;
 }
 
+/* The mark is sized by height so any aspect ratio fits the 40 px header band;
+ * it carries its own transparency, so no plate or filter is applied and it
+ * reads on both schemes. */
+.brand-mark {
+  height: 2.25rem;
+  width: auto;
+  flex: none;
+}
+
+.brand-mark--footer {
+  height: 3rem;
+}
+
 .brand-text {
   display: inline-flex;
   flex-direction: column;
@@ -306,10 +319,20 @@ a:hover {
   overflow: hidden;
 }
 
+/* The copy occupies the left half; keeping it there is what lets the scrim
+ * fade out over the photograph instead of covering all of it. */
+.hero--image .hero-actions,
+.hero--image h1,
+.hero--image p {
+  max-width: 34rem;
+}
+
 @media (min-width: 768px) {
   .hero--image {
     margin-inline: 0;
+    padding-block: var(--space-20) var(--space-16);
     padding-inline: var(--space-10);
+    min-height: 30rem;
     background-image: var(--hero-scrim), var(--hero-image);
   }
 }

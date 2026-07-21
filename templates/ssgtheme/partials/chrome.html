@@ -66,6 +66,14 @@
     <header class="site-header">
         <div class="container header-inner">
             <a class="brand" href="/">
+                {{ if .Vars.logo }}
+                {{/* PNG rather than WebP: the mark has an alpha channel and the
+                     PNG encoder is built in, so a site without cwebp still
+                     builds. */}}
+                {{ $mark := imageResize .Vars.logo (dict "height" 72 "format" "png") }}
+                <img class="brand-mark" src="{{ $mark.URL }}"
+                     width="{{ $mark.Width }}" height="{{ $mark.Height }}" alt="">
+                {{ end }}
                 <span class="brand-text">
                     <span class="brand-name">{{ .Domain }}</span>
                     <span class="brand-sub">Static site generator</span>
@@ -119,6 +127,11 @@
         <div class="container">
             <div class="footer-grid">
                 <div class="brand-block">
+                    {{ if .Vars.logo }}
+                    {{ $mark := imageResize .Vars.logo (dict "height" 96 "format" "png") }}
+                    <img class="brand-mark brand-mark--footer" src="{{ $mark.URL }}"
+                         width="{{ $mark.Width }}" height="{{ $mark.Height }}" alt="">
+                    {{ end }}
                     <span class="brand-name">{{ .Domain }}</span>
                     <span class="brand-tag">
                         A fast static site generator written in Go. Markdown, remote
