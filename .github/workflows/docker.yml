@@ -8,6 +8,19 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
+    paths-ignore:
+      # Content and the docs theme cannot change the binary or its tests:
+      # embedded.go embeds templates/simple and templates/krowy only, so
+      # templates/ssgtheme is site material like docs/ and blog/. The docs site
+      # has its own workflow, which builds and link-checks all of this.
+      # Tag pushes ignore path filters entirely, so releases are unaffected.
+      - "docs/**"
+      - "blog/**"
+      - "assets/**"
+      - "templates/ssgtheme/**"
+      - ".ssg.yaml"
+      - "*.md"
+      - ".github/workflows/docs-site.yml"
   workflow_dispatch:
 
 env:
