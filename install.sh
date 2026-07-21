@@ -44,11 +44,10 @@ download_and_install() {
     log_info "Downloading SSG v${VERSION}..."
     
     if command -v curl &> /dev/null; then
-        curl --proto '=https' -sL "$url" -o "$tmp_dir/ssg.tar.gz"
-    elif command -v wget &> /dev/null; then
-        wget --https-only -q "$url" -O "$tmp_dir/ssg.tar.gz"
+        curl --proto '=https' --proto-redir =https -sL "$url" -o "$tmp_dir/ssg.tar.gz"
     else
-        log_error "curl or wget is required"
+        log_error "curl is required"
+        exit 1
     fi
     
     log_info "Extracting..."
