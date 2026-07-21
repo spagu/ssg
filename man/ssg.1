@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.8" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.9" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -111,6 +111,35 @@ In watch mode, launch the Cloudflare Workerd emulator in the background (\fBwork
 .TP
 .BR \-\-watch\-runner =\fICMD
 Spawns a custom background runner or command during watch mode. Automatically sets \fB\-\-watch\fR.
+.TP
+.BR \-\-wrangler\-config =\fIFILE
+Point Wrangler at a config file kept outside the project (passed as
+\fB\-\-config \fIFILE\fR to \fBwrangler dev\fR). Implies \fB\-\-wrangler\fR and
+\fB\-\-watch\fR, in any flag order.
+.TP
+.BR \-\-workerd\-config =\fIFILE
+Point Workerd at a config file kept outside the project (passed as the
+positional argument to \fBworkerd serve\fR). Implies \fB\-\-workerd\fR and
+\fB\-\-watch\fR, in any flag order.
+.TP
+.BR \-\-wrangler\-dir =\fIDIR
+Start Wrangler in \fIDIR\fR rather than the current directory — the monorepo
+case, where the Worker lives in a subdirectory (e.g. \fBbooking/apps/api\fR)
+while content and templates stay at the repo root. Implies \fB\-\-wrangler\fR
+and \fB\-\-watch\fR. A relative \fB\-\-wrangler\-config\fR is resolved against
+ssg's own working directory first, so both may be combined.
+.TP
+.BR \-\-workerd\-dir =\fIDIR
+Start Workerd in \fIDIR\fR. Implies \fB\-\-workerd\fR and \fB\-\-watch\fR.
+.TP
+.BR \-\-watch\-runner\-config =\fIFILE
+Runner\-agnostic form of the \fB\-\-*\-config\fR options above: sets the
+runner's config file without selecting a runner. Custom runners receive it as
+\fB\-\-config \fIFILE\fR. A missing file is warned about, not fatal.
+.TP
+.BR \-\-watch\-runner\-dir =\fIDIR
+Runner\-agnostic form of the \fB\-\-*\-dir\fR options above. A directory that
+does not exist aborts the runner; the build and file watch continue.
 .TP
 .B \-\-clean
 Remove the output directory before building.

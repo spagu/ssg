@@ -2233,31 +2233,186 @@ func TestWriteZipHappyPath(t *testing.T) {
 	}
 }
 
-// TestParseFlagsWatchRunner verifies parsing of --wrangler, --workerd, and --watch-runner.
+// TestParseFlagsWatchRunner verifies parsing of --wrangler, --workerd,
+// --watch-runner and the *-config flags that point a runner at an out-of-tree
+// config file (GO-054).
 func TestParseFlagsWatchRunner(t *testing.T) {
 	tests := []struct {
-		args        []string
-		wantWatch   bool
-		wantRunner  string
+		args       []string
+		wantWatch  bool
+		wantRunner string
+		wantConfig string
 	}{
-		{[]string{"--wrangler"}, true, "wrangler"},
-		{[]string{"-wrangler"}, true, "wrangler"},
-		{[]string{"--workerd"}, true, "workerd"},
-		{[]string{"-workerd"}, true, "workerd"},
-		{[]string{"--watch-runner=wrangler"}, true, "wrangler"},
-		{[]string{"--watch-runner", "workerd"}, true, "workerd"},
-		{[]string{"--watch-runner", "custom command"}, true, "custom command"},
+		{[]string{"--wrangler"}, true, "wrangler", ""},
+		{[]string{"-wrangler"}, true, "wrangler", ""},
+		{[]string{"--workerd"}, true, "workerd", ""},
+		{[]string{"-workerd"}, true, "workerd", ""},
+		{[]string{"--watch-runner=wrangler"}, true, "wrangler", ""},
+		{[]string{"--watch-runner", "workerd"}, true, "workerd", ""},
+		{[]string{"--watch-runner", "custom command"}, true, "custom command", ""},
+		// A config path alone is enough: it selects the matching runner.
+		{[]string{"--wrangler-config=deploy/wrangler.toml"}, true, "wrangler", "deploy/wrangler.toml"},
+		{[]string{"--wrangler-config", "deploy/wrangler.toml"}, true, "wrangler", "deploy/wrangler.toml"},
+		{[]string{"--workerd-config=deploy/workerd.capnp"}, true, "workerd", "deploy/workerd.capnp"},
+		{[]string{"--workerd-config", "deploy/workerd.capnp"}, true, "workerd", "deploy/workerd.capnp"},
+		// Flag order must not matter: the bare toggle keeps an earlier path.
+		{[]string{"--wrangler-config=a.toml", "--wrangler"}, true, "wrangler", "a.toml"},
+		{[]string{"--wrangler", "--wrangler-config=a.toml"}, true, "wrangler", "a.toml"},
+		// Runner-agnostic spelling pairs with any runner, including custom ones.
+		{[]string{"--watch-runner=custom cmd", "--watch-runner-config=x.json"}, true, "custom cmd", "x.json"},
+		{[]string{"--watch-runner-config", "x.json"}, false, "", "x.json"},
 	}
 
 	for _, tc := range tests {
 		cfg := &config.Config{}
 		parseFlags(tc.args, cfg)
+		if cfg.WatchRunnerDir != "" {
+			t.Errorf("parseFlags(%v) set WatchRunnerDir = %q, want empty", tc.args, cfg.WatchRunnerDir)
+		}
 		if cfg.Watch != tc.wantWatch {
 			t.Errorf("parseFlags(%v) cfg.Watch = %v, want %v", tc.args, cfg.Watch, tc.wantWatch)
 		}
 		if cfg.WatchRunner != tc.wantRunner {
 			t.Errorf("parseFlags(%v) cfg.WatchRunner = %q, want %q", tc.args, cfg.WatchRunner, tc.wantRunner)
 		}
+		if cfg.WatchRunnerConfig != tc.wantConfig {
+			t.Errorf("parseFlags(%v) cfg.WatchRunnerConfig = %q, want %q", tc.args, cfg.WatchRunnerConfig, tc.wantConfig)
+		}
 	}
 }
 
+// TestParseFlagsWatchRunnerDir verifies the *-dir flags, which point a runner at
+// a subdirectory (monorepo Worker) and select the runner on their own (issue #35).
+func TestParseFlagsWatchRunnerDir(t *testing.T) {
+	tests := []struct {
+		args       []string
+		wantRunner string
+		wantDir    string
+		wantConfig string
+	}{
+		{[]string{"--wrangler-dir=booking/apps/api"}, "wrangler", "booking/apps/api", ""},
+		{[]string{"--wrangler-dir", "booking/apps/api"}, "wrangler", "booking/apps/api", ""},
+		{[]string{"--workerd-dir=api"}, "workerd", "api", ""},
+		{[]string{"--watch-runner=custom", "--watch-runner-dir=api"}, "custom", "api", ""},
+		// dir and config combine, in either order.
+		{[]string{"--wrangler-dir=api", "--wrangler-config=api/wrangler.jsonc"}, "wrangler", "api", "api/wrangler.jsonc"},
+		{[]string{"--wrangler-config=api/wrangler.jsonc", "--wrangler-dir=api"}, "wrangler", "api", "api/wrangler.jsonc"},
+	}
+
+	for _, tc := range tests {
+		cfg := &config.Config{}
+		parseFlags(tc.args, cfg)
+		if !cfg.Watch {
+			t.Errorf("parseFlags(%v) cfg.Watch = false, want true", tc.args)
+		}
+		if cfg.WatchRunner != tc.wantRunner {
+			t.Errorf("parseFlags(%v) cfg.WatchRunner = %q, want %q", tc.args, cfg.WatchRunner, tc.wantRunner)
+		}
+		if cfg.WatchRunnerDir != tc.wantDir {
+			t.Errorf("parseFlags(%v) cfg.WatchRunnerDir = %q, want %q", tc.args, cfg.WatchRunnerDir, tc.wantDir)
+		}
+		if cfg.WatchRunnerConfig != tc.wantConfig {
+			t.Errorf("parseFlags(%v) cfg.WatchRunnerConfig = %q, want %q", tc.args, cfg.WatchRunnerConfig, tc.wantConfig)
+		}
+	}
+}
+
+// TestWatchRunnerCommand verifies how a runner name plus an optional config path
+// map onto the process that gets spawned (GO-054).
+func TestWatchRunnerCommand(t *testing.T) {
+	tests := []struct {
+		name         string
+		runner       string
+		runnerConfig string
+		wantCmd      string
+		wantArgs     []string
+	}{
+		{"wrangler default", "wrangler", "", "npx", []string{"wrangler", "dev"}},
+		{"wrangler with config", "wrangler", "deploy/wrangler.toml", "npx", []string{"wrangler", "dev", "--config", "deploy/wrangler.toml"}},
+		{"workerd default", "workerd", "", "workerd", []string{"serve"}},
+		{"workerd with config", "workerd", "deploy/workerd.capnp", "workerd", []string{"serve", "deploy/workerd.capnp"}},
+		{"custom command", "node server.js", "", "node", []string{"server.js"}},
+		{"custom with config", "node server.js", "cfg.json", "node", []string{"server.js", "--config", "cfg.json"}},
+		{"empty runner", "", "", "", nil},
+		{"blank runner", "   ", "cfg.json", "", nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotCmd, gotArgs := watchRunnerCommand(tc.runner, tc.runnerConfig)
+			if gotCmd != tc.wantCmd {
+				t.Errorf("watchRunnerCommand(%q, %q) cmd = %q, want %q", tc.runner, tc.runnerConfig, gotCmd, tc.wantCmd)
+			}
+			if strings.Join(gotArgs, " ") != strings.Join(tc.wantArgs, " ") {
+				t.Errorf("watchRunnerCommand(%q, %q) args = %v, want %v", tc.runner, tc.runnerConfig, gotArgs, tc.wantArgs)
+			}
+		})
+	}
+}
+
+// TestStartWatchRunner covers the spawn path: a blank runner starts nothing, a
+// missing config file only warns, a missing directory aborts, and a real command
+// is started in the requested directory and killable.
+func TestStartWatchRunner(t *testing.T) {
+	if cmd := startWatchRunner(watchRunnerSpec{Quiet: true}); cmd != nil {
+		t.Errorf("startWatchRunner with empty runner = %v, want nil", cmd)
+	}
+	if cmd := startWatchRunner(watchRunnerSpec{Runner: "ssg-no-such-binary-xyz", Quiet: true}); cmd != nil {
+		t.Errorf("startWatchRunner with missing binary = %v, want nil", cmd)
+	}
+	if cmd := startWatchRunner(watchRunnerSpec{Runner: "sleep 30", Dir: "no/such/dir", Quiet: true}); cmd != nil {
+		t.Errorf("startWatchRunner with missing dir = %v, want nil", cmd)
+	}
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "wrangler.toml")
+	if err := os.WriteFile(cfgPath, []byte("name = \"test\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// "sleep" exists on every supported platform; the config path is only warned
+	// about when absent, so pass an existing one to cover the happy branch.
+	cmd := startWatchRunner(watchRunnerSpec{Runner: "sleep 30", Config: cfgPath, Dir: dir})
+	if cmd == nil {
+		t.Fatal("startWatchRunner(sleep 30) = nil, want a running command")
+	}
+	if cmd.Dir != dir {
+		t.Errorf("cmd.Dir = %q, want %q", cmd.Dir, dir)
+	}
+	if cmd.Process == nil {
+		t.Fatal("started command has no process")
+	}
+	if err := cmd.Process.Kill(); err != nil {
+		t.Errorf("killing watch runner: %v", err)
+	}
+	_ = cmd.Wait()
+
+	// Missing config path: still starts, with a warning on stderr.
+	cmd2 := startWatchRunner(watchRunnerSpec{Runner: "sleep 30", Config: filepath.Join(dir, "missing.toml"), Quiet: true})
+	if cmd2 == nil {
+		t.Fatal("startWatchRunner with missing config = nil, want a running command")
+	}
+	_ = cmd2.Process.Kill()
+	_ = cmd2.Wait()
+}
+
+// TestResolveRunnerConfig verifies that a relative config path is anchored to
+// ssg's own working directory when the runner starts elsewhere (GO-054).
+func TestResolveRunnerConfig(t *testing.T) {
+	if got := resolveRunnerConfig(watchRunnerSpec{}); got != "" {
+		t.Errorf("resolveRunnerConfig(empty) = %q, want \"\"", got)
+	}
+	// No Dir: the path is passed through verbatim, relative or not.
+	if got := resolveRunnerConfig(watchRunnerSpec{Config: "rel/wrangler.toml"}); got != "rel/wrangler.toml" {
+		t.Errorf("resolveRunnerConfig without dir = %q, want the path unchanged", got)
+	}
+	// With Dir: relative paths become absolute so they keep pointing at the file
+	// the user meant, not at one under the runner's directory.
+	got := resolveRunnerConfig(watchRunnerSpec{Config: "rel/wrangler.toml", Dir: t.TempDir()})
+	if !filepath.IsAbs(got) {
+		t.Errorf("resolveRunnerConfig with dir = %q, want an absolute path", got)
+	}
+	abs := filepath.Join(t.TempDir(), "wrangler.toml")
+	if got := resolveRunnerConfig(watchRunnerSpec{Config: abs, Dir: t.TempDir()}); got != abs {
+		t.Errorf("resolveRunnerConfig(abs) = %q, want %q", got, abs)
+	}
+}

@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🗂️ **Watch-runner config paths** (GO-054) — the runner's own config file no
+  longer has to sit in the project root: `--wrangler-config=FILE` and
+  `--workerd-config=FILE` point the emulator at a config kept anywhere (e.g.
+  `deploy/wrangler.toml`) and select that runner in the process, so
+  `--wrangler`/`--workerd` become optional and flag order does not matter.
+  `--watch-runner-config=FILE` is the runner-agnostic spelling for use with a
+  custom `--watch-runner`, and `watch_runner_config` is the config-file key.
+  `wrangler` and custom runners receive it as `--config <path>`, `workerd` as
+  its positional config argument. A missing file warns instead of failing, and
+  the spawned command line is now echoed on start.
+- 📁 **Watch-runner working directory** (issue #35) — `--wrangler-dir=DIR`,
+  `--workerd-dir=DIR` and `--watch-runner-dir=DIR` (config key
+  `watch_runner_dir`) start the emulator in another directory, so a monorepo
+  Worker in `booking/apps/api/` no longer fails with *"Missing entry-point to
+  Worker script or to assets directory"* when `ssg` runs from the repo root. A
+  relative runner config is anchored to ssg's own working directory first, so
+  `--wrangler-dir` and `--wrangler-config` combine; a non-existent directory
+  aborts the runner without killing the build.
+- 🔤 **Environment variables in `external_sources`** (GO-055, issue #35) —
+  `url`, `headers` and `query` now expand `$NAME`/`${NAME}` **inline**
+  (`url: "$MY_API_BASE/api/accommodations"`), so one config switches between
+  production and a local Worker instead of being generated per environment.
+  `$$` is a literal `$`, and a `$` not followed by a variable name stays
+  literal. `dsn`/`auth` keep the stricter whole-value form.
+- 🧯 **Optional sources survive unset variables** (issue #35) — a source with
+  `required: false` whose config references an unset (or empty) variable is now
+  **skipped with a warning** instead of aborting the build, so a shared config
+  can carry env-driven sources not everyone sets up. Required sources still
+  fail, naming the variable.
+- 🔓 **`allow_http` / `allow_private` in `external_sources.defaults`**
+  (issue #35) — previously per-source only, and silently ignored under
+  `defaults`. A source can still override either. The rejection message now
+  says where the key may live.
+
+### Changed
+- 🎯 **`allowed_hosts` entries may carry a port** (issue #35) — `127.0.0.1:8787`
+  now matches only that port instead of being rejected outright; entries
+  without a port keep matching the host on any port. The error message states
+  the rule.
+
+### Security
+- 🛡️ **Image decode format allowlist** (SEC-013) — `image.Decode` dispatches on
+  magic bytes, and importing `disintegration/imaging` transitively registers the
+  TIFF/BMP decoders, so a crafted TIFF renamed `photo.png` could reach imaging's
+  transforms — the path that panics in CVE-2023-36308 (GHSA-q7pp-wcgr-pffx, no
+  fixed upstream release). Decoded formats are now checked against
+  jpeg/png/gif/webp before any pixel work, in both the image processor and
+  `imageInfo`. `govulncheck` reported the vulnerable symbol as uncalled; this
+  removes the residual path rather than relying on that.
+
 ## [1.8.8] - 2026-07-20
 
 ### Added
@@ -1201,7 +1252,7 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 
 <!-- Compare links (DOC-011) -->
 [Unreleased]: https://github.com/spagu/ssg/compare/v1.8.8...HEAD
-[1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
+[1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.9
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/spagu/ssg/compare/v1.8.4...v1.8.5

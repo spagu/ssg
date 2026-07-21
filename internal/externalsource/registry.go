@@ -28,9 +28,9 @@ func Load(cfg Config) (*Registry, []string, error) {
 	if !cfg.Enabled {
 		return &Registry{Results: map[string]*Result{}}, nil, nil
 	}
-	sources, err := Resolve(cfg)
+	sources, warnings, err := resolveAll(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, warnings, err
 	}
 
 	fileConn := FileConnector{}
@@ -65,7 +65,6 @@ func Load(cfg Config) (*Registry, []string, error) {
 	wg.Wait()
 
 	reg := &Registry{Results: make(map[string]*Result, len(sources))}
-	var warnings []string
 	for i, src := range sources {
 		if errs[i] != nil {
 			// fail_on_cache_miss: false downgrades offline misses to warnings

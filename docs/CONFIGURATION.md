@@ -77,9 +77,52 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `port` | `8888` | `--port` | TCP port |
 | `watch` | `false` | `--watch` | Rebuild after local file changes |
 | `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
+| `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
+| `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
+
+`watch_runner_config` points the runner at a config file kept anywhere on disk,
+so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.
+The path is passed as `--config <path>` to `wrangler` and to custom runners, and
+as the positional config argument to `workerd serve`. A missing file is reported
+as a warning; the runner is still started so its own error message is visible.
+
+`watch_runner_dir` starts the runner in another directory — the monorepo case,
+where the Worker lives in `booking/apps/api/` while content and templates stay
+at the repo root. Without it `npx wrangler dev` runs where `ssg` was invoked and
+fails with *"Missing entry-point to Worker script or to assets directory"*. A
+relative `watch_runner_config` is resolved against **ssg's** working directory
+before the runner is started, so both options can be combined safely. A
+directory that does not exist aborts the runner (the build itself continues).
+
+`--wrangler-config=FILE`, `--wrangler-dir=DIR` and the `--workerd-*` pair are
+convenience spellings: each sets its value **and** selects that runner (so
+`--wrangler` is implied), in any flag order. Use `--watch-runner-config=FILE` /
+`--watch-runner-dir=DIR` with a custom `--watch-runner`.
+
+```bash
+# Worker in a subdirectory of the same repo (issue #35)
+ssg --watch --wrangler-dir=booking/apps/api my-site simple example.com
+
+# wrangler config kept in deploy/, not in the project root
+ssg --wrangler-config=deploy/wrangler.toml my-site simple example.com
+
+# equivalent, spelled out
+ssg --watch-runner=wrangler --watch-runner-config=deploy/wrangler.toml \
+    my-site simple example.com
+```
+
+```yaml
+watch_runner: wrangler
+watch_runner_dir: booking/apps/api
+watch_runner_config: booking/apps/api/wrangler.jsonc
+```
+
+Pair it with [environment variables in `external_sources`](EXTERNAL_SOURCES.md#environment-variables-in-values)
+to point the same config at the local Worker during development and at the
+production API in CI.
 
 `watch` monitors content, templates and data. Touch-only changes whose bytes are
 unchanged do not trigger a rebuild; actual changes still cause a full build.

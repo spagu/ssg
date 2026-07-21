@@ -37,6 +37,9 @@ func (p *Processor) Info(source string) (ImageInfo, error) {
 	if err != nil {
 		return ImageInfo{}, fmt.Errorf("imageInfo: %q is not a supported image: %w", source, err)
 	}
+	if err := checkDecodable("imageInfo", source, format); err != nil { // SEC-013
+		return ImageInfo{}, err
+	}
 	st, err := f.Stat()
 	if err != nil {
 		return ImageInfo{}, fmt.Errorf("imageInfo: %w", err)

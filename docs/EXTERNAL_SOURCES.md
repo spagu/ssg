@@ -24,7 +24,7 @@ external_sources:
   stale_if_error: true      # fall back to an expired copy when a fetch fails
   fail_on_cache_miss: true  # offline + no cached copy = build failure
   max_concurrent_sources: 4
-  allowed_hosts: []         # optional HTTP allowlist: "api.example.com", "*.example.com"
+  allowed_hosts: []         # optional HTTP allowlist: "api.example.com", "*.example.com", "127.0.0.1:8787"
 
   defaults:
     timeout: 10s
@@ -34,6 +34,8 @@ external_sources:
     retry_backoff: 500ms
     max_response_size: 5MB
     required: true
+    allow_http: false       # applies to every source that does not override it
+    allow_private: false
 
   sources:
     local_catalog:
@@ -68,6 +70,36 @@ and is skipped. Every failure names the source, its type and the stage
 resolve from the environment at build time; literal secrets in `dsn`, `auth`
 and `jwt`-style fields are rejected outright, and a referenced-but-unset
 variable fails the build naming the variable (never a value).
+
+### Environment variables in values
+
+`url`, `headers` and `query` expand environment references **inline**, so one
+config serves every environment instead of being generated per environment:
+
+```yaml
+accommodations:
+  type: http
+  url: "$MY_API_BASE/api/accommodations"     # or "${MY_API_BASE}/api/..."
+  headers:
+    Authorization: "Bearer $API_TOKEN"
+```
+
+```bash
+MY_API_BASE=https://api.example.com ssg …          # production
+MY_API_BASE=http://127.0.0.1:8787   ssg … --wrangler-dir=api   # local Worker
+```
+
+Rules:
+
+- `$NAME` and `${NAME}` expand; `$$` is a literal `$`. A `$` not followed by a
+  variable name (`$5`, a trailing `$`) stays literal.
+- A variable that is unset **or empty** counts as missing.
+- Missing variable in a **required** source (the default) fails the build,
+  naming the variable. In an optional source (`required: false`, or
+  `defaults.required: false`) the source is **skipped with a warning** — so a
+  shared config can carry an env-driven source nobody else has to set up.
+- `dsn` and `auth` secret fields keep the stricter whole-value form
+  (`dsn: "$PRODUCT_DB_DSN"`); a literal there is still rejected.
 
 ## Local files (`type: file`)
 
@@ -112,9 +144,14 @@ Security, always on:
 
 - HTTPS required; plain `http://` needs `allow_http: true`.
 - localhost and private/link-local IPs are refused **at dial time**, which
-  also defeats DNS rebinding — opt out per source with `allow_private: true`
+  also defeats DNS rebinding — opt out with `allow_private: true`
   for self-hosted APIs.
-- Optional global `allowed_hosts` allowlist (exact or `*.wildcard`).
+- `allow_http` and `allow_private` can be set per source **or** once under
+  `external_sources.defaults`; a source may still override either.
+- Optional global `allowed_hosts` allowlist (exact or `*.wildcard`). An entry
+  without a port matches the host on any port; an entry **with** a port
+  (`127.0.0.1:8787`, `api.example.com:443`) only matches that port, so a
+  local-dev allowance does not widen to every port on the host.
 - Redirects are capped at 5 and every hop is re-validated.
 - Responses are size-capped; clearly conflicting `Content-Type`s are rejected.
 - Error messages carry the URL without its query string.

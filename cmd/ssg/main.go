@@ -104,7 +104,12 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
 	if cfg.WatchRunner != "" {
-		cmd := startWatchRunner(cfg.WatchRunner, cfg.Quiet)
+		cmd := startWatchRunner(watchRunnerSpec{
+			Runner: cfg.WatchRunner,
+			Config: cfg.WatchRunnerConfig,
+			Dir:    cfg.WatchRunnerDir,
+			Quiet:  cfg.Quiet,
+		})
 		if cmd != nil {
 			defer func() {
 				if cmd.Process != nil {
@@ -479,13 +484,11 @@ func parseFlags(args []string, cfg *config.Config) {
 // on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
 	if arg == "--wrangler" || arg == "-wrangler" {
-		cfg.WatchRunner = "wrangler"
-		cfg.Watch = true
+		selectWatchRunner(cfg, "wrangler", "", "")
 		return true
 	}
 	if arg == "--workerd" || arg == "-workerd" {
-		cfg.WatchRunner = "workerd"
-		cfg.Watch = true
+		selectWatchRunner(cfg, "workerd", "", "")
 		return true
 	}
 	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
@@ -531,6 +534,25 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		return true
 	}
 	return false
+}
+
+// selectWatchRunner enables watch mode for a runner, optionally recording where
+// the runner's config file lives (field "config") or which directory it runs in
+// (field "dir"). An empty value leaves any previously configured one untouched,
+// so --wrangler-config=X --wrangler stays coherent whatever the flag order,
+// and --wrangler-dir + --wrangler-config combine (GO-054).
+func selectWatchRunner(cfg *config.Config, runner, field, value string) {
+	cfg.WatchRunner = runner
+	cfg.Watch = true
+	if value == "" {
+		return
+	}
+	switch field {
+	case "config":
+		cfg.WatchRunnerConfig = value
+	case "dir":
+		cfg.WatchRunnerDir = value
+	}
 }
 
 // parseSpecialFlags handles --version and --help
@@ -633,6 +655,10 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--mddb-lang=":        &cfg.Mddb.Lang,
 		"--external-source=":  &cfg.ExternalSources.Only,
 		"--watch-runner=":     &cfg.WatchRunner,
+		// Runner-agnostic spellings; --wrangler-config/--wrangler-dir (and the
+		// workerd pair) are the convenience forms that also select the runner.
+		"--watch-runner-config=": &cfg.WatchRunnerConfig,
+		"--watch-runner-dir=":    &cfg.WatchRunnerDir,
 	}
 }
 
@@ -724,6 +750,17 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		if pf := strings.TrimPrefix(arg, "--page-format="); pf == "directory" || pf == "flat" || pf == "both" {
 			cfg.PageFormat = pf
 		}
+	// Naming the runner's config or directory also selects that runner, so a
+	// single flag is enough: --wrangler-dir=booking/apps/api implies --wrangler
+	// (GO-054, issue #35).
+	case strings.HasPrefix(arg, "--wrangler-config="):
+		selectWatchRunner(cfg, "wrangler", "config", strings.TrimPrefix(arg, "--wrangler-config="))
+	case strings.HasPrefix(arg, "--workerd-config="):
+		selectWatchRunner(cfg, "workerd", "config", strings.TrimPrefix(arg, "--workerd-config="))
+	case strings.HasPrefix(arg, "--wrangler-dir="):
+		selectWatchRunner(cfg, "wrangler", "dir", strings.TrimPrefix(arg, "--wrangler-dir="))
+	case strings.HasPrefix(arg, "--workerd-dir="):
+		selectWatchRunner(cfg, "workerd", "dir", strings.TrimPrefix(arg, "--workerd-dir="))
 	}
 }
 
@@ -737,6 +774,7 @@ var extraEqualValueFlags = []string{
 	"--port", "--mddb-timeout", "--mddb-batch-size", "--mddb-watch-interval",
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
+	"--wrangler-config", "--workerd-config", "--wrangler-dir", "--workerd-dir",
 }
 
 // valueFlags returns every flag that consumes a value, in bare (no "=") form —
@@ -1089,6 +1127,17 @@ func printUsage() {
 	fmt.Println("  --watch                - Watch for changes and rebuild automatically")
 	fmt.Println("  --clean                - Clean output directory before build")
 	fmt.Println("")
+	fmt.Println("Watch runners (spawned alongside --watch):")
+	fmt.Println("  --wrangler                  - Run `npx wrangler dev` in the background")
+	fmt.Println("  --workerd                   - Run `workerd serve` in the background")
+	fmt.Println("  --watch-runner=CMD          - Run a custom command in the background")
+	fmt.Println("  --wrangler-config=FILE      - wrangler config outside the project (implies --wrangler)")
+	fmt.Println("  --workerd-config=FILE       - workerd config outside the project (implies --workerd)")
+	fmt.Println("  --wrangler-dir=DIR          - Run wrangler in DIR, e.g. a monorepo's Worker dir")
+	fmt.Println("  --workerd-dir=DIR           - Run workerd in DIR")
+	fmt.Println("  --watch-runner-config=FILE  - Runner-agnostic form of the *-config flags")
+	fmt.Println("  --watch-runner-dir=DIR      - Runner-agnostic form of the *-dir flags")
+	fmt.Println("")
 	fmt.Println("Public Server Hardening (TLS/HTTP2/HTTP3, opt-in):")
 	fmt.Println("  --tls-cert=FILE        - TLS certificate (PEM); with --tls-key enables HTTPS + HTTP/2")
 	fmt.Println("  --tls-key=FILE         - TLS private key (PEM), paired with --tls-cert")
@@ -1217,42 +1266,103 @@ func printUsage() {
 	fmt.Println("      --mddb-lang=en_US --mddb-key=secret krowy example.com")
 }
 
-// startWatchRunner spawns a background watch runner process (e.g. wrangler, workerd, or a custom command)
-func startWatchRunner(runner string, quiet bool) *exec.Cmd {
-	var cmdName string
-	var cmdArgs []string
-
+// watchRunnerCommand resolves a runner name (or a full custom command line) plus
+// an optional config-file path into the program and arguments to execute.
+// runnerConfig lets the runner's own config live anywhere on disk instead of
+// next to the project: wrangler and custom commands take `--config <path>`,
+// workerd takes the config as its positional argument (GO-054).
+// Returns an empty name when the runner is blank.
+func watchRunnerCommand(runner, runnerConfig string) (string, []string) {
 	switch runner {
 	case "wrangler":
-		if !quiet {
-			fmt.Println("⚡ Starting wrangler dev server (npx wrangler dev)...")
+		args := []string{"wrangler", "dev"}
+		if runnerConfig != "" {
+			args = append(args, "--config", runnerConfig)
 		}
-		cmdName = "npx"
-		cmdArgs = []string{"wrangler", "dev"}
+		return "npx", args
 	case "workerd":
-		if !quiet {
-			fmt.Println("⚡ Starting workerd serve...")
+		args := []string{"serve"}
+		if runnerConfig != "" {
+			args = append(args, runnerConfig)
 		}
-		cmdName = "workerd"
-		cmdArgs = []string{"serve"}
+		return "workerd", args
 	default:
 		parts := strings.Fields(runner)
 		if len(parts) == 0 {
+			return "", nil
+		}
+		args := parts[1:]
+		if runnerConfig != "" {
+			args = append(args, "--config", runnerConfig)
+		}
+		return parts[0], args
+	}
+}
+
+// watchRunnerSpec describes the background process to spawn: which runner, the
+// config file it should read, and the directory it runs in. Dir covers the
+// monorepo layout where the Worker sits in a subdirectory while content and
+// templates stay at the repo root (GO-054).
+type watchRunnerSpec struct {
+	Runner string
+	Config string
+	Dir    string
+	Quiet  bool
+}
+
+// resolveRunnerConfig makes a config path absolute when the runner starts in
+// another directory, so the path stays relative to where ssg was invoked rather
+// than silently re-anchoring to the runner's Dir. Missing files only warn: the
+// runner's own error message is more precise than anything guessed here.
+func resolveRunnerConfig(spec watchRunnerSpec) string {
+	path := spec.Config
+	if path == "" {
+		return ""
+	}
+	if spec.Dir != "" && !filepath.IsAbs(path) {
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+	}
+	if _, err := os.Stat(path); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Watch-runner config %q not found: %v\n", path, err)
+	}
+	return path
+}
+
+// startWatchRunner spawns a background watch runner process (e.g. wrangler,
+// workerd, or a custom command) per spec.
+func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
+	runnerConfig := resolveRunnerConfig(spec)
+
+	cmdName, cmdArgs := watchRunnerCommand(spec.Runner, runnerConfig)
+	if cmdName == "" {
+		return nil
+	}
+	if spec.Dir != "" {
+		if _, err := os.Stat(spec.Dir); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
 			return nil
 		}
-		if !quiet {
-			fmt.Printf("⚡ Starting custom watch runner: %s...\n", runner)
+	}
+	if !spec.Quiet {
+		where := ""
+		if spec.Dir != "" {
+			where = fmt.Sprintf(" (in %s)", spec.Dir)
 		}
-		cmdName = parts[0]
-		cmdArgs = parts[1:]
+		fmt.Printf("⚡ Starting watch runner%s: %s %s...\n", where, cmdName, strings.Join(cmdArgs, " "))
 	}
 
+	// #nosec G204 -- the runner command, its config path and its directory come
+	// from this user's own --watch-runner/--*-config/--*-dir flags or config file;
+	// running them is the feature
 	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.Dir = spec.Dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Failed to start watch runner %q: %v\n", runner, err)
+		fmt.Fprintf(os.Stderr, "⚠️  Failed to start watch runner %q: %v\n", spec.Runner, err)
 		return nil
 	}
 

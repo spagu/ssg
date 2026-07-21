@@ -169,6 +169,12 @@ func (p *Processor) decodeSource(helper, path string) (image.Image, ImageInfo, e
 	if err != nil {
 		return nil, ImageInfo{}, fmt.Errorf("%s: %q is not a supported image: %w", helper, path, err)
 	}
+	// Format allowlist before the full decode (SEC-013): the header is trusted
+	// only as far as naming the format, and unsupported ones never reach the
+	// pixel decoders or imaging's transforms.
+	if err := checkDecodable(helper, path, format); err != nil {
+		return nil, ImageInfo{}, err
+	}
 	if cfg.Width > p.cfg.MaxDimension || cfg.Height > p.cfg.MaxDimension {
 		return nil, ImageInfo{}, fmt.Errorf("%s: source exceeds max_dimension (%d)", helper, p.cfg.MaxDimension)
 	}

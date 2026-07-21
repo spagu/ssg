@@ -64,12 +64,21 @@ type Config struct {
 	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
 
 	// Server & Development
-	HTTP  bool   `yaml:"http" toml:"http" json:"http"`
-	Host  string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
-	Port  int    `yaml:"port" toml:"port" json:"port"`
-	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
+	HTTP        bool   `yaml:"http" toml:"http" json:"http"`
+	Host        string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
+	Port        int    `yaml:"port" toml:"port" json:"port"`
+	Watch       bool   `yaml:"watch" toml:"watch" json:"watch"`
 	WatchRunner string `yaml:"watch_runner" toml:"watch_runner" json:"watch_runner"`
-	Clean bool   `yaml:"clean" toml:"clean" json:"clean"`
+	// WatchRunnerConfig points the watch runner at a config file living outside
+	// the project root (e.g. a wrangler.toml kept in deploy/ instead of .ssg/).
+	// Passed as `--config <path>` to wrangler and custom runners, and as the
+	// positional config argument to workerd (GO-054).
+	WatchRunnerConfig string `yaml:"watch_runner_config" toml:"watch_runner_config" json:"watch_runner_config"`
+	// WatchRunnerDir is the working directory the runner is started in — the
+	// monorepo case, where the Worker lives in a subdirectory (booking/apps/api)
+	// while content and templates live at the repo root (GO-054).
+	WatchRunnerDir string `yaml:"watch_runner_dir" toml:"watch_runner_dir" json:"watch_runner_dir"`
+	Clean          bool   `yaml:"clean" toml:"clean" json:"clean"`
 
 	// TLS for the built-in server (v1.8.1). Manual: point TLSCert/TLSKey at a
 	// certificate+key. Auto: TLSAuto obtains a Let's Encrypt cert for TLSDomain
