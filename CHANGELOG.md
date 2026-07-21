@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.9] - 2026-07-21
+
 ### Added
 - 🗂️ **Watch-runner config paths** (GO-054) — the runner's own config file no
   longer has to sit in the project root: `--wrangler-config=FILE` and
@@ -1251,8 +1253,9 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.8...HEAD
-[1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.9
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.9...HEAD
+[1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
+[1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
 [1.8.5]: https://github.com/spagu/ssg/compare/v1.8.4...v1.8.5
