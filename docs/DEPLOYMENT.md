@@ -75,6 +75,28 @@ ssg my-blog simple example.com \
 Direct Upload API, hashes the output manifest and uploads the required files; it
 does not require Wrangler.
 
+### This project's own documentation site
+
+`ssg.tradik.com` is built from this repository by
+[`.github/workflows/docs-site.yml`](../.github/workflows/docs-site.yml) and is
+a working example of everything above:
+
+- The site has **no content tree**. `.ssg.yaml` pulls `docs/` in through
+  `content_sources`, so editing a guide is the whole publishing workflow.
+- It is built with the `ssg` binary **from the commit being deployed**, not the
+  released action, so the site doubles as an integration test of `main` on real
+  content — and so it can use configuration keys newer than the last release.
+- `shortcode_errors: strict` and `--check-links=strict` gate the deploy: an
+  unrenderable shortcode or a dead internal link fails the run, and SSG deploys
+  only after a successful generate, so a broken page never reaches the CDN.
+- `cwebp` is installed in the runner because the hero image is encoded as WebP.
+
+To point it at a different Cloudflare account or project, set the repository
+secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and optionally the
+repository variable `CLOUDFLARE_PAGES_PROJECT` (default `ssg-docs`). The custom
+domain is attached to the Pages project once, in Cloudflare; the workflow only
+uploads deployments.
+
 ## GitHub Pages
 
 ```bash

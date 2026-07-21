@@ -1,6 +1,5 @@
 # Dynamic taxonomies
 
-{% raw %}
 Taxonomies classify posts into browsable archives. `category`, `tag` and
 `series` are built in and keep their historical URLs, templates and feeds; any
 number of additional taxonomies can be declared in configuration. A working
@@ -129,4 +128,3 @@ Not part of this release; tracked for later:
 - Custom `path`/`template` overrides for the built-in category/tag/series
   pipelines (their archives intentionally stay byte-for-byte legacy).
 - Migrating the author archive onto the generic registry.
-{% endraw %}

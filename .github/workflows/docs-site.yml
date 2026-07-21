@@ -1,0 +1,96 @@
+# Publishes SSG's own documentation site (docs/ rendered with the bundled
+# ssgtheme, configured by ./.ssg.yaml) to Cloudflare Pages.
+#
+# The site is built with the ssg binary from THIS commit rather than the
+# released action, for two reasons: it exercises the current code on real
+# content before a release, and the site's configuration uses keys that only
+# exist on main (content_sources, link_rewrites, auto_excerpt).
+#
+# Required repository secrets:
+#   CLOUDFLARE_API_TOKEN   - token with the "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  - the Cloudflare account that owns the project
+#
+# Optional repository variable:
+#   CLOUDFLARE_PAGES_PROJECT - Pages project name (default: ssg-docs)
+#
+# The custom domain (ssg.tradik.com) is attached to the Pages project once, in
+# Cloudflare; this workflow only uploads deployments.
+
+name: Docs Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "templates/ssgtheme/**"
+      - "assets/**"
+      - ".ssg.yaml"
+      - "cmd/**"
+      - "internal/**"
+      - ".github/workflows/docs-site.yml"
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Cloudflare Pages project name"
+        required: false
+        type: string
+
+# One deployment at a time: Pages serialises them anyway, and a queued run
+# would only publish an older tree.
+concurrency:
+  group: docs-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The hero image is encoded as WebP, which SSG delegates to cwebp.
+      - name: Install cwebp
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends webp
+
+      - name: Build ssg from this commit
+        run: go build -ldflags "-s -w -X main.Version=$(cat VERSION)" -o build/ssg ./cmd/ssg
+
+      # One invocation: SSG deploys only after a successful generate, and both
+      # gates abort before that point — shortcode_errors: strict (set in
+      # .ssg.yaml) on an unrenderable shortcode, --check-links=strict on a dead
+      # internal link. Nothing half-built reaches the CDN.
+      - name: Build and deploy to Cloudflare Pages
+        run: |
+          ./build/ssg --config .ssg.yaml \
+            --check-links=strict \
+            --deploy=cloudflare \
+            --deploy-project="${PROJECT}" \
+            --deploy-branch=main
+        env:
+          PROJECT: ${{ inputs.project || vars.CLOUDFLARE_PAGES_PROJECT || 'ssg-docs' }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Documentation site deployed"
+            echo
+            echo "- Project: \`${PROJECT}\`"
+            echo "- Commit: \`${GITHUB_SHA::7}\`"
+            echo "- URL: https://ssg.tradik.com/"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          PROJECT: ${{ inputs.project || vars.CLOUDFLARE_PAGES_PROJECT || 'ssg-docs' }}

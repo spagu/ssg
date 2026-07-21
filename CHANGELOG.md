@@ -54,6 +54,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comment it survives minification. `strict` additionally fails the build after
   the render step, listing every shortcode that failed.
 
+- 🚀 **Documentation site published to Cloudflare Pages** — `ssg.tradik.com` is
+  built by `.github/workflows/docs-site.yml` from `docs/` via `content_sources`,
+  using the `ssg` binary from the commit being deployed. `shortcode_errors:
+  strict` plus `--check-links=strict` gate the upload, so a broken shortcode or
+  a dead internal link fails the run instead of publishing a hole.
+
+### Removed
+- 🧹 **Jekyll GitHub Pages workflow** — it built the whole repository root as a
+  Jekyll site and had been failing on every push; the documentation site is now
+  built by SSG itself. The `{% raw %}` guards that existed only for Jekyll are
+  gone from `docs/`, where they had started leaking into rendered excerpts.
+
 ### Fixed
 - 🔗 **`.md` links with an anchor were never rewritten** (GO-056) — the rewrite
   pattern required the href to *end* in `.md`, so `CONFIGURATION.md#section`

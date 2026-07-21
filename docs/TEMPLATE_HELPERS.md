@@ -1,6 +1,5 @@
 # Template Collection & Conditional Helpers
 
-{% raw %}
 *Since v1.8.3.* SSG's Go template engine ships a set of generic helpers for
 filtering, sorting, grouping, slicing and testing content — so a theme can build
 "recently updated guides", "related posts" or "grouped archives" without any
@@ -324,4 +323,3 @@ theme actually needs (column splits, "page N of M", index offsets).
 - `sort`/`filter` ordering requires comparable field types (see above).
 - `groupBy`/`indexBy`/`uniq` keys must be scalar.
 - `uniq` across mixed numeric types dedupes by rendered value (`1` ≡ `uint8(1)`).
-{% endraw %}

@@ -1,6 +1,5 @@
 # External sources
 
-{% raw %}
 One unified system feeds templates with data from outside the content tree:
 local files, remote HTTP APIs, SQL databases and CMS databases (WordPress,
 Drupal, Movable Type) — all behind a single registry, one cache, one secrets
@@ -343,4 +342,3 @@ deliberately no scripting, `eval` or embedded query runtime.
   Google Sheets, GitHub, GitLab; Drupal 7.
 - `watch: true` rebuilds on file-source changes.
 - Example CMS projects with seed scripts.
-{% endraw %}

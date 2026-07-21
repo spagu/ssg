@@ -188,7 +188,7 @@ The title fallback is unconditional because an untitled page is broken in every
 listing, menu and `<title>`. The excerpt fallback is opt-in because it changes
 card text, feed summaries and meta descriptions on an existing site. Derivation
 skips headings, fenced code, tables, block quotes, images, list markers and
-Liquid guards (`{% raw %}`), so the excerpt starts at the first real sentence.
+Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 
 ### Frontmatter fields
 

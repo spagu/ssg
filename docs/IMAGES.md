@@ -1,6 +1,5 @@
 # Image Processing Helpers
 
-{% raw %}
 *Since v1.8.3.* Build-time image manipulation callable from **templates and
 shortcodes**: resize, fit, fill-with-crop, explicit/anchor/focal crops, visual
 filters, format conversion with quality control, EXIF orientation
@@ -117,4 +116,3 @@ cache entries the just-finished build no longer references; `--images-gc-dry`
 (`images_gc_dry: true`) only reports the file count and bytes that would be
 reclaimed. GC runs after generation and never fails the build — errors are
 reported as warnings.
-{% endraw %}
