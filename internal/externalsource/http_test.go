@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -202,9 +203,31 @@ func TestHTTPSecurityRules(t *testing.T) {
 	if _, err := conn.Load(src); err == nil || !strings.Contains(err.Error(), "allowed_hosts") {
 		t.Fatalf("allowlist block = %v", err)
 	}
-	if !hostAllowed("api.example.com", conn.allowedHosts) || !hostAllowed("a.b.trusted.dev", conn.allowedHosts) ||
-		hostAllowed("trusted.dev.evil.com", conn.allowedHosts) || hostAllowed("trusted.dev", conn.allowedHosts) {
+	mustURL := func(raw string) *url.URL {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatalf("parsing %q: %v", raw, err)
+		}
+		return u
+	}
+	if !hostAllowed(mustURL("https://api.example.com/x"), conn.allowedHosts) ||
+		!hostAllowed(mustURL("https://a.b.trusted.dev/x"), conn.allowedHosts) ||
+		hostAllowed(mustURL("https://trusted.dev.evil.com/x"), conn.allowedHosts) ||
+		hostAllowed(mustURL("https://trusted.dev/x"), conn.allowedHosts) {
 		t.Fatal("hostAllowed matrix")
+	}
+	// Entries may carry a port, which is then enforced (issue #35).
+	ported := []string{"127.0.0.1:8787", "api.example.com"}
+	if !hostAllowed(mustURL("http://127.0.0.1:8787/x"), ported) ||
+		hostAllowed(mustURL("http://127.0.0.1:9999/x"), ported) ||
+		!hostAllowed(mustURL("https://api.example.com/x"), ported) ||
+		!hostAllowed(mustURL("https://api.example.com:443/x"), []string{"api.example.com:443"}) ||
+		!hostAllowed(mustURL("https://api.example.com/x"), []string{"api.example.com:443"}) ||
+		!hostAllowed(mustURL("http://api.example.com/x"), []string{"api.example.com:80"}) ||
+		!hostAllowed(mustURL("https://a.b.example.com/x"), []string{"*.example.com:443"}) ||
+		hostAllowed(mustURL("https://api.example.com:8443/x"), []string{"api.example.com:443"}) ||
+		hostAllowed(mustURL("https://api.example.com/x"), []string{"  "}) {
+		t.Fatal("hostAllowed port matrix")
 	}
 	// SSRF: loopback dial refused without allow_private.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -368,7 +391,7 @@ func TestRegistryLoadsHTTPAndFileConcurrently(t *testing.T) {
 	filePath := writeFile(t, t.TempDir()+"/nav.yaml", "a: 1\n")
 	cfg := Config{Enabled: true, CacheDir: t.TempDir(), MaxConcurrent: 2,
 		Sources: map[string]SourceConfig{
-			"api":  {Type: "http", URL: srv.URL + "/d.json", AllowHTTP: true, AllowPrivate: true},
+			"api":  {Type: "http", URL: srv.URL + "/d.json", AllowHTTP: boolPtr(true), AllowPrivate: boolPtr(true)},
 			"file": {Type: "file", Path: filePath},
 		}}
 	reg, warns, err := Load(cfg)

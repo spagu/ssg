@@ -8,6 +8,7 @@
 package externalsource
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -42,9 +43,13 @@ type Config struct {
 	Only       string `yaml:"-" toml:"-" json:"-"` // --external-source=<name>: narrow --refresh to one source
 }
 
-// Defaults apply to every source that does not override them.
+// Defaults apply to every source that does not override them. The two allow_*
+// switches live here as well, so a whole local-dev config can opt into plain
+// HTTP against a loopback API without repeating the keys per source (issue #35).
 type Defaults struct {
 	Required     *bool  `yaml:"required" toml:"required" json:"required"`
+	AllowHTTP    *bool  `yaml:"allow_http" toml:"allow_http" json:"allow_http"`
+	AllowPrivate *bool  `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
 	MaxSize      string `yaml:"max_response_size" toml:"max_response_size" json:"max_response_size"`
 	Timeout      string `yaml:"timeout" toml:"timeout" json:"timeout"`                   // default 10s
 	CacheTTL     string `yaml:"cache_ttl" toml:"cache_ttl" json:"cache_ttl"`             // default 1h
@@ -94,8 +99,8 @@ type SourceConfig struct {
 	Query        map[string]string `yaml:"query" toml:"query" json:"query"`
 	Auth         AuthConfig        `yaml:"auth" toml:"auth" json:"auth"`
 	Pagination   PaginationConfig  `yaml:"pagination" toml:"pagination" json:"pagination"`
-	AllowHTTP    bool              `yaml:"allow_http" toml:"allow_http" json:"allow_http"`          // permit plain http:// (default: HTTPS only)
-	AllowPrivate bool              `yaml:"allow_private" toml:"allow_private" json:"allow_private"` // permit localhost/private IPs (self-hosted APIs)
+	AllowHTTP    *bool             `yaml:"allow_http" toml:"allow_http" json:"allow_http"`          // permit plain http:// (default: HTTPS only)
+	AllowPrivate *bool             `yaml:"allow_private" toml:"allow_private" json:"allow_private"` // permit localhost/private IPs (self-hosted APIs)
 	Timeout      string            `yaml:"timeout" toml:"timeout" json:"timeout"`
 	CacheTTL     string            `yaml:"cache_ttl" toml:"cache_ttl" json:"cache_ttl"`
 	StaleTTL     string            `yaml:"stale_ttl" toml:"stale_ttl" json:"stale_ttl"`
@@ -244,11 +249,21 @@ const (
 )
 
 // Resolve validates the configuration and returns the sources in
-// deterministic (name-sorted) order.
+// deterministic (name-sorted) order, dropping any skip warnings.
 func Resolve(cfg Config) ([]Source, error) {
+	sources, _, err := resolveAll(cfg)
+	return sources, err
+}
+
+// resolveAll is Resolve plus the warnings for optional sources that were
+// skipped. A source with required: false whose config references an unset
+// environment variable is skipped instead of failing the build, so one shared
+// config can carry env-driven sources nobody else has to set up (issue #35).
+// Required sources still fail, naming the variable.
+func resolveAll(cfg Config) ([]Source, []string, error) {
 	maxSize, err := parseSize(cfg.Defaults.MaxSize, defaultMaxSize)
 	if err != nil {
-		return nil, fmt.Errorf("external_sources.defaults.max_response_size: %w", err)
+		return nil, nil, fmt.Errorf("external_sources.defaults.max_response_size: %w", err)
 	}
 	names := make([]string, 0, len(cfg.Sources))
 	for name := range cfg.Sources {
@@ -257,14 +272,21 @@ func Resolve(cfg Config) ([]Source, error) {
 	sort.Strings(names)
 
 	out := make([]Source, 0, len(names))
+	var warnings []string
 	for _, name := range names {
-		src, err := resolveSource(name, cfg.Sources[name], cfg.Defaults, maxSize)
+		sc := cfg.Sources[name]
+		src, err := resolveSource(name, sc, cfg.Defaults, maxSize)
 		if err != nil {
-			return nil, err
+			var unset *UnsetEnvError
+			if errors.As(err, &unset) && !boolLayer(true, cfg.Defaults.Required, sc.Required) {
+				warnings = append(warnings, fmt.Sprintf("optional external source %q skipped: $%s is not set in the environment", name, unset.Name))
+				continue
+			}
+			return nil, warnings, err
 		}
 		out = append(out, src)
 	}
-	return out, nil
+	return out, warnings, nil
 }
 
 // resolveSource validates and normalizes one source definition.
@@ -419,11 +441,16 @@ func resolveHTTP(src *Source, sc SourceConfig, defaults Defaults) error {
 	if sc.URL == "" {
 		return fmt.Errorf("external source %q: url is required", src.Name)
 	}
-	src.URL = sc.URL
-	src.AllowHTTP = sc.AllowHTTP
-	src.AllowPrivate = sc.AllowPrivate
+	// The URL expands env references so one config serves every environment:
+	// url: "$API_BASE/api/products" (GO-055, issue #35).
+	url, err := expandEnvInline(src.Name, "url", sc.URL)
+	if err != nil {
+		return err
+	}
+	src.URL = url
+	src.AllowHTTP = boolLayer(false, defaults.AllowHTTP, sc.AllowHTTP)
+	src.AllowPrivate = boolLayer(false, defaults.AllowPrivate, sc.AllowPrivate)
 
-	var err error
 	if src.Headers, err = expandValueMap(src.Name, "headers", sc.Headers); err != nil {
 		return err
 	}

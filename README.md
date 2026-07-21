@@ -267,6 +267,8 @@ Common options:
 | Cloudflare Wrangler | `watch_runner: wrangler` | `--wrangler` |
 | Cloudflare Workerd | `watch_runner: workerd` | `--workerd` |
 | Custom watch command | `watch_runner: "cmd"` | `--watch-runner="cmd"` |
+| Runner config outside the project | `watch_runner_config: deploy/wrangler.toml` | `--wrangler-config=deploy/wrangler.toml` |
+| Worker in a monorepo subdirectory | `watch_runner_dir: booking/apps/api` | `--wrangler-dir=booking/apps/api` |
 | Clean output first | `clean: true` | `--clean` |
 | Minify HTML/CSS/JS | `minify_all: true` | `--minify-all` |
 | Convert images to WebP | `webp: true` | `--webp` |

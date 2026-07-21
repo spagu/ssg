@@ -38,7 +38,7 @@ func validateURL(raw string, src Source, allowedHosts []string) (*url.URL, error
 	case "https":
 	case "http":
 		if !src.AllowHTTP {
-			return nil, fmt.Errorf("plain http is disabled for %s — use https or set allow_http: true", safeIdentifier(u))
+			return nil, fmt.Errorf("plain http is disabled for %s — use https, or set allow_http: true on the source or under external_sources.defaults", safeIdentifier(u))
 		}
 	default:
 		return nil, fmt.Errorf("unsupported scheme %q in %s", u.Scheme, safeIdentifier(u))
@@ -46,29 +46,60 @@ func validateURL(raw string, src Source, allowedHosts []string) (*url.URL, error
 	if u.Hostname() == "" {
 		return nil, fmt.Errorf("missing host in %s", safeIdentifier(u))
 	}
-	if !hostAllowed(u.Hostname(), allowedHosts) {
-		return nil, fmt.Errorf("host %q is not in external_sources.allowed_hosts", u.Hostname())
+	if !hostAllowed(u, allowedHosts) {
+		return nil, fmt.Errorf("host %q is not in external_sources.allowed_hosts (entries match the host, or host:port when the entry carries one)", u.Hostname())
 	}
 	return u, nil
 }
 
-// hostAllowed matches a hostname against the allowlist ("api.example.com" or
-// "*.example.com"). An empty allowlist allows every (public) host.
-func hostAllowed(host string, allowed []string) bool {
+// hostAllowed matches a request URL against the allowlist. Entries are hosts
+// ("api.example.com"), wildcards ("*.example.com"), or either of those with a
+// port ("127.0.0.1:8787") — a port in the entry is enforced rather than
+// ignored, so a local-dev allowance cannot silently widen to every port on that
+// host (issue #35). An empty allowlist allows every (public) host.
+func hostAllowed(u *url.URL, allowed []string) bool {
 	if len(allowed) == 0 {
 		return true
 	}
-	host = strings.ToLower(host)
+	host := strings.ToLower(u.Hostname())
 	for _, a := range allowed {
-		a = strings.ToLower(strings.TrimSpace(a))
-		if a == host {
-			return true
+		pattern := strings.ToLower(strings.TrimSpace(a))
+		if pattern == "" {
+			continue
 		}
-		if suffix, ok := strings.CutPrefix(a, "*."); ok && strings.HasSuffix(host, "."+suffix) {
+		if h, port, err := net.SplitHostPort(pattern); err == nil {
+			if port != urlPort(u) {
+				continue
+			}
+			pattern = h
+		}
+		if hostMatches(host, pattern) {
 			return true
 		}
 	}
 	return false
+}
+
+// urlPort returns the URL's effective port, filling in the scheme default so
+// "https://api.example.com" matches an "api.example.com:443" allowlist entry.
+func urlPort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	if u.Scheme == "http" {
+		return "80"
+	}
+	return "443"
+}
+
+// hostMatches compares one lowercased host against one lowercased pattern,
+// where "*.example.com" matches any subdomain but not the bare domain.
+func hostMatches(host, pattern string) bool {
+	if pattern == host {
+		return true
+	}
+	suffix, ok := strings.CutPrefix(pattern, "*.")
+	return ok && strings.HasSuffix(host, "."+suffix)
 }
 
 // blockedIP reports whether an IP must not be dialed (SSRF protection).

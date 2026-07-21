@@ -3,6 +3,7 @@ package externalsource
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -11,8 +12,61 @@ import (
 // fields REQUIRE the env form so credentials never live in the config file,
 // and error messages only ever name the variable, never its value.
 
-// expandEnvRef resolves "$NAME" to the environment value; other strings pass
-// through unchanged. A referenced-but-unset variable is an error naming NAME.
+// UnsetEnvError reports a config value that references an environment variable
+// which is not set (or is empty). It is a distinct type because an *optional*
+// source hitting it is skipped with a warning rather than failing the build —
+// one config can then carry an env-driven source the whole team need not set
+// (issue #35). The value is never included, only the variable name.
+type UnsetEnvError struct {
+	Source string
+	Field  string
+	Name   string
+}
+
+// Error formats the message naming the variable that must be exported.
+func (e *UnsetEnvError) Error() string {
+	return fmt.Sprintf("external source %q: %s references $%s, which is not set in the environment", e.Source, e.Field, e.Name)
+}
+
+// envRefRe matches the two reference spellings plus the "$$" escape:
+// "$NAME", "${NAME}" and "$$" (a literal dollar). Anything else containing a
+// "$" — "$5", "a$" — is left untouched, so prices and jQuery-ish strings in
+// headers survive expansion (GO-055).
+var envRefRe = regexp.MustCompile(`\$(?:\$|\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)`)
+
+// expandEnvInline expands every "$NAME"/"${NAME}" reference inside value, so a
+// URL like "$API_BASE/api/products" works and one config can switch between
+// environments. "$$" collapses to a literal "$". The first unset variable wins
+// and is reported as an *UnsetEnvError.
+func expandEnvInline(source, field, value string) (string, error) {
+	if !strings.Contains(value, "$") {
+		return value, nil
+	}
+	var firstErr error
+	out := envRefRe.ReplaceAllStringFunc(value, func(match string) string {
+		ref := strings.TrimPrefix(match, "$")
+		if ref == "$" {
+			return "$"
+		}
+		name := strings.TrimSuffix(strings.TrimPrefix(ref, "{"), "}")
+		v, ok := os.LookupEnv(name)
+		if !ok || v == "" {
+			if firstErr == nil {
+				firstErr = &UnsetEnvError{Source: source, Field: field, Name: name}
+			}
+			return ""
+		}
+		return v
+	})
+	if firstErr != nil {
+		return "", firstErr
+	}
+	return out, nil
+}
+
+// expandEnvRef resolves a whole-string "$NAME" to the environment value; other
+// strings pass through unchanged. Used where the env form is mandatory (auth
+// secrets, SQL DSNs) so a literal can be rejected before expansion.
 func expandEnvRef(source, field, value string) (string, error) {
 	if !strings.HasPrefix(value, "$") {
 		return value, nil
@@ -20,19 +74,20 @@ func expandEnvRef(source, field, value string) (string, error) {
 	name := strings.TrimPrefix(value, "$")
 	v, ok := os.LookupEnv(name)
 	if !ok || v == "" {
-		return "", fmt.Errorf("external source %q: %s references $%s, which is not set in the environment", source, field, name)
+		return "", &UnsetEnvError{Source: source, Field: field, Name: name}
 	}
 	return v, nil
 }
 
-// expandValueMap expands env references in header/query values.
+// expandValueMap expands env references in header/query values, inline so
+// "Bearer $TOKEN" and "$API_BASE/v2" both work.
 func expandValueMap(source, field string, in map[string]string) (map[string]string, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
 	out := make(map[string]string, len(in))
 	for k, v := range in {
-		expanded, err := expandEnvRef(source, field+"."+k, v)
+		expanded, err := expandEnvInline(source, field+"."+k, v)
 		if err != nil {
 			return nil, err
 		}
