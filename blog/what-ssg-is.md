@@ -4,7 +4,7 @@ slug: "what-ssg-is"
 status: publish
 type: post
 date: 2026-07-18
-tags: [introduction, static-sites, go]
+tags: [introduction, static-sites]
 excerpt: "A static site generator written in Go: what it actually does, who it is for, and the three things it refuses to do."
 ---
 

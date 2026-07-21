@@ -21,11 +21,12 @@ content_sources:
   - path: docs
     type: page
     category: Documentation
-  # Posts. The index lives at /blog/ (pages/blog.md with layout: blog), not at
-  # the built-in /category/blog/ archive.
+  # Posts. Deliberately uncategorised: a category would generate a second
+  # listing at /category/blog/ with exactly the same posts as /blog/, and two
+  # self-canonical URLs holding the same content is duplicate content with
+  # extra steps. The index is pages/blog.md (layout: blog).
   - path: blog
     type: post
-    category: Blog
   # Standalone pages that are not documentation — currently just the blog index.
   - path: pages
     type: page
