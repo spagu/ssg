@@ -2,10 +2,12 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -42,6 +44,16 @@ type MddbConfig struct {
 	BatchSize     int    `yaml:"batch_size" toml:"batch_size" json:"batch_size"`             // Batch size for pagination (default: 1000)
 	Watch         bool   `yaml:"watch" toml:"watch" json:"watch"`                            // Enable watch mode for MDDB changes
 	WatchInterval int    `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
+}
+
+// ContentSource is one extra Markdown root merged into the site (CONTENT-002).
+// `path` is required; `type` is "page" (default) or "post"; `category` files
+// every entry of the source under one category, created when the loaded
+// metadata does not already define it. Per-file frontmatter always wins.
+type ContentSource struct {
+	Path     string `yaml:"path" toml:"path" json:"path"`
+	Type     string `yaml:"type" toml:"type" json:"type"`
+	Category string `yaml:"category" toml:"category" json:"category"`
 }
 
 // Config represents all SSG configuration options
@@ -292,6 +304,24 @@ type Config struct {
 	// untrusted mddb source (FE-005 / SEC-003). Default off (trusted local content).
 	SanitizeHTML bool `yaml:"sanitize_html" toml:"sanitize_html" json:"sanitize_html"`
 
+	// ContentSources lists extra local Markdown roots merged into the site
+	// alongside — or instead of — the primary `source` tree, so content that
+	// already lives elsewhere (a docs/ folder, notes beside the code) needs no
+	// copy. Empty by default, which keeps single-source builds unchanged.
+	ContentSources []ContentSource `yaml:"content_sources" toml:"content_sources" json:"content_sources"`
+
+	// LinkRewrites maps an href prefix in content to its replacement, so links
+	// to repository files that the site never publishes (../examples/, a sample
+	// config) can point at the repository instead of 404ing. Longest matching
+	// prefix wins; empty by default (LINK-002).
+	LinkRewrites map[string]string `yaml:"link_rewrites" toml:"link_rewrites" json:"link_rewrites"`
+
+	// AutoExcerpt derives a missing excerpt from the opening paragraph of the
+	// content, so listings, feeds and meta descriptions are not blank for
+	// documents written without a "## Excerpt" section. Off by default,
+	// because it changes those texts on an existing site (GO-057).
+	AutoExcerpt bool `yaml:"auto_excerpt" toml:"auto_excerpt" json:"auto_excerpt"`
+
 	// ShortcodeErrors decides what a shortcode whose template fails to render
 	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
 	// and nothing in the page), "keep" (its raw source, so the gap is visible in
@@ -378,7 +408,53 @@ func Load(path string) (*Config, error) {
 		fmt.Fprintln(os.Stderr, "⚠️  Config key seo_off is deprecated; use seo: false")
 	}
 
+	warnUnknownKeys(path, data, ext)
+
 	return cfg, nil
+}
+
+// warnUnknownKeys reports top-level configuration keys this binary does not
+// know. Silently ignoring them makes a version mismatch invisible: a config
+// using a newer key (content_sources, say) against an older ssg simply behaves
+// as if the key were not there, and the resulting "missing source" is
+// impossible to connect back to its cause (UX-002). Unknown keys are a warning,
+// never an error — forward compatibility with newer configs is deliberate.
+func warnUnknownKeys(path string, data []byte, ext string) {
+	if ext != ".yaml" && ext != ".yml" {
+		return // strict decoding is YAML-only for now; TOML/JSON keys pass through
+	}
+	strict := yaml.NewDecoder(bytes.NewReader(data))
+	strict.KnownFields(true)
+	var probe Config
+	err := strict.Decode(&probe)
+	if err == nil {
+		return
+	}
+	for _, line := range strings.Split(err.Error(), "\n") {
+		key, ok := unknownFieldName(line)
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(os.Stderr,
+			"⚠️  %s: unknown configuration key %q — ignored. Check the spelling, or upgrade ssg if the key is newer than this build (%s).\n",
+			filepath.Base(path), key, docsURL)
+	}
+}
+
+// docsURL points at the configuration reference named in the warning above.
+const docsURL = "https://github.com/spagu/ssg/blob/main/docs/CONFIGURATION.md"
+
+// unknownFieldNameRe matches yaml.v3's strict-decoding complaint, e.g.
+// `line 12: field content_sources not found in type config.Config`.
+var unknownFieldNameRe = regexp.MustCompile(`field ([A-Za-z0-9_.-]+) not found`)
+
+// unknownFieldName extracts the offending key from one yaml.v3 error line.
+func unknownFieldName(line string) (string, bool) {
+	m := unknownFieldNameRe.FindStringSubmatch(line)
+	if len(m) < 2 {
+		return "", false
+	}
+	return m[1], true
 }
 
 func normalizeYAMLLanguages(data []byte) ([]byte, []ssgi18n.LanguageConfig, error) {

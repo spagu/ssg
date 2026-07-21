@@ -68,3 +68,6 @@ templates/hugo-*/
 
 # Example project build artifacts
 examples/*/output/
+
+# Documentation site built by `make site` from docs/ (.ssg.yaml)
+.site/

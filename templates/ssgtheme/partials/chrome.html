@@ -1,0 +1,180 @@
+{{/*
+  ssgtheme — shared chrome, matching the Tradik design system's own header,
+  footer and document head.
+
+  Files under partials/ are parsed into the same template set as the theme root,
+  so these define names are callable from any role template. Each takes a dict
+  so a role can pass its own metadata:
+
+      {{ template "sc-head" (dict "Title" ... "Desc" ... "Canonical" ... "Ctx" .) }}
+*/}}
+
+{{define "sc-head"}}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Title }}</title>
+    <meta name="description" content="{{ .Desc }}">
+    <link rel="canonical" href="https://{{ .Ctx.Domain }}{{ .Canonical }}">
+    <meta name="robots" content="index, follow">
+    <meta name="generator" content="SSG">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+
+    <meta property="og:type" content="{{ if .OgType }}{{ .OgType }}{{ else }}website{{ end }}">
+    <meta property="og:site_name" content="{{ .Ctx.Domain }}">
+    <meta property="og:title" content="{{ .Title }}">
+    <meta property="og:description" content="{{ .Desc }}">
+    <meta property="og:url" content="https://{{ .Ctx.Domain }}{{ .Canonical }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ .Title }}">
+    <meta name="twitter:description" content="{{ .Desc }}">
+
+    {{/* Geist / Instrument Serif / Geist Mono are the design system's faces.
+         Delete these two tags to drop every external request — the token stacks
+         fall back to system-ui and Georgia. See the theme README. */}}
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap">
+    <link rel="stylesheet" href="/css/style.css">
+
+    {{/* Google Tag Manager — replace GTM-XXXXXXX with the real container ID.
+         Inert until then: the loader returns early while the placeholder is
+         still in place, so no request is made. */}}
+    <script>
+      (function (w, d, s, l, i) {
+        if (!i || i.indexOf('XXXXXXX') !== -1) { return; }
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', 'GTM-XXXXXXX');
+    </script>
+    {{/* Apply the stored colour scheme before paint so the page never flashes. */}}
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('ssgtheme-scheme');
+          if (t) { document.documentElement.setAttribute('data-theme', t); }
+        } catch (e) { /* private mode — fall back to the OS preference */ }
+      })();
+    </script>
+{{end}}
+
+{{define "sc-header"}}
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="/">
+                <span class="brand-text">
+                    <span class="brand-name">{{ .Domain }}</span>
+                    <span class="brand-sub">Static site generator</span>
+                </span>
+            </a>
+            <div class="header-actions">
+                {{/* The header navigation is a fixed, hand-picked set from
+                     `variables.nav` — a documentation set holds dozens of
+                     guides and listing them all turns the bar into a wall.
+                     The footer carries the full directory. */}}
+                <nav aria-label="Main">
+                    <ul class="nav-list" id="nav-list">
+                        {{ range .Vars.nav }}
+                        <li><a href="{{ .url }}">{{ .label }}</a></li>
+                        {{ end }}
+                    </ul>
+                </nav>
+                {{ if .Vars.github_repo }}
+                {{/* Star count is filled in by js/main.js when GitHub answers;
+                     it stays hidden otherwise, so the header never shows a
+                     dangling "★ —". */}}
+                <a class="stars" id="gh-stars" hidden
+                   data-repo="{{ .Vars.github_repo }}"
+                   href="https://github.com/{{ .Vars.github_repo }}">
+                    <span aria-hidden="true">★</span>
+                    <span id="gh-stars-count"></span>
+                    <span class="visually-hidden">stars on GitHub</span>
+                </a>
+                {{ end }}
+                {{ if .Vars.version }}
+                <span class="version-note">
+                    SSG <a href="https://github.com/{{ if .Vars.github_repo }}{{ .Vars.github_repo }}{{ else }}spagu/ssg{{ end }}/releases/tag/v{{ .Vars.version }}">v{{ .Vars.version }}</a>
+                </span>
+                {{ end }}
+                <button class="theme-toggle" id="theme-toggle" type="button"
+                        aria-pressed="false">
+                    <span aria-hidden="true">◐</span>
+                    <span class="visually-hidden">Switch colour scheme</span>
+                </button>
+            </div>
+        </div>
+    </header>
+{{end}}
+
+{{define "sc-footer"}}
+    {{/* Guides are split across two balanced columns so the footer reads as a
+         directory rather than one long list. */}}
+    {{ $pages := .Site.Pages }}
+    {{ $half := div (add (len $pages) 1) 2 }}
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="brand-block">
+                    <span class="brand-name">{{ .Domain }}</span>
+                    <span class="brand-tag">
+                        A fast static site generator written in Go. Markdown, remote
+                        APIs, SQL and CMS content in — one hardened static site out.
+                    </span>
+                    <a class="btn btn--secondary"
+                       href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}">
+                        View source
+                    </a>
+                </div>
+                <nav class="footer-nav" aria-label="Footer">
+                    <div class="col">
+                        <h2>Guides</h2>
+                        <ul>
+                            {{ range $i, $p := $pages }}{{ if lt $i $half }}
+                            <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
+                            {{ end }}{{ end }}
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <h2>Reference</h2>
+                        <ul>
+                            {{ range $i, $p := $pages }}{{ if ge $i $half }}
+                            <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
+                            {{ end }}{{ end }}
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <h2>Project</h2>
+                        <ul>
+                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}">Source code</a></li>
+                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/issues">Issue tracker</a></li>
+                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/blob/main/CHANGELOG.md">Changelog</a></li>
+                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/releases">Releases</a></li>
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <h2>This site</h2>
+                        <ul>
+                            <li><a href="/sitemap.xml">Sitemap</a></li>
+                            <li><a href="/robots.txt">robots.txt</a></li>
+                            <li><a href="/search-index.json">Search index</a></li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+            <div class="legal">
+                <span>&copy; {{ .Domain }} — documentation built from the repository's own <code class="reg">docs/</code>.</span>
+                <span>
+                    Generated by SSG{{ if .Vars.version }} {{ .Vars.version }}{{ end }}.
+                    Visual language: <a href="https://designstyles.tradik.com/">Tradik design system</a>.
+                    Content licensed under the project's
+                    <a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/blob/main/LICENSE">BSD-3-Clause licence</a>.
+                </span>
+            </div>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+{{end}}

@@ -201,6 +201,19 @@ type Config struct {
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
 	SanitizeHTML bool
 
+	// ContentSources are extra local Markdown roots merged into the site
+	// alongside (or instead of) the primary source (CONTENT-002).
+	ContentSources []ContentSource
+
+	// LinkRewrites maps an href prefix to its replacement, for links that point
+	// at repository files the site never publishes (LINK-002).
+	LinkRewrites map[string]string
+
+	// AutoExcerpt derives a missing excerpt from the content's opening
+	// paragraph instead of leaving it empty (GO-057). Off by default: it
+	// changes listing text, feed summaries and meta descriptions.
+	AutoExcerpt bool
+
 	// ShortcodeErrors decides what a shortcode that fails to render leaves
 	// behind: "" / "drop" (historical behaviour — a warning and nothing in the
 	// page), "keep" (the shortcode's raw source, so the gap is visible) or
@@ -261,6 +274,7 @@ type Generator struct {
 	shortcodeTmpls    map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
+	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
 	gitRoot           string                         // repo top-level dir for lastmod lookups (PERF-001)
 	gitTimes          map[string]time.Time           // repo-relative path → last commit date (PERF-001)
@@ -806,6 +820,13 @@ func (g *Generator) loadContent() error {
 		return err
 	}
 
+	// Extra local Markdown roots (content_sources) join the site next, so a
+	// docs/ folder elsewhere in the repository is treated like native content
+	// (CONTENT-002).
+	if err := g.loadExtraContentSources(); err != nil {
+		return err
+	}
+
 	// Content-mode CMS imports join the site before finalize so they get the
 	// same URL/translation/taxonomy treatment as native content.
 	g.mergeCMSContent()
@@ -1324,6 +1345,11 @@ func (g *Generator) postsPath() string {
 
 // loadContentFromFiles loads content from the local filesystem
 func (g *Generator) loadContentFromFiles() error {
+	// A site may consist of content_sources alone: with no primary source there
+	// is no source tree to read, and metadata.json is not required (CONTENT-002).
+	if g.config.Source == "" && len(g.config.ContentSources) > 0 {
+		return nil
+	}
 	sourcePath := filepath.Join(g.config.ContentDir, g.config.Source)
 
 	// Load metadata.json
@@ -1586,6 +1612,11 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		if page.Status == "publish" {
 			page.SourceDir = dir
 			page.SourceFile = entry.Name() // original filename e.g. "AUTHENTICATION.md"
+			// auto_excerpt fills the excerpt from the opening paragraph for
+			// content that has no "## Excerpt" section (GO-057, opt-in).
+			if g.config.AutoExcerpt && page.Excerpt == "" {
+				page.Excerpt = parser.DeriveExcerpt(page.Content)
+			}
 			page.Slug = g.normalizeSlug(page.Slug, entry.Name())
 
 			// Use file modification time as fallback for missing dates
@@ -1661,12 +1692,19 @@ func (g *Generator) loadTemplates() error {
 	}
 	warnShellTemplates(tmpl, g.config.Quiet)
 
-	// Also load templates from layouts subdirectory if it exists
-	layoutsPath := filepath.Join(templatePath, "layouts", htmlGlobPattern)
-	if files, _ := filepath.Glob(layoutsPath); len(files) > 0 {
-		tmpl, err = tmpl.ParseGlob(layoutsPath)
-		if err != nil {
-			return fmt.Errorf("parsing layout templates: %w", err)
+	// Also load templates from the layouts/ and partials/ subdirectories when
+	// they exist. partials/ is part of the documented theme structure and holds
+	// the {{define}} blocks a theme shares between roles (header, footer, head);
+	// it was listed in docs/TEMPLATES.md but never parsed, so those defines were
+	// silently unavailable (DOC-014).
+	for _, sub := range []string{"layouts", "partials"} {
+		subPath := filepath.Join(templatePath, sub, htmlGlobPattern)
+		files, _ := filepath.Glob(subPath)
+		if len(files) == 0 {
+			continue
+		}
+		if tmpl, err = tmpl.ParseGlob(subPath); err != nil {
+			return fmt.Errorf("parsing %s templates: %w", sub, err)
 		}
 	}
 
@@ -1867,25 +1905,31 @@ func (g *Generator) explicitMdLinkLang(base, fallback string) string {
 }
 
 // rewriteMdLinks replaces relative .md hrefs in HTML with final output URLs.
-// Handles: href="file.md", href="./file.md", href="../dir/file.md". Rendering
-// language comes from g.currentLang (set before each page render); unresolved
-// multilingual targets warn once per (link, language) and are left as-is.
-var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
+// Handles: href="file.md", href="./file.md", href="../dir/file.md", each with
+// an optional "#anchor" or "?query" suffix which is carried over to the
+// rewritten URL — a deep link between two documents used not to match at all
+// and silently shipped as a dead .md href (GO-056). Rendering language comes
+// from g.currentLang (set before each page render); unresolved multilingual
+// targets warn once per (link, language) and are left as-is.
+var mdLinkRe = regexp.MustCompile(`href="([^"#?]*\.md)([#?][^"]*)?"`)
 
 func (g *Generator) rewriteMdLinks(html string, mdLinkMap map[string]map[string]string) string {
 	return mdLinkRe.ReplaceAllStringFunc(html, func(match string) string {
-		// Extract path from href="..."
-		inner := match[6 : len(match)-1] // strip href=" and "
-		// Get base filename (last path segment)
-		base := filepath.Base(inner)
+		parts := mdLinkRe.FindStringSubmatch(match)
+		if len(parts) < 3 {
+			return match
+		}
+		// parts[1] is the .md path, parts[2] the "#anchor"/"?query" tail (may be "").
+		base := filepath.Base(parts[1])
+		suffix := parts[2]
 		lang := g.explicitMdLinkLang(base, g.currentLang)
 		if url, ok := g.resolveMdLink(mdLinkMap[base], lang); ok {
-			return `href="` + url + `"`
+			return `href="` + url + suffix + `"`
 		}
 		// Try without .md extension
 		noExt := strings.TrimSuffix(base, ".md")
 		if url, ok := g.resolveMdLink(mdLinkMap[noExt], lang); ok {
-			return `href="` + url + `"`
+			return `href="` + url + suffix + `"`
 		}
 		g.warnMdLink(base, lang, mdLinkMap)
 		return match // no match — leave as-is
@@ -1930,6 +1974,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"recentPosts":          g.tmplRecentPosts,
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
+		"add":                  tmplAdd, // arithmetic for themes (TPL-003)
+		"sub":                  tmplSub,
+		"mul":                  tmplMul,
+		"div":                  tmplDiv,
 		"t":                    g.translationValue,
 		"hasTranslation":       func(lang string, page any) bool { return g.translationURL(lang, page) != "" },
 		"translationURL":       g.translationURL,
@@ -2040,6 +2088,7 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		if g.config.RewriteMdLinks {
 			s = g.rewriteMdLinks(s, mdLinkMap)
 		}
+		s = g.applyLinkRewrites(s)
 		if g.sanitizer != nil {
 			s = g.sanitizer.Sanitize(s) // FE-005 / SEC-003: strip XSS from untrusted content
 			for i, html := range protected {
@@ -2410,6 +2459,10 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"stripHTML":       tmplStripHTML,
 		"default":         tmplDefault,
 		"dict":            tmplDict,
+		"add":             tmplAdd,
+		"sub":             tmplSub,
+		"mul":             tmplMul,
+		"div":             tmplDiv,
 
 		// Safe, deterministic conditional helpers (v1.8.3). Collection helpers
 		// that depend on site-wide data stay normal-template-only by design.

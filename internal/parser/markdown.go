@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ type markdownParser struct {
 	noFrontmatter    bool   // file has no opening "---": whole file is content (GO-009)
 	inFence          bool   // inside a fenced code block (GO-027)
 	fence            string // marker that opened the current fence: "```" or "~~~"
+	firstH1          string // first "# " heading, the title fallback (GO-057)
 }
 
 // ParseMarkdownFile parses a markdown file with YAML frontmatter
@@ -165,7 +167,12 @@ func (p *markdownParser) processContentLine(line string) {
 		return
 	}
 	if strings.HasPrefix(line, "# ") {
-		return // Skip title line (WP-export artifact)
+		// Skipped as a WP-export artifact — but remembered, because a plain
+		// Markdown file with no frontmatter has no other title (GO-057).
+		if p.firstH1 == "" {
+			p.firstH1 = strings.TrimSpace(strings.Trim(strings.TrimPrefix(line, "# "), "#"))
+		}
+		return
 	}
 	p.writeContentLine(line)
 }
@@ -204,6 +211,13 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 	// content file as published instead of silently dropping it (GO-009).
 	if p.noFrontmatter && page.Status == "" {
 		page.Status = "publish"
+	}
+
+	// …and it has no title either, which used to leave every listing, menu and
+	// <title> for that page blank. Fall back to the document's own first level-1
+	// heading, the way a reader would name it (GO-057).
+	if page.Title == "" {
+		page.Title = p.derivedTitle()
 	}
 
 	// Copy extra fields (those not in the struct)
@@ -393,4 +407,100 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Layout:   pf.Layout,
 		Template: pf.Template,
 	}
+}
+
+// derivedTitle returns the title inferred from the document itself: the first
+// "# " heading (captured while parsing, since that line is stripped from the
+// content), otherwise a Setext heading ("Title" over "===="), which plain
+// README-style documents often use. Empty when the document has neither.
+func (p *markdownParser) derivedTitle() string {
+	if p.firstH1 != "" {
+		return p.firstH1
+	}
+	lines := strings.Split(p.content.String(), "\n")
+	for i := 1; i < len(lines); i++ {
+		underline := strings.TrimSpace(lines[i])
+		if len(underline) < 2 || strings.Trim(underline, "=") != "" {
+			continue
+		}
+		if title := strings.TrimSpace(lines[i-1]); title != "" {
+			return title
+		}
+	}
+	return ""
+}
+
+// ExcerptMaxRunes bounds a derived excerpt. Long enough for a card or a meta
+// description, short enough that search engines do not truncate mid-thought.
+const ExcerptMaxRunes = 200
+
+// inlineMarkdownRe strips the inline syntax that would otherwise show up as
+// punctuation noise in a card or a <meta description>: emphasis markers,
+// inline code ticks and link/image syntax (the label is kept, the URL dropped).
+var inlineMarkdownRe = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)|[*_` + "`" + `]+`)
+
+// DeriveExcerpt returns a document's opening paragraph as plain text, capped at
+// ExcerptMaxRunes on a word boundary. Headings, fenced code, tables, images,
+// Liquid guards, blockquotes and list markers are skipped so the excerpt starts
+// at the first real sentence. Opt-in via auto_excerpt (GO-057): a page with no
+// "## Excerpt" section keeps its historically empty excerpt otherwise.
+func DeriveExcerpt(content string) string {
+	var para []string
+	inFence := false
+	for _, raw := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(raw)
+		if marker := fenceMarker(line); marker != "" {
+			inFence = !inFence
+			if len(para) > 0 {
+				break
+			}
+			continue
+		}
+		if inFence {
+			continue // code is not prose
+		}
+		if line == "" {
+			if len(para) > 0 {
+				break // end of the first paragraph
+			}
+			continue
+		}
+		if skipForExcerpt(line) {
+			if len(para) > 0 {
+				break
+			}
+			continue
+		}
+		para = append(para, line)
+	}
+	text := inlineMarkdownRe.ReplaceAllString(strings.Join(para, " "), "$1")
+	return truncateRunes(strings.TrimSpace(text), ExcerptMaxRunes)
+}
+
+// skipForExcerpt reports whether a line is structure rather than prose.
+func skipForExcerpt(line string) bool {
+	switch {
+	case strings.HasPrefix(line, "{%"), // Liquid guards such as {% raw %}
+		strings.HasPrefix(line, "#"),
+		strings.HasPrefix(line, ">"), strings.HasPrefix(line, "|"),
+		strings.HasPrefix(line, "!["), strings.HasPrefix(line, "<"),
+		strings.HasPrefix(line, "- "), strings.HasPrefix(line, "* "),
+		strings.HasPrefix(line, "---"), strings.HasPrefix(line, "==="):
+		return true
+	}
+	return false
+}
+
+// truncateRunes cuts text to at most max runes, preferring the last word
+// boundary, and marks the cut with an ellipsis.
+func truncateRunes(text string, max int) string {
+	runes := []rune(text)
+	if len(runes) <= max {
+		return text
+	}
+	cut := string(runes[:max])
+	if idx := strings.LastIndex(cut, " "); idx > max/2 {
+		cut = cut[:idx]
+	}
+	return strings.TrimRight(cut, " ,;:.") + "…"
 }

@@ -1,0 +1,31 @@
+{{define "page.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ template "sc-head" (dict
+    "Title" (printf "%s — %s" .Page.Title .Domain)
+    "Desc" .Page.Excerpt
+    "Canonical" (printf "/%s/" .Page.Slug)
+    "OgType" "article"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "sc-header" . }}
+
+<main class="main-content" id="main-content">
+    <div class="container">
+        <article class="article prose" id="page-{{ .Page.Slug }}">
+            <p class="eyebrow">Guide</p>
+            <h1>{{ .Page.Title }}</h1>
+            <p class="article-meta">
+                <span>{{ .Page.ReadingTime }} min read</span>
+                <span>{{ .Page.WordCount }} words</span>
+                {{ if .Page.Modified }}<span>Updated {{ .Page.Modified.Format "2 January 2006" }}</span>{{ end }}
+            </p>
+            {{ .Page.Content | safeHTML }}
+        </article>
+    </div>
+</main>
+
+{{ template "sc-footer" . }}
+</body>
+</html>{{end}}

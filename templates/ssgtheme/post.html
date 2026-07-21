@@ -1,0 +1,51 @@
+{{define "post.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ template "sc-head" (dict
+    "Title" (printf "%s — %s" .Post.Title .Domain)
+    "Desc" .Post.Excerpt
+    "Canonical" .Post.GetURL
+    "OgType" "article"
+    "Ctx" .) }}
+    <meta property="article:published_time" content="{{ .Post.Date.Format "2006-01-02" }}">
+</head>
+<body>
+{{ template "sc-header" . }}
+
+<main class="main-content" id="main-content">
+    <div class="container">
+        <article class="article prose" id="post-{{ .Post.Slug }}">
+            <p class="eyebrow">Post</p>
+            <h1>{{ .Post.Title }}</h1>
+            <p class="article-meta">
+                <time datetime="{{ .Post.Date.Format "2006-01-02" }}">
+                    {{ .Post.Date.Format "2 January 2006" }}
+                </time>
+                <span>{{ .Post.ReadingTime }} min read</span>
+                {{ with index .Site.Authors .Post.Author }}<span>{{ .Name }}</span>{{ end }}
+            </p>
+            {{ if .Post.Tags }}
+            <p class="article-meta">
+                {{ range .Post.Tags }}<a class="badge" href="{{ termURL "tag" . }}">{{ . }}</a>{{ end }}
+            </p>
+            {{ end }}
+
+            {{ .Post.Content | safeHTML }}
+
+            {{ if or .Post.SeriesPrevURL .Post.SeriesNextURL }}
+            <nav class="pager" aria-label="Series">
+                {{ if .Post.SeriesPrevURL }}
+                <a class="btn btn--secondary" href="{{ .Post.SeriesPrevURL }}">← {{ .Post.SeriesPrevTitle }}</a>
+                {{ end }}
+                {{ if .Post.SeriesNextURL }}
+                <a class="btn btn--secondary" href="{{ .Post.SeriesNextURL }}">{{ .Post.SeriesNextTitle }} →</a>
+                {{ end }}
+            </nav>
+            {{ end }}
+        </article>
+    </div>
+</main>
+
+{{ template "sc-footer" . }}
+</body>
+</html>{{end}}

@@ -21,15 +21,24 @@ func (g *Generator) imageProcessor() *images.Processor {
 	if staticDir == "" {
 		staticDir = defaultStaticDir
 	}
+	// Search order per the spec, plus every extra Markdown root: an image kept
+	// beside content in a content_sources directory resolves like one beside
+	// the primary source (CONTENT-002).
+	dirs := []string{
+		"assets",
+		staticDir,
+		filepath.Join(g.config.ContentDir, g.config.Source),
+		filepath.Join(g.config.TemplatesDir, g.config.Template),
+	}
+	for _, src := range g.config.ContentSources {
+		if src.Path != "" {
+			dirs = append(dirs, src.Path)
+		}
+	}
 	g.images = images.New(images.Config{
-		SourceDirs: []string{
-			"assets",
-			staticDir,
-			filepath.Join(g.config.ContentDir, g.config.Source),
-			filepath.Join(g.config.TemplatesDir, g.config.Template),
-		},
-		OutputDir: g.config.OutputDir,
-		Quiet:     g.config.Quiet,
+		SourceDirs: dirs,
+		OutputDir:  g.config.OutputDir,
+		Quiet:      g.config.Quiet,
 	})
 	return g.images
 }

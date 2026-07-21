@@ -1,0 +1,40 @@
+{{define "category.html"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+{{ template "sc-head" (dict
+    "Title" (printf "%s — %s" .Name .Domain)
+    "Desc" (printf "Everything filed under %s on %s." .Name .Domain)
+    "Canonical" (printf "/%s/%s/" .Kind .Category.Slug)
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "sc-header" . }}
+
+<main class="main-content" id="main-content">
+    <div class="container">
+        <section class="sections" id="archive-{{ .Category.Slug }}">
+            <p class="eyebrow">{{ .Kind }}</p>
+            <h1 class="section-title">{{ .Name }}</h1>
+            <p class="section-lead">
+                {{ len .Posts }} entr{{ if eq (len .Posts) 1 }}y{{ else }}ies{{ end }}.
+            </p>
+            <ul class="cards">
+                {{ range .Posts }}
+                <li>
+                    <a class="card" href="{{ .GetURL }}">
+                        <h3>{{ .Title }}</h3>
+                        <p class="card-meta">
+                            <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 January 2006" }}</time>
+                        </p>
+                        <p>{{ .Excerpt }}</p>
+                    </a>
+                </li>
+                {{ end }}
+            </ul>
+        </section>
+    </div>
+</main>
+
+{{ template "sc-footer" . }}
+</body>
+</html>{{end}}

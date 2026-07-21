@@ -37,6 +37,7 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
+        site site-watch \
         clean install uninstall release test-action
 
 # Default target
@@ -176,6 +177,18 @@ generate-simple: build ## 🏗️  Generate site with simple template
 serve: generate ## 🌐 Generate and serve site locally
 	@echo "${BLUE}🌐 Starting local server on http://localhost:8888${RESET}"
 	@cd output && python3 -m http.server 8888
+
+# Documentation site — this repository's own docs/ rendered with the bundled
+# ssgtheme, configured by ./.ssg.yaml. No content is copied: content_sources
+# reads docs/ in place, so editing a guide and rebuilding is the whole loop.
+site: build ## 📚 Build the SSG documentation site into .site/
+	@echo "${BLUE}📚 Building documentation site...${RESET}"
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config .ssg.yaml
+	@echo "${GREEN}✅ Documentation site generated in .site/${RESET}"
+
+site-watch: build ## 👀 Build the documentation site and rebuild+serve on change
+	@echo "${BLUE}👀 Watching docs/ and templates/ — http://127.0.0.1:8888${RESET}"
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config .ssg.yaml --watch --http
 
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"
