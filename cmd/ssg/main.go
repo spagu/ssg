@@ -449,6 +449,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Outputs:           cfg.Outputs,
 		SearchIndex:       cfg.SearchIndex,
 		SanitizeHTML:      cfg.SanitizeHTML,
+		ShortcodeErrors:   cfg.ShortcodeErrors,
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -742,6 +743,10 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
 			cfg.CheckLinks = v
 		}
+	case strings.HasPrefix(arg, "--shortcode-errors="):
+		if v := strings.TrimPrefix(arg, "--shortcode-errors="); v == "drop" || v == "keep" || v == "strict" {
+			cfg.ShortcodeErrors = v
+		}
 	case strings.HasPrefix(arg, "--outputs="):
 		cfg.Outputs = splitCSV(strings.TrimPrefix(arg, "--outputs="))
 	case strings.HasPrefix(arg, "--languages="):
@@ -775,6 +780,7 @@ var extraEqualValueFlags = []string{
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
 	"--wrangler-config", "--workerd-config", "--wrangler-dir", "--workerd-dir",
+	"--shortcode-errors",
 }
 
 // valueFlags returns every flag that consumes a value, in bare (no "=") form —
@@ -1191,6 +1197,9 @@ func printUsage() {
 	fmt.Println("  --outputs=LIST         - Extra output formats per page, comma-separated (e.g. json)")
 	fmt.Println("  --check-links          - Validate internal links after build (warn mode)")
 	fmt.Println("  --check-links=MODE     - warn | strict (strict fails the build on dead links)")
+	fmt.Println("  --shortcode-errors=M   - drop (default) | keep | strict — what a shortcode that")
+	fmt.Println("                           fails to render leaves in the page (keep = its raw source,")
+	fmt.Println("                           strict = keep and fail the build)")
 	fmt.Println("")
 	fmt.Println("Internationalisation (docs/I18N.md):")
 	fmt.Println("  --languages=LIST       - Build languages, comma-separated (e.g. en,pl)")

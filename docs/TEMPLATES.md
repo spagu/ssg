@@ -344,8 +344,38 @@ Shortcode template paths are relative to the selected theme. A configured
 </aside>
 ```
 
-Bracket shortcodes additionally expose `.Attrs` and `.InnerContent`. Configuration
-and supported forms are documented in
+### What is in scope inside a shortcode template
+
+A shortcode template is executed against the **shortcode itself**, not against
+the page — `.` and `$` are the same object. In scope:
+
+| Expression | Source |
+|---|---|
+| `.Name` `.Type` `.Title` `.Text` `.Url` `.Logo` `.Legal` `.Ranking` `.Tags` | the `shortcodes:` entry |
+| `.Data.key` | the entry's `data:` map (values are strings) |
+| `.Attrs.key`, `.InnerContent` | the invocation: `[name key="v"]inner[/name]` |
+| `.Vars.key`, `$.Vars.key` | site-wide `variables:` (same map page templates see) |
+
+**Not** in scope: `.Page`, `.Site`, `.Posts`, `.Categories` or anything else
+from a page template's context. A shortcode has no page — the same instance may
+render on many pages — so reaching for page data is a template error.
+
+A template error does not stop the build by default: the shortcode is dropped
+from the page and a warning is printed. Set `shortcode_errors` (or
+`--shortcode-errors=`) to change that:
+
+| Mode | Result |
+|---|---|
+| `drop` (default) | warning; the shortcode is removed from the page |
+| `keep` | warning; the shortcode's **raw source** stays in the page, so the gap is visible |
+| `strict` | as `keep`, and the build fails after rendering |
+
+`keep` and `strict` are the ones to use in CI: a page that quietly lost its
+payment widget still looks fine, whereas one showing `[stripe_form]` does not.
+The raw source also survives HTML minification, which an HTML comment marker
+would not.
+
+Configuration and supported forms are documented in
 [CONFIGURATION.md](CONFIGURATION.md#shortcodes).
 
 ## Creating a theme

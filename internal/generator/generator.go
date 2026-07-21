@@ -57,6 +57,15 @@ type Shortcode struct {
 	// Runtime fields (set per-invocation from inline attributes/content)
 	Attrs        map[string]string // Inline attributes from [name key="val"]
 	InnerContent string            // Content between [name]...[/name]
+	// Vars mirrors the site-wide variables: (config) so {{$.Vars.key}} means the
+	// same inside a shortcode template as in every other template (issue #37).
+	// Filled per render, never from the config file.
+	Vars map[string]interface{}
+	// Raw is the source that produced this invocation ("{{promo}}",
+	// `[promo a="b"]…[/promo]`). A shortcode whose template fails to render is
+	// replaced by this text rather than by nothing, so the gap is visible in the
+	// published page instead of silently shipping (issue #37).
+	Raw string
 }
 
 // MddbConfig holds MDDB connection settings for generator
@@ -191,6 +200,12 @@ type Config struct {
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
 	SanitizeHTML bool
+
+	// ShortcodeErrors decides what a shortcode that fails to render leaves
+	// behind: "" / "drop" (historical behaviour — a warning and nothing in the
+	// page), "keep" (the shortcode's raw source, so the gap is visible) or
+	// "strict" (keep, then fail the build). Issue #37.
+	ShortcodeErrors string
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -243,14 +258,15 @@ type Generator struct {
 	engineTmpls map[string]engine.Template
 	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
-	shortcodeTmpls map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
-	bracketRes     map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
-	gitOnce        sync.Once                      // guards the single git-log scan (PERF-001)
-	gitRoot        string                         // repo top-level dir for lastmod lookups (PERF-001)
-	gitTimes       map[string]time.Time           // repo-relative path → last commit date (PERF-001)
-	refCache       map[string]bool                // link-checker target memo (PERF-009)
-	siteLoc        *time.Location                 // resolved Timezone; nil = no conversion (I18N-001)
-	langLocs       map[string]*time.Location      // per-language zone overrides (I18N-001)
+	shortcodeTmpls    map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
+	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
+	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
+	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
+	gitRoot           string                         // repo top-level dir for lastmod lookups (PERF-001)
+	gitTimes          map[string]time.Time           // repo-relative path → last commit date (PERF-001)
+	refCache          map[string]bool                // link-checker target memo (PERF-009)
+	siteLoc           *time.Location                 // resolved Timezone; nil = no conversion (I18N-001)
+	langLocs          map[string]*time.Location      // per-language zone overrides (I18N-001)
 
 	// mdCache memoizes goldmark conversions keyed by the exact markdown source, so
 	// feeds, the search index, JSON output and per-path renders do not re-convert
@@ -561,6 +577,12 @@ func (g *Generator) Generate() error {
 	}
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
+		return err
+	}
+
+	// Fail here rather than at the end: everything after this only decorates
+	// output whose content blocks are already known to be incomplete (issue #37).
+	if err := g.shortcodeErrorCheck(); err != nil {
 		return err
 	}
 
@@ -2208,6 +2230,7 @@ func (g *Generator) processShortcodesWith(content string, render func(Shortcode)
 		if !ok {
 			return "" // Remove undefined shortcodes
 		}
+		sc.Raw = match
 		return render(sc)
 	})
 
@@ -2245,6 +2268,7 @@ func (g *Generator) processBracketShortcodesWith(content string, render func(Sho
 				return match
 			}
 			sc := g.shortcodeWithOverrides(baseSc, parts[1], parts[2])
+			sc.Raw = match
 			return render(sc)
 		})
 
@@ -2255,12 +2279,15 @@ func (g *Generator) processBracketShortcodesWith(content string, render func(Sho
 				return match
 			}
 			sc := g.shortcodeWithOverrides(baseSc, parts[1], "")
+			sc.Raw = match
 			return render(sc)
 		})
 
 		// Third: simple [name]
-		content = res.simple.ReplaceAllStringFunc(content, func(_ string) string {
-			return render(baseSc)
+		content = res.simple.ReplaceAllStringFunc(content, func(match string) string {
+			sc := baseSc
+			sc.Raw = match
+			return render(sc)
 		})
 	}
 
@@ -2292,8 +2319,7 @@ func parseShortcodeAttrs(s string) map[string]string {
 // costs one disk read and one parse instead of thousands (PERF-002).
 func (g *Generator) renderShortcode(sc Shortcode) string {
 	if sc.Template == "" {
-		fmt.Printf("   ⚠️  Warning: shortcode '%s' has no template defined, skipping\n", sc.Name)
-		return ""
+		return g.shortcodeFailed(sc, fmt.Sprintf("shortcode %q has no template defined", sc.Name))
 	}
 
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
@@ -2307,16 +2333,50 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 		g.shortcodeTmpls[templatePath] = tmpl // nil is cached too: warn once, not per page
 	}
 	if tmpl == nil {
-		return ""
+		return g.shortcodeFailed(sc, fmt.Sprintf("shortcode %q: template %s could not be loaded", sc.Name, templatePath))
 	}
+
+	// Site variables are supplied here rather than stored on the configured
+	// shortcode, so one map is shared by every invocation (issue #37).
+	sc.Vars = g.config.Variables
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, sc); err != nil {
-		fmt.Printf("   ⚠️  Warning: shortcode template execute error: %v\n", err)
-		return ""
+		return g.shortcodeFailed(sc, fmt.Sprintf("shortcode %q: %v", sc.Name, err))
 	}
 
 	return buf.String()
+}
+
+// shortcodeFailed records a shortcode that could not be rendered and returns
+// what takes its place in the page, per shortcode_errors:
+//
+//   - "" / "drop" (default, unchanged since before issue #37): nothing, so a
+//     site that already tolerates a failing shortcode keeps its exact output.
+//   - "keep" / "strict": the shortcode's raw source, which keeps the failure
+//     visible — a page that quietly lost its payment widget looks fine, one
+//     showing `[stripe_form]` does not — and survives HTML minification, which
+//     an HTML comment would not.
+func (g *Generator) shortcodeFailed(sc Shortcode, msg string) string {
+	fmt.Printf("   ⚠️  Warning: %s\n", msg)
+	g.shortcodeFailures = append(g.shortcodeFailures, msg)
+	switch g.config.ShortcodeErrors {
+	case "keep", "strict":
+		return sc.Raw
+	default:
+		return ""
+	}
+}
+
+// shortcodeErrorCheck fails the build when shortcode_errors is "strict" and any
+// shortcode failed to render. Rendering is sequential, so the slice needs no
+// lock; messages are already deduplicated per template by the parse cache.
+func (g *Generator) shortcodeErrorCheck() error {
+	if g.config.ShortcodeErrors != "strict" || len(g.shortcodeFailures) == 0 {
+		return nil
+	}
+	return fmt.Errorf("shortcode_errors: strict — %d shortcode(s) failed to render:\n   - %s",
+		len(g.shortcodeFailures), strings.Join(g.shortcodeFailures, "\n   - "))
 }
 
 // parseShortcodeTemplate loads one shortcode template from disk; nil on failure.

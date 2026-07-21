@@ -292,6 +292,12 @@ type Config struct {
 	// untrusted mddb source (FE-005 / SEC-003). Default off (trusted local content).
 	SanitizeHTML bool `yaml:"sanitize_html" toml:"sanitize_html" json:"sanitize_html"`
 
+	// ShortcodeErrors decides what a shortcode whose template fails to render
+	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
+	// and nothing in the page), "keep" (its raw source, so the gap is visible in
+	// the output) or "strict" (keep, and fail the build). Issue #37.
+	ShortcodeErrors string `yaml:"shortcode_errors" toml:"shortcode_errors" json:"shortcode_errors"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
 }

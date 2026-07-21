@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🔣 **Site variables reach shortcode templates** (issue #37) — `{{$.Vars.key}}`
+  / `{{.Vars.key}}` now resolve inside a shortcode template, the same spelling
+  page templates use. Previously the template context was the `Shortcode`
+  struct alone, so `$.Vars.anything` was a template error that silently removed
+  the whole shortcode from the page while the build still exited 0.
+- 🚨 **`shortcode_errors` / `--shortcode-errors=drop|keep|strict`** (issue #37)
+  — chooses what a shortcode that fails to render leaves behind. `drop`
+  (default) keeps today's behaviour, so existing sites build byte-identically.
+  `keep` leaves the shortcode's raw source (`{{promo}}`, `[promo a="b"]`) in
+  the page, making the gap visible — a page that quietly lost its payment
+  widget looks fine, one showing `[stripe_form]` does not — and unlike an HTML
+  comment it survives minification. `strict` additionally fails the build after
+  the render step, listing every shortcode that failed.
+
+### Documentation
+- 📘 **Shortcode template scope** (issue #37) — `docs/TEMPLATES.md` now states
+  what a shortcode template can see (`.Name`…`.Tags`, `.Data`, `.Attrs`,
+  `.InnerContent`, `.Vars`) and what it cannot (`.Page`, `.Site`, `.Posts` —
+  one instance may render on many pages), with the failure modes table.
+
 ## [1.8.9] - 2026-07-21
 
 ### Added
@@ -1253,8 +1274,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.9...HEAD
-[1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.10...HEAD
+[1.8.10]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.10
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6

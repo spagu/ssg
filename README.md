@@ -279,6 +279,7 @@ Common options:
 | Generate search index | `search_index: true` | `--search-index` |
 | Add SEO metadata | `seo: true` | `--seo` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
+| Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Create ZIP package | `zip: true` | `--zip` |
 
 WebP output requires the optional `cwebp` executable. SCSS compilation requires

@@ -297,6 +297,30 @@ It supports attributes and paired content:
 Templates read inline values from `.Attrs` and paired text from
 `.InnerContent`. Unknown bracket tags remain unchanged.
 
+Site-wide `variables:` are reachable as `.Vars.key` / `$.Vars.key`, the same
+spelling page templates use. Page context (`.Page`, `.Site`, `.Posts`, …) is
+**not** in scope — one shortcode instance may render on many pages. The full
+scope table is in [TEMPLATES.md](TEMPLATES.md#what-is-in-scope-inside-a-shortcode-template).
+
+| Key | Default | CLI | Purpose |
+|---|---:|---|---|
+| `shortcode_errors` | `drop` | `--shortcode-errors` | What a shortcode that fails to render leaves in the page |
+
+- `drop` — a warning, and the shortcode is removed from the page (historical
+  behaviour, so existing sites build byte-identically).
+- `keep` — a warning, and the shortcode's raw source (`{{promo}}`,
+  `[promo a="b"]`) stays in the page, so the failure is visible rather than
+  shipping as a silently missing block.
+- `strict` — as `keep`, and the build fails once rendering finishes, listing
+  every shortcode that failed. Recommended in CI.
+
+```yaml
+variables:
+  stripe_public_key: "pk_test_123"
+
+shortcode_errors: strict
+```
+
 ## Blog, feeds and search
 
 | Key | Default | CLI | Purpose |
