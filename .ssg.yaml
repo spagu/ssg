@@ -15,6 +15,11 @@ content_sources:
   - path: docs
     type: page
     category: Documentation
+  # Posts. Filed under one category so /category/blog/ becomes the blog index
+  # the header links to.
+  - path: blog
+    type: post
+    category: Blog
 
 # Docs cross-link each other as CONFIGURATION.md, which only resolves in a
 # repository view; rewrite_md_links turns those into the built page URLs
@@ -55,6 +60,8 @@ variables:
       url: /#documentation
     - label: Configuration
       url: /configuration/
+    - label: Blog
+      url: /category/blog/
     - label: Themes
       url: /templates/
     - label: Deployment
