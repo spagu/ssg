@@ -132,7 +132,7 @@ cache in the Cloudflare dashboard if you cannot wait.
 [`.github/workflows/docs-site.yml`](../.github/workflows/docs-site.yml) and is
 a working example of everything above:
 
-- The site has **no content tree**. `.ssg.yaml` pulls `docs/` in through
+- The site has **no content tree**. `docs-site.yaml` pulls `docs/` in through
   `content_sources`, so editing a guide is the whole publishing workflow.
 - It is built with the `ssg` binary **from the commit being deployed**, not the
   released action, so the site doubles as an integration test of `main` on real

@@ -1,4 +1,10 @@
-# Local documentation site for SSG itself.
+# Documentation site for SSG itself.
+#
+# Deliberately NOT named .ssg.yaml: that filename is auto-detected by every ssg
+# invocation in this directory, so a config describing THIS site would hijack
+# any other build run from a checkout — including the action's own test jobs,
+# which is exactly what happened once the published image understood
+# content_sources. Always pass it explicitly: ssg --config docs-site.yaml
 #
 # It has no content/<source>/ tree: the pages ARE this repository's docs/ and
 # examples/ Markdown, pulled in through content_sources (CONTENT-002). Editing a
