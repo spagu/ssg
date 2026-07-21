@@ -75,6 +75,57 @@ ssg my-blog simple example.com \
 Direct Upload API, hashes the output manifest and uploads the required files; it
 does not require Wrangler.
 
+### Generated `_headers` and `_redirects`
+
+**Every build** writes `_headers` and `_redirects` into the output directory,
+whether or not you deploy to Cloudflare Pages — they are inert anywhere else.
+Pages applies them verbatim, so their content is the site's security and
+caching policy, and worth knowing before a page appears to go stale.
+
+Security headers, applied to `/*`:
+
+| Header | Value |
+|---|---|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
+
+Cache policy:
+
+| Path | `Cache-Control` |
+|---|---|
+| `/css/*`, `/js/*`, `/images/*`, `/media/*` | `public, max-age=31536000, immutable` |
+| `/*.html` and `/` | `public, max-age=3600` |
+
+The one-year `immutable` on assets assumes their filenames change when their
+contents do. That is exactly what `--fingerprint` and the image pipeline's
+content-addressed names guarantee. **Without fingerprinting, a CSS or JS file
+edited in place keeps its name and can be served from a browser cache for a
+year** — enable `fingerprint: true` for any site that deploys more than once,
+or ship your own `_headers`.
+
+`_redirects` carries the `aliases:` declared in frontmatter as `301`s, plus a
+header explaining that trailing-slash normalisation is Cloudflare's job.
+
+#### Overriding them
+
+The generated files are written **after** `static/` is copied, so a `_headers`
+of your own placed in `static/` is overwritten rather than merged. To take
+control of the policy, deploy with a post-build hook that rewrites the file, or
+keep the generated defaults and layer per-path rules in the Cloudflare
+dashboard.
+
+#### A page still shows its old content
+
+HTML is cached at the edge for an hour. After renaming a page — changing
+`post_url_format`, adding a `permalinks` pattern — the **old** URL keeps
+answering `200` from cache for up to that hour even though the new deployment
+no longer contains it, and the new URL is live immediately. Check with
+`curl -sI <url> | grep -i age` before concluding the deploy failed; purge the
+cache in the Cloudflare dashboard if you cannot wait.
+
 ### This project's own documentation site
 
 `ssg.tradik.com` is built from this repository by
