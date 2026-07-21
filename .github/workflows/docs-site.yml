@@ -27,6 +27,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "blog/**"
       - "templates/ssgtheme/**"
       - "assets/**"
       - ".ssg.yaml"
