@@ -18,7 +18,7 @@ on:
       - "blog/**"
       - "assets/**"
       - "templates/ssgtheme/**"
-      - ".ssg.yaml"
+      - "docs-site.yaml"
       - "*.md"
       - ".github/workflows/docs-site.yml"
   pull_request:
@@ -33,7 +33,7 @@ on:
       - "blog/**"
       - "assets/**"
       - "templates/ssgtheme/**"
-      - ".ssg.yaml"
+      - "docs-site.yaml"
       - "*.md"
       - ".github/workflows/docs-site.yml"
   workflow_dispatch:

@@ -179,16 +179,16 @@ serve: generate ## 🌐 Generate and serve site locally
 	@cd output && python3 -m http.server 8888
 
 # Documentation site — this repository's own docs/ rendered with the bundled
-# ssgtheme, configured by ./.ssg.yaml. No content is copied: content_sources
+# ssgtheme, configured by ./docs-site.yaml. No content is copied: content_sources
 # reads docs/ in place, so editing a guide and rebuilding is the whole loop.
 site: build ## 📚 Build the SSG documentation site into .site/
 	@echo "${BLUE}📚 Building documentation site...${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) --config .ssg.yaml
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml
 	@echo "${GREEN}✅ Documentation site generated in .site/${RESET}"
 
 site-watch: build ## 👀 Build the documentation site and rebuild+serve on change
 	@echo "${BLUE}👀 Watching docs/ and templates/ — http://127.0.0.1:8888${RESET}"
-	@./$(BUILD_DIR)/$(BINARY_NAME) --config .ssg.yaml --watch --http
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml --watch --http
 
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"

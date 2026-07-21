@@ -1,5 +1,5 @@
 # Publishes SSG's own documentation site (docs/ rendered with the bundled
-# ssgtheme, configured by ./.ssg.yaml) to Cloudflare Pages.
+# ssgtheme, configured by ./docs-site.yaml) to Cloudflare Pages.
 #
 # The site is built with the ssg binary from THIS commit rather than the
 # released action, for two reasons: it exercises the current code on real
@@ -30,7 +30,7 @@ on:
       - "blog/**"
       - "templates/ssgtheme/**"
       - "assets/**"
-      - ".ssg.yaml"
+      - "docs-site.yaml"
       - "cmd/**"
       - "internal/**"
       - ".github/workflows/docs-site.yml"
@@ -43,7 +43,7 @@ on:
       - "blog/**"
       - "templates/ssgtheme/**"
       - "assets/**"
-      - ".ssg.yaml"
+      - "docs-site.yaml"
       - "cmd/**"
       - "internal/**"
       - ".github/workflows/docs-site.yml"
@@ -100,7 +100,7 @@ jobs:
       # touches Cloudflare, so it is skipped there.
       - name: Verify the site builds (pull request)
         if: github.event_name == 'pull_request'
-        run: ./build/ssg --config .ssg.yaml --check-links=strict
+        run: ./build/ssg --config docs-site.yaml --check-links=strict
 
       - name: Ensure the Pages project exists
         if: github.event_name != 'pull_request'
@@ -129,7 +129,7 @@ jobs:
       - name: Build and deploy to Cloudflare Pages
         if: github.event_name != 'pull_request'
         run: |
-          ./build/ssg --config .ssg.yaml \
+          ./build/ssg --config docs-site.yaml \
             --check-links=strict \
             --deploy=cloudflare \
             --deploy-project="${PROJECT}" \

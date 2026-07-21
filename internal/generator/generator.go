@@ -2882,7 +2882,7 @@ func (g *Generator) generatePage(page models.Page) error {
 		// Use custom layout/template if specified, otherwise default to page.html
 		templateName := pageHTMLName
 		if page.Layout != "" {
-			templateName = "layouts/" + page.Layout + ".html"
+			templateName = g.layoutTemplateName(page.Layout)
 		} else if page.Template != "" {
 			templateName = page.Template + ".html"
 		}
@@ -3148,6 +3148,26 @@ var executedByFileName = []string{
 	indexHTMLName, postHTMLName, pageHTMLName, categoryHTMLName,
 	tagHTMLName, seriesHTMLName, authorHTMLName,
 	"taxonomy.html", "taxonomy-term.html", "archive.html",
+}
+
+// layoutTemplateName resolves frontmatter `layout: <name>` to a parsed template
+// name. ParseGlob registers a template under its BASE filename, so a theme's
+// layouts/blog.html is parsed as "blog.html" — looking only for
+// "layouts/blog.html" matched nothing, and the page fell back to page.html
+// without a word, which made the documented layout feature impossible to use
+// (GO-058). Both spellings are accepted, path form first, so a theme that
+// already writes {{define "layouts/blog.html"}} keeps working.
+func (g *Generator) layoutTemplateName(layout string) string {
+	pathForm := "layouts/" + layout + ".html"
+	if g.tmpl == nil {
+		return pathForm
+	}
+	for _, name := range []string{pathForm, layout + ".html"} {
+		if g.tmpl.Lookup(name) != nil {
+			return name
+		}
+	}
+	return pathForm // unresolved: the caller still falls back to page.html
 }
 
 // warnShellTemplates flags theme files that ssg executes by file name but
