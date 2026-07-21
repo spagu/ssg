@@ -74,7 +74,7 @@ gracefully (never a blank page) and the build prints a warning naming the fix.
 Themes without `{{define}}` blocks are matched by file name and need no
 renaming.
 | `series.html` | Series archive when present |
-| `layouts/<name>.html` | A page with frontmatter `layout: <name>` |
+| `layouts/<name>.html` | A page with frontmatter `layout: <name>` — the file may define either `<name>.html` or `layouts/<name>.html`; both resolve |
 | `<name>.html` | A page with frontmatter `template: <name>` |
 
 Custom `layout` and `template` selection currently applies to pages. Posts use

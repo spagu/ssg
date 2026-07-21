@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🧩 **`layout:` in frontmatter never selected the layout** (GO-058) — the
+  lookup asked for the template named `layouts/<name>.html`, but `ParseGlob`
+  registers a template under its **base** filename, so `layouts/blog.html` is
+  parsed as `blog.html`. Nothing matched, and the page fell back to `page.html`
+  without a warning: the documented feature could not work unless the theme
+  happened to write `{{ define "layouts/blog.html" }}`. Both spellings now
+  resolve, path form first, so existing themes are unaffected.
+
 ## [1.8.10] - 2026-07-21
 
 ### Added
