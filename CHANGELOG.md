@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.10] - 2026-07-21
+
 ### Added
 - 📚 **`content_sources`: Markdown from more than one place** (CONTENT-002) —
   a site is no longer limited to one `content/<source>/` tree. `content_sources`
@@ -1351,7 +1353,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 
 <!-- Compare links (DOC-011) -->
 [Unreleased]: https://github.com/spagu/ssg/compare/v1.8.10...HEAD
-[1.8.10]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.10
+[1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
+[1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
 [1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
