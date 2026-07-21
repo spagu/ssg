@@ -2283,6 +2283,31 @@ func TestParseFlagsWatchRunner(t *testing.T) {
 
 // TestParseFlagsWatchRunnerDir verifies the *-dir flags, which point a runner at
 // a subdirectory (monorepo Worker) and select the runner on their own (issue #35).
+// TestParseFlagsShortcodeErrors verifies the --shortcode-errors mode flag,
+// including that an unrecognised mode leaves the default (drop) in place so a
+// typo cannot silently change how a build treats broken shortcodes (issue #37).
+func TestParseFlagsShortcodeErrors(t *testing.T) {
+	tests := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--shortcode-errors=drop"}, "drop"},
+		{[]string{"--shortcode-errors=keep"}, "keep"},
+		{[]string{"--shortcode-errors=strict"}, "strict"},
+		{[]string{"--shortcode-errors", "strict"}, "strict"},
+		{[]string{"--shortcode-errors=bogus"}, ""},
+		{nil, ""},
+	}
+
+	for _, tc := range tests {
+		cfg := &config.Config{}
+		parseFlags(tc.args, cfg)
+		if cfg.ShortcodeErrors != tc.want {
+			t.Errorf("parseFlags(%v) cfg.ShortcodeErrors = %q, want %q", tc.args, cfg.ShortcodeErrors, tc.want)
+		}
+	}
+}
+
 func TestParseFlagsWatchRunnerDir(t *testing.T) {
 	tests := []struct {
 		args       []string

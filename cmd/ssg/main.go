@@ -152,11 +152,18 @@ func watchIteration(dirs []string, sigCache *fileSigCache, lastBuild time.Time, 
 	return buildStart, sig
 }
 
-// watchDirs returns the directories watched for changes (content, templates, data).
+// watchDirs returns the directories watched for changes: content, templates,
+// data and every extra Markdown root, so editing a file in a content_sources
+// directory rebuilds like editing the primary source does (CONTENT-002).
 func watchDirs(cfg *config.Config) []string {
 	dirs := []string{cfg.ContentDir, cfg.TemplatesDir}
 	if cfg.DataDir != "" {
 		dirs = append(dirs, cfg.DataDir)
+	}
+	for _, src := range cfg.ContentSources {
+		if p := strings.TrimSpace(src.Path); p != "" {
+			dirs = append(dirs, p)
+		}
 	}
 	return dirs
 }
@@ -285,7 +292,10 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		fmt.Fprintf(os.Stderr, "⚠️  Ignoring unexpected positional arguments: %s\n",
 			strings.Join(positionalArgs[3:], " "))
 	}
-	if cfg.Source != "" && cfg.Template != "" && cfg.Domain != "" {
+	// content_sources can supply the whole site, in which case there is no
+	// primary source tree to name (CONTENT-002).
+	sourceOptional := len(cfg.ContentSources) > 0
+	if (cfg.Source != "" || sourceOptional) && cfg.Template != "" && cfg.Domain != "" {
 		return
 	}
 
@@ -293,10 +303,48 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		cfg.Source = positionalArgs[0]
 		cfg.Template = positionalArgs[1]
 		cfg.Domain = positionalArgs[2]
-	} else if cfg.Source == "" || cfg.Template == "" || cfg.Domain == "" {
+	} else if sourceOptional && len(positionalArgs) == 2 {
+		// ssg --content-source=docs <template> <domain>
+		cfg.Template = positionalArgs[0]
+		cfg.Domain = positionalArgs[1]
+	} else if (cfg.Source == "" && !sourceOptional) || cfg.Template == "" || cfg.Domain == "" {
+		reportMissingSettings(cfg, sourceOptional)
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+// reportMissingSettings names exactly which required settings are missing and
+// where they can come from, before the usage text. Printing usage alone (the
+// previous behaviour) left the reader to diff three values against a wall of
+// flags — and said nothing when a config file WAS loaded but a key in it was
+// spelled wrong or belonged to a newer ssg (UX-002).
+func reportMissingSettings(cfg *config.Config, sourceOptional bool) {
+	var missing []string
+	if cfg.Source == "" && !sourceOptional {
+		missing = append(missing, "source")
+	}
+	if cfg.Template == "" {
+		missing = append(missing, "template")
+	}
+	if cfg.Domain == "" {
+		missing = append(missing, "domain")
+	}
+	fmt.Fprintf(os.Stderr, "❌ Missing required setting(s): %s\n", strings.Join(missing, ", "))
+
+	if path := config.FindConfigFile(); path != "" {
+		fmt.Fprintf(os.Stderr, "   Config file in use: %s\n", path)
+		fmt.Fprintf(os.Stderr, "   Values it provided: source=%q template=%q domain=%q\n",
+			cfg.Source, cfg.Template, cfg.Domain)
+		if cfg.Source == "" && !sourceOptional {
+			fmt.Fprintln(os.Stderr, "   A site with no `source:` needs `content_sources:` (ssg 1.8.10+)"+
+				" — an older ssg ignores that key, which looks exactly like this.")
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "   No .ssg.yaml/.ssg.toml/.ssg.json found in the current directory.")
+	}
+	fmt.Fprintf(os.Stderr, "   Pass them positionally (ssg %s) or set them in the config file.\n\n",
+		strings.Join(missing, " "))
 }
 
 // positionalArgsOf extracts positional arguments, skipping flags and the values
@@ -449,6 +497,10 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Outputs:           cfg.Outputs,
 		SearchIndex:       cfg.SearchIndex,
 		SanitizeHTML:      cfg.SanitizeHTML,
+		ShortcodeErrors:   cfg.ShortcodeErrors,
+		ContentSources:    contentSourcesOf(cfg),
+		LinkRewrites:      cfg.LinkRewrites,
+		AutoExcerpt:       cfg.AutoExcerpt,
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -460,6 +512,24 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			BatchSize:  cfg.Mddb.BatchSize,
 		},
 	}
+}
+
+// contentSourcesOf converts the configured extra Markdown roots into the
+// generator's own type, keeping the two packages free of a shared dependency
+// (the same pattern as MddbConfig above). CONTENT-002.
+func contentSourcesOf(cfg *config.Config) []generator.ContentSource {
+	if len(cfg.ContentSources) == 0 {
+		return nil
+	}
+	out := make([]generator.ContentSource, 0, len(cfg.ContentSources))
+	for _, src := range cfg.ContentSources {
+		out = append(out, generator.ContentSource{
+			Path:     src.Path,
+			Type:     src.Type,
+			Category: src.Category,
+		})
+	}
+	return out
 }
 
 func parseFlags(args []string, cfg *config.Config) {
@@ -504,6 +574,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--targz": &cfg.TarGz, "--tarxz": &cfg.TarXz,
 		"--tls-auto": &cfg.TLSAuto, "--gzip": &cfg.Gzip, "--http3": &cfg.HTTP3,
 		"--sanitize-html": &cfg.SanitizeHTML,
+		"--auto-excerpt":  &cfg.AutoExcerpt,
 		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
 		"--webp-keep-original": &cfg.WebPKeepOriginal,
 		"--reconvert-images":   &cfg.ReconvertImages,
@@ -742,6 +813,16 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
 			cfg.CheckLinks = v
 		}
+	// Repeatable: each --content-source adds one root. The CLI form takes the
+	// path only; type/category need the config file (CONTENT-002).
+	case strings.HasPrefix(arg, "--content-source="):
+		if p := strings.TrimSpace(strings.TrimPrefix(arg, "--content-source=")); p != "" {
+			cfg.ContentSources = append(cfg.ContentSources, config.ContentSource{Path: p})
+		}
+	case strings.HasPrefix(arg, "--shortcode-errors="):
+		if v := strings.TrimPrefix(arg, "--shortcode-errors="); v == "drop" || v == "keep" || v == "strict" {
+			cfg.ShortcodeErrors = v
+		}
 	case strings.HasPrefix(arg, "--outputs="):
 		cfg.Outputs = splitCSV(strings.TrimPrefix(arg, "--outputs="))
 	case strings.HasPrefix(arg, "--languages="):
@@ -775,6 +856,7 @@ var extraEqualValueFlags = []string{
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
 	"--wrangler-config", "--workerd-config", "--wrangler-dir", "--workerd-dir",
+	"--shortcode-errors", "--content-source",
 }
 
 // valueFlags returns every flag that consumes a value, in bare (no "=") form —
@@ -1191,6 +1273,10 @@ func printUsage() {
 	fmt.Println("  --outputs=LIST         - Extra output formats per page, comma-separated (e.g. json)")
 	fmt.Println("  --check-links          - Validate internal links after build (warn mode)")
 	fmt.Println("  --check-links=MODE     - warn | strict (strict fails the build on dead links)")
+	fmt.Println("  --auto-excerpt         - Derive a missing excerpt from the opening paragraph")
+	fmt.Println("  --shortcode-errors=M   - drop (default) | keep | strict — what a shortcode that")
+	fmt.Println("                           fails to render leaves in the page (keep = its raw source,")
+	fmt.Println("                           strict = keep and fail the build)")
 	fmt.Println("")
 	fmt.Println("Internationalisation (docs/I18N.md):")
 	fmt.Println("  --languages=LIST       - Build languages, comma-separated (e.g. en,pl)")
@@ -1230,6 +1316,9 @@ func printUsage() {
 	fmt.Println("  --output-dir=PATH      - Output directory (default: output)")
 	fmt.Println("  --static-dir=PATH      - Static passthrough directory copied verbatim to output (default: static)")
 	fmt.Println("  --data-dir=PATH        - Data files dir (*.yaml|*.json) exposed as .Data.* (default: data)")
+	fmt.Println("  --content-source=DIR   - Extra Markdown root merged into the site; repeatable.")
+	fmt.Println("                           With one or more, <source> becomes optional. Per-source")
+	fmt.Println("                           type/category need content_sources: in the config file.")
 	fmt.Println("")
 	fmt.Println("External sources (docs/EXTERNAL_SOURCES.md):")
 	fmt.Println("  --offline                    - Serve external sources from the disk cache only")

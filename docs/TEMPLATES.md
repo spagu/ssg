@@ -15,6 +15,12 @@ ssg my-blog my-theme example.com
 With default paths, the theme is `templates/my-theme/`. The built-in `simple`
 and `krowy` themes are embedded and scaffolded when first used.
 
+| Bundled theme | For |
+|---|---|
+| `simple` | a minimal blog; scaffolded into an empty theme directory |
+| `krowy` | the fuller blog layout used by the examples |
+| `ssgtheme` | documentation sites: cards, guide layout, colour-scheme switch, shared chrome in `partials/` ([README](../templates/ssgtheme/README.md)) |
+
 An online theme can be downloaded before generation:
 
 ```bash
@@ -83,6 +89,61 @@ they need.
 
 Theme CSS, JavaScript and images are copied to output. Build transforms such as
 SCSS, bundling, minification and fingerprinting run afterward.
+
+## Template loading and sharing
+
+Three directories are parsed, in this order, into **one** template set:
+
+| Parsed | Contents |
+|---|---|
+| `<theme>/*.html` | the role templates above |
+| `<theme>/layouts/*.html` | per-page layouts selected by frontmatter `layout:` |
+| `<theme>/partials/*.html` | shared `{{define}}` blocks, callable from any of the above |
+
+Because it is one set, a `{{define "site-header"}}` written in
+`partials/chrome.html` is callable from `index.html`, `post.html` or a layout —
+that is how a theme keeps its `<head>`, header and footer in one place instead
+of copying them into every role file:
+
+```gotemplate
+{{/* partials/chrome.html */}}
+{{define "site-header"}}
+  <header>…{{ .Domain }}…</header>
+{{end}}
+
+{{/* page.html */}}
+{{ template "site-header" . }}
+```
+
+Pass a computed context with `dict` when a partial needs values the caller
+knows:
+
+```gotemplate
+{{ template "site-head" (dict
+    "Title" (printf "%s — %s" .Page.Title .Domain)
+    "Canonical" (printf "/%s/" .Page.Slug)
+    "Ctx" .) }}
+```
+
+Notes that save a debugging session:
+
+- **Only `.html` files are parsed.** Other files under `partials/` are neither
+  parsed nor copied to the output; public assets belong in `css/`, `js/` or
+  `images/`, which are the only theme directories copied verbatim.
+- **A file whose defines do not match its filename renders nothing on its own.**
+  That is exactly what makes `partials/chrome.html` work — and why a
+  `category.html` copied to `author.html` still needs its define renamed (see
+  the warning described above).
+- **`base.html`** is part of the scaffolded starter themes and is only used by
+  a theme that chooses to define and call it; it is not a required file and SSG
+  never invokes it implicitly.
+- Templates are parsed once per build, after content is loaded, so site data is
+  fully available to every helper.
+
+The bundled `ssgtheme` is the reference implementation of this layout:
+`partials/chrome.html` holds the head, header and footer; the four role
+templates hold only what is unique to them. See
+[`templates/ssgtheme/README.md`](../templates/ssgtheme/README.md).
 
 ## Template engines
 
@@ -344,8 +405,38 @@ Shortcode template paths are relative to the selected theme. A configured
 </aside>
 ```
 
-Bracket shortcodes additionally expose `.Attrs` and `.InnerContent`. Configuration
-and supported forms are documented in
+### What is in scope inside a shortcode template
+
+A shortcode template is executed against the **shortcode itself**, not against
+the page — `.` and `$` are the same object. In scope:
+
+| Expression | Source |
+|---|---|
+| `.Name` `.Type` `.Title` `.Text` `.Url` `.Logo` `.Legal` `.Ranking` `.Tags` | the `shortcodes:` entry |
+| `.Data.key` | the entry's `data:` map (values are strings) |
+| `.Attrs.key`, `.InnerContent` | the invocation: `[name key="v"]inner[/name]` |
+| `.Vars.key`, `$.Vars.key` | site-wide `variables:` (same map page templates see) |
+
+**Not** in scope: `.Page`, `.Site`, `.Posts`, `.Categories` or anything else
+from a page template's context. A shortcode has no page — the same instance may
+render on many pages — so reaching for page data is a template error.
+
+A template error does not stop the build by default: the shortcode is dropped
+from the page and a warning is printed. Set `shortcode_errors` (or
+`--shortcode-errors=`) to change that:
+
+| Mode | Result |
+|---|---|
+| `drop` (default) | warning; the shortcode is removed from the page |
+| `keep` | warning; the shortcode's **raw source** stays in the page, so the gap is visible |
+| `strict` | as `keep`, and the build fails after rendering |
+
+`keep` and `strict` are the ones to use in CI: a page that quietly lost its
+payment widget still looks fine, whereas one showing `[stripe_form]` does not.
+The raw source also survives HTML minification, which an HTML comment marker
+would not.
+
+Configuration and supported forms are documented in
 [CONFIGURATION.md](CONFIGURATION.md#shortcodes).
 
 ## Creating a theme

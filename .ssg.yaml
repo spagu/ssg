@@ -1,0 +1,63 @@
+# Local documentation site for SSG itself.
+#
+# It has no content/<source>/ tree: the pages ARE this repository's docs/ and
+# examples/ Markdown, pulled in through content_sources (CONTENT-002). Editing a
+# guide and rebuilding is the whole workflow — nothing is copied or generated
+# into a second location that could drift.
+#
+#   make site        # build into .site/
+#   make site-serve  # build and serve on http://127.0.0.1:8888
+template: ssgtheme
+domain: ssg.tradik.com
+output_dir: .site
+
+content_sources:
+  - path: docs
+    type: page
+    category: Documentation
+
+# Docs cross-link each other as CONFIGURATION.md, which only resolves in a
+# repository view; rewrite_md_links turns those into the built page URLs
+# (anchors included).
+rewrite_md_links: true
+
+# The guides also link to repository files the site never publishes
+# (../examples/, the sample config). Point those at GitHub instead of 404ing.
+link_rewrites:
+  "../examples/": "https://github.com/spagu/ssg/tree/main/examples/"
+  "../templates/": "https://github.com/spagu/ssg/tree/main/templates/"
+  "../.github/": "https://github.com/spagu/ssg/blob/main/.github/"
+  "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
+check_links: warn
+shortcode_errors: strict
+
+# docs/*.md have no "## Excerpt" section; derive one from the opening paragraph
+# so cards, feeds and meta descriptions are not blank.
+auto_excerpt: true
+
+pretty_html: true
+sitemap_off: false
+robots_off: false
+search_index: true
+
+variables:
+  project_name: SSG
+  repository_url: https://github.com/spagu/ssg
+  logo: logo.png                  # assets/logo.png, transparent, resized at build time
+  hero_image: river.jpg           # assets/river.jpg, resized at build time
+  github_repo: spagu/ssg          # enables the header star count
+  version: "1.8.10"
+
+  # Header navigation: a fixed, hand-picked set. The footer carries the full
+  # guide directory, so this stays short whatever docs/ grows into.
+  nav:
+    - label: Docs
+      url: /#documentation
+    - label: Configuration
+      url: /configuration/
+    - label: Themes
+      url: /templates/
+    - label: Deployment
+      url: /deployment/
+    - label: GitHub
+      url: https://github.com/spagu/ssg

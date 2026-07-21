@@ -1,6 +1,5 @@
 # Template Collection & Conditional Helpers
 
-{% raw %}
 *Since v1.8.3.* SSG's Go template engine ships a set of generic helpers for
 filtering, sorting, grouping, slicing and testing content — so a theme can build
 "recently updated guides", "related posts" or "grouped archives" without any
@@ -283,6 +282,25 @@ SSG registers several helper functions in the Go template engine for date format
   ```gotemplate
   {{ $image := imageResize "photo.jpg" (dict "width" 300 "height" 200 "mode" "fill") }}
   ```
+  `dict` is also how a partial receives a computed context:
+  ```gotemplate
+  {{ template "site-head" (dict "Title" .Page.Title "Ctx" .) }}
+  ```
+
+### Arithmetic
+
+Go templates have no arithmetic of their own; these four cover the cases a
+theme actually needs (column splits, "page N of M", index offsets).
+
+* **`add a b`**, **`sub a b`**, **`mul a b`**, **`div a b`** — Integer operands
+  give an integer result and `div` divides integrally (`div 7 2` → `3`); a
+  float operand anywhere gives a float (`div 7.0 2` → `3.5`). Dividing by zero
+  is a template error rather than infinity, and a non-numeric argument fails
+  the render with a message naming the helper.
+  ```gotemplate
+  {{ $half := div (add (len .Site.Pages) 1) 2 }}
+  {{ range $i, $p := .Site.Pages }}{{ if lt $i $half }}…{{ end }}{{ end }}
+  ```
 
 ---
 
@@ -305,4 +323,3 @@ SSG registers several helper functions in the Go template engine for date format
 - `sort`/`filter` ordering requires comparable field types (see above).
 - `groupBy`/`indexBy`/`uniq` keys must be scalar.
 - `uniq` across mixed numeric types dedupes by rendered value (`1` ≡ `uint8(1)`).
-{% endraw %}

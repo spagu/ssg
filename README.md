@@ -279,6 +279,10 @@ Common options:
 | Generate search index | `search_index: true` | `--search-index` |
 | Add SEO metadata | `seo: true` | `--seo` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
+| Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
+| Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
+| Derive missing excerpts | `auto_excerpt: true` | `--auto-excerpt` |
+| Rewrite links to repository files | `link_rewrites: {"../examples/": "https://…"}` | config only |
 | Create ZIP package | `zip: true` | `--zip` |
 
 WebP output requires the optional `cwebp` executable. SCSS compilation requires

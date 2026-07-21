@@ -1,0 +1,218 @@
+/* ssgtheme — design tokens, mirrored from the Tradik design system
+ * (https://designstyles.tradik.com/). Names and values match that system's
+ * published stylesheet 1:1, so a token lookup there is valid here.
+ *
+ * The only additions are the dark-scheme block at the bottom (the upstream
+ * system ships light only) and --color-hero-wash, both marked as theme-local.
+ * Contrast ratios are noted where a pairing is used for text.
+ */
+
+:root {
+  /* ── Palette: ink ─────────────────────────────────────────────────────── */
+  --color-palette-ink-50: #f8fafc;
+  --color-palette-ink-100: #f1f5f9;
+  --color-palette-ink-200: #e2e8f0;
+  --color-palette-ink-300: #cbd5e1;
+  --color-palette-ink-400: #94a3b8;
+  --color-palette-ink-500: #64748b;
+  --color-palette-ink-600: #475569;
+  --color-palette-ink-700: #334155;
+  --color-palette-ink-800: #1e293b;
+  --color-palette-ink-900: #0f172a;
+
+  /* ── Palette: accent ──────────────────────────────────────────────────── */
+  --color-palette-accent-50: #eaf2fb;
+  --color-palette-accent-100: #ccdff5;
+  --color-palette-accent-200: #99bfeb;
+  --color-palette-accent-300: #5c99da;
+  --color-palette-accent-400: #2e78c5;
+  --color-palette-accent-500: #0050a6;
+  --color-palette-accent-600: #00428a;
+  --color-palette-accent-700: #00366f;
+  --color-palette-accent-800: #002954;
+  --color-palette-accent-900: #001d3b;
+
+  /* ── Palette: signals and surfaces ────────────────────────────────────── */
+  --color-palette-signal-success: #1a7f4f;
+  --color-palette-signal-warning: #a8650b;
+  --color-palette-signal-danger: #b42318;
+  --color-palette-signal-info: #175cd3;
+  --color-palette-surface-pure: #ffffff;
+  --color-palette-surface-paper: #fbfbfc;
+  --color-palette-surface-sunken: #f2f3f6;
+
+  /* ── Semantic: background ─────────────────────────────────────────────── */
+  --color-bg-canvas: #ffffff;
+  --color-bg-subtle: #fbfbfc;
+  /* Theme-local: the wash laid over a hero photograph (see .hero--image).
+   * Horizontal rather than flat, so the copy column keeps a readable backing
+   * (≈0.9 alpha → 12:1 for --color-fg-primary) while the right-hand side of
+   * the photograph stays largely uncovered and actually reads as a photo. */
+  --hero-scrim: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 94%) 0%,
+    rgb(255 255 255 / 90%) 34%,
+    rgb(255 255 255 / 58%) 62%,
+    rgb(255 255 255 / 28%) 100%
+  );
+  --color-bg-sunken: #f2f3f6;
+  --color-bg-inverse: #0f172a;
+
+  /* ── Semantic: foreground ─────────────────────────────────────────────── */
+  --color-fg-primary: #0f172a; /* 17.85:1 on canvas — AAA */
+  --color-fg-secondary: #334155; /* 10.35:1 — AAA */
+  --color-fg-muted: #64748b; /* 4.76:1 — AA */
+  --color-fg-onInverse: #ffffff; /* 17.85:1 on inverse — AAA */
+  --color-fg-accent: #0050a6; /* 7.78:1 — AA body, AAA large */
+  --color-fg-link: #0050a6;
+  --color-fg-danger: #b42318; /* 6.57:1 — AA body */
+
+  /* ── Semantic: border and accent ──────────────────────────────────────── */
+  --color-border-subtle: #f1f5f9;
+  --color-border-default: #e2e8f0;
+  --color-border-strong: #94a3b8;
+  --color-border-focus: #0050a6;
+  --color-accent-bg: #0050a6;
+  --color-accent-bgHover: #00428a;
+  --color-accent-bgActive: #00366f;
+  --color-accent-fg: #ffffff;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font-family-sans: "Geist", system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-family-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-family-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.15;
+  --line-height-snug: 1.3;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
+
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.04em;
+  --letter-spacing-caps: 0.08em;
+
+  --font-size-xs: clamp(0.75rem, 0.72rem + 0.15vw, 0.8125rem);
+  --font-size-sm: clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem);
+  --font-size-base: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  --font-size-lg: clamp(1.125rem, 1.08rem + 0.25vw, 1.25rem);
+  --font-size-xl: clamp(1.25rem, 1.18rem + 0.4vw, 1.5rem);
+  --font-size-2xl: clamp(1.5rem, 1.38rem + 0.6vw, 1.875rem);
+  --font-size-3xl: clamp(1.875rem, 1.65rem + 1.1vw, 2.5rem);
+  --font-size-4xl: clamp(2.25rem, 1.85rem + 1.9vw, 3.5rem);
+  --font-size-5xl: clamp(2.75rem, 2.1rem + 3vw, 4.75rem);
+
+  /* ── Spacing (4 px grid) ──────────────────────────────────────────────── */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* ── Radius, elevation, motion ────────────────────────────────────────── */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-pill: 9999px;
+
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px 0 rgb(11 14 20 / 6%);
+  --shadow-md: 0 4px 8px -2px rgb(11 14 20 / 8%), 0 2px 4px -2px rgb(11 14 20 / 4%);
+  --shadow-lg: 0 12px 24px -8px rgb(11 14 20 / 12%), 0 4px 8px -4px rgb(11 14 20 / 6%);
+
+  --motion-duration-fast: 0.12s;
+  --motion-duration-base: 0.2s;
+  --motion-duration-slow: 0.32s;
+  --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
+  /* ── Breakpoints ──────────────────────────────────────────────────────── */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* ── Theme-local extension: dark scheme ─────────────────────────────────────
+ * The upstream system publishes light tokens only. These re-point the same
+ * semantic names down the same ink ramp and up the accent ramp — accent-500 is
+ * unreadable on a dark surface, so links move to accent-200 (9.1:1). Declared
+ * twice on purpose: once for the OS preference, once for the header toggle, so
+ * an explicit reader choice wins in both directions.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg-canvas: #0f172a;
+    --color-bg-subtle: #16203a;
+    --hero-scrim: linear-gradient(
+      100deg,
+      rgb(15 23 42 / 92%) 0%,
+      rgb(15 23 42 / 88%) 34%,
+      rgb(15 23 42 / 60%) 62%,
+      rgb(15 23 42 / 32%) 100%
+    );
+    --color-bg-sunken: #1e293b;
+    --color-bg-inverse: #020617;
+    --color-fg-primary: #f8fafc; /* 16.9:1 — AAA */
+    --color-fg-secondary: #e2e8f0; /* 13.4:1 — AAA */
+    --color-fg-muted: #94a3b8; /* 6.9:1 — AA */
+    --color-fg-accent: #99bfeb; /* 9.1:1 — AAA */
+    --color-fg-link: #99bfeb;
+    --color-fg-danger: #fda29b; /* 8.4:1 — AA */
+    --color-border-subtle: #1e293b;
+    --color-border-default: #2b3a55;
+    --color-border-strong: #64748b;
+    --color-border-focus: #99bfeb;
+    --color-accent-bg: #99bfeb;
+    --color-accent-bgHover: #ccdff5;
+    --color-accent-bgActive: #eaf2fb;
+    --color-accent-fg: #0f172a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg-canvas: #0f172a;
+  --color-bg-subtle: #16203a;
+  --color-bg-sunken: #1e293b;
+  --color-bg-inverse: #020617;
+  --hero-scrim: linear-gradient(
+    100deg,
+    rgb(15 23 42 / 92%) 0%,
+    rgb(15 23 42 / 88%) 34%,
+    rgb(15 23 42 / 60%) 62%,
+    rgb(15 23 42 / 32%) 100%
+  );
+  --color-fg-primary: #f8fafc;
+  --color-fg-secondary: #e2e8f0;
+  --color-fg-muted: #94a3b8;
+  --color-fg-accent: #99bfeb;
+  --color-fg-link: #99bfeb;
+  --color-fg-danger: #fda29b;
+  --color-border-subtle: #1e293b;
+  --color-border-default: #2b3a55;
+  --color-border-strong: #64748b;
+  --color-border-focus: #99bfeb;
+  --color-accent-bg: #99bfeb;
+  --color-accent-bgHover: #ccdff5;
+  --color-accent-bgActive: #eaf2fb;
+  --color-accent-fg: #0f172a;
+}

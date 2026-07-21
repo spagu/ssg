@@ -96,7 +96,7 @@ func TestIssue31YamlComment(t *testing.T) {
 	mustWrite(t, filepath.Join(tmp, "content", "posts", "news", "one.md"), "---\ntitle: Numeric tags\nslug: numeric-tags\nstatus: publish\ntype: post\ndate: 2026-07-10\n---\n\nBody.\n")
 	mustWrite(t, filepath.Join(tmp, "data", "repro.yaml"), yamlContent)
 	writeSimpleTemplates(t, filepath.Join(tmp, "templates"))
-	
+
 	gen, err := New(Config{
 		Domain:       "example.com",
 		ContentDir:   filepath.Join(tmp, "content"),
@@ -164,6 +164,3 @@ func TestDataParserCoverage(t *testing.T) {
 		t.Errorf("expected no error with non-existent data dir, got %v", err)
 	}
 }
-
-
-

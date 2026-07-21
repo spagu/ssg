@@ -16,6 +16,43 @@ With the default paths, `my-blog` resolves to `content/my-blog/`. The source may
 also come from `source:` in a configuration file. MDDB is an alternative remote
 source and is documented in [CONFIGURATION.md](CONFIGURATION.md#mddb-content).
 
+### Extra sources (`content_sources`)
+
+Content that already lives elsewhere — a `docs/` folder, notes beside the code,
+a package's guides in a monorepo — does not have to be copied into the source
+tree. `content_sources` lists additional **flat Markdown roots** (loaded
+recursively) that are merged into the site:
+
+```yaml
+content_sources:
+  - path: docs                  # relative to the working directory, or absolute
+    type: page                  # page (default) | post
+    category: Documentation     # optional; created if metadata.json lacks it
+  - path: ../shared/notes
+    type: post
+```
+
+- Extra sources join the site **before** finalize, so they get the same URL,
+  permalink, i18n, taxonomy and collision treatment as native content.
+- `category` applies only to files whose own frontmatter names no category.
+- A directory that does not exist, is a file, or has an unsupported `type`
+  fails the build with a message naming the path; an empty directory warns.
+- With at least one extra source, the primary `source` becomes **optional** —
+  a site can consist of extra sources alone, and then no `metadata.json` is
+  required either.
+- Watch mode watches these directories too.
+
+CLI: `--content-source=DIR`, repeatable, path-only (`type`/`category` need the
+config file):
+
+```bash
+ssg --content-source=docs ssgtheme example.com --watch
+```
+
+An unset `source` with no `content_sources` is a build error that names the
+missing settings — and the config loader warns about unknown keys, so a config
+written for a newer ssg does not fail silently.
+
 ## Directory contract
 
 ```text
@@ -138,8 +175,20 @@ Files with frontmatter are included only when `status` is exactly `publish`.
 Any other value, including an omitted status, is treated as a draft.
 
 A plain `.md` file without frontmatter is accepted and treated as published.
-Because it has no structured title, type or date, frontmatter is still strongly
-recommended for anything other than imported plain content.
+Frontmatter is still recommended for anything other than imported plain
+content, but two values are inferred so such a file is not blank everywhere it
+is listed:
+
+| Value | Inferred from | When |
+|---|---|---|
+| `title` | the document's first `# heading` (or a Setext `Title` / `====`) | always, when frontmatter has no `title` |
+| `excerpt` | the opening paragraph, capped at 200 characters on a word boundary | only with `auto_excerpt: true` |
+
+The title fallback is unconditional because an untitled page is broken in every
+listing, menu and `<title>`. The excerpt fallback is opt-in because it changes
+card text, feed summaries and meta descriptions on an existing site. Derivation
+skips headings, fenced code, tables, block quotes, images, list markers and
+Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 
 ### Frontmatter fields
 

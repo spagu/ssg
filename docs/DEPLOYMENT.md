@@ -75,6 +75,41 @@ ssg my-blog simple example.com \
 Direct Upload API, hashes the output manifest and uploads the required files; it
 does not require Wrangler.
 
+### This project's own documentation site
+
+`ssg.tradik.com` is built from this repository by
+[`.github/workflows/docs-site.yml`](../.github/workflows/docs-site.yml) and is
+a working example of everything above:
+
+- The site has **no content tree**. `.ssg.yaml` pulls `docs/` in through
+  `content_sources`, so editing a guide is the whole publishing workflow.
+- It is built with the `ssg` binary **from the commit being deployed**, not the
+  released action, so the site doubles as an integration test of `main` on real
+  content — and so it can use configuration keys newer than the last release.
+- `shortcode_errors: strict` and `--check-links=strict` gate the deploy: an
+  unrenderable shortcode or a dead internal link fails the run, and SSG deploys
+  only after a successful generate, so a broken page never reaches the CDN.
+- `cwebp` is installed in the runner because the hero image is encoded as WebP.
+
+Setup is two repository secrets and nothing else:
+
+| Secret / variable | Required | Purpose |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | yes | *Cloudflare Pages: Edit*. Attaching the custom domain additionally needs *Zone:DNS:Edit* on that zone. |
+| `CLOUDFLARE_ACCOUNT_ID` | yes | Account that owns the project |
+| `CLOUDFLARE_PAGES_PROJECT` | no | Pages project name (default `ssg-docs`) |
+| `DOCS_DOMAIN` | no | Custom domain (default `ssg.tradik.com`) |
+
+The workflow creates the Pages project and attaches the custom domain on its
+first run, and leaves both alone afterwards — there is nothing to click in the
+dashboard. Domain attachment is deliberately non-fatal: the deployment is
+already live on `<project>.pages.dev` by then, and the usual failure is a token
+without `Zone:DNS:Edit`, which is a permissions decision rather than a build
+problem. The job summary says which of the two happened.
+
+`workflow_dispatch` only becomes available once the workflow file is on the
+default branch, so the first run happens on merge.
+
 ## GitHub Pages
 
 ```bash

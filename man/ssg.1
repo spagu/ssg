@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.9" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.10" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -309,6 +309,34 @@ Maximum items per feed (default: 20).
 .TP
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.BR \-\-content\-source =\fIDIR
+Merge an extra Markdown root into the site, in addition to (or instead of) the
+positional \fIsource\fR. Repeatable. Loaded recursively as pages; per\-source
+\fBtype\fR and \fBcategory\fR need \fBcontent_sources:\fR in the configuration
+file. With at least one extra source, \fIsource\fR becomes optional.
+.TP
+.B \-\-auto\-excerpt
+Derive a missing excerpt from the content's opening paragraph, so listings,
+feeds and meta descriptions are not blank for documents written without a
+\fB## Excerpt\fR section. Off by default.
+.TP
+.BR \-\-shortcode\-errors =\fIMODE
+What a shortcode whose template fails to render leaves in the page:
+.RS
+.TP
+.B drop
+Default. Print a warning and remove the shortcode from the page.
+.TP
+.B keep
+Print a warning and leave the shortcode's raw source (\fB{{promo}}\fR,
+\fB[promo a="b"]\fR) in the page, so the failure is visible instead of shipping
+as a silently missing block.
+.TP
+.B strict
+As \fBkeep\fR, and fail the build once rendering finishes, listing every
+shortcode that failed. Recommended in CI.
+.RE
 .TP
 .B \-\-search\-index
 Emit \fBsearch-index.json\fR for client-side search.

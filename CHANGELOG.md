@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.10] - 2026-07-21
+
+### Added
+- 📚 **`content_sources`: Markdown from more than one place** (CONTENT-002) —
+  a site is no longer limited to one `content/<source>/` tree. `content_sources`
+  lists extra flat Markdown roots (loaded recursively), each merged as pages or
+  posts and optionally filed under one category, which is created when the
+  loaded metadata does not define it. Sources join the site before finalize, so
+  they get the same URL, permalink, i18n, taxonomy and collision treatment as
+  native content; watch mode watches them; the image pipeline resolves images
+  beside them. With at least one extra source the primary `source` — and its
+  `metadata.json` — becomes optional, so a site can consist of a `docs/` folder
+  alone. CLI: repeatable `--content-source=DIR`. Empty by default, so
+  single-source builds are unchanged.
+- 🎨 **Bundled `ssgtheme` documentation theme** — cards, guide layout, archive
+  and post templates, a colour-scheme switch, an optional hero photograph
+  rendered through SSG's own image pipeline, and shared chrome in `partials/`.
+  Design tokens mirror the [Tradik design system](https://designstyles.tradik.com/)
+  1:1; all text meets WCAG 2.2 AA and body text AAA in both schemes. The
+  repository's own docs build with it via `make site` / `make site-watch`.
+- 🔗 **`link_rewrites`** (LINK-002) — maps an href prefix in content to a
+  replacement, so documentation links to repository files the site never
+  publishes (`../examples/`, a sample config) point at the repository instead
+  of 404ing. Longest matching prefix wins.
+- 🔤 **`auto_excerpt`** (GO-057) — derives a missing excerpt from the content's
+  opening paragraph (capped at 200 characters on a word boundary, skipping
+  headings, fenced code, tables, quotes, images and Liquid guards), so cards,
+  feeds and meta descriptions are not blank for documents written without a
+  `## Excerpt` section. Off by default: it changes those texts on an existing
+  site.
+- ➗ **Arithmetic template helpers `add` / `sub` / `mul` / `div`** (TPL-003) —
+  Go templates have none, so a theme could not split a list into columns or
+  compute "page N of M" without preprocessing in Go. Integer operands give
+  integer results (`div 7 2` → `3`); a float operand gives a float. Division by
+  zero and non-numeric arguments are template errors, not silent infinities.
+- 🔣 **Site variables reach shortcode templates** (issue #37) — `{{$.Vars.key}}`
+  / `{{.Vars.key}}` now resolve inside a shortcode template, the same spelling
+  page templates use. Previously the template context was the `Shortcode`
+  struct alone, so `$.Vars.anything` was a template error that silently removed
+  the whole shortcode from the page while the build still exited 0.
+- 🚨 **`shortcode_errors` / `--shortcode-errors=drop|keep|strict`** (issue #37)
+  — chooses what a shortcode that fails to render leaves behind. `drop`
+  (default) keeps today's behaviour, so existing sites build byte-identically.
+  `keep` leaves the shortcode's raw source (`{{promo}}`, `[promo a="b"]`) in
+  the page, making the gap visible — a page that quietly lost its payment
+  widget looks fine, one showing `[stripe_form]` does not — and unlike an HTML
+  comment it survives minification. `strict` additionally fails the build after
+  the render step, listing every shortcode that failed.
+
+- 🚀 **Documentation site published to Cloudflare Pages** — `ssg.tradik.com` is
+  built by `.github/workflows/docs-site.yml` from `docs/` via `content_sources`,
+  using the `ssg` binary from the commit being deployed. `shortcode_errors:
+  strict` plus `--check-links=strict` gate the upload, so a broken shortcode or
+  a dead internal link fails the run instead of publishing a hole. The workflow
+  creates the Pages project and attaches the custom domain on its first run, so
+  setup is two repository secrets and nothing in the dashboard.
+
+### Removed
+- 🧹 **Jekyll GitHub Pages workflow** — it built the whole repository root as a
+  Jekyll site and had been failing on every push; the documentation site is now
+  built by SSG itself. The `{% raw %}` guards that existed only for Jekyll are
+  gone from `docs/`, where they had started leaking into rendered excerpts.
+
+### Fixed
+- 🔗 **`.md` links with an anchor were never rewritten** (GO-056) — the rewrite
+  pattern required the href to *end* in `.md`, so `CONFIGURATION.md#section`
+  silently shipped as a dead link to a file that does not exist in the output,
+  while the same link without an anchor worked. Anchors and query strings are
+  now carried across to the rewritten URL.
+- 📄 **Plain Markdown files were untitled** (GO-057) — a file without
+  frontmatter had no title, so it appeared blank in every listing, navigation
+  menu and `<title>`. The title now falls back to the document's own first
+  heading (ATX or Setext). Frontmatter still wins.
+- 🧩 **`partials/` was documented but never parsed** (DOC-014) — the theme
+  structure in `docs/TEMPLATES.md` has always listed `partials/`, yet only the
+  theme root and `layouts/` were parsed, so defines placed there were silently
+  unavailable. `partials/*.html` now joins the same template set.
+
+### Changed
+- 🩺 **A misconfigured build says what is wrong** (UX-002) — an unknown YAML key
+  is reported by name and ignored instead of vanishing (a config written for a
+  newer ssg no longer looks like a missing value), and missing required
+  settings are named along with the config file that was read and what it
+  provided, instead of printing usage alone.
+
+### Documentation
+- 📘 **Template loading and sharing** (DOC-014) — `docs/TEMPLATES.md` now states
+  which directories are parsed into the template set, how a theme shares its
+  chrome through `partials/` + `dict`, what `base.html` actually is, and which
+  theme directories are copied to the output.
+- 📘 **Extra content sources and inferred values** — `docs/CONTENT.md` documents
+  `content_sources` and the title/excerpt derivation rules; `docs/CONFIGURATION.md`
+  documents `content_sources`, `link_rewrites`, `auto_excerpt` and the two new
+  diagnostics; `docs/TEMPLATE_HELPERS.md` documents the arithmetic helpers.
+- 📘 **Shortcode template scope** (issue #37) — `docs/TEMPLATES.md` now states
+  what a shortcode template can see (`.Name`…`.Tags`, `.Data`, `.Attrs`,
+  `.InnerContent`, `.Vars`) and what it cannot (`.Page`, `.Site`, `.Posts` —
+  one instance may render on many pages), with the failure modes table.
+
 ## [1.8.9] - 2026-07-21
 
 ### Added
@@ -1253,7 +1352,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.9...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.10...HEAD
+[1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
 [1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7

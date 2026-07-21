@@ -21,7 +21,17 @@ ssg.yaml   ssg.yml   ssg.toml   ssg.json
 
 Command-line flags are parsed after the file and override matching file values.
 The positional values `source`, `template` and `domain` are read from the file
-when all three are present. Otherwise, provide all three positionally.
+when all three are present. Otherwise, provide all three positionally —
+`source` itself is optional once `content_sources` is configured.
+
+Two diagnostics make a misconfigured file obvious instead of silent:
+
+- **Unknown keys warn.** A YAML key this binary does not know is reported by
+  name and ignored. A config written for a newer ssg therefore still builds,
+  and the version mismatch is visible rather than looking like a missing value.
+- **Missing required settings are named.** Instead of printing usage alone, ssg
+  reports which of `source`/`template`/`domain` is missing, which config file
+  it read and what that file provided.
 
 ```yaml
 source: my-blog
@@ -45,6 +55,8 @@ empty value.
 | `template` | required | positional | Theme name |
 | `domain` | required | positional | Canonical host without scheme |
 | `content_dir` | `content` | `--content-dir` | Parent of local sources |
+| `content_sources` | empty | `--content-source` (repeatable) | Extra Markdown roots merged into the site; see [CONTENT.md](CONTENT.md#extra-sources-content_sources) |
+| `auto_excerpt` | `false` | `--auto-excerpt` | Derive a missing excerpt from the opening paragraph |
 | `templates_dir` | `templates` | `--templates-dir` | Parent of themes |
 | `output_dir` | `output` | `--output-dir` | Generated site destination |
 | `static_dir` | `static` | `--static-dir` | Verbatim passthrough files |
@@ -174,12 +186,28 @@ fingerprinted assets.
 | `page_format` | `directory` behaviour | `--page-format` | `directory`, `flat` or `both` |
 | `permalinks.post` | empty | `--permalink-post` | Tokenised post URL pattern |
 | `permalinks.page` | empty | `--permalink-page` | Tokenised page URL pattern |
-| `rewrite_md_links` | `false` | config only | Rewrite source `.md` links to final URLs |
+| `rewrite_md_links` | `false` | config only | Rewrite source `.md` links to final URLs (anchors and query strings are carried over) |
+| `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
 | `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
 
 The `permalinks` map contains the optional `post` and `page` patterns. Permalink
 tokens are `:year`, `:month`, `:day`, `:slug` and `:category`.
+
+`rewrite_md_links` turns in-repository links (`CONFIGURATION.md`,
+`./guide.md#section`) into the built page URLs, carrying any `#anchor` or
+`?query` across. `link_rewrites` covers the other half of a documentation site:
+links to repository files that the site never publishes. It maps an href prefix
+to its replacement, longest match first, so one rule can cover a folder and
+another override a single file:
+
+```yaml
+link_rewrites:
+  "../examples/": "https://github.com/spagu/ssg/tree/main/examples/"
+  "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
+```
+
+With both set, `check_links` on a documentation site can reach zero warnings.
 Frontmatter `link` always has higher priority. Detailed URL rules are in
 [CONTENT.md](CONTENT.md#slugs-and-urls).
 
@@ -296,6 +324,30 @@ It supports attributes and paired content:
 
 Templates read inline values from `.Attrs` and paired text from
 `.InnerContent`. Unknown bracket tags remain unchanged.
+
+Site-wide `variables:` are reachable as `.Vars.key` / `$.Vars.key`, the same
+spelling page templates use. Page context (`.Page`, `.Site`, `.Posts`, …) is
+**not** in scope — one shortcode instance may render on many pages. The full
+scope table is in [TEMPLATES.md](TEMPLATES.md#what-is-in-scope-inside-a-shortcode-template).
+
+| Key | Default | CLI | Purpose |
+|---|---:|---|---|
+| `shortcode_errors` | `drop` | `--shortcode-errors` | What a shortcode that fails to render leaves in the page |
+
+- `drop` — a warning, and the shortcode is removed from the page (historical
+  behaviour, so existing sites build byte-identically).
+- `keep` — a warning, and the shortcode's raw source (`{{promo}}`,
+  `[promo a="b"]`) stays in the page, so the failure is visible rather than
+  shipping as a silently missing block.
+- `strict` — as `keep`, and the build fails once rendering finishes, listing
+  every shortcode that failed. Recommended in CI.
+
+```yaml
+variables:
+  stripe_public_key: "pk_test_123"
+
+shortcode_errors: strict
+```
 
 ## Blog, feeds and search
 
