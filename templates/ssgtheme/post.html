@@ -1,8 +1,10 @@
 {{define "post.html"}}<!DOCTYPE html>
 <html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
 <head>
+{{ $title := (printf "%s — %s" .Post.Title .Domain) }}
+    <title>{{ $title }}</title>
 {{ template "sc-head" (dict
-    "Title" (printf "%s — %s" .Post.Title .Domain)
+    "Title" $title
     "Desc" .Post.Excerpt
     "Canonical" .Post.GetURL
     "OgType" "article"

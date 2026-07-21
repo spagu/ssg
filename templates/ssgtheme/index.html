@@ -1,8 +1,10 @@
 {{define "index.html"}}<!DOCTYPE html>
 <html lang="en">
 <head>
+{{ $title := (printf "%s — documentation" .Domain) }}
+    <title>{{ $title }}</title>
 {{ template "sc-head" (dict
-    "Title" (printf "%s — documentation" .Domain)
+    "Title" $title
     "Desc" "Fast static site generator written in Go: Markdown in, a hardened static site out."
     "Canonical" "/"
     "Ctx" .) }}

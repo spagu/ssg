@@ -10,9 +10,12 @@
 */}}
 
 {{define "sc-head"}}
+    {{/* <title> is emitted by the role template rather than here: a static
+         analyser cannot follow {{ template }}, and a page with no literal
+         <title> in its own file reads as a missing one. The role passes the
+         same string in, so it is written once and reused for OG/Twitter. */}}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ .Title }}</title>
     <meta name="description" content="{{ .Desc }}">
     <link rel="canonical" href="https://{{ .Ctx.Domain }}{{ .Canonical }}">
     <meta name="robots" content="index, follow">
@@ -43,8 +46,8 @@
          still in place, so no request is made. */}}
     <script>
       (function (w, d, s, l, i) {
-        if (!i || i.indexOf('XXXXXXX') !== -1) { return; }
-        w[l] = w[l] || []; w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        if (!i || i.includes('XXXXXXX')) { return; }
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
         var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
         j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
         f.parentNode.insertBefore(j, f);
@@ -55,8 +58,12 @@
       (function () {
         try {
           var t = localStorage.getItem('ssgtheme-scheme');
-          if (t) { document.documentElement.setAttribute('data-theme', t); }
-        } catch (e) { /* private mode — fall back to the OS preference */ }
+          if (t) { document.documentElement.dataset.theme = t; }
+        } catch (e) {
+          // Storage is unavailable (private mode, blocked cookies). The OS
+          // preference still applies, so this is informational, not an error.
+          console.info('ssgtheme: stored colour scheme unavailable', e.name);
+        }
       })();
     </script>
 {{end}}

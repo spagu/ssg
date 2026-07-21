@@ -1,8 +1,10 @@
 {{define "category.html"}}<!DOCTYPE html>
 <html lang="en">
 <head>
+{{ $title := (printf "%s — %s" .Name .Domain) }}
+    <title>{{ $title }}</title>
 {{ template "sc-head" (dict
-    "Title" (printf "%s — %s" .Name .Domain)
+    "Title" $title
     "Desc" (printf "Everything filed under %s on %s." .Name .Domain)
     "Canonical" (printf "/%s/%s/" .Kind .Category.Slug)
     "Ctx" .) }}

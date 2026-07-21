@@ -1,8 +1,10 @@
 {{define "page.html"}}<!DOCTYPE html>
 <html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
 <head>
+{{ $title := (printf "%s — %s" .Page.Title .Domain) }}
+    <title>{{ $title }}</title>
 {{ template "sc-head" (dict
-    "Title" (printf "%s — %s" .Page.Title .Domain)
+    "Title" $title
     "Desc" .Page.Excerpt
     "Canonical" (printf "/%s/" .Page.Slug)
     "OgType" "article"

@@ -445,36 +445,38 @@ var inlineMarkdownRe = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)|[*_` + "`" + 
 // at the first real sentence. Opt-in via auto_excerpt (GO-057): a page with no
 // "## Excerpt" section keeps its historically empty excerpt otherwise.
 func DeriveExcerpt(content string) string {
+	text := inlineMarkdownRe.ReplaceAllString(strings.Join(firstProseParagraph(content), " "), "$1")
+	return truncateRunes(strings.TrimSpace(text), ExcerptMaxRunes)
+}
+
+// firstProseParagraph collects the lines of the document's first paragraph of
+// prose. Structure — headings, fenced code, tables, quotes, images, list
+// markers, Liquid guards — is skipped while looking for that paragraph, and
+// ends it once found, so the excerpt is one continuous thought.
+func firstProseParagraph(content string) []string {
 	var para []string
 	inFence := false
 	for _, raw := range strings.Split(content, "\n") {
 		line := strings.TrimSpace(raw)
-		if marker := fenceMarker(line); marker != "" {
+		if fenceMarker(line) != "" {
 			inFence = !inFence
 			if len(para) > 0 {
-				break
+				return para
 			}
 			continue
 		}
 		if inFence {
 			continue // code is not prose
 		}
-		if line == "" {
+		if line == "" || skipForExcerpt(line) {
 			if len(para) > 0 {
-				break // end of the first paragraph
-			}
-			continue
-		}
-		if skipForExcerpt(line) {
-			if len(para) > 0 {
-				break
+				return para
 			}
 			continue
 		}
 		para = append(para, line)
 	}
-	text := inlineMarkdownRe.ReplaceAllString(strings.Join(para, " "), "$1")
-	return truncateRunes(strings.TrimSpace(text), ExcerptMaxRunes)
+	return para
 }
 
 // skipForExcerpt reports whether a line is structure rather than prose.

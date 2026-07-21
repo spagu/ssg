@@ -60,20 +60,27 @@ func TestContentSourcesLoadPagesAndPosts(t *testing.T) {
 		t.Errorf("posts = %d, want 1", len(g.siteData.Posts))
 	}
 
-	// The source category was registered and applied to its pages.
-	var found bool
-	for _, cat := range g.siteData.Categories {
-		if cat.Name == "Guides" && cat.Slug == "guides" {
-			found = true
-			for _, p := range g.siteData.Pages {
-				if len(p.Categories) != 1 || p.Categories[0] != cat.ID {
-					t.Errorf("page %q categories = %v, want [%d]", p.Slug, p.Categories, cat.ID)
-				}
-			}
+	assertCategoryApplied(t, g, "Guides", "guides")
+}
+
+// assertCategoryApplied checks that a source category was registered under the
+// expected slug and applied to every page the source contributed.
+func assertCategoryApplied(t *testing.T, g *Generator, name, slug string) {
+	t.Helper()
+	id := 0
+	for catID, cat := range g.siteData.Categories {
+		if cat.Name == name && cat.Slug == slug {
+			id = catID
+			break
 		}
 	}
-	if !found {
-		t.Errorf("category %q was not registered: %+v", "Guides", g.siteData.Categories)
+	if id == 0 {
+		t.Fatalf("category %q was not registered: %+v", name, g.siteData.Categories)
+	}
+	for _, p := range g.siteData.Pages {
+		if len(p.Categories) != 1 || p.Categories[0] != id {
+			t.Errorf("page %q categories = %v, want [%d]", p.Slug, p.Categories, id)
+		}
 	}
 }
 
