@@ -21,13 +21,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
-	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/spagu/ssg/internal/taxonomy"
@@ -185,20 +185,20 @@ type Config struct {
 
 	// Feed / highlighting / TOC / SEO / link-check / bundling / outputs / search
 	// (BLOG-002, AX-001, AX-002, SEO-003, SEO-005, ASSET-002, PLAT-003, PLAT-004).
-	Feed            bool
-	FeedItems       int
-	FeedFullContent bool
+	Feed                 bool
+	FeedItems            int
+	FeedFullContent      bool
 	Highlight            bool
 	HighlightStyle       string
 	HighlightLineNumbers bool // prefix highlighted blocks with line numbers (GO-073)
 	Mermaid              bool // render ```mermaid fences as diagrams (GO-073)
 	TOC                  bool
-	TOCDepth        int
-	SEO             bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
-	CheckLinks      string
-	Bundles         map[string][]string
-	Outputs         []string
-	SearchIndex     bool
+	TOCDepth             int
+	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
+	CheckLinks           string
+	Bundles              map[string][]string
+	Outputs              []string
+	SearchIndex          bool
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).

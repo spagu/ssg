@@ -275,9 +275,17 @@ references serve WebP, hardcoded ones keep working (v1.8.5).
 | `sanitize_html` | `false` | `--sanitize-html` | Apply bluemonday's UGC policy to rendered content |
 | `highlight` | `false` | `--highlight` | Highlight fenced code with Chroma |
 | `highlight_style` | `github` | `--highlight-style` | Chroma style name |
+| `highlight_line_numbers` | `false` | — | Prefix highlighted blocks with line numbers (needs `highlight`) |
 | `toc` | `false` | `--toc` | Expose `.TOC`; `[toc]` also expands |
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
+| `mermaid` | `false` | — | Render ```` ```mermaid ```` fences as diagrams |
+
+`mermaid: true` rewrites a ```` ```mermaid ```` fence into a
+`<pre class="mermaid">` block before rendering (so the diagram source is passed
+through verbatim, not HTML-escaped) and injects the mermaid.js runtime **only on
+pages that contain a diagram** — the same page-scoped approach as KaTeX. A
+mermaid fence stays a plain code block when the option is off.
 
 Math detection recognises display `$$...$$` and fenced ```` ```math ````
 blocks (fences are rewritten to display math before rendering, GO-055).

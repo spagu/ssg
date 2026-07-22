@@ -70,9 +70,11 @@ paginate: 0          # Posts per index page; 0 disables pagination (else adds /p
 
 # Authoring
 math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
+mermaid: false       # Render ```mermaid fences as diagrams (runtime injected only on pages that use one)
 sanitize_html: false # Sanitize raw HTML in markdown via bluemonday UGC policy (FE-005)
 highlight: false     # Syntax highlighting for code blocks via Chroma
 highlight_style: "github"  # Chroma style (e.g. github, monokai, dracula)
+highlight_line_numbers: false  # Prefix highlighted code blocks with line numbers (needs highlight: true)
 toc: false           # Expose .TOC (table of contents); [toc] in content always expands
 toc_depth: 3         # Max heading level included in the TOC
 

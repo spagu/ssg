@@ -252,7 +252,7 @@ type Config struct {
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")
 	// HighlightLineNumbers prefixes every highlighted code block with line
-	// numbers (Chroma WithLineNumbers). Requires highlight: true (GO-073).
+	// numbers (Chroma WithLineNumbers). Requires highlight: true (GO-074).
 	HighlightLineNumbers bool `yaml:"highlight_line_numbers" toml:"highlight_line_numbers" json:"highlight_line_numbers"`
 
 	// Mermaid renders ```mermaid fenced blocks as diagrams: the fence becomes a
