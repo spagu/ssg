@@ -219,6 +219,22 @@ type Config struct {
 	// page), "keep" (the shortcode's raw source, so the gap is visible) or
 	// "strict" (keep, then fail the build). Issue #37.
 	ShortcodeErrors string
+
+	// Headers overrides/extends the generated _headers blocks per path pattern;
+	// HeadersDefaultsOff drops the built-in blocks entirely (GO-064).
+	Headers            map[string]map[string]string
+	HeadersDefaultsOff bool
+
+	// Redirects are explicit `_redirects` rules; frontmatter aliases: are added
+	// as 301s automatically. AliasStubsOff suppresses the meta-refresh stub
+	// pages (the `_redirects` entries remain), for Cloudflare/Netlify-only
+	// sites that don't need the client-side fallback (GO-063).
+	Redirects     []RedirectRule
+	AliasStubsOff bool
+
+	// Worker wires a Cloudflare Pages Functions / Worker project into the
+	// build output (GO-065).
+	Worker WorkerConfig
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -289,6 +305,11 @@ type Generator struct {
 	mdCache       map[string]string
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
+
+	// aliasRedirects collects frontmatter alias→URL pairs during page/post
+	// generation for the _redirects file (GO-063). Single-goroutine build —
+	// needs a mutex before any future parallel rendering (see currentLang).
+	aliasRedirects []RedirectRule
 
 	// images is the lazily-built processor behind the image* template helpers
 	// (audit/images-processing-feature.md).
@@ -2980,30 +3001,42 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		if rel == "" || rel == "." {
 			continue
 		}
-		outPath := filepath.Join(g.config.OutputDir, rel, indexHTMLName)
-		if strings.HasSuffix(strings.ToLower(rel), ".html") {
-			outPath = filepath.Join(g.config.OutputDir, rel)
+		// Record the alias as a 301 for the _redirects file (GO-063).
+		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
+		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
+		// alias_stubs: false drops them and keeps only the _redirects entry.
+		if !g.config.AliasStubsOff {
+			g.writeAliasStub(alias, rel, target)
 		}
-		if err := g.ensureWithinOutput(outPath); err != nil {
-			fmt.Printf("   ⚠️  Skipping unsafe alias %q: %v\n", alias, err)
-			continue
-		}
-		if _, err := os.Stat(outPath); err == nil {
-			fmt.Printf("   ⚠️  Alias %q collides with an existing page; skipping\n", alias)
-			continue
-		}
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-			fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
-			continue
-		}
-		// Alias stubs get the same per-file transforms as rendered pages (PERF-005),
-		// matching the former tree-walk behaviour (minify/prettify/relative links).
-		stub := g.transformHTMLPage(aliasStubHTML(target), nil, false)
-		// #nosec G306 -- Web content files need to be world-readable
-		if err := os.WriteFile(outPath, []byte(stub), 0644); err != nil {
-			fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
-		}
+	}
+}
+
+// writeAliasStub writes one meta-refresh stub page for an alias, confined to
+// the output root and skipped when it would collide with a real page (SEO-002).
+func (g *Generator) writeAliasStub(alias, rel, target string) {
+	outPath := filepath.Join(g.config.OutputDir, rel, indexHTMLName)
+	if strings.HasSuffix(strings.ToLower(rel), ".html") {
+		outPath = filepath.Join(g.config.OutputDir, rel)
+	}
+	if err := g.ensureWithinOutput(outPath); err != nil {
+		fmt.Printf("   ⚠️  Skipping unsafe alias %q: %v\n", alias, err)
+		return
+	}
+	if _, err := os.Stat(outPath); err == nil {
+		fmt.Printf("   ⚠️  Alias %q collides with an existing page; skipping\n", alias)
+		return
+	}
+	// #nosec G301 -- Web content directories need to be world-traversable
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
+		return
+	}
+	// Alias stubs get the same per-file transforms as rendered pages (PERF-005),
+	// matching the former tree-walk behaviour (minify/prettify/relative links).
+	stub := g.transformHTMLPage(aliasStubHTML(target), nil, false)
+	// #nosec G306 -- Web content files need to be world-readable
+	if err := os.WriteFile(outPath, []byte(stub), 0644); err != nil {
+		fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
 	}
 }
 
@@ -3988,60 +4021,16 @@ Sitemap: https://%s/sitemap.xml
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "robots.txt"), []byte(content), 0644)
 }
 
-// generateCloudflareFiles creates _headers and _redirects files for Cloudflare Pages
+// generateCloudflareFiles creates _headers and _redirects files for Cloudflare
+// Pages: configurable headers (GO-064) and the redirects engine (GO-063).
 func (g *Generator) generateCloudflareFiles() error {
-	// Create _headers file with caching and security headers
-	headers := `# Cloudflare Pages Headers
-# Generated by SSG
-
-# Security headers for all pages
-/*
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  X-XSS-Protection: 1; mode=block
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
-
-# Cache static assets for 1 year
-/css/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/js/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/images/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/media/*
-  Cache-Control: public, max-age=31536000, immutable
-
-# Cache HTML pages for 1 hour
-/*.html
-  Cache-Control: public, max-age=3600
-
-/
-  Cache-Control: public, max-age=3600
-`
-	headersPath := filepath.Join(g.config.OutputDir, "_headers")
-	// #nosec G306 -- Web content files need to be world-readable
-	if err := os.WriteFile(headersPath, []byte(headers), 0644); err != nil {
-		return fmt.Errorf("writing _headers: %w", err)
+	if err := g.generateHeadersFile(); err != nil {
+		return err
 	}
-
-	// Create _redirects file (empty for now, can be extended)
-	redirects := `# Cloudflare Pages Redirects
-# Generated by SSG
-# Format: /source /destination [status]
-
-# Trailing slash normalization handled by Cloudflare automatically
-`
-	redirectsPath := filepath.Join(g.config.OutputDir, "_redirects")
-	// #nosec G306 -- Web content files need to be world-readable
-	if err := os.WriteFile(redirectsPath, []byte(redirects), 0644); err != nil {
-		return fmt.Errorf("writing _redirects: %w", err)
+	if err := g.generateRedirectsFile(); err != nil {
+		return err
 	}
-
-	return nil
+	return g.generateWorkerFiles()
 }
 
 // HTML/CSS/JS minification patterns, compiled once (PERF-006).

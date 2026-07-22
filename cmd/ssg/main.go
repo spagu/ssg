@@ -37,6 +37,16 @@ var Version = "dev"
 func main() {
 	args := os.Args[1:]
 
+	// Subcommands. Verb+noun pairs (new worker, import redirects) dispatch only
+	// on a known noun so a source directory literally named "new"/"import" still
+	// builds normally (GO-067). `init` is a standalone verb like `git init`.
+	if code, handled := dispatchSingleVerb(args); handled {
+		os.Exit(code)
+	}
+	if code, handled := dispatchSubcommand(args); handled {
+		os.Exit(code)
+	}
+
 	cfg := loadConfig(args)
 	parseFlags(args, cfg)
 	validateRequiredFields(args, cfg)
@@ -103,6 +113,10 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
+	// A configured worker defaults the watch runner to wrangler dev, so the
+	// static preview and the Functions run together (GO-065). Only here, in the
+	// watch path — a one-shot build must never start a runner.
+	config.ApplyWorkerWatchDefaults(cfg)
 	if cfg.WatchRunner != "" {
 		cmd := startWatchRunner(watchRunnerSpec{
 			Runner: cfg.WatchRunner,
@@ -440,67 +454,74 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 	}
 
 	return generator.Config{
-		Source:            cfg.Source,
-		Template:          cfg.Template,
-		Domain:            cfg.Domain,
-		ContentDir:        cfg.ContentDir,
-		TemplatesDir:      cfg.TemplatesDir,
-		OutputDir:         cfg.OutputDir,
-		SitemapOff:        cfg.SitemapOff,
-		RobotsOff:         cfg.RobotsOff,
-		PrettyHTML:        cfg.PrettyHTML,
-		PostURLFormat:     cfg.PostURLFormat,
-		PageFormat:        cfg.PageFormat,
-		RelativeLinks:     cfg.RelativeLinks,
-		Shortcodes:        shortcodes,
-		ShortcodeBrackets: cfg.ShortcodeBrackets,
-		MinifyHTML:        cfg.MinifyHTML,
-		MinifyCSS:         cfg.MinifyCSS,
-		MinifyJS:          cfg.MinifyJS,
-		SourceMap:         cfg.SourceMap,
-		Clean:             cfg.Clean,
-		Quiet:             cfg.Quiet,
-		Engine:            cfg.Engine,
-		Variables:         cfg.Variables,
-		PagesPath:         cfg.PagesPath,
-		PostsPath:         cfg.PostsPath,
-		StaticDir:         cfg.StaticDir,
-		DataDir:           cfg.DataDir,
-		RewriteMdLinks:    cfg.RewriteMdLinks,
-		PreserveSlugCase:  cfg.PreserveSlugCase,
-		Permalinks:        cfg.Permalinks,
-		LastmodFromGit:    cfg.LastmodFromGit,
-		Fingerprint:       cfg.Fingerprint,
-		SCSS:              cfg.SCSS,
-		SassBinary:        cfg.SassBinary,
-		Timezone:          cfg.Timezone,
-		LanguageTimezones: cfg.LanguageTimezones,
-		Math:              cfg.Math,
-		Paginate:          cfg.Paginate,
-		Languages:         cfg.Languages,
-		DefaultLanguage:   cfg.DefaultLanguage,
-		LanguageConfigs:   cfg.LanguageConfigs,
-		I18n:              cfg.I18n,
-		Taxonomies:        cfg.Taxonomies,
-		ExternalSources:   cfg.ExternalSources,
-		Hooks:             cfg.Hooks,
-		Feed:              cfg.Feed,
-		FeedItems:         cfg.FeedItems,
-		FeedFullContent:   cfg.FeedFullContent,
-		Highlight:         cfg.Highlight,
-		HighlightStyle:    cfg.HighlightStyle,
-		TOC:               cfg.TOC,
-		TOCDepth:          cfg.TOCDepth,
-		SEO:               cfg.SEO,
-		CheckLinks:        cfg.CheckLinks,
-		Bundles:           cfg.Bundles,
-		Outputs:           cfg.Outputs,
-		SearchIndex:       cfg.SearchIndex,
-		SanitizeHTML:      cfg.SanitizeHTML,
-		ShortcodeErrors:   cfg.ShortcodeErrors,
-		ContentSources:    contentSourcesOf(cfg),
-		LinkRewrites:      cfg.LinkRewrites,
-		AutoExcerpt:       cfg.AutoExcerpt,
+		Source:             cfg.Source,
+		Template:           cfg.Template,
+		Domain:             cfg.Domain,
+		ContentDir:         cfg.ContentDir,
+		TemplatesDir:       cfg.TemplatesDir,
+		OutputDir:          cfg.OutputDir,
+		SitemapOff:         cfg.SitemapOff,
+		RobotsOff:          cfg.RobotsOff,
+		PrettyHTML:         cfg.PrettyHTML,
+		PostURLFormat:      cfg.PostURLFormat,
+		PageFormat:         cfg.PageFormat,
+		RelativeLinks:      cfg.RelativeLinks,
+		Shortcodes:         shortcodes,
+		ShortcodeBrackets:  cfg.ShortcodeBrackets,
+		MinifyHTML:         cfg.MinifyHTML,
+		MinifyCSS:          cfg.MinifyCSS,
+		MinifyJS:           cfg.MinifyJS,
+		SourceMap:          cfg.SourceMap,
+		Clean:              cfg.Clean,
+		Quiet:              cfg.Quiet,
+		Engine:             cfg.Engine,
+		Variables:          cfg.Variables,
+		PagesPath:          cfg.PagesPath,
+		PostsPath:          cfg.PostsPath,
+		StaticDir:          cfg.StaticDir,
+		DataDir:            cfg.DataDir,
+		RewriteMdLinks:     cfg.RewriteMdLinks,
+		PreserveSlugCase:   cfg.PreserveSlugCase,
+		Permalinks:         cfg.Permalinks,
+		LastmodFromGit:     cfg.LastmodFromGit,
+		Fingerprint:        cfg.Fingerprint,
+		SCSS:               cfg.SCSS,
+		SassBinary:         cfg.SassBinary,
+		Timezone:           cfg.Timezone,
+		LanguageTimezones:  cfg.LanguageTimezones,
+		Math:               cfg.Math,
+		Paginate:           cfg.Paginate,
+		Languages:          cfg.Languages,
+		DefaultLanguage:    cfg.DefaultLanguage,
+		LanguageConfigs:    cfg.LanguageConfigs,
+		I18n:               cfg.I18n,
+		Taxonomies:         cfg.Taxonomies,
+		ExternalSources:    cfg.ExternalSources,
+		Hooks:              cfg.Hooks,
+		Feed:               cfg.Feed,
+		FeedItems:          cfg.FeedItems,
+		FeedFullContent:    cfg.FeedFullContent,
+		Highlight:          cfg.Highlight,
+		HighlightStyle:     cfg.HighlightStyle,
+		TOC:                cfg.TOC,
+		TOCDepth:           cfg.TOCDepth,
+		SEO:                cfg.SEO,
+		CheckLinks:         cfg.CheckLinks,
+		Bundles:            cfg.Bundles,
+		Outputs:            cfg.Outputs,
+		SearchIndex:        cfg.SearchIndex,
+		SanitizeHTML:       cfg.SanitizeHTML,
+		ShortcodeErrors:    cfg.ShortcodeErrors,
+		ContentSources:     contentSourcesOf(cfg),
+		LinkRewrites:       cfg.LinkRewrites,
+		AutoExcerpt:        cfg.AutoExcerpt,
+		Headers:            cfg.Headers,
+		HeadersDefaultsOff: cfg.HeadersDefaultsOff,
+		Redirects:          redirectsOf(cfg),
+		// aliases produce meta-refresh stubs by default; alias_stubs: false
+		// keeps only the _redirects 301s (GO-063).
+		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
+		Worker:        workerOf(cfg),
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -511,6 +532,30 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			Timeout:    cfg.Mddb.Timeout,
 			BatchSize:  cfg.Mddb.BatchSize,
 		},
+	}
+}
+
+// redirectsOf converts config redirect rules into the generator's own type,
+// keeping the two packages decoupled (same pattern as contentSourcesOf) (GO-063).
+func redirectsOf(cfg *config.Config) []generator.RedirectRule {
+	if len(cfg.Redirects) == 0 {
+		return nil
+	}
+	out := make([]generator.RedirectRule, 0, len(cfg.Redirects))
+	for _, r := range cfg.Redirects {
+		out = append(out, generator.RedirectRule{From: r.From, To: r.To, Status: r.Status, Force: r.Force})
+	}
+	return out
+}
+
+// workerOf converts the config worker section into the generator's type (GO-065).
+func workerOf(cfg *config.Config) generator.WorkerConfig {
+	return generator.WorkerConfig{
+		Dir:            cfg.Worker.Dir,
+		Mode:           cfg.Worker.Mode,
+		RoutesInclude:  cfg.Worker.RoutesInclude,
+		RoutesExclude:  cfg.Worker.RoutesExclude,
+		WranglerConfig: cfg.Worker.WranglerConfig,
 	}
 }
 

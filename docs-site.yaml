@@ -69,7 +69,7 @@ variables:
   logo: logo.png                  # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg           # assets/river.jpg, resized at build time
   github_repo: spagu/ssg          # enables the header star count
-  version: "1.8.10"
+  version: "1.8.11"
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.

@@ -237,6 +237,39 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #   ftp          → FTP_USERNAME, FTP_PASSWORD
 #   sftp         → SSH_USERNAME, SSH_PASSWORD or SSH_KEY_FILE (host in known_hosts)
 
+# Redirects (Cloudflare Pages / Netlify _redirects; GO-063). Empty by default.
+# Exact paths, /old/* splats (:splat in the destination), status 301/302/307/308/410.
+# Frontmatter aliases: are added as 301s and exact chains are flattened to one hop.
+# Import an existing Next.js rule set with: ssg import redirects next.config.ts
+# redirects:
+#   - from: /old-pricing
+#     to: /pricing              # status defaults to 301
+#   - from: /blog/*
+#     to: /articles/:splat
+#     status: 301
+#   - from: /discontinued
+#     to: /
+#     status: 410
+# alias_stubs: true             # also write meta-refresh stub pages for aliases (default true)
+
+# Custom _headers blocks (GO-064). A pattern here replaces that default block;
+# unknown patterns are appended. Empty = the built-in security/cache defaults.
+# headers:
+#   /*:
+#     Content-Security-Policy: "default-src 'self'"
+#   /api/*:
+#     Access-Control-Allow-Origin: "*"
+# headers_defaults_off: false   # true drops the built-in blocks entirely
+
+# Cloudflare Worker / Pages Functions beside the static site (GO-065).
+# Scaffold a template with: ssg new worker <contact-form|stripe-checkout|dynamic-price|conversions-proxy>
+# worker:
+#   dir: workers/stripe-checkout  # Functions project, or a dir with a prebuilt _worker.js
+#   mode: functions               # functions (default) | worker
+#   routes_include: ["/api/*"]    # paths that invoke the Function (default ["/api/*"])
+#   routes_exclude: []            # paths carved back out to static
+#   wrangler_config: ""           # wrangler config outside the project root
+
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder
 # shortcode_brackets: false  # Also match [name] syntax (WordPress-style, default: false)

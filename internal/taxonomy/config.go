@@ -28,6 +28,7 @@ type Definition struct {
 	CaseSensitive bool
 	Slugify       bool
 	GenerateEmpty bool
+	Paginate      int  // posts per term-archive page; 0 = fall back to the global paginate (#44)
 	Legacy        bool // category/tag/series: rendered by the legacy pipeline
 }
 
@@ -48,6 +49,7 @@ type DefinitionConfig struct {
 	CaseSensitive *bool  `yaml:"case_sensitive" toml:"case_sensitive" json:"case_sensitive"`
 	Slugify       *bool  `yaml:"slugify" toml:"slugify" json:"slugify"`
 	GenerateEmpty *bool  `yaml:"generate_empty" toml:"generate_empty" json:"generate_empty"`
+	Paginate      *int   `yaml:"paginate" toml:"paginate" json:"paginate"`
 }
 
 // nameRe constrains taxonomy names to safe identifier/URL material.
@@ -132,6 +134,9 @@ func applyOverrides(base Definition, uc DefinitionConfig) Definition {
 	if uc.Sort != "" {
 		base.Sort = uc.Sort
 	}
+	if uc.Paginate != nil {
+		base.Paginate = *uc.Paginate
+	}
 	base.Multiple = boolOr(uc.Multiple, base.Multiple)
 	base.Archive = boolOr(uc.Archive, base.Archive)
 	base.Feed = boolOr(uc.Feed, base.Feed)
@@ -165,6 +170,9 @@ func validate(defs map[string]Definition, names, reserved []string) error {
 		case "name", "count", "weight":
 		default:
 			return fmt.Errorf("taxonomy %q: unsupported sort %q (want name, count or weight)", name, d.Sort)
+		}
+		if d.Paginate < 0 {
+			return fmt.Errorf("taxonomy %q: paginate must be >= 0", name)
 		}
 	}
 	return nil

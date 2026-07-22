@@ -346,7 +346,13 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 	}
 	root := filepath.Join(g.config.OutputDir, filepath.FromSlash(strings.Trim(base, "/")), slug)
 	chain := g.taxonomyTermChain(def)
-	for _, chunk := range paginateTerm(posts, g.config.Paginate, term.URL) {
+	// A per-taxonomy paginate overrides the global page size; 0 falls back to
+	// the site-wide paginate, preserving existing behaviour (#44).
+	perPage := g.config.Paginate
+	if def.Paginate > 0 {
+		perPage = def.Paginate
+	}
+	for _, chunk := range paginateTerm(posts, perPage, term.URL) {
 		outPath := filepath.Join(root, indexHTMLName)
 		if chunk.Pager.Current > 1 {
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)

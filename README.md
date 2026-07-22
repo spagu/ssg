@@ -27,6 +27,8 @@ documentation, company sites, portfolios and landing pages.
 - Sitemap, robots.txt, Atom feeds, search index and SEO metadata
 - WebP conversion, responsive images, SCSS, minification and fingerprinting
 - Local server with automatic rebuilds
+- Redirects engine with chain flattening and a Next.js `redirects()` importer
+- Cloudflare Pages Functions integration for payments, forms and dynamic endpoints
 - Native deployment to Cloudflare Pages, GitHub Pages, Netlify, Vercel, FTP and SFTP
 - GitHub Action and multi-architecture Docker images
 
@@ -57,6 +59,17 @@ Other supported installation methods:
 For platform-specific instructions, see [docs/INSTALL.md](docs/INSTALL.md).
 
 ### 2. Create the smallest useful site
+
+The fastest way is `ssg init`, which scaffolds a ready-to-build project —
+config, a content source with a sample page and post, a `static/` folder and a
+`.gitignore` — without overwriting anything that already exists:
+
+```bash
+ssg init my-blog --domain blog.example.com
+ssg --config .ssg.yaml --http --watch
+```
+
+Or lay it out by hand:
 
 ```text
 content/
@@ -323,6 +336,8 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
+| Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a Next.js config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |

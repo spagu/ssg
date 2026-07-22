@@ -6,6 +6,33 @@ import (
 )
 
 func boolPtr(v bool) *bool { return &v }
+func intPtr(v int) *int    { return &v }
+
+func TestResolvePerTaxonomyPaginate(t *testing.T) {
+	defs, _, err := Resolve(map[string]DefinitionConfig{
+		"technology": {Paginate: intPtr(24)},
+		"tag":        {Paginate: intPtr(50)},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defs["technology"].Paginate != 24 {
+		t.Fatalf("custom paginate = %d, want 24", defs["technology"].Paginate)
+	}
+	if defs["tag"].Paginate != 50 {
+		t.Fatalf("legacy override paginate = %d, want 50", defs["tag"].Paginate)
+	}
+	// Unset paginate stays 0 (falls back to the global value at render time).
+	if defs["category"].Paginate != 0 {
+		t.Fatalf("default paginate = %d, want 0", defs["category"].Paginate)
+	}
+}
+
+func TestResolvePaginateNegative(t *testing.T) {
+	if _, _, err := Resolve(map[string]DefinitionConfig{"technology": {Paginate: intPtr(-1)}}, nil); err == nil {
+		t.Fatal("expected a negative-paginate validation error")
+	}
+}
 
 func TestResolveLegacyDefaults(t *testing.T) {
 	defs, names, err := Resolve(nil, nil)

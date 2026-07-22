@@ -51,3 +51,12 @@ func (p *Processor) SrcSetDict(source string, opts map[string]any) (ImageSet, er
 	}
 	return p.SrcSet(source, s)
 }
+
+// PictureDict implements the imagePicture template helper.
+func (p *Processor) PictureDict(source string, opts map[string]any) (ImagePicture, error) {
+	s, err := ParsePicture(opts)
+	if err != nil {
+		return ImagePicture{}, err
+	}
+	return p.Picture(source, s)
+}

@@ -12,3 +12,11 @@ import "embed"
 //
 //go:embed templates/simple templates/krowy
 var EmbeddedThemes embed.FS
+
+// EmbeddedWorkers carries the batteries-included Cloudflare Pages Functions
+// templates scaffolded by `ssg new worker <template>` (GO-066): contact-form,
+// stripe-checkout, dynamic-price and conversions-proxy. They live at the module
+// root for the same go:embed reason as the themes above.
+//
+//go:embed workers
+var EmbeddedWorkers embed.FS

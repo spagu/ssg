@@ -87,6 +87,34 @@ Widths are sorted and deduplicated; invalid ones dropped; widths above the
 source are skipped unless `upscale`; up to 20 variants per source; `Default`
 is the largest generated variant unless `defaultWidth` picks another.
 
+### `imagePicture path dict`
+
+Emits a `<picture>` with **format fallback** — one `<source>` per format in
+declared order, each with its own responsive `srcset`, and an `<img>` fallback
+carrying `width`/`height` (zero CLS). Useful even without AVIF: it makes
+WebP-with-JPEG-fallback a one-liner.
+
+```gotemplate
+{{ $p := imagePicture "hero.jpg" (dict
+     "formats" (slice "avif" "webp" "jpeg")
+     "widths"  (slice 480 768 1200 1920)
+     "sizes"   "(min-width: 64rem) 60vw, 100vw"
+     "alt"     "Our team at work"
+     "quality" 78) }}
+{{ $p.HTML | safeHTML }}
+```
+
+The last encodable format becomes the `<img>` fallback; earlier formats become
+`<source>` elements. **A format whose encoder is not installed is skipped with
+a warning, not a build failure** — so the same template works on a machine
+without `avifenc`/`cwebp` (the AVIF `<source>` simply drops out). `formats`
+defaults to `["webp", "jpeg"]`.
+
+Result object: `.Sources` (each `.Format`/`.Type`/`.SrcSet`), `.Fallback` (an
+image result for the `<img>`), `.Sizes`, `.Alt`, `.Skipped` (formats dropped for
+a missing encoder) and `.HTML` (the ready-to-emit markup; pipe through
+`safeHTML`).
+
 ## Result object
 
 `.URL` `.StaticPath` `.Width` `.Height` `.OriginalWidth` `.OriginalHeight`
@@ -94,10 +122,13 @@ is the largest generated variant unless `defaultWidth` picks another.
 
 ## Formats & policies
 
-- **Output**: `jpg`/`jpeg`, `png`, `webp` (`auto` = keep source format).
-  WebP encoding uses the **optional `cwebp` tool** (same dependency as
-  `--webp`); requesting webp without it is a descriptive error. AVIF is not
-  supported (no portable CGO-free encoder).
+- **Output**: `jpg`/`jpeg`, `png`, `webp`, `avif` (`auto` = keep source format).
+  WebP encoding uses the **optional `cwebp` tool** and AVIF the **optional
+  `avifenc` tool** (from libavif) — same optional-binary approach, no CGO, the
+  binary stays static. Requesting a format without its tool is a descriptive
+  error for `imageResize`/`imageSrcSet`; `imagePicture` instead **skips that
+  format with a warning** so the page still builds. AVIF runs ~20–30% smaller
+  than WebP; it is opt-in per call, never the default.
 - **EXIF**: orientation is normalized before any geometry; metadata (including
   GPS) is stripped — outputs are re-encoded pixels only.
 - **Animated GIFs**: processing errors out (`animated_policy: error`) rather
