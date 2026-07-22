@@ -67,7 +67,7 @@ search_index: true
 # diagrams rendered from ```mermaid fences (runtime injected only on pages that
 # use one).
 highlight: true
-highlight_style: github
+highlight_style: github-dark
 highlight_line_numbers: true
 mermaid: true
 
