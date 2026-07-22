@@ -122,6 +122,9 @@ type Config struct {
 
 	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
 	RewriteMdLinks bool
+	// StripMdLinkText drops ".md" from a link's visible text when that text is a
+	// bare filename, at publish time — source files are untouched (GO-075).
+	StripMdLinkText bool
 
 	// PreserveSlugCase keeps original casing in slugs derived from filenames.
 	// Default (false): slugs lowercased. When true: original case preserved.
@@ -1964,6 +1967,20 @@ func (g *Generator) rewriteMdLinks(html string, mdLinkMap map[string]map[string]
 	})
 }
 
+// mdLinkTextRe matches an anchor whose entire visible text is a bare filename
+// ending in ".md" (optionally with a directory path), e.g.
+// <a href="/configuration/">CONFIGURATION.md</a>. Prose, inline code
+// (<code>…</code>) and code blocks never match: the text must start right after
+// the opening tag with filename characters only.
+var mdLinkTextRe = regexp.MustCompile(`(<a\b[^>]*>)([A-Za-z0-9][\w./-]*)\.md(</a>)`)
+
+// stripMdLinkText removes the ".md" suffix from link text that is exactly a
+// filename, so `[CONFIGURATION.md](CONFIGURATION.md)` reads as "CONFIGURATION"
+// after publish without editing the source (GO-075).
+func stripMdLinkText(html string) string {
+	return mdLinkTextRe.ReplaceAllString(html, `${1}${2}${3}`)
+}
+
 // warnMdLink reports a .md link whose target translation is missing (i18n §13),
 // once per (link, language) to avoid flooding the build log.
 func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[string]string) {
@@ -2115,6 +2132,9 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 		s = fixMediaPaths(s, g.siteData.Media)
 		if g.config.RewriteMdLinks {
 			s = g.rewriteMdLinks(s, mdLinkMap)
+		}
+		if g.config.StripMdLinkText {
+			s = stripMdLinkText(s)
 		}
 		s = g.applyLinkRewrites(s)
 		if g.sanitizer != nil {
