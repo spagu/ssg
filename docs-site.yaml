@@ -63,13 +63,21 @@ sitemap_off: false
 robots_off: false
 search_index: true
 
+# Code blocks: Chroma syntax highlighting with line numbers, and Mermaid
+# diagrams rendered from ```mermaid fences (runtime injected only on pages that
+# use one).
+highlight: true
+highlight_style: github
+highlight_line_numbers: true
+mermaid: true
+
 variables:
   project_name: SSG
   repository_url: https://github.com/spagu/ssg
   logo: logo.png                  # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg           # assets/river.jpg, resized at build time
   github_repo: spagu/ssg          # enables the header star count
-  version: "1.8.11"
+  version: "1.8.12"
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.

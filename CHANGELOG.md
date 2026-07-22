@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.12] - 2026-07-22
+
+### Added
+- 📊 **Mermaid diagrams** (GO-073) — with `mermaid: true`, a ```` ```mermaid ````
+  fence is rewritten to a `<pre class="mermaid">` block before rendering (so the
+  diagram source passes through verbatim instead of being HTML-escaped — the
+  reason such fences previously failed to parse) and the mermaid.js runtime is
+  injected **only on pages that contain a diagram**, mirroring the page-scoped
+  KaTeX approach. Off by default: a mermaid fence stays a plain code block.
+- 🔢 **Line numbers for code highlighting** (GO-074) — `highlight_line_numbers:
+  true` prefixes every Chroma-highlighted block with line numbers (requires
+  `highlight: true`).
+
+### Changed
+- The documentation site (`docs-site.yaml`) now enables `highlight`,
+  `highlight_line_numbers` and `mermaid`, so guide and blog code blocks are
+  coloured with line numbers and their diagrams render.
+
 ## [1.8.11] - 2026-07-22
 
 ### Added

@@ -96,6 +96,15 @@ func mathHTMLString(s string) string {
 	return injectKatexAssets(s)
 }
 
+// mermaidHTMLString wires the mermaid.js runtime into pages that contain a
+// mermaid diagram and are not already wired (GO-073).
+func mermaidHTMLString(s string) string {
+	if !strings.Contains(s, `class="mermaid"`) || strings.Contains(s, "mermaid@") {
+		return s
+	}
+	return injectMermaidAssets(s)
+}
+
 // seoHTMLString adds the generator-level SEO block (OpenGraph/Twitter/JSON-LD,
 // feed alternate, hreflang) for the parts the theme did not provide (SEO-003).
 // A no-op unless SEO injection is enabled (`seo`, opt-in since v1.8.2).
@@ -147,6 +156,9 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	}
 	if g.config.Math {
 		s = mathHTMLString(s)
+	}
+	if g.config.Mermaid {
+		s = mermaidHTMLString(s)
 	}
 	if g.config.RelativeLinks && g.config.Domain != "" {
 		s = relativizeHTMLString(s, g.config.Domain)
