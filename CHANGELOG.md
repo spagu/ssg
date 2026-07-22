@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.12] - 2026-07-22
 
 ### Added
+- 🔗 **`strip_md_link_text`** (GO-075) — drops the `.md` from a link's visible
+  text when that text is a bare filename, at publish time, so
+  `[CONFIGURATION.md](CONFIGURATION.md)` reads as "CONFIGURATION". Only anchor
+  text that is exactly a filename is touched — prose, inline code and code
+  blocks are left alone, and the source `.md` files are never modified.
+  Complements `rewrite_md_links`. The documentation site enables it.
 - 📊 **Mermaid diagrams** (GO-073) — with `mermaid: true`, a ```` ```mermaid ````
   fence is rewritten to a `<pre class="mermaid">` block before rendering (so the
   diagram source passes through verbatim instead of being HTML-escaped — the

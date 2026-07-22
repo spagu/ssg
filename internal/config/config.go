@@ -175,6 +175,12 @@ type Config struct {
 
 	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
 	RewriteMdLinks bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
+	// StripMdLinkText drops the ".md" from a link's visible text when that text
+	// is exactly a filename (e.g. `[CONFIGURATION.md](CONFIGURATION.md)` renders
+	// as "CONFIGURATION"). Only anchor text that is a bare filename is touched —
+	// prose, inline code and code blocks are left alone, and source .md files
+	// are not modified. Opt-in, at publish time (GO-075).
+	StripMdLinkText bool `yaml:"strip_md_link_text" toml:"strip_md_link_text" json:"strip_md_link_text"`
 
 	// PreserveSlugCase keeps original casing in slugs/URLs derived from filenames.
 	// Default (false): slugs are lowercased (e.g. "API.md" → slug "api" → /api/).

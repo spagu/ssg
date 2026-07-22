@@ -33,8 +33,10 @@ content_sources:
 
 # Docs cross-link each other as CONFIGURATION.md, which only resolves in a
 # repository view; rewrite_md_links turns those into the built page URLs
-# (anchors included).
+# (anchors included), and strip_md_link_text drops the ".md" from the visible
+# link text ("see CONFIGURATION" instead of "see CONFIGURATION.md").
 rewrite_md_links: true
+strip_md_link_text: true
 
 # The guides also link to repository files the site never publishes
 # (../examples/, the sample config). Point those at GitHub instead of 404ing.

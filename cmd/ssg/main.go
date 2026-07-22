@@ -481,6 +481,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		StaticDir:            cfg.StaticDir,
 		DataDir:              cfg.DataDir,
 		RewriteMdLinks:       cfg.RewriteMdLinks,
+		StripMdLinkText:      cfg.StripMdLinkText,
 		PreserveSlugCase:     cfg.PreserveSlugCase,
 		Permalinks:           cfg.Permalinks,
 		LastmodFromGit:       cfg.LastmodFromGit,

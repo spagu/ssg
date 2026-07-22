@@ -187,6 +187,7 @@ fingerprinted assets.
 | `permalinks.post` | empty | `--permalink-post` | Tokenised post URL pattern |
 | `permalinks.page` | empty | `--permalink-page` | Tokenised page URL pattern |
 | `rewrite_md_links` | `false` | config only | Rewrite source `.md` links to final URLs (anchors and query strings are carried over) |
+| `strip_md_link_text` | `false` | config only | Drop `.md` from link text that is a bare filename (`[CONFIGURATION.md]…` → "CONFIGURATION") |
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
 | `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
@@ -196,7 +197,12 @@ tokens are `:year`, `:month`, `:day`, `:slug` and `:category`.
 
 `rewrite_md_links` turns in-repository links (`CONFIGURATION.md`,
 `./guide.md#section`) into the built page URLs, carrying any `#anchor` or
-`?query` across. `link_rewrites` covers the other half of a documentation site:
+`?query` across. `strip_md_link_text` complements it at publish time: when a
+link's visible text is exactly a filename ending in `.md`, the `.md` is dropped
+(`[CONFIGURATION.md](CONFIGURATION.md)` renders as "CONFIGURATION"). Only bare
+filename link text is touched — prose, inline code (`` `CONFIGURATION.md` ``) and
+code blocks are left alone, and the source `.md` files are never modified.
+`link_rewrites` covers the other half of a documentation site:
 links to repository files that the site never publishes. It maps an href prefix
 to its replacement, longest match first, so one rule can cover a folder and
 another override a single file:
