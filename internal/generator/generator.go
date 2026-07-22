@@ -27,6 +27,7 @@ import (
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
+	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/spagu/ssg/internal/taxonomy"
@@ -187,9 +188,11 @@ type Config struct {
 	Feed            bool
 	FeedItems       int
 	FeedFullContent bool
-	Highlight       bool
-	HighlightStyle  string
-	TOC             bool
+	Highlight            bool
+	HighlightStyle       string
+	HighlightLineNumbers bool // prefix highlighted blocks with line numbers (GO-073)
+	Mermaid              bool // render ```mermaid fences as diagrams (GO-073)
+	TOC                  bool
 	TOCDepth        int
 	SEO             bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
 	CheckLinks      string
@@ -465,7 +468,11 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 		if style == "" {
 			style = "github"
 		}
-		exts = append(exts, highlighting.NewHighlighting(highlighting.WithStyle(style)))
+		opts := []highlighting.Option{highlighting.WithStyle(style)}
+		if cfg.HighlightLineNumbers {
+			opts = append(opts, highlighting.WithFormatOptions(chromahtml.WithLineNumbers(true)))
+		}
+		exts = append(exts, highlighting.NewHighlighting(opts...))
 	}
 	return goldmark.New(
 		goldmark.WithExtensions(exts...),
@@ -2184,6 +2191,11 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 	// KaTeX injection gate and browser auto-render both see them (GO-055).
 	if g.config.Math {
 		s = mathFencesToDisplay(s)
+	}
+	// Fenced ```mermaid blocks become <pre class="mermaid"> so goldmark passes
+	// the diagram source through verbatim and the runtime renders it (GO-073).
+	if g.config.Mermaid {
+		s = mermaidFencesToHTML(s)
 	}
 	// Memoized per exact source: feeds, search index, JSON output and both
 	// page-format paths reuse one conversion instead of 6–8 (PERF-004).
@@ -4384,6 +4396,21 @@ func rewriteAssetRefs(s string, byBasename map[string]string) string {
 		return s
 	}
 	return newAssetRefRewriter(byBasename).rewrite(s)
+}
+
+// mermaidVersion pins the mermaid release injected for diagram pages (GO-073).
+const mermaidVersion = "11.16.0"
+
+// injectMermaidAssets adds the mermaid.js ES module and an initializer before
+// </body>, so <pre class="mermaid"> blocks render as diagrams. Loaded only on
+// pages that contain a diagram (mermaidHTMLString gate).
+func injectMermaidAssets(html string) string {
+	body := `<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@` + mermaidVersion +
+		`/dist/mermaid.esm.min.mjs";mermaid.initialize({startOnLoad:true});</script>`
+	if i := strings.LastIndex(html, "</body>"); i >= 0 {
+		return html[:i] + body + "\n" + html[i:]
+	}
+	return html + body
 }
 
 // katexVersion pins the KaTeX release injected for math pages (AX-004).

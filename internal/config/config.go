@@ -251,6 +251,15 @@ type Config struct {
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")
+	// HighlightLineNumbers prefixes every highlighted code block with line
+	// numbers (Chroma WithLineNumbers). Requires highlight: true (GO-073).
+	HighlightLineNumbers bool `yaml:"highlight_line_numbers" toml:"highlight_line_numbers" json:"highlight_line_numbers"`
+
+	// Mermaid renders ```mermaid fenced blocks as diagrams: the fence becomes a
+	// <pre class="mermaid"> container and the mermaid.js runtime is injected only
+	// on pages that use one (mirrors the KaTeX math opt-in). Off by default so a
+	// mermaid fence stays a plain code block unless asked (GO-073).
+	Mermaid bool `yaml:"mermaid" toml:"mermaid" json:"mermaid"`
 
 	// Table of contents (AX-002): .TOC context + [toc] shortcode.
 	TOC      bool `yaml:"toc" toml:"toc" json:"toc"`

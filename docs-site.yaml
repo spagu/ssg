@@ -63,6 +63,14 @@ sitemap_off: false
 robots_off: false
 search_index: true
 
+# Code blocks: Chroma syntax highlighting with line numbers, and Mermaid
+# diagrams rendered from ```mermaid fences (runtime injected only on pages that
+# use one).
+highlight: true
+highlight_style: github
+highlight_line_numbers: true
+mermaid: true
+
 variables:
   project_name: SSG
   repository_url: https://github.com/spagu/ssg
