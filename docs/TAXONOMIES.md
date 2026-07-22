@@ -21,10 +21,16 @@ taxonomies:
     template: ""           # explicit index template (see fallback chain below)
     term_template: ""      # explicit term template
     sort: name             # term ordering: name | count | weight
+    paginate: 0            # posts per term-archive page; 0 = use the global paginate
     case_sensitive: false  # "Go" and "go" merge into one term by default
     slugify: true          # URL slugs derived from term names
     generate_empty: false  # true = archives for zero-post terms from data files
 ```
+
+`paginate` sets the page size for this taxonomy's term archives, overriding the
+site-wide `paginate`; leave it `0` to inherit the global value. A site with many
+tags but few categories can page each differently — `paginate: 50` on `tag`,
+`paginate: 12` on `category`.
 
 Taxonomy names must match `[a-z][a-z0-9_-]*`. Every taxonomy needs a unique
 `path`, and the segments `author`, `page` and configured language codes are

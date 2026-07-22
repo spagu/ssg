@@ -29,6 +29,10 @@ type Options struct {
 	Target   string // ftp/sftp URL or git remote (provider-specific)
 	Quiet    bool
 	Env      func(string) string
+	// Exec runs an external command (wrangler) when the output carries a
+	// functions/ directory Direct Upload cannot build. Tests inject a stub;
+	// nil defaults to running the real binary (GO-065).
+	Exec func(ctx context.Context, name string, args ...string) error
 }
 
 // env returns an environment variable via the (possibly injected) lookup func.

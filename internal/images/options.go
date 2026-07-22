@@ -182,7 +182,7 @@ func (r *request) parseCommonOption(helper, key string, v any) (bool, error) {
 func (r *request) validateCommon(helper string) error {
 	if r.Format != "" {
 		switch strings.ToLower(r.Format) {
-		case "auto", "jpg", "jpeg", "png", "webp":
+		case "auto", "jpg", "jpeg", "png", "webp", "avif":
 		default:
 			return fmt.Errorf("%s: unsupported output format %q", helper, r.Format)
 		}

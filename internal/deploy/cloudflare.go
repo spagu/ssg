@@ -9,6 +9,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 )
 
@@ -46,9 +49,14 @@ func NewCloudflarePages(cfg CloudflareConfig) *CloudflarePages {
 	}
 }
 
-// deployCloudflare adapts the generic deploy Options to a Cloudflare Pages upload,
-// reading credentials from the environment.
+// deployCloudflare adapts the generic deploy Options to a Cloudflare Pages
+// upload, reading credentials from the environment. Output trees carrying a
+// functions/ directory are deployed via wrangler, which Direct Upload cannot
+// build; everything else takes the pure-Go Direct Upload path (GO-065).
 func deployCloudflare(ctx context.Context, o Options) (string, error) {
+	if hasPagesFunctions(o.Dir) {
+		return deployCloudflareWrangler(ctx, o)
+	}
 	return NewCloudflarePages(CloudflareConfig{
 		AccountID: o.env("CLOUDFLARE_ACCOUNT_ID"),
 		APIToken:  o.env("CLOUDFLARE_API_TOKEN"),
@@ -56,6 +64,46 @@ func deployCloudflare(ctx context.Context, o Options) (string, error) {
 		Branch:    o.Branch,
 		Quiet:     o.Quiet,
 	}).Deploy(ctx, o.Dir)
+}
+
+// hasPagesFunctions reports whether dir contains a Pages Functions directory.
+func hasPagesFunctions(dir string) bool {
+	fi, err := os.Stat(filepath.Join(dir, "functions"))
+	return err == nil && fi.IsDir()
+}
+
+// deployCloudflareWrangler shells out to `wrangler pages deploy` so Cloudflare
+// builds the Functions from source. Credentials pass through the environment
+// (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID), matching the Direct Upload
+// path. `mode: worker` with a prebuilt _worker.js avoids this dependency.
+func deployCloudflareWrangler(ctx context.Context, o Options) (string, error) {
+	if o.Project == "" {
+		return "", fmt.Errorf("missing Cloudflare Pages project name (--deploy-project=<name> or deploy_project in config)")
+	}
+	args := []string{"wrangler", "pages", "deploy", o.Dir, "--project-name=" + o.Project}
+	if o.Branch != "" {
+		args = append(args, "--branch="+o.Branch)
+	}
+	o.logf("⚡ Deploying via wrangler (Pages Functions detected)…")
+	run := o.Exec
+	if run == nil {
+		run = runNPXCommand
+	}
+	if err := run(ctx, "npx", args...); err != nil {
+		return "", fmt.Errorf("wrangler pages deploy failed: %w — install wrangler, or use worker.mode: worker with a prebuilt _worker.js", err)
+	}
+	// wrangler prints the deployment URL itself; we don't parse its stdout.
+	return "", nil
+}
+
+// runNPXCommand runs npx with the given args, streaming output, passing the
+// current environment through so CLOUDFLARE_* credentials reach wrangler.
+func runNPXCommand(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- fixed argv; only the project name/dir come from trusted config
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	return cmd.Run()
 }
 
 // Validate reports whether the required credentials/target are present.

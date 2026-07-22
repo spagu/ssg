@@ -191,6 +191,68 @@ func ParseSrcSet(opts map[string]any) (srcSetOptions, error) {
 	return s, nil
 }
 
+// ParsePicture parses the imagePicture options dict (issue #43).
+func ParsePicture(opts map[string]any) (pictureOptions, error) {
+	const helper = "imagePicture"
+	var s pictureOptions
+	for key, v := range opts {
+		if ok, err := s.Base.parseCommonOption(helper, key, v); err != nil {
+			return s, err
+		} else if ok {
+			continue
+		}
+		var err error
+		switch key {
+		case "formats":
+			s.Formats, err = optStringList(helper, key, v)
+		case "widths":
+			s.Widths, err = optIntList(helper, key, v)
+		case "defaultWidth":
+			s.DefaultWidth, err = optInt(helper, key, v)
+		case "sizes":
+			s.Sizes, err = optString(helper, key, v)
+		case "alt":
+			s.Alt, err = optString(helper, key, v)
+		case "mode":
+			s.Base.Mode, err = optString(helper, key, v)
+		default:
+			return s, fmt.Errorf("%s: unknown option %q", helper, key)
+		}
+		if err != nil {
+			return s, err
+		}
+	}
+	// Format is set per-source-format inside Picture, so the shared Base.Format
+	// must stay empty; reject a stray top-level "format" to avoid confusion.
+	if s.Base.Format != "" {
+		return s, fmt.Errorf("%s: use \"formats\" (a list), not \"format\"", helper)
+	}
+	if err := s.Base.validateCommon(helper); err != nil {
+		return s, err
+	}
+	return s, nil
+}
+
+// optStringList reads a list of strings (template slice yields []any).
+func optStringList(helper, key string, v any) ([]string, error) {
+	list, ok := v.([]any)
+	if !ok {
+		if strs, ok2 := v.([]string); ok2 {
+			return strs, nil
+		}
+		return nil, fmt.Errorf("%s: option %q must be a list of strings, got %T", helper, key, v)
+	}
+	out := make([]string, 0, len(list))
+	for i, item := range list {
+		str, err := optString(helper, fmt.Sprintf("%s[%d]", key, i), item)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, str)
+	}
+	return out, nil
+}
+
 // optIntList reads a list of numbers (template slice yields []any).
 func optIntList(helper, key string, v any) ([]int, error) {
 	list, ok := v.([]any)

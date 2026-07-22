@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.10" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.11" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -18,6 +18,16 @@ ssg \- fast static site generator written in Go
 .B \-\-mddb\-collection\fR=\fINAME
 .I template domain
 .RI [ options ]
+.br
+.B ssg import redirects
+.RI { file | \-\-from\-json\ file }
+.br
+.B ssg new worker
+.I template
+.br
+.B ssg init
+.RI [ source-name ]
+.RI [ \-\-domain\ example.com ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -39,6 +49,28 @@ Template name (inside templates-dir).
 .TP
 .I domain
 Target domain for the generated site (e.g., example.com).
+.SH SUBCOMMANDS
+Dispatched only on a known verb+noun pair in the first two arguments, so a
+source directory named \fInew\fR or \fIimport\fR still builds normally.
+.TP
+.B ssg import redirects \fR{\fIfile\fR | \fB\-\-from\-json\fR \fIfile\fR}
+Convert a Next.js \fBredirects()\fR rule set into a \fBredirects:\fR YAML block on
+stdout. \fB\-\-from\-json\fR reads a JSON dump of the array (reliable); a bare
+\fIfile\fR argument parses a \fBnext.config.(js|ts|mjs)\fR heuristically. Entries
+that cannot be translated (conditional \fBhas\fR/\fBmissing\fR, template-literal
+paths, regex-constrained params) are reported on stderr, never dropped silently.
+.TP
+.B ssg new worker \fItemplate\fR
+Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
+and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
+\fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
+.TP
+.B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
+Scaffold a ready-to-build project in the current directory — config, a content
+source tree with a sample page and post, a \fBstatic/\fR folder and a
+\fB.gitignore\fR. Existing files are never overwritten: each is kept and
+reported, so it is safe to run in a populated directory. \fIsource-name\fR
+defaults to \fBsite\fR.
 .SH OPTIONS
 .SS Configuration
 .TP
@@ -418,6 +450,20 @@ CLOUDFLARE_ACCOUNT_ID; \fBgithub-pages\fR — GITHUB_TOKEN (https) or an SSH key
 \fBnetlify\fR — NETLIFY_AUTH_TOKEN (+ NETLIFY_SITE_ID); \fBvercel\fR — VERCEL_TOKEN,
 VERCEL_ORG_ID; \fBftp\fR — FTP_USERNAME, FTP_PASSWORD; \fBsftp\fR — SSH_USERNAME,
 SSH_PASSWORD or SSH_KEY_FILE (the host must be present in known_hosts).
+.PP
+When a \fBcloudflare\fR deploy target's output contains a \fBfunctions/\fR
+directory (see \fBworker:\fR below), \fBssg\fR runs \fBnpx wrangler pages deploy\fR
+so Cloudflare builds the Pages Functions; a prebuilt \fB_worker.js\fR
+(\fBworker.mode: worker\fR) uses the dependency-free Direct Upload path instead.
+.SS Redirects, Headers and Workers
+Configured in the config file only (no CLI flags). \fBredirects:\fR generates a
+real Cloudflare/Netlify \fB_redirects\fR file — exact paths, \fB/old/*\fR splats
+with \fB:splat\fR, statuses 301/302/307/308/410; frontmatter \fBaliases:\fR become
+301s and exact chains are flattened to one hop. \fBalias_stubs: false\fR drops the
+meta-refresh stub pages. \fBheaders:\fR overrides or extends the generated
+\fB_headers\fR blocks per path pattern. \fBworker:\fR wires a Cloudflare Pages
+Functions directory (or a prebuilt \fB_worker.js\fR) into the output and generates
+\fB_routes.json\fR. See \fBssg\fR(1) CONFIGURATION FILE and the docs.
 .SS Paths
 .TP
 .BR \-\-content\-dir =\fIPATH
@@ -483,6 +529,20 @@ pages_path: "docs"
 posts_path: "articles"
 rewrite_md_links: true
 preserve_slug_case: false
+
+redirects:
+  - from: "/old-pricing"
+    to: "/pricing"
+  - from: "/blog/*"
+    to: "/articles/:splat"
+    status: 301
+headers:
+  /api/*:
+    Access-Control-Allow-Origin: "*"
+worker:
+  dir: "workers/stripe-checkout"
+  mode: "functions"
+  routes_include: ["/api/*"]
 
 mddb:
   enabled: true
@@ -831,8 +891,11 @@ Report bugs at: https://github.com/spagu/ssg/issues
 spagu <spagu@github.com>
 .SH SEE ALSO
 .BR goldmark (7),
-.BR cwebp (1)
+.BR cwebp (1),
+.BR wrangler (1)
 .PP
 Full documentation: https://github.com/spagu/ssg
+.br
+Redirects and headers: docs/DEPLOYMENT.md; Workers: docs/WORKERS.md
 .SH LICENSE
 BSD 3-Clause License. See LICENSE file for details.

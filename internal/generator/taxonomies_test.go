@@ -12,6 +12,7 @@ import (
 )
 
 func taxBool(v bool) *bool { return &v }
+func taxInt(v int) *int    { return &v }
 
 // writeTaxonomyTemplates writes the core theme plus taxonomy templates that
 // exercise the index/term contexts and every template helper.
@@ -255,6 +256,32 @@ func TestTaxonomyPagination(t *testing.T) {
 	}
 	if !strings.Contains(second, "pager:2/2") || !strings.Contains(second, "prev:/technology/go/") {
 		t.Errorf("second page pager: %s", second)
+	}
+}
+
+// TestTaxonomyPerTaxonomyPaginate: a per-taxonomy paginate overrides the global
+// value — here the global paginate is 0 (off) yet the technology taxonomy
+// paginates at 1, so /page/2/ appears for its term but nowhere else (#44).
+func TestTaxonomyPerTaxonomyPaginate(t *testing.T) {
+	tmp := t.TempDir()
+	postsDir := filepath.Join(tmp, "content", "site", "posts", "news")
+	writeTaxonomyPost(t, postsDir, "one", "One", "technology: [Go]\n")
+	writeTaxonomyPost(t, postsDir, "two", "Two", "technology: [Go]\n")
+	writeTaxonomyMeta(t, tmp)
+	writeTaxonomyTemplates(t, filepath.Join(tmp, "templates", "simple"))
+	cfg := taxonomyTestConfig(tmp)
+	cfg.Paginate = 0 // global pagination off
+	cfg.Taxonomies["technology"] = taxonomy.DefinitionConfig{Feed: taxBool(true), Paginate: taxInt(1)}
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	second := filepath.Join(tmp, "output", "technology", "go", "page", "2", "index.html")
+	if _, err := os.Stat(second); err != nil {
+		t.Fatalf("per-taxonomy paginate should emit page/2/: %v", err)
 	}
 }
 

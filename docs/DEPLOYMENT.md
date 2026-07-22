@@ -104,18 +104,79 @@ contents do. That is exactly what `--fingerprint` and the image pipeline's
 content-addressed names guarantee. **Without fingerprinting, a CSS or JS file
 edited in place keeps its name and can be served from a browser cache for a
 year** — enable `fingerprint: true` for any site that deploys more than once,
-or ship your own `_headers`.
+or override the policy with `headers:` (below).
 
-`_redirects` carries the `aliases:` declared in frontmatter as `301`s, plus a
-header explaining that trailing-slash normalisation is Cloudflare's job.
+`_redirects` is generated from two sources (GO-063):
 
-#### Overriding them
+- the `redirects:` config section — explicit rules; and
+- frontmatter `aliases:`, emitted as `301`s.
 
-The generated files are written **after** `static/` is copied, so a `_headers`
-of your own placed in `static/` is overwritten rather than merged. To take
-control of the policy, deploy with a post-build hook that rewrites the file, or
-keep the generated defaults and layer per-path rules in the Cloudflare
-dashboard.
+Rules accept exact paths, `/old/*` splats (`:splat` in the destination) and the
+status codes `301`, `302`, `307`, `308` and `410`. Exact redirect **chains are
+flattened** at build time — `A → B → C` is written as `A → C` and `B → C`, so a
+visitor never takes more than one hop (the chained-redirect SEO penalty). By
+default each alias also writes a client-side meta-refresh stub page as a
+fallback for non-Cloudflare hosts; `alias_stubs: false` keeps only the
+`_redirects` entries.
+
+```yaml
+redirects:
+  - from: /old-pricing
+    to: /pricing
+    # status defaults to 301
+  - from: /blog/*
+    to: /articles/:splat
+    status: 301
+  - from: /discontinued
+    to: /
+    status: 410
+```
+
+Netlify uses the identical `_redirects` format, so the same file works there
+unchanged. Vercel needs a `vercel.json` you provide yourself; SSG does not
+generate one.
+
+**Importing an existing Next.js rule set.** `ssg import redirects` turns a
+Next.js `redirects()` array into the `redirects:` block above:
+
+```sh
+# reliable: from a JSON dump of the array
+node -e "import('./next.config.js').then(async c => console.log(JSON.stringify(await c.default.redirects())))" > redirects.json
+ssg import redirects --from-json redirects.json
+
+# or parse the config file heuristically
+ssg import redirects next.config.ts
+```
+
+Entries it cannot translate (conditional `has`/`missing`, template-literal
+paths, regex-constrained params) are reported on stderr, never silently
+dropped — Cloudflare's `_redirects` cannot express them anyway.
+
+#### Overriding `_headers`
+
+The `headers:` config section overrides or extends the generated blocks per
+path pattern. A pattern that appears in `headers:` replaces that block's
+headers; unknown patterns are appended. `headers_defaults_off: true` drops the
+built-in security/cache blocks entirely.
+
+```yaml
+headers:
+  /*:
+    Content-Security-Policy: "default-src 'self'"
+  /api/*:
+    Access-Control-Allow-Origin: "*"
+```
+
+With an empty `headers:` the file is byte-for-byte what SSG has always
+generated.
+
+#### Dynamic endpoints beside the static site
+
+For payments, forms, dynamic pricing or server-side tracking, add a Cloudflare
+Pages Function with the `worker:` section — see [WORKERS.md](WORKERS.md). SSG
+copies the Function into the output, generates `_routes.json`, and deploys it
+(via `wrangler pages deploy` for a `functions/` tree, or Direct Upload for a
+prebuilt `_worker.js`).
 
 #### A page still shows its old content
 

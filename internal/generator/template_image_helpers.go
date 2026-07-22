@@ -73,6 +73,10 @@ func (g *Generator) tmplImageSrcSet(source string, opts map[string]any) (images.
 	return g.imageProcessor().SrcSetDict(source, opts)
 }
 
+func (g *Generator) tmplImagePicture(source string, opts map[string]any) (images.ImagePicture, error) {
+	return g.imageProcessor().PictureDict(source, opts)
+}
+
 // imageFuncs returns the helper set shared by theme and shortcode templates.
 func (g *Generator) imageFuncs() map[string]any {
 	return map[string]any{
@@ -82,5 +86,6 @@ func (g *Generator) imageFuncs() map[string]any {
 		"imageProcess": g.tmplImageProcess,
 		"imageFilter":  g.tmplImageFilter,
 		"imageSrcSet":  g.tmplImageSrcSet,
+		"imagePicture": g.tmplImagePicture,
 	}
 }

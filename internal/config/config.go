@@ -328,8 +328,55 @@ type Config struct {
 	// the output) or "strict" (keep, and fail the build). Issue #37.
 	ShortcodeErrors string `yaml:"shortcode_errors" toml:"shortcode_errors" json:"shortcode_errors"`
 
+	// Headers overrides or extends the generated Cloudflare Pages _headers file
+	// per path pattern (e.g. "/*", "/api/*"): a pattern present here replaces
+	// that pattern's default header block, unknown patterns are appended.
+	// HeadersDefaultsOff drops the built-in security/cache blocks entirely.
+	// Empty = the historical hardcoded output (GO-064).
+	Headers            map[string]map[string]string `yaml:"headers" toml:"headers" json:"headers"`
+	HeadersDefaultsOff bool                         `yaml:"headers_defaults_off" toml:"headers_defaults_off" json:"headers_defaults_off"`
+
+	// Redirects declares real _redirects rules for Cloudflare Pages / Netlify:
+	// exact paths, /old/* splats with :splat, and status 301/302/307/308/410.
+	// Frontmatter aliases: are added as 301s automatically; exact chains
+	// A→B→C are flattened to A→C at build time. AliasStubs (default true) also
+	// writes the meta-refresh stub pages as a fallback for non-CF hosts; set it
+	// false to keep only the _redirects entries (GO-063).
+	Redirects  []RedirectRule `yaml:"redirects" toml:"redirects" json:"redirects"`
+	AliasStubs *bool          `yaml:"alias_stubs" toml:"alias_stubs" json:"alias_stubs"`
+
+	// Worker wires a Cloudflare Pages Functions directory (or a prebuilt
+	// _worker.js) into the build output and generates _routes.json, so
+	// transactional endpoints (Stripe, forms, dynamic pricing) live beside the
+	// static site (GO-065). Empty = static-only build (unchanged).
+	Worker WorkerConfig `yaml:"worker" toml:"worker" json:"worker"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
+}
+
+// RedirectRule is one entry in the redirects: list; see Config.Redirects.
+type RedirectRule struct {
+	From   string `yaml:"from" toml:"from" json:"from"`
+	To     string `yaml:"to" toml:"to" json:"to"`
+	Status int    `yaml:"status" toml:"status" json:"status"`
+	Force  bool   `yaml:"force" toml:"force" json:"force"`
+}
+
+// WorkerConfig wires a Cloudflare Pages Functions / Worker project into the
+// build; see Config.Worker.
+type WorkerConfig struct {
+	// Dir is the source directory: a Pages Functions tree (mode "functions",
+	// the default) or a directory holding a prebuilt _worker.js (mode "worker").
+	Dir  string `yaml:"dir" toml:"dir" json:"dir"`
+	Mode string `yaml:"mode" toml:"mode" json:"mode"`
+	// RoutesInclude/RoutesExclude become _routes.json (default include
+	// ["/api/*"]) so static assets bypass the Worker.
+	RoutesInclude []string `yaml:"routes_include" toml:"routes_include" json:"routes_include"`
+	RoutesExclude []string `yaml:"routes_exclude" toml:"routes_exclude" json:"routes_exclude"`
+	// WranglerConfig points dev/deploy at a wrangler config outside the project
+	// root; reused by the --wrangler watch runner (GO-054).
+	WranglerConfig string `yaml:"wrangler_config" toml:"wrangler_config" json:"wrangler_config"`
 }
 
 // DefaultConfig returns configuration with default values
@@ -438,6 +485,25 @@ func warnUnknownKeys(path string, data []byte, ext string) {
 		fmt.Fprintf(os.Stderr,
 			"⚠️  %s: unknown configuration key %q — ignored. Check the spelling, or upgrade ssg if the key is newer than this build (%s).\n",
 			filepath.Base(path), key, docsURL)
+	}
+}
+
+// ApplyWorkerWatchDefaults makes `worker:` the single source of truth for the
+// dev runner: when a worker is configured and no explicit watch_runner is set,
+// `wrangler dev` runs from the worker directory so the static preview and the
+// Functions run side by side. Called only once watch mode is active (a plain
+// one-shot build never starts a runner). Explicit watch_runner_* keys (GO-054)
+// still win as overrides (GO-065).
+func ApplyWorkerWatchDefaults(cfg *Config) {
+	if cfg.Worker.Dir == "" || cfg.WatchRunner != "" {
+		return
+	}
+	cfg.WatchRunner = "wrangler"
+	if cfg.WatchRunnerDir == "" {
+		cfg.WatchRunnerDir = cfg.Worker.Dir
+	}
+	if cfg.WatchRunnerConfig == "" {
+		cfg.WatchRunnerConfig = cfg.Worker.WranglerConfig
 	}
 }
 

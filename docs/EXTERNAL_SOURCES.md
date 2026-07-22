@@ -191,6 +191,41 @@ the stale copy for `stale_ttl` (`stale_if_error`).
 CLI: `--offline` (cache only), `--refresh-external-sources` (ignore fresh
 cache), `--external-source=NAME` (narrow the refresh), `--clear-external-cache`.
 
+### Payload CMS (GO-068)
+
+Payload's REST API is a plain JSON API — `GET /api/{collection}?limit=&depth=`
+returns `{ "docs": [...], "totalDocs": N, ... }`. The `http` connector already
+covers it; no dedicated adapter is needed. Fetch one page with a high `limit`
+and unwrap the `docs` array with `transform.select`:
+
+```yaml
+external_sources:
+  enabled: true
+  sources:
+    payload_posts:
+      type: http
+      url: https://cms.example.com/api/posts
+      format: json
+      headers:
+        Authorization: "$PAYLOAD_API_KEY"   # resolved from the environment
+      query:
+        limit: "1000"          # one request; raise to cover the collection
+        depth: "2"             # expand relationships (authors, media)
+      transform:
+        select: docs           # Payload wraps results in { docs: [...] }
+```
+
+The extracted array lands in `.ExternalData.payload_posts` for templates, or use
+`mode: content` to merge the documents into the site as native pages/posts. Keep
+the API key in the environment (`PAYLOAD_API_KEY`), never in the committed
+config.
+
+> **Note.** The generic `pagination:` block is not used here: it aggregates
+> pages that are each a bare JSON array, whereas Payload wraps every page in a
+> `{ docs: [...] }` object. Raise `limit` to fetch the collection in one
+> request instead. A collection larger than a single reasonable `limit` is the
+> one case that would justify a dedicated Payload preset.
+
 ## SQL (`type: sql`)
 
 Drivers: `mysql`, `mariadb`, `postgres`, `sqlite` (pure Go, no cgo). Queries

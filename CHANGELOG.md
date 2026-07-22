@@ -7,7 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.11] - 2026-07-22
+
+### Added
+- 🖼️ **AVIF output + `imagePicture` helper** (GO-070, closes #43) — the image
+  pipeline now encodes AVIF through the optional `avifenc` tool (from libavif),
+  mirroring the existing `cwebp` approach: no CGO, the binary stays static, a
+  missing tool is a descriptive error. The new `imagePicture` template helper
+  emits a `<picture>` with format fallback — one `<source>` per format
+  (avif/webp/jpeg…) in declared order, each with its own responsive `srcset`,
+  and an `<img>` fallback carrying `width`/`height` for zero CLS. A format whose
+  encoder is absent is **skipped with a warning, not a build failure**, so the
+  same template works on a machine without `avifenc`/`cwebp`. `.HTML` returns
+  ready markup; `.Sources`/`.Fallback` expose the parts. Documented in
+  `docs/IMAGES.md`.
+- 🧭 **`ssg init`** (GO-071) — scaffolds a ready-to-build project in the current
+  directory (config, a content source tree with a sample page and post, a
+  `static/` folder and a `.gitignore`) **without overwriting any existing
+  file**: every file already present is kept and reported, so it is safe to run
+  in a populated directory. Optional source name and `--domain`.
+- 🗂️ **Per-taxonomy `paginate`** (GO-072, part of #44) — a taxonomy definition
+  can set its own `paginate:` page size, overriding the global `paginate` for
+  that taxonomy's term archives (0 = fall back to the global value). A site with
+  400 tags and 12 categories can now paginate each differently. Documented in
+  `docs/TAXONOMIES.md`.
+- 🔀 **Redirects engine** (GO-063) — a `redirects:` config section now generates
+  a real Cloudflare Pages / Netlify `_redirects` file (previously it was written
+  empty). Rules support exact paths, `/old/*` splats with `:splat`, and status
+  `301`/`302`/`307`/`308`/`410`. Frontmatter `aliases:` are added as `301`s
+  automatically, and exact chains `A → B → C` are flattened to `A → C` at build
+  time (with cycle detection) so visitors take one hop, not several — the
+  chained-redirect SEO penalty. Validation warns on duplicate sources, wildcard
+  shadowing, `:splat` without a `*`, missing targets and the Cloudflare rule
+  caps, never failing the build. `alias_stubs: false` keeps only the `_redirects`
+  301s and drops the meta-refresh stub pages. Empty by default — existing sites
+  are unchanged.
+- 📥 **`ssg import redirects`** (GO-067) — converts a Next.js `redirects()` rule
+  set into a ready-to-paste `redirects:` YAML block. Reads a JSON dump
+  (`--from-json`, the reliable path) or heuristically parses a
+  `next.config.(js|ts|mjs)`. Next.js path syntax (`/:slug*`) is translated to
+  `_redirects` syntax (`/*` → `:splat`), `permanent` maps to 301/302, and any
+  entry it cannot read (conditional `has`/`missing`, template literals,
+  regex-constrained params) is reported — never silently dropped.
+- ⚡ **Cloudflare Pages Functions / Worker integration** (GO-065) — a `worker:`
+  section wires a Functions directory (or a prebuilt `_worker.js`) into the
+  build output and generates `_routes.json`, so transactional endpoints (Stripe,
+  contact/job forms, dynamic pricing, server-side conversions) live beside the
+  static site. Deploy is automatic: a `functions/` tree deploys via `wrangler
+  pages deploy`, `mode: worker` via pure-Go Direct Upload. `--watch` defaults its
+  runner to `wrangler dev` so preview and Functions run together. No JS bundler —
+  Pages builds Functions from source.
+- 🧰 **`ssg new worker <template>`** (GO-066) — scaffolds batteries-included
+  Pages Functions templates (no npm dependencies): `contact-form` (Turnstile +
+  MailChannels/Resend), `stripe-checkout` (Checkout Session + webhook signature
+  verification), `dynamic-price` (KV/API price lookup + client snippet) and
+  `conversions-proxy` (server-side Meta CAPI with hashed PII).
+- 🧱 **Configurable `_headers`** (GO-064) — a `headers:` section overrides or
+  extends the generated Cloudflare Pages header blocks per path pattern;
+  `headers_defaults_off` drops the built-in security/cache blocks. Empty config
+  reproduces the historical output byte-for-byte (locked by a regression test).
+- 📗 **Payload CMS build-time recipe** (GO-068) — documented in
+  `docs/EXTERNAL_SOURCES.md`: pull Payload's REST API into `.ExternalData` via
+  the existing `http` connector, no new adapter needed.
+
 ### Fixed
+- 📝 **`docs/DEPLOYMENT.md` claimed aliases became `301`s in `_redirects`** — the
+  code only wrote meta-refresh stubs (GO-069). The redirects engine (GO-063)
+  makes the claim true; the docs now describe the real mechanism.
 - 🧩 **`layout:` in frontmatter never selected the layout** (GO-058) — the
   lookup asked for the template named `layouts/<name>.html`, but `ParseGlob`
   registers a template under its **base** filename, so `layouts/blog.html` is
