@@ -5,7 +5,7 @@
 //   <span data-price-sku="premium-annual">…</span>
 (function () {
   "use strict";
-  var fmt = function (amount, currency) {
+  const fmt = function (amount, currency) {
     try {
       return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(
         amount / 100,
@@ -15,10 +15,10 @@
     }
   };
   document.querySelectorAll("[data-price-sku]").forEach(function (el) {
-    var sku = el.getAttribute("data-price-sku");
+    const sku = el.dataset.priceSku;
     fetch("/api/price/" + encodeURIComponent(sku))
       .then(function (r) {
-        return r.ok ? r.json() : Promise.reject(r.status);
+        return r.ok ? r.json() : Promise.reject(new Error("price lookup failed: " + r.status));
       })
       .then(function (p) {
         if (typeof p.amount === "number") el.textContent = fmt(p.amount, p.currency);

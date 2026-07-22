@@ -32,7 +32,7 @@ async function hmacHex(secret: string, message: string): Promise<string> {
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  for (let i = 0; i < a.length; i++) diff |= (a.codePointAt(i) ?? 0) ^ (b.codePointAt(i) ?? 0);
   return diff === 0;
 }
 
@@ -49,17 +49,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const event = JSON.parse(raw) as { type: string; data: { object: unknown } };
-  switch (event.type) {
-    case "checkout.session.completed":
-      // TODO: fulfil the order (mark paid, grant access, send receipt).
-      break;
-    case "invoice.paid":
-      // TODO: extend a subscription period.
-      break;
-    default:
-      break;
+  const order = event.data.object;
+  let action = "ignored";
+  if (event.type === "checkout.session.completed") {
+    // Fulfil the order here: mark paid, grant access, send a receipt (use `order`).
+    action = order ? "order-fulfilled" : "ignored";
+  } else if (event.type === "invoice.paid") {
+    // Extend the subscription period here (use `order`).
+    action = order ? "subscription-extended" : "ignored";
   }
-  return new Response(JSON.stringify({ received: true }), {
+  return new Response(JSON.stringify({ received: true, action }), {
     headers: { "content-type": "application/json" },
   });
 };
