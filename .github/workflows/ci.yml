@@ -80,6 +80,12 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      # Fail the build if any packaging manifest drifts from ./VERSION. This
+      # check existed (make version-check) but nothing ran it, so the snap sat
+      # at 1.8.6 for six releases while every publish reported success (OPS-013).
+      - name: Verify packaging versions are in sync
+        run: bash scripts/sync-version.sh --check
+
       - name: Run go vet
         run: go vet ./...
 

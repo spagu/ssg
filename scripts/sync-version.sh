@@ -49,6 +49,14 @@ check() {
   grep -qE "^Version:[[:space:]]*${VERSION}$"       "$ROOT/packaging/deb/control.template" || { echo "deb control drift";    rc=1; }
   grep -qE "^Version:[[:space:]]*${VERSION}$"       "$ROOT/packaging/rpm/ssg.spec"         || { echo "rpm spec drift";       rc=1; }
   grep -qE "SSG_VERSION:-${VERSION}\}"              "$ROOT/install.sh"                     || { echo "install.sh drift";     rc=1; }
+  # The snap deliberately has NO version to sync — it reads ./VERSION at build
+  # time via adopt-info. Guard against a regression to a hardcoded version,
+  # which is exactly how the store froze at 1.8.6 (OPS-013).
+  if grep -qE "^version:[[:space:]]" "$ROOT/snap/snapcraft.yaml"; then
+    echo "snapcraft.yaml hardcodes a version: use adopt-info + craftctl set version"; rc=1
+  fi
+  grep -q "adopt-info: ssg"     "$ROOT/snap/snapcraft.yaml" || { echo "snapcraft.yaml missing adopt-info"; rc=1; }
+  grep -q "craftctl set version" "$ROOT/snap/snapcraft.yaml" || { echo "snapcraft.yaml missing craftctl set version"; rc=1; }
   return $rc
 }
 
