@@ -25,6 +25,7 @@ import (
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/deploy"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/fetch"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/theme"
@@ -524,7 +525,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		// aliases produce meta-refresh stubs by default; alias_stubs: false
 		// keeps only the _redirects 301s (GO-063).
 		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
-		Worker:        workerOf(cfg),
+		Workers:       workersOf(cfg),
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -551,15 +552,28 @@ func redirectsOf(cfg *config.Config) []generator.RedirectRule {
 	return out
 }
 
-// workerOf converts the config worker section into the generator's type (GO-065).
-func workerOf(cfg *config.Config) generator.WorkerConfig {
-	return generator.WorkerConfig{
-		Dir:            cfg.Worker.Dir,
-		Mode:           cfg.Worker.Mode,
-		RoutesInclude:  cfg.Worker.RoutesInclude,
-		RoutesExclude:  cfg.Worker.RoutesExclude,
-		WranglerConfig: cfg.Worker.WranglerConfig,
+// workersOf converts the resolved worker list (plural `workers:`, or the
+// singular `worker:` for back-compat) into the generator's type, keeping the
+// two packages decoupled (same pattern as contentSourcesOf) (GO-065, GO-076).
+func workersOf(cfg *config.Config) []generator.WorkerConfig {
+	resolved := cfg.ResolvedWorkers()
+	if len(resolved) == 0 {
+		return nil
 	}
+	out := make([]generator.WorkerConfig, 0, len(resolved))
+	for _, w := range resolved {
+		out = append(out, generator.WorkerConfig{
+			Name:           w.Name,
+			Dir:            w.Dir,
+			Source:         w.Source,
+			Auth:           fetch.Auth(w.Auth),
+			Mode:           w.Mode,
+			RoutesInclude:  w.RoutesInclude,
+			RoutesExclude:  w.RoutesExclude,
+			WranglerConfig: w.WranglerConfig,
+		})
+	}
+	return out
 }
 
 // contentSourcesOf converts the configured extra Markdown roots into the

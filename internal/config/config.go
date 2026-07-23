@@ -50,7 +50,10 @@ type MddbConfig struct {
 // `path` is required; `type` is "page" (default) or "post"; `category` files
 // every entry of the source under one category, created when the loaded
 // metadata does not already define it. Per-file frontmatter always wins.
+// `name` is optional and used only so include files can contribute a source by
+// name without clobbering the others (GO-076).
 type ContentSource struct {
+	Name     string `yaml:"name" toml:"name" json:"name"`
 	Path     string `yaml:"path" toml:"path" json:"path"`
 	Type     string `yaml:"type" toml:"type" json:"type"`
 	Category string `yaml:"category" toml:"category" json:"category"`
@@ -360,11 +363,17 @@ type Config struct {
 	Redirects  []RedirectRule `yaml:"redirects" toml:"redirects" json:"redirects"`
 	AliasStubs *bool          `yaml:"alias_stubs" toml:"alias_stubs" json:"alias_stubs"`
 
-	// Worker wires a Cloudflare Pages Functions directory (or a prebuilt
+	// Worker wires a single Cloudflare Pages Functions directory (or a prebuilt
 	// _worker.js) into the build output and generates _routes.json, so
 	// transactional endpoints (Stripe, forms, dynamic pricing) live beside the
 	// static site (GO-065). Empty = static-only build (unchanged).
 	Worker WorkerConfig `yaml:"worker" toml:"worker" json:"worker"`
+
+	// Workers is the plural form: several independent worker definitions, each
+	// with its own config, routes and source. Use it when a project needs more
+	// than one (e.g. a cookie-consent worker and a comments worker). When set it
+	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
+	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
 
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
@@ -379,12 +388,21 @@ type RedirectRule struct {
 }
 
 // WorkerConfig wires a Cloudflare Pages Functions / Worker project into the
-// build; see Config.Worker.
+// build; see Config.Worker and Config.Workers.
 type WorkerConfig struct {
-	// Dir is the source directory: a Pages Functions tree (mode "functions",
-	// the default) or a directory holding a prebuilt _worker.js (mode "worker").
+	// Name identifies the worker in a `workers:` list (logging, and the key a
+	// `config:` block is surfaced under). Optional for the singular `worker:`.
+	Name string `yaml:"name" toml:"name" json:"name"`
+	// Dir is the local source directory: a Pages Functions tree (mode
+	// "functions", the default) or a directory holding a prebuilt _worker.js
+	// (mode "worker"). When Source is set, Dir is where the fetch lands.
 	Dir  string `yaml:"dir" toml:"dir" json:"dir"`
 	Mode string `yaml:"mode" toml:"mode" json:"mode"`
+	// Source optionally fetches the worker from a repo/zip URL (someone else's
+	// worker on GitHub, say) into Dir, so it does not have to be vendored. Auth
+	// covers private sources; its secret fields must reference env vars (GO-076).
+	Source string     `yaml:"source" toml:"source" json:"source"`
+	Auth   WorkerAuth `yaml:"auth" toml:"auth" json:"auth"`
 	// RoutesInclude/RoutesExclude become _routes.json (default include
 	// ["/api/*"]) so static assets bypass the Worker.
 	RoutesInclude []string `yaml:"routes_include" toml:"routes_include" json:"routes_include"`
@@ -392,6 +410,37 @@ type WorkerConfig struct {
 	// WranglerConfig points dev/deploy at a wrangler config outside the project
 	// root; reused by the --wrangler watch runner (GO-054).
 	WranglerConfig string `yaml:"wrangler_config" toml:"wrangler_config" json:"wrangler_config"`
+	// Config is a free-form per-worker settings block the user can add to
+	// .ssg.yaml; the worker phase decides how each worker consumes it (env vars,
+	// a generated config file). Kept opaque here so its keys are never rejected
+	// by strict decoding (GO-076).
+	Config map[string]interface{} `yaml:"config" toml:"config" json:"config"`
+}
+
+// WorkerAuth authenticates a remote worker Source. Secret fields (token,
+// password, value) must reference an environment variable; a literal is
+// rejected so a credential never lives in the config file.
+type WorkerAuth struct {
+	Type     string `yaml:"type" toml:"type" json:"type"` // bearer | basic | header
+	Token    string `yaml:"token" toml:"token" json:"token"`
+	Username string `yaml:"username" toml:"username" json:"username"`
+	Password string `yaml:"password" toml:"password" json:"password"`
+	Header   string `yaml:"header" toml:"header" json:"header"`
+	Value    string `yaml:"value" toml:"value" json:"value"`
+}
+
+// ResolvedWorkers returns the effective worker list: the `workers:` list when
+// set, otherwise the singular `worker:` wrapped as one entry (back-compat), or
+// nil when neither is configured. The entries are independent — nothing here
+// combines them (GO-076).
+func (c *Config) ResolvedWorkers() []WorkerConfig {
+	if len(c.Workers) > 0 {
+		return c.Workers
+	}
+	if c.Worker.Dir != "" || c.Worker.Source != "" {
+		return []WorkerConfig{c.Worker}
+	}
+	return nil
 }
 
 // DefaultConfig returns configuration with default values
@@ -427,6 +476,16 @@ func Load(path string) (*Config, error) {
 
 	cfg := DefaultConfig()
 	ext := strings.ToLower(filepath.Ext(path))
+
+	// Resolve `include:` first, so a config split across files (or pulled from a
+	// URL) is merged before anything else parses it (GO-076). YAML only; a
+	// config with no include: passes through unchanged.
+	if ext == ".yaml" || ext == ".yml" {
+		if data, err = resolveIncludes(path, data); err != nil {
+			return nil, fmt.Errorf("resolving includes: %w", err)
+		}
+	}
+
 	var expanded []ssgi18n.LanguageConfig
 	switch ext {
 	case ".yaml", ".yml":
@@ -510,15 +569,23 @@ func warnUnknownKeys(path string, data []byte, ext string) {
 // one-shot build never starts a runner). Explicit watch_runner_* keys (GO-054)
 // still win as overrides (GO-065).
 func ApplyWorkerWatchDefaults(cfg *Config) {
-	if cfg.Worker.Dir == "" || cfg.WatchRunner != "" {
+	if cfg.WatchRunner != "" {
 		return
 	}
-	cfg.WatchRunner = "wrangler"
-	if cfg.WatchRunnerDir == "" {
-		cfg.WatchRunnerDir = cfg.Worker.Dir
-	}
-	if cfg.WatchRunnerConfig == "" {
-		cfg.WatchRunnerConfig = cfg.Worker.WranglerConfig
+	// With several workers, the dev runner follows the first one that has a
+	// local directory to run `wrangler dev` in (a remote-only source has none).
+	for _, w := range cfg.ResolvedWorkers() {
+		if w.Dir == "" {
+			continue
+		}
+		cfg.WatchRunner = "wrangler"
+		if cfg.WatchRunnerDir == "" {
+			cfg.WatchRunnerDir = w.Dir
+		}
+		if cfg.WatchRunnerConfig == "" {
+			cfg.WatchRunnerConfig = w.WranglerConfig
+		}
+		return
 	}
 }
 

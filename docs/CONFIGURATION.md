@@ -33,6 +33,37 @@ Two diagnostics make a misconfigured file obvious instead of silent:
   reports which of `source`/`template`/`domain` is missing, which config file
   it read and what that file provided.
 
+### Splitting the config across files (`include:`)
+
+A `.ssg.yaml` can pull in other YAML files — from a local path or a URL — so a
+large config splits into focused pieces (each worker its own file, shared
+defaults in a base):
+
+```yaml
+include:
+  - shared/base.yaml                      # local, relative to this file
+  - workers/comments/config.yaml
+  - url: https://example.com/team.yaml    # remote
+    auth:                                 # private source (optional)
+      type: bearer                        # bearer | basic | header
+      token: $TEAM_CONFIG_TOKEN           # secrets are env refs, never literals
+```
+
+Merge rules (YAML configs only):
+
+- **Base-first.** Includes are merged in listed order, then the including file
+  is overlaid on top, so **the main file always wins**.
+- **Maps merge** recursively.
+- **Lists of named maps merge by `name`** — so each worker's own file can add
+  one entry to `workers:` (or `content_sources:`) without clobbering the
+  others. Any other list is replaced wholesale.
+- Includes may nest; a cycle is an error, and a diamond (two files pulling the
+  same base) is fine.
+
+Remote includes reuse the auth model below: `type` is `bearer`, `basic`
+(`username` + `password`) or `header` (`header` name + `value`), and every
+secret field must reference an environment variable.
+
 ```yaml
 source: my-blog
 template: simple

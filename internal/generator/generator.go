@@ -238,9 +238,23 @@ type Config struct {
 	Redirects     []RedirectRule
 	AliasStubsOff bool
 
-	// Worker wires a Cloudflare Pages Functions / Worker project into the
-	// build output (GO-065).
-	Worker WorkerConfig
+	// Worker wires a single Cloudflare Pages Functions / Worker project into the
+	// build output (GO-065). Workers is the plural form (GO-076); when set it
+	// supersedes Worker. Use ResolvedWorkers to read whichever is configured.
+	Worker  WorkerConfig
+	Workers []WorkerConfig
+}
+
+// ResolvedWorkers returns Workers when set, else the singular Worker wrapped as
+// one entry, else nil. The entries are independent; nothing here combines them.
+func (c Config) ResolvedWorkers() []WorkerConfig {
+	if len(c.Workers) > 0 {
+		return c.Workers
+	}
+	if c.Worker.Dir != "" || c.Worker.Source != "" {
+		return []WorkerConfig{c.Worker}
+	}
+	return nil
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.

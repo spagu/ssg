@@ -31,6 +31,55 @@ At build time SSG:
 
 `worker:` is empty by default; without it the build is static-only, unchanged.
 
+## Several workers: the `workers:` list
+
+One site can need more than one worker — a cookie-consent endpoint and a
+comments API, say. `workers:` is the plural form: a list of **independent**
+worker definitions, each with its own routes, config and source. When set it
+supersedes the singular `worker:` (which stays for back-compat).
+
+```yaml
+workers:
+  - name: cookie-consent
+    dir: workers/cookie-consent
+    routes_include: [/api/consent]
+    config:                       # free-form, surfaced to this worker
+      countries: [DE, FR, PL]
+
+  - name: comments
+    source: https://github.com/acme/ssg-comments   # fetched, not vendored
+    auth:                                           # private repo (optional)
+      type: bearer
+      token: $GITHUB_TOKEN                          # env ref, never a literal
+    routes_include: [/api/comments]
+    config:
+      d1_binding: COMMENTS
+      retention_days: 90
+```
+
+Per entry:
+
+| Key | Purpose |
+|---|---|
+| `name` | identifies the worker (logging, collision messages, `config:` key) |
+| `dir` | local source directory; where a fetched `source:` lands |
+| `source` | optional repo/zip URL to fetch the worker from (GitHub/GitLab repo, or a `.zip`) |
+| `auth` | credentials for a private `source:` — `bearer` / `basic` / `header`, secrets as env refs |
+| `mode`, `routes_include`, `routes_exclude`, `wrangler_config` | as for the singular `worker:` |
+| `config` | free-form settings block passed through to the worker |
+
+How the build treats them: Cloudflare Pages serves a **single** `functions/`
+tree and one `_routes.json` per project, so the workers' functions are copied
+into that shared tree and their routes are combined. Because they are
+independent, **two workers claiming the same output file is a hard error**
+(never a silent overwrite) — give them distinct routes. Only one worker may use
+`mode: worker` (a project has one `_worker.js`).
+
+A `source:` is fetched into `dir` (default `workers/<name>`) once and reused on
+later builds — an already-populated directory is not re-fetched, so a build is
+not gated on the network. Vendor the fetched worker (commit it) for
+reproducible builds, or keep `source:` to always track upstream.
+
 ### `mode: functions` vs `mode: worker`
 
 | Mode | `dir` contains | Deploy path |

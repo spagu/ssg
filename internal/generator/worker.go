@@ -12,13 +12,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spagu/ssg/internal/fetch"
 )
 
 // WorkerConfig wires a Worker project into the build.
 type WorkerConfig struct {
+	// Name identifies the worker in a plural workers: list (logging, output
+	// collision messages).
+	Name string
 	// Dir is the source directory: a Pages Functions tree (mode "functions")
-	// or a directory containing a prebuilt _worker.js (mode "worker").
+	// or a directory containing a prebuilt _worker.js (mode "worker"). When
+	// Source is set, Dir is where the fetched worker lands.
 	Dir string
+	// Source optionally fetches the worker from a repo/zip URL into Dir before
+	// building; Auth covers private sources (GO-076).
+	Source string
+	Auth   fetch.Auth
 	// Mode selects the layout: "functions" (default) or "worker".
 	Mode string
 	// RoutesInclude/RoutesExclude become _routes.json. Defaults: include
@@ -65,30 +75,50 @@ func renderRoutesJSON(include, exclude []string) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
-// generateWorkerFiles copies the configured Worker sources into the output and
-// writes _routes.json. A no-op when no worker directory is configured.
+// generateWorkerFiles builds every configured worker into the output and writes
+// one _routes.json. A no-op when none is configured. The workers are
+// independent definitions; because Cloudflare Pages serves a single functions/
+// tree and one _routes.json per project, their functions are copied into the
+// shared tree (a collision between two workers is a hard error, never a silent
+// overwrite) and their routes are combined (GO-076).
 func (g *Generator) generateWorkerFiles() error {
-	w := g.config.Worker
-	if w.Dir == "" {
+	workers := g.config.ResolvedWorkers()
+	if len(workers) == 0 {
 		return nil
 	}
-	mode := w.Mode
-	if mode == "" {
-		mode = workerModeFunctions
+	seen := map[string]string{} // output-relative path -> worker that wrote it
+	var include, exclude []string
+	wroteWorkerJS := ""
+	for i, w := range workers {
+		label := workerLabel(w, i)
+		dir, err := g.resolveWorkerDir(w, label)
+		if err != nil {
+			return err
+		}
+		mode := w.Mode
+		if mode == "" {
+			mode = workerModeFunctions
+		}
+		switch mode {
+		case workerModeFunctions:
+			if err := g.copyFunctionsTree(dir, label, seen); err != nil {
+				return err
+			}
+		case workerModeWorker:
+			if wroteWorkerJS != "" {
+				return fmt.Errorf("worker %s and %s both use mode %q: a project can have only one _worker.js", label, wroteWorkerJS, workerModeWorker)
+			}
+			if err := g.copyPrebuiltWorker(dir); err != nil {
+				return err
+			}
+			wroteWorkerJS = label
+		default:
+			return fmt.Errorf("worker %s: unknown mode %q (use %q or %q)", label, w.Mode, workerModeFunctions, workerModeWorker)
+		}
+		include = append(include, w.RoutesInclude...)
+		exclude = append(exclude, w.RoutesExclude...)
 	}
-	var err error
-	switch mode {
-	case workerModeFunctions:
-		err = g.copyFunctionsTree(w.Dir)
-	case workerModeWorker:
-		err = g.copyPrebuiltWorker(w.Dir)
-	default:
-		err = fmt.Errorf("worker: unknown mode %q (use %q or %q)", w.Mode, workerModeFunctions, workerModeWorker)
-	}
-	if err != nil {
-		return err
-	}
-	routes, err := renderRoutesJSON(w.RoutesInclude, w.RoutesExclude)
+	routes, err := renderRoutesJSON(include, exclude)
 	if err != nil {
 		return err
 	}
@@ -99,21 +129,99 @@ func (g *Generator) generateWorkerFiles() error {
 	return nil
 }
 
+// workerLabel names a worker for messages: its Name, else worker[i].
+func workerLabel(w WorkerConfig, i int) string {
+	if w.Name != "" {
+		return fmt.Sprintf("%q", w.Name)
+	}
+	return fmt.Sprintf("worker[%d]", i)
+}
+
+// resolveWorkerDir returns the local directory to build a worker from, fetching
+// a remote Source into Dir first when needed. A cached (already-present) Dir is
+// reused rather than re-fetched, so a build is not gated on the network.
+func (g *Generator) resolveWorkerDir(w WorkerConfig, label string) (string, error) {
+	if w.Source == "" {
+		if w.Dir == "" {
+			return "", fmt.Errorf("worker %s: neither dir nor source is set", label)
+		}
+		return w.Dir, nil
+	}
+	dir := w.Dir
+	if dir == "" {
+		dir = filepath.Join("workers", sanitizeWorkerName(w.Name))
+	}
+	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
+		return dir, nil // already fetched/vendored — reuse
+	}
+	auth, err := fetch.ExpandAuth(w.Auth)
+	if err != nil {
+		return "", fmt.Errorf("worker %s: %w", label, err)
+	}
+	g.log(fmt.Sprintf("   📥 worker %s: fetching %s", label, w.Source))
+	if err := fetch.Archive(w.Source, auth, dir); err != nil {
+		return "", fmt.Errorf("worker %s: %w", label, err)
+	}
+	return dir, nil
+}
+
+// sanitizeWorkerName reduces a worker name to a safe single path segment; a
+// missing/odd name falls back to "worker".
+func sanitizeWorkerName(name string) string {
+	name = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		default:
+			return '-'
+		}
+	}, name)
+	if name == "" || strings.Trim(name, "-") == "" {
+		return "worker"
+	}
+	return name
+}
+
 // copyFunctionsTree copies a Pages Functions source tree into output/functions.
-// Both the functions dir itself and its parent project dir are accepted.
-func (g *Generator) copyFunctionsTree(dir string) error {
+// Both the functions dir itself and its parent project dir are accepted. Files
+// are recorded in seen so a second worker writing the same output path is caught
+// as a collision rather than silently overwriting the first (GO-076).
+func (g *Generator) copyFunctionsTree(dir, label string, seen map[string]string) error {
 	src := dir
 	if fi, err := os.Stat(filepath.Join(src, "functions")); err == nil && fi.IsDir() {
 		src = filepath.Join(src, "functions")
 	}
 	if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
-		return fmt.Errorf("worker: functions directory %q not found", dir)
+		return fmt.Errorf("worker %s: functions directory %q not found", label, dir)
+	}
+	if err := g.claimFunctionPaths(src, label, seen); err != nil {
+		return err
 	}
 	if err := g.copyDir(src, filepath.Join(g.config.OutputDir, "functions")); err != nil {
-		return fmt.Errorf("worker: copying functions: %w", err)
+		return fmt.Errorf("worker %s: copying functions: %w", label, err)
 	}
 	g.warnBareImports(src)
 	return nil
+}
+
+// claimFunctionPaths records each function file this worker will write, erroring
+// when another worker already claimed the same output path.
+func (g *Generator) claimFunctionPaths(src, label string, seen map[string]string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		rel, rerr := filepath.Rel(src, path)
+		if rerr != nil {
+			return rerr
+		}
+		key := filepath.ToSlash(filepath.Join("functions", rel))
+		if other, clash := seen[key]; clash {
+			return fmt.Errorf("worker %s and %s both provide %s — give them distinct routes", label, other, key)
+		}
+		seen[key] = label
+		return nil
+	})
 }
 
 // copyPrebuiltWorker copies an already-bundled _worker.js to the output root.

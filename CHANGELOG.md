@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🧩 **Config includes: split `.ssg.yaml` across files** (GO-076) — a config can
+  `include:` other YAML files from a **path or a URL**, so a project's config
+  splits into focused pieces (shared defaults in a base, each worker its own
+  file). Base-first merge: includes are merged in listed order, then the main
+  file overlays on top and always wins. Maps merge recursively; lists of maps
+  that carry a `name` merge **by name** (so each file can contribute one
+  `workers:`/`content_sources:` entry without clobbering the others); other
+  lists replace. Cycles are rejected, diamonds allowed. Remote includes take an
+  optional `auth:` (`bearer`/`basic`/`header`) whose secret fields must
+  reference environment variables.
+- 🧰 **Several workers: the `workers:` list** (GO-076) — the singular `worker:`
+  becomes a plural list of **independent** worker definitions, each with its own
+  `routes`, `wrangler_config`, a free-form per-worker `config:` block, and an
+  optional remote `source:` (a GitHub/GitLab repo or `.zip`, fetched into `dir`
+  with the same `auth:` model). The singular `worker:` still works unchanged.
+  Because Cloudflare Pages serves one `functions/` tree per project, the
+  workers' functions merge into it and their routes combine — and two workers
+  claiming the same output file is a **hard error**, never a silent overwrite.
+- 🔐 **`internal/fetch`** (GO-076) — shared, hardened, authenticated fetch
+  (bounded client, size caps, path-escape-guarded zip extraction, env-only
+  secrets) behind config includes and remote worker sources.
+
+
 ## [1.8.12] - 2026-07-22
 
 ### Added
