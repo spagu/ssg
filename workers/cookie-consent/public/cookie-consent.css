@@ -10,16 +10,22 @@
   inset: 0;
   z-index: 2147483000;
   display: flex;
-  align-items: flex-end;
   justify-content: center;
   padding: 1rem;
   background: rgb(15 23 42 / 45%);
 }
 
-@media (min-width: 40rem) {
-  .ssg-cc {
-    align-items: center;
-  }
+/* Vertical placement is configurable (config.position); default is bottom. */
+.ssg-cc--bottom {
+  align-items: flex-end;
+}
+
+.ssg-cc--top {
+  align-items: flex-start;
+}
+
+.ssg-cc--center {
+  align-items: center;
 }
 
 .ssg-cc-box {

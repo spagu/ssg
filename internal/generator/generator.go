@@ -2033,7 +2033,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"recentPosts":          g.tmplRecentPosts,
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
-		"add":                  tmplAdd, // arithmetic for themes (TPL-003)
+		"toJSON":               tmplToJSON, // marshal a value to inline JSON (config blobs, JSON-LD)
+		"add":                  tmplAdd,    // arithmetic for themes (TPL-003)
 		"sub":                  tmplSub,
 		"mul":                  tmplMul,
 		"div":                  tmplDiv,

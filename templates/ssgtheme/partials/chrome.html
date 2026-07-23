@@ -41,6 +41,16 @@
           href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap">
     <link rel="stylesheet" href="/css/style.css">
 
+    {{/* Cookie consent banner — rendered only when variables.cookie_consent is
+         set, so the theme stays generic. The value is emitted as the banner's
+         config JSON; the assets come from the cookie-consent worker's public/.
+         See workers/cookie-consent/README.md. */}}
+    {{ with .Ctx.Vars.cookie_consent }}
+    <link rel="stylesheet" href="/cookie-consent.css">
+    <script id="ssg-consent-config" type="application/json">{{ . | toJSON }}</script>
+    <script src="/cookie-consent.js" defer></script>
+    {{ end }}
+
     {{/* Google Tag Manager — replace GTM-XXXXXXX with the real container ID.
          Inert until then: the loader returns early while the placeholder is
          still in place, so no request is made. */}}

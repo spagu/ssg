@@ -1,6 +1,10 @@
 package generator
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"html/template"
+)
 
 // Arithmetic helpers (TPL-003). Go templates have no arithmetic, so a theme
 // could not split a list into columns, compute "page N of M" or offset an
@@ -92,4 +96,19 @@ func tmplDiv(a, b interface{}) (interface{}, error) {
 		}
 		return x / y, nil
 	})
+}
+
+// tmplToJSON marshals a value to inline JSON for a theme — a config blob in a
+// <script type="application/json">, JSON-LD, etc. It returns template.JS, not
+// template.HTML: inside a <script> html/template uses a JS context and would
+// JSON-encode a plain/HTML string a SECOND time (wrapping the object in quotes).
+// template.JS is treated as already-safe there, so the object is emitted once.
+// json.Marshal escapes <, > and & to \u escapes, so "</script>" cannot break
+// out (TPL-004).
+func tmplToJSON(v interface{}) (template.JS, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", fmt.Errorf("toJSON: %w", err)
+	}
+	return template.JS(b), nil // #nosec G203 -- json.Marshal escapes <>& ; safe in a <script>
 }

@@ -27,9 +27,17 @@ content_sources:
   # extra steps. The index is pages/blog.md (layout: blog).
   - path: blog
     type: post
-  # Standalone pages that are not documentation — currently just the blog index.
+  # Standalone pages that are not documentation — the blog index and the
+  # cookie policy the consent banner links to.
   - path: pages
     type: page
+
+# The docs site dogfoods the cookie-consent worker: its functions ship with the
+# build, and ssgtheme renders the banner from variables.cookie_consent below.
+workers:
+  - name: cookie-consent
+    dir: workers/cookie-consent
+    routes_include: [/api/consent/*]
 
 # Docs cross-link each other as CONFIGURATION.md, which only resolves in a
 # repository view; rewrite_md_links turns those into the built page URLs
@@ -81,6 +89,20 @@ variables:
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
   version: "1.8.13"
+
+  # Cookie-consent banner config (rendered by ssgtheme when this is present).
+  # geoMode "always" shows it everywhere so the demo is visible without the
+  # edge geo Function; a real site would use "edge" to gate it to the EEA+UK.
+  cookie_consent:
+    version: "1"
+    policyUrl: /cookie-policy/
+    geoMode: always
+    expiryDays: 180
+    categories:
+      - id: necessary
+        required: true
+      - id: analytics
+      - id: marketing
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.

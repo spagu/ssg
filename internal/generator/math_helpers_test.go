@@ -49,3 +49,18 @@ func TestArithmeticHelperErrors(t *testing.T) {
 		t.Error("mul with nil = nil error, want a type error")
 	}
 }
+
+// TPL-004: toJSON emits a value once (not double-encoded), safe in a <script>.
+func TestToJSON(t *testing.T) {
+	out, err := tmplToJSON(map[string]interface{}{"a": 1, "b": []string{"x"}, "html": "</script>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if len(s) == 0 || s[0] != '{' { // an object, not a quoted string
+		t.Errorf("toJSON double-encoded: %s", s)
+	}
+	if strings.Contains(s, "</script>") { // must be \u-escaped
+		t.Errorf("toJSON did not escape </script>: %s", s)
+	}
+}

@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory** (where SSG copies the `functions/`), so pages and Functions serve
   together; the previous `wrangler dev` from the worker dir did not serve the
   static site. A prebuilt `mode: worker` is unchanged.
+- 🎛️ **`toJSON` template helper + cookie-consent on the docs site** (TPL-004) —
+  a `toJSON` helper emits a value as inline JSON (config blobs, JSON-LD),
+  correctly once inside a `<script>` (it returns `template.JS`, so html/template
+  does not double-encode it). ssgtheme renders the cookie-consent banner from a
+  `variables.cookie_consent` block, and the SSG documentation site now dogfoods
+  the worker. The banner's position is configurable — `bottom` (default), `top`
+  or `center`.
 - 🍪 **`cookie-consent` worker** (GO-076) — a GDPR / ePrivacy / UK-PECR consent
   banner scaffolded with `ssg new worker cookie-consent`. Prior consent
   (non-essential `<script type="text/plain" data-consent-category>` tags stay

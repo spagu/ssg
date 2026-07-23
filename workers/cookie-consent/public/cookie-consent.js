@@ -26,6 +26,7 @@
   var DEFAULTS = {
     version: "1",
     policyUrl: "/cookie-policy/",
+    position: "bottom", // "bottom" (default) | "top" | "center"
     geoMode: "always", // "always" | "edge" (calls /api/consent/geo)
     geoEndpoint: "/api/consent/geo",
     logEndpoint: "", // optional; POST a proof-of-consent record
@@ -195,7 +196,8 @@
 
   function buildDialog(cfg, t, onDone) {
     var wrap = document.createElement("div");
-    wrap.className = "ssg-cc";
+    var pos = cfg.position === "top" || cfg.position === "center" ? cfg.position : "bottom";
+    wrap.className = "ssg-cc ssg-cc--" + pos;
     wrap.setAttribute("role", "dialog");
     wrap.setAttribute("aria-modal", "true");
     wrap.setAttribute("aria-labelledby", "ssg-cc-title");

@@ -57,6 +57,7 @@ it, it is not secret:
 {
   "version": "1",
   "policyUrl": "/cookie-policy/",
+  "position": "bottom",
   "geoMode": "edge",
   "expiryDays": 180,
   "logEndpoint": "/api/consent/log",
@@ -72,6 +73,7 @@ it, it is not secret:
 
 `geoMode`: `edge` calls `/api/consent/geo` (needs the worker); `always` shows it
 everywhere with no Function at all. Drop `logEndpoint` to skip the audit record.
+`position`: `bottom` (default), `top` or `center`.
 
 ## 3. Gating scripts (the compliant part)
 
