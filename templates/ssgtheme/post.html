@@ -45,6 +45,18 @@
             </nav>
             {{ end }}
         </article>
+
+        {{/* Comments — rendered only when variables.comments is set, so the
+             theme stays generic. Assets come from the comments worker's
+             public/; the widget mounts against this post's URL. */}}
+        {{ with .Vars.comments }}
+        <section class="article prose" id="comments">
+            <div id="ssg-comments" data-url="{{ $.Post.GetURL }}"></div>
+            <link rel="stylesheet" href="/comments.css">
+            <script id="ssg-comments-config" type="application/json">{{ . | toJSON }}</script>
+            <script src="/comments.js" defer></script>
+        </section>
+        {{ end }}
     </div>
 </main>
 

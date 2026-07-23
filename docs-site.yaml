@@ -38,6 +38,9 @@ workers:
   - name: cookie-consent
     dir: workers/cookie-consent
     routes_include: [/api/consent/*]
+  - name: comments
+    dir: workers/comments
+    routes_include: [/api/comments, /api/comments/*]
 
 # Docs cross-link each other as CONFIGURATION.md, which only resolves in a
 # repository view; rewrite_md_links turns those into the built page URLs
@@ -103,6 +106,15 @@ variables:
         required: true
       - id: analytics
       - id: marketing
+
+  # Comments widget on blog posts. The site key here is Cloudflare's public
+  # test key (always passes) so the demo form works without real Turnstile
+  # setup; swap it for your own. The widget needs the comments worker's D1 to
+  # actually store/list — locally that means the wrangler dev path.
+  comments:
+    turnstileSiteKey: "1x00000000000000000000AA"
+    api: /api/comments
+    order: newest
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.
