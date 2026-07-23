@@ -26,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Because Cloudflare Pages serves one `functions/` tree per project, the
   workers' functions merge into it and their routes combine — and two workers
   claiming the same output file is a **hard error**, never a silent overwrite.
+- 🧩 **Wrangler config generator** (GO-077) — a project that uses workers needs
+  a `wrangler.toml` for `wrangler pages dev`/`deploy`. SSG now writes a starter
+  one when none exists — automatically on `--watch`, or on demand via
+  `ssg new wrangler` — deriving `name` from the domain and
+  `pages_build_output_dir` from the output dir, and appending each worker's own
+  `wrangler.snippet.toml` (its bindings/vars, e.g. cookie-consent's optional
+  `CONSENT_LOG` KV). An existing config is never overwritten.
+- 🔧 **`--watch` serves Functions correctly for Pages** (GO-077) — a
+  functions-mode worker now runs `wrangler pages dev .` **from the output
+  directory** (where SSG copies the `functions/`), so pages and Functions serve
+  together; the previous `wrangler dev` from the worker dir did not serve the
+  static site. A prebuilt `mode: worker` is unchanged.
 - 🍪 **`cookie-consent` worker** (GO-076) — a GDPR / ePrivacy / UK-PECR consent
   banner scaffolded with `ssg new worker cookie-consent`. Prior consent
   (non-essential `<script type="text/plain" data-consent-category>` tags stay

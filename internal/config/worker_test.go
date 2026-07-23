@@ -2,17 +2,26 @@ package config
 
 import "testing"
 
-func TestApplyWorkerWatchDefaults_SetsWranglerRunner(t *testing.T) {
-	cfg := &Config{Worker: WorkerConfig{Dir: "workers/api", WranglerConfig: "deploy/wrangler.toml"}}
+// GO-077: a functions-mode worker (the default) serves pages + Functions via
+// `wrangler pages dev <output>`, run from the project root.
+func TestApplyWorkerWatchDefaults_FunctionsUsesPagesDev(t *testing.T) {
+	cfg := &Config{Worker: WorkerConfig{Dir: "workers/api"}, OutputDir: "public"}
 	ApplyWorkerWatchDefaults(cfg)
-	if cfg.WatchRunner != "wrangler" {
-		t.Fatalf("expected wrangler runner, got %q", cfg.WatchRunner)
+	if cfg.WatchRunner != "npx wrangler pages dev ." {
+		t.Fatalf("expected pages dev runner, got %q", cfg.WatchRunner)
 	}
-	if cfg.WatchRunnerDir != "workers/api" {
-		t.Fatalf("expected runner dir from worker, got %q", cfg.WatchRunnerDir)
+	if cfg.WatchRunnerDir != "public" {
+		t.Fatalf("pages dev must run from the output dir, got %q", cfg.WatchRunnerDir)
 	}
-	if cfg.WatchRunnerConfig != "deploy/wrangler.toml" {
-		t.Fatalf("expected runner config from worker, got %q", cfg.WatchRunnerConfig)
+}
+
+// A prebuilt mode: worker keeps the plain `wrangler dev` from its own directory.
+func TestApplyWorkerWatchDefaults_PrebuiltUsesWranglerDev(t *testing.T) {
+	cfg := &Config{Worker: WorkerConfig{Dir: "workers/api", Mode: "worker", WranglerConfig: "deploy/wrangler.toml"}}
+	ApplyWorkerWatchDefaults(cfg)
+	if cfg.WatchRunner != "wrangler" || cfg.WatchRunnerDir != "workers/api" ||
+		cfg.WatchRunnerConfig != "deploy/wrangler.toml" {
+		t.Fatalf("prebuilt worker dev = %q dir=%q config=%q", cfg.WatchRunner, cfg.WatchRunnerDir, cfg.WatchRunnerConfig)
 	}
 }
 

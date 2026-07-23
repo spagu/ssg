@@ -128,10 +128,30 @@ The Function reads them from its `env` binding at runtime.
 ssg --config .ssg.yaml --http --watch
 ```
 
-When `worker:` is set, `--watch` defaults its runner to `wrangler dev` started
-from the worker directory, so the static preview and the Functions run side by
-side. An explicit `watch_runner` (or `--wrangler`/`--workerd`) overrides that
-default.
+When a functions-mode worker is set, `--watch` serves the pages **and** the
+Functions together by running `wrangler pages dev .` from the build output
+directory (that is where SSG copies each worker's `functions/`, and where
+`wrangler pages dev` looks for them). SSG also generates a starter
+`wrangler.toml` first if the project has none (see below), so bindings are
+available. A prebuilt `mode: worker` keeps `wrangler dev` from its own
+directory. An explicit `watch_runner` (or `--wrangler`/`--workerd`) overrides
+all of this.
+
+## Generating a wrangler config
+
+`wrangler pages dev` and `wrangler pages deploy` read a `wrangler.toml` for the
+build output directory and any bindings. When a project uses workers and has no
+wrangler config, SSG writes a starter one — on `--watch`, or on demand:
+
+```sh
+ssg new wrangler
+```
+
+It derives `name` from the domain and `pages_build_output_dir` from the output
+dir, and appends each worker's `wrangler.snippet.toml` — a fragment the worker
+ships declaring its bindings and vars (e.g. cookie-consent's optional
+`CONSENT_LOG` KV namespace). An existing wrangler config, or one named via a
+worker's `wrangler_config`, is never overwritten.
 
 ## Deploy
 

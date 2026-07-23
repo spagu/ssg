@@ -114,9 +114,12 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
-	// A configured worker defaults the watch runner to wrangler dev, so the
-	// static preview and the Functions run together (GO-065). Only here, in the
-	// watch path — a one-shot build must never start a runner.
+	// A configured worker defaults the watch runner to `wrangler pages dev`, so
+	// the static preview and the Functions run together (GO-065). Only here, in
+	// the watch path — a one-shot build must never start a runner. Generate a
+	// starter wrangler.toml first when one is missing, so `wrangler pages dev`
+	// has bindings to read (GO-077).
+	ensureWranglerForWorkers(cfg)
 	config.ApplyWorkerWatchDefaults(cfg)
 	if cfg.WatchRunner != "" {
 		cmd := startWatchRunner(watchRunnerSpec{

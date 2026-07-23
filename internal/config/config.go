@@ -572,20 +572,35 @@ func ApplyWorkerWatchDefaults(cfg *Config) {
 	if cfg.WatchRunner != "" {
 		return
 	}
-	// With several workers, the dev runner follows the first one that has a
-	// local directory to run `wrangler dev` in (a remote-only source has none).
-	for _, w := range cfg.ResolvedWorkers() {
-		if w.Dir == "" {
-			continue
+	workers := cfg.ResolvedWorkers()
+	if len(workers) == 0 {
+		return
+	}
+	// Functions-mode workers (the default) are served together with the static
+	// site by `wrangler pages dev .` run FROM the output directory — SSG copies
+	// each worker's functions/ into the output, and `wrangler pages dev` compiles
+	// the functions/ it finds in its working directory, so it must run from
+	// there (not the project root, where it would see no Functions). It reads
+	// bindings from the generated wrangler.toml, found by walking up (GO-077). A
+	// prebuilt `mode: worker` keeps the plain `wrangler dev` from its own dir.
+	first := workers[0]
+	if first.Mode == "" || first.Mode == "functions" {
+		out := cfg.OutputDir
+		if out == "" {
+			out = "output"
 		}
+		cfg.WatchRunner = "npx wrangler pages dev ."
+		cfg.WatchRunnerDir = out
+		return
+	}
+	if first.Dir != "" {
 		cfg.WatchRunner = "wrangler"
 		if cfg.WatchRunnerDir == "" {
-			cfg.WatchRunnerDir = w.Dir
+			cfg.WatchRunnerDir = first.Dir
 		}
 		if cfg.WatchRunnerConfig == "" {
-			cfg.WatchRunnerConfig = w.WranglerConfig
+			cfg.WatchRunnerConfig = first.WranglerConfig
 		}
-		return
 	}
 }
 
