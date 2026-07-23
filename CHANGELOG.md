@@ -26,6 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Because Cloudflare Pages serves one `functions/` tree per project, the
   workers' functions merge into it and their routes combine — and two workers
   claiming the same output file is a **hard error**, never a silent overwrite.
+- 🍪 **`cookie-consent` worker** (GO-076) — a GDPR / ePrivacy / UK-PECR consent
+  banner scaffolded with `ssg new worker cookie-consent`. Prior consent
+  (non-essential `<script type="text/plain" data-consent-category>` tags stay
+  inert until granted), reject as prominent as accept, edge geo-gating (shown in
+  the EEA and UK by default, `GET /api/consent/geo`), granular categories,
+  versioned/expiring consent, a "manage cookies" reopen hook, i18n (en/pl/de/fr),
+  Google Consent Mode v2 signals, and an optional Turnstile-verified audit log
+  (`POST /api/consent/log`) that stores the IP only as a salted hash. Ships a
+  starter `cookie-policy.md` the user edits to list their services. The banner
+  js/css live in the worker's `public/`, now served from the site root.
+- 📦 **A worker's `public/` is served as static assets** (GO-076) — each worker
+  can ship client-side files (a consent banner's js/css) under `public/`, copied
+  to the output root at build with the same cross-worker collision guard as its
+  functions.
 - 🔐 **`internal/fetch`** (GO-076) — shared, hardened, authenticated fetch
   (bounded client, size caps, path-escape-guarded zip extraction, env-only
   secrets) behind config includes and remote worker sources.

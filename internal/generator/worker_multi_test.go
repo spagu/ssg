@@ -128,3 +128,38 @@ func TestWorkerRemoteSourceFetched(t *testing.T) {
 		t.Errorf("remote worker not fetched+built: %v", err)
 	}
 }
+
+// A worker's public/ assets are served from the output root; a clash between
+// two workers is an error.
+func TestWorkerPublicAssetsCopied(t *testing.T) {
+	mk := func(fn, asset string) string {
+		root := writeFn(t, t.TempDir(), fn, "x\n")
+		pub := filepath.Join(root, "public")
+		if err := os.MkdirAll(pub, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pub, asset), []byte("/* asset */\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "consent", Dir: mk("consent.ts", "cookie-consent.js")},
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "cookie-consent.js")); err != nil {
+		t.Errorf("public asset not served from output root: %v", err)
+	}
+
+	// Two workers shipping the same asset name collide.
+	g2 := &Generator{config: Config{OutputDir: t.TempDir(), Workers: []WorkerConfig{
+		{Name: "a", Dir: mk("a.ts", "banner.js")},
+		{Name: "b", Dir: mk("b.ts", "banner.js")},
+	}}}
+	if err := g2.generateWorkerFiles(); err == nil || !strings.Contains(err.Error(), "public asset") {
+		t.Fatalf("public asset collision not reported: %v", err)
+	}
+}

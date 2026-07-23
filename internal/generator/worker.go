@@ -86,7 +86,8 @@ func (g *Generator) generateWorkerFiles() error {
 	if len(workers) == 0 {
 		return nil
 	}
-	seen := map[string]string{} // output-relative path -> worker that wrote it
+	seen := map[string]string{}       // output-relative functions path -> worker
+	seenPublic := map[string]string{} // output-relative public asset -> worker
 	var include, exclude []string
 	wroteWorkerJS := ""
 	for i, w := range workers {
@@ -114,6 +115,11 @@ func (g *Generator) generateWorkerFiles() error {
 			wroteWorkerJS = label
 		default:
 			return fmt.Errorf("worker %s: unknown mode %q (use %q or %q)", label, w.Mode, workerModeFunctions, workerModeWorker)
+		}
+		// A worker's public/ holds client assets (a consent banner's js/css)
+		// served as static files; copy it to the output root (GO-076).
+		if err := g.copyWorkerPublic(dir, label, seenPublic); err != nil {
+			return err
 		}
 		include = append(include, w.RoutesInclude...)
 		exclude = append(exclude, w.RoutesExclude...)
@@ -201,6 +207,39 @@ func (g *Generator) copyFunctionsTree(dir, label string, seen map[string]string)
 		return fmt.Errorf("worker %s: copying functions: %w", label, err)
 	}
 	g.warnBareImports(src)
+	return nil
+}
+
+// copyWorkerPublic copies a worker's public/ tree (its client-side assets, e.g.
+// a consent banner's js/css) into the output root, so they are served as static
+// files. A no-op when the worker has no public/. Two workers shipping the same
+// asset path is a hard error, never a silent overwrite.
+func (g *Generator) copyWorkerPublic(dir, label string, seen map[string]string) error {
+	src := filepath.Join(dir, "public")
+	if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
+		return nil
+	}
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		rel, rerr := filepath.Rel(src, path)
+		if rerr != nil {
+			return rerr
+		}
+		key := filepath.ToSlash(rel)
+		if other, clash := seen[key]; clash {
+			return fmt.Errorf("worker %s and %s both provide public asset %s", label, other, key)
+		}
+		seen[key] = label
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if err := g.copyDir(src, g.config.OutputDir); err != nil {
+		return fmt.Errorf("worker %s: copying public assets: %w", label, err)
+	}
 	return nil
 }
 
