@@ -43,6 +43,7 @@ strip_md_link_text: true
 link_rewrites:
   "../examples/": "https://github.com/spagu/ssg/tree/main/examples/"
   "../templates/": "https://github.com/spagu/ssg/tree/main/templates/"
+  "../workers/": "https://github.com/spagu/ssg/tree/main/workers/"
   "../.github/": "https://github.com/spagu/ssg/blob/main/.github/"
   "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
 check_links: warn
