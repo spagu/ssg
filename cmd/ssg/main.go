@@ -511,6 +511,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		HighlightStyle:       cfg.HighlightStyle,
 		HighlightLineNumbers: cfg.HighlightLineNumbers,
 		Mermaid:              cfg.Mermaid,
+		MermaidTheme:         cfg.MermaidTheme,
+		MermaidBackground:    cfg.MermaidBackground,
 		TOC:                  cfg.TOC,
 		TOCDepth:             cfg.TOCDepth,
 		SEO:                  cfg.SEO,

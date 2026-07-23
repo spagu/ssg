@@ -15,9 +15,62 @@
 (function () {
   "use strict";
 
+  var DEFAULTS = {
+    api: "/api/comments",
+    order: "newest",
+    turnstileSiteKey: "",
+    defaultLang: "en",
+    i18n: {},
+  };
+
+  // UI strings. The active language is <html lang> if we ship it, else
+  // cfg.defaultLang, else English; cfg.i18n[lang] overrides any key, so a site
+  // can retranslate or add a language without editing this file.
+  var STRINGS = {
+    en: {
+      title: "Comments", empty: "No comments yet. Be the first.",
+      formTitle: "Leave a comment",
+      name: "Name", email: "Email (optional, for your avatar — never shown)",
+      body: "Your comment", submit: "Post comment",
+      sending: "Sending…", thanks: "Thanks — your comment is awaiting review.",
+      error: "Could not post your comment.", network: "Network error — please try again.",
+    },
+    pl: {
+      title: "Komentarze", empty: "Brak komentarzy. Bądź pierwszy.",
+      formTitle: "Dodaj komentarz",
+      name: "Imię", email: "E-mail (opcjonalnie, do awatara — nigdy nie pokazywany)",
+      body: "Twój komentarz", submit: "Opublikuj komentarz",
+      sending: "Wysyłanie…", thanks: "Dziękujemy — komentarz czeka na moderację.",
+      error: "Nie udało się dodać komentarza.", network: "Błąd sieci — spróbuj ponownie.",
+    },
+    de: {
+      title: "Kommentare", empty: "Noch keine Kommentare. Schreiben Sie den ersten.",
+      formTitle: "Kommentar hinterlassen",
+      name: "Name", email: "E-Mail (optional, für Ihren Avatar — nie angezeigt)",
+      body: "Ihr Kommentar", submit: "Kommentar absenden",
+      sending: "Senden…", thanks: "Danke — Ihr Kommentar wird geprüft.",
+      error: "Kommentar konnte nicht gesendet werden.", network: "Netzwerkfehler — bitte erneut versuchen.",
+    },
+    fr: {
+      title: "Commentaires", empty: "Aucun commentaire. Soyez le premier.",
+      formTitle: "Laisser un commentaire",
+      name: "Nom", email: "E-mail (facultatif, pour votre avatar — jamais affiché)",
+      body: "Votre commentaire", submit: "Publier le commentaire",
+      sending: "Envoi…", thanks: "Merci — votre commentaire est en attente de validation.",
+      error: "Impossible de publier votre commentaire.", network: "Erreur réseau — veuillez réessayer.",
+    },
+  };
+
+  function strings(cfg) {
+    var html = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase();
+    var pick = STRINGS[html] ? html : cfg.defaultLang;
+    var base = STRINGS[pick] || STRINGS.en;
+    return Object.assign({}, base, (cfg.i18n && cfg.i18n[pick]) || {});
+  }
+
   function readConfig() {
     var el = document.getElementById("ssg-comments-config");
-    var cfg = { api: "/api/comments", order: "newest", turnstileSiteKey: "" };
+    var cfg = Object.assign({}, DEFAULTS);
     if (el) {
       try {
         Object.assign(cfg, JSON.parse(el.textContent || "{}"));
@@ -45,10 +98,10 @@
     }
   }
 
-  function renderList(root, data) {
+  function renderList(root, data, t) {
     var list = el("ol", { class: "ssg-comments-list" });
     if (!data.comments.length) {
-      root.appendChild(el("p", { class: "ssg-comments-empty" }, "No comments yet. Be the first."));
+      root.appendChild(el("p", { class: "ssg-comments-empty" }, t.empty));
     }
     data.comments.forEach(function (c) {
       var item = el("li", { class: "ssg-comment" });
@@ -65,17 +118,17 @@
       item.appendChild(el("div", { class: "ssg-comment-body" }, c.body));
       list.appendChild(item);
     });
-    root.appendChild(el("h2", { class: "ssg-comments-title" }, "Comments (" + data.count + ")"));
+    root.appendChild(el("h2", { class: "ssg-comments-title" }, t.title + " (" + data.count + ")"));
     root.appendChild(list);
   }
 
-  function renderForm(root, cfg, url, onPosted) {
+  function renderForm(root, cfg, url, t, onPosted) {
     var form = el("form", { class: "ssg-comments-form", novalidate: "" });
-    form.appendChild(el("h3", null, "Leave a comment"));
+    form.appendChild(el("h3", null, t.formTitle));
 
-    var name = el("input", { type: "text", name: "author", required: "", maxlength: "80", placeholder: "Name", "aria-label": "Name" });
-    var email = el("input", { type: "email", name: "email", maxlength: "254", placeholder: "Email (optional, for your avatar — never shown)", "aria-label": "Email (optional)" });
-    var body = el("textarea", { name: "body", required: "", rows: "4", maxlength: "5000", placeholder: "Your comment", "aria-label": "Comment" });
+    var name = el("input", { type: "text", name: "author", required: "", maxlength: "80", placeholder: t.name, "aria-label": t.name });
+    var email = el("input", { type: "email", name: "email", maxlength: "254", placeholder: t.email, "aria-label": t.email });
+    var body = el("textarea", { name: "body", required: "", rows: "4", maxlength: "5000", placeholder: t.body, "aria-label": t.body });
     form.appendChild(name);
     form.appendChild(email);
     form.appendChild(body);
@@ -85,14 +138,14 @@
     }
 
     var status = el("p", { class: "ssg-comments-status", role: "status", "aria-live": "polite" });
-    var submit = el("button", { type: "submit", class: "ssg-comments-submit" }, "Post comment");
+    var submit = el("button", { type: "submit", class: "ssg-comments-submit" }, t.submit);
     form.appendChild(submit);
     form.appendChild(status);
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       submit.disabled = true;
-      status.textContent = "Sending…";
+      status.textContent = t.sending;
       var token = "";
       var tw = form.querySelector('[name="cf-turnstile-response"]');
       if (tw) token = tw.value;
@@ -107,13 +160,13 @@
         .then(function (res) {
           if (res.ok) {
             form.reset();
-            status.textContent = "Thanks — your comment is awaiting review.";
+            status.textContent = t.thanks;
             if (onPosted) onPosted();
           } else {
-            status.textContent = (res.d && res.d.error) || "Could not post your comment.";
+            status.textContent = (res.d && res.d.error) || t.error;
           }
         })
-        .catch(function () { status.textContent = "Network error — please try again."; })
+        .catch(function () { status.textContent = t.network; })
         .finally(function () {
           submit.disabled = false;
           if (window.turnstile) { try { window.turnstile.reset(); } catch (e2) { /* ignore */ } }
@@ -137,18 +190,19 @@
     if (!root) return;
     var url = root.getAttribute("data-url") || location.pathname;
     var cfg = readConfig();
+    var t = strings(cfg);
     if (cfg.turnstileSiteKey) loadTurnstileScript();
 
     fetch(cfg.api + "?url=" + encodeURIComponent(url), { headers: { accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : { comments: [], count: 0 }; })
       .then(function (data) {
         root.textContent = "";
-        renderList(root, data);
-        renderForm(root, cfg, url, function () { /* comment pending; list unchanged until approved */ });
+        renderList(root, data, t);
+        renderForm(root, cfg, url, t, function () { /* comment pending; list unchanged until approved */ });
       })
       .catch(function () {
         root.textContent = "";
-        renderForm(root, cfg, url);
+        renderForm(root, cfg, url, t);
       });
   }
 

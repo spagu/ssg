@@ -317,12 +317,27 @@ references serve WebP, hardcoded ones keep working (v1.8.5).
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
 | `mermaid` | `false` | — | Render ```` ```mermaid ```` fences as diagrams |
+| `mermaid_theme` | — | — | Mermaid built-in theme: `default`, `neutral`, `dark`, `forest`, `base` |
+| `mermaid_background` | — | — | Solid CSS colour boxed behind each diagram |
 
 `mermaid: true` rewrites a ```` ```mermaid ```` fence into a
 `<pre class="mermaid">` block before rendering (so the diagram source is passed
 through verbatim, not HTML-escaped) and injects the mermaid.js runtime **only on
 pages that contain a diagram** — the same page-scoped approach as KaTeX. A
 mermaid fence stays a plain code block when the option is off.
+
+Diagrams are transparent by default, so on dark site chrome they can be hard to
+read. `mermaid_background` (any CSS colour — `#ffffff`, `white`,
+`hsl(0 0% 100%)`) paints a solid panel behind each diagram with padding and
+rounded corners, and `mermaid_theme` picks a matching palette (`neutral` or the
+light `default` read best on a dark page). Both apply only to pages that contain
+a diagram. Example:
+
+```yaml
+mermaid: true
+mermaid_theme: neutral
+mermaid_background: "#ffffff"
+```
 
 Math detection recognises display `$$...$$` and fenced ```` ```math ````
 blocks (fences are rewritten to display math before rendering, GO-055).

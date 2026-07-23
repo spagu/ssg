@@ -68,6 +68,25 @@ In your post template:
 The site key is public; get it (and the secret) from the Cloudflare Turnstile
 dashboard.
 
+## Localisation
+
+The widget's UI strings (`Leave a comment`, `Post comment`, `No comments yet`, …)
+are translated and follow the page: it reads `<html lang>` and shows English,
+Polish, German or French accordingly — no config needed. ssgtheme already sets
+`<html lang>` from the post's language, so a Polish post gets a Polish form.
+
+To force a language regardless of the page, or to override a single string, add
+to the config JSON:
+
+```json
+{ "turnstileSiteKey": "0x...", "api": "/api/comments",
+  "defaultLang": "pl",
+  "i18n": { "en": { "submit": "Send it" } } }
+```
+
+`defaultLang` is used when the page's `<html lang>` is one the widget doesn't
+ship; `i18n.<lang>` overrides individual keys or adds a whole new language.
+
 ## 4. Moderate
 
 Open `/comments-admin.html`, enter `COMMENTS_ADMIN_PASSWORD`, and approve, mark

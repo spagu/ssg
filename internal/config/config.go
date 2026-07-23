@@ -270,6 +270,18 @@ type Config struct {
 	// mermaid fence stays a plain code block unless asked (GO-073).
 	Mermaid bool `yaml:"mermaid" toml:"mermaid" json:"mermaid"`
 
+	// MermaidTheme selects the mermaid built-in theme passed to initialize():
+	// "default" (light), "neutral", "dark", "forest" or "base". Empty means
+	// mermaid's own default. Use "default"/"neutral" when the site chrome is dark
+	// so diagrams stay legible (GO-079).
+	MermaidTheme string `yaml:"mermaid_theme" toml:"mermaid_theme" json:"mermaid_theme"`
+
+	// MermaidBackground paints a solid background behind each diagram — any CSS
+	// colour ("#fff", "white", "hsl(0 0% 100%)"). Diagrams are transparent by
+	// default, so on a dark page they are hard to read; this boxes each one on a
+	// readable panel (padding + rounded corners) regardless of the theme (GO-079).
+	MermaidBackground string `yaml:"mermaid_background" toml:"mermaid_background" json:"mermaid_background"`
+
 	// Table of contents (AX-002): .TOC context + [toc] shortcode.
 	TOC      bool `yaml:"toc" toml:"toc" json:"toc"`
 	TOCDepth int  `yaml:"toc_depth" toml:"toc_depth" json:"toc_depth"` // max heading level (default 3)

@@ -84,6 +84,10 @@ highlight: true
 highlight_style: github-dark
 highlight_line_numbers: true
 mermaid: true
+# Diagrams are transparent by default, so on the dark code chrome they were hard
+# to read; box each one on a white panel with the light "neutral" theme (GO-079).
+mermaid_theme: neutral
+mermaid_background: "#ffffff"
 
 variables:
   project_name: SSG

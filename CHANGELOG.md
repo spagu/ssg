@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🎨 **Mermaid diagram theme + background** (GO-079) — two new options,
+  `mermaid_theme` (mermaid's built-in `default`/`neutral`/`dark`/`forest`/`base`)
+  and `mermaid_background` (any CSS colour), tune diagram legibility. Diagrams
+  are transparent by default, so on dark site chrome they were hard to read;
+  `mermaid_background` boxes each one on a solid panel (padding + rounded
+  corners), and `mermaid_theme` picks a matching palette. Both only affect pages
+  that actually contain a diagram. The docs site now uses a white panel.
+- 🌐 **Comments widget speaks the page's language** (GO-078) — the `comments`
+  reader widget is now translated (en/pl/de/fr), picking the language from
+  `<html lang>` exactly like the cookie banner, so a post in Polish gets a Polish
+  form. A `comments.i18n` config block overrides any string or adds a language
+  without editing the worker.
 - 🧩 **Config includes: split `.ssg.yaml` across files** (GO-076) — a config can
   `include:` other YAML files from a **path or a URL**, so a project's config
   splits into focused pieces (shared defaults in a base, each worker its own
