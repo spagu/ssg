@@ -327,7 +327,8 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		cfg.Domain = positionalArgs[1]
 	} else if (cfg.Source == "" && !sourceOptional) || cfg.Template == "" || cfg.Domain == "" {
 		reportMissingSettings(cfg, sourceOptional)
-		printUsage()
+		// Point at --help rather than dumping the whole thing after the error.
+		fmt.Fprintln(os.Stderr, "   Run `ssg --help` for options, `ssg --version` for the version.")
 		os.Exit(1)
 	}
 }
