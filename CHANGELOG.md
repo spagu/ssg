@@ -45,6 +45,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `variables.cookie_consent` block, and the SSG documentation site now dogfoods
   the worker. The banner's position is configurable — `bottom` (default), `top`
   or `center`.
+- 💬 **`comments` worker** (GO-078) — comments for a site (blogs especially),
+  stored in Cloudflare D1, scaffolded with `ssg new worker comments`. No
+  accounts: a name, an optional email (avatar hash only), a body. Turnstile on
+  submit, a heuristic spam score (or Akismet when a key is set), and every new
+  comment held `pending` until an admin approves it in a password-protected
+  panel. For compliance the row keeps a **salted hash** of the IP plus the
+  user-agent — the raw IP is never stored. Ships a dependency-free reader widget
+  and a moderation page; JS rendering by default, static baking documented.
+- 🐛 **Scaffold shared worker modules** (GO-078) — `EmbeddedWorkers` now uses
+  `//go:embed all:workers`, so a Pages Function's shared `_`-prefixed module
+  (which go:embed's default rule would drop) ships with the scaffold. Without
+  it, comments' `_lib.ts` was silently missing and the functions failed to
+  build.
 - 🍪 **`cookie-consent` worker** (GO-076) — a GDPR / ePrivacy / UK-PECR consent
   banner scaffolded with `ssg new worker cookie-consent`. Prior consent
   (non-essential `<script type="text/plain" data-consent-category>` tags stay

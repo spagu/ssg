@@ -1,0 +1,135 @@
+/* ssg comments — self-contained widget styles (no theme dependency). */
+
+.ssg-comments-title {
+  font-size: 1.25rem;
+  margin: 2rem 0 1rem;
+}
+
+.ssg-comments-list {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.ssg-comment {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+}
+
+.ssg-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.375rem;
+}
+
+.ssg-comment-avatar {
+  border-radius: 50%;
+  flex: none;
+}
+
+.ssg-comment-author {
+  font-weight: 600;
+}
+
+.ssg-comment-date {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.ssg-comment-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.ssg-comments-empty {
+  color: #64748b;
+}
+
+.ssg-comments-form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 40rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
+
+.ssg-comments-form h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ssg-comments-form input,
+.ssg-comments-form textarea {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.ssg-comments-form textarea {
+  resize: vertical;
+}
+
+.ssg-comments-submit {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #0050a6;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ssg-comments-submit:hover {
+  background: #00428a;
+}
+
+.ssg-comments-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ssg-comments-status {
+  margin: 0;
+  min-height: 1.25rem;
+  color: #334155;
+  font-size: 0.9375rem;
+}
+
+.ssg-comments-form :focus-visible,
+.ssg-comments-submit:focus-visible {
+  outline: 2px solid #0050a6;
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ssg-comment {
+    border-color: #334155;
+  }
+  .ssg-comment-date,
+  .ssg-comments-empty {
+    color: #94a3b8;
+  }
+  .ssg-comments-form {
+    border-color: #334155;
+  }
+  .ssg-comments-form input,
+  .ssg-comments-form textarea {
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+  }
+  .ssg-comments-status {
+    color: #e2e8f0;
+  }
+}

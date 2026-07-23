@@ -15,8 +15,14 @@ var EmbeddedThemes embed.FS
 
 // EmbeddedWorkers carries the batteries-included Cloudflare Pages Functions
 // templates scaffolded by `ssg new worker <template>` (GO-066): contact-form,
-// stripe-checkout, dynamic-price and conversions-proxy. They live at the module
-// root for the same go:embed reason as the themes above.
+// stripe-checkout, dynamic-price, conversions-proxy, cookie-consent and
+// comments. They live at the module root for the same go:embed reason as the
+// themes above.
 //
-//go:embed workers
+// `all:` is required, not a plain `//go:embed workers`: a Pages Function whose
+// filename starts with `_` (a shared, non-routed module like comments'
+// `_lib.ts`) is excluded by go:embed's default `_`/`.` rule, so the scaffold
+// would drop it and the importing functions would fail to build (GO-078).
+//
+//go:embed all:workers
 var EmbeddedWorkers embed.FS

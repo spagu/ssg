@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Comments moderation</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; }
+    .login { display: grid; gap: 0.5rem; max-width: 20rem; }
+    input, button, select { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid #94a3b8; border-radius: 0.5rem; }
+    button { cursor: pointer; }
+    .primary { background: #0050a6; color: #fff; border-color: #0050a6; }
+    .tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    .tabs button[aria-pressed="true"] { background: #0f172a; color: #fff; border-color: #0f172a; }
+    .c { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+    .c-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; color: #475569; font-size: 0.875rem; }
+    .c-author { font-weight: 600; color: inherit; }
+    .c-body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.5rem 0; }
+    .c-actions { display: flex; gap: 0.5rem; }
+    .muted { color: #64748b; }
+    a { color: #0050a6; }
+    @media (prefers-color-scheme: dark) {
+      .c { border-color: #334155; } .c-head { color: #94a3b8; }
+      .tabs button[aria-pressed="true"] { background: #e2e8f0; color: #0f172a; border-color: #e2e8f0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Comments moderation</h1>
+
+  <form class="login" id="login">
+    <label>Password <input type="password" id="pw" autocomplete="current-password" required></label>
+    <button class="primary" type="submit">Sign in</button>
+    <p class="muted" id="login-msg" role="status"></p>
+  </form>
+
+  <div id="panel" hidden>
+    <div class="tabs" role="tablist">
+      <button data-status="pending" aria-pressed="true">Pending</button>
+      <button data-status="spam" aria-pressed="false">Spam</button>
+      <button data-status="approved" aria-pressed="false">Approved</button>
+    </div>
+    <div id="list" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      var API = "/api/comments/admin";
+      var auth = "";
+      var current = "pending";
+
+      function authHeader() { return { authorization: "Basic " + btoa(":" + auth) }; }
+
+      function esc(node, text) { node.textContent = text; return node; }
+
+      function load(status) {
+        current = status;
+        document.querySelectorAll(".tabs button").forEach(function (b) {
+          b.setAttribute("aria-pressed", String(b.getAttribute("data-status") === status));
+        });
+        var list = document.getElementById("list");
+        list.textContent = "Loading…";
+        fetch(API + "?status=" + status, { headers: authHeader() })
+          .then(function (r) {
+            if (r.status === 401) throw new Error("unauthorised");
+            return r.json();
+          })
+          .then(function (data) { render(list, data); })
+          .catch(function (e) { list.textContent = e.message === "unauthorised" ? "Wrong password." : "Error loading."; });
+      }
+
+      function render(list, data) {
+        list.textContent = "";
+        if (!data.comments.length) { list.appendChild(esc(document.createElement("p"), "Nothing here.")); return; }
+        data.comments.forEach(function (c) {
+          var card = document.createElement("div"); card.className = "c";
+          var head = document.createElement("div"); head.className = "c-head";
+          head.appendChild(esc(document.createElement("span"), c.author)).className = "c-author";
+          var link = document.createElement("a"); link.href = c.url; esc(link, c.url); head.appendChild(link);
+          head.appendChild(esc(document.createElement("time"), new Date(c.created_at).toLocaleString()));
+          card.appendChild(head);
+          card.appendChild(esc(document.createElement("div"), c.body)).className = "c-body";
+          var actions = document.createElement("div"); actions.className = "c-actions";
+          if (c.status !== "approved") actions.appendChild(button("Approve", "approve", c.id));
+          if (c.status !== "spam") actions.appendChild(button("Spam", "spam", c.id));
+          actions.appendChild(button("Delete", "delete", c.id));
+          card.appendChild(actions);
+          list.appendChild(card);
+        });
+      }
+
+      function button(label, action, id) {
+        var b = esc(document.createElement("button"), label);
+        b.addEventListener("click", function () {
+          b.disabled = true;
+          fetch(API, { method: "POST", headers: Object.assign({ "content-type": "application/json" }, authHeader()), body: JSON.stringify({ id: id, action: action }) })
+            .then(function () { load(current); });
+        });
+        return b;
+      }
+
+      document.getElementById("login").addEventListener("submit", function (e) {
+        e.preventDefault();
+        auth = document.getElementById("pw").value;
+        fetch(API + "?status=pending", { headers: authHeader() }).then(function (r) {
+          if (r.status === 401) { document.getElementById("login-msg").textContent = "Wrong password."; return; }
+          document.getElementById("login").hidden = true;
+          document.getElementById("panel").hidden = false;
+          load("pending");
+        });
+      });
+      document.querySelectorAll(".tabs button").forEach(function (b) {
+        b.addEventListener("click", function () { load(b.getAttribute("data-status")); });
+      });
+    })();
+  </script>
+</body>
+</html>

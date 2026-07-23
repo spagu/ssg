@@ -1,0 +1,17 @@
+# comments — needs a D1 database. Create it and paste the id:
+#   npx wrangler d1 create ssg-comments
+# [[d1_databases]]
+# binding = "COMMENTS_DB"
+# database_name = "ssg-comments"
+# database_id = "<paste-d1-database-id>"
+
+# [vars]
+# COMMENTS_ORDER = "newest"     # "newest" (default) or "oldest"
+# COMMENTS_RETENTION_DAYS = "0" # 0 = keep forever; N = purge spam/pending older than N days
+# COMMENTS_AKISMET_URL = ""     # e.g. "https://<key>.rest.akismet.com/1.1/comment-check"
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   TURNSTILE_SECRET        Cloudflare Turnstile secret (required for POST)
+#   COMMENTS_ADMIN_PASSWORD moderation panel password
+#   COMMENTS_IP_SALT        salt for the stored IP hash
+#   COMMENTS_AKISMET_KEY    (optional) Akismet API key for spam scoring
