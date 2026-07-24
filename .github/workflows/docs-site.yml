@@ -93,6 +93,23 @@ jobs:
       - name: Build ssg from this commit
         run: go build -ldflags "-s -w -X main.Version=$(cat VERSION)" -o build/ssg ./cmd/ssg
 
+      # Turnstile SITE key from a GitHub secret, so it isn't committed. The site
+      # key is public (it ships in the page HTML), so this only keeps it out of
+      # the repo — it is not a secret in the security sense. When the GitHub
+      # secret is unset (forks, or if it isn't configured) the demo/test key in
+      # docs-site.yaml stays, so the build never breaks. Runs before both the PR
+      # build check and the deploy. See workers/comments/README.md.
+      - name: Inject Turnstile site key
+        env:
+          TURNSTILE_SITE_KEY: ${{ secrets.turnsite_site }}
+        run: |
+          if [ -n "${TURNSTILE_SITE_KEY}" ]; then
+            sed -i "s|turnstileSiteKey: \".*\"|turnstileSiteKey: \"${TURNSTILE_SITE_KEY}\"|" docs-site.yaml
+            echo "Turnstile site key injected from secrets.turnsite_site."
+          else
+            echo "secrets.turnsite_site not set — keeping the demo/test site key."
+          fi
+
       # Idempotent: creates the Pages project on the first run, does nothing on
       # every run after. SSG uploads deployments but does not create projects,
       # and a missing project fails the upload with a bare 404.
@@ -121,6 +138,32 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"name\":\"${PROJECT}\",\"production_branch\":\"main\"}" >/dev/null
           echo "Created ${PROJECT}."
+
+      # Push the comments worker's SERVER secrets onto the Pages project from
+      # GitHub secrets. Pages secrets persist on the project across deploys, so
+      # this only re-asserts them; a secret that isn't set in GitHub is skipped,
+      # never blanked. TURNSTILE_SECRET is required for the comments POST to
+      # verify a token — without it the endpoint returns 503. The moderation
+      # password and IP salt are optional. (The D1 binding is not a secret and is
+      # configured once on the project — see workers/comments/README.md.)
+      - name: Sync comments worker secrets to the Pages project
+        if: github.event_name != 'pull_request'
+        env:
+          TURNSTILE_SECRET: ${{ secrets.secret }}
+          COMMENTS_ADMIN_PASSWORD: ${{ secrets.COMMENTS_ADMIN_PASSWORD }}
+          COMMENTS_IP_SALT: ${{ secrets.COMMENTS_IP_SALT }}
+        run: |
+          put() {
+            if [ -n "$2" ]; then
+              printf '%s' "$2" | npx --yes wrangler@latest pages secret put "$1" --project-name "${PROJECT}"
+              echo "set $1 on ${PROJECT}"
+            else
+              echo "skip $1 (GitHub secret not set)"
+            fi
+          }
+          put TURNSTILE_SECRET "${TURNSTILE_SECRET}"
+          put COMMENTS_ADMIN_PASSWORD "${COMMENTS_ADMIN_PASSWORD}"
+          put COMMENTS_IP_SALT "${COMMENTS_IP_SALT}"
 
       # One invocation: SSG deploys only after a successful generate, and both
       # gates abort before that point — shortcode_errors: strict (set in

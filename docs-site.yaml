@@ -116,6 +116,11 @@ variables:
   # setup; swap it for your own. The widget needs the comments worker's D1 to
   # actually store/list — locally that means the wrangler dev path.
   comments:
+    # Cloudflare's public TEST key (always passes) so the demo works without
+    # setup. On deploy, the workflow overrides this from the GitHub secret
+    # `turnsite_site` when it's set; the matching secret key rides on the Pages
+    # project as `TURNSTILE_SECRET` (from GitHub secret `secret`). See
+    # .github/workflows/docs-site.yml and workers/comments/README.md.
     turnstileSiteKey: "1x00000000000000000000AA"
     api: /api/comments
     order: newest
