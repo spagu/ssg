@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spagu/ssg/internal/fetch"
@@ -289,10 +290,8 @@ func (g *Generator) warnBareImports(dir string) {
 		if rerr != nil {
 			return nil
 		}
-		for _, line := range strings.Split(string(data), "\n") {
-			if spec, ok := bareImportSpec(line); ok {
-				fmt.Printf("   ⚠️  worker: %s imports npm package %q — Direct Upload cannot bundle it; deploy via wrangler\n", filepath.Base(path), spec)
-			}
+		for _, spec := range bareModuleSpecs(string(data)) {
+			fmt.Printf("   ⚠️  worker: %s imports npm package %q — Direct Upload cannot bundle it; deploy via wrangler\n", filepath.Base(path), spec)
 		}
 		return nil
 	})
@@ -307,21 +306,48 @@ func isWorkerSourceFile(path string) bool {
 	return false
 }
 
-// bareImportSpec extracts a bare (npm) module specifier from an import line;
-// relative, absolute and runtime-builtin (cloudflare:/node:) imports pass.
-func bareImportSpec(line string) (string, bool) {
-	trimmed := strings.TrimSpace(line)
-	if !strings.HasPrefix(trimmed, "import ") && !strings.HasPrefix(trimmed, "import{") {
-		return "", false
+// importFromRE captures the specifier of any `… from "spec"` clause (import-from
+// or export-from), even when the `import { … }` spans several lines — matching on
+// the `from` clause rather than the opening line is what avoids mis-reading a
+// bare `import {` as a package. sideEffectImportRE captures `import "spec"`.
+var (
+	importFromRE       = regexp.MustCompile(`\bfrom\s*["']([^"']+)["']`)
+	sideEffectImportRE = regexp.MustCompile(`(?m)^\s*import\s*["']([^"']+)["']`)
+)
+
+// bareModuleSpecs returns the distinct bare (npm) module specifiers a source file
+// imports. Relative ("./x", "../x"), absolute ("/x"), URL and runtime-builtin
+// (cloudflare:/node:) specifiers are not bare and are skipped. Best-effort string
+// scan over the whole file, so a multi-line `import { … } from "pkg"` is read
+// from its `from` clause, not its `import {` opening line.
+func bareModuleSpecs(content string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(spec string) {
+		if isBareModuleSpec(spec) && !seen[spec] {
+			seen[spec] = true
+			out = append(out, spec)
+		}
 	}
-	from := trimmed
-	if i := strings.Index(trimmed, " from "); i >= 0 {
-		from = trimmed[i+len(" from "):]
+	for _, m := range importFromRE.FindAllStringSubmatch(content, -1) {
+		add(m[1])
 	}
-	spec := strings.Trim(from, "\"'; \t")
-	if spec == "" || strings.HasPrefix(spec, ".") || strings.HasPrefix(spec, "/") ||
-		strings.HasPrefix(spec, "cloudflare:") || strings.HasPrefix(spec, "node:") {
-		return "", false
+	for _, m := range sideEffectImportRE.FindAllStringSubmatch(content, -1) {
+		add(m[1])
 	}
-	return spec, true
+	return out
+}
+
+// isBareModuleSpec reports whether spec names an external package (not a
+// relative/absolute path, URL or runtime builtin).
+func isBareModuleSpec(spec string) bool {
+	if spec == "" {
+		return false
+	}
+	for _, p := range []string{".", "/", "cloudflare:", "node:", "http:", "https:"} {
+		if strings.HasPrefix(spec, p) {
+			return false
+		}
+	}
+	return true
 }

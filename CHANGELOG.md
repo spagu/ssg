@@ -116,6 +116,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (bounded client, size caps, path-escape-guarded zip extraction, env-only
   secrets) behind config includes and remote worker sources.
 
+### Fixed
+- 🐛 **Bogus "imports npm package" warning on multi-line imports** (GO-080) — the
+  worker npm-import scan read `import {` line by line, so a `import {\n … } from
+  "./_lib"` (as in the comments worker) was mis-reported as importing a package
+  literally named `"import {"`. It now inspects the `from "…"` clause across line
+  breaks: relative/builtin/URL imports are silent and a genuine bare npm
+  specifier is still flagged with its real name — even when the import spans
+  several lines (previously such an import was missed entirely).
+
 
 ## [1.8.12] - 2026-07-22
 
