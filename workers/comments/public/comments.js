@@ -30,7 +30,7 @@
     en: {
       title: "Comments", empty: "No comments yet. Be the first.",
       formTitle: "Leave a comment",
-      name: "Name", email: "Email (optional, for your avatar — never shown)",
+      name: "Name", email: "Email (required — never shown publicly)",
       body: "Your comment", submit: "Post comment",
       sending: "Sending…", thanks: "Thanks — your comment is awaiting review.",
       error: "Could not post your comment.", network: "Network error — please try again.",
@@ -39,7 +39,7 @@
     pl: {
       title: "Komentarze", empty: "Brak komentarzy. Bądź pierwszy.",
       formTitle: "Dodaj komentarz",
-      name: "Imię", email: "E-mail (opcjonalnie, do awatara — nigdy nie pokazywany)",
+      name: "Imię", email: "E-mail (wymagany — nigdy nie pokazywany publicznie)",
       body: "Twój komentarz", submit: "Opublikuj komentarz",
       sending: "Wysyłanie…", thanks: "Dziękujemy — komentarz czeka na moderację.",
       error: "Nie udało się dodać komentarza.", network: "Błąd sieci — spróbuj ponownie.",
@@ -48,7 +48,7 @@
     de: {
       title: "Kommentare", empty: "Noch keine Kommentare. Schreiben Sie den ersten.",
       formTitle: "Kommentar hinterlassen",
-      name: "Name", email: "E-Mail (optional, für Ihren Avatar — nie angezeigt)",
+      name: "Name", email: "E-Mail (erforderlich — nie öffentlich angezeigt)",
       body: "Ihr Kommentar", submit: "Kommentar absenden",
       sending: "Senden…", thanks: "Danke — Ihr Kommentar wird geprüft.",
       error: "Kommentar konnte nicht gesendet werden.", network: "Netzwerkfehler — bitte erneut versuchen.",
@@ -57,7 +57,7 @@
     fr: {
       title: "Commentaires", empty: "Aucun commentaire. Soyez le premier.",
       formTitle: "Laisser un commentaire",
-      name: "Nom", email: "E-mail (facultatif, pour votre avatar — jamais affiché)",
+      name: "Nom", email: "E-mail (obligatoire — jamais affiché publiquement)",
       body: "Votre commentaire", submit: "Publier le commentaire",
       sending: "Envoi…", thanks: "Merci — votre commentaire est en attente de validation.",
       error: "Impossible de publier votre commentaire.", network: "Erreur réseau — veuillez réessayer.",
@@ -131,7 +131,7 @@
     form.appendChild(el("h3", null, t.formTitle));
 
     var name = el("input", { type: "text", name: "author", required: "", maxlength: "80", placeholder: t.name, "aria-label": t.name });
-    var email = el("input", { type: "email", name: "email", maxlength: "254", placeholder: t.email, "aria-label": t.email });
+    var email = el("input", { type: "email", name: "email", required: "", maxlength: "254", placeholder: t.email, "aria-label": t.email });
     var body = el("textarea", { name: "body", required: "", rows: "4", maxlength: "5000", placeholder: t.body, "aria-label": t.body });
     form.appendChild(name);
     form.appendChild(email);
@@ -161,14 +161,22 @@
           token: token, published: published,
         }),
       })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        // Parse the body defensively: a server error can return a non-JSON body
+        // (e.g. a raw 500), which must not be mistaken for a network failure.
+        .then(function (r) {
+          return r.text().then(function (text) {
+            var d = null;
+            try { d = JSON.parse(text); } catch (e) { /* non-JSON body */ }
+            return { ok: r.ok, status: r.status, d: d };
+          });
+        })
         .then(function (res) {
           if (res.ok) {
             form.reset();
             status.textContent = t.thanks;
             if (onPosted) onPosted();
           } else {
-            status.textContent = (res.d && res.d.error) || t.error;
+            status.textContent = (res.d && res.d.error) || (t.error + " (" + res.status + ")");
           }
         })
         .catch(function () { status.textContent = t.network; })
