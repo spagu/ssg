@@ -72,6 +72,17 @@ In your post template:
 The site key is public; get it (and the secret) from the Cloudflare Turnstile
 dashboard.
 
+**Caching:** `comments.js`/`comments.css` are served from the site root and
+updated in place, so don't let them inherit a long immutable asset cache or a
+browser will keep a stale copy after a deploy. Serve them revalidating with a
+`headers:` override in your config:
+
+```yaml
+headers:
+  /comments.js:  { Cache-Control: "public, max-age=0, must-revalidate" }
+  /comments.css: { Cache-Control: "public, max-age=0, must-revalidate" }
+```
+
 ## Localisation
 
 The widget's UI strings (`Leave a comment`, `Post comment`, `No comments yet`, …)

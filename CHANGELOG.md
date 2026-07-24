@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🚦 **One pending comment per person per thread** (GO-083) — a visitor who
+  already has a comment awaiting review on a page can't stack up more (`429`);
+  they can add another once theirs is moderated (approved, spam, or deleted).
+  Keyed on the now-required email, case-insensitively, per URL.
 - 🗄️ **Comments worker self-initialises its D1 schema** (GO-083) — the worker
   creates its `comments` table (and indexes) on first use, so binding the D1
   database is the only setup step — no manual `wrangler d1 execute`. The
@@ -33,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a project setting rather than a secret.
 
 ### Fixed
+- 🐛 **Docs site: widget assets no longer cached for a year** (GO-083) — a
+  worker's client files (`/comments.js`, `/cookie-consent.js`, …) sit at the site
+  root and are updated in place, but were served with the default one-year
+  immutable asset cache, so a browser kept a stale copy (e.g. an old form label)
+  long after a deploy. The docs-site config now serves them revalidating
+  (etag-checked) via a `headers:` override, so updates propagate on the next
+  visit. Any site with in-place-updated worker assets should do the same.
 - 🐛 **Comments worker fails clean when D1 isn't bound** (GO-083) — every D1-backed
   endpoint (`GET`/`POST`/admin/import) now returns a JSON `503 comments not
   configured` instead of throwing a raw Cloudflare `500` when the `COMMENTS_DB`

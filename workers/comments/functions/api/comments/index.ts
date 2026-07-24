@@ -91,6 +91,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: "comments closed" }, 403);
   }
 
+  // One pending comment per person per thread: a visitor who already has a
+  // comment awaiting review on this page can't stack up more — they must wait
+  // until it's moderated (approved, marked spam, or deleted) before adding
+  // another. Keyed on the (now required) email, case-insensitively.
+  const pending = await env.COMMENTS_DB.prepare(
+    `SELECT 1 FROM comments WHERE url = ? AND lower(email) = ? AND status = 'pending' LIMIT 1`,
+  ).bind(url, email.toLowerCase()).first();
+  if (pending) {
+    return json({ error: "you already have a comment awaiting review on this page" }, 429);
+  }
+
   const ip = request.headers.get("cf-connecting-ip");
   if (!payload.token || !(await verifyTurnstile(env.TURNSTILE_SECRET, payload.token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
