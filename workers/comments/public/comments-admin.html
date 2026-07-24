@@ -132,7 +132,11 @@
         e.preventDefault();
         auth = document.getElementById("pw").value;
         fetch(API + "?status=pending", { headers: authHeader() }).then(function (r) {
-          if (r.status === 401) { document.getElementById("login-msg").textContent = "Wrong password."; return; }
+          if (!r.ok) {
+            document.getElementById("login-msg").textContent =
+              r.status === 401 ? "Wrong password." : "Moderation is not configured on the server.";
+            return;
+          }
           document.getElementById("login").hidden = true;
           document.getElementById("panel").hidden = false;
           load("pending");

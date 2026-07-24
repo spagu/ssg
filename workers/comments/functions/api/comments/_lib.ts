@@ -47,9 +47,13 @@ export async function verifyTurnstile(secret: string, token: string, ip: string 
 }
 
 // Only same-origin page paths are accepted as a comment target, so the table
-// cannot be seeded with arbitrary or off-site URLs.
+// cannot be seeded with arbitrary or off-site URLs. Rejecting a leading "//" or
+// "/\" (and any backslash) closes the open-redirect where a browser reads
+// "/\evil.com" as "//evil.com" → https://evil.com/ when a moderator clicks the
+// stored link in the admin panel.
 export function normaliseURL(raw: unknown): string | null {
-  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.includes("\\")) return null;
+  if (raw.startsWith("//")) return null;
   const clean = raw.split(/[?#]/)[0].slice(0, 512);
   return clean || null;
 }
@@ -61,22 +65,22 @@ export function closeWindowMs(env: Env): number {
 }
 
 // isClosed decides whether a thread still accepts comments. It closes once the
-// window has elapsed since the thread's last activity, where "activity" is the
-// newest comment or — for a thread with none yet — the post's publish date.
-// Taking the newest of the two means a recent comment (or a recent post) keeps
-// the thread open, and a post with no comments and no known date stays open so
-// the first comment is always possible.
+// window has elapsed since the thread's last activity: the newest comment when
+// the thread has any, else the post's publish date for a thread with none yet.
+//
+// The newest comment (server-side, from D1) GOVERNS whenever it exists — the
+// client-supplied publishedISO is consulted ONLY for an empty thread. Otherwise
+// a raw POST carrying a far-future `published` could out-vote a years-old last
+// comment and keep a closed thread open (auto-close bypass). For an empty thread
+// the publish date is the only anchor available; forging it there merely lets a
+// first comment onto an old-but-empty post, which is harmless.
 export function isClosed(windowMs: number, lastActivityISO: string | null, publishedISO: string | null): boolean {
   if (windowMs <= 0) return false;
-  const anchors: number[] = [];
-  for (const iso of [lastActivityISO, publishedISO]) {
-    if (typeof iso === "string") {
-      const t = Date.parse(iso);
-      if (!Number.isNaN(t)) anchors.push(t);
-    }
-  }
-  if (!anchors.length) return false;
-  return Date.now() - Math.max(...anchors) > windowMs;
+  const anchorISO = lastActivityISO != null ? lastActivityISO : publishedISO;
+  if (typeof anchorISO !== "string") return false; // no comments, no known date → open
+  const t = Date.parse(anchorISO);
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t > windowMs;
 }
 
 // A cheap heuristic spam score (0..1) for when Akismet is not configured:
@@ -143,11 +147,12 @@ export function requireAdmin(request: Request, env: Env): Response | null {
   });
 }
 
-// Constant-time string compare, so the password check does not leak length or
-// content through timing.
+// Constant-time compare that folds a length difference into the accumulator
+// instead of returning early, so the length of the configured secret `b` does
+// not leak through timing (only `a`'s length, which the caller already chose,
+// affects the iteration count). Callers guarantee `b` is non-empty.
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length);
   return diff === 0;
 }

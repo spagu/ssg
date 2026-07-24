@@ -175,11 +175,23 @@
     } catch (e) { /* best-effort; never blocks the choice */ }
   }
 
+  // apply records an actual CHOICE: persist it, un-gate scripts, signal the tag
+  // manager, and write the audit entry. Called only from the banner buttons /
+  // Escape — never on a plain page load.
   function apply(cfg, granted) {
     setStored(cfg, granted);
     activateScripts(granted);
     signal(granted);
     logConsent(cfg, granted);
+  }
+
+  // reapply re-establishes an already-stored choice on each page load: activate
+  // the gated scripts and re-signal Consent Mode (both are per-page), but do NOT
+  // re-store (which would slide the expiry to "last visit") and do NOT log (which
+  // would append an audit entry on every single pageview, not per consent event).
+  function reapply(cfg, granted) {
+    activateScripts(granted);
+    signal(granted);
   }
 
   // ── UI ───────────────────────────────────────────────────────────────────
@@ -291,9 +303,10 @@
     var t = lang(cfg);
 
     // Re-apply an already-stored choice on every load (activate gated scripts,
-    // re-signal), so consent persists across pages without re-asking.
+    // re-signal), so consent persists across pages without re-asking — but
+    // without re-storing or re-logging it (see reapply).
     var stored = getStored();
-    if (storedIsValid(cfg, stored)) apply(cfg, stored.c || onlyNecessary(cfg));
+    if (storedIsValid(cfg, stored)) reapply(cfg, stored.c || onlyNecessary(cfg));
 
     // Public API + a "manage cookies" hook for any element.
     window.ssgConsent = {

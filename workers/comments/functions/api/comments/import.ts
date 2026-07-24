@@ -84,7 +84,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     const status = STATUSES.includes(it.status || "") ? it.status! : fallback;
     const createdAt = isoOrNow(it.created_at);
-    const id = (await sha256hex(`${url}\n${author}\n${body}\n${createdAt}`)).slice(0, 32);
+    // The id hashes the caller-PROVIDED created_at (empty string when absent),
+    // never the now() default — otherwise re-importing an export whose items
+    // omit created_at would hash a fresh timestamp each run and insert
+    // duplicates, breaking the documented idempotency.
+    const idCreatedAt = typeof it.created_at === "string" ? it.created_at : "";
+    const id = (await sha256hex(`${url}\n${author}\n${body}\n${idCreatedAt}`)).slice(0, 32);
     rows.push(
       stmt.bind(
         id,

@@ -117,6 +117,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secrets) behind config includes and remote worker sources.
 
 ### Fixed
+- 🔒 **Comments auto-close could be bypassed with a forged `published`** (GO-081)
+  — the close check took `max(lastComment, clientPublished)`, so a raw POST with
+  a far-future `published` out-voted a years-old last comment and kept a closed
+  thread open. The newest comment (server-side) now governs; the client-supplied
+  publish date anchors only an empty thread (where forging it merely allows a
+  first comment on an old-but-empty post).
+- 🔒 **Comment IP hash is no longer stored unsalted** (GO-081) — `sha256(ip)`
+  without a salt is reversible across the 2³² IPv4 space, defeating the
+  "raw IP never recoverable" guarantee. With no `COMMENTS_IP_SALT` /
+  `CONSENT_IP_SALT` set, the comments and consent-log workers now store no hash
+  at all instead of a false-safe one.
+- 🔒 **Open redirect via a stored comment URL** (GO-081) — `normaliseURL`
+  rejected `//…` but accepted `/\evil.com`, which a browser resolves to
+  `https://evil.com/`; a moderator clicking the link in the panel was sent
+  off-site. Backslashes are now rejected.
+- 🐛 **Bulk import wasn't idempotent for items without `created_at`** (GO-081) —
+  the row id hashed the `now()` default, so re-importing such an export inserted
+  duplicates; it now hashes the caller-provided timestamp (empty when absent).
+- 🐛 **Consent audit log written on every pageview** (GO-081) — the banner
+  re-ran the full apply (store + log) on each page load for a returning visitor,
+  so the audit log grew by one entry per pageview and the cookie's expiry slid
+  to "last visit". Re-applying a stored choice now only re-activates scripts and
+  re-signals Consent Mode; storing and logging happen only on an actual choice.
+- 🔒 **Hardening** (GO-081) — the moderation panel no longer reveals itself on a
+  `503` "not configured" (only on a real sign-in); the consent-log endpoint caps
+  the number/length of submitted categories; and both constant-time secret
+  compares now fold the length difference in rather than returning early, so a
+  configured secret's length can't leak through timing.
 - 🔒 **Auth credential no longer leaks across a redirect** (GO-081) — the shared
   authed fetch (YAML `include:` URLs and remote worker `source:`) followed
   redirects while forwarding the credential: Go re-sends a custom auth header

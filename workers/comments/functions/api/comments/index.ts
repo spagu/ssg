@@ -95,7 +95,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     body,
     spam ? "spam" : "pending",
     new Date().toISOString(),
-    ip ? await sha256hex((env.COMMENTS_IP_SALT || "") + ip) : null,
+    // Store the IP hash only when a salt is configured: an unsalted sha256(ip)
+    // over the 2^32 IPv4 space is trivially precomputable (reversible), which
+    // would defeat the "raw IP is never recoverable" guarantee. No salt → store
+    // nothing rather than a false-safe hash.
+    ip && env.COMMENTS_IP_SALT ? await sha256hex(env.COMMENTS_IP_SALT + ip) : null,
     ua,
     email ? await sha256hex(email.toLowerCase()) : null,
   ).run();

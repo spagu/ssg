@@ -65,8 +65,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: "invalid JSON" }, 400);
   }
 
-  const categories = Array.isArray(payload.categories) ? payload.categories.map(String) : [];
-  const version = typeof payload.version === "string" ? payload.version : "1";
+  // Bound the input: this endpoint is unauthenticated by default (Turnstile is
+  // opt-in), so cap the number and length of categories to keep a single write
+  // small regardless of what a client posts.
+  const categories = (Array.isArray(payload.categories) ? payload.categories : [])
+    .slice(0, 20)
+    .map((c) => String(c).slice(0, 40));
+  const version = (typeof payload.version === "string" ? payload.version : "1").slice(0, 40);
 
   // Turnstile is opt-in: only enforced when a secret is configured, and a
   // failure never rejects the consent — it only skips the audit write, so a
@@ -84,7 +89,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       country: (request.cf?.country as string) || "",
       categories,
       version,
-      ipHash: ip ? await hashIP(ip, env.CONSENT_IP_SALT || "") : "",
+      // Store the IP hash only when a salt is set: an unsalted sha256(ip) over
+      // the 2^32 IPv4 space is precomputable (reversible), defeating the "only a
+      // salted hash is kept" guarantee. No salt → store nothing.
+      ipHash: ip && env.CONSENT_IP_SALT ? await hashIP(ip, env.CONSENT_IP_SALT) : "",
       ua: request.headers.get("user-agent") || "",
     };
     const days = Number(env.CONSENT_RETENTION_DAYS) || 365;
