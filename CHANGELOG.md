@@ -7,6 +7,199 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.13] - 2026-07-24
+
+### Added
+- 🔑 **Comments moderation behind Cloudflare Access (SSO/JWT)** (GO-081) — an
+  alternative to the shared moderation password: set `COMMENTS_ACCESS_TEAM` and
+  `COMMENTS_ACCESS_AUD`, put `/comments-admin.html` and `/api/comments/admin*`
+  behind a Cloudflare Access application, and the worker verifies the signed JWT
+  Access forwards (signature against your team's JWKS, audience, issuer, expiry)
+  instead of a password. Moderators sign in through your IdP; the panel detects
+  the Access session and skips its own login. No shared secret to store or
+  rotate. The password path still works when Access isn't configured.
+- ⏱️ **Configurable fetch: `timeout`, `retries`, `retry_delay`, `on_error`**
+  (GO-081) — a remote `include:` (and remote worker `source:`) previously had a
+  fixed 30s timeout, no retry, and any failure hard-failed the build. Each remote
+  include can now set its own `timeout`, `retries` (default 3), `retry_delay`
+  (default 5s) and `on_error` (`fail`, the default, or `warn` to continue without
+  it). A transient failure (network error, HTTP 429/5xx) is retried; a 4xx is
+  not. Absent keys use the defaults, so existing configs keep working.
+- 🚀 **`republish-trigger` worker** (GO-080) — one authenticated webhook,
+  `POST /api/republish`, that fires a CI build on **GitHub**, **GitLab** or
+  **Gitea**, so a headless-CMS "published" webhook, a cron or a `curl` redeploys
+  the site without touching the repo. The caller proves itself with a shared
+  `REPUBLISH_KEY` (constant-time check, header or query); the provider token
+  stays server-side. GitHub uses `workflow_dispatch` (or `repository_dispatch`),
+  GitLab a pipeline trigger token, Gitea a workflow dispatch — self-hosted hosts
+  via `REPUBLISH_API_BASE`. GET is off unless opted in, and an optional KV
+  binding debounces bursts into one build (`429` inside the window). Scaffold
+  with `ssg new worker republish-trigger`.
+- 🔒 **Auto-close idle comment threads** (GO-078) — a new
+  `COMMENTS_CLOSE_AFTER_DAYS` var stops a thread accepting comments once that
+  many days have passed since its last activity (the newest comment, or the
+  post's publish date while it has none). Active discussions stay open; a post
+  nobody has touched for a month locks itself. `GET /api/comments` reports
+  `"closed"`, the widget then hides the form and shows a localised "Comments are
+  closed" notice (existing comments stay visible), and `POST` returns `403
+  comments closed` — checked before spending a Turnstile verification. The theme
+  renders the post's publish date so empty old threads close too. `0`/unset
+  keeps the previous always-open behaviour.
+- 📥 **Bulk comment import** (GO-078) — an admin-only `POST /api/comments/import`
+  takes normalised JSON (an array of `{url, author, body, email?, created_at?,
+  status?}`) so a migration from Disqus, WordPress, Commento or a spreadsheet
+  converts to one shape and posts once. Idempotent — each id is a content hash
+  inserted with `INSERT OR IGNORE`, so re-running a file adds nothing new;
+  invalid rows are skipped and counted, not fatal; up to 1000 per request.
+  Imported comments default to `approved`. The moderation panel gains an
+  **Import comments** box (file or paste) so it needs no curl.
+- 🎨 **Mermaid diagram theme + background** (GO-079) — two new options,
+  `mermaid_theme` (mermaid's built-in `default`/`neutral`/`dark`/`forest`/`base`)
+  and `mermaid_background` (any CSS colour), tune diagram legibility. Diagrams
+  are transparent by default, so on dark site chrome they were hard to read;
+  `mermaid_background` boxes each one on a solid panel (padding + rounded
+  corners), and `mermaid_theme` picks a matching palette. Both only affect pages
+  that actually contain a diagram. The docs site now uses a white panel.
+- 🌐 **Comments widget speaks the page's language** (GO-078) — the `comments`
+  reader widget is now translated (en/pl/de/fr), picking the language from
+  `<html lang>` exactly like the cookie banner, so a post in Polish gets a Polish
+  form. A `comments.i18n` config block overrides any string or adds a language
+  without editing the worker.
+- 🧩 **Config includes: split `.ssg.yaml` across files** (GO-076) — a config can
+  `include:` other YAML files from a **path or a URL**, so a project's config
+  splits into focused pieces (shared defaults in a base, each worker its own
+  file). Base-first merge: includes are merged in listed order, then the main
+  file overlays on top and always wins. Maps merge recursively; lists of maps
+  that carry a `name` merge **by name** (so each file can contribute one
+  `workers:`/`content_sources:` entry without clobbering the others); other
+  lists replace. Cycles are rejected, diamonds allowed. Remote includes take an
+  optional `auth:` (`bearer`/`basic`/`header`) whose secret fields must
+  reference environment variables.
+- 🧰 **Several workers: the `workers:` list** (GO-076) — the singular `worker:`
+  becomes a plural list of **independent** worker definitions, each with its own
+  `routes`, `wrangler_config`, a free-form per-worker `config:` block, and an
+  optional remote `source:` (a GitHub/GitLab repo or `.zip`, fetched into `dir`
+  with the same `auth:` model). The singular `worker:` still works unchanged.
+  Because Cloudflare Pages serves one `functions/` tree per project, the
+  workers' functions merge into it and their routes combine — and two workers
+  claiming the same output file is a **hard error**, never a silent overwrite.
+- 🧩 **Wrangler config generator** (GO-077) — a project that uses workers needs
+  a `wrangler.toml` for `wrangler pages dev`/`deploy`. SSG now writes a starter
+  one when none exists — automatically on `--watch`, or on demand via
+  `ssg new wrangler` — deriving `name` from the domain and
+  `pages_build_output_dir` from the output dir, and appending each worker's own
+  `wrangler.snippet.toml` (its bindings/vars, e.g. cookie-consent's optional
+  `CONSENT_LOG` KV). An existing config is never overwritten.
+- 🔧 **`--watch` serves Functions correctly for Pages** (GO-077) — a
+  functions-mode worker now runs `wrangler pages dev .` **from the output
+  directory** (where SSG copies the `functions/`), so pages and Functions serve
+  together; the previous `wrangler dev` from the worker dir did not serve the
+  static site. A prebuilt `mode: worker` is unchanged.
+- 🎛️ **`toJSON` template helper + cookie-consent on the docs site** (TPL-004) —
+  a `toJSON` helper emits a value as inline JSON (config blobs, JSON-LD),
+  correctly once inside a `<script>` (it returns `template.JS`, so html/template
+  does not double-encode it). ssgtheme renders the cookie-consent banner from a
+  `variables.cookie_consent` block, and the SSG documentation site now dogfoods
+  the worker. The banner's position is configurable — `bottom` (default), `top`
+  or `center`.
+- 💬 **`comments` worker** (GO-078) — comments for a site (blogs especially),
+  stored in Cloudflare D1, scaffolded with `ssg new worker comments`. No
+  accounts: a name, an optional email (avatar hash only), a body. Turnstile on
+  submit, a heuristic spam score (or Akismet when a key is set), and every new
+  comment held `pending` until an admin approves it in a password-protected
+  panel. For compliance the row keeps a **salted hash** of the IP plus the
+  user-agent — the raw IP is never stored. Ships a dependency-free reader widget
+  and a moderation page; JS rendering by default, static baking documented.
+- 🐛 **Scaffold shared worker modules** (GO-078) — `EmbeddedWorkers` now uses
+  `//go:embed all:workers`, so a Pages Function's shared `_`-prefixed module
+  (which go:embed's default rule would drop) ships with the scaffold. Without
+  it, comments' `_lib.ts` was silently missing and the functions failed to
+  build.
+- 🍪 **`cookie-consent` worker** (GO-076) — a GDPR / ePrivacy / UK-PECR consent
+  banner scaffolded with `ssg new worker cookie-consent`. Prior consent
+  (non-essential `<script type="text/plain" data-consent-category>` tags stay
+  inert until granted), reject as prominent as accept, edge geo-gating (shown in
+  the EEA and UK by default, `GET /api/consent/geo`), granular categories,
+  versioned/expiring consent, a "manage cookies" reopen hook, i18n (en/pl/de/fr),
+  Google Consent Mode v2 signals, and an optional Turnstile-verified audit log
+  (`POST /api/consent/log`) that stores the IP only as a salted hash. Ships a
+  starter `cookie-policy.md` the user edits to list their services. The banner
+  js/css live in the worker's `public/`, now served from the site root.
+- 📦 **A worker's `public/` is served as static assets** (GO-076) — each worker
+  can ship client-side files (a consent banner's js/css) under `public/`, copied
+  to the output root at build with the same cross-worker collision guard as its
+  functions.
+- 🔐 **`internal/fetch`** (GO-076) — shared, hardened, authenticated fetch
+  (bounded client, size caps, path-escape-guarded zip extraction, env-only
+  secrets) behind config includes and remote worker sources.
+
+### Fixed
+- 🐛 **A worker without `routes_include` is no longer left unrouted** (GO-081) —
+  the implicit `/api/*` default was applied only to the *combined* route list,
+  so a worker that omitted `routes_include` next to one that set its own (e.g.
+  `/consent/*`) never got routed and its Functions were never invoked. The
+  default is now per-worker, and duplicate routes are collapsed so they don't
+  count twice against the Cloudflare rule cap.
+- 🐛 **A remote worker `source:` without a name is rejected** (GO-081) — two
+  unnamed sources both vendored into `workers/worker`, so the second silently
+  reused the first's files; a source now requires a `name` or an explicit `dir`.
+- 🐛 **A failed worker fetch no longer poisons later builds** (GO-081) — a remote
+  archive now extracts into a staging dir and is renamed into place only on full
+  success, so a mid-extraction failure can't leave a half-populated directory
+  that the next build reuses as if complete.
+- 🐛 **Generated `wrangler.toml` name is always Cloudflare-valid** (GO-081) —
+  `wranglerName` now prefixes a digit-leading domain (`1password.com`) so the
+  name starts with a letter, and caps it at Cloudflare's 58-character limit.
+- 🔒 **Comments auto-close could be bypassed with a forged `published`** (GO-081)
+  — the close check took `max(lastComment, clientPublished)`, so a raw POST with
+  a far-future `published` out-voted a years-old last comment and kept a closed
+  thread open. The newest comment (server-side) now governs; the client-supplied
+  publish date anchors only an empty thread (where forging it merely allows a
+  first comment on an old-but-empty post).
+- 🔒 **Comment IP hash is no longer stored unsalted** (GO-081) — `sha256(ip)`
+  without a salt is reversible across the 2³² IPv4 space, defeating the
+  "raw IP never recoverable" guarantee. With no `COMMENTS_IP_SALT` /
+  `CONSENT_IP_SALT` set, the comments and consent-log workers now store no hash
+  at all instead of a false-safe one.
+- 🔒 **Open redirect via a stored comment URL** (GO-081) — `normaliseURL`
+  rejected `//…` but accepted `/\evil.com`, which a browser resolves to
+  `https://evil.com/`; a moderator clicking the link in the panel was sent
+  off-site. Backslashes are now rejected.
+- 🐛 **Bulk import wasn't idempotent for items without `created_at`** (GO-081) —
+  the row id hashed the `now()` default, so re-importing such an export inserted
+  duplicates; it now hashes the caller-provided timestamp (empty when absent).
+- 🐛 **Consent audit log written on every pageview** (GO-081) — the banner
+  re-ran the full apply (store + log) on each page load for a returning visitor,
+  so the audit log grew by one entry per pageview and the cookie's expiry slid
+  to "last visit". Re-applying a stored choice now only re-activates scripts and
+  re-signals Consent Mode; storing and logging happen only on an actual choice.
+- 🔒 **Hardening** (GO-081) — the moderation panel no longer reveals itself on a
+  `503` "not configured" (only on a real sign-in); the consent-log endpoint caps
+  the number/length of submitted categories; and both constant-time secret
+  compares now fold the length difference in rather than returning early, so a
+  configured secret's length can't leak through timing.
+- 🔒 **Auth credential no longer leaks across a redirect** (GO-081) — the shared
+  authed fetch (YAML `include:` URLs and remote worker `source:`) followed
+  redirects while forwarding the credential: Go re-sends a custom auth header
+  (the `header` auth type, e.g. `X-Api-Key`) to *any* redirect target and only
+  drops `Authorization` across a different domain, so a configured server could
+  `302` a private-source token to another host. The client now strips the
+  credential (custom header, `Authorization`, `Cookie`) on any redirect that
+  leaves the original origin or downgrades https→http. Also: `safeURL` now
+  redacts URL userinfo (`https://<token>@host/…`), not just the query string, so
+  a token embedded in a URL can't surface in an error message.
+- 🐛 **Duplicate `name` in a merged config list no longer corrupts it** (GO-081)
+  — `mergeNamedLists` dropped the first of two same-named entries and emitted the
+  second twice; it now merges a repeated name in place.
+- 🐛 **Bogus "imports npm package" warning on multi-line imports** (GO-080) — the
+  worker npm-import scan read `import {` line by line, so a `import {\n … } from
+  "./_lib"` (as in the comments worker) was mis-reported as importing a package
+  literally named `"import {"`. It now inspects the `from "…"` clause across line
+  breaks: relative/builtin/URL imports are silent and a genuine bare npm
+  specifier is still flagged with its real name — even when the import spans
+  several lines (previously such an import was missed entirely).
+
+
 ## [1.8.12] - 2026-07-22
 
 ### Added

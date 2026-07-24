@@ -71,3 +71,7 @@ examples/*/output/
 
 # Documentation site built by `make site` from docs/ (.ssg.yaml)
 .site/
+
+# Local wrangler dev artifacts (miniflare state, generated config)
+.wrangler/
+/wrangler.toml

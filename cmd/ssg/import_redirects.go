@@ -26,6 +26,8 @@ func dispatchSubcommand(args []string) (int, bool) {
 		return runImportRedirects(args[2:]), true
 	case args[0] == "new" && args[1] == "worker":
 		return runNewWorker(args[2:]), true
+	case args[0] == "new" && args[1] == "wrangler":
+		return runNewWrangler(args[2:]), true
 	}
 	return 0, false
 }

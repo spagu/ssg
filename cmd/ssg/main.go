@@ -25,6 +25,7 @@ import (
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/deploy"
 	"github.com/spagu/ssg/internal/engine"
+	"github.com/spagu/ssg/internal/fetch"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/theme"
@@ -113,9 +114,12 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes in content and templates...")
 	}
-	// A configured worker defaults the watch runner to wrangler dev, so the
-	// static preview and the Functions run together (GO-065). Only here, in the
-	// watch path — a one-shot build must never start a runner.
+	// A configured worker defaults the watch runner to `wrangler pages dev`, so
+	// the static preview and the Functions run together (GO-065). Only here, in
+	// the watch path — a one-shot build must never start a runner. Generate a
+	// starter wrangler.toml first when one is missing, so `wrangler pages dev`
+	// has bindings to read (GO-077).
+	ensureWranglerForWorkers(cfg)
 	config.ApplyWorkerWatchDefaults(cfg)
 	if cfg.WatchRunner != "" {
 		cmd := startWatchRunner(watchRunnerSpec{
@@ -323,7 +327,8 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		cfg.Domain = positionalArgs[1]
 	} else if (cfg.Source == "" && !sourceOptional) || cfg.Template == "" || cfg.Domain == "" {
 		reportMissingSettings(cfg, sourceOptional)
-		printUsage()
+		// Point at --help rather than dumping the whole thing after the error.
+		fmt.Fprintln(os.Stderr, "   Run `ssg --help` for options, `ssg --version` for the version.")
 		os.Exit(1)
 	}
 }
@@ -506,6 +511,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		HighlightStyle:       cfg.HighlightStyle,
 		HighlightLineNumbers: cfg.HighlightLineNumbers,
 		Mermaid:              cfg.Mermaid,
+		MermaidTheme:         cfg.MermaidTheme,
+		MermaidBackground:    cfg.MermaidBackground,
 		TOC:                  cfg.TOC,
 		TOCDepth:             cfg.TOCDepth,
 		SEO:                  cfg.SEO,
@@ -524,7 +531,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		// aliases produce meta-refresh stubs by default; alias_stubs: false
 		// keeps only the _redirects 301s (GO-063).
 		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
-		Worker:        workerOf(cfg),
+		Workers:       workersOf(cfg),
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -551,15 +558,28 @@ func redirectsOf(cfg *config.Config) []generator.RedirectRule {
 	return out
 }
 
-// workerOf converts the config worker section into the generator's type (GO-065).
-func workerOf(cfg *config.Config) generator.WorkerConfig {
-	return generator.WorkerConfig{
-		Dir:            cfg.Worker.Dir,
-		Mode:           cfg.Worker.Mode,
-		RoutesInclude:  cfg.Worker.RoutesInclude,
-		RoutesExclude:  cfg.Worker.RoutesExclude,
-		WranglerConfig: cfg.Worker.WranglerConfig,
+// workersOf converts the resolved worker list (plural `workers:`, or the
+// singular `worker:` for back-compat) into the generator's type, keeping the
+// two packages decoupled (same pattern as contentSourcesOf) (GO-065, GO-076).
+func workersOf(cfg *config.Config) []generator.WorkerConfig {
+	resolved := cfg.ResolvedWorkers()
+	if len(resolved) == 0 {
+		return nil
 	}
+	out := make([]generator.WorkerConfig, 0, len(resolved))
+	for _, w := range resolved {
+		out = append(out, generator.WorkerConfig{
+			Name:           w.Name,
+			Dir:            w.Dir,
+			Source:         w.Source,
+			Auth:           fetch.Auth(w.Auth),
+			Mode:           w.Mode,
+			RoutesInclude:  w.RoutesInclude,
+			RoutesExclude:  w.RoutesExclude,
+			WranglerConfig: w.WranglerConfig,
+		})
+	}
+	return out
 }
 
 // contentSourcesOf converts the configured extra Markdown roots into the

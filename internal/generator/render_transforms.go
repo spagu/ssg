@@ -97,12 +97,13 @@ func mathHTMLString(s string) string {
 }
 
 // mermaidHTMLString wires the mermaid.js runtime into pages that contain a
-// mermaid diagram and are not already wired (GO-073).
-func mermaidHTMLString(s string) string {
+// mermaid diagram and are not already wired (GO-073). The configured theme and
+// background colour (GO-079) tune legibility on dark chrome.
+func (g *Generator) mermaidHTMLString(s string) string {
 	if !strings.Contains(s, `class="mermaid"`) || strings.Contains(s, "mermaid@") {
 		return s
 	}
-	return injectMermaidAssets(s)
+	return injectMermaidAssets(s, g.config.MermaidTheme, g.config.MermaidBackground)
 }
 
 // seoHTMLString adds the generator-level SEO block (OpenGraph/Twitter/JSON-LD,
@@ -158,7 +159,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 		s = mathHTMLString(s)
 	}
 	if g.config.Mermaid {
-		s = mermaidHTMLString(s)
+		s = g.mermaidHTMLString(s)
 	}
 	if g.config.RelativeLinks && g.config.Domain != "" {
 		s = relativizeHTMLString(s, g.config.Domain)

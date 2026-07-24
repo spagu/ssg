@@ -33,6 +33,59 @@ Two diagnostics make a misconfigured file obvious instead of silent:
   reports which of `source`/`template`/`domain` is missing, which config file
   it read and what that file provided.
 
+### Splitting the config across files (`include:`)
+
+A `.ssg.yaml` can pull in other YAML files — from a local path or a URL — so a
+large config splits into focused pieces (each worker its own file, shared
+defaults in a base):
+
+```yaml
+include:
+  - shared/base.yaml                      # local, relative to this file
+  - workers/comments/config.yaml
+  - url: https://example.com/team.yaml    # remote
+    auth:                                 # private source (optional)
+      type: bearer                        # bearer | basic | header
+      token: $TEAM_CONFIG_TOKEN           # secrets are env refs, never literals
+```
+
+Merge rules (YAML configs only):
+
+- **Base-first.** Includes are merged in listed order, then the including file
+  is overlaid on top, so **the main file always wins**.
+- **Maps merge** recursively.
+- **Lists of named maps merge by `name`** — so each worker's own file can add
+  one entry to `workers:` (or `content_sources:`) without clobbering the
+  others. Any other list is replaced wholesale.
+- Includes may nest; a cycle is an error, and a diamond (two files pulling the
+  same base) is fine.
+
+Remote includes reuse the auth model below: `type` is `bearer`, `basic`
+(`username` + `password`) or `header` (`header` name + `value`), and every
+secret field must reference an environment variable.
+
+A remote include can also tune its own fetch. All four are optional and fall
+back to the defaults shown:
+
+```yaml
+include:
+  - url: https://config.example.com/base.yaml
+    auth: { type: bearer, token: $CONFIG_TOKEN }
+    timeout: 30s        # per-attempt timeout (default 30s)
+    retries: 3          # extra attempts on a transient failure (default 3; 0 disables)
+    retry_delay: 5s     # wait between attempts (default 5s)
+    on_error: fail      # fail the build (default) or warn and continue without it
+```
+
+- A transient failure — a network/transport error or an HTTP `429`/`5xx` — is
+  retried up to `retries` times, `retry_delay` apart. A `4xx` (missing,
+  forbidden) is **not** retried, since it will not recover.
+- `on_error: warn` prints a warning and continues the build without that
+  include, so an optional or occasionally-unreachable remote config doesn't
+  block a publish. `on_error: fail` (the default) stops the build.
+- `timeout`/`retry_delay` accept a Go duration (`30s`, `1m`) or a plain number
+  of seconds. Remote worker `source:` archives use the same defaults.
+
 ```yaml
 source: my-blog
 template: simple
@@ -286,12 +339,27 @@ references serve WebP, hardcoded ones keep working (v1.8.5).
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
 | `mermaid` | `false` | — | Render ```` ```mermaid ```` fences as diagrams |
+| `mermaid_theme` | — | — | Mermaid built-in theme: `default`, `neutral`, `dark`, `forest`, `base` |
+| `mermaid_background` | — | — | Solid CSS colour boxed behind each diagram |
 
 `mermaid: true` rewrites a ```` ```mermaid ```` fence into a
 `<pre class="mermaid">` block before rendering (so the diagram source is passed
 through verbatim, not HTML-escaped) and injects the mermaid.js runtime **only on
 pages that contain a diagram** — the same page-scoped approach as KaTeX. A
 mermaid fence stays a plain code block when the option is off.
+
+Diagrams are transparent by default, so on dark site chrome they can be hard to
+read. `mermaid_background` (any CSS colour — `#ffffff`, `white`,
+`hsl(0 0% 100%)`) paints a solid panel behind each diagram with padding and
+rounded corners, and `mermaid_theme` picks a matching palette (`neutral` or the
+light `default` read best on a dark page). Both apply only to pages that contain
+a diagram. Example:
+
+```yaml
+mermaid: true
+mermaid_theme: neutral
+mermaid_background: "#ffffff"
+```
 
 Math detection recognises display `$$...$$` and fenced ```` ```math ````
 blocks (fences are rewritten to display math before rendering, GO-055).

@@ -337,7 +337,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a Next.js config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
-| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |

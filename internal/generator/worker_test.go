@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -143,21 +144,30 @@ func TestGenerateWorkerFiles_UnknownMode(t *testing.T) {
 	}
 }
 
-func TestBareImportSpec(t *testing.T) {
-	cases := map[string]struct {
-		want string
-		ok   bool
-	}{
-		`import { Foo } from "stripe"`:             {"stripe", true},
-		`import x from './local'`:                  {"", false},
-		`import y from "/abs"`:                     {"", false},
-		`import { env } from "cloudflare:workers"`: {"", false},
-		`const z = 1`:                              {"", false},
+func TestBareModuleSpecs(t *testing.T) {
+	cases := map[string][]string{
+		`import { Foo } from "stripe"`: {"stripe"},
+		// The multi-line import that used to be mis-read as a package named
+		// "import {": now the relative `from` clause is what's inspected, so a
+		// relative import yields nothing…
+		"import {\n  Env, json,\n  isClosed,\n} from \"./_lib\";": nil,
+		// …and a genuine multi-line npm import is still caught by its `from`.
+		"import {\n  Foo,\n} from \"stripe\";":                                   {"stripe"},
+		`import x from './local'`:                                                nil,
+		`import y from "/abs"`:                                                   nil,
+		`import { env } from "cloudflare:workers"`:                               nil,
+		`import fs from "node:fs"`:                                               nil,
+		`import mermaid from "https://cdn.jsdelivr.net/npm/mermaid/mermaid.mjs"`: nil,
+		`import "./side-effect.css"`:                                             nil,
+		`import "polyfill"`:                                                      {"polyfill"},
+		`const z = 1`:                                                            nil,
+		// Distinct specifiers are de-duplicated.
+		"import a from \"pkg\"\nimport { b } from \"pkg\"": {"pkg"},
 	}
-	for line, want := range cases {
-		got, ok := bareImportSpec(line)
-		if ok != want.ok || got != want.want {
-			t.Fatalf("bareImportSpec(%q) = (%q,%v), want (%q,%v)", line, got, ok, want.want, want.ok)
+	for src, want := range cases {
+		got := bareModuleSpecs(src)
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("bareModuleSpecs(%q) = %v, want %v", src, got, want)
 		}
 	}
 }

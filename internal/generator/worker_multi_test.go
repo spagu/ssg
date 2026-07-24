@@ -1,0 +1,210 @@
+package generator
+
+import (
+	"archive/zip"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// writeFn creates workers/<name>/functions/api/<file> with a tiny handler.
+func writeFn(t *testing.T, root, api, body string) string {
+	t.Helper()
+	dir := filepath.Join(root, "functions", "api")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, api), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// GO-076: several independent workers build into the one Pages functions tree,
+// their routes combined into a single _routes.json.
+func TestMultipleWorkersBuildAndCombineRoutes(t *testing.T) {
+	a := writeFn(t, t.TempDir(), "consent.ts", "export const onRequest = () => new Response('c')\n")
+	b := writeFn(t, t.TempDir(), "comments.ts", "export const onRequest = () => new Response('m')\n")
+	out := t.TempDir()
+
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "cookie-consent", Dir: a, RoutesInclude: []string{"/api/consent"}},
+		{Name: "comments", Dir: b, RoutesInclude: []string{"/api/comments"}},
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("generateWorkerFiles: %v", err)
+	}
+
+	for _, f := range []string{"consent.ts", "comments.ts"} {
+		if _, err := os.Stat(filepath.Join(out, "functions", "api", f)); err != nil {
+			t.Errorf("missing %s in the merged functions tree: %v", f, err)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(out, "_routes.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc routesJSON
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Include) != 2 {
+		t.Errorf("routes include = %v, want both workers' routes", doc.Include)
+	}
+}
+
+// Two workers providing the same output path is a hard error, never a silent
+// overwrite.
+func TestWorkerFunctionCollisionErrors(t *testing.T) {
+	a := writeFn(t, t.TempDir(), "same.ts", "a\n")
+	b := writeFn(t, t.TempDir(), "same.ts", "b\n")
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "one", Dir: a}, {Name: "two", Dir: b},
+	}}}
+	err := g.generateWorkerFiles()
+	if err == nil || !strings.Contains(err.Error(), "both provide") {
+		t.Fatalf("collision not reported: %v", err)
+	}
+}
+
+// Only one _worker.js can exist per project.
+func TestTwoPrebuiltWorkersError(t *testing.T) {
+	mk := func() string {
+		d := t.TempDir()
+		if err := os.WriteFile(filepath.Join(d, "_worker.js"), []byte("export default {}\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "a", Dir: mk(), Mode: "worker"}, {Name: "b", Dir: mk(), Mode: "worker"},
+	}}}
+	if err := g.generateWorkerFiles(); err == nil || !strings.Contains(err.Error(), "only one _worker.js") {
+		t.Fatalf("two prebuilt workers not rejected: %v", err)
+	}
+}
+
+// The singular worker: still works unchanged (back-compat via ResolvedWorkers).
+func TestSingularWorkerStillWorks(t *testing.T) {
+	a := writeFn(t, t.TempDir(), "hi.ts", "x\n")
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Worker: WorkerConfig{Dir: a}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("singular worker: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "functions", "api", "hi.ts")); err != nil {
+		t.Errorf("singular worker did not build: %v", err)
+	}
+}
+
+// A remote source is fetched into a dir and then built like a local one.
+func TestWorkerRemoteSourceFetched(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("repo-main/functions/api/remote.ts")
+	_, _ = w.Write([]byte("export const onRequest = () => new Response('r')\n"))
+	_ = zw.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		_, _ = rw.Write(buf.Bytes())
+	}))
+	defer srv.Close()
+
+	dir := filepath.Join(t.TempDir(), "fetched")
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "remote", Source: srv.URL + "/x.zip", Dir: dir},
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("remote worker build: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "functions", "api", "remote.ts")); err != nil {
+		t.Errorf("remote worker not fetched+built: %v", err)
+	}
+}
+
+// A worker's public/ assets are served from the output root; a clash between
+// two workers is an error.
+func TestWorkerPublicAssetsCopied(t *testing.T) {
+	mk := func(fn, asset string) string {
+		root := writeFn(t, t.TempDir(), fn, "x\n")
+		pub := filepath.Join(root, "public")
+		if err := os.MkdirAll(pub, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pub, asset), []byte("/* asset */\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "consent", Dir: mk("consent.ts", "cookie-consent.js")},
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "cookie-consent.js")); err != nil {
+		t.Errorf("public asset not served from output root: %v", err)
+	}
+
+	// Two workers shipping the same asset name collide.
+	g2 := &Generator{config: Config{OutputDir: t.TempDir(), Workers: []WorkerConfig{
+		{Name: "a", Dir: mk("a.ts", "banner.js")},
+		{Name: "b", Dir: mk("b.ts", "banner.js")},
+	}}}
+	if err := g2.generateWorkerFiles(); err == nil || !strings.Contains(err.Error(), "public asset") {
+		t.Fatalf("public asset collision not reported: %v", err)
+	}
+}
+
+// A worker that omits routes_include must still be routed (default /api/*) even
+// when another worker sets its own routes, and a route both name is not
+// duplicated in _routes.json (GO-081).
+func TestWorkerDefaultRouteAndDedup(t *testing.T) {
+	a := writeFn(t, t.TempDir(), "api.ts", "export const onRequest = () => new Response('a')\n")
+	b := writeFn(t, t.TempDir(), "b.ts", "export const onRequest = () => new Response('b')\n")
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "a", Dir: a}, // no routes_include → /api/*
+		{Name: "b", Dir: b, RoutesInclude: []string{"/consent/*", "/api/*"}}, // also names /api/* (dup)
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("generateWorkerFiles: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(out, "_routes.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc routesJSON
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	count := map[string]int{}
+	for _, r := range doc.Include {
+		count[r]++
+	}
+	if count["/api/*"] != 1 {
+		t.Errorf("/api/* should appear exactly once (default + dedup), got %d in %v", count["/api/*"], doc.Include)
+	}
+	if count["/consent/*"] != 1 {
+		t.Errorf("/consent/* missing: %v", doc.Include)
+	}
+}
+
+// A remote source with neither a name nor an explicit dir is rejected before any
+// fetch, so two unnamed sources can't silently collide in workers/worker.
+func TestUnnamedRemoteSourceErrors(t *testing.T) {
+	g := &Generator{config: Config{OutputDir: t.TempDir(), Workers: []WorkerConfig{
+		{Source: "https://example.com/x.zip"},
+	}}}
+	if err := g.generateWorkerFiles(); err == nil || !strings.Contains(err.Error(), "needs a name") {
+		t.Fatalf("expected a name-required error, got %v", err)
+	}
+}

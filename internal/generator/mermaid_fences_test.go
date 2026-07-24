@@ -55,27 +55,55 @@ func TestContainsMermaid(t *testing.T) {
 }
 
 func TestMermaidHTMLString_InjectsOnce(t *testing.T) {
+	g := &Generator{}
 	page := `<html><head></head><body><pre class="mermaid">graph TD</pre></body></html>`
-	out := mermaidHTMLString(page)
+	out := g.mermaidHTMLString(page)
 	if strings.Count(out, "mermaid@"+mermaidVersion) != 1 {
 		t.Fatalf("runtime should be injected exactly once:\n%s", out)
 	}
 	// Idempotent: a second pass must not add it again.
-	if mermaidHTMLString(out) != out {
+	if g.mermaidHTMLString(out) != out {
 		t.Fatal("second pass should be a no-op")
 	}
 }
 
 func TestMermaidHTMLString_NoDiagramNoInject(t *testing.T) {
+	g := &Generator{}
 	page := `<html><body><p>no diagram</p></body></html>`
-	if mermaidHTMLString(page) != page {
+	if g.mermaidHTMLString(page) != page {
 		t.Fatal("pages without a diagram must not load the runtime")
 	}
 }
 
 func TestInjectMermaidAssets_BeforeBodyClose(t *testing.T) {
-	out := injectMermaidAssets(`<body>x</body>`)
+	out := injectMermaidAssets(`<body>x</body>`, "", "")
 	if !strings.Contains(out, "</script>\n</body>") {
 		t.Fatalf("runtime should sit just before </body>:\n%s", out)
+	}
+	if strings.Contains(out, "theme:") || strings.Contains(out, "<style>") {
+		t.Fatalf("no theme/background configured, none should be emitted:\n%s", out)
+	}
+}
+
+func TestInjectMermaidAssets_ThemeAndBackground(t *testing.T) {
+	g := &Generator{config: Config{MermaidTheme: "neutral", MermaidBackground: "#fff"}}
+	out := g.mermaidHTMLString(`<body><pre class="mermaid">graph TD</pre></body>`)
+	if !strings.Contains(out, `theme:"neutral"`) {
+		t.Fatalf("configured theme should reach initialize():\n%s", out)
+	}
+	if !strings.Contains(out, `pre.mermaid{background:#fff`) {
+		t.Fatalf("configured background should box the diagram:\n%s", out)
+	}
+	// The <style> must precede the runtime <script>.
+	if strings.Index(out, "<style>") > strings.Index(out, "<script") {
+		t.Fatalf("style should sit before the runtime script:\n%s", out)
+	}
+}
+
+func TestInjectMermaidAssets_ThemeEscaped(t *testing.T) {
+	// A hostile theme value must not break out of the inline <script>.
+	out := injectMermaidAssets(`<body>x</body>`, `</script><script>alert(1)`, "")
+	if strings.Contains(out, "</script><script>alert(1)") {
+		t.Fatalf("theme must be escaped, not injected raw:\n%s", out)
 	}
 }

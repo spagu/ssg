@@ -193,8 +193,10 @@ type Config struct {
 	FeedFullContent      bool
 	Highlight            bool
 	HighlightStyle       string
-	HighlightLineNumbers bool // prefix highlighted blocks with line numbers (GO-073)
-	Mermaid              bool // render ```mermaid fences as diagrams (GO-073)
+	HighlightLineNumbers bool   // prefix highlighted blocks with line numbers (GO-073)
+	Mermaid              bool   // render ```mermaid fences as diagrams (GO-073)
+	MermaidTheme         string // mermaid built-in theme: default/neutral/dark/forest/base (GO-079)
+	MermaidBackground    string // solid panel colour behind each diagram (GO-079)
 	TOC                  bool
 	TOCDepth             int
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
@@ -238,9 +240,23 @@ type Config struct {
 	Redirects     []RedirectRule
 	AliasStubsOff bool
 
-	// Worker wires a Cloudflare Pages Functions / Worker project into the
-	// build output (GO-065).
-	Worker WorkerConfig
+	// Worker wires a single Cloudflare Pages Functions / Worker project into the
+	// build output (GO-065). Workers is the plural form (GO-076); when set it
+	// supersedes Worker. Use ResolvedWorkers to read whichever is configured.
+	Worker  WorkerConfig
+	Workers []WorkerConfig
+}
+
+// ResolvedWorkers returns Workers when set, else the singular Worker wrapped as
+// one entry, else nil. The entries are independent; nothing here combines them.
+func (c Config) ResolvedWorkers() []WorkerConfig {
+	if len(c.Workers) > 0 {
+		return c.Workers
+	}
+	if c.Worker.Dir != "" || c.Worker.Source != "" {
+		return []WorkerConfig{c.Worker}
+	}
+	return nil
 }
 
 // defaultStaticDir is the fallback name for the passthrough static directory.
@@ -2019,7 +2035,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"recentPosts":          g.tmplRecentPosts,
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
-		"add":                  tmplAdd, // arithmetic for themes (TPL-003)
+		"toJSON":               tmplToJSON, // marshal a value to inline JSON (config blobs, JSON-LD)
+		"add":                  tmplAdd,    // arithmetic for themes (TPL-003)
 		"sub":                  tmplSub,
 		"mul":                  tmplMul,
 		"div":                  tmplDiv,
@@ -4423,14 +4440,33 @@ const mermaidVersion = "11.16.0"
 
 // injectMermaidAssets adds the mermaid.js ES module and an initializer before
 // </body>, so <pre class="mermaid"> blocks render as diagrams. Loaded only on
-// pages that contain a diagram (mermaidHTMLString gate).
-func injectMermaidAssets(html string) string {
+// pages that contain a diagram (mermaidHTMLString gate). theme selects a
+// built-in mermaid theme; background, when set, boxes each diagram on a solid
+// panel so it stays legible on dark chrome (GO-079).
+func injectMermaidAssets(html, theme, background string) string {
+	opts := "startOnLoad:true"
+	if theme != "" {
+		opts += ",theme:" + jsStringLiteral(theme)
+	}
 	body := `<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@` + mermaidVersion +
-		`/dist/mermaid.esm.min.mjs";mermaid.initialize({startOnLoad:true});</script>`
+		`/dist/mermaid.esm.min.mjs";mermaid.initialize({` + opts + `});</script>`
+	if background != "" {
+		body = `<style>pre.mermaid{background:` + stdhtml.EscapeString(background) +
+			`;padding:1rem;border-radius:.5rem;overflow-x:auto}</style>` + body
+	}
 	if i := strings.LastIndex(html, "</body>"); i >= 0 {
 		return html[:i] + body + "\n" + html[i:]
 	}
 	return html + body
+}
+
+// jsStringLiteral renders s as a safe double-quoted JavaScript string literal for
+// inlining into an inline <script> (used for the mermaid theme name).
+func jsStringLiteral(s string) string {
+	b, _ := json.Marshal(s)
+	// json.Marshal escapes <, > and & as < etc. by default, which is exactly
+	// what we want inside <script>; the result is a valid JS string literal.
+	return string(b)
 }
 
 // katexVersion pins the KaTeX release injected for math pages (AX-004).
