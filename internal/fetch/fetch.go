@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -97,14 +98,29 @@ func expandSecret(field, value string) (string, error) {
 	return v, nil
 }
 
-// client is the shared bounded HTTP client: a timeout and a redirect cap, so a
-// fetch cannot hang or be bounced through unbounded redirects.
-func client() *http.Client {
+// client is the shared bounded HTTP client: a timeout, a redirect cap, and — the
+// security-relevant part — it strips the auth credential on any redirect that
+// leaves the original origin. Go forwards a custom request header (the "header"
+// auth type, e.g. X-Api-Key) to redirect targets unconditionally, and only drops
+// Authorization across a *different domain*, so without this a configured server
+// could 302 a private-source credential to an attacker host (or downgrade to
+// http and leak a bearer/basic token in cleartext).
+func client(auth Auth) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
-		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= maxRedirects {
 				return fmt.Errorf("stopped after %d redirects", maxRedirects)
+			}
+			orig := via[0].URL
+			leftOrigin := req.URL.Host != orig.Host ||
+				(orig.Scheme == "https" && req.URL.Scheme != "https")
+			if leftOrigin {
+				req.Header.Del("Authorization")
+				req.Header.Del("Cookie")
+				if auth.Type == "header" && auth.Header != "" {
+					req.Header.Del(auth.Header)
+				}
 			}
 			return nil
 		},
@@ -124,7 +140,7 @@ func Bytes(url string, auth Auth, maxBytes int64) ([]byte, error) {
 	if err := auth.apply(req); err != nil {
 		return nil, err
 	}
-	resp, err := client().Do(req) // #nosec G107 -- url comes from the user's own config include
+	resp, err := client(auth).Do(req) // #nosec G107 -- url comes from the user's own config include
 	if err != nil {
 		return nil, fmt.Errorf("fetching %s: %w", safeURL(url), err)
 	}
@@ -143,13 +159,19 @@ func Bytes(url string, auth Auth, maxBytes int64) ([]byte, error) {
 	return body, nil
 }
 
-// safeURL strips any query string so a token passed in a URL never lands in an
-// error message (mirrors the external-source rule).
-func safeURL(url string) string {
-	if i := strings.IndexByte(url, '?'); i >= 0 {
-		return url[:i]
+// safeURL strips the query string AND any userinfo (https://<token>@host/…, a
+// form some Git hosts accept) so a credential passed in a URL never lands in an
+// error message.
+func safeURL(raw string) string {
+	if u, err := url.Parse(raw); err == nil && u.Host != "" {
+		u.RawQuery = ""
+		u.User = nil
+		return u.String()
 	}
-	return url
+	if i := strings.IndexByte(raw, '?'); i >= 0 {
+		return raw[:i]
+	}
+	return raw
 }
 
 // IsURL reports whether s is an http(s) URL rather than a local path.

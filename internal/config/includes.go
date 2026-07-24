@@ -251,28 +251,30 @@ func allNamedMaps(list []interface{}) bool {
 // mergeNamedLists merges two lists of named maps by their `name`: an existing
 // name is deep-merged (overlay wins per key), a new name is appended. Order is
 // the base list, then any names the overlay introduces, sorted for determinism.
+// A name repeated within one list is merged in place (not dropped or emitted
+// twice), so malformed duplicate-name input degrades to a merge rather than
+// silent corruption.
 func mergeNamedLists(base, over []interface{}) []interface{} {
 	byName := map[string]map[string]interface{}{}
 	var order []string
-	for _, item := range base {
-		m := item.(map[string]interface{})
-		name := m["name"].(string)
-		byName[name] = m
-		order = append(order, name)
-	}
-	var added []string
-	for _, item := range over {
-		m := item.(map[string]interface{})
-		name := m["name"].(string)
-		if existing, ok := byName[name]; ok {
-			byName[name] = deepMerge(existing, m)
-			continue
+	ingest := func(list []interface{}) {
+		for _, item := range list {
+			m := item.(map[string]interface{})
+			name := m["name"].(string)
+			if existing, ok := byName[name]; ok {
+				byName[name] = deepMerge(existing, m)
+				continue
+			}
+			byName[name] = m
+			order = append(order, name)
 		}
-		byName[name] = m
-		added = append(added, name)
 	}
-	sort.Strings(added)
-	order = append(order, added...)
+	ingest(base)
+	introduced := len(order)
+	ingest(over)
+	// Only the names the overlay newly introduces are sorted, for determinism;
+	// the base order is preserved.
+	sort.Strings(order[introduced:])
 	out := make([]interface{}, 0, len(order))
 	for _, name := range order {
 		out = append(out, byName[name])

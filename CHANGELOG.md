@@ -117,6 +117,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secrets) behind config includes and remote worker sources.
 
 ### Fixed
+- 🔒 **Auth credential no longer leaks across a redirect** (GO-081) — the shared
+  authed fetch (YAML `include:` URLs and remote worker `source:`) followed
+  redirects while forwarding the credential: Go re-sends a custom auth header
+  (the `header` auth type, e.g. `X-Api-Key`) to *any* redirect target and only
+  drops `Authorization` across a different domain, so a configured server could
+  `302` a private-source token to another host. The client now strips the
+  credential (custom header, `Authorization`, `Cookie`) on any redirect that
+  leaves the original origin or downgrades https→http. Also: `safeURL` now
+  redacts URL userinfo (`https://<token>@host/…`), not just the query string, so
+  a token embedded in a URL can't surface in an error message.
+- 🐛 **Duplicate `name` in a merged config list no longer corrupts it** (GO-081)
+  — `mergeNamedLists` dropped the first of two same-named entries and emitted the
+  second twice; it now merges a repeated name in place.
 - 🐛 **Bogus "imports npm package" warning on multi-line imports** (GO-080) — the
   worker npm-import scan read `import {` line by line, so a `import {\n … } from
   "./_lib"` (as in the comments worker) was mis-reported as importing a package

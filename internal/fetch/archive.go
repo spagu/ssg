@@ -55,7 +55,7 @@ func downloadArchive(archiveURL string, auth Auth) (string, error) {
 	if err := auth.apply(req); err != nil {
 		return "", err
 	}
-	resp, err := client().Do(req) // #nosec G107 -- url from the user's own worker config
+	resp, err := client(auth).Do(req) // #nosec G107 -- url from the user's own worker config
 	if err != nil {
 		return "", fmt.Errorf("downloading %s: %w", safeURL(archiveURL), err)
 	}

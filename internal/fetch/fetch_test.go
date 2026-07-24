@@ -104,6 +104,80 @@ func TestBytesSendsAuthAndCaps(t *testing.T) {
 	})
 }
 
+// A configured server must not be able to bounce the auth credential to another
+// host via a redirect (credential exfiltration, SEC).
+func TestBytes_StripsAuthOnCrossHostRedirect(t *testing.T) {
+	var attackerSawKey, attackerSawAuth string
+	attacker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attackerSawKey = r.Header.Get("X-Api-Key")
+		attackerSawAuth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer attacker.Close()
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, attacker.URL+"/", http.StatusFound)
+	}))
+	defer origin.Close()
+
+	t.Run("header auth is not forwarded off-origin", func(t *testing.T) {
+		attackerSawKey, attackerSawAuth = "", ""
+		if _, err := Bytes(origin.URL+"/", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0); err != nil {
+			t.Fatalf("Bytes: %v", err)
+		}
+		if attackerSawKey != "" {
+			t.Fatalf("custom auth header leaked to redirect host: %q", attackerSawKey)
+		}
+	})
+
+	t.Run("bearer auth is not forwarded off-origin", func(t *testing.T) {
+		attackerSawKey, attackerSawAuth = "", ""
+		if _, err := Bytes(origin.URL+"/", Auth{Type: "bearer", Token: "SECRET"}, 0); err != nil {
+			t.Fatalf("Bytes: %v", err)
+		}
+		if attackerSawAuth != "" {
+			t.Fatalf("Authorization leaked to redirect host: %q", attackerSawAuth)
+		}
+	})
+}
+
+// A same-origin redirect must still carry the credential (the common
+// http→canonical case), so auth is not stripped needlessly.
+func TestBytes_KeepsAuthOnSameHostRedirect(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/start" {
+			http.Redirect(w, r, "/final", http.StatusFound)
+			return
+		}
+		got = r.Header.Get("X-Api-Key")
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+	if _, err := Bytes(srv.URL+"/start", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0); err != nil {
+		t.Fatalf("Bytes: %v", err)
+	}
+	if got != "SECRET" {
+		t.Fatalf("same-host redirect should keep the header, got %q", got)
+	}
+}
+
+func TestSafeURL_RedactsUserinfoAndQuery(t *testing.T) {
+	for raw, want := range map[string]string{
+		"https://ghp_abc123@example.com/x.yaml":     "https://example.com/x.yaml",
+		"https://u:p@example.com/x.yaml?token=leak": "https://example.com/x.yaml",
+		"https://example.com/x.yaml?q=1":            "https://example.com/x.yaml",
+		"https://example.com/x.yaml":                "https://example.com/x.yaml",
+	} {
+		if got := safeURL(raw); got != want {
+			t.Errorf("safeURL(%q) = %q, want %q", raw, got, want)
+		}
+		if strings.Contains(safeURL(raw), "leak") || strings.Contains(safeURL(raw), "ghp_") || strings.Contains(safeURL(raw), ":p@") {
+			t.Errorf("safeURL(%q) leaked a secret: %q", raw, safeURL(raw))
+		}
+	}
+}
+
 func TestIsURL(t *testing.T) {
 	for s, want := range map[string]bool{
 		"https://example.com/a.yaml": true,
