@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📥 **Bulk comment import** (GO-078) — an admin-only `POST /api/comments/import`
+  takes normalised JSON (an array of `{url, author, body, email?, created_at?,
+  status?}`) so a migration from Disqus, WordPress, Commento or a spreadsheet
+  converts to one shape and posts once. Idempotent — each id is a content hash
+  inserted with `INSERT OR IGNORE`, so re-running a file adds nothing new;
+  invalid rows are skipped and counted, not fatal; up to 1000 per request.
+  Imported comments default to `approved`. The moderation panel gains an
+  **Import comments** box (file or paste) so it needs no curl.
 - 🎨 **Mermaid diagram theme + background** (GO-079) — two new options,
   `mermaid_theme` (mermaid's built-in `default`/`neutral`/`dark`/`forest`/`base`)
   and `mermaid_background` (any CSS colour), tune diagram legibility. Diagrams

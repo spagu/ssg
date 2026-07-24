@@ -10,8 +10,12 @@
     body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
     h1 { font-size: 1.5rem; }
     .login { display: grid; gap: 0.5rem; max-width: 20rem; }
-    input, button, select { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid #94a3b8; border-radius: 0.5rem; }
+    input, button, select, textarea { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid #94a3b8; border-radius: 0.5rem; }
+    textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     button { cursor: pointer; }
+    details.import { margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
+    details.import summary { cursor: pointer; font-weight: 600; }
+    .import-form { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
     .primary { background: #0050a6; color: #fff; border-color: #0050a6; }
     .tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
     .tabs button[aria-pressed="true"] { background: #0f172a; color: #fff; border-color: #0f172a; }
@@ -44,6 +48,27 @@
       <button data-status="approved" aria-pressed="false">Approved</button>
     </div>
     <div id="list" aria-live="polite"></div>
+
+    <details class="import">
+      <summary>Import comments</summary>
+      <div class="import-form">
+        <p class="muted">Paste normalised JSON — an array of
+          <code>{url, author, body, email?, created_at?, status?}</code>, or an
+          object <code>{items: [...]}</code> — or choose a <code>.json</code> file
+          converted from your old system (Disqus, WordPress, …).</p>
+        <label>Default status for items without one
+          <select id="import-status">
+            <option value="approved">approved</option>
+            <option value="pending">pending</option>
+            <option value="spam">spam</option>
+          </select>
+        </label>
+        <input type="file" id="import-file" accept="application/json,.json">
+        <textarea id="import-json" rows="6" placeholder='[{"url":"/blog/x/","author":"Ada","body":"First!","created_at":"2021-05-01T10:00:00Z"}]'></textarea>
+        <button class="primary" id="import-run" type="button">Import</button>
+        <p class="muted" id="import-msg" role="status"></p>
+      </div>
+    </details>
   </div>
 
   <script>
@@ -116,6 +141,46 @@
       document.querySelectorAll(".tabs button").forEach(function (b) {
         b.addEventListener("click", function () { load(b.getAttribute("data-status")); });
       });
+
+      // Import: read a chosen file into the textarea, then POST the JSON. Accepts
+      // a bare array or an { items: [...] } object; the default-status select
+      // applies to any item that doesn't carry its own status.
+      var fileInput = document.getElementById("import-file");
+      if (fileInput) {
+        fileInput.addEventListener("change", function () {
+          var f = fileInput.files && fileInput.files[0];
+          if (!f) return;
+          f.text().then(function (t) { document.getElementById("import-json").value = t; });
+        });
+      }
+      var runBtn = document.getElementById("import-run");
+      if (runBtn) {
+        runBtn.addEventListener("click", function () {
+          var msg = document.getElementById("import-msg");
+          var raw = document.getElementById("import-json").value.trim();
+          if (!raw) { msg.textContent = "Nothing to import."; return; }
+          var parsed;
+          try { parsed = JSON.parse(raw); } catch (e) { msg.textContent = "Invalid JSON: " + e.message; return; }
+          var items = Array.isArray(parsed) ? parsed : parsed.items;
+          if (!Array.isArray(items)) { msg.textContent = "Expected an array or an { items: [...] } object."; return; }
+          runBtn.disabled = true;
+          msg.textContent = "Importing " + items.length + "…";
+          fetch("/api/comments/import", {
+            method: "POST",
+            headers: Object.assign({ "content-type": "application/json" }, authHeader()),
+            body: JSON.stringify({ items: items, defaultStatus: document.getElementById("import-status").value }),
+          })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+              if (!res.ok) { msg.textContent = (res.d && res.d.error) || "Import failed."; return; }
+              msg.textContent = "Imported " + res.d.imported + ", " + res.d.duplicate +
+                " already present, " + res.d.invalid + " skipped.";
+              load(current);
+            })
+            .catch(function () { msg.textContent = "Network error."; })
+            .finally(function () { runBtn.disabled = false; });
+        });
+      }
     })();
   </script>
 </body>

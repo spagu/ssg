@@ -92,6 +92,43 @@ ship; `i18n.<lang>` overrides individual keys or adds a whole new language.
 Open `/comments-admin.html`, enter `COMMENTS_ADMIN_PASSWORD`, and approve, mark
 spam, or delete. Approved comments appear in the widget on the next load.
 
+## 5. Import existing comments
+
+Migrating from Disqus, WordPress, Commento or a spreadsheet? Convert the export
+to this **normalised JSON** — an array of comments — and post it once:
+
+```json
+[
+  { "url": "/blog/hello/", "author": "Ada", "email": "ada@example.com",
+    "body": "First!", "created_at": "2021-05-01T10:00:00Z" },
+  { "url": "/blog/hello/", "author": "Bo", "body": "Nice post" }
+]
+```
+
+Only `url`, `author` and `body` are required; `email` feeds the avatar hash,
+`created_at` defaults to now, and `status` defaults to `approved` (imported
+comments are already-vetted — pass `"status": "pending"` per item, or
+`defaultStatus` for the batch, to re-moderate).
+
+Easiest: sign in to `/comments-admin.html`, open **Import comments**, choose the
+`.json` file (or paste it), pick a default status, and click Import.
+
+Or via the API (admin Basic auth, same password as moderation):
+
+```sh
+curl -u :$COMMENTS_ADMIN_PASSWORD \
+  -H 'content-type: application/json' \
+  --data @comments.json \
+  https://your-site/api/comments/import
+# {"ok":true,"total":2,"imported":2,"duplicate":0,"invalid":0}
+```
+
+The import is **idempotent** — each row's id is a hash of its content, inserted
+with `INSERT OR IGNORE`, so re-running the same file adds nothing new
+(`duplicate` counts the skips). Up to 1000 items per request; chunk larger
+exports. Rows missing `url`/`author`/`body` are counted in `invalid` and skipped
+rather than failing the whole batch.
+
 ## Config / secrets
 
 `wrangler pages secret put <NAME>`:
