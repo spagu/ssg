@@ -26,14 +26,15 @@ func TestDeployCloudflareWrangler_ArgvAndEnvPassthrough(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "functions"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	var gotName string
+	var gotDir, gotName string
 	var gotArgs []string
 	o := Options{
 		Provider: ProviderCloudflare,
 		Dir:      dir,
 		Project:  "my-site",
 		Branch:   "main",
-		Exec: func(_ context.Context, name string, args ...string) error {
+		Exec: func(_ context.Context, execDir, name string, args ...string) error {
+			gotDir = execDir
 			gotName = name
 			gotArgs = args
 			return nil
@@ -45,8 +46,13 @@ func TestDeployCloudflareWrangler_ArgvAndEnvPassthrough(t *testing.T) {
 	if gotName != "npx" {
 		t.Fatalf("expected npx, got %q", gotName)
 	}
+	// wrangler must run FROM the output dir and deploy ".", so it compiles the
+	// functions/ tree (which it looks for relative to its CWD) — GO-082.
+	if gotDir != dir {
+		t.Fatalf("wrangler must run in the output dir %q, got %q", dir, gotDir)
+	}
 	joined := strings.Join(gotArgs, " ")
-	for _, want := range []string{"wrangler pages deploy", "--project-name=my-site", "--branch=main"} {
+	for _, want := range []string{"wrangler pages deploy .", "--project-name=my-site", "--branch=main"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %q in argv: %s", want, joined)
 		}
@@ -58,7 +64,7 @@ func TestDeployCloudflareWrangler_MissingProject(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "functions"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	o := Options{Provider: ProviderCloudflare, Dir: dir, Exec: func(context.Context, string, ...string) error { return nil }}
+	o := Options{Provider: ProviderCloudflare, Dir: dir, Exec: func(context.Context, string, string, ...string) error { return nil }}
 	if _, err := deployCloudflare(context.Background(), o); err == nil {
 		t.Fatal("expected a missing-project error")
 	}
@@ -66,10 +72,10 @@ func TestDeployCloudflareWrangler_MissingProject(t *testing.T) {
 
 func TestRunNPXCommand(t *testing.T) {
 	// `true` exits 0 on any POSIX system — exercises the real exec path.
-	if err := runNPXCommand(context.Background(), "true"); err != nil {
+	if err := runNPXCommand(context.Background(), "", "true"); err != nil {
 		t.Fatalf("runNPXCommand(true): %v", err)
 	}
-	if err := runNPXCommand(context.Background(), "false"); err == nil {
+	if err := runNPXCommand(context.Background(), "", "false"); err == nil {
 		t.Fatal("runNPXCommand(false) should return the non-zero exit as an error")
 	}
 }
@@ -83,7 +89,7 @@ func TestDeployCloudflareWrangler_ExecError(t *testing.T) {
 		Provider: ProviderCloudflare,
 		Dir:      dir,
 		Project:  "p",
-		Exec:     func(context.Context, string, ...string) error { return context.DeadlineExceeded },
+		Exec:     func(context.Context, string, string, ...string) error { return context.DeadlineExceeded },
 	}
 	_, err := deployCloudflare(context.Background(), o)
 	if err == nil || !strings.Contains(err.Error(), "wrangler pages deploy failed") {

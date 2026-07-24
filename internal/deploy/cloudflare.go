@@ -80,7 +80,12 @@ func deployCloudflareWrangler(ctx context.Context, o Options) (string, error) {
 	if o.Project == "" {
 		return "", fmt.Errorf("missing Cloudflare Pages project name (--deploy-project=<name> or deploy_project in config)")
 	}
-	args := []string{"wrangler", "pages", "deploy", o.Dir, "--project-name=" + o.Project}
+	// Deploy "." FROM the output directory, not `deploy <o.Dir>` from the current
+	// directory: wrangler compiles the functions/ tree relative to its working
+	// directory, so passing the dir as an argument while running elsewhere ships
+	// the static assets WITHOUT the Functions — the API silently serves them as
+	// static (GET 200 HTML, POST 405) instead of invoking the worker (GO-082).
+	args := []string{"wrangler", "pages", "deploy", ".", "--project-name=" + o.Project}
 	if o.Branch != "" {
 		args = append(args, "--branch="+o.Branch)
 	}
@@ -89,17 +94,20 @@ func deployCloudflareWrangler(ctx context.Context, o Options) (string, error) {
 	if run == nil {
 		run = runNPXCommand
 	}
-	if err := run(ctx, "npx", args...); err != nil {
+	if err := run(ctx, o.Dir, "npx", args...); err != nil {
 		return "", fmt.Errorf("wrangler pages deploy failed: %w — install wrangler, or use worker.mode: worker with a prebuilt _worker.js", err)
 	}
 	// wrangler prints the deployment URL itself; we don't parse its stdout.
 	return "", nil
 }
 
-// runNPXCommand runs npx with the given args, streaming output, passing the
-// current environment through so CLOUDFLARE_* credentials reach wrangler.
-func runNPXCommand(ctx context.Context, name string, args ...string) error {
+// runNPXCommand runs npx with the given args in dir (its working directory;
+// "" = current), streaming output and passing the current environment through so
+// CLOUDFLARE_* credentials reach wrangler. dir is what makes wrangler find the
+// functions/ tree to compile (GO-082).
+func runNPXCommand(ctx context.Context, dir, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- fixed argv; only the project name/dir come from trusted config
+	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()

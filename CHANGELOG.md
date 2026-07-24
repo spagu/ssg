@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🐛 **`ssg --deploy=cloudflare` now ships Pages Functions** (GO-082) — when the
+  output has a `functions/` tree, SSG deploys via `wrangler pages deploy`, but it
+  ran `wrangler pages deploy <output-dir>` from the current directory. wrangler
+  compiles the `functions/` tree relative to its **working directory**, not the
+  deploy-dir argument, so it uploaded the static assets *without* the Functions:
+  the API then served `/api/*` as static (GET → 200 HTML, POST → 405) and every
+  worker endpoint (comments, cookie-consent geo/log, …) was silently dead. SSG
+  now runs wrangler **from** the output directory and deploys `.`, so the
+  Functions are compiled and shipped. (Same working-directory rule already fixed
+  for `--watch` in 1.8.13.)
+
 ## [1.8.13] - 2026-07-24
 
 ### Added
