@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🚀 **`republish-trigger` worker** (GO-080) — one authenticated webhook,
+  `POST /api/republish`, that fires a CI build on **GitHub**, **GitLab** or
+  **Gitea**, so a headless-CMS "published" webhook, a cron or a `curl` redeploys
+  the site without touching the repo. The caller proves itself with a shared
+  `REPUBLISH_KEY` (constant-time check, header or query); the provider token
+  stays server-side. GitHub uses `workflow_dispatch` (or `repository_dispatch`),
+  GitLab a pipeline trigger token, Gitea a workflow dispatch — self-hosted hosts
+  via `REPUBLISH_API_BASE`. GET is off unless opted in, and an optional KV
+  binding debounces bursts into one build (`429` inside the window). Scaffold
+  with `ssg new worker republish-trigger`.
 - 🔒 **Auto-close idle comment threads** (GO-078) — a new
   `COMMENTS_CLOSE_AFTER_DAYS` var stops a thread accepting comments once that
   many days have passed since its last activity (the newest comment, or the

@@ -1,0 +1,36 @@
+# republish-trigger — one authenticated request → a CI build on GitHub / GitLab
+# / Gitea. No database required. Set the [vars] for your provider below, and the
+# two secrets (REPUBLISH_KEY, REPUBLISH_TOKEN) with `wrangler pages secret put`.
+
+# [vars]
+# REPUBLISH_PROVIDER = "github"          # "github" | "gitlab" | "gitea"
+# REPUBLISH_REF = "main"                 # branch/tag to build (default "main")
+#
+# --- GitHub / Gitea: owner/repo ---
+# REPUBLISH_REPO = "owner/repo"
+# REPUBLISH_WORKFLOW = "deploy.yml"      # set → workflow_dispatch on this workflow
+# REPUBLISH_EVENT_TYPE = "republish"     # GitHub only, when no workflow → repository_dispatch
+#
+# --- GitLab: project id ---
+# REPUBLISH_PROJECT_ID = "12345678"      # numeric id, or URL-encoded "group%2Fproject"
+#
+# --- Self-hosted / Enterprise (and REQUIRED for Gitea) ---
+# REPUBLISH_API_BASE = "https://git.example.com/api/v1"   # gitea: /api/v1 ; GH Enterprise: /api/v3 ; GitLab: /api/v4
+#
+# --- Guardrails ---
+# REPUBLISH_ALLOW_GET = "false"          # "true" lets a GET trigger (webhooks that can't POST; key then rides in the URL)
+# REPUBLISH_MIN_INTERVAL_SEC = "0"       # debounce; needs the KV binding below to take effect
+
+# Optional: bind a KV namespace to enable the debounce (collapse a burst of
+# triggers into one build). Create it and paste the id:
+#   npx wrangler kv namespace create REPUBLISH_KV
+# [[kv_namespaces]]
+# binding = "REPUBLISH_KV"
+# id = "<paste-kv-namespace-id>"
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   REPUBLISH_KEY    the shared secret callers send to this endpoint (you choose it)
+#   REPUBLISH_TOKEN  the provider credential:
+#                      github → a PAT with repo + workflow scope (fine-grained: Actions: write)
+#                      gitlab → a pipeline TRIGGER token (Settings → CI/CD → Pipeline triggers)
+#                      gitea  → an access token with repo/actions write

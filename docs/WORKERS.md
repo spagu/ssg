@@ -104,6 +104,7 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `conversions-proxy` | `POST /api/track` — server-side Meta CAPI relay with SHA-256-hashed PII |
 | `cookie-consent` | GDPR/UK cookie banner: edge geo (EEA+UK), granular categories, script-gating, Consent Mode v2, optional audit log; ships a starter `cookie-policy.md`. See [its README](../workers/cookie-consent/README.md) |
 | `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
+| `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
 
 ```sh
 ssg new worker stripe-checkout
