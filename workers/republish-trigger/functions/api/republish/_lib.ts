@@ -74,13 +74,13 @@ export function allowGet(env: Env): boolean {
 // don't both fire.
 export async function debounce(env: Env): Promise<Response | null> {
   const kv = env.REPUBLISH_KV;
-  const secs = parseInt(env.REPUBLISH_MIN_INTERVAL_SEC || "0", 10);
+  const secs = Number.parseInt(env.REPUBLISH_MIN_INTERVAL_SEC || "0", 10);
   if (!kv || !Number.isFinite(secs) || secs <= 0) return null;
 
   const now = Date.now();
   const prev = await kv.get("republish:last");
   if (prev) {
-    const last = parseInt(prev, 10);
+    const last = Number.parseInt(prev, 10);
     if (Number.isFinite(last) && now - last < secs * 1000) {
       const retry = Math.ceil((secs * 1000 - (now - last)) / 1000);
       return json({ error: "too soon", retry_after_seconds: retry }, 429, { "retry-after": String(retry) });

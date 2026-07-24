@@ -64,7 +64,7 @@ export function normaliseURL(raw: unknown): string | null {
 
 // Auto-close window in milliseconds (0 = never), from COMMENTS_CLOSE_AFTER_DAYS.
 export function closeWindowMs(env: Env): number {
-  const days = parseInt(env.COMMENTS_CLOSE_AFTER_DAYS || "0", 10);
+  const days = Number.parseInt(env.COMMENTS_CLOSE_AFTER_DAYS || "0", 10);
   return Number.isFinite(days) && days > 0 ? days * 86400000 : 0;
 }
 

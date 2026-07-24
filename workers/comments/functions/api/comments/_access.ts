@@ -27,7 +27,7 @@ function teamHost(team: string): string {
 }
 
 function b64urlToBytes(s: string): Uint8Array {
-  let b = s.replace(/-/g, "+").replace(/_/g, "/");
+  let b = s.replaceAll("-", "+").replaceAll("_", "/");
   while (b.length % 4) b += "=";
   const bin = atob(b);
   const out = new Uint8Array(bin.length);

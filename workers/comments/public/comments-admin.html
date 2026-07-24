@@ -63,10 +63,14 @@
             <option value="spam">spam</option>
           </select>
         </label>
-        <input type="file" id="import-file" accept="application/json,.json">
-        <textarea id="import-json" rows="6" placeholder='[{"url":"/blog/x/","author":"Ada","body":"First!","created_at":"2021-05-01T10:00:00Z"}]'></textarea>
+        <label>Comments file (JSON)
+          <input type="file" id="import-file" accept="application/json,.json">
+        </label>
+        <label>…or paste JSON
+          <textarea id="import-json" rows="6" placeholder='[{"url":"/blog/x/","author":"Ada","body":"First!","created_at":"2021-05-01T10:00:00Z"}]'></textarea>
+        </label>
         <button class="primary" id="import-run" type="button">Import</button>
-        <p class="muted" id="import-msg" role="status"></p>
+        <output class="muted" id="import-msg"></output>
       </div>
     </details>
   </div>
