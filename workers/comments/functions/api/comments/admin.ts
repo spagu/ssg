@@ -17,7 +17,7 @@ interface AdminRow {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = requireAdmin(request, env);
+  const denied = await requireAdmin(request, env);
   if (denied) return denied;
 
   const status = new URL(request.url).searchParams.get("status") || "pending";
@@ -38,7 +38,7 @@ interface Action {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = requireAdmin(request, env);
+  const denied = await requireAdmin(request, env);
   if (denied) return denied;
 
   let payload: Action;

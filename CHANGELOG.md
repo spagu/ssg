@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔑 **Comments moderation behind Cloudflare Access (SSO/JWT)** (GO-081) — an
+  alternative to the shared moderation password: set `COMMENTS_ACCESS_TEAM` and
+  `COMMENTS_ACCESS_AUD`, put `/comments-admin.html` and `/api/comments/admin*`
+  behind a Cloudflare Access application, and the worker verifies the signed JWT
+  Access forwards (signature against your team's JWKS, audience, issuer, expiry)
+  instead of a password. Moderators sign in through your IdP; the panel detects
+  the Access session and skips its own login. No shared secret to store or
+  rotate. The password path still works when Access isn't configured.
 - ⏱️ **Configurable fetch: `timeout`, `retries`, `retry_delay`, `on_error`**
   (GO-081) — a remote `include:` (and remote worker `source:`) previously had a
   fixed 30s timeout, no retry, and any failure hard-failed the build. Each remote

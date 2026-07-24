@@ -43,7 +43,7 @@ function isoOrNow(raw: unknown): string {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = requireAdmin(request, env);
+  const denied = await requireAdmin(request, env);
   if (denied) return denied;
 
   let payload: ImportBody;

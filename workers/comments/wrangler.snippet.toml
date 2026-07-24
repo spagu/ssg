@@ -10,9 +10,16 @@
 # COMMENTS_CLOSE_AFTER_DAYS = "0" # 0 = never; N = stop accepting comments N days after the last activity
 # COMMENTS_RETENTION_DAYS = "0"   # 0 = keep forever; N = purge spam/pending older than N days
 # COMMENTS_AKISMET_URL = ""       # e.g. "https://<key>.rest.akismet.com/1.1/comment-check"
+#
+# Moderation auth — pick ONE:
+#   (a) HTTP Basic: set the COMMENTS_ADMIN_PASSWORD secret (below).
+#   (b) Cloudflare Access (recommended): put /comments-admin.html and
+#       /api/comments/admin* behind an Access application, then set both:
+# COMMENTS_ACCESS_TEAM = "myteam"           # your Access team ("myteam" or "myteam.cloudflareaccess.com")
+# COMMENTS_ACCESS_AUD = "<application-aud>" # the Access application's AUD tag (Access → app → Overview)
 
 # Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
 #   TURNSTILE_SECRET        Cloudflare Turnstile secret (required for POST)
-#   COMMENTS_ADMIN_PASSWORD moderation panel password
+#   COMMENTS_ADMIN_PASSWORD moderation panel password (only for auth mode (a))
 #   COMMENTS_IP_SALT        salt for the stored IP hash
 #   COMMENTS_AKISMET_KEY    (optional) Akismet API key for spam scoring

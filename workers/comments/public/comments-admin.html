@@ -185,6 +185,17 @@
             .finally(function () { runBtn.disabled = false; });
         });
       }
+
+      // Cloudflare Access: if this page is already behind an Access policy, the
+      // moderator is authenticated at the edge and the CF_Authorization cookie
+      // authorises the API. Probe once with no password; if it's accepted, skip
+      // the login form entirely. Falls through to the password form otherwise.
+      fetch(API + "?status=pending", { credentials: "same-origin" }).then(function (r) {
+        if (!r.ok) return;
+        document.getElementById("login").hidden = true;
+        document.getElementById("panel").hidden = false;
+        load("pending");
+      }).catch(function () { /* stay on the password form */ });
     })();
   </script>
 </body>

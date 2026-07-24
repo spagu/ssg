@@ -1,10 +1,14 @@
 // Shared helpers for the comments worker. A leading underscore keeps this file
 // out of the Pages route table — it is imported, never served.
 
+import { verifyAccess } from "./_access";
+
 export interface Env {
   COMMENTS_DB: D1Database;
   TURNSTILE_SECRET?: string;
-  COMMENTS_ADMIN_PASSWORD?: string;
+  COMMENTS_ADMIN_PASSWORD?: string; // moderation via HTTP Basic (fallback when Access is not set)
+  COMMENTS_ACCESS_TEAM?: string; // Cloudflare Access team ("myteam" or "myteam.cloudflareaccess.com")
+  COMMENTS_ACCESS_AUD?: string; // Cloudflare Access application AUD tag
   COMMENTS_IP_SALT?: string;
   COMMENTS_ORDER?: string; // "newest" | "oldest"
   COMMENTS_CLOSE_AFTER_DAYS?: string; // auto-close a thread after N days of inactivity (0/unset = never)
@@ -126,9 +130,16 @@ export async function isSpam(env: Env, author: string, email: string, body: stri
   return heuristicSpam(author, body) >= 0.7;
 }
 
-// requireAdmin gate: HTTP Basic with the configured password (any username).
-// Returns null when authorised, or a 401 challenge to return otherwise.
-export function requireAdmin(request: Request, env: Env): Response | null {
+// requireAdmin gates the moderation endpoints. Two mutually-exclusive modes:
+//   - Cloudflare Access (recommended) when COMMENTS_ACCESS_TEAM + AUD are set:
+//     the panel sits behind your SSO and Access forwards a signed JWT we verify;
+//     there is no shared password to store or rotate.
+//   - HTTP Basic with COMMENTS_ADMIN_PASSWORD otherwise.
+// Returns null when authorised, or a Response to return otherwise.
+export async function requireAdmin(request: Request, env: Env): Promise<Response | null> {
+  if (env.COMMENTS_ACCESS_TEAM && env.COMMENTS_ACCESS_AUD) {
+    return verifyAccess(request, env);
+  }
   const expected = env.COMMENTS_ADMIN_PASSWORD;
   if (!expected) return json({ error: "moderation not configured" }, 503);
   const header = request.headers.get("authorization") || "";

@@ -92,6 +92,27 @@ ship; `i18n.<lang>` overrides individual keys or adds a whole new language.
 Open `/comments-admin.html`, enter `COMMENTS_ADMIN_PASSWORD`, and approve, mark
 spam, or delete. Approved comments appear in the widget on the next load.
 
+### Moderation auth: password or Cloudflare Access
+
+By default the panel and its API use HTTP Basic with `COMMENTS_ADMIN_PASSWORD`.
+
+For a team — or to avoid managing a shared password — put the moderation surface
+behind **Cloudflare Access** instead. Create an Access application covering
+`/comments-admin.html` and `/api/comments/admin*`, then set two vars:
+
+```toml
+[vars]
+COMMENTS_ACCESS_TEAM = "myteam"            # or "myteam.cloudflareaccess.com"
+COMMENTS_ACCESS_AUD  = "<application-aud>"  # Access → your app → Overview → Application Audience (AUD) Tag
+```
+
+With those set, the worker ignores the password and instead verifies the signed
+JWT Access forwards (`Cf-Access-Jwt-Assertion`) against your team's public keys —
+checking the signature, that the audience is *this* application, the issuer is
+your team, and the token hasn't expired. The moderator signs in through your IdP;
+the panel detects the Access session and skips its own password prompt. There is
+no shared secret to store or rotate.
+
 ## 5. Import existing comments
 
 Migrating from Disqus, WordPress, Commento or a spreadsheet? Convert the export
