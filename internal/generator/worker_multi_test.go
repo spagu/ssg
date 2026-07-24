@@ -163,3 +163,48 @@ func TestWorkerPublicAssetsCopied(t *testing.T) {
 		t.Fatalf("public asset collision not reported: %v", err)
 	}
 }
+
+// A worker that omits routes_include must still be routed (default /api/*) even
+// when another worker sets its own routes, and a route both name is not
+// duplicated in _routes.json (GO-081).
+func TestWorkerDefaultRouteAndDedup(t *testing.T) {
+	a := writeFn(t, t.TempDir(), "api.ts", "export const onRequest = () => new Response('a')\n")
+	b := writeFn(t, t.TempDir(), "b.ts", "export const onRequest = () => new Response('b')\n")
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Workers: []WorkerConfig{
+		{Name: "a", Dir: a}, // no routes_include → /api/*
+		{Name: "b", Dir: b, RoutesInclude: []string{"/consent/*", "/api/*"}}, // also names /api/* (dup)
+	}}}
+	if err := g.generateWorkerFiles(); err != nil {
+		t.Fatalf("generateWorkerFiles: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(out, "_routes.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc routesJSON
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	count := map[string]int{}
+	for _, r := range doc.Include {
+		count[r]++
+	}
+	if count["/api/*"] != 1 {
+		t.Errorf("/api/* should appear exactly once (default + dedup), got %d in %v", count["/api/*"], doc.Include)
+	}
+	if count["/consent/*"] != 1 {
+		t.Errorf("/consent/* missing: %v", doc.Include)
+	}
+}
+
+// A remote source with neither a name nor an explicit dir is rejected before any
+// fetch, so two unnamed sources can't silently collide in workers/worker.
+func TestUnnamedRemoteSourceErrors(t *testing.T) {
+	g := &Generator{config: Config{OutputDir: t.TempDir(), Workers: []WorkerConfig{
+		{Source: "https://example.com/x.zip"},
+	}}}
+	if err := g.generateWorkerFiles(); err == nil || !strings.Contains(err.Error(), "needs a name") {
+		t.Fatalf("expected a name-required error, got %v", err)
+	}
+}

@@ -122,9 +122,22 @@ func (g *Generator) generateWorkerFiles() error {
 		if err := g.copyWorkerPublic(dir, label, seenPublic); err != nil {
 			return err
 		}
-		include = append(include, w.RoutesInclude...)
+		// A worker with no explicit routes_include still needs its functions
+		// routed, so default it to /api/* per worker — not only when the combined
+		// list is empty. Otherwise a worker that omits routes_include next to one
+		// that sets its own (e.g. /consent/*) would be left entirely unrouted, its
+		// Functions never invoked (GO-081).
+		inc := w.RoutesInclude
+		if len(inc) == 0 {
+			inc = []string{"/api/*"}
+		}
+		include = append(include, inc...)
 		exclude = append(exclude, w.RoutesExclude...)
 	}
+	// Two workers can legitimately name the same route; collapse duplicates so
+	// they don't count twice against the Cloudflare rule cap (GO-081).
+	include = dedupeStrings(include)
+	exclude = dedupeStrings(exclude)
 	routes, err := renderRoutesJSON(include, exclude)
 	if err != nil {
 		return err
@@ -134,6 +147,19 @@ func (g *Generator) generateWorkerFiles() error {
 		return fmt.Errorf("worker: writing _routes.json: %w", err)
 	}
 	return nil
+}
+
+// dedupeStrings removes duplicate entries while preserving first-seen order.
+func dedupeStrings(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // workerLabel names a worker for messages: its Name, else worker[i].
@@ -156,6 +182,12 @@ func (g *Generator) resolveWorkerDir(w WorkerConfig, label string) (string, erro
 	}
 	dir := w.Dir
 	if dir == "" {
+		// The vendor directory is derived from the name; without one, two
+		// unnamed remote sources would both resolve to workers/worker and the
+		// second would silently reuse the first's files (GO-081).
+		if w.Name == "" {
+			return "", fmt.Errorf("worker %s: a remote source needs a name (or an explicit dir) to vendor into", label)
+		}
 		dir = filepath.Join("workers", sanitizeWorkerName(w.Name))
 	}
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {

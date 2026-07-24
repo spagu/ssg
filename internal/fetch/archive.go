@@ -42,7 +42,39 @@ func Archive(rawURL string, auth Auth, destDir string) error {
 		}
 	}
 	defer func() { _ = os.Remove(tmp) }()
-	return extractZip(tmp, destDir)
+	return extractAtomic(tmp, destDir)
+}
+
+// extractAtomic extracts src into a sibling staging directory and renames it
+// into destDir only after the whole archive extracted cleanly. A mid-extraction
+// failure (a tripped size cap, a bad entry) therefore never leaves a
+// half-populated destDir — which resolveWorkerDir would otherwise reuse on the
+// next build as if it were a complete, vendored worker (GO-081).
+func extractAtomic(src, destDir string) error {
+	parent := filepath.Dir(destDir)
+	if parent == "" {
+		parent = "."
+	}
+	if err := os.MkdirAll(parent, 0o750); err != nil {
+		return err
+	}
+	staging, err := os.MkdirTemp(parent, ".ssg-worker-*")
+	if err != nil {
+		return err
+	}
+	if err := extractZip(src, staging); err != nil {
+		_ = os.RemoveAll(staging)
+		return err
+	}
+	if err := os.RemoveAll(destDir); err != nil {
+		_ = os.RemoveAll(staging)
+		return err
+	}
+	if err := os.Rename(staging, destDir); err != nil {
+		_ = os.RemoveAll(staging)
+		return fmt.Errorf("installing worker into %s: %w", destDir, err)
+	}
+	return nil
 }
 
 // downloadArchive fetches archiveURL (authed, bounded, size-capped) to a temp

@@ -86,10 +86,21 @@ func TestWranglerName(t *testing.T) {
 		"a..b":                "a-b",
 		"":                    "ssg-site",
 		"---":                 "ssg-site",
+		// Cloudflare names must start with a letter: a digit-leading domain is
+		// prefixed rather than emitted invalid (GO-081).
+		"1password.com": "ssg-1password-com",
 	}
 	for in, want := range cases {
 		if got := wranglerName(in); got != want {
 			t.Errorf("wranglerName(%q) = %q, want %q", in, got, want)
 		}
+	}
+	// …and are capped at 58 characters, with no trailing hyphen.
+	long := wranglerName(strings.Repeat("a", 80) + ".com")
+	if len(long) > 58 {
+		t.Errorf("wranglerName over-long: %d chars", len(long))
+	}
+	if strings.HasSuffix(long, "-") {
+		t.Errorf("wranglerName left a trailing hyphen: %q", long)
 	}
 }

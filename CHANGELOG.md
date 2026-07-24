@@ -117,6 +117,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secrets) behind config includes and remote worker sources.
 
 ### Fixed
+- 🐛 **A worker without `routes_include` is no longer left unrouted** (GO-081) —
+  the implicit `/api/*` default was applied only to the *combined* route list,
+  so a worker that omitted `routes_include` next to one that set its own (e.g.
+  `/consent/*`) never got routed and its Functions were never invoked. The
+  default is now per-worker, and duplicate routes are collapsed so they don't
+  count twice against the Cloudflare rule cap.
+- 🐛 **A remote worker `source:` without a name is rejected** (GO-081) — two
+  unnamed sources both vendored into `workers/worker`, so the second silently
+  reused the first's files; a source now requires a `name` or an explicit `dir`.
+- 🐛 **A failed worker fetch no longer poisons later builds** (GO-081) — a remote
+  archive now extracts into a staging dir and is renamed into place only on full
+  success, so a mid-extraction failure can't leave a half-populated directory
+  that the next build reuses as if complete.
+- 🐛 **Generated `wrangler.toml` name is always Cloudflare-valid** (GO-081) —
+  `wranglerName` now prefixes a digit-leading domain (`1password.com`) so the
+  name starts with a letter, and caps it at Cloudflare's 58-character limit.
 - 🔒 **Comments auto-close could be bypassed with a forged `published`** (GO-081)
   — the close check took `max(lastComment, clientPublished)`, so a raw POST with
   a far-future `published` out-voted a years-old last comment and kept a closed

@@ -102,5 +102,14 @@ func wranglerName(name string) string {
 	if trimmed == "" {
 		return "ssg-site"
 	}
+	// Cloudflare Pages project names must start with a letter; a domain like
+	// "1password.com" would otherwise produce a name starting with a digit.
+	if trimmed[0] < 'a' || trimmed[0] > 'z' {
+		trimmed = "ssg-" + trimmed
+	}
+	// …and are capped at 58 characters; trim a trailing hyphen the cut may leave.
+	if len(trimmed) > 58 {
+		trimmed = strings.TrimRight(trimmed[:58], "-")
+	}
 	return trimmed
 }
