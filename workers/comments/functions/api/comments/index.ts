@@ -24,6 +24,10 @@ async function lastActivity(env: Env, url: string): Promise<string | null> {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  // Fail clean (JSON 503) rather than throwing an unhandled exception (a raw
+  // Cloudflare 500) when the D1 binding is missing — e.g. before it's wired.
+  if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
+
   const params = new URL(request.url).searchParams;
   const url = normaliseURL(params.get("url"));
   if (!url) return json({ error: "a valid ?url= is required" }, 400);
@@ -60,12 +64,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: "invalid JSON" }, 400);
   }
 
+  // Both bindings are required to accept a comment; fail clean before touching
+  // D1 (which the close-check below queries) so a missing binding is a 503, not
+  // a raw 500.
+  if (!env.COMMENTS_DB || !env.TURNSTILE_SECRET) {
+    return json({ error: "comments not configured" }, 503);
+  }
+
   const url = normaliseURL(payload.url);
   const author = (payload.author || "").trim().slice(0, 80);
   const email = (payload.email || "").trim().slice(0, 254);
   const body = (payload.body || "").trim().slice(0, 5000);
-  if (!url || !author || !body) {
-    return json({ error: "url, author and body are required" }, 422);
+  if (!url || !author || !email || !body) {
+    return json({ error: "url, author, email and body are required" }, 422);
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return json({ error: "a valid email is required" }, 422);
   }
 
   // Refuse a closed thread before spending a Turnstile verification.
@@ -75,7 +89,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const ip = request.headers.get("cf-connecting-ip");
-  if (!env.TURNSTILE_SECRET) return json({ error: "comments not configured" }, 503);
   if (!payload.token || !(await verifyTurnstile(env.TURNSTILE_SECRET, payload.token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
   }

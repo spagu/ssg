@@ -150,6 +150,37 @@ with `INSERT OR IGNORE`, so re-running the same file adds nothing new
 exports. Rows missing `url`/`author`/`body` are counted in `invalid` and skipped
 rather than failing the whole batch.
 
+### From WordPress
+
+`tools/wordpress-comments.sh` (bash + `curl` + `jq`, no plugin) pulls comments
+straight from the old site's public REST API and converts them to the import
+JSON above. Each comment's URL is built from its post's slug.
+
+```sh
+# convert to JSON…
+./tools/wordpress-comments.sh https://old-blog.example.com > comments.json
+curl -u :"$COMMENTS_ADMIN_PASSWORD" -H 'content-type: application/json' \
+     --data @comments.json https://your-site/api/comments/import
+
+# …or fetch, convert AND post in one go (chunked):
+./tools/wordpress-comments.sh https://old-blog.example.com \
+    --post https://your-site/api/comments/import --password "$COMMENTS_ADMIN_PASSWORD"
+```
+
+Match the URL to your permalink pattern with `URL_TEMPLATE` (default
+`/blog/{slug}/`):
+
+```sh
+URL_TEMPLATE='/{slug}/' ./tools/wordpress-comments.sh https://old-blog.example.com
+```
+
+Caveats of the REST API path: it returns **approved** comments only and does
+**not** expose commenter emails (so no Gravatar). If you need pending/spam
+comments or the emails, export the **WXR** file instead (WordPress → Tools →
+Export → *All content*) — it nests each post's comments under the post, so a
+small converter can map them the same way; the REST script covers the common
+"keep the approved history" case without a database or plugin.
+
 ## Config / secrets
 
 `wrangler pages secret put <NAME>`:

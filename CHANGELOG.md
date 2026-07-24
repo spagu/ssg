@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📥 **Import WordPress comments** (GO-083) — `workers/comments/tools/wordpress-comments.sh`
+  (bash + `curl` + `jq`, no plugin) pulls comments from a WordPress site's public
+  REST API and converts them to the import JSON, building each comment's URL from
+  its post slug (`URL_TEMPLATE`, default `/blog/{slug}/`). It can print the JSON
+  or `--post` it directly (chunked). Documented in the worker README, including
+  the WXR-export fallback for pending/spam comments and emails.
+- ✉️ **Comment email is now required** (GO-083) — the comment form marks email
+  `required` and the worker rejects a submission without a valid email (`422`).
+  Bulk import still treats email as optional (historical data). The i18n labels
+  drop "optional" in all four languages.
+
 - 🔐 **Docs site: Turnstile keys from GitHub secrets** (GO-082) — the docs-site
   deploy workflow now injects the Turnstile **site key** into the config from a
   GitHub secret at build time (the committed test key stays when it's unset), and
@@ -17,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a project setting rather than a secret.
 
 ### Fixed
+- 🐛 **Comments worker fails clean when D1 isn't bound** (GO-083) — every D1-backed
+  endpoint (`GET`/`POST`/admin/import) now returns a JSON `503 comments not
+  configured` instead of throwing a raw Cloudflare `500` when the `COMMENTS_DB`
+  binding is missing. The widget also parses the response defensively, so a
+  server error no longer shows as a misleading "network error".
 - 🐛 **`ssg --deploy=cloudflare` now ships Pages Functions** (GO-082) — when the
   output has a `functions/` tree, SSG deploys via `wrangler pages deploy`, but it
   ran `wrangler pages deploy <output-dir>` from the current directory. wrangler

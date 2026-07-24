@@ -45,6 +45,7 @@ function isoOrNow(raw: unknown): string {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const denied = await requireAdmin(request, env);
   if (denied) return denied;
+  if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
 
   let payload: ImportBody;
   try {

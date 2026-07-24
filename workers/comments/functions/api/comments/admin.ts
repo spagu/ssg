@@ -19,6 +19,7 @@ interface AdminRow {
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const denied = await requireAdmin(request, env);
   if (denied) return denied;
+  if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
 
   const status = new URL(request.url).searchParams.get("status") || "pending";
   if (!["pending", "spam", "approved"].includes(status)) {
@@ -40,6 +41,7 @@ interface Action {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const denied = await requireAdmin(request, env);
   if (denied) return denied;
+  if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
 
   let payload: Action;
   try {
