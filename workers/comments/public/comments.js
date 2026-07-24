@@ -34,6 +34,7 @@
       body: "Your comment", submit: "Post comment",
       sending: "Sending…", thanks: "Thanks — your comment is awaiting review.",
       error: "Could not post your comment.", network: "Network error — please try again.",
+      closed: "Comments are closed for this post.",
     },
     pl: {
       title: "Komentarze", empty: "Brak komentarzy. Bądź pierwszy.",
@@ -42,6 +43,7 @@
       body: "Twój komentarz", submit: "Opublikuj komentarz",
       sending: "Wysyłanie…", thanks: "Dziękujemy — komentarz czeka na moderację.",
       error: "Nie udało się dodać komentarza.", network: "Błąd sieci — spróbuj ponownie.",
+      closed: "Komentarze do tego wpisu są zamknięte.",
     },
     de: {
       title: "Kommentare", empty: "Noch keine Kommentare. Schreiben Sie den ersten.",
@@ -50,6 +52,7 @@
       body: "Ihr Kommentar", submit: "Kommentar absenden",
       sending: "Senden…", thanks: "Danke — Ihr Kommentar wird geprüft.",
       error: "Kommentar konnte nicht gesendet werden.", network: "Netzwerkfehler — bitte erneut versuchen.",
+      closed: "Die Kommentare zu diesem Beitrag sind geschlossen.",
     },
     fr: {
       title: "Commentaires", empty: "Aucun commentaire. Soyez le premier.",
@@ -58,6 +61,7 @@
       body: "Votre commentaire", submit: "Publier le commentaire",
       sending: "Envoi…", thanks: "Merci — votre commentaire est en attente de validation.",
       error: "Impossible de publier votre commentaire.", network: "Erreur réseau — veuillez réessayer.",
+      closed: "Les commentaires sont fermés pour cet article.",
     },
   };
 
@@ -122,7 +126,7 @@
     root.appendChild(list);
   }
 
-  function renderForm(root, cfg, url, t, onPosted) {
+  function renderForm(root, cfg, url, t, published, onPosted) {
     var form = el("form", { class: "ssg-comments-form", novalidate: "" });
     form.appendChild(el("h3", null, t.formTitle));
 
@@ -153,7 +157,8 @@
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          url: url, author: name.value, email: email.value, body: body.value, token: token,
+          url: url, author: name.value, email: email.value, body: body.value,
+          token: token, published: published,
         }),
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -189,20 +194,30 @@
     var root = document.getElementById("ssg-comments");
     if (!root) return;
     var url = root.getAttribute("data-url") || location.pathname;
+    var published = root.getAttribute("data-published") || "";
     var cfg = readConfig();
     var t = strings(cfg);
-    if (cfg.turnstileSiteKey) loadTurnstileScript();
 
-    fetch(cfg.api + "?url=" + encodeURIComponent(url), { headers: { accept: "application/json" } })
+    var q = cfg.api + "?url=" + encodeURIComponent(url);
+    if (published) q += "&published=" + encodeURIComponent(published);
+
+    fetch(q, { headers: { accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : { comments: [], count: 0 }; })
       .then(function (data) {
         root.textContent = "";
         renderList(root, data, t);
-        renderForm(root, cfg, url, t, function () { /* comment pending; list unchanged until approved */ });
+        // A closed thread shows its history but no form.
+        if (data.closed) {
+          root.appendChild(el("p", { class: "ssg-comments-closed" }, t.closed));
+          return;
+        }
+        if (cfg.turnstileSiteKey) loadTurnstileScript();
+        renderForm(root, cfg, url, t, published, function () { /* comment pending; list unchanged until approved */ });
       })
       .catch(function () {
         root.textContent = "";
-        renderForm(root, cfg, url, t);
+        if (cfg.turnstileSiteKey) loadTurnstileScript();
+        renderForm(root, cfg, url, t, published);
       });
   }
 

@@ -51,7 +51,7 @@
              public/; the widget mounts against this post's URL. */}}
         {{ with .Vars.comments }}
         <section class="article prose" id="comments">
-            <div id="ssg-comments" data-url="{{ $.Post.GetURL }}"></div>
+            <div id="ssg-comments" data-url="{{ $.Post.GetURL }}" data-published="{{ $.Post.Date.Format "2006-01-02T15:04:05Z07:00" }}"></div>
             <link rel="stylesheet" href="/comments.css">
             <script id="ssg-comments-config" type="application/json">{{ . | toJSON }}</script>
             <script src="/comments.js" defer></script>

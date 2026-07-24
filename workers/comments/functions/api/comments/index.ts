@@ -9,10 +9,23 @@
 
 import {
   Env, CommentRow, json, sha256hex, verifyTurnstile, normaliseURL, isSpam,
+  closeWindowMs, isClosed,
 } from "./_lib";
 
+// lastActivity is the newest comment on a thread (approved or pending — a
+// held comment is still activity). Null when the thread is empty. Only queried
+// when auto-close is on, so the common path keeps its single SELECT.
+async function lastActivity(env: Env, url: string): Promise<string | null> {
+  const row = await env.COMMENTS_DB.prepare(
+    `SELECT MAX(created_at) AS last FROM comments
+       WHERE url = ? AND status IN ('approved', 'pending')`,
+  ).bind(url).first<{ last: string | null }>();
+  return row?.last ?? null;
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const url = normaliseURL(new URL(request.url).searchParams.get("url"));
+  const params = new URL(request.url).searchParams;
+  const url = normaliseURL(params.get("url"));
   if (!url) return json({ error: "a valid ?url= is required" }, 400);
 
   const order = env.COMMENTS_ORDER === "oldest" ? "ASC" : "DESC";
@@ -22,7 +35,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
        ORDER BY created_at ${order} LIMIT 500`,
   ).bind(url).all<CommentRow>();
 
-  return json({ url, count: results.length, comments: results });
+  // Report whether the thread is closed so the widget can hide the form. The
+  // publish date (server-rendered into the widget) anchors an empty thread.
+  const windowMs = closeWindowMs(env);
+  const closed = windowMs > 0 && isClosed(windowMs, await lastActivity(env, url), params.get("published"));
+
+  return json({ url, count: results.length, comments: results, closed });
 };
 
 interface Body {
@@ -31,6 +49,7 @@ interface Body {
   email?: string;
   body?: string;
   token?: string; // Turnstile response
+  published?: string; // post publish date, anchors auto-close for an empty thread
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -47,6 +66,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const body = (payload.body || "").trim().slice(0, 5000);
   if (!url || !author || !body) {
     return json({ error: "url, author and body are required" }, 422);
+  }
+
+  // Refuse a closed thread before spending a Turnstile verification.
+  const windowMs = closeWindowMs(env);
+  if (windowMs > 0 && isClosed(windowMs, await lastActivity(env, url), payload.published || null)) {
+    return json({ error: "comments closed" }, 403);
   }
 
   const ip = request.headers.get("cf-connecting-ip");

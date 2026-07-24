@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔒 **Auto-close idle comment threads** (GO-078) — a new
+  `COMMENTS_CLOSE_AFTER_DAYS` var stops a thread accepting comments once that
+  many days have passed since its last activity (the newest comment, or the
+  post's publish date while it has none). Active discussions stay open; a post
+  nobody has touched for a month locks itself. `GET /api/comments` reports
+  `"closed"`, the widget then hides the form and shows a localised "Comments are
+  closed" notice (existing comments stay visible), and `POST` returns `403
+  comments closed` — checked before spending a Turnstile verification. The theme
+  renders the post's publish date so empty old threads close too. `0`/unset
+  keeps the previous always-open behaviour.
 - 📥 **Bulk comment import** (GO-078) — an admin-only `POST /api/comments/import`
   takes normalised JSON (an array of `{url, author, body, email?, created_at?,
   status?}`) so a migration from Disqus, WordPress, Commento or a spreadsheet

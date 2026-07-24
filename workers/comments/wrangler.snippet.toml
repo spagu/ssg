@@ -6,9 +6,10 @@
 # database_id = "<paste-d1-database-id>"
 
 # [vars]
-# COMMENTS_ORDER = "newest"     # "newest" (default) or "oldest"
-# COMMENTS_RETENTION_DAYS = "0" # 0 = keep forever; N = purge spam/pending older than N days
-# COMMENTS_AKISMET_URL = ""     # e.g. "https://<key>.rest.akismet.com/1.1/comment-check"
+# COMMENTS_ORDER = "newest"       # "newest" (default) or "oldest"
+# COMMENTS_CLOSE_AFTER_DAYS = "0" # 0 = never; N = stop accepting comments N days after the last activity
+# COMMENTS_RETENTION_DAYS = "0"   # 0 = keep forever; N = purge spam/pending older than N days
+# COMMENTS_AKISMET_URL = ""       # e.g. "https://<key>.rest.akismet.com/1.1/comment-check"
 
 # Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
 #   TURNSTILE_SECRET        Cloudflare Turnstile secret (required for POST)

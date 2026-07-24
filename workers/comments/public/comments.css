@@ -49,6 +49,14 @@
   color: #64748b;
 }
 
+.ssg-comments-closed {
+  color: #64748b;
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.5rem;
+}
+
 .ssg-comments-form {
   display: grid;
   gap: 0.75rem;
@@ -117,8 +125,12 @@
     border-color: #334155;
   }
   .ssg-comment-date,
-  .ssg-comments-empty {
+  .ssg-comments-empty,
+  .ssg-comments-closed {
     color: #94a3b8;
+  }
+  .ssg-comments-closed {
+    border-color: #475569;
   }
   .ssg-comments-form {
     border-color: #334155;

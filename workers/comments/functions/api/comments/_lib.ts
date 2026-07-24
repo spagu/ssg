@@ -7,6 +7,7 @@ export interface Env {
   COMMENTS_ADMIN_PASSWORD?: string;
   COMMENTS_IP_SALT?: string;
   COMMENTS_ORDER?: string; // "newest" | "oldest"
+  COMMENTS_CLOSE_AFTER_DAYS?: string; // auto-close a thread after N days of inactivity (0/unset = never)
   COMMENTS_AKISMET_KEY?: string;
   COMMENTS_AKISMET_URL?: string;
 }
@@ -51,6 +52,31 @@ export function normaliseURL(raw: unknown): string | null {
   if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) return null;
   const clean = raw.split(/[?#]/)[0].slice(0, 512);
   return clean || null;
+}
+
+// Auto-close window in milliseconds (0 = never), from COMMENTS_CLOSE_AFTER_DAYS.
+export function closeWindowMs(env: Env): number {
+  const days = parseInt(env.COMMENTS_CLOSE_AFTER_DAYS || "0", 10);
+  return Number.isFinite(days) && days > 0 ? days * 86400000 : 0;
+}
+
+// isClosed decides whether a thread still accepts comments. It closes once the
+// window has elapsed since the thread's last activity, where "activity" is the
+// newest comment or — for a thread with none yet — the post's publish date.
+// Taking the newest of the two means a recent comment (or a recent post) keeps
+// the thread open, and a post with no comments and no known date stays open so
+// the first comment is always possible.
+export function isClosed(windowMs: number, lastActivityISO: string | null, publishedISO: string | null): boolean {
+  if (windowMs <= 0) return false;
+  const anchors: number[] = [];
+  for (const iso of [lastActivityISO, publishedISO]) {
+    if (typeof iso === "string") {
+      const t = Date.parse(iso);
+      if (!Number.isNaN(t)) anchors.push(t);
+    }
+  }
+  if (!anchors.length) return false;
+  return Date.now() - Math.max(...anchors) > windowMs;
 }
 
 // A cheap heuristic spam score (0..1) for when Akismet is not configured:

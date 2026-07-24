@@ -145,7 +145,20 @@ rather than failing the whole batch.
 | Var | Effect |
 |---|---|
 | `COMMENTS_ORDER` | `newest` (default) or `oldest` |
+| `COMMENTS_CLOSE_AFTER_DAYS` | auto-close a thread `N` days after its last activity (`0` = never) |
 | `COMMENTS_AKISMET_URL` | Akismet endpoint, paired with the key |
+
+### Auto-closing old threads
+
+Set `COMMENTS_CLOSE_AFTER_DAYS` (e.g. `30`) and a thread stops accepting new
+comments once that many days have passed **since its last activity** — the
+newest comment, or the post's publish date while it has no comments yet. So a
+lively discussion stays open as long as people keep replying, and a post nobody
+has touched for a month locks itself. The widget hides the form and shows
+"Comments are closed for this post." on a closed thread (`GET` returns
+`"closed": true`); existing comments stay visible. The publish date comes from
+the theme (ssgtheme renders `data-published` on the widget), so empty old posts
+close correctly too.
 
 ## Compliance notes
 
