@@ -203,7 +203,7 @@ does this and is a working example:
    ```yaml
    - name: Inject Turnstile site key
      env:
-       TURNSTILE_SITE_KEY: ${{ secrets.turnstile_site_key }}
+       TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
      run: |
        [ -n "$TURNSTILE_SITE_KEY" ] &&
          sed -i "s|turnstileSiteKey: \".*\"|turnstileSiteKey: \"$TURNSTILE_SITE_KEY\"|" docs-site.yaml
@@ -216,7 +216,7 @@ does this and is a working example:
    ```yaml
    - name: Sync secrets to the Pages project
      env:
-       TURNSTILE_SECRET: ${{ secrets.turnstile_secret }}
+       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
      run: printf '%s' "$TURNSTILE_SECRET" |
        npx wrangler pages secret put TURNSTILE_SECRET --project-name "$PROJECT"
    ```
