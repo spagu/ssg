@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🗄️ **Comments worker self-initialises its D1 schema** (GO-083) — the worker
+  creates its `comments` table (and indexes) on first use, so binding the D1
+  database is the only setup step — no manual `wrangler d1 execute`. The
+  statements are `IF NOT EXISTS` and run once per isolate, so it's a no-op
+  thereafter; `schema.sql` stays for anyone who prefers to apply it by hand.
 - 📥 **Import WordPress comments** (GO-083) — `workers/comments/tools/wordpress-comments.sh`
   (bash + `curl` + `jq`, no plugin) pulls comments from a WordPress site's public
   REST API and converts them to the import JSON, building each comment's URL from

@@ -11,6 +11,7 @@ import {
   Env, CommentRow, json, sha256hex, verifyTurnstile, normaliseURL, isSpam,
   closeWindowMs, isClosed,
 } from "./_lib";
+import { ensureSchema } from "./_schema";
 
 // lastActivity is the newest comment on a thread (approved or pending — a
 // held comment is still activity). Null when the thread is empty. Only queried
@@ -27,6 +28,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   // Fail clean (JSON 503) rather than throwing an unhandled exception (a raw
   // Cloudflare 500) when the D1 binding is missing — e.g. before it's wired.
   if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
+  await ensureSchema(env);
 
   const params = new URL(request.url).searchParams;
   const url = normaliseURL(params.get("url"));
@@ -70,6 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.COMMENTS_DB || !env.TURNSTILE_SECRET) {
     return json({ error: "comments not configured" }, 503);
   }
+  await ensureSchema(env);
 
   const url = normaliseURL(payload.url);
   const author = (payload.author || "").trim().slice(0, 80);
