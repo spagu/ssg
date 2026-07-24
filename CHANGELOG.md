@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.13] - 2026-07-24
+
 ### Added
 - 🔑 **Comments moderation behind Cloudflare Access (SSO/JWT)** (GO-081) — an
   alternative to the shared moderation password: set `COMMENTS_ACCESS_TEAM` and
