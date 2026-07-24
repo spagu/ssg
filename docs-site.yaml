@@ -89,6 +89,23 @@ mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"
 
+# Worker client assets live at the site root (/comments.js, /cookie-consent.js,
+# …) and are updated in place — so they must NOT get the default one-year,
+# immutable asset cache, or a browser keeps a stale copy for a year. Serve them
+# revalidating: the etag is checked on each load (a 304 when unchanged), so a
+# widget update propagates on the next visit.
+headers:
+  /comments.js:
+    Cache-Control: "public, max-age=0, must-revalidate"
+  /comments.css:
+    Cache-Control: "public, max-age=0, must-revalidate"
+  /comments-admin.html:
+    Cache-Control: "public, max-age=0, must-revalidate"
+  /cookie-consent.js:
+    Cache-Control: "public, max-age=0, must-revalidate"
+  /cookie-consent.css:
+    Cache-Control: "public, max-age=0, must-revalidate"
+
 variables:
   project_name: SSG
   repository_url: https://github.com/spagu/ssg
