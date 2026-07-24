@@ -39,8 +39,12 @@ at `/comments-admin.html`.
 ```sh
 npx wrangler d1 create ssg-comments
 # paste the id into workers/comments/wrangler.snippet.toml (uncomment the block)
-npx wrangler d1 execute ssg-comments --file=workers/comments/schema.sql --remote
 ```
+
+That's the only step — the worker **creates its table on first use**, so once the
+`COMMENTS_DB` binding is in place it just works, with no separate schema command.
+(To seed the table by hand instead, apply `schema.sql`:
+`npx wrangler d1 execute ssg-comments --file=workers/comments/schema.sql --remote`.)
 
 `ssg new wrangler` folds the D1 binding stub into your `wrangler.toml`.
 
