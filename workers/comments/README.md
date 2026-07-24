@@ -181,6 +181,62 @@ has touched for a month locks itself. The widget hides the form and shows
 the theme (ssgtheme renders `data-published` on the widget), so empty old posts
 close correctly too.
 
+## Wiring keys from CI (GitHub Actions)
+
+To keep keys out of the repo, feed them from **GitHub Actions secrets** at deploy
+time. There are three kinds of value, and they go to three different places —
+not all of them are "secrets":
+
+| Value | Kind | Where it goes | How |
+|---|---|---|---|
+| Turnstile **site key** | public (ships in the page) | into the build config | inject at build (see below) |
+| Turnstile **secret**, admin password, IP salt | secret | the Pages **project** | `wrangler pages secret put` (persists) |
+| D1 database | a **binding**, not a secret | the Pages **project** | bind once (dashboard/API) + apply the schema |
+
+The SSG documentation site's own workflow (`.github/workflows/docs-site.yml`)
+does this and is a working example:
+
+1. **Site key** — a step rewrites `turnstileSiteKey` in the config from a GitHub
+   secret before building; if the secret is unset, the committed demo/test key
+   stays, so the build never breaks:
+
+   ```yaml
+   - name: Inject Turnstile site key
+     env:
+       TURNSTILE_SITE_KEY: ${{ secrets.turnstile_site_key }}
+     run: |
+       [ -n "$TURNSTILE_SITE_KEY" ] &&
+         sed -i "s|turnstileSiteKey: \".*\"|turnstileSiteKey: \"$TURNSTILE_SITE_KEY\"|" docs-site.yaml
+   ```
+
+2. **Server secrets** — a step pushes them onto the Pages project. Pages secrets
+   persist across deploys, so this just re-asserts them (and skips any that
+   aren't set):
+
+   ```yaml
+   - name: Sync secrets to the Pages project
+     env:
+       TURNSTILE_SECRET: ${{ secrets.turnstile_secret }}
+     run: printf '%s' "$TURNSTILE_SECRET" |
+       npx wrangler pages secret put TURNSTILE_SECRET --project-name "$PROJECT"
+   ```
+
+   Needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in the job env.
+
+3. **D1 is not a secret.** A database binding is a project setting, so **nothing
+   goes into GitHub secrets for D1**. Set it up once:
+
+   ```sh
+   npx wrangler d1 create ssg-comments          # note the database_id it prints
+   npx wrangler d1 execute ssg-comments --remote --file=workers/comments/schema.sql
+   ```
+
+   Then bind it as `COMMENTS_DB` on the Pages project — either in the dashboard
+   (Workers & Pages → *project* → Settings → Functions → **D1 database bindings**
+   → variable `COMMENTS_DB` → your database), or via the Pages API in CI (the
+   only datum you'd add to GitHub is the non-secret **database_id**, best kept as
+   a repository *Variable*). The binding persists across deploys.
+
 ## Compliance notes
 
 The `ip_hash` and `user_agent` columns exist to answer abuse reports and to

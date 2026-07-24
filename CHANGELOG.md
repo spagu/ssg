@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🔐 **Docs site: Turnstile keys from GitHub secrets** (GO-082) — the docs-site
+  deploy workflow now injects the Turnstile **site key** into the config from a
+  GitHub secret at build time (the committed test key stays when it's unset), and
+  pushes the **secret key** (plus optional moderation password / IP salt) onto
+  the Pages project via `wrangler pages secret put`, so no keys live in the repo.
+  The comments worker README documents the pattern, including that a D1 binding
+  is a project setting rather than a secret.
+
 ### Fixed
 - 🐛 **`ssg --deploy=cloudflare` now ships Pages Functions** (GO-082) — when the
   output has a `functions/` tree, SSG deploys via `wrangler pages deploy`, but it
