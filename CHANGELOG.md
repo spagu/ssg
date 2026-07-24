@@ -11,7 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🚦 **One pending comment per person per thread** (GO-083) — a visitor who
   already has a comment awaiting review on a page can't stack up more (`429`);
   they can add another once theirs is moderated (approved, spam, or deleted).
-  Keyed on the now-required email, case-insensitively, per URL.
+  Keyed on the now-required email, case-insensitively, per URL. The widget also
+  **hides the form after you post and keeps it hidden until your comment is
+  approved** (remembered client-side per URL, with a 14-day fallback), instead of
+  re-showing an empty form.
 - 🗄️ **Comments worker self-initialises its D1 schema** (GO-083) — the worker
   creates its `comments` table (and indexes) on first use, so binding the D1
   database is the only setup step — no manual `wrangler d1 execute`. The
