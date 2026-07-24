@@ -172,12 +172,16 @@
         })
         .then(function (res) {
           if (res.ok) {
-            form.reset();
-            status.textContent = t.thanks;
+            // Posted → remember it and replace the form with the "awaiting
+            // review" notice, so the visitor can't stack up comments. It stays
+            // hidden (across reloads) until this comment is approved.
+            setPending(url, body.value.trim().slice(0, 5000));
+            var notice = el("p", { class: "ssg-comments-closed" }, t.thanks);
+            if (form.parentNode) form.parentNode.replaceChild(notice, form);
             if (onPosted) onPosted();
-          } else {
-            status.textContent = (res.d && res.d.error) || (t.error + " (" + res.status + ")");
+            return;
           }
+          status.textContent = (res.d && res.d.error) || (t.error + " (" + res.status + ")");
         })
         .catch(function () { status.textContent = t.network; })
         .finally(function () {
@@ -196,6 +200,26 @@
     s.async = true;
     s.defer = true;
     document.head.appendChild(s);
+  }
+
+  // Remember a comment the visitor posted here, so the form stays hidden until
+  // it's approved. Stored per-URL with a 14-day TTL so a comment that is never
+  // approved (e.g. rejected as spam) doesn't hide the form forever.
+  function pendingKey(url) { return "ssgc-pending:" + url; }
+  function getPending(url) {
+    try {
+      var raw = localStorage.getItem(pendingKey(url));
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (!o || Date.now() - (o.t || 0) > 14 * 864e5) { clearPending(url); return null; }
+      return o.b || null;
+    } catch (e) { return null; }
+  }
+  function setPending(url, body) {
+    try { localStorage.setItem(pendingKey(url), JSON.stringify({ b: body, t: Date.now() })); } catch (e) { /* ignore */ }
+  }
+  function clearPending(url) {
+    try { localStorage.removeItem(pendingKey(url)); } catch (e) { /* ignore */ }
   }
 
   function mount() {
@@ -218,6 +242,17 @@
         if (data.closed) {
           root.appendChild(el("p", { class: "ssg-comments-closed" }, t.closed));
           return;
+        }
+        // The visitor already posted here and it's awaiting review: keep the
+        // form hidden until that comment is approved (shows up in the list).
+        var mine = getPending(url);
+        if (mine) {
+          if (data.comments.some(function (c) { return c.body === mine; })) {
+            clearPending(url); // approved now → they may post again
+          } else {
+            root.appendChild(el("p", { class: "ssg-comments-closed" }, t.thanks));
+            return;
+          }
         }
         if (cfg.turnstileSiteKey) loadTurnstileScript();
         renderForm(root, cfg, url, t, published, function () { /* comment pending; list unchanged until approved */ });
