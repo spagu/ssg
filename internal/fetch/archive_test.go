@@ -45,7 +45,7 @@ func TestArchiveExtractsAndStripsWrapper(t *testing.T) {
 	defer srv.Close()
 
 	dest := filepath.Join(t.TempDir(), "worker")
-	if err := Archive(srv.URL+"/x.zip", Auth{Type: "bearer", Token: "tok"}, dest); err != nil {
+	if err := Archive(srv.URL+"/x.zip", Auth{Type: "bearer", Token: "tok"}, dest, Options{}); err != nil {
 		t.Fatalf("Archive: %v", err)
 	}
 	if gotAuth != "Bearer tok" {
@@ -65,7 +65,7 @@ func TestArchiveRejectsPathEscape(t *testing.T) {
 		_, _ = w.Write(zipped)
 	}))
 	defer srv.Close()
-	err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w"))
+	err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w"), Options{})
 	if err == nil || !strings.Contains(err.Error(), "escape") {
 		t.Fatalf("path escape not rejected: %v", err)
 	}
@@ -76,14 +76,14 @@ func TestArchiveHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer srv.Close()
-	err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w"))
+	err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w"), Options{})
 	if err == nil || !strings.Contains(err.Error(), "401") {
 		t.Fatalf("HTTP error not surfaced: %v", err)
 	}
 }
 
 func TestArchiveRejectsTarball(t *testing.T) {
-	if err := Archive("https://example.com/x.tar.gz", Auth{}, t.TempDir()); err == nil ||
+	if err := Archive("https://example.com/x.tar.gz", Auth{}, t.TempDir(), Options{}); err == nil ||
 		!strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("tarball not rejected: %v", err)
 	}

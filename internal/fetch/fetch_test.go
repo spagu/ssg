@@ -5,7 +5,61 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+// A transient failure (5xx) is retried; a 4xx is not.
+func TestBytes_RetryPolicy(t *testing.T) {
+	t.Run("retries 5xx then succeeds", func(t *testing.T) {
+		var calls int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls++
+			if calls < 3 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			_, _ = w.Write([]byte("ok"))
+		}))
+		defer srv.Close()
+		body, err := Bytes(srv.URL, Auth{}, 0, Options{Retries: 3, RetryDelay: time.Millisecond})
+		if err != nil || string(body) != "ok" {
+			t.Fatalf("retry-then-succeed: body=%q err=%v (calls=%d)", body, err, calls)
+		}
+		if calls != 3 {
+			t.Fatalf("expected 3 attempts, got %d", calls)
+		}
+	})
+
+	t.Run("does not retry a 404", func(t *testing.T) {
+		var calls int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls++
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer srv.Close()
+		if _, err := Bytes(srv.URL, Auth{}, 0, Options{Retries: 5, RetryDelay: time.Millisecond}); err == nil {
+			t.Fatal("expected an error for 404")
+		}
+		if calls != 1 {
+			t.Fatalf("a 404 must not be retried, got %d attempts", calls)
+		}
+	})
+
+	t.Run("gives up after exhausting retries", func(t *testing.T) {
+		var calls int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls++
+			w.WriteHeader(http.StatusBadGateway)
+		}))
+		defer srv.Close()
+		if _, err := Bytes(srv.URL, Auth{}, 0, Options{Retries: 2, RetryDelay: time.Millisecond}); err == nil {
+			t.Fatal("expected an error after retries")
+		}
+		if calls != 3 { // 1 initial + 2 retries
+			t.Fatalf("expected 3 attempts, got %d", calls)
+		}
+	})
+}
 
 func TestExpandAuth(t *testing.T) {
 	t.Setenv("TK", "secret-token")
@@ -67,7 +121,7 @@ func TestBytesSendsAuthAndCaps(t *testing.T) {
 	defer srv.Close()
 
 	t.Run("bearer header is sent, body returned", func(t *testing.T) {
-		body, err := Bytes(srv.URL+"/ok", Auth{Type: "bearer", Token: "tok"}, 0)
+		body, err := Bytes(srv.URL+"/ok", Auth{Type: "bearer", Token: "tok"}, 0, Options{})
 		if err != nil {
 			t.Fatalf("Bytes: %v", err)
 		}
@@ -79,7 +133,7 @@ func TestBytesSendsAuthAndCaps(t *testing.T) {
 		}
 	})
 	t.Run("header auth", func(t *testing.T) {
-		if _, err := Bytes(srv.URL+"/ok", Auth{Type: "header", Header: "X-Api-Key", Value: "k"}, 0); err != nil {
+		if _, err := Bytes(srv.URL+"/ok", Auth{Type: "header", Header: "X-Api-Key", Value: "k"}, 0, Options{}); err != nil {
 			t.Fatal(err)
 		}
 		if gotKey != "k" {
@@ -87,17 +141,17 @@ func TestBytesSendsAuthAndCaps(t *testing.T) {
 		}
 	})
 	t.Run("size cap", func(t *testing.T) {
-		if _, err := Bytes(srv.URL+"/big", Auth{}, 1024); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		if _, err := Bytes(srv.URL+"/big", Auth{}, 1024, Options{}); err == nil || !strings.Contains(err.Error(), "exceeds") {
 			t.Errorf("oversize not rejected: %v", err)
 		}
 	})
 	t.Run("non-200 is an error", func(t *testing.T) {
-		if _, err := Bytes(srv.URL+"/404", Auth{}, 0); err == nil || !strings.Contains(err.Error(), "404") {
+		if _, err := Bytes(srv.URL+"/404", Auth{}, 0, Options{}); err == nil || !strings.Contains(err.Error(), "404") {
 			t.Errorf("404 not reported: %v", err)
 		}
 	})
 	t.Run("query string kept out of errors", func(t *testing.T) {
-		_, err := Bytes(srv.URL+"/404?token=leakme", Auth{}, 0)
+		_, err := Bytes(srv.URL+"/404?token=leakme", Auth{}, 0, Options{})
 		if err == nil || strings.Contains(err.Error(), "leakme") {
 			t.Errorf("query leaked into error: %v", err)
 		}
@@ -122,7 +176,7 @@ func TestBytes_StripsAuthOnCrossHostRedirect(t *testing.T) {
 
 	t.Run("header auth is not forwarded off-origin", func(t *testing.T) {
 		attackerSawKey, attackerSawAuth = "", ""
-		if _, err := Bytes(origin.URL+"/", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0); err != nil {
+		if _, err := Bytes(origin.URL+"/", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0, Options{}); err != nil {
 			t.Fatalf("Bytes: %v", err)
 		}
 		if attackerSawKey != "" {
@@ -132,7 +186,7 @@ func TestBytes_StripsAuthOnCrossHostRedirect(t *testing.T) {
 
 	t.Run("bearer auth is not forwarded off-origin", func(t *testing.T) {
 		attackerSawKey, attackerSawAuth = "", ""
-		if _, err := Bytes(origin.URL+"/", Auth{Type: "bearer", Token: "SECRET"}, 0); err != nil {
+		if _, err := Bytes(origin.URL+"/", Auth{Type: "bearer", Token: "SECRET"}, 0, Options{}); err != nil {
 			t.Fatalf("Bytes: %v", err)
 		}
 		if attackerSawAuth != "" {
@@ -154,7 +208,7 @@ func TestBytes_KeepsAuthOnSameHostRedirect(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer srv.Close()
-	if _, err := Bytes(srv.URL+"/start", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0); err != nil {
+	if _, err := Bytes(srv.URL+"/start", Auth{Type: "header", Header: "X-Api-Key", Value: "SECRET"}, 0, Options{}); err != nil {
 		t.Fatalf("Bytes: %v", err)
 	}
 	if got != "SECRET" {

@@ -159,3 +159,41 @@ func TestIncludeMissingFile(t *testing.T) {
 		t.Fatalf("missing include not reported: %v", err)
 	}
 }
+
+// on_error: warn lets a build continue without an unreachable remote include,
+// keeping the main file's own content; the default (fail) surfaces the error.
+func TestIncludeOnErrorWarnAndFail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	dir := t.TempDir()
+
+	// warn + retries:0 → no fail, no delay; main content preserved.
+	warn := writeYAML(t, dir, "warn.ssg.yaml",
+		"include:\n  - url: "+srv.URL+"/missing.yaml\n    on_error: warn\n    retries: 0\ntemplate: t\ndomain: x\n")
+	cfg, err := Load(warn)
+	if err != nil {
+		t.Fatalf("on_error: warn should not fail the build: %v", err)
+	}
+	if cfg.Template != "t" {
+		t.Errorf("main content lost through a warned include: %+v", cfg.Template)
+	}
+
+	// default (fail) → error.
+	fail := writeYAML(t, dir, "fail.ssg.yaml",
+		"include:\n  - url: "+srv.URL+"/missing.yaml\n    retries: 0\ntemplate: t\ndomain: x\n")
+	if _, err := Load(fail); err == nil {
+		t.Fatal("a failing include with default on_error should fail the build")
+	}
+}
+
+// on_error must be fail or warn; anything else is a config error.
+func TestIncludeOnErrorInvalid(t *testing.T) {
+	dir := t.TempDir()
+	main := writeYAML(t, dir, ".ssg.yaml",
+		"include:\n  - url: https://example.com/x.yaml\n    on_error: maybe\ntemplate: t\ndomain: x\n")
+	if _, err := Load(main); err == nil || !strings.Contains(err.Error(), "on_error") {
+		t.Fatalf("invalid on_error not reported: %v", err)
+	}
+}

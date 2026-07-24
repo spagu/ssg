@@ -56,7 +56,7 @@ func TestBasicAuthReachesServer(t *testing.T) {
 		_, _ = w.Write([]byte("x: 1\n"))
 	}))
 	defer srv.Close()
-	if _, err := Bytes(srv.URL, Auth{Type: "basic", Username: "me", Password: "pw"}, 0); err != nil {
+	if _, err := Bytes(srv.URL, Auth{Type: "basic", Username: "me", Password: "pw"}, 0, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if !ok || u != "me" || p != "pw" {
@@ -65,7 +65,7 @@ func TestBasicAuthReachesServer(t *testing.T) {
 }
 
 func TestBytesInvalidURL(t *testing.T) {
-	if _, err := Bytes("://not-a-url", Auth{}, 0); err == nil {
+	if _, err := Bytes("://not-a-url", Auth{}, 0, Options{}); err == nil {
 		t.Fatal("malformed URL accepted")
 	}
 }
@@ -84,7 +84,7 @@ func TestArchiveSizeCap(t *testing.T) {
 	old := maxArchiveBytes
 	maxArchiveBytes = 512
 	defer func() { maxArchiveBytes = old }()
-	if err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w")); err == nil ||
+	if err := Archive(srv.URL+"/x.zip", Auth{}, filepath.Join(t.TempDir(), "w"), Options{}); err == nil ||
 		!strings.Contains(err.Error(), "exceeds") {
 		t.Fatalf("oversize archive not rejected: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestArchiveNoWrapperWhenMixedTops(t *testing.T) {
 	defer srv.Close()
 
 	dest := filepath.Join(t.TempDir(), "w")
-	if err := Archive(srv.URL+"/x.zip", Auth{}, dest); err != nil {
+	if err := Archive(srv.URL+"/x.zip", Auth{}, dest, Options{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{"a/one.txt", "b/two.txt"} {

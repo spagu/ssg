@@ -64,6 +64,28 @@ Remote includes reuse the auth model below: `type` is `bearer`, `basic`
 (`username` + `password`) or `header` (`header` name + `value`), and every
 secret field must reference an environment variable.
 
+A remote include can also tune its own fetch. All four are optional and fall
+back to the defaults shown:
+
+```yaml
+include:
+  - url: https://config.example.com/base.yaml
+    auth: { type: bearer, token: $CONFIG_TOKEN }
+    timeout: 30s        # per-attempt timeout (default 30s)
+    retries: 3          # extra attempts on a transient failure (default 3; 0 disables)
+    retry_delay: 5s     # wait between attempts (default 5s)
+    on_error: fail      # fail the build (default) or warn and continue without it
+```
+
+- A transient failure — a network/transport error or an HTTP `429`/`5xx` — is
+  retried up to `retries` times, `retry_delay` apart. A `4xx` (missing,
+  forbidden) is **not** retried, since it will not recover.
+- `on_error: warn` prints a warning and continues the build without that
+  include, so an optional or occasionally-unreachable remote config doesn't
+  block a publish. `on_error: fail` (the default) stops the build.
+- `timeout`/`retry_delay` accept a Go duration (`30s`, `1m`) or a plain number
+  of seconds. Remote worker `source:` archives use the same defaults.
+
 ```yaml
 source: my-blog
 template: simple

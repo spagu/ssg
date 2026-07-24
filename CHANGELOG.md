@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ⏱️ **Configurable fetch: `timeout`, `retries`, `retry_delay`, `on_error`**
+  (GO-081) — a remote `include:` (and remote worker `source:`) previously had a
+  fixed 30s timeout, no retry, and any failure hard-failed the build. Each remote
+  include can now set its own `timeout`, `retries` (default 3), `retry_delay`
+  (default 5s) and `on_error` (`fail`, the default, or `warn` to continue without
+  it). A transient failure (network error, HTTP 429/5xx) is retried; a 4xx is
+  not. Absent keys use the defaults, so existing configs keep working.
 - 🚀 **`republish-trigger` worker** (GO-080) — one authenticated webhook,
   `POST /api/republish`, that fires a CI build on **GitHub**, **GitLab** or
   **Gitea**, so a headless-CMS "published" webhook, a cron or a `curl` redeploys

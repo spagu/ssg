@@ -198,7 +198,7 @@ func (g *Generator) resolveWorkerDir(w WorkerConfig, label string) (string, erro
 		return "", fmt.Errorf("worker %s: %w", label, err)
 	}
 	g.log(fmt.Sprintf("   📥 worker %s: fetching %s", label, w.Source))
-	if err := fetch.Archive(w.Source, auth, dir); err != nil {
+	if err := fetch.Archive(w.Source, auth, dir, fetch.DefaultOptions()); err != nil {
 		return "", fmt.Errorf("worker %s: %w", label, err)
 	}
 	return dir, nil

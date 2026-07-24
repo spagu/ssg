@@ -19,12 +19,45 @@ import (
 )
 
 const (
-	timeout      = 30 * time.Second
-	maxRedirects = 5
+	defaultTimeout    = 30 * time.Second
+	defaultRetryDelay = 5 * time.Second
+	maxRedirects      = 5
 	// DefaultMaxBytes caps a single config include; generous for YAML, small
 	// enough that a runaway URL cannot exhaust memory.
 	DefaultMaxBytes int64 = 5 * 1024 * 1024
 )
+
+// Options tune a fetch. The zero value is a single attempt with the default
+// timeout and no retry, so callers that don't care pass Options{}.
+type Options struct {
+	Timeout    time.Duration // per-attempt timeout; 0 → defaultTimeout
+	Retries    int           // extra attempts after the first on a transient failure; 0 → no retry
+	RetryDelay time.Duration // wait between attempts; 0 → defaultRetryDelay when Retries > 0
+}
+
+func (o Options) timeout() time.Duration {
+	if o.Timeout > 0 {
+		return o.Timeout
+	}
+	return defaultTimeout
+}
+
+func (o Options) retryDelay() time.Duration {
+	if o.RetryDelay > 0 {
+		return o.RetryDelay
+	}
+	return defaultRetryDelay
+}
+
+// DefaultRetries is the retry count applied when a config does not set one.
+const DefaultRetries = 3
+
+// DefaultOptions is the fetch policy used when a config specifies none: a 30s
+// timeout with up to 3 retries, 5s apart. Callers layer any user-set values on
+// top (see config includes and remote worker sources).
+func DefaultOptions() Options {
+	return Options{Timeout: defaultTimeout, Retries: DefaultRetries, RetryDelay: defaultRetryDelay}
+}
 
 // Auth authenticates a fetch. Type is "" (none), "bearer", "basic" or "header".
 // Secret fields hold already-resolved values (see ExpandAuth); Username and
@@ -105,7 +138,7 @@ func expandSecret(field, value string) (string, error) {
 // Authorization across a *different domain*, so without this a configured server
 // could 302 a private-source credential to an attacker host (or downgrade to
 // http and leak a bearer/basic token in cleartext).
-func client(auth Auth) *http.Client {
+func client(auth Auth, timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -128,35 +161,72 @@ func client(auth Auth) *http.Client {
 }
 
 // Bytes fetches url with auth and returns the body, refusing a response larger
-// than maxBytes (0 uses DefaultMaxBytes). Used for config includes.
-func Bytes(url string, auth Auth, maxBytes int64) ([]byte, error) {
+// than maxBytes (0 uses DefaultMaxBytes). opts tunes the timeout and retries:
+// a transient failure (transport error, HTTP 429/5xx) is retried up to
+// opts.Retries times with opts.RetryDelay between attempts; a 4xx (missing,
+// forbidden) is not retried since it will not recover. Used for config includes.
+func Bytes(url string, auth Auth, maxBytes int64, opts Options) ([]byte, error) {
 	if maxBytes <= 0 {
 		maxBytes = DefaultMaxBytes
 	}
+	attempts := opts.Retries + 1
+	if attempts < 1 {
+		attempts = 1
+	}
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		body, retriable, err := fetchOnce(url, auth, maxBytes, opts.timeout())
+		if err == nil {
+			return body, nil
+		}
+		lastErr = err
+		if !retriable || attempt == attempts {
+			break
+		}
+		time.Sleep(opts.retryDelay())
+	}
+	if attempts > 1 {
+		return nil, fmt.Errorf("after %d attempts: %w", attempts, lastErr)
+	}
+	return nil, lastErr
+}
+
+// fetchOnce performs a single attempt. retriable reports whether a caller should
+// try again: true for a transport error or an HTTP 429/5xx, false for a 4xx or a
+// success. A body over the size cap is a hard failure (not retriable).
+func fetchOnce(url string, auth Auth, maxBytes int64, timeout time.Duration) (body []byte, retriable bool, err error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("invalid url %q: %w", url, err)
+		return nil, false, fmt.Errorf("invalid url %q: %w", url, err)
 	}
 	if err := auth.apply(req); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	resp, err := client(auth).Do(req) // #nosec G107 -- url comes from the user's own config include
+	resp, err := client(auth, timeout).Do(req) // #nosec G107 -- url comes from the user's own config include
 	if err != nil {
-		return nil, fmt.Errorf("fetching %s: %w", safeURL(url), err)
+		return nil, true, fmt.Errorf("fetching %s: %w", safeURL(url), err) // transport error: retriable
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetching %s: HTTP %d", safeURL(url), resp.StatusCode)
+		return nil, isRetriableStatus(resp.StatusCode),
+			fmt.Errorf("fetching %s: HTTP %d", safeURL(url), resp.StatusCode)
 	}
 	// +1 so a body exactly at the cap is still detected as over.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	body, err = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", safeURL(url), err)
+		return nil, true, fmt.Errorf("reading %s: %w", safeURL(url), err) // mid-stream error: retriable
 	}
 	if int64(len(body)) > maxBytes {
-		return nil, fmt.Errorf("%s exceeds %d bytes; refusing", safeURL(url), maxBytes)
+		return nil, false, fmt.Errorf("%s exceeds %d bytes; refusing", safeURL(url), maxBytes)
 	}
-	return body, nil
+	return body, false, nil
+}
+
+// isRetriableStatus reports whether an HTTP status is worth retrying: a 429
+// (rate limit) or any 5xx (server-side, likely transient). A 4xx is the client's
+// fault and will not recover.
+func isRetriableStatus(code int) bool {
+	return code == http.StatusTooManyRequests || code >= 500
 }
 
 // safeURL strips the query string AND any userinfo (https://<token>@host/…, a

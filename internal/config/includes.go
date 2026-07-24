@@ -5,9 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/spagu/ssg/internal/fetch"
 	"gopkg.in/yaml.v3"
+)
+
+// on_error modes for a remote include: fail the build (default) or warn and
+// continue without it.
+const (
+	onErrorFail = "fail"
+	onErrorWarn = "warn"
 )
 
 // YAML includes (GO-076). A `.ssg.yaml` may split across files and pull them in:
@@ -68,6 +76,10 @@ func mergeWithIncludes(self string, doc map[string]interface{}, seen map[string]
 	for _, e := range entries {
 		child, key, err := e.load(self)
 		if err != nil {
+			if e.onError == onErrorWarn {
+				fmt.Fprintf(os.Stderr, "   ⚠️  include %s failed, continuing without it: %v\n", e.display(), err)
+				continue
+			}
 			return nil, err
 		}
 		if seen[key] {
@@ -86,9 +98,11 @@ func mergeWithIncludes(self string, doc map[string]interface{}, seen map[string]
 
 // includeEntry is one item of the `include:` list.
 type includeEntry struct {
-	path string // local path (mutually exclusive with url)
-	url  string
-	auth fetch.Auth
+	path    string // local path (mutually exclusive with url)
+	url     string
+	auth    fetch.Auth
+	opts    fetch.Options // timeout/retries for a remote include
+	onError string        // onErrorFail (default) | onErrorWarn
 }
 
 func (e includeEntry) display() string {
@@ -108,7 +122,7 @@ func (e includeEntry) load(includer string) (map[string]interface{}, string, err
 		if err != nil {
 			return nil, "", fmt.Errorf("include %s: %w", e.url, err)
 		}
-		if raw, err = fetch.Bytes(e.url, auth, 0); err != nil {
+		if raw, err = fetch.Bytes(e.url, auth, 0, e.opts); err != nil {
 			return nil, "", fmt.Errorf("include: %w", err)
 		}
 		key = e.url
@@ -148,7 +162,10 @@ func parseIncludeEntries(raw interface{}) ([]includeEntry, error) {
 	for _, item := range list {
 		switch v := item.(type) {
 		case string:
-			out = append(out, entryFromRef(v))
+			e := entryFromRef(v)
+			e.opts = fetch.DefaultOptions()
+			e.onError = onErrorFail
+			out = append(out, e)
 		case map[string]interface{}:
 			e, err := entryFromMap(v)
 			if err != nil {
@@ -189,7 +206,63 @@ func entryFromMap(m map[string]interface{}) (includeEntry, error) {
 			Value:    asString(am["value"]),
 		}
 	}
+
+	// Fetch tuning: absent keys keep the defaults (30s timeout, 3 retries, 5s
+	// apart). retries: 0 explicitly disables retrying.
+	e.opts = fetch.DefaultOptions()
+	if r, ok := asInt(m["retries"]); ok {
+		e.opts.Retries = r
+	}
+	rd := m["retry_delay"]
+	if rd == nil {
+		rd = m["retry_every"] // accepted alias
+	}
+	if d, ok := asDuration(rd); ok {
+		e.opts.RetryDelay = d
+	}
+	if d, ok := asDuration(m["timeout"]); ok {
+		e.opts.Timeout = d
+	}
+
+	e.onError = onErrorFail
+	if oe := asString(m["on_error"]); oe != "" {
+		if oe != onErrorFail && oe != onErrorWarn {
+			return includeEntry{}, fmt.Errorf("include: on_error must be %q or %q, got %q", onErrorFail, onErrorWarn, oe)
+		}
+		e.onError = oe
+	}
 	return e, nil
+}
+
+// asInt reads a YAML integer (yaml.v3 decodes plain integers as int).
+func asInt(v interface{}) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	}
+	return 0, false
+}
+
+// asDuration reads a duration written either as a Go duration string ("5s",
+// "30s", "1m") or as a bare number of seconds.
+func asDuration(v interface{}) (time.Duration, bool) {
+	switch n := v.(type) {
+	case string:
+		if d, err := time.ParseDuration(n); err == nil {
+			return d, true
+		}
+	case int:
+		return time.Duration(n) * time.Second, true
+	case int64:
+		return time.Duration(n) * time.Second, true
+	case float64:
+		return time.Duration(n * float64(time.Second)), true
+	}
+	return 0, false
 }
 
 func asString(v interface{}) string {

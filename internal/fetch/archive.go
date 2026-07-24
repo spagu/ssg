@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Archive extraction limits (decompression-bomb guard, SEC-006). Variables, not
@@ -27,15 +28,15 @@ var (
 // NOTE: internal/theme has a sibling download+extract; unifying the two onto
 // this package is a documented DRY follow-up, deferred to avoid touching the
 // working theme path in this change.
-func Archive(rawURL string, auth Auth, destDir string) error {
+func Archive(rawURL string, auth Auth, destDir string, opts Options) error {
 	if strings.HasSuffix(rawURL, ".tar.gz") || strings.HasSuffix(rawURL, ".tgz") {
 		return fmt.Errorf("unsupported worker archive %q: use a .zip URL or a GitHub/GitLab repo URL", rawURL)
 	}
 	archiveURL := toArchiveURL(rawURL)
-	tmp, err := downloadArchive(archiveURL, auth)
+	tmp, err := downloadArchive(archiveURL, auth, opts)
 	if err != nil {
 		if fb := masterFallback(archiveURL); fb != "" {
-			tmp, err = downloadArchive(fb, auth)
+			tmp, err = downloadArchive(fb, auth, opts)
 		}
 		if err != nil {
 			return err
@@ -78,39 +79,69 @@ func extractAtomic(src, destDir string) error {
 }
 
 // downloadArchive fetches archiveURL (authed, bounded, size-capped) to a temp
-// zip and returns its path; the caller removes it.
-func downloadArchive(archiveURL string, auth Auth) (string, error) {
+// zip and returns its path; the caller removes it. A transient failure is
+// retried per opts, matching Bytes.
+func downloadArchive(archiveURL string, auth Auth, opts Options) (string, error) {
+	attempts := opts.Retries + 1
+	if attempts < 1 {
+		attempts = 1
+	}
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		path, retriable, err := downloadOnce(archiveURL, auth, opts.timeout())
+		if err == nil {
+			return path, nil
+		}
+		lastErr = err
+		if !retriable || attempt == attempts {
+			break
+		}
+		time.Sleep(opts.retryDelay())
+	}
+	if attempts > 1 {
+		return "", fmt.Errorf("after %d attempts: %w", attempts, lastErr)
+	}
+	return "", lastErr
+}
+
+// downloadOnce is a single download attempt. retriable is true for a transport
+// error, an HTTP 429/5xx, or a mid-stream read error; false for a 4xx or an
+// over-cap archive.
+func downloadOnce(archiveURL string, auth Auth, timeout time.Duration) (path string, retriable bool, err error) {
 	req, err := http.NewRequest(http.MethodGet, archiveURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("invalid url %q: %w", archiveURL, err)
+		return "", false, fmt.Errorf("invalid url %q: %w", archiveURL, err)
 	}
 	if err := auth.apply(req); err != nil {
-		return "", err
+		return "", false, err
 	}
-	resp, err := client(auth).Do(req) // #nosec G107 -- url from the user's own worker config
+	resp, err := client(auth, timeout).Do(req) // #nosec G107 -- url from the user's own worker config
 	if err != nil {
-		return "", fmt.Errorf("downloading %s: %w", safeURL(archiveURL), err)
+		return "", true, fmt.Errorf("downloading %s: %w", safeURL(archiveURL), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("downloading %s: HTTP %d", safeURL(archiveURL), resp.StatusCode)
+		return "", isRetriableStatus(resp.StatusCode), fmt.Errorf("downloading %s: HTTP %d", safeURL(archiveURL), resp.StatusCode)
 	}
 	tmp, err := os.CreateTemp("", "worker-*.zip")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	written, err := io.Copy(tmp, io.LimitReader(resp.Body, maxArchiveBytes+1))
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil && written > maxArchiveBytes {
-		err = fmt.Errorf("archive exceeds %d bytes; refusing to extract", maxArchiveBytes)
-	}
-	if err != nil {
+	written, copyErr := io.Copy(tmp, io.LimitReader(resp.Body, maxArchiveBytes+1))
+	closeErr := tmp.Close()
+	if copyErr != nil {
 		_ = os.Remove(tmp.Name())
-		return "", err
+		return "", true, fmt.Errorf("downloading %s: %w", safeURL(archiveURL), copyErr)
 	}
-	return tmp.Name(), nil
+	if closeErr != nil {
+		_ = os.Remove(tmp.Name())
+		return "", false, closeErr
+	}
+	if written > maxArchiveBytes {
+		_ = os.Remove(tmp.Name())
+		return "", false, fmt.Errorf("archive exceeds %d bytes; refusing to extract", maxArchiveBytes)
+	}
+	return tmp.Name(), false, nil
 }
 
 // toArchiveURL turns a GitHub/GitLab repo URL into a main-branch zip URL; a
