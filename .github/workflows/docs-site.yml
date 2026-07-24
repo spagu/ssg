@@ -101,13 +101,13 @@ jobs:
       # build check and the deploy. See workers/comments/README.md.
       - name: Inject Turnstile site key
         env:
-          TURNSTILE_SITE_KEY: ${{ secrets.turnsite_site }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
         run: |
           if [ -n "${TURNSTILE_SITE_KEY}" ]; then
             sed -i "s|turnstileSiteKey: \".*\"|turnstileSiteKey: \"${TURNSTILE_SITE_KEY}\"|" docs-site.yaml
-            echo "Turnstile site key injected from secrets.turnsite_site."
+            echo "Turnstile site key injected from secrets.TURNSTILE_SITE_KEY."
           else
-            echo "secrets.turnsite_site not set — keeping the demo/test site key."
+            echo "secrets.TURNSTILE_SITE_KEY not set — keeping the demo/test site key."
           fi
 
       # Idempotent: creates the Pages project on the first run, does nothing on
@@ -149,7 +149,7 @@ jobs:
       - name: Sync comments worker secrets to the Pages project
         if: github.event_name != 'pull_request'
         env:
-          TURNSTILE_SECRET: ${{ secrets.secret }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
           COMMENTS_ADMIN_PASSWORD: ${{ secrets.COMMENTS_ADMIN_PASSWORD }}
           COMMENTS_IP_SALT: ${{ secrets.COMMENTS_IP_SALT }}
         run: |
