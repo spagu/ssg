@@ -35,6 +35,7 @@
       sending: "Sending…", thanks: "Thanks — your comment is awaiting review.",
       error: "Could not post your comment.", network: "Network error — please try again.",
       closed: "Comments are closed for this post.",
+      reply: "Reply", replyingTo: "Replying to {author}", cancel: "Cancel",
     },
     pl: {
       title: "Komentarze", empty: "Brak komentarzy. Bądź pierwszy.",
@@ -44,6 +45,7 @@
       sending: "Wysyłanie…", thanks: "Dziękujemy — komentarz czeka na moderację.",
       error: "Nie udało się dodać komentarza.", network: "Błąd sieci — spróbuj ponownie.",
       closed: "Komentarze do tego wpisu są zamknięte.",
+      reply: "Odpowiedz", replyingTo: "Odpowiedź do {author}", cancel: "Anuluj",
     },
     de: {
       title: "Kommentare", empty: "Noch keine Kommentare. Schreiben Sie den ersten.",
@@ -53,6 +55,7 @@
       sending: "Senden…", thanks: "Danke — Ihr Kommentar wird geprüft.",
       error: "Kommentar konnte nicht gesendet werden.", network: "Netzwerkfehler — bitte erneut versuchen.",
       closed: "Die Kommentare zu diesem Beitrag sind geschlossen.",
+      reply: "Antworten", replyingTo: "Antwort an {author}", cancel: "Abbrechen",
     },
     fr: {
       title: "Commentaires", empty: "Aucun commentaire. Soyez le premier.",
@@ -62,6 +65,7 @@
       sending: "Envoi…", thanks: "Merci — votre commentaire est en attente de validation.",
       error: "Impossible de publier votre commentaire.", network: "Erreur réseau — veuillez réessayer.",
       closed: "Les commentaires sont fermés pour cet article.",
+      reply: "Répondre", replyingTo: "En réponse à {author}", cancel: "Annuler",
     },
   };
 
@@ -102,32 +106,79 @@
     }
   }
 
-  function renderList(root, data, t) {
-    var list = el("ol", { class: "ssg-comments-list" });
+  function renderComment(c, t, onReply, canReply) {
+    var item = el("li", { class: "ssg-comment" });
+    var head = el("div", { class: "ssg-comment-head" });
+    if (c.avatar_hash) {
+      head.appendChild(el("img", {
+        class: "ssg-comment-avatar", width: "36", height: "36", alt: "",
+        src: "https://www.gravatar.com/avatar/" + c.avatar_hash + "?s=72&d=identicon",
+      }));
+    }
+    head.appendChild(el("span", { class: "ssg-comment-author" }, c.author));
+    head.appendChild(el("time", { datetime: c.created_at, class: "ssg-comment-date" }, formatDate(c.created_at)));
+    item.appendChild(head);
+    item.appendChild(el("div", { class: "ssg-comment-body" }, c.body));
+    // Only top-level comments get a Reply button — replies are one level deep.
+    if (canReply && onReply) {
+      var reply = el("button", { type: "button", class: "ssg-comment-reply" }, t.reply);
+      reply.addEventListener("click", function () { onReply(c); });
+      item.appendChild(reply);
+    }
+    return item;
+  }
+
+  function renderList(root, data, t, onReply) {
+    root.appendChild(el("h2", { class: "ssg-comments-title" }, t.title + " (" + data.count + ")"));
     if (!data.comments.length) {
       root.appendChild(el("p", { class: "ssg-comments-empty" }, t.empty));
+      return;
     }
+    // Group replies under their parent (one level deep).
+    var childrenOf = {};
+    var tops = [];
     data.comments.forEach(function (c) {
-      var item = el("li", { class: "ssg-comment" });
-      var head = el("div", { class: "ssg-comment-head" });
-      if (c.avatar_hash) {
-        head.appendChild(el("img", {
-          class: "ssg-comment-avatar", width: "36", height: "36", alt: "",
-          src: "https://www.gravatar.com/avatar/" + c.avatar_hash + "?s=72&d=identicon",
-        }));
+      if (c.parent_id) { (childrenOf[c.parent_id] = childrenOf[c.parent_id] || []).push(c); }
+      else { tops.push(c); }
+    });
+    var list = el("ol", { class: "ssg-comments-list" });
+    tops.forEach(function (c) {
+      var item = renderComment(c, t, onReply, true);
+      var kids = childrenOf[c.id];
+      if (kids && kids.length) {
+        var sub = el("ol", { class: "ssg-comments-replies" });
+        kids.forEach(function (r) { sub.appendChild(renderComment(r, t, onReply, false)); });
+        item.appendChild(sub);
       }
-      head.appendChild(el("span", { class: "ssg-comment-author" }, c.author));
-      head.appendChild(el("time", { datetime: c.created_at, class: "ssg-comment-date" }, formatDate(c.created_at)));
-      item.appendChild(head);
-      item.appendChild(el("div", { class: "ssg-comment-body" }, c.body));
       list.appendChild(item);
     });
-    root.appendChild(el("h2", { class: "ssg-comments-title" }, t.title + " (" + data.count + ")"));
     root.appendChild(list);
   }
 
   function renderForm(root, cfg, url, t, published, onPosted) {
     var form = el("form", { class: "ssg-comments-form", novalidate: "" });
+    var replyTo = null; // { id, author } when replying, else null
+
+    // "Replying to X — cancel" banner, shown only while a reply is in progress.
+    var banner = el("div", { class: "ssg-reply-banner", hidden: "" });
+    var bannerText = el("span", null, "");
+    var bannerCancel = el("button", { type: "button", class: "ssg-reply-cancel" }, t.cancel);
+    bannerCancel.addEventListener("click", function () { setReplyTo(null); });
+    banner.appendChild(bannerText);
+    banner.appendChild(bannerCancel);
+    form.appendChild(banner);
+
+    function setReplyTo(c) {
+      replyTo = c ? { id: c.id, author: c.author } : null;
+      if (replyTo) {
+        bannerText.textContent = (t.replyingTo || "Replying to {author}").replace("{author}", c.author);
+        banner.hidden = false;
+        if (form.scrollIntoView) form.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        banner.hidden = true;
+      }
+    }
+
     form.appendChild(el("h3", null, t.formTitle));
 
     var name = el("input", { type: "text", name: "author", required: "", maxlength: "80", placeholder: t.name, "aria-label": t.name });
@@ -159,6 +210,7 @@
         body: JSON.stringify({
           url: url, author: name.value, email: email.value, body: body.value,
           token: token, published: published,
+          parentId: replyTo ? replyTo.id : undefined,
         }),
       })
         // Parse the body defensively: a server error can return a non-JSON body
@@ -191,6 +243,7 @@
     });
 
     root.appendChild(form);
+    return { setReplyTo: setReplyTo };
   }
 
   function loadTurnstileScript() {
@@ -237,7 +290,11 @@
       .then(function (r) { return r.ok ? r.json() : { comments: [], count: 0 }; })
       .then(function (data) {
         root.textContent = "";
-        renderList(root, data, t);
+        // A Reply button targets the form's reply mode; the form is rendered
+        // after the list, so resolve it lazily through this closure.
+        var formApi = null;
+        var onReply = function (c) { if (formApi) formApi.setReplyTo(c); };
+        renderList(root, data, t, onReply);
         // A closed thread shows its history but no form.
         if (data.closed) {
           root.appendChild(el("p", { class: "ssg-comments-closed" }, t.closed));
@@ -255,7 +312,7 @@
           }
         }
         if (cfg.turnstileSiteKey) loadTurnstileScript();
-        renderForm(root, cfg, url, t, published, function () { /* comment pending; list unchanged until approved */ });
+        formApi = renderForm(root, cfg, url, t, published, function () { /* comment pending; list unchanged until approved */ });
       })
       .catch(function () {
         root.textContent = "";

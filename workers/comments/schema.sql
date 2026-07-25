@@ -21,7 +21,11 @@ CREATE TABLE IF NOT EXISTS comments (
 
   -- Optional gravatar-style hash of the email for an avatar (no email stored in
   -- the clear is required for this).
-  avatar_hash TEXT
+  avatar_hash TEXT,
+
+  -- The comment this one replies to (a top-level comment's id), or NULL for a
+  -- top-level comment. Replies are one level deep.
+  parent_id   TEXT
 );
 
 -- The hot path: approved comments for one page, newest or oldest first.

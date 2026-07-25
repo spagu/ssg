@@ -36,7 +36,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   const order = env.COMMENTS_ORDER === "oldest" ? "ASC" : "DESC";
   const { results } = await env.COMMENTS_DB.prepare(
-    `SELECT id, author, body, created_at, avatar_hash
+    `SELECT id, author, body, created_at, avatar_hash, parent_id
        FROM comments WHERE url = ? AND status = 'approved'
        ORDER BY created_at ${order} LIMIT 500`,
   ).bind(url).all<CommentRow>();
@@ -56,6 +56,7 @@ interface Body {
   body?: string;
   token?: string; // Turnstile response
   published?: string; // post publish date, anchors auto-close for an empty thread
+  parentId?: string; // id of the (approved, top-level) comment this replies to
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -102,6 +103,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ error: "you already have a comment awaiting review on this page" }, 429);
   }
 
+  // A reply must point at an approved, top-level comment on this same page.
+  // Replies are one level deep, so the parent itself must have no parent.
+  let parentId: string | null = null;
+  if (payload.parentId) {
+    const parent = await env.COMMENTS_DB.prepare(
+      `SELECT 1 FROM comments
+         WHERE id = ? AND url = ? AND status = 'approved' AND parent_id IS NULL LIMIT 1`,
+    ).bind(payload.parentId, url).first();
+    if (!parent) {
+      return json({ error: "the comment you're replying to is no longer available" }, 400);
+    }
+    parentId = payload.parentId;
+  }
+
   const ip = request.headers.get("cf-connecting-ip");
   if (!payload.token || !(await verifyTurnstile(env.TURNSTILE_SECRET, payload.token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
@@ -112,8 +127,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   await env.COMMENTS_DB.prepare(
     `INSERT INTO comments
-       (id, url, author, email, body, status, created_at, ip_hash, user_agent, avatar_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, url, author, email, body, status, created_at, ip_hash, user_agent, avatar_hash, parent_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
     url,
@@ -129,6 +144,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     ip && env.COMMENTS_IP_SALT ? await sha256hex(env.COMMENTS_IP_SALT + ip) : null,
     ua,
     email ? await sha256hex(email.toLowerCase()) : null,
+    parentId,
   ).run();
 
   // Never reveal the spam verdict to the submitter — a spammer must not learn
