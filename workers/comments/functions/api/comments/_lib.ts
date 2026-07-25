@@ -24,6 +24,7 @@ export interface CommentRow {
   status: string;
   created_at: string;
   avatar_hash: string | null;
+  parent_id: string | null; // the comment this replies to, or null for a top-level comment
 }
 
 export const json = (data: unknown, status = 200): Response =>
@@ -149,13 +150,13 @@ export async function requireAdmin(request: Request, env: Env): Promise<Response
       const pass = decoded.slice(decoded.indexOf(":") + 1);
       if (timingSafeEqual(pass, expected)) return null;
     } catch {
-      /* malformed header falls through to a challenge */
+      /* malformed header falls through to a 401 */
     }
   }
-  return new Response("Authentication required", {
-    status: 401,
-    headers: { "www-authenticate": 'Basic realm="comments moderation"' },
-  });
+  // Deliberately NO WWW-Authenticate header: it would make the browser pop its
+  // native Basic-auth dialog on top of the panel's own password field. curl -u
+  // sends the credential proactively, so it doesn't need the challenge.
+  return json({ error: "unauthorized" }, 401);
 }
 
 // Constant-time compare that folds a length difference into the accumulator

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 💬 **Threaded replies on comments** (GO-084) — readers can reply to a
+  top-level comment (one level deep). The widget shows a **Reply** button, nests
+  replies under their parent, and the worker validates the parent is an approved
+  top-level comment on the same page before storing it. A `parent_id` column is
+  added automatically (auto-migrated on existing databases). Replies are
+  moderated like any comment. New i18n strings (Reply / Replying to… / Cancel).
 - 🚦 **One pending comment per person per thread** (GO-083) — a visitor who
   already has a comment awaiting review on a page can't stack up more (`429`);
   they can add another once theirs is moderated (approved, spam, or deleted).
@@ -40,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a project setting rather than a secret.
 
 ### Fixed
+- 🐛 **Moderation panel no longer double-prompts for auth** (GO-084) — the admin
+  `401` carried a `WWW-Authenticate: Basic` header, so the browser popped its
+  native login dialog on top of the panel's own password field. The header is
+  gone (curl `-u` sends the credential proactively and doesn't need it), leaving
+  just the panel's field.
 - 🐛 **Docs site: widget assets no longer cached for a year** (GO-083) — a
   worker's client files (`/comments.js`, `/cookie-consent.js`, …) sit at the site
   root and are updated in place, but were served with the default one-year

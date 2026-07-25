@@ -6,8 +6,11 @@ protected by Turnstile, held for moderation. Scaffold it with
 
 Deliberate choices:
 
-- **No accounts.** A comment is a name, an optional email (used only for the
-  avatar hash), and a body. No login, no passwords, no OAuth.
+- **No accounts.** A comment is a name, a required email (kept only in D1 for the
+  duplicate check + avatar hash — never returned by the API or shown on the page),
+  and a body. No login, no passwords, no OAuth.
+- **Threaded replies.** Readers can reply to a top-level comment (one level deep);
+  a reply is moderated like any other comment. Nothing to configure.
 - **Compliance, not tracking.** For "who said what" the row keeps a **salted
   hash** of the IP plus the user-agent — the raw IP (PII) is never stored.
 - **Moderated by default.** New comments are `pending` and invisible until an

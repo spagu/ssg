@@ -120,10 +120,52 @@
   outline-offset: 2px;
 }
 
+/* Replies: nested one level under their parent. */
+.ssg-comments-replies {
+  list-style: none;
+  margin: 0.75rem 0 0 0;
+  padding: 0 0 0 1rem;
+  border-left: 2px solid #e2e8f0;
+}
+
+.ssg-comment-reply {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-top: 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: #0050a6;
+  cursor: pointer;
+}
+.ssg-comment-reply:hover { text-decoration: underline; }
+
+.ssg-reply-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+.ssg-reply-cancel {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: #0050a6;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 @media (prefers-color-scheme: dark) {
   .ssg-comment {
     border-color: #334155;
   }
+  .ssg-comments-replies { border-left-color: #334155; }
+  .ssg-comment-reply,
+  .ssg-reply-cancel { color: #7cb3ff; }
+  .ssg-reply-banner { color: #94a3b8; }
   .ssg-comment-date,
   .ssg-comments-empty,
   .ssg-comments-closed {
