@@ -51,6 +51,28 @@
     <script src="/cookie-consent.js" defer></script>
     {{ end }}
 
+    {{/* Google Analytics 4 (gtag.js) — rendered only when variables.gtag is set,
+         so the theme stays generic. Consent Mode v2: every storage type defaults
+         to "denied", and when a cookie-consent banner is present its signal()
+         flips analytics_storage (and the ad_* signals) to "granted" once the
+         visitor accepts. Without a banner, GA runs in the (cookieless) denied
+         default until you grant consent some other way. */}}
+    {{ with .Ctx.Vars.gtag }}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ . }}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+      });
+      gtag('config', '{{ . }}');
+    </script>
+    {{ end }}
+
     {{/* Google Tag Manager — replace GTM-XXXXXXX with the real container ID.
          Inert until then: the loader returns early while the placeholder is
          still in place, so no request is made. */}}

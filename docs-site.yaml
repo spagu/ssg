@@ -114,6 +114,11 @@ variables:
   github_repo: spagu/ssg # enables the header star count
   version: "1.8.13"
 
+  # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
+  # storage defaults to denied and the cookie-consent banner grants
+  # analytics_storage once the visitor accepts the analytics category.
+  gtag: "G-X5RRYESBTW"
+
   # Cookie-consent banner config (rendered by ssgtheme when this is present).
   # geoMode "always" shows it everywhere so the demo is visible without the
   # edge geo Function; a real site would use "edge" to gate it to the EEA+UK.

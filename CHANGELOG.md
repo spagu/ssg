@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📈 **ssgtheme: Google Analytics 4 (gtag.js), consent-aware** — set
+  `variables.gtag: "G-XXXXXXXXXX"` and the theme injects gtag.js with **Consent
+  Mode v2**: every storage type defaults to `denied`, and when the cookie-consent
+  banner is present its `signal()` flips `analytics_storage` to `granted` once
+  the visitor accepts. No `variables.gtag` → nothing is emitted (the theme stays
+  generic; the measurement ID lives in the site config, never the shared theme).
 - 💬 **Threaded replies on comments** (GO-084) — readers can reply to a
   top-level comment (one level deep). The widget shows a **Reply** button, nests
   replies under their parent, and the worker validates the parent is an approved
@@ -73,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now runs wrangler **from** the output directory and deploys `.`, so the
   Functions are compiled and shipped. (Same working-directory rule already fixed
   for `--watch` in 1.8.13.)
+
+### Documentation
+- 📄 **TEMPLATES.md: theme asset output URLs** (#59) — documents that a theme's
+  `css/`, `js/` and `images/` directories are copied to `output/css`, `output/js`
+  and `output/images` (referenced as `/css/…`, `/js/…`, `/images/…`), that
+  `media/` comes from the content source rather than the theme, and that a
+  `static_dir` file overwrites a colliding theme asset (static is copied last).
+  Previously a theme author had to read the generator source to learn this.
 
 ## [1.8.13] - 2026-07-24
 
