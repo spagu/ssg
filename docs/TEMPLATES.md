@@ -87,8 +87,46 @@ treated as intentional and missing files are not individually scaffolded.
 Non-Go engines never receive generated templates and must ship all templates
 they need.
 
-Theme CSS, JavaScript and images are copied to output. Build transforms such as
-SCSS, bundling, minification and fingerprinting run afterward.
+### Theme assets and their output URLs
+
+A theme's `css/`, `js/` and `images/` directories are copied to the output root
+under the **same name**, so a template references them by an absolute path:
+
+| Theme directory   | Copied to        | Reference in a template as              |
+|-------------------|------------------|-----------------------------------------|
+| `<theme>/css/`    | `output/css/`    | `/css/<file>`   (e.g. `/css/style.css`) |
+| `<theme>/js/`     | `output/js/`     | `/js/<file>`    (e.g. `/js/main.js`)    |
+| `<theme>/images/` | `output/images/` | `/images/<file>` (e.g. `/images/logo.svg`) |
+
+So a theme whose files are `templates/my-theme/css/style.css`,
+`.../js/main.js` and `.../images/logo.svg` links them as:
+
+```html
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/main.js" defer></script>
+<img src="/images/logo.svg" alt="Logo">
+```
+
+The subdirectory name is preserved verbatim — nothing is renamed or flattened,
+and only these three directories are treated as theme assets (other top-level
+theme directories such as `partials/`, `shortcodes/` and `layouts/` are template
+sources, not copied as assets).
+
+The `media/` directory in the generated-output tree is **not** a theme
+directory: it holds media copied from the content source
+(`content/<source>/media/` → `output/media/`), independent of the theme.
+
+Build transforms (SCSS compilation, bundling, minification, fingerprinting) run
+*after* this copy, operating on the files already sitting at `output/css/` etc.
+
+**Precedence with `static_dir`.** The project's static directory (`static/` by
+default, or whatever `static_dir:` names) is copied **verbatim to the output
+root after the theme assets**. When a static file and a theme asset resolve to
+the same output path — e.g. `static/css/style.css` and `<theme>/css/style.css`
+both land at `output/css/style.css` — **the static file wins**: it is copied
+last and overwrites the theme's copy. Use this to override a single theme asset
+per project; keep static paths clear of the theme's `css/`, `js/` and `images/`
+if you do not intend to shadow it.
 
 ## Template loading and sharing
 
