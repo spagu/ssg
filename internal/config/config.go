@@ -413,6 +413,11 @@ type Config struct {
 	// pure-static build, unchanged.
 	Endpoints []Endpoint `yaml:"endpoints" toml:"endpoints" json:"endpoints"`
 
+	// EndpointsPlatform selects which adapter compiles endpoints: into functions
+	// at build time (cloudflare | netlify | vercel). Empty = self-hosted only,
+	// served natively by --http; the same declarations, a different target (#63).
+	EndpointsPlatform string `yaml:"endpoints_platform" toml:"endpoints_platform" json:"endpoints_platform"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
 }

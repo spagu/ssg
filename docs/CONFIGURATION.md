@@ -776,6 +776,23 @@ external-source client uses — so it can't be turned into a pivot to internal
 hosts. Set `allow_private: true` only when the upstream really is a private
 self-hosted API. Endpoint responses are sent `Cache-Control: no-store`.
 
+**Same declaration, any target.** The built-in server runs endpoints directly.
+To run the *same* endpoints on a serverless platform instead, set
+`endpoints_platform` and the build compiles them into that platform's functions —
+no rewrite, no second definition:
+
+| `endpoints_platform` | Emits |
+|---|---|
+| _(empty)_ | Self-hosted only — served natively by `--http` |
+| `cloudflare` | `functions/<path>.js` Pages Functions (the same tree hand-written workers use) |
+
+```yaml
+endpoints_platform: cloudflare   # compile endpoints: into functions/ at build time
+```
+
+Adapters are self-contained plugins — one file per platform — so support for more
+targets (Netlify, Vercel) drops in without touching the format or your config.
+
 ## Cloudflare Worker / Pages Functions
 
 | Key | Default | Notes |

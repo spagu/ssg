@@ -9,8 +9,26 @@ import (
 	"strings"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/endpoints"
 	"github.com/spagu/ssg/internal/externalsource"
 )
+
+// emitEndpoints compiles the configured endpoints: to the selected platform's
+// functions in the output tree at build time (#63). A no-op when no platform is
+// chosen (the endpoints run self-hosted via --http instead) or none are declared.
+func emitEndpoints(cfg *config.Config) error {
+	if cfg.EndpointsPlatform == "" || len(cfg.Endpoints) == 0 {
+		return nil
+	}
+	written, err := endpoints.Emit(cfg.EndpointsPlatform, cfg.Endpoints, cfg.OutputDir)
+	if err != nil {
+		return fmt.Errorf("compiling endpoints for %s: %w", cfg.EndpointsPlatform, err)
+	}
+	if !cfg.Quiet {
+		fmt.Printf("   🔌 Compiled %d endpoint(s) for %s\n", len(written), cfg.EndpointsPlatform)
+	}
+	return nil
+}
 
 // endpointHandler routes requests whose path matches a configured endpoint to a
 // native handler, falling through to next (the static file server) for

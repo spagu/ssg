@@ -995,6 +995,9 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 	if err := gen.Generate(); err != nil {
 		return fmt.Errorf("generating site: %w", err)
 	}
+	if err := emitEndpoints(cfg); err != nil {
+		return err
+	}
 	runImagesGC(gen, cfg)
 	if err := runWebP(cfg); err != nil {
 		return err

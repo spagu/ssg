@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spagu/ssg/internal/config"
@@ -150,5 +152,39 @@ func TestBuildEndpointErrors(t *testing.T) {
 	}
 	if _, err := buildEndpoint(config.Endpoint{Path: "/x", Type: "proxy", Target: "https://api.test/x"}); err != nil {
 		t.Errorf("valid proxy rejected: %v", err)
+	}
+}
+
+// TestEmitEndpoints covers the build-time wiring (#63): no platform is a no-op,
+// a configured platform compiles the endpoints into the output tree.
+func TestEmitEndpoints(t *testing.T) {
+	// No platform selected → self-hosted only, nothing emitted.
+	if err := emitEndpoints(&config.Config{Quiet: true, Endpoints: []config.Endpoint{
+		{Path: "/go", Type: "redirect", To: "/new/"},
+	}}); err != nil {
+		t.Errorf("no platform must be a no-op: %v", err)
+	}
+	// No endpoints → no-op even with a platform.
+	if err := emitEndpoints(&config.Config{Quiet: true, EndpointsPlatform: "cloudflare"}); err != nil {
+		t.Errorf("no endpoints must be a no-op: %v", err)
+	}
+	// Platform + endpoints → functions written into the output tree.
+	out := t.TempDir()
+	err := emitEndpoints(&config.Config{
+		Quiet: true, OutputDir: out, EndpointsPlatform: "cloudflare",
+		Endpoints: []config.Endpoint{{Path: "/api/x", Type: "redirect", To: "/y", Status: 301}},
+	})
+	if err != nil {
+		t.Fatalf("emitEndpoints: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(out, "functions", "api", "x.js")); statErr != nil {
+		t.Errorf("expected functions/api/x.js: %v", statErr)
+	}
+	// Unknown platform surfaces as an error.
+	if err := emitEndpoints(&config.Config{
+		Quiet: true, OutputDir: out, EndpointsPlatform: "mystery",
+		Endpoints: []config.Endpoint{{Path: "/api/x", Type: "redirect", To: "/y"}},
+	}); err == nil {
+		t.Error("unknown platform must error")
 	}
 }
