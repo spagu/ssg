@@ -72,21 +72,21 @@ redirects:
 
 If `/old-pricing` points to `/pricing`, and frontmatter on a new page sets `aliases: [/pricing]`, SSG resolves `A → B → C` into two direct rules: `A → C` and `B → C`. Visitors and search bots take exactly one hop.
 
-### Migrating from Next.js?
+### Importing an existing redirects config
 
-If you are migrating off Next.js, you don't need to rewrite your redirect rules by hand. Run:
+If you keep redirects in a JS `redirects()` config, you don't need to rewrite them by hand. Run:
 
 ```bash
 ssg import redirects next.config.ts
 ```
 
-Or pass a JSON dump from `next.config.js`:
+Or pass a JSON dump of that array:
 
 ```bash
 ssg import redirects --from-json redirects.json
 ```
 
-SSG translates Next.js wildcard syntax (`/:slug*`) into standard `_redirects` splats (`/*` → `:splat`), maps permanent flags to HTTP status codes, and warns you about any un-convertible regex constraints.
+SSG translates the `/:slug*` wildcard syntax into standard `_redirects` splats (`/*` → `:splat`), maps permanent flags to HTTP status codes, and warns you about any un-convertible regex constraints.
 
 ---
 

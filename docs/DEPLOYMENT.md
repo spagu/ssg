@@ -136,8 +136,9 @@ Netlify uses the identical `_redirects` format, so the same file works there
 unchanged. Vercel needs a `vercel.json` you provide yourself; SSG does not
 generate one.
 
-**Importing an existing Next.js rule set.** `ssg import redirects` turns a
-Next.js `redirects()` array into the `redirects:` block above:
+**Importing an existing rule set.** `ssg import redirects` turns a JS
+`redirects()` array (as some frameworks export in their config) into the
+`redirects:` block above:
 
 ```sh
 # reliable: from a JSON dump of the array

@@ -25,12 +25,13 @@ An online theme can be downloaded before generation:
 
 ```bash
 ssg my-blog bearblog example.com \
-  --online-theme=https://github.com/janraasch/hugo-bearblog
+  --online-theme=https://github.com/user/some-theme
 ```
 
-GitHub, GitLab and direct ZIP URLs are accepted. Hugo archives with a
-`layouts/` structure are converted into SSG's theme layout during extraction.
-Downloaded code and templates should be reviewed before use.
+GitHub, GitLab and direct ZIP URLs are accepted. A downloaded archive whose
+templates live under a `layouts/` directory (with `static/`/`assets/`) is
+converted into SSG's theme layout during extraction. Downloaded code and
+templates should be reviewed before use.
 
 ## Theme structure
 
