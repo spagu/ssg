@@ -13,9 +13,52 @@ import (
 func writeWebpFixtures(t *testing.T, dir string, names ...string) {
 	t.Helper()
 	for _, name := range names {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("webp"), 0644); err != nil {
+		full := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("Failed to create dir for webp fixture %s: %v", name, err)
+		}
+		if err := os.WriteFile(full, []byte("webp"), 0644); err != nil {
 			t.Fatalf("Failed to create webp fixture %s: %v", name, err)
 		}
+	}
+}
+
+// TestUpdateReferencesSocialImages covers #64: og:image / twitter:image meta
+// content and JSON-LD "image" values are extension-rewritten to the emitted
+// .webp, exactly like <img src>, so share previews stop 404-ing when replace
+// mode removes the original. Non-URL content (og:image:width), prose metas
+// (og:title), remote images and refs without a converted .webp stay untouched.
+func TestUpdateReferencesSocialImages(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "media/hero.webp")
+
+	html := `<meta property="og:title" content="Photo of hero.jpg">
+<meta property="og:image" content="/media/hero.jpg">
+<meta property="og:image:width" content="1200">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/media/hero.jpg">
+<meta property="og:image" content="https://cdn.example.com/remote.jpg">
+<meta property="og:image" content="/media/missing.jpg">
+<script type="application/ld+json">{"@type":"Article","image":"/media/hero.jpg","url":"/blog/x/"}</script>`
+	want := `<meta property="og:title" content="Photo of hero.jpg">
+<meta property="og:image" content="/media/hero.webp">
+<meta property="og:image:width" content="1200">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/media/hero.webp">
+<meta property="og:image" content="https://cdn.example.com/remote.jpg">
+<meta property="og:image" content="/media/missing.jpg">
+<script type="application/ld+json">{"@type":"Article","image":"/media/hero.webp","url":"/blog/x/"}</script>`
+
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
+		t.Fatalf("Failed to write HTML: %v", err)
+	}
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatalf("UpdateReferences failed: %v", err)
+	}
+	got, _ := os.ReadFile(htmlPath)
+	if string(got) != want {
+		t.Errorf("social image refs not rewritten as expected.\nExpected:\n%s\nGot:\n%s", want, got)
 	}
 }
 

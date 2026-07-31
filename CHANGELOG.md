@@ -52,6 +52,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a project setting rather than a secret.
 
 ### Fixed
+- 🐛 **Social preview images follow the WebP conversion** (#64) — with `webp` in
+  its default replace mode the original `.jpg`/`.png` is removed after
+  conversion, but `og:image` (and the new `twitter:image` / JSON-LD `image`) kept
+  pointing at the deleted file, so every share preview 404'd. The WebP reference
+  pass now rewrites those social-image references to the emitted `.webp`, same as
+  in-content `<img>`. SEO injection also now emits `twitter:image` and a JSON-LD
+  `image` from `featured_image` (previously only `og:image`), so one field drives
+  the whole preview. Absolute (`https://…`) references are still left untouched;
+  use `webp_keep_original` for hardcoded ones.
 - 🐛 **Moderation panel no longer double-prompts for auth** (GO-084) — the admin
   `401` carried a `WWW-Authenticate: Basic` header, so the browser popped its
   native login dialog on top of the panel's own password field. The header is

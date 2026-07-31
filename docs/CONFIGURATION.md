@@ -321,11 +321,15 @@ WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).
 
 By default WebP conversion **replaces** each original in the output (the
-historical behaviour): `logo.png` becomes `logo.webp` and `<img src>`
-references are rewritten. Themes that hardcode extensions outside rewritten
-attributes — favicons, logos, `og:image` — 404 in that mode. Set
-`webp_keep_original: true` to emit the `.webp` next to the original: rewritten
-references serve WebP, hardcoded ones keep working (v1.8.5).
+historical behaviour): `logo.png` becomes `logo.webp` and references are
+rewritten to match. Rewriting covers `<img src>`/`srcset`, `href`, CSS
+`url(...)`, the `og:image`/`twitter:image` social-preview metas and the JSON-LD
+`image` value — so share previews follow the conversion instead of pointing at a
+removed `.jpg`. Only references SSG cannot resolve to a local file stay on the
+original extension: **absolute** URLs to your own images (`https://…/logo.png`,
+which are left untouched on purpose) and paths embedded in JavaScript. If a theme
+hardcodes those, set `webp_keep_original: true` to emit the `.webp` next to the
+original — rewritten references serve WebP, hardcoded ones keep working (v1.8.5).
 
 ## Authoring
 
@@ -494,6 +498,12 @@ implemented.
 SEO injection is non-destructive and skips pages that already provide their own
 Open Graph tags. The old `seo_off`/`--seo-off` setting is a deprecated no-op.
 Plain `--check-links` selects warning mode; strict mode fails the build.
+
+A page's `featured_image` becomes the `og:image`, `twitter:image` (a
+`summary_large_image` card) and the JSON-LD `image`, so one frontmatter field
+drives every social preview. With `webp` on, all three follow the conversion to
+`.webp` exactly like in-content images — no separate social-image setting to keep
+in sync.
 
 ## Data and variables
 

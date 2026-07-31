@@ -3126,12 +3126,23 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	if desc != "" {
 		fmt.Fprintf(&b, `<meta name="twitter:description" content="%s">`+"\n", stdhtml.EscapeString(desc))
 	}
+	// twitter:image mirrors og:image so summary_large_image cards render the
+	// featured image; both stay as authored and are extension-rewritten to the
+	// emitted .webp by the webp reference pass, same as in-content <img> (#64).
+	if page.FeaturedImage != "" {
+		fmt.Fprintf(&b, `<meta name="twitter:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
+	}
 	ld := map[string]interface{}{
 		"@context": "https://schema.org",
 		"@type":    ldType,
 		"name":     title,
 		"headline": title,
 		"url":      url,
+	}
+	// image lets rich results and the JSON-LD graph reference the same social
+	// preview image (extension-rewritten to .webp by the webp reference pass, #64).
+	if page.FeaturedImage != "" {
+		ld["image"] = page.FeaturedImage
 	}
 	if page.Locale != "" {
 		ld["inLanguage"] = page.Locale

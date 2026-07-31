@@ -222,7 +222,7 @@ For predictable results, pages and posts should define `title`, `status` and
 | `link` | string | Explicit URL path; overrides normal URL rules |
 | `canonical` | string | Explicit canonical URL |
 | `aliases` | list | Previous paths that should redirect to this item |
-| `featured_image` | string | Hero and Open Graph image |
+| `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion) |
 | `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
 | `template` | string | Page template file override |
 | `robots` | string | Robots directive; `noindex` also excludes from sitemap |
