@@ -785,13 +785,17 @@ no rewrite, no second definition:
 |---|---|
 | _(empty)_ | Self-hosted only — served natively by `--http` |
 | `cloudflare` | `functions/<path>.js` Pages Functions (the same tree hand-written workers use) |
+| `netlify` | `netlify/functions/<name>.mjs` (v2, each declares its own `path` — no `_redirects` wiring) |
+| `vercel` | `api/<name>.js` Edge Functions + a `vercel.json` that rewrites each path to its function |
 
 ```yaml
 endpoints_platform: cloudflare   # compile endpoints: into functions/ at build time
 ```
 
-Adapters are self-contained plugins — one file per platform — so support for more
-targets (Netlify, Vercel) drops in without touching the format or your config.
+Adapters are self-contained plugins — one file per platform — so a new target
+drops in without touching the format or your config. Redirect and proxy behave
+the same on every target; the proxy's dial-time SSRF guard is specific to the
+self-hosted server (on a platform the upstream runs at the edge).
 
 ## Cloudflare Worker / Pages Functions
 

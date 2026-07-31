@@ -12,6 +12,16 @@ func functionFile(epPath, ext string) string {
 	return clean + ext
 }
 
+// pathSlug flattens an endpoint path into a single function name segment:
+// /api/quote -> api-quote; "/" or "" -> index.
+func pathSlug(epPath string) string {
+	clean := strings.Trim(epPath, "/")
+	if clean == "" {
+		return "index"
+	}
+	return strings.ReplaceAll(clean, "/", "-")
+}
+
 // jsStringLit renders a safe double-quoted JS string literal, escaping the
 // backslash, quote and newline characters that would otherwise break the
 // generated module. Values come from the author's own config (trusted) and land

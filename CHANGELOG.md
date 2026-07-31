@@ -21,10 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no-op).
   - **Platform adapters (plugin per file).** Set `endpoints_platform` and the
     build compiles the *same* `endpoints:` into a platform's functions — no
-    rewrite. First adapter: **Cloudflare** Pages Functions (`functions/<path>.js`,
-    the same tree hand-written workers use, so there's no parallel mechanism).
-    Each adapter is a self-contained, self-registering file, so Netlify/Vercel
-    drop in without touching the format. Further primitives (forms, auth) next.
+    rewrite. Three adapters: **Cloudflare** Pages Functions (`functions/<path>.js`,
+    the same tree hand-written workers use, so there's no parallel mechanism),
+    **Netlify** Functions v2 (each declares its own route, no `_redirects`
+    wiring), and **Vercel** Edge Functions + a generated `vercel.json`. Each
+    adapter is a self-contained, self-registering file, so a new target is one
+    file. So an endpoint deploys unchanged to self-hosted, Cloudflare, Netlify or
+    Vercel. Further primitives (forms, auth) next.
 - 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
   — declare per-type frontmatter contracts in `content_schemas` (required fields
   plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build

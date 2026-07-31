@@ -125,3 +125,98 @@ func mustRead(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+// TestNetlifyEmit: Netlify Functions v2 modules with self-declared routes.
+func TestNetlifyEmit(t *testing.T) {
+	dir := t.TempDir()
+	eps := []config.Endpoint{
+		{Path: "/api/quote", Type: "proxy", Target: "https://api.example.com/q", Methods: []string{"GET"}},
+		{Path: "/go", Type: "redirect", To: "/new/", Status: 302},
+	}
+	if _, err := Emit("netlify", eps, dir); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	proxy := mustRead(t, filepath.Join(dir, "netlify", "functions", "api-quote.mjs"))
+	for _, want := range []string{
+		`export const config = { path: "/api/quote" }`,
+		"export default async (request) =>",
+		`const allowed = ["GET"]`,
+		"return fetch(new Request(target, request))",
+	} {
+		if !strings.Contains(proxy, want) {
+			t.Errorf("netlify proxy missing %q in:\n%s", want, proxy)
+		}
+	}
+	redir := mustRead(t, filepath.Join(dir, "netlify", "functions", "go.mjs"))
+	if !strings.Contains(redir, "Response.redirect(to, 302)") {
+		t.Errorf("netlify redirect wrong:\n%s", redir)
+	}
+}
+
+// TestVercelEmit: Vercel Edge Functions under api/ plus a vercel.json that
+// rewrites each endpoint path to its function.
+func TestVercelEmit(t *testing.T) {
+	dir := t.TempDir()
+	eps := []config.Endpoint{
+		{Path: "/api/quote", Type: "proxy", Target: "https://api.example.com/q"},
+		{Path: "/go/latest", Type: "redirect", To: "/new/", Status: 301},
+	}
+	written, err := Emit("vercel", eps, dir)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	// Two functions + one vercel.json.
+	if len(written) != 3 {
+		t.Fatalf("wrote %v, want 2 functions + vercel.json", written)
+	}
+	fn := mustRead(t, filepath.Join(dir, "api", "go-latest.js"))
+	if !strings.Contains(fn, "runtime: 'edge'") || !strings.Contains(fn, "Response.redirect(to, 301)") {
+		t.Errorf("vercel edge fn wrong:\n%s", fn)
+	}
+	vj := mustRead(t, filepath.Join(dir, "vercel.json"))
+	for _, want := range []string{`"source": "/go/latest"`, `"destination": "/api/go-latest"`, `"source": "/api/quote"`} {
+		if !strings.Contains(vj, want) {
+			t.Errorf("vercel.json missing %q in:\n%s", want, vj)
+		}
+	}
+}
+
+// TestPathSlug: path → flat function-name segment.
+func TestPathSlug(t *testing.T) {
+	cases := map[string]string{"/api/quote": "api-quote", "/go/": "go", "/": "index", "": "index"}
+	for in, want := range cases {
+		if got := pathSlug(in); got != want {
+			t.Errorf("pathSlug(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestNetlifyVercelSourceErrors: both adapters reject the same malformed inputs.
+func TestNetlifyVercelSourceErrors(t *testing.T) {
+	bad := []config.Endpoint{
+		{Path: "/x", Type: "redirect"},                        // no 'to'
+		{Path: "/x", Type: "redirect", To: "/y", Status: 299}, // not 3xx
+		{Path: "/x", Type: "proxy"},                           // no target
+		{Path: "/x", Type: "mystery"},
+	}
+	for _, ep := range bad {
+		if _, err := netlifySource(ep); err == nil {
+			t.Errorf("netlify: expected error for %+v", ep)
+		}
+		if _, err := vercelSource(ep); err == nil {
+			t.Errorf("vercel: expected error for %+v", ep)
+		}
+	}
+	// Well-formed redirect + proxy compile on both.
+	for _, ep := range []config.Endpoint{
+		{Path: "/x", Type: "redirect", To: "/y"},
+		{Path: "/x", Type: "proxy", Target: "https://api.test/x", Methods: []string{"GET"}},
+	} {
+		if _, err := netlifySource(ep); err != nil {
+			t.Errorf("netlify rejected valid %+v: %v", ep, err)
+		}
+		if _, err := vercelSource(ep); err != nil {
+			t.Errorf("vercel rejected valid %+v: %v", ep, err)
+		}
+	}
+}
