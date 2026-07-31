@@ -308,3 +308,70 @@ func TestEndpointFormAllFieldsAndErrors(t *testing.T) {
 		t.Errorf("rejected delivery = %d, want 502", rec2.Code)
 	}
 }
+
+// TestAuthGuard covers the Basic-auth prefix guard (#63): no/wrong credentials
+// under the prefix are 401'd; correct credentials pass through to static; paths
+// outside the prefix are untouched.
+func TestAuthGuard(t *testing.T) {
+	t.Setenv("MEMBERS_PW", "s3cret")
+	var served bool
+	h := endpointHandler(&config.Config{Quiet: true, Endpoints: []config.Endpoint{
+		{Path: "/members/", Type: "auth", User: "ada", Password: "$MEMBERS_PW"},
+	}}, staticNext(&served))
+
+	// No credentials → 401 with a challenge.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/members/secret.html", nil))
+	if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") == "" {
+		t.Fatalf("guarded path without creds = %d, challenge %q", rec.Code, rec.Header().Get("WWW-Authenticate"))
+	}
+	if served {
+		t.Error("unauthorized request must not reach static")
+	}
+
+	// Wrong password → 401.
+	served = false
+	wrong := httptest.NewRequest(http.MethodGet, "/members/secret.html", nil)
+	wrong.SetBasicAuth("ada", "nope")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, wrong)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("wrong password = %d, want 401", rec.Code)
+	}
+
+	// Correct credentials → served.
+	served = false
+	okReq := httptest.NewRequest(http.MethodGet, "/members/secret.html", nil)
+	okReq.SetBasicAuth("ada", "s3cret")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, okReq)
+	if !served || rec.Body.String() != "static" {
+		t.Errorf("authorized request must reach static, got %d %q", rec.Code, rec.Body.String())
+	}
+
+	// Outside the prefix → not gated.
+	served = false
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/public/", nil))
+	if !served {
+		t.Error("path outside the guarded prefix must not require auth")
+	}
+}
+
+// TestBuildAuthGuardErrors: missing user/password or an unset env var are rejected.
+func TestBuildAuthGuardErrors(t *testing.T) {
+	if _, err := buildAuthGuard(config.Endpoint{Path: "/m/", Type: "auth"}); err == nil {
+		t.Error("auth without user must error")
+	}
+	if _, err := buildAuthGuard(config.Endpoint{Path: "/m/", Type: "auth", User: "u"}); err == nil {
+		t.Error("auth without password must error")
+	}
+	if _, err := buildAuthGuard(config.Endpoint{Path: "/m/", Type: "auth", User: "u", Password: "$UNSET_PW_XYZ"}); err == nil {
+		t.Error("auth with an unset env var must error")
+	}
+	// A literal password (discouraged but allowed) resolves.
+	g, err := buildAuthGuard(config.Endpoint{Path: "/m/", Type: "auth", User: "u", Password: "lit"})
+	if err != nil || g.pass != "lit" {
+		t.Errorf("literal password guard = %+v, %v", g, err)
+	}
+}

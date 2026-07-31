@@ -48,12 +48,20 @@ func Platforms() []string {
 // when no endpoints are declared; an unknown platform is an error that lists the
 // platforms this binary knows.
 func Emit(platform string, eps []config.Endpoint, outDir string) ([]string, error) {
-	if len(eps) == 0 {
+	// auth guards protect a prefix on the built-in server; platforms use their own
+	// access control, so adapters never compile them.
+	deployable := make([]config.Endpoint, 0, len(eps))
+	for _, ep := range eps {
+		if ep.Type != "auth" {
+			deployable = append(deployable, ep)
+		}
+	}
+	if len(deployable) == 0 {
 		return nil, nil
 	}
 	a, ok := For(platform)
 	if !ok {
 		return nil, fmt.Errorf("unknown endpoints platform %q (known: %v)", platform, Platforms())
 	}
-	return a.Emit(eps, outDir)
+	return a.Emit(deployable, outDir)
 }

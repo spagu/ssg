@@ -761,6 +761,7 @@ dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
 | `honeypot` | `form`: a field that must stay empty — a filled one is a bot, silently dropped |
 | `redirect` | `form`: where the browser goes after a successful submit (`303`); empty = a small JSON ok |
 | `allow_private` | `proxy`/`form`: permit a private/loopback upstream or webhook (a self-hosted service) |
+| `user` / `password` | `auth`: Basic-auth credentials; `password` should reference an env var (`$MEMBERS_PW`), never a literal |
 
 ```yaml
 endpoints:
@@ -785,6 +786,21 @@ A `form` endpoint accepts a `POST`ed submission, drops obvious bots via the
 fields as JSON to `to` — so the delivery webhook (an email service, a chat hook)
 is never exposed to the browser. On the self-hosted server the delivery uses the
 same dial-time SSRF guard as `proxy`.
+
+An `auth` endpoint guards its `path` **as a prefix** with HTTP Basic auth:
+
+```yaml
+endpoints:
+  - path: /members/          # protects /members/ and everything under it
+    type: auth
+    user: ada
+    password: $MEMBERS_PW    # from the environment, never a literal
+```
+
+The password is read from the named environment variable; the comparison is
+constant-time. Auth guards run on the **built-in server only** — on a serverless
+platform, protect a section with that platform's own access control — so
+`endpoints_platform` compiles the other endpoint types and skips `auth`.
 
 A `proxy` endpoint resolves and vets the upstream IP itself and **refuses
 loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the

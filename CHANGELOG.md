@@ -32,8 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     bots via a `honeypot` field, and delivers the collected `fields` as JSON to a
     `to` webhook (kept server-side), then `redirect`s the browser (or returns a
     small JSON ok). Works self-hosted (same SSRF-guarded delivery as `proxy`) and
-    compiles to all three platforms — a contact form without a SaaS. Auth guard
-    and the `worker:` migration are the remaining pieces of this epic.
+    compiles to all three platforms — a contact form without a SaaS.
+  - **`auth` guard.** An `auth` endpoint protects its `path` as a prefix with HTTP
+    Basic auth (constant-time compare, password from an env var — never a literal),
+    covering both endpoints and static files beneath it. Runs on the built-in
+    server; adapters skip it (use the platform's own access control). The
+    `worker:` migration is the remaining piece of this epic.
 - 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
   — declare per-type frontmatter contracts in `content_schemas` (required fields
   plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build

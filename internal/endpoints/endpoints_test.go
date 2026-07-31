@@ -253,3 +253,26 @@ func TestFormCodegen(t *testing.T) {
 		}
 	}
 }
+
+// TestEmitFiltersAuth: auth guards are self-hosted only, so adapters never
+// compile them — an auth-only set emits nothing, and mixed sets skip the guard.
+func TestEmitFiltersAuth(t *testing.T) {
+	dir := t.TempDir()
+	// Auth-only → no files.
+	if files, err := Emit("cloudflare", []config.Endpoint{
+		{Path: "/members/", Type: "auth", User: "u", Password: "p"},
+	}, dir); err != nil || files != nil {
+		t.Errorf("auth-only must emit nothing, got %v %v", files, err)
+	}
+	// Mixed → only the redirect compiles.
+	files, err := Emit("cloudflare", []config.Endpoint{
+		{Path: "/members/", Type: "auth", User: "u", Password: "p"},
+		{Path: "/go", Type: "redirect", To: "/new/"},
+	}, dir)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	if len(files) != 1 || files[0] != filepath.Join("functions", "go.js") {
+		t.Errorf("mixed set must emit only the redirect, got %v", files)
+	}
+}

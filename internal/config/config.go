@@ -451,6 +451,12 @@ type Endpoint struct {
 	Fields   []string `yaml:"fields" toml:"fields" json:"fields"`
 	Honeypot string   `yaml:"honeypot" toml:"honeypot" json:"honeypot"`
 	Redirect string   `yaml:"redirect" toml:"redirect" json:"redirect"`
+
+	// auth: Basic-auth guard the built-in server applies to Path as a prefix (a
+	// protected section). User is the username; Password is the secret and should
+	// reference an environment variable ($MEMBERS_PW), never a literal.
+	User     string `yaml:"user" toml:"user" json:"user"`
+	Password string `yaml:"password" toml:"password" json:"password"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -44,7 +45,17 @@ func endpointHandler(cfg *config.Config, next http.Handler) http.Handler {
 		return next
 	}
 	routes := make(map[string]http.Handler, len(cfg.Endpoints))
+	var guards []authGuard
 	for _, ep := range cfg.Endpoints {
+		if ep.Type == "auth" {
+			g, err := buildAuthGuard(ep)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
+				continue
+			}
+			guards = append(guards, g)
+			continue
+		}
 		h, err := buildEndpoint(ep)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
@@ -52,13 +63,22 @@ func endpointHandler(cfg *config.Config, next http.Handler) http.Handler {
 		}
 		routes[ep.Path] = h
 	}
-	if len(routes) == 0 {
+	if len(routes) == 0 && len(guards) == 0 {
 		return next
 	}
 	if !cfg.Quiet {
-		fmt.Printf("   🔌 Serving %d endpoint(s)\n", len(routes))
+		fmt.Printf("   🔌 Serving %d endpoint(s), %d auth guard(s)\n", len(routes), len(guards))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Auth guards run first so they cover both endpoints and static files
+		// under their prefix.
+		for _, g := range guards {
+			if strings.HasPrefix(r.URL.Path, g.prefix) && !g.authorized(r) {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Protected"`)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
 		if h, ok := routes[r.URL.Path]; ok {
 			w.Header().Set("Cache-Control", "no-store")
 			h.ServeHTTP(w, r)
@@ -66,6 +86,42 @@ func endpointHandler(cfg *config.Config, next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// authGuard protects a path prefix with HTTP Basic auth on the built-in server.
+type authGuard struct {
+	prefix, user, pass string
+}
+
+// authorized reports whether the request carries the guard's credentials, using
+// constant-time comparison so a wrong user/password reveals nothing by timing.
+func (g authGuard) authorized(r *http.Request) bool {
+	u, p, ok := r.BasicAuth()
+	if !ok {
+		return false
+	}
+	userOK := subtle.ConstantTimeCompare([]byte(u), []byte(g.user)) == 1
+	passOK := subtle.ConstantTimeCompare([]byte(p), []byte(g.pass)) == 1
+	return userOK && passOK
+}
+
+// buildAuthGuard resolves an auth endpoint into a guard. The password must come
+// from an environment variable ($VAR) so a secret never lives in the config file.
+func buildAuthGuard(ep config.Endpoint) (authGuard, error) {
+	if !strings.HasPrefix(ep.Path, "/") {
+		return authGuard{}, fmt.Errorf("path must start with '/'")
+	}
+	if ep.User == "" {
+		return authGuard{}, fmt.Errorf("auth needs a 'user'")
+	}
+	pass := ep.Password
+	if strings.HasPrefix(pass, "$") {
+		pass = os.Getenv(strings.TrimPrefix(pass, "$"))
+	}
+	if pass == "" {
+		return authGuard{}, fmt.Errorf("auth needs a 'password' (reference an env var, e.g. $MEMBERS_PW)")
+	}
+	return authGuard{prefix: ep.Path, user: ep.User, pass: pass}, nil
 }
 
 // buildEndpoint compiles one endpoint declaration into an http.Handler.
