@@ -752,11 +752,15 @@ dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
 | Key | Notes |
 |---|---|
 | `path` | Request path handled by this endpoint, e.g. `/api/quote` (exact match) |
-| `type` | `redirect` or `proxy` |
+| `type` | `redirect`, `proxy` or `form` |
 | `to` / `status` | `redirect`: destination and 3xx code (default `302`) |
 | `target` | `proxy`: upstream URL; the client's path is replaced by the target's |
 | `methods` | `proxy`: allowed HTTP methods (empty = any) |
-| `allow_private` | `proxy`: permit a private/loopback upstream (a self-hosted API) |
+| `to` | `form`: the webhook the submission is POSTed to as JSON |
+| `fields` | `form`: which fields to forward (empty = all submitted fields) |
+| `honeypot` | `form`: a field that must stay empty — a filled one is a bot, silently dropped |
+| `redirect` | `form`: where the browser goes after a successful submit (`303`); empty = a small JSON ok |
+| `allow_private` | `proxy`/`form`: permit a private/loopback upstream or webhook (a self-hosted service) |
 
 ```yaml
 endpoints:
@@ -768,7 +772,19 @@ endpoints:
     type: proxy
     target: https://api.example.com/v1/quote   # upstream key stays server-side
     methods: [GET, POST]
+  - path: /api/contact
+    type: form
+    to: https://hooks.example.com/email        # delivery webhook stays server-side
+    fields: [name, email, message]
+    honeypot: company                          # bots that fill it are dropped
+    redirect: /thanks/
 ```
+
+A `form` endpoint accepts a `POST`ed submission, drops obvious bots via the
+`honeypot` (a hidden field a human leaves empty), and delivers the collected
+fields as JSON to `to` — so the delivery webhook (an email service, a chat hook)
+is never exposed to the browser. On the self-hosted server the delivery uses the
+same dial-time SSRF guard as `proxy`.
 
 A `proxy` endpoint resolves and vets the upstream IP itself and **refuses
 loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the

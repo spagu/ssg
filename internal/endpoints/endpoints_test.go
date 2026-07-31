@@ -220,3 +220,36 @@ func TestNetlifyVercelSourceErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestFormCodegen: all three adapters generate a form handler that POST-guards,
+// honeypots, collects declared fields and delivers to the webhook.
+func TestFormCodegen(t *testing.T) {
+	ep := config.Endpoint{
+		Path: "/api/contact", Type: "form", To: "https://hooks.example.com/mail",
+		Fields: []string{"name", "email"}, Honeypot: "company", Redirect: "/thanks/",
+	}
+	for name, gen := range map[string]func(config.Endpoint) (string, error){
+		"cloudflare": cloudflareSource, "netlify": netlifySource, "vercel": vercelSource,
+	} {
+		src, err := gen(ep)
+		if err != nil {
+			t.Fatalf("%s form: %v", name, err)
+		}
+		for _, want := range []string{
+			`request.method !== "POST"`,
+			"await request.formData()",
+			`form.get("company")`, // honeypot
+			`payload["name"]`,
+			`fetch("https://hooks.example.com/mail"`,
+			`Response.redirect(new URL("/thanks/", request.url).toString(), 303)`,
+		} {
+			if !strings.Contains(src, want) {
+				t.Errorf("%s form missing %q in:\n%s", name, want, src)
+			}
+		}
+		// A form without a delivery target is rejected.
+		if _, err := gen(config.Endpoint{Path: "/f", Type: "form"}); err == nil {
+			t.Errorf("%s: form without 'to' must error", name)
+		}
+	}
+}

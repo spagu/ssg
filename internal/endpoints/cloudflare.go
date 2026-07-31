@@ -84,7 +84,19 @@ func cloudflareSource(ep config.Endpoint) (string, error) {
 		b.WriteString("  return fetch(new Request(target, request));\n")
 		b.WriteString("}\n")
 		return b.String(), nil
+	case "form":
+		body, err := formBodyJS(ep)
+		if err != nil {
+			return "", err
+		}
+		var b strings.Builder
+		b.WriteString(cfGeneratedHeader)
+		b.WriteString("export async function onRequest(context) {\n")
+		b.WriteString("  const { request } = context;\n")
+		b.WriteString(body)
+		b.WriteString("}\n")
+		return b.String(), nil
 	default:
-		return "", fmt.Errorf("unknown type %q (want redirect or proxy)", ep.Type)
+		return "", fmt.Errorf("unknown type %q (want redirect, proxy or form)", ep.Type)
 	}
 }

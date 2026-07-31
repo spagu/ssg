@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/endpoints"
@@ -75,9 +78,98 @@ func buildEndpoint(ep config.Endpoint) (http.Handler, error) {
 		return redirectEndpoint(ep)
 	case "proxy":
 		return proxyEndpoint(ep)
+	case "form":
+		return formEndpoint(ep)
 	default:
-		return nil, fmt.Errorf("unknown type %q (want redirect or proxy)", ep.Type)
+		return nil, fmt.Errorf("unknown type %q (want redirect, proxy or form)", ep.Type)
 	}
+}
+
+// formEndpoint accepts a POSTed submission, drops obvious bots via the honeypot,
+// and delivers the collected fields as JSON to a webhook (To), keeping that
+// webhook URL server-side. The delivery client uses the SSRF-hardened transport,
+// so the webhook can't be pointed at an internal host unless allow_private is set.
+func formEndpoint(ep config.Endpoint) (http.Handler, error) {
+	if ep.To == "" {
+		return nil, fmt.Errorf("form needs a 'to' (delivery webhook URL)")
+	}
+	to, err := url.Parse(ep.To)
+	if err != nil || to.Host == "" || (to.Scheme != "http" && to.Scheme != "https") {
+		return nil, fmt.Errorf("form 'to' %q must be an http(s) URL", ep.To)
+	}
+	client := &http.Client{Timeout: 15 * time.Second, Transport: externalsource.SecureTransport(ep.AllowPrivate)}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", "POST")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "could not parse form", http.StatusBadRequest)
+			return
+		}
+		// Honeypot: a filled trap field is a bot — accept so it gets no signal,
+		// but deliver nothing.
+		if ep.Honeypot != "" && strings.TrimSpace(r.FormValue(ep.Honeypot)) != "" {
+			formDone(w, r, ep)
+			return
+		}
+		payload := collectFields(r, ep)
+		body, _ := json.Marshal(payload)
+		// #nosec G704 -- ep.To is author config (not request-controlled), validated
+		// http(s) at build; delivery uses the SSRF-hardened SecureTransport, which
+		// resolves and refuses private/loopback ranges at dial time.
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, ep.To, bytes.NewReader(body))
+		if err != nil {
+			http.Error(w, "delivery failed", http.StatusBadGateway)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		// #nosec G704 -- see above: trusted config target over the SSRF-hardened client.
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "delivery failed", http.StatusBadGateway)
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode >= 400 {
+			http.Error(w, "delivery rejected", http.StatusBadGateway)
+			return
+		}
+		formDone(w, r, ep)
+	}), nil
+}
+
+// collectFields gathers the submission into a map: the declared fields, or every
+// submitted field when none are declared. The honeypot is never forwarded.
+func collectFields(r *http.Request, ep config.Endpoint) map[string]string {
+	payload := map[string]string{}
+	if len(ep.Fields) > 0 {
+		for _, f := range ep.Fields {
+			if f != ep.Honeypot {
+				payload[f] = r.FormValue(f)
+			}
+		}
+		return payload
+	}
+	for k := range r.PostForm {
+		if k != ep.Honeypot {
+			payload[k] = r.FormValue(k)
+		}
+	}
+	return payload
+}
+
+// formDone ends a successful submission: a 303 to the configured page, or a small
+// JSON ok when none is set.
+func formDone(w http.ResponseWriter, r *http.Request, ep config.Endpoint) {
+	if ep.Redirect != "" {
+		http.Redirect(w, r, ep.Redirect, http.StatusSeeOther)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"ok":true}`))
 }
 
 // redirectEndpoint issues a server-side redirect — the dynamic complement to the

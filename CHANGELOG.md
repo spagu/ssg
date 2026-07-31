@@ -27,7 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     wiring), and **Vercel** Edge Functions + a generated `vercel.json`. Each
     adapter is a self-contained, self-registering file, so a new target is one
     file. So an endpoint deploys unchanged to self-hosted, Cloudflare, Netlify or
-    Vercel. Further primitives (forms, auth) next.
+    Vercel.
+  - **`form` primitive.** A `form` endpoint accepts a `POST`ed submission, drops
+    bots via a `honeypot` field, and delivers the collected `fields` as JSON to a
+    `to` webhook (kept server-side), then `redirect`s the browser (or returns a
+    small JSON ok). Works self-hosted (same SSRF-guarded delivery as `proxy`) and
+    compiles to all three platforms — a contact form without a SaaS. Auth guard
+    and the `worker:` migration are the remaining pieces of this epic.
 - 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
   — declare per-type frontmatter contracts in `content_schemas` (required fields
   plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build

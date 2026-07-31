@@ -427,19 +427,30 @@ type Config struct {
 // the adapters, so an endpoint is defined once regardless of where it runs.
 type Endpoint struct {
 	Path string `yaml:"path" toml:"path" json:"path"` // request path, e.g. /api/quote
-	Type string `yaml:"type" toml:"type" json:"type"` // redirect | proxy
+	Type string `yaml:"type" toml:"type" json:"type"` // redirect | proxy | form
 
 	// redirect: send the client to To with an HTTP status (default 302).
+	// form: To is the delivery webhook the submission is POSTed to as JSON.
 	To     string `yaml:"to" toml:"to" json:"to"`
 	Status int    `yaml:"status" toml:"status" json:"status"`
 
 	// proxy: forward the request to Target, keeping upstream credentials
 	// server-side. Methods restricts the allowed HTTP methods (empty = any).
-	// AllowPrivate permits a private/loopback upstream (a self-hosted API);
-	// otherwise the SSRF guard refuses private ranges at dial time.
+	// AllowPrivate permits a private/loopback upstream (a self-hosted API) for a
+	// proxy or a form's delivery webhook; otherwise the SSRF guard refuses private
+	// ranges at dial time.
 	Target       string   `yaml:"target" toml:"target" json:"target"`
 	Methods      []string `yaml:"methods" toml:"methods" json:"methods"`
 	AllowPrivate bool     `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
+
+	// form: collect a POSTed submission and deliver it as JSON to To. Fields
+	// restricts which form fields are forwarded (empty = all). Honeypot names a
+	// field that must stay empty — a filled one is a bot, silently accepted and
+	// dropped. Redirect is where the browser is sent after a successful submit
+	// (303); empty returns a small JSON ok.
+	Fields   []string `yaml:"fields" toml:"fields" json:"fields"`
+	Honeypot string   `yaml:"honeypot" toml:"honeypot" json:"honeypot"`
+	Redirect string   `yaml:"redirect" toml:"redirect" json:"redirect"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.

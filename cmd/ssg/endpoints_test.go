@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spagu/ssg/internal/config"
@@ -186,5 +189,122 @@ func TestEmitEndpoints(t *testing.T) {
 		Endpoints: []config.Endpoint{{Path: "/api/x", Type: "redirect", To: "/y"}},
 	}); err == nil {
 		t.Error("unknown platform must error")
+	}
+}
+
+// TestEndpointForm covers the form primitive: a valid submission is delivered as
+// JSON to the webhook and the browser is redirected; the honeypot drops bots
+// without delivering; non-POST is rejected.
+func TestEndpointForm(t *testing.T) {
+	var got map[string]string
+	var calls int
+	webhook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer webhook.Close()
+
+	var served bool
+	// Loopback webhook ⇒ allow_private required.
+	h := endpointHandler(&config.Config{Quiet: true, Endpoints: []config.Endpoint{{
+		Path: "/api/contact", Type: "form", To: webhook.URL,
+		Fields: []string{"name", "email"}, Honeypot: "company",
+		Redirect: "/thanks/", AllowPrivate: true,
+	}}}, staticNext(&served))
+
+	post := func(v url.Values) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/contact", strings.NewReader(v.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	// Valid submission.
+	rec := post(url.Values{"name": {"Ada"}, "email": {"a@b.c"}, "company": {""}})
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/thanks/" {
+		t.Fatalf("valid submit = %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if calls != 1 || got["name"] != "Ada" || got["email"] != "a@b.c" {
+		t.Errorf("webhook payload = %v (calls %d)", got, calls)
+	}
+	if _, leaked := got["company"]; leaked {
+		t.Errorf("honeypot field must not be forwarded")
+	}
+
+	// Honeypot filled → accepted, not delivered.
+	calls = 0
+	rec = post(url.Values{"name": {"Bot"}, "company": {"spam"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("honeypot submit should still 303, got %d", rec.Code)
+	}
+	if calls != 0 {
+		t.Errorf("honeypot must drop delivery, webhook called %d times", calls)
+	}
+
+	// GET is rejected.
+	getRec := httptest.NewRecorder()
+	h.ServeHTTP(getRec, httptest.NewRequest(http.MethodGet, "/api/contact", nil))
+	if getRec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET on form = %d, want 405", getRec.Code)
+	}
+}
+
+// TestFormEndpointErrors: a form without a valid delivery target is rejected.
+func TestFormEndpointErrors(t *testing.T) {
+	for _, ep := range []config.Endpoint{
+		{Path: "/f", Type: "form"},                  // no 'to'
+		{Path: "/f", Type: "form", To: "ftp://x/y"}, // wrong scheme
+		{Path: "/f", Type: "form", To: "://bad"},    // unparseable
+	} {
+		if _, err := buildEndpoint(ep); err == nil {
+			t.Errorf("expected error for %+v", ep)
+		}
+	}
+}
+
+// TestEndpointFormAllFieldsAndErrors covers the all-fields collection + JSON ok
+// response (no Redirect) and the delivery-failure path.
+func TestEndpointFormAllFieldsAndErrors(t *testing.T) {
+	// All-fields, JSON ok (no redirect).
+	var got map[string]string
+	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ok.Close()
+	var served bool
+	h := endpointHandler(&config.Config{Quiet: true, Endpoints: []config.Endpoint{
+		{Path: "/f", Type: "form", To: ok.URL, Honeypot: "hp", AllowPrivate: true},
+	}}, staticNext(&served))
+	req := httptest.NewRequest(http.MethodPost, "/f", strings.NewReader(url.Values{"a": {"1"}, "b": {"2"}, "hp": {""}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("all-fields ok = %d %q", rec.Code, rec.Body.String())
+	}
+	if got["a"] != "1" || got["b"] != "2" {
+		t.Errorf("all fields not forwarded: %v", got)
+	}
+	if _, leaked := got["hp"]; leaked {
+		t.Errorf("honeypot forwarded in all-fields mode")
+	}
+
+	// Delivery rejected (webhook 500) → 502.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer bad.Close()
+	h2 := endpointHandler(&config.Config{Quiet: true, Endpoints: []config.Endpoint{
+		{Path: "/f", Type: "form", To: bad.URL, AllowPrivate: true},
+	}}, staticNext(&served))
+	req2 := httptest.NewRequest(http.MethodPost, "/f", strings.NewReader("x=1"))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec2 := httptest.NewRecorder()
+	h2.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusBadGateway {
+		t.Errorf("rejected delivery = %d, want 502", rec2.Code)
 	}
 }

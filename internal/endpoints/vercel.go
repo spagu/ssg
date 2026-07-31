@@ -95,8 +95,16 @@ func vercelSource(ep config.Endpoint) (string, error) {
 		b.WriteString("  target.search = new URL(request.url).search;\n")
 		b.WriteString("  return fetch(new Request(target, request));\n")
 		b.WriteString("}\n")
+	case "form":
+		body, err := formBodyJS(ep)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("export default async function handler(request) {\n")
+		b.WriteString(body)
+		b.WriteString("}\n")
 	default:
-		return "", fmt.Errorf("unknown type %q (want redirect or proxy)", ep.Type)
+		return "", fmt.Errorf("unknown type %q (want redirect, proxy or form)", ep.Type)
 	}
 	return b.String(), nil
 }
