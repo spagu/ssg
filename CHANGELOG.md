@@ -70,6 +70,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The comments worker README documents the pattern, including that a D1 binding
   is a project setting rather than a secret.
 
+### Changed
+- ♻️ **Built-in taxonomies unified onto the registry** (#44) — the built-in
+  `category`, `tag`, `series` and `author` archives are now driven by the single
+  taxonomy registry (`generateTaxonomies`) instead of four separate top-level
+  pipelines, so there is one place that renders every taxonomy. Output is
+  **byte-for-byte identical** (verified by the `make golden` equivalence harness
+  across the corpus, dynamic, multilingual and external fixtures): built-ins keep
+  their legacy-compatible rendering — no taxonomy index page, no i18n path prefix,
+  single-page archives, the `tag.html`→`category.html` template fallback, and
+  skip-not-fail URL collisions. No user-facing change; a `Folded` definition flag
+  marks a built-in migrated onto the registry.
+
 ### Fixed
 - 🐛 **Social preview images follow the WebP conversion** (#64) — with `webp` in
   its default replace mode the original `.jpg`/`.png` is removed after

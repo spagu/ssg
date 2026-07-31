@@ -34,10 +34,11 @@ tags but few categories can page each differently — `paginate: 50` on `tag`,
 
 Taxonomy names must match `[a-z][a-z0-9_-]*`. Every taxonomy needs a unique
 `path`, and the segments `author`, `page` and configured language codes are
-reserved. Overriding `category`, `tag` or `series` adjusts their metadata
-(labels, feed on/off for helpers), but their archives stay on the legacy
-pipeline — custom `path`/`template` overrides for the built-ins are ignored
-there (see Deferred).
+reserved. The built-in `category`, `tag`, `series` and `author` archives are all
+driven by the single taxonomy registry, but render with byte-identical
+legacy-compatible output. Overriding `category`, `tag` or `series` adjusts their
+metadata (labels, feed on/off for helpers); custom `path`/`template` overrides
+for the built-ins are ignored, since their output is held stable (see Deferred).
 
 ## Assigning terms in frontmatter
 
@@ -131,6 +132,6 @@ Not part of this release; tracked for later:
 
 - Hierarchical taxonomies (nested terms with rollup counts).
 - Term aliases/redirects and per-language translated term names.
-- Custom `path`/`template` overrides for the built-in category/tag/series
-  pipelines (their archives intentionally stay byte-for-byte legacy).
-- Migrating the author archive onto the generic registry.
+- Custom `path`/`template` overrides for the built-in category/tag/series/author
+  archives (they are folded onto the registry but keep byte-for-byte legacy
+  output, so per-built-in `path`/`template` overrides don't apply).

@@ -2734,31 +2734,21 @@ func (g *Generator) generateSite() error {
 		}
 	}
 
-	// Generate category pages
-	if err := g.generateCategories(); err != nil {
-		return fmt.Errorf("generating categories: %w", err)
-	}
+	// Category archives are now driven by the registry as a folded built-in (#44);
+	// see renderFoldedBuiltin. Sitemap/feeds still use their own category paths.
 
-	// Generate series landing pages (AX-005)
-	if err := g.generateSeries(); err != nil {
-		return fmt.Errorf("generating series: %w", err)
-	}
+	// Series landing pages (AX-005) are now driven by the registry as a folded
+	// built-in (#44); see renderFoldedBuiltin.
 
-	// Generate tag archives (BLOG-004)
-	tagSlugs, err := g.generateTags()
-	if err != nil {
-		return fmt.Errorf("generating tags: %w", err)
-	}
-	g.tagSlugs = tagSlugs
+	// Tag archives (BLOG-004) are now driven by the registry as a folded built-in
+	// (#44); see renderFoldedBuiltin. g.tagSlugs is populated there before the
+	// sitemap/feeds run.
 
-	// Generate author archives (BLOG-005)
-	authorSlugs, err := g.generateAuthors()
-	if err != nil {
-		return fmt.Errorf("generating authors: %w", err)
-	}
-	g.authorSlugs = authorSlugs
+	// Author archives (BLOG-005) are now folded into generateTaxonomies, the single
+	// taxonomy driver (#44); g.authorSlugs is populated there.
 
-	// Generate custom taxonomy archives (taxonomies-feature.md)
+	// Generate every taxonomy archive — folded built-ins (category, tag, series,
+	// author) and custom taxonomies — from one registry-driven entry point.
 	if err := g.generateTaxonomies(); err != nil {
 		return fmt.Errorf("generating taxonomies: %w", err)
 	}
