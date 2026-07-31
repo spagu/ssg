@@ -298,6 +298,50 @@ permalinks:
 
 Expanded paths are sanitised so they cannot escape the output directory.
 
+### A clean `/blog/` (and why you might see `/category/blog/`)
+
+SSG does not create a blog section for you, and it never forces posts under
+`/category/blog/`. That URL appears for exactly one reason: a post was given a
+**category** named "blog", and every category auto-generates an archive at
+`/category/<slug>/`. If you want the industry-standard `/blog/` and a single
+canonical URL per post, don't categorise posts as "blog" — build the section
+explicitly instead:
+
+1. **Put posts under `/blog/`** with a permalink pattern:
+
+   ```yaml
+   permalinks:
+     post: /blog/:slug/
+   ```
+
+2. **Add a blog index page** that lists the posts. Create `pages/blog.md` and
+   point it at a layout that ranges over the site's posts:
+
+   ```yaml
+   ---
+   title: "Blog"
+   slug: "blog"
+   link: "/blog/"
+   layout: "blog"       # renders templates/<theme>/layouts/blog.html
+   type: page
+   hide_from_lists: true
+   ---
+   ```
+
+   The bundled `ssgtheme` ships a `layouts/blog.html` that does this; in a custom
+   theme, a layout that iterates `.Site.Posts` is all it takes. (`hide_from_lists`
+   is an `ssgtheme` convention read from a page's custom frontmatter to keep the
+   index itself out of the nav — omit it in a theme that doesn't use it.)
+
+3. **Leave posts uncategorised.** With no `category:`/`categories:` on a post,
+   no `/category/blog/` archive is generated, so `/blog/` is the only listing and
+   there is no duplicate-content pair. (Tags and series still work — they live at
+   `/tag/<slug>/` and `/series/<slug>/`, separate from the main section.)
+
+This is exactly how this documentation site is built. Reach for a category
+archive only when you genuinely want a *taxonomy* facet, not as the primary blog
+index.
+
 `page_format` controls filesystem form:
 
 | Value | Result for `about` |
