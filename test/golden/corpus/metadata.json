@@ -1,0 +1,22 @@
+{
+  "title": "Test Site",
+  "description": "Test site for GitHub Actions",
+  "url": "https://test.example.com",
+  "language": "en",
+  "categories": [
+    {
+      "id": 2,
+      "name": "Testing",
+      "slug": "testing",
+      "count": 1
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "name": "Test Author",
+      "slug": "test-author"
+    }
+  ],
+  "media": []
+}
