@@ -213,6 +213,7 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `canonical` | string | both | Explicit canonical value exposed to templates |
 | `aliases` | list | both | Old paths that `301` here (and, by default, get a stub copy) |
 | `alias_stubs` | bool | both | Override the site-wide default: `false` = 301 only, no stub copy; `true` = force a stub |
+| `schema` | map | both | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
 | `featured_image` | string | both | Hero image; also `og:image`, `twitter:image` and JSON-LD `image` |
 | `layout` | string | page | Theme layout; `redirect` also marks an item for sitemap exclusion |
 | `template` | string | page | Specific page template filename override |

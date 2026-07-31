@@ -99,6 +99,10 @@ type Page struct {
 	// true forces stubs even when the site disables them; nil inherits (#65).
 	AliasStubs *bool `yaml:"alias_stubs,omitempty"`
 
+	// Schema overrides or extends the page's generated JSON-LD structured data;
+	// its keys are deep-merged over the derived data, per-page winning (#61).
+	Schema map[string]interface{} `yaml:"schema,omitempty"`
+
 	// TaxonomiesFM is the raw frontmatter `taxonomies:` map (taxonomies-feature.md);
 	// Taxonomies is the resolved form filled by the generator after merging the
 	// map, direct fields and legacy category/tags/series by priority.

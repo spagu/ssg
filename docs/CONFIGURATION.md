@@ -492,6 +492,7 @@ implemented.
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
+| `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `check_links` | empty | `--check-links[=warn|strict]` | Validate internal links |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
 
@@ -504,6 +505,48 @@ A page's `featured_image` becomes the `og:image`, `twitter:image` (a
 drives every social preview. With `webp` on, all three follow the conversion to
 `.webp` exactly like in-content images — no separate social-image setting to keep
 in sync.
+
+### AI-first JSON-LD structured data
+
+With `seo` on, every page also gets `<script type="application/ld+json">`
+Linked Data in its `<head>`, derived from existing frontmatter with **zero extra
+configuration** — so AI agents and answer engines read structured, machine-
+readable data without executing JavaScript. Content types map to Schema.org:
+
+| Page | `@type` | Derived from |
+|---|---|---|
+| Blog post | `BlogPosting` | title, description, `date`/`modified`, author, tags → `keywords`, `featured_image` |
+| Home page | `WebSite` | title, description |
+| Any other page | `WebPage` | title, description |
+
+Every non-home page additionally gets a `BreadcrumbList` built from its URL path,
+placing it in the site hierarchy.
+
+**Overrides.** Two knobs extend or replace the generated data, deep-merged in
+order (most specific wins): site-wide `schema:` in the config, then per-page
+`schema:` in frontmatter. Use the site-wide default for a publisher/Organization
+that belongs on every page, and the per-page one to correct a `@type` or add
+fields a single page needs:
+
+```yaml
+# .ssg.yaml — appears on every page
+schema:
+  publisher:
+    "@type": Organization
+    name: Acme Inc.
+    logo: https://acme.example/logo.png
+```
+
+```yaml
+# frontmatter — this page only
+schema:
+  "@type": TechArticle
+  proficiencyLevel: Expert
+```
+
+The generated JSON-LD is valid Schema.org and passes Google's Rich Results Test.
+`</script>` in any field is escaped, so untrusted titles cannot break out of the
+block.
 
 ## Data and variables
 

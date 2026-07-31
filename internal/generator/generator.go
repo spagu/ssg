@@ -200,10 +200,13 @@ type Config struct {
 	TOC                  bool
 	TOCDepth             int
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
-	CheckLinks           string
-	Bundles              map[string][]string
-	Outputs              []string
-	SearchIndex          bool
+	// Schema holds site-wide JSON-LD defaults merged into every page's generated
+	// structured data (publisher, etc.); per-page schema: overrides it (#61).
+	Schema      map[string]interface{}
+	CheckLinks  string
+	Bundles     map[string][]string
+	Outputs     []string
+	SearchIndex bool
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -3101,10 +3104,8 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	desc := page.Description
 	url := page.GetCanonical(g.config.Domain)
 	ogType := "website"
-	ldType := "WebSite"
 	if isPost {
 		ogType = "article"
-		ldType = "Article"
 	}
 	// HTML-escape attribute values. Go's %q backslash-escapes inner quotes,
 	// which HTML parsers read as end-of-attribute — an attribute-injection
@@ -3138,30 +3139,9 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	if page.FeaturedImage != "" {
 		fmt.Fprintf(&b, `<meta name="twitter:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
 	}
-	ld := map[string]interface{}{
-		"@context": "https://schema.org",
-		"@type":    ldType,
-		"name":     title,
-		"headline": title,
-		"url":      url,
-	}
-	// image lets rich results and the JSON-LD graph reference the same social
-	// preview image (extension-rewritten to .webp by the webp reference pass, #64).
-	if page.FeaturedImage != "" {
-		ld["image"] = page.FeaturedImage
-	}
-	if page.Locale != "" {
-		ld["inLanguage"] = page.Locale
-	}
-	if desc != "" {
-		ld["description"] = desc
-	}
-	if isPost && !page.Date.IsZero() {
-		ld["datePublished"] = page.Date.UTC().Format(time.RFC3339)
-	}
-	if j, err := json.Marshal(ld); err == nil {
-		b.WriteString(`<script type="application/ld+json">` + string(j) + "</script>\n")
-	}
+	// JSON-LD structured data (main entity + BreadcrumbList) is built separately
+	// so it stays AI-first rich and per-page/site overridable via schema: (#61).
+	b.WriteString(g.buildJSONLD(page, isPost))
 	return b.String()
 }
 

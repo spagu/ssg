@@ -87,7 +87,7 @@ func TestBuildOpenGraphAndInjectSEO(t *testing.T) {
 	g.config.Domain = "example.com"
 	g.config.Feed = true
 	og := g.buildOpenGraph(models.Page{Title: "T", Description: "D", Slug: "s", Type: "post"}, true)
-	if !strings.Contains(og, `property="og:title"`) || !strings.Contains(og, `"@type":"Article"`) {
+	if !strings.Contains(og, `property="og:title"`) || !strings.Contains(og, `"@type":"BlogPosting"`) {
 		t.Errorf("open graph incomplete: %s", og)
 	}
 

@@ -375,6 +375,11 @@ type Config struct {
 	Redirects  []RedirectRule `yaml:"redirects" toml:"redirects" json:"redirects"`
 	AliasStubs *bool          `yaml:"alias_stubs" toml:"alias_stubs" json:"alias_stubs"`
 
+	// Schema declares site-wide JSON-LD defaults merged into every page's
+	// generated structured data (e.g. a publisher/Organization block). Per-page
+	// frontmatter schema: overrides it, which overrides the derived data (#61).
+	Schema map[string]interface{} `yaml:"schema" toml:"schema" json:"schema"`
+
 	// Worker wires a single Cloudflare Pages Functions directory (or a prebuilt
 	// _worker.js) into the build output and generates _routes.json, so
 	// transactional endpoints (Stripe, forms, dynamic pricing) live beside the

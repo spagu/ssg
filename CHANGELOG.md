@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🤖 **AI-first JSON-LD structured data** (#61) — with `seo` on, every page now
+  emits richer Schema.org Linked Data derived from existing frontmatter with zero
+  extra config, so AI agents and answer engines get machine-readable data without
+  running JavaScript. Content types map correctly — blog posts → `BlogPosting`
+  (with `headline`, `datePublished`/`dateModified`, `author`, `keywords` from
+  tags, `mainEntityOfPage`), the home page → `WebSite`, other pages → `WebPage`
+  (previously every non-post was mislabelled `WebSite`) — and every non-home page
+  also gets a `BreadcrumbList` from its URL. Two override layers deep-merge over
+  the derived data (most specific wins): site-wide `schema:` in the config (for a
+  publisher/Organization on every page) and per-page `schema:` in frontmatter.
+  `</script>` in any field is escaped, so untrusted titles can't break out.
 - 🔀 **Per-page `alias_stubs` — 301 instead of a duplicate copy** (#65) — an
   `aliases:` entry has always emitted a `301` into `_redirects`; by default it
   *also* writes a meta-refresh stub copy (a fallback for hosts without server

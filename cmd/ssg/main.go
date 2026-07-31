@@ -516,6 +516,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TOC:                  cfg.TOC,
 		TOCDepth:             cfg.TOCDepth,
 		SEO:                  cfg.SEO,
+		Schema:               cfg.Schema,
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,

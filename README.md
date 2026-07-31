@@ -223,6 +223,7 @@ For predictable results, pages and posts should define `title`, `status` and
 | `canonical` | string | Explicit canonical URL |
 | `aliases` | list | Previous paths that `301` to this item (and, by default, get a redirect stub) |
 | `alias_stubs` | bool | Per-page override: `false` = 301 only (no duplicate copy), `true` = force a stub |
+| `schema` | map | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
 | `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion) |
 | `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
 | `template` | string | Page template file override |

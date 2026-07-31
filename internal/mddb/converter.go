@@ -221,6 +221,12 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.AliasStubs = &b
 	}
 
+	// schema: per-page JSON-LD override/extension, deep-merged over the derived
+	// structured data (#61).
+	if m, ok := d.Metadata["schema"].(map[string]interface{}); ok {
+		page.Schema = m
+	}
+
 	// Series grouping (AX-005)
 	if series, ok := d.Metadata["series"].(string); ok {
 		page.Series = series
@@ -234,7 +240,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"categories": true, "description": true, "keywords": true, "lang": true,
 		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
 		"category": true, "layout": true, "template": true, "aliases": true, "series": true,
-		"alias_stubs": true,
+		"alias_stubs": true, "schema": true,
 	}
 
 	page.Extra = make(map[string]interface{})
