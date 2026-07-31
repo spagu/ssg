@@ -25,9 +25,14 @@ type brokenLink struct {
 }
 
 // checkLinksIfRequested validates internal links when check_links is "warn" or
-// "strict"; strict fails the build on any dead internal link (SEO-005).
+// "strict"; strict fails the build on any dead internal link (SEO-005). The
+// global strict flag (#62) escalates link checking to fatal — enabling it even
+// when check_links is unset — so a renamed slug that orphans a link fails loudly.
 func (g *Generator) checkLinksIfRequested() error {
 	mode := g.config.CheckLinks
+	if g.config.Strict {
+		mode = "strict"
+	}
 	if mode == "" {
 		return nil
 	}

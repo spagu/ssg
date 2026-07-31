@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
+	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/taxonomy"
 	"gopkg.in/yaml.v3"
 )
@@ -309,6 +310,20 @@ type Config struct {
 	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
 	// client-side search widget (PLAT-004).
 	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`
+
+	// ContentSchemas declares per-type frontmatter contracts (#62): required
+	// fields and per-field type/format/enum rules, validated after content load
+	// so missing/malformed frontmatter is caught at build instead of shipping a
+	// broken page. Keyed by content type ("post", "page", …).
+	ContentSchemas map[string]models.ContentSchema `yaml:"content_schemas" toml:"content_schemas" json:"content_schemas"`
+
+	// Strict escalates soft build problems into hard failures (#62): content-schema
+	// violations, and link checking when check_links is set are treated as errors.
+	Strict bool `yaml:"strict" toml:"strict" json:"strict"`
+
+	// RouteManifest writes routes.json — a machine-readable list of every generated
+	// route and its metadata — for external tooling and typed clients (#62).
+	RouteManifest bool `yaml:"route_manifest" toml:"route_manifest" json:"route_manifest"`
 
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).

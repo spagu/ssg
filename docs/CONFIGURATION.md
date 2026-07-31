@@ -494,11 +494,49 @@ implemented.
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `check_links` | empty | `--check-links[=warn|strict]` | Validate internal links |
+| `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
+| `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
+| `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
 
 SEO injection is non-destructive and skips pages that already provide their own
 Open Graph tags. The old `seo_off`/`--seo-off` setting is a deprecated no-op.
 Plain `--check-links` selects warning mode; strict mode fails the build.
+
+### Content contracts (schemas, strict mode, route manifest)
+
+`content_schemas` declares what a page of each type must look like, so a missing
+`author` or a malformed `date` fails at build time — with a precise message
+(file, field, reason) — instead of silently shipping a broken page. Each schema
+lists `required` fields and per-field `type`/`format`/`enum` rules:
+
+```yaml
+content_schemas:
+  post:
+    required: [title, date, author]
+    fields:
+      title:  { type: string }
+      date:   { type: date }
+      status: { type: enum, values: [publish, draft] }
+      featured_image: { type: url }
+      weight: { type: int }
+```
+
+Field types are `string`, `int`, `bool`, `date`, `url`, `list` and `enum` (with
+`values`). Well-known frontmatter fields (`title`, `date`, `author`, `tags`, …)
+resolve automatically; any other name is read from the page's custom frontmatter.
+
+Violations **warn** by default so a site can adopt schemas incrementally. Turn on
+`strict` (or `--strict`) to make them — and internal link checking — **hard build
+failures**: a renamed slug that orphans a link, or a post missing a required
+field, then fails the build instead of shipping. `strict` enables link checking
+even when `check_links` is unset.
+
+`route_manifest` (or `--route-manifest`) writes `routes.json` to the output root:
+a sorted, deduplicated list of every generated route — posts, pages, and category
+/ tag / series / author / custom-taxonomy archives — each with its `type`,
+`title`, source file and language. It is a machine-readable contract external
+tooling (or generated typed clients) can diff to catch a route that moved.
 
 A page's `featured_image` becomes the `og:image`, `twitter:image` (a
 `summary_large_image` card) and the JSON-LD `image`, so one frontmatter field

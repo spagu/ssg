@@ -293,6 +293,9 @@ Common options:
 | Generate Atom feeds | `feed: true` | `--feed` |
 | Generate search index | `search_index: true` | `--search-index` |
 | Add SEO metadata | `seo: true` | `--seo` |
+| Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
+| Fail the build on any violation | `strict: true` | `--strict` |
+| Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |

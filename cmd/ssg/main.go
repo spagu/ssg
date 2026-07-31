@@ -517,6 +517,9 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TOCDepth:             cfg.TOCDepth,
 		SEO:                  cfg.SEO,
 		Schema:               cfg.Schema,
+		ContentSchemas:       cfg.ContentSchemas,
+		Strict:               cfg.Strict,
+		RouteManifest:        cfg.RouteManifest,
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,
@@ -661,6 +664,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--math":             &cfg.Math, "--feed": &cfg.Feed,
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
+		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean":      &cfg.Clean,
 		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,

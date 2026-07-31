@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
+  — declare per-type frontmatter contracts in `content_schemas` (required fields
+  plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build
+  validates every post and page against its type's schema, reporting each
+  violation with file, field and reason. Violations warn by default; `strict`
+  (or `--strict`) turns them — and internal link checking — into hard build
+  failures, so a missing `author` or a renamed slug that orphans a link fails the
+  build instead of shipping. `route_manifest` (or `--route-manifest`) writes
+  `routes.json`: a sorted, deduplicated list of every generated route (posts,
+  pages, and category/tag/series/author/custom-taxonomy archives) with its type,
+  title, source and language — a machine-readable contract external tooling can
+  diff. All opt-in; a plain build is unchanged.
 - 🤖 **AI-first JSON-LD structured data** (#61) — with `seo` on, every page now
   emits richer Schema.org Linked Data derived from existing frontmatter with zero
   extra config, so AI agents and answer engines get machine-readable data without

@@ -207,6 +207,12 @@ type Config struct {
 	Bundles     map[string][]string
 	Outputs     []string
 	SearchIndex bool
+	// ContentSchemas validate per-type frontmatter contracts; Strict escalates
+	// violations (and link checks) to build failures; RouteManifest writes
+	// routes.json (#62).
+	ContentSchemas map[string]models.ContentSchema
+	Strict         bool
+	RouteManifest  bool
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -640,6 +646,12 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
+	// Content contracts run before rendering: a malformed page fails the build
+	// loudly (strict) instead of shipping broken output (#62).
+	if err := g.validateContentSchemas(); err != nil {
+		return err
+	}
+
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
 	}
@@ -660,6 +672,10 @@ func (g *Generator) Generate() error {
 
 	if err := g.generateSitemapAndRobots(); err != nil {
 		return err
+	}
+
+	if err := g.writeRouteManifest(); err != nil {
+		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
 	if err := g.generateFeeds(); err != nil {
