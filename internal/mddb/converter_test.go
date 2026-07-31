@@ -707,3 +707,46 @@ func TestDocument_ToPage_SEOFields(t *testing.T) {
 		t.Errorf("Tags = %v, want [go ssg static]", page.Tags)
 	}
 }
+
+// TestToPageAliasStubs covers #65: per-page alias_stubs frontmatter parses to a
+// pointer-bool (native bool or "true"/"false" string), stays out of Extra, and
+// is left nil when absent so the page inherits the site-wide default.
+func TestToPageAliasStubs(t *testing.T) {
+	cases := []struct {
+		name string
+		val  any
+		want *bool
+	}{
+		{"bool false", false, boolPtr(false)},
+		{"bool true", true, boolPtr(true)},
+		{"string false", "false", boolPtr(false)},
+		{"string true", "true", boolPtr(true)},
+		{"unparsable", "maybe", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := Document{Key: "k", Metadata: map[string]any{"title": "T", "alias_stubs": tc.val}}
+			page, err := doc.ToPage()
+			if err != nil {
+				t.Fatalf("ToPage() error = %v", err)
+			}
+			switch {
+			case tc.want == nil && page.AliasStubs != nil:
+				t.Errorf("AliasStubs = %v, want nil (inherit)", *page.AliasStubs)
+			case tc.want != nil && (page.AliasStubs == nil || *page.AliasStubs != *tc.want):
+				t.Errorf("AliasStubs = %v, want %v", page.AliasStubs, *tc.want)
+			}
+			if _, leaked := page.Extra["alias_stubs"]; leaked {
+				t.Errorf("alias_stubs must not leak into Extra")
+			}
+		})
+	}
+
+	// Absent key → nil (inherit).
+	page, _ := (&Document{Key: "k", Metadata: map[string]any{"title": "T"}}).ToPage()
+	if page.AliasStubs != nil {
+		t.Errorf("absent alias_stubs must stay nil, got %v", *page.AliasStubs)
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }

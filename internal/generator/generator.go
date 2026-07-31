@@ -3042,6 +3042,12 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		return
 	}
 	target := page.GetURL()
+	// Site-wide alias_stubs default, overridable per page via frontmatter
+	// alias_stubs: emit only the 301 (no duplicate copy) or force the stub (#65).
+	writeStub := !g.config.AliasStubsOff
+	if page.AliasStubs != nil {
+		writeStub = *page.AliasStubs
+	}
 	for _, alias := range page.Aliases {
 		rel := models.SanitizeRelPath(alias)
 		if g.config.I18n.Enabled && page.LangPrefix != "" {
@@ -3054,7 +3060,7 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
 		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
 		// alias_stubs: false drops them and keeps only the _redirects entry.
-		if !g.config.AliasStubsOff {
+		if writeStub {
 			g.writeAliasStub(alias, rel, target)
 		}
 	}

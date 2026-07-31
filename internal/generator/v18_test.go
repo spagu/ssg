@@ -173,6 +173,42 @@ func TestWriteAliasStubs(t *testing.T) {
 	}
 }
 
+// TestWriteAliasStubsRedirectOnly covers #65: alias_stubs control (site-wide and
+// per-page) chooses between a duplicate stub copy and a pure 301 — the 301 is
+// always recorded either way.
+func TestWriteAliasStubsRedirectOnly(t *testing.T) {
+	falsePtr, truePtr := false, true
+
+	// Per-page alias_stubs: false → no stub file, but the 301 is still emitted.
+	g := newTestGen(t, "")
+	g.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}, AliasStubs: &falsePtr})
+	if _, err := os.Stat(filepath.Join(g.config.OutputDir, "old/index.html")); !os.IsNotExist(err) {
+		t.Errorf("alias_stubs:false must not write a stub copy")
+	}
+	if len(g.aliasRedirects) != 1 || g.aliasRedirects[0].From != "/old" || g.aliasRedirects[0].Status != 301 {
+		t.Errorf("301 must still be recorded, got %+v", g.aliasRedirects)
+	}
+
+	// Per-page alias_stubs: true overrides a site-wide alias_stubs: false.
+	g2 := newTestGen(t, "")
+	g2.config.AliasStubsOff = true
+	g2.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}, AliasStubs: &truePtr})
+	if _, err := os.Stat(filepath.Join(g2.config.OutputDir, "old/index.html")); err != nil {
+		t.Errorf("per-page alias_stubs:true must force a stub even when site disables them: %v", err)
+	}
+
+	// Site-wide off, page unset (inherit) → no stub, 301 recorded.
+	g3 := newTestGen(t, "")
+	g3.config.AliasStubsOff = true
+	g3.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}})
+	if _, err := os.Stat(filepath.Join(g3.config.OutputDir, "old/index.html")); !os.IsNotExist(err) {
+		t.Errorf("site-wide alias_stubs:false must not write a stub copy")
+	}
+	if len(g3.aliasRedirects) != 1 {
+		t.Errorf("301 must be recorded under site-wide off, got %+v", g3.aliasRedirects)
+	}
+}
+
 func TestLastModFor(t *testing.T) {
 	g := newTestGen(t, "")
 	mod := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)

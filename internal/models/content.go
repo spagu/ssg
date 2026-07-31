@@ -94,6 +94,11 @@ type Page struct {
 	// meta-refresh + canonical redirect stub excluded from the sitemap (SEO-002).
 	Aliases []string `yaml:"aliases,omitempty"`
 
+	// AliasStubs overrides the site-wide alias_stubs default for this page's
+	// aliases: false emits only the 301 in _redirects (no meta-refresh copy),
+	// true forces stubs even when the site disables them; nil inherits (#65).
+	AliasStubs *bool `yaml:"alias_stubs,omitempty"`
+
 	// TaxonomiesFM is the raw frontmatter `taxonomies:` map (taxonomies-feature.md);
 	// Taxonomies is the resolved form filled by the generator after merging the
 	// map, direct fields and legacy category/tags/series by priority.

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔀 **Per-page `alias_stubs` — 301 instead of a duplicate copy** (#65) — an
+  `aliases:` entry has always emitted a `301` into `_redirects`; by default it
+  *also* writes a meta-refresh stub copy (a fallback for hosts without server
+  redirects). The site-wide `alias_stubs: false` that suppresses those stubs is
+  now overridable **per page** in frontmatter, so a migrated legacy slug can
+  consolidate to its canonical with a pure `301` (no 200-serving duplicate for
+  crawlers) while the rest of the site keeps its stubs — or the reverse. The
+  `301` is emitted either way.
 - 📈 **ssgtheme: Google Analytics 4 (gtag.js), consent-aware** — set
   `variables.gtag: "G-XXXXXXXXXX"` and the theme injects gtag.js with **Consent
   Mode v2**: every storage type defaults to `denied`, and when the cookie-consent

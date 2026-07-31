@@ -211,8 +211,9 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `description` | string | both | SEO description; themes may fall back to `excerpt` |
 | `keywords` | string | both | SEO keywords |
 | `canonical` | string | both | Explicit canonical value exposed to templates |
-| `aliases` | list | both | Old paths rendered as redirect stubs |
-| `featured_image` | string | both | Hero/Open Graph image |
+| `aliases` | list | both | Old paths that `301` here (and, by default, get a stub copy) |
+| `alias_stubs` | bool | both | Override the site-wide default: `false` = 301 only, no stub copy; `true` = force a stub |
+| `featured_image` | string | both | Hero image; also `og:image`, `twitter:image` and JSON-LD `image` |
 | `layout` | string | page | Theme layout; `redirect` also marks an item for sitemap exclusion |
 | `template` | string | page | Specific page template filename override |
 | `robots` | string | both | Robots directive; `noindex` excludes from sitemap |
@@ -314,9 +315,28 @@ aliases:
   - /2019/legacy-path/
 ```
 
-Each safe, non-conflicting alias becomes a `noindex` HTML redirect stub with a
-canonical link. Aliases are excluded from the sitemap. A collision with real
-content is skipped with a warning.
+Each alias is **always** added as a `301` to the `_redirects` file (chains are
+flattened). By default it *also* gets a `noindex` HTML redirect stub — a
+meta-refresh + canonical fallback for hosts without server redirects. Aliases are
+excluded from the sitemap; a collision with real content is skipped with a
+warning.
+
+### Redirect only, no duplicate copy
+
+On a platform that serves `_redirects` (Cloudflare Pages, Netlify) the stub copy
+is redundant: the old path already `301`s at the edge. To emit **only** the 301 —
+no 200-serving duplicate for crawlers to spend budget on — turn stubs off. Set it
+site-wide in the config (`alias_stubs: false`) or per page in frontmatter:
+
+```yaml
+aliases:
+  - /hotel-term-condition/
+alias_stubs: false   # this page's aliases 301 only; no stub copy
+```
+
+Per-page `alias_stubs` overrides the site-wide default either way — set it `true`
+on a page to keep its stub even when the site disables stubs. The `301` is
+emitted regardless; only the stub copy is affected.
 
 ## Relative Markdown links
 

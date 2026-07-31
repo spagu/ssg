@@ -634,16 +634,18 @@ and GitHub Action inputs are in [DEPLOYMENT.md](DEPLOYMENT.md).
 | Key | Default | Notes |
 |---|---:|---|
 | `redirects` | empty | list of `{from, to, status, force}` rules |
-| `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` |
+| `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` (`false` = 301 only; per-page frontmatter `alias_stubs` overrides) |
 | `headers` | empty | map of `path pattern → {header: value}` overrides |
 | `headers_defaults_off` | `false` | drop the built-in security/cache blocks |
 
 `redirects:` generates a real `_redirects` file: exact paths, `/old/*` splats
 (`:splat` in the destination) and statuses `301`/`302`/`307`/`308`/`410`.
 Frontmatter `aliases:` are added as `301`s and exact chains are flattened to a
-single hop. `headers:` overrides or extends the generated `_headers` per
-pattern. Full reference and the `ssg import redirects` importer:
-[DEPLOYMENT.md](DEPLOYMENT.md).
+single hop. By default each alias also gets a meta-refresh stub copy (a fallback
+for hosts without server redirects); set `alias_stubs: false` — site-wide or per
+page in frontmatter — to emit the `301` only, with no duplicate 200-serving copy.
+`headers:` overrides or extends the generated `_headers` per pattern. Full
+reference and the `ssg import redirects` importer: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ```yaml
 redirects:

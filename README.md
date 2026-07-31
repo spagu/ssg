@@ -221,7 +221,8 @@ For predictable results, pages and posts should define `title`, `status` and
 | `description` | string | SEO description; falls back to the excerpt |
 | `link` | string | Explicit URL path; overrides normal URL rules |
 | `canonical` | string | Explicit canonical URL |
-| `aliases` | list | Previous paths that should redirect to this item |
+| `aliases` | list | Previous paths that `301` to this item (and, by default, get a redirect stub) |
+| `alias_stubs` | bool | Per-page override: `false` = 301 only (no duplicate copy), `true` = force a stub |
 | `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion) |
 | `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
 | `template` | string | Page template file override |
