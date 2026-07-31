@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔌 **Portable server endpoints, self-hosted first** (#63, foundation) — a new
+  vendor-neutral `endpoints:` block declares small server behaviours once, and the
+  built-in server (`--http`) runs them natively in the single Go binary — no
+  external runtime, works behind nginx/Caddy or the existing Docker image. Two
+  types to start: `redirect` (a request-time 3xx, the dynamic complement to the
+  static `_redirects`) and `proxy` (forward to an upstream, keeping its key
+  server-side). The proxy resolves and vets the upstream IP itself and **refuses
+  loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the
+  external-source client uses — with `allow_private: true` to opt in to a genuine
+  self-hosted upstream. Pure-static builds are unaffected (empty `endpoints:` is a
+  no-op). Platform adapters (Cloudflare / Netlify / Vercel) and further primitives
+  (forms, auth) build on this format next.
 - 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
   — declare per-type frontmatter contracts in `content_schemas` (required fields
   plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build

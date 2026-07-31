@@ -1276,7 +1276,7 @@ func printUsage() {
 	fmt.Println("  --mddb-watch-interval=SEC - Watch interval in seconds (default: 30)")
 	fmt.Println("")
 	fmt.Println("Server & Development:")
-	fmt.Println("  --http                 - Start built-in HTTP server")
+	fmt.Println("  --http                 - Start built-in HTTP server (also serves configured endpoints:)")
 	fmt.Println("  --host=ADDR            - Dev server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)")
 	fmt.Println("  --port=PORT            - HTTP server port (default: 8888)")
 	fmt.Println("  --watch                - Watch for changes and rebuild automatically")

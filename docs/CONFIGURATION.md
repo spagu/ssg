@@ -740,6 +740,42 @@ headers:
     Access-Control-Allow-Origin: "*"
 ```
 
+## Server endpoints (portable, no vendor lock-in)
+
+Some sites need a little server behind the static output — a redirect that
+depends on the request, or a proxy that keeps an upstream key server-side.
+`endpoints:` declares those **once, in a vendor-neutral way**. The built-in
+server runs them natively (`--http`), in the single Go binary, with no external
+runtime — so a self-hosted deploy behind nginx/Caddy or the Docker image gets the
+dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
+
+| Key | Notes |
+|---|---|
+| `path` | Request path handled by this endpoint, e.g. `/api/quote` (exact match) |
+| `type` | `redirect` or `proxy` |
+| `to` / `status` | `redirect`: destination and 3xx code (default `302`) |
+| `target` | `proxy`: upstream URL; the client's path is replaced by the target's |
+| `methods` | `proxy`: allowed HTTP methods (empty = any) |
+| `allow_private` | `proxy`: permit a private/loopback upstream (a self-hosted API) |
+
+```yaml
+endpoints:
+  - path: /go/latest
+    type: redirect
+    to: /releases/1-8-14/
+    status: 302
+  - path: /api/quote
+    type: proxy
+    target: https://api.example.com/v1/quote   # upstream key stays server-side
+    methods: [GET, POST]
+```
+
+A `proxy` endpoint resolves and vets the upstream IP itself and **refuses
+loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the
+external-source client uses — so it can't be turned into a pivot to internal
+hosts. Set `allow_private: true` only when the upstream really is a private
+self-hosted API. Endpoint responses are sent `Cache-Control: no-store`.
+
 ## Cloudflare Worker / Pages Functions
 
 | Key | Default | Notes |

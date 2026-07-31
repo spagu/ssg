@@ -141,6 +141,20 @@ func secureDialContext(allowPrivate bool) func(ctx context.Context, network, add
 	}
 }
 
+// SecureTransport returns an http.Transport whose dialer resolves and vets the
+// destination IP itself, refusing loopback/private/link-local ranges unless
+// allowPrivate is set — the same SSRF/DNS-rebinding guard the external-source
+// client uses. Exported so the built-in server's proxy endpoints (#63) reuse one
+// hardened dialer instead of duplicating security-critical code.
+func SecureTransport(allowPrivate bool) *http.Transport {
+	return &http.Transport{
+		DialContext:           secureDialContext(allowPrivate),
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		DisableKeepAlives:     true,
+	}
+}
+
 // newHTTPClient builds the hardened client for one source.
 func newHTTPClient(src Source, allowedHosts []string) *http.Client {
 	transport := &http.Transport{

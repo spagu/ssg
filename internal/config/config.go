@@ -407,8 +407,34 @@ type Config struct {
 	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
 	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
 
+	// Endpoints declares vendor-neutral server endpoints (#63): defined once here,
+	// they are served natively by the built-in server (self-hosted, no external
+	// runtime) and — via adapters — compiled to platform functions. Empty = a
+	// pure-static build, unchanged.
+	Endpoints []Endpoint `yaml:"endpoints" toml:"endpoints" json:"endpoints"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
+}
+
+// Endpoint is one vendor-neutral server endpoint (#63). The same declaration is
+// served natively by the built-in server and compiled to platform functions by
+// the adapters, so an endpoint is defined once regardless of where it runs.
+type Endpoint struct {
+	Path string `yaml:"path" toml:"path" json:"path"` // request path, e.g. /api/quote
+	Type string `yaml:"type" toml:"type" json:"type"` // redirect | proxy
+
+	// redirect: send the client to To with an HTTP status (default 302).
+	To     string `yaml:"to" toml:"to" json:"to"`
+	Status int    `yaml:"status" toml:"status" json:"status"`
+
+	// proxy: forward the request to Target, keeping upstream credentials
+	// server-side. Methods restricts the allowed HTTP methods (empty = any).
+	// AllowPrivate permits a private/loopback upstream (a self-hosted API);
+	// otherwise the SSRF guard refuses private ranges at dial time.
+	Target       string   `yaml:"target" toml:"target" json:"target"`
+	Methods      []string `yaml:"methods" toml:"methods" json:"methods"`
+	AllowPrivate bool     `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.
