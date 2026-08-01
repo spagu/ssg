@@ -209,6 +209,7 @@ small converter can map them the same way; the REST script covers the common
 | `COMMENTS_ADMIN_PASSWORD` | moderation panel password (required to moderate) |
 | `COMMENTS_IP_SALT` | salt for the stored IP hash |
 | `COMMENTS_AKISMET_KEY` | optional — enables Akismet spam scoring |
+| `COMMENTS_MAIL_KEY` | optional — bearer token for the email API (email-on-comment) |
 
 `[vars]` (or `wrangler.toml`):
 
@@ -217,6 +218,20 @@ small converter can map them the same way; the REST script covers the common
 | `COMMENTS_ORDER` | `newest` (default) or `oldest` |
 | `COMMENTS_CLOSE_AFTER_DAYS` | auto-close a thread `N` days after its last activity (`0` = never) |
 | `COMMENTS_AKISMET_URL` | Akismet endpoint, paired with the key |
+| `COMMENTS_MAIL_URL` | email API endpoint accepting `{from,to,subject,text}` (e.g. Resend); enables email-on-comment |
+| `COMMENTS_MAIL_FROM` | sender address for the notice |
+| `COMMENTS_MAIL_TO` | comma-separated recipient(s) |
+| `COMMENTS_MAIL_SUBJECT` | optional subject prefix (default "New comment awaiting review") |
+
+### Email on a new comment
+
+Set `COMMENTS_MAIL_URL`, `COMMENTS_MAIL_FROM` and `COMMENTS_MAIL_TO` (plus
+`COMMENTS_MAIL_KEY` if the provider needs a bearer token) and the worker emails a
+moderation notice whenever a **non-spam** comment lands — spam is filtered
+silently and never mailed. The request is a JSON `POST` of
+`{from, to, subject, text}`, which fits providers like Resend or your own relay;
+it runs in the background (`waitUntil`), so it never delays the visitor's
+response, and a gateway error is logged, never fatal. Unset ⇒ no email is sent.
 
 ### Auto-closing old threads
 

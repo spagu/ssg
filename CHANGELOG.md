@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ✉️ **Comments worker: email on a new comment** — set `COMMENTS_MAIL_URL` /
+  `COMMENTS_MAIL_FROM` / `COMMENTS_MAIL_TO` (plus `COMMENTS_MAIL_KEY` for a bearer
+  token) and the worker emails a moderation notice whenever a **non-spam** comment
+  lands. Delivery is a JSON `POST` of `{from, to, subject, text}` — the shape
+  providers like Resend accept, or point it at your own relay — sent in the
+  background (`waitUntil`) so it never delays the submitter, with gateway errors
+  logged rather than fatal. Spam is filtered silently and never mailed; unset ⇒
+  no email.
 - 📣 **Post-publish notifications** — announce each newly published (or changed)
   post to webhook destinations you define (`notifications:`), pointing them at a
   platform API, an automation service or your own endpoint; they receive the post
