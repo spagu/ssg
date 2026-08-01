@@ -184,3 +184,31 @@ func TestWantsOutput(t *testing.T) {
 		t.Error("xml not configured")
 	}
 }
+
+// TestSEOInjectsJSONLDIndependently covers #61: a theme that already emits its
+// own og:title still gets the JSON-LD injected (structured data must not be gated
+// on the theme lacking social tags); a page that already has JSON-LD is not
+// duplicated.
+func TestSEOInjectsJSONLDIndependently(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.SEO = true
+	page := models.Page{Title: "T", Description: "D", Slug: "s", Type: "post"}
+
+	// Theme provides og:title but no structured data → JSON-LD is added.
+	withOG := `<html><head><meta property="og:title" content="T"></head><body></body></html>`
+	out := g.seoHTMLString(withOG, page, true)
+	if !strings.Contains(out, "application/ld+json") {
+		t.Errorf("JSON-LD must be injected even when the theme supplies og:title:\n%s", out)
+	}
+	if strings.Count(out, "og:title") != 1 {
+		t.Errorf("must not duplicate og:title, got %d", strings.Count(out, "og:title"))
+	}
+
+	// Page already carries JSON-LD → nothing added.
+	both := `<html><head><meta property="og:title" content="T">` +
+		`<script type="application/ld+json">{}</script></head><body></body></html>`
+	out2 := g.seoHTMLString(both, page, true)
+	if strings.Count(out2, "application/ld+json") != 1 {
+		t.Errorf("JSON-LD must not be duplicated when already present, got %d", strings.Count(out2, "application/ld+json"))
+	}
+}

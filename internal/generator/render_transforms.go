@@ -115,7 +115,12 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	}
 	var b strings.Builder
 	if !strings.Contains(s, "og:title") {
-		b.WriteString(g.buildOpenGraph(page, isPost))
+		b.WriteString(g.buildOpenGraph(page, isPost)) // includes the JSON-LD
+	} else if !strings.Contains(s, "application/ld+json") {
+		// The theme already provides OpenGraph tags but no structured data —
+		// inject the JSON-LD on its own so AI-first Linked Data (#61) still reaches
+		// themes that supply their own social meta (e.g. ssgtheme).
+		b.WriteString(g.buildJSONLD(page, isPost))
 	}
 	if g.config.Feed && !strings.Contains(s, "application/atom+xml") {
 		fmt.Fprintf(&b, `<link rel="alternate" type="application/atom+xml" title=%q href="/feed.xml">`+"\n",
