@@ -200,10 +200,19 @@ type Config struct {
 	TOC                  bool
 	TOCDepth             int
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
-	CheckLinks           string
-	Bundles              map[string][]string
-	Outputs              []string
-	SearchIndex          bool
+	// Schema holds site-wide JSON-LD defaults merged into every page's generated
+	// structured data (publisher, etc.); per-page schema: overrides it (#61).
+	Schema      map[string]interface{}
+	CheckLinks  string
+	Bundles     map[string][]string
+	Outputs     []string
+	SearchIndex bool
+	// ContentSchemas validate per-type frontmatter contracts; Strict escalates
+	// violations (and link checks) to build failures; RouteManifest writes
+	// routes.json (#62).
+	ContentSchemas map[string]models.ContentSchema
+	Strict         bool
+	RouteManifest  bool
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -637,6 +646,12 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
+	// Content contracts run before rendering: a malformed page fails the build
+	// loudly (strict) instead of shipping broken output (#62).
+	if err := g.validateContentSchemas(); err != nil {
+		return err
+	}
+
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
 	}
@@ -657,6 +672,10 @@ func (g *Generator) Generate() error {
 
 	if err := g.generateSitemapAndRobots(); err != nil {
 		return err
+	}
+
+	if err := g.writeRouteManifest(); err != nil {
+		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
 	if err := g.generateFeeds(); err != nil {
@@ -2731,31 +2750,21 @@ func (g *Generator) generateSite() error {
 		}
 	}
 
-	// Generate category pages
-	if err := g.generateCategories(); err != nil {
-		return fmt.Errorf("generating categories: %w", err)
-	}
+	// Category archives are now driven by the registry as a folded built-in (#44);
+	// see renderFoldedBuiltin. Sitemap/feeds still use their own category paths.
 
-	// Generate series landing pages (AX-005)
-	if err := g.generateSeries(); err != nil {
-		return fmt.Errorf("generating series: %w", err)
-	}
+	// Series landing pages (AX-005) are now driven by the registry as a folded
+	// built-in (#44); see renderFoldedBuiltin.
 
-	// Generate tag archives (BLOG-004)
-	tagSlugs, err := g.generateTags()
-	if err != nil {
-		return fmt.Errorf("generating tags: %w", err)
-	}
-	g.tagSlugs = tagSlugs
+	// Tag archives (BLOG-004) are now driven by the registry as a folded built-in
+	// (#44); see renderFoldedBuiltin. g.tagSlugs is populated there before the
+	// sitemap/feeds run.
 
-	// Generate author archives (BLOG-005)
-	authorSlugs, err := g.generateAuthors()
-	if err != nil {
-		return fmt.Errorf("generating authors: %w", err)
-	}
-	g.authorSlugs = authorSlugs
+	// Author archives (BLOG-005) are now folded into generateTaxonomies, the single
+	// taxonomy driver (#44); g.authorSlugs is populated there.
 
-	// Generate custom taxonomy archives (taxonomies-feature.md)
+	// Generate every taxonomy archive — folded built-ins (category, tag, series,
+	// author) and custom taxonomies — from one registry-driven entry point.
 	if err := g.generateTaxonomies(); err != nil {
 		return fmt.Errorf("generating taxonomies: %w", err)
 	}
@@ -3042,6 +3051,12 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		return
 	}
 	target := page.GetURL()
+	// Site-wide alias_stubs default, overridable per page via frontmatter
+	// alias_stubs: emit only the 301 (no duplicate copy) or force the stub (#65).
+	writeStub := !g.config.AliasStubsOff
+	if page.AliasStubs != nil {
+		writeStub = *page.AliasStubs
+	}
 	for _, alias := range page.Aliases {
 		rel := models.SanitizeRelPath(alias)
 		if g.config.I18n.Enabled && page.LangPrefix != "" {
@@ -3054,7 +3069,7 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
 		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
 		// alias_stubs: false drops them and keeps only the _redirects entry.
-		if !g.config.AliasStubsOff {
+		if writeStub {
 			g.writeAliasStub(alias, rel, target)
 		}
 	}
@@ -3095,10 +3110,8 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	desc := page.Description
 	url := page.GetCanonical(g.config.Domain)
 	ogType := "website"
-	ldType := "WebSite"
 	if isPost {
 		ogType = "article"
-		ldType = "Article"
 	}
 	// HTML-escape attribute values. Go's %q backslash-escapes inner quotes,
 	// which HTML parsers read as end-of-attribute — an attribute-injection
@@ -3126,25 +3139,15 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	if desc != "" {
 		fmt.Fprintf(&b, `<meta name="twitter:description" content="%s">`+"\n", stdhtml.EscapeString(desc))
 	}
-	ld := map[string]interface{}{
-		"@context": "https://schema.org",
-		"@type":    ldType,
-		"name":     title,
-		"headline": title,
-		"url":      url,
+	// twitter:image mirrors og:image so summary_large_image cards render the
+	// featured image; both stay as authored and are extension-rewritten to the
+	// emitted .webp by the webp reference pass, same as in-content <img> (#64).
+	if page.FeaturedImage != "" {
+		fmt.Fprintf(&b, `<meta name="twitter:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
 	}
-	if page.Locale != "" {
-		ld["inLanguage"] = page.Locale
-	}
-	if desc != "" {
-		ld["description"] = desc
-	}
-	if isPost && !page.Date.IsZero() {
-		ld["datePublished"] = page.Date.UTC().Format(time.RFC3339)
-	}
-	if j, err := json.Marshal(ld); err == nil {
-		b.WriteString(`<script type="application/ld+json">` + string(j) + "</script>\n")
-	}
+	// JSON-LD structured data (main entity + BreadcrumbList) is built separately
+	// so it stays AI-first rich and per-page/site overridable via schema: (#61).
+	b.WriteString(g.buildJSONLD(page, isPost))
 	return b.String()
 }
 

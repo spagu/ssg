@@ -12,9 +12,10 @@ import (
 )
 
 // This file wires the generic taxonomy system (audit/taxonomies-feature.md)
-// into the build: registry construction from frontmatter, custom archive
-// rendering with template fallback chains, and sitemap/feed integration.
-// Legacy category/tag/series archives stay on their original pipelines.
+// into the build: registry construction from frontmatter, archive rendering with
+// template fallback chains, and sitemap/feed integration. The registry is the
+// single driver for every taxonomy — the built-in category/tag/series/author
+// archives are folded onto it while keeping byte-identical output (#44).
 
 // buildTaxonomies resolves the configured taxonomy definitions, extracts every
 // page's assignments (priority: taxonomies map > direct field > legacy fields),
@@ -188,7 +189,9 @@ func (g *Generator) checkTaxonomyCollisions() error {
 	taken := g.takenContentURLs()
 	for _, name := range g.taxonomies.Names {
 		def := g.taxonomies.Definitions[name]
-		if def.Legacy || !def.Archive {
+		// Folded built-ins skip the hard collision check: like the legacy
+		// pipeline they skip a colliding archive rather than failing (#44).
+		if def.Folded || !def.Archive {
 			continue
 		}
 		if err := g.checkTaxonomyURLs(def, taken); err != nil {
@@ -247,15 +250,23 @@ func (g *Generator) checkTaxonomyURLs(def taxonomy.Definition, taken map[string]
 	return nil
 }
 
-// generateTaxonomies renders every custom taxonomy's index and term archives
-// (legacy category/tag/series stay on their original pipelines).
+// generateTaxonomies is the single driver for every taxonomy archive (#44).
+// Folded built-ins render through their legacy-compatible renderer; custom
+// (dynamic) taxonomies get the index + per-term archives. Pure Legacy defs (not
+// yet folded) are still driven by their original top-level pipeline.
 func (g *Generator) generateTaxonomies() error {
 	if g.taxonomies == nil {
 		return nil
 	}
 	for _, name := range g.taxonomies.Names {
 		def := g.taxonomies.Definitions[name]
-		if def.Legacy || !def.Archive {
+		if !def.Archive {
+			continue
+		}
+		if def.Folded {
+			if err := g.renderFoldedBuiltin(def); err != nil {
+				return err
+			}
 			continue
 		}
 		for _, lang := range g.taxonomyLangs() {
@@ -263,6 +274,34 @@ func (g *Generator) generateTaxonomies() error {
 				return err
 			}
 		}
+	}
+	// Author archives (BLOG-005) are folded into this single driver too, but keyed
+	// on the author id — not a frontmatter-field taxonomy — so author is driven
+	// here rather than registered as a definition. That keeps it out of the public
+	// taxonomy listing and the reserved-path model exactly as before (#44).
+	slugs, err := g.generateAuthors()
+	if err != nil {
+		return err
+	}
+	g.authorSlugs = slugs
+	return nil
+}
+
+// renderFoldedBuiltin renders a built-in taxonomy that has been migrated onto the
+// registry but keeps byte-identical legacy output (#44). Each built-in reuses its
+// proven renderer and, where applicable, contributes to the sitemap slug map.
+func (g *Generator) renderFoldedBuiltin(def taxonomy.Definition) error {
+	switch def.Name {
+	case "category":
+		return g.generateCategories()
+	case "series":
+		return g.generateSeries()
+	case "tag":
+		slugs, err := g.generateTags()
+		if err != nil {
+			return err
+		}
+		g.tagSlugs = slugs
 	}
 	return nil
 }
@@ -457,7 +496,9 @@ func (g *Generator) writeTaxonomySitemap(sb *strings.Builder) {
 	}
 	for _, name := range g.taxonomies.Names {
 		def := g.taxonomies.Definitions[name]
-		if def.Legacy || !def.Archive || !def.Sitemap {
+		// Folded built-ins contribute to the sitemap through their legacy slug
+		// map (e.g. g.tagSlugs), so the registry skips them here to avoid dupes.
+		if def.Folded || !def.Archive || !def.Sitemap {
 			continue
 		}
 		for _, lang := range g.taxonomyLangs() {
@@ -491,7 +532,9 @@ func (g *Generator) generateTaxonomyFeeds(limit int) error {
 	}
 	for _, name := range g.taxonomies.Names {
 		def := g.taxonomies.Definitions[name]
-		if def.Legacy || !def.Archive || !def.Feed {
+		// Folded built-ins emit their feeds through the legacy path (g.tagSlugs),
+		// so the registry skips them here to avoid duplicate feed files.
+		if def.Folded || !def.Archive || !def.Feed {
 			continue
 		}
 		if err := g.writeTaxonomyTermFeeds(def, limit); err != nil {

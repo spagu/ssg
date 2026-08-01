@@ -14,9 +14,10 @@ the release change, how do I install the thing — and then get out of the way.
 SSG exists for that case. You write Markdown, run one command, and get a folder
 of HTML you can put behind any CDN on earth.
 
-That is the whole idea, and it is not new. Jekyll did it in 2008. What follows
-is less about the category and more about the specific trade-offs this one
-makes, because that is the part you cannot tell from a feature list.
+That is the whole idea, and it is not new — the approach has been around since
+the late 2000s. What follows is less about the category and more about the
+specific trade-offs this one makes, because that is the part you cannot tell
+from a feature list.
 
 ## What a build actually looks like
 
@@ -89,9 +90,10 @@ If your site's content genuinely changes per request — a dashboard, a
 marketplace, anything with a session — a static generator is the wrong shape
 and no amount of build-time cleverness fixes that.
 
-If you want a theme ecosystem with a thousand entries, Hugo is right there and
-it is excellent. SSG ships three themes and a documented contract for writing
-your own, which is a different bet: fewer options, less to keep compatible.
+If you want a theme ecosystem with a thousand entries, other generators
+specialise in exactly that. SSG ships three themes and a documented contract for
+writing your own, which is a different bet: fewer options, less to keep
+compatible.
 
 And if you are already happy with your current generator, the honest answer is
 that switching buys you very little. The interesting cases are the ones where

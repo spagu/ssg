@@ -133,8 +133,8 @@ no shared secret to store or rotate.
 
 ## 5. Import existing comments
 
-Migrating from Disqus, WordPress, Commento or a spreadsheet? Convert the export
-to this **normalised JSON** — an array of comments — and post it once:
+Migrating from another comment system or a spreadsheet? Convert its export to
+this **normalised JSON** — an array of comments — and post it once:
 
 ```json
 [

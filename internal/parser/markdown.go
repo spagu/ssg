@@ -280,6 +280,14 @@ type PageFrontmatter struct {
 	Aliases        []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
 	Series         string   `yaml:"series,omitempty"`  // series grouping (AX-005)
 
+	// AliasStubs overrides the site-wide alias_stubs default per page: false =
+	// 301 only (no duplicate copy), true = force a stub (#65).
+	AliasStubs *bool `yaml:"alias_stubs,omitempty"`
+
+	// Schema overrides or extends the generated JSON-LD for this page: its keys
+	// are deep-merged over the derived structured data (per-page wins, #61).
+	Schema map[string]interface{} `yaml:"schema,omitempty"`
+
 	// Taxonomies is the generic assignment map (taxonomies-feature.md); it has
 	// priority over direct fields and legacy category/tags/series.
 	Taxonomies map[string]interface{} `yaml:"taxonomies,omitempty"`
@@ -401,7 +409,9 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Category:       pf.Category,
 		Sitemap:        pf.Sitemap,
 		Aliases:        pf.Aliases,
+		AliasStubs:     pf.AliasStubs,
 		Series:         pf.Series,
+		Schema:         pf.Schema,
 		TaxonomiesFM:   pf.Taxonomies,
 		// Template selection
 		Layout:   pf.Layout,

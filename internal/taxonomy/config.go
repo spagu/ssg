@@ -28,8 +28,13 @@ type Definition struct {
 	CaseSensitive bool
 	Slugify       bool
 	GenerateEmpty bool
-	Paginate      int  // posts per term-archive page; 0 = fall back to the global paginate (#44)
-	Legacy        bool // category/tag/series: rendered by the legacy pipeline
+	Paginate      int // posts per term-archive page; 0 = fall back to the global paginate (#44)
+	// Folded marks a built-in (category/tag/series) now rendered by the registry
+	// but with legacy-compatible output: no taxonomy index page, no i18n path
+	// prefix, single-page term archives, a two-entry template fallback (<primary>
+	// → category.html), and skip-not-fail URL collisions. It lets the registry be
+	// the single taxonomy driver while byte-for-byte output is preserved (#44).
+	Folded bool
 }
 
 // DefinitionConfig is the YAML/TOML/JSON shape; pointer booleans distinguish
@@ -64,13 +69,13 @@ func legacyDefaults() map[string]Definition {
 	return map[string]Definition{
 		"category": {Name: "category", Field: "categories", Label: "Categories", Singular: "Category",
 			Path: "category", Multiple: true, Archive: true, Feed: true, Sitemap: true,
-			Template: "category.html", TermTemplate: "category.html", Sort: "name", Slugify: true, Legacy: true},
+			Template: "category.html", TermTemplate: "category.html", Sort: "name", Slugify: true, Folded: true},
 		"tag": {Name: "tag", Field: "tags", Label: "Tags", Singular: "Tag",
 			Path: "tag", Multiple: true, Archive: true, Feed: true, Sitemap: true,
-			Template: "tag.html", TermTemplate: "tag.html", Sort: "name", Slugify: true, Legacy: true},
+			Template: "tag.html", TermTemplate: "tag.html", Sort: "name", Slugify: true, Folded: true},
 		"series": {Name: "series", Field: "series", Label: "Series", Singular: "Series",
 			Path: "series", Multiple: false, Archive: true, Feed: false, Sitemap: true,
-			Template: "series.html", TermTemplate: "series.html", Sort: "name", Slugify: true, Legacy: true},
+			Template: "series.html", TermTemplate: "series.html", Sort: "name", Slugify: true, Folded: true},
 	}
 }
 
@@ -159,7 +164,7 @@ func validate(defs map[string]Definition, names, reserved []string) error {
 		if d.Path == "" {
 			return fmt.Errorf("taxonomy %q has an empty path", name)
 		}
-		if res[d.Path] && !d.Legacy {
+		if res[d.Path] && !d.Folded {
 			return fmt.Errorf("taxonomy %q uses reserved path %q", name, d.Path)
 		}
 		if prev, dup := paths[d.Path]; dup {

@@ -11,6 +11,12 @@ import (
 	"fmt"
 	"strings"
 
+	// disintegration/imaging is unmaintained and carries a LOW-severity TIFF
+	// decode-crash advisory with no upstream fix. Reviewed and accepted
+	// (tolerable_risk): SSG only ever decodes trusted, author-supplied local
+	// images at build time — never untrusted or remote TIFF input — so the
+	// advisory has no attack path here. Revisit if remote/untrusted image
+	// decoding is ever added, or if a maintained drop-in replacement appears.
 	"github.com/disintegration/imaging"
 )
 

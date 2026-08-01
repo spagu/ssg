@@ -211,8 +211,10 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `description` | string | both | SEO description; themes may fall back to `excerpt` |
 | `keywords` | string | both | SEO keywords |
 | `canonical` | string | both | Explicit canonical value exposed to templates |
-| `aliases` | list | both | Old paths rendered as redirect stubs |
-| `featured_image` | string | both | Hero/Open Graph image |
+| `aliases` | list | both | Old paths that `301` here (and, by default, get a stub copy) |
+| `alias_stubs` | bool | both | Override the site-wide default: `false` = 301 only, no stub copy; `true` = force a stub |
+| `schema` | map | both | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
+| `featured_image` | string | both | Hero image; also `og:image`, `twitter:image` and JSON-LD `image` |
 | `layout` | string | page | Theme layout; `redirect` also marks an item for sitemap exclusion |
 | `template` | string | page | Specific page template filename override |
 | `robots` | string | both | Robots directive; `noindex` excludes from sitemap |
@@ -296,6 +298,50 @@ permalinks:
 
 Expanded paths are sanitised so they cannot escape the output directory.
 
+### A clean `/blog/` (and why you might see `/category/blog/`)
+
+SSG does not create a blog section for you, and it never forces posts under
+`/category/blog/`. That URL appears for exactly one reason: a post was given a
+**category** named "blog", and every category auto-generates an archive at
+`/category/<slug>/`. If you want the industry-standard `/blog/` and a single
+canonical URL per post, don't categorise posts as "blog" — build the section
+explicitly instead:
+
+1. **Put posts under `/blog/`** with a permalink pattern:
+
+   ```yaml
+   permalinks:
+     post: /blog/:slug/
+   ```
+
+2. **Add a blog index page** that lists the posts. Create `pages/blog.md` and
+   point it at a layout that ranges over the site's posts:
+
+   ```yaml
+   ---
+   title: "Blog"
+   slug: "blog"
+   link: "/blog/"
+   layout: "blog"       # renders templates/<theme>/layouts/blog.html
+   type: page
+   hide_from_lists: true
+   ---
+   ```
+
+   The bundled `ssgtheme` ships a `layouts/blog.html` that does this; in a custom
+   theme, a layout that iterates `.Site.Posts` is all it takes. (`hide_from_lists`
+   is an `ssgtheme` convention read from a page's custom frontmatter to keep the
+   index itself out of the nav — omit it in a theme that doesn't use it.)
+
+3. **Leave posts uncategorised.** With no `category:`/`categories:` on a post,
+   no `/category/blog/` archive is generated, so `/blog/` is the only listing and
+   there is no duplicate-content pair. (Tags and series still work — they live at
+   `/tag/<slug>/` and `/series/<slug>/`, separate from the main section.)
+
+This is exactly how this documentation site is built. Reach for a category
+archive only when you genuinely want a *taxonomy* facet, not as the primary blog
+index.
+
 `page_format` controls filesystem form:
 
 | Value | Result for `about` |
@@ -314,9 +360,35 @@ aliases:
   - /2019/legacy-path/
 ```
 
-Each safe, non-conflicting alias becomes a `noindex` HTML redirect stub with a
-canonical link. Aliases are excluded from the sitemap. A collision with real
-content is skipped with a warning.
+Each alias is **always** added as a `301` to the `_redirects` file (chains are
+flattened). By default it *also* gets a `noindex` HTML redirect stub — a
+meta-refresh + canonical fallback for hosts without server redirects. Aliases are
+excluded from the sitemap; a collision with real content is skipped with a
+warning.
+
+### Redirect only, no duplicate copy
+
+On a platform that serves `_redirects` (Cloudflare Pages, Netlify) the stub copy
+is redundant: the old path already `301`s at the edge. To emit **only** the 301 —
+no 200-serving duplicate for crawlers to spend budget on — turn stubs off. Set it
+site-wide in the config (`alias_stubs: false`) or per page in frontmatter:
+
+```yaml
+aliases:
+  - /hotel-term-condition/
+alias_stubs: false   # this page's aliases 301 only; no stub copy
+```
+
+Per-page `alias_stubs` overrides the site-wide default either way — set it `true`
+on a page to keep its stub even when the site disables stubs. The `301` is
+emitted regardless; only the stub copy is affected.
+
+**Trailing slash.** The `301` is written for the alias path exactly as declared,
+while the stub copy is a directory index (`/old-slug/index.html`). On a host that
+serves `_redirects`, a hand-written rule for `/old-slug` and the stub at
+`/old-slug/` can therefore answer differently per trailing slash (one `301`s, the
+other serves the 200 copy). If that split matters, set `alias_stubs: false` so
+the alias is a pure `301` and there is no copy to disagree with the redirect.
 
 ## Relative Markdown links
 

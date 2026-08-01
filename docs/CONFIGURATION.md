@@ -316,16 +316,37 @@ HTML regions can opt out of minification:
 | `reconvert_images` | `false` | `--reconvert-images` | Ignore existing conversion result |
 | `image_sizes` | empty | `--image-sizes` | Responsive widths; no upscaling |
 | `image_sizes_attr` | `100vw` | `--image-sizes-attr` | Generated HTML `sizes` value |
+| `build_workers` | one per CPU | `--workers=N` | Parallel build workers; `0` = off (sequential) |
+
+`build_workers` (`--workers=N`) sets how many images convert to WebP in parallel.
+Leave it unset to use the **whole machine** (one worker per CPU), set an explicit
+`N` (e.g. `--workers=2`) to cap it on a shared box, or `--workers=0` to turn
+parallelism **off** and build sequentially. Each image is independent, so the
+output is byte-identical whatever the count — only the wall-clock changes.
 
 WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).
 
+**Scope.** WebP conversion runs over the **entire output tree** — content media,
+copied `static/` files and theme assets alike, every `.jpg`/`.jpeg`/`.png` — not
+just images under your content. There is no per-directory exclude list;
+`webp_keep_original` (below) is the escape hatch when something must keep its
+original extension.
+
 By default WebP conversion **replaces** each original in the output (the
-historical behaviour): `logo.png` becomes `logo.webp` and `<img src>`
-references are rewritten. Themes that hardcode extensions outside rewritten
-attributes — favicons, logos, `og:image` — 404 in that mode. Set
-`webp_keep_original: true` to emit the `.webp` next to the original: rewritten
-references serve WebP, hardcoded ones keep working (v1.8.5).
+historical behaviour): `logo.png` becomes `logo.webp` and references are
+rewritten to match. Rewriting covers `<img src>`/`srcset`, `href`, CSS
+`url(...)`, the `og:image`/`twitter:image` social-preview metas and the JSON-LD
+`image` value — so share previews follow the conversion instead of pointing at a
+removed `.jpg`. Only references SSG cannot resolve to a local file stay on the
+original extension: **absolute** URLs to your own images (`https://…/logo.png`,
+left untouched on purpose) and — the common footgun — **paths built in
+JavaScript at runtime**. SSG only rewrites HTML/CSS, so a script that fetches
+`marker-icon.png` (e.g. a map library's default marker) keeps requesting the
+`.png` that replace mode just deleted → a silent 404. When an asset is referenced
+from JS, set `webp_keep_original: true` to emit the `.webp` next to the original —
+rewritten HTML/CSS references serve WebP, the runtime `.png` still resolves
+(v1.8.5) — or reference it from HTML/CSS instead so the rewrite can reach it.
 
 ## Authoring
 
@@ -488,12 +509,99 @@ implemented.
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
+| `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `check_links` | empty | `--check-links[=warn|strict]` | Validate internal links |
+| `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
+| `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
+| `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
 
 SEO injection is non-destructive and skips pages that already provide their own
 Open Graph tags. The old `seo_off`/`--seo-off` setting is a deprecated no-op.
 Plain `--check-links` selects warning mode; strict mode fails the build.
+
+### Content contracts (schemas, strict mode, route manifest)
+
+`content_schemas` declares what a page of each type must look like, so a missing
+`author` or a malformed `date` fails at build time — with a precise message
+(file, field, reason) — instead of silently shipping a broken page. Each schema
+lists `required` fields and per-field `type`/`format`/`enum` rules:
+
+```yaml
+content_schemas:
+  post:
+    required: [title, date, author]
+    fields:
+      title:  { type: string }
+      date:   { type: date }
+      status: { type: enum, values: [publish, draft] }
+      featured_image: { type: url }
+      weight: { type: int }
+```
+
+Field types are `string`, `int`, `bool`, `date`, `url`, `list` and `enum` (with
+`values`). Well-known frontmatter fields (`title`, `date`, `author`, `tags`, …)
+resolve automatically; any other name is read from the page's custom frontmatter.
+
+Violations **warn** by default so a site can adopt schemas incrementally. Turn on
+`strict` (or `--strict`) to make them — and internal link checking — **hard build
+failures**: a renamed slug that orphans a link, or a post missing a required
+field, then fails the build instead of shipping. `strict` enables link checking
+even when `check_links` is unset.
+
+`route_manifest` (or `--route-manifest`) writes `routes.json` to the output root:
+a sorted, deduplicated list of every generated route — posts, pages, and category
+/ tag / series / author / custom-taxonomy archives — each with its `type`,
+`title`, source file and language. It is a machine-readable contract external
+tooling (or generated typed clients) can diff to catch a route that moved.
+
+A page's `featured_image` becomes the `og:image`, `twitter:image` (a
+`summary_large_image` card) and the JSON-LD `image`, so one frontmatter field
+drives every social preview. With `webp` on, all three follow the conversion to
+`.webp` exactly like in-content images — no separate social-image setting to keep
+in sync.
+
+### AI-first JSON-LD structured data
+
+With `seo` on, every page also gets `<script type="application/ld+json">`
+Linked Data in its `<head>`, derived from existing frontmatter with **zero extra
+configuration** — so AI agents and answer engines read structured, machine-
+readable data without executing JavaScript. Content types map to Schema.org:
+
+| Page | `@type` | Derived from |
+|---|---|---|
+| Blog post | `BlogPosting` | title, description, `date`/`modified`, author, tags → `keywords`, `featured_image` |
+| Home page | `WebSite` | title, description |
+| Any other page | `WebPage` | title, description |
+
+Every non-home page additionally gets a `BreadcrumbList` built from its URL path,
+placing it in the site hierarchy.
+
+**Overrides.** Two knobs extend or replace the generated data, deep-merged in
+order (most specific wins): site-wide `schema:` in the config, then per-page
+`schema:` in frontmatter. Use the site-wide default for a publisher/Organization
+that belongs on every page, and the per-page one to correct a `@type` or add
+fields a single page needs:
+
+```yaml
+# .ssg.yaml — appears on every page
+schema:
+  publisher:
+    "@type": Organization
+    name: Acme Inc.
+    logo: https://acme.example/logo.png
+```
+
+```yaml
+# frontmatter — this page only
+schema:
+  "@type": TechArticle
+  proficiencyLevel: Expert
+```
+
+The generated JSON-LD is valid Schema.org and passes Google's Rich Results Test.
+`</script>` in any field is escaped, so untrusted titles cannot break out of the
+block.
 
 ## Data and variables
 
@@ -624,16 +732,18 @@ and GitHub Action inputs are in [DEPLOYMENT.md](DEPLOYMENT.md).
 | Key | Default | Notes |
 |---|---:|---|
 | `redirects` | empty | list of `{from, to, status, force}` rules |
-| `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` |
+| `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` (`false` = 301 only; per-page frontmatter `alias_stubs` overrides) |
 | `headers` | empty | map of `path pattern → {header: value}` overrides |
 | `headers_defaults_off` | `false` | drop the built-in security/cache blocks |
 
 `redirects:` generates a real `_redirects` file: exact paths, `/old/*` splats
 (`:splat` in the destination) and statuses `301`/`302`/`307`/`308`/`410`.
 Frontmatter `aliases:` are added as `301`s and exact chains are flattened to a
-single hop. `headers:` overrides or extends the generated `_headers` per
-pattern. Full reference and the `ssg import redirects` importer:
-[DEPLOYMENT.md](DEPLOYMENT.md).
+single hop. By default each alias also gets a meta-refresh stub copy (a fallback
+for hosts without server redirects); set `alias_stubs: false` — site-wide or per
+page in frontmatter — to emit the `301` only, with no duplicate 200-serving copy.
+`headers:` overrides or extends the generated `_headers` per pattern. Full
+reference and the `ssg import redirects` importer: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ```yaml
 redirects:
@@ -646,6 +756,95 @@ headers:
   /api/*:
     Access-Control-Allow-Origin: "*"
 ```
+
+## Server endpoints (portable, no vendor lock-in)
+
+Some sites need a little server behind the static output — a redirect that
+depends on the request, or a proxy that keeps an upstream key server-side.
+`endpoints:` declares those **once, in a vendor-neutral way**. The built-in
+server runs them natively (`--http`), in the single Go binary, with no external
+runtime — so a self-hosted deploy behind nginx/Caddy or the Docker image gets the
+dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
+
+| Key | Notes |
+|---|---|
+| `path` | Request path handled by this endpoint, e.g. `/api/quote` (exact match) |
+| `type` | `redirect`, `proxy` or `form` |
+| `to` / `status` | `redirect`: destination and 3xx code (default `302`) |
+| `target` | `proxy`: upstream URL; the client's path is replaced by the target's |
+| `methods` | `proxy`: allowed HTTP methods (empty = any) |
+| `to` | `form`: the webhook the submission is POSTed to as JSON |
+| `fields` | `form`: which fields to forward (empty = all submitted fields) |
+| `honeypot` | `form`: a field that must stay empty — a filled one is a bot, silently dropped |
+| `redirect` | `form`: where the browser goes after a successful submit (`303`); empty = a small JSON ok |
+| `allow_private` | `proxy`/`form`: permit a private/loopback upstream or webhook (a self-hosted service) |
+| `user` / `password` | `auth`: Basic-auth credentials; `password` should reference an env var (`$MEMBERS_PW`), never a literal |
+
+```yaml
+endpoints:
+  - path: /go/latest
+    type: redirect
+    to: /releases/1-8-14/
+    status: 302
+  - path: /api/quote
+    type: proxy
+    target: https://api.example.com/v1/quote   # upstream key stays server-side
+    methods: [GET, POST]
+  - path: /api/contact
+    type: form
+    to: https://hooks.example.com/email        # delivery webhook stays server-side
+    fields: [name, email, message]
+    honeypot: company                          # bots that fill it are dropped
+    redirect: /thanks/
+```
+
+A `form` endpoint accepts a `POST`ed submission, drops obvious bots via the
+`honeypot` (a hidden field a human leaves empty), and delivers the collected
+fields as JSON to `to` — so the delivery webhook (an email service, a chat hook)
+is never exposed to the browser. On the self-hosted server the delivery uses the
+same dial-time SSRF guard as `proxy`.
+
+An `auth` endpoint guards its `path` **as a prefix** with HTTP Basic auth:
+
+```yaml
+endpoints:
+  - path: /members/          # protects /members/ and everything under it
+    type: auth
+    user: ada
+    password: $MEMBERS_PW    # from the environment, never a literal
+```
+
+The password is read from the named environment variable; the comparison is
+constant-time. Auth guards run on the **built-in server only** — on a serverless
+platform, protect a section with that platform's own access control — so
+`endpoints_platform` compiles the other endpoint types and skips `auth`.
+
+A `proxy` endpoint resolves and vets the upstream IP itself and **refuses
+loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the
+external-source client uses — so it can't be turned into a pivot to internal
+hosts. Set `allow_private: true` only when the upstream really is a private
+self-hosted API. Endpoint responses are sent `Cache-Control: no-store`.
+
+**Same declaration, any target.** The built-in server runs endpoints directly.
+To run the *same* endpoints on a serverless platform instead, set
+`endpoints_platform` and the build compiles them into that platform's functions —
+no rewrite, no second definition:
+
+| `endpoints_platform` | Emits |
+|---|---|
+| _(empty)_ | Self-hosted only — served natively by `--http` |
+| `cloudflare` | `functions/<path>.js` Pages Functions (the same tree hand-written workers use) |
+| `netlify` | `netlify/functions/<name>.mjs` (v2, each declares its own `path` — no `_redirects` wiring) |
+| `vercel` | `api/<name>.js` Edge Functions + a `vercel.json` that rewrites each path to its function |
+
+```yaml
+endpoints_platform: cloudflare   # compile endpoints: into functions/ at build time
+```
+
+Adapters are self-contained plugins — one file per platform — so a new target
+drops in without touching the format or your config. Redirect and proxy behave
+the same on every target; the proxy's dial-time SSRF guard is specific to the
+self-hosted server (on a platform the upstream runs at the edge).
 
 ## Cloudflare Worker / Pages Functions
 

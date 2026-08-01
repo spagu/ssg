@@ -56,6 +56,25 @@ func stringSliceMeta(v any) []string {
 	return out
 }
 
+// metaBool reads a frontmatter boolean that may arrive as a native bool (YAML/
+// TOML/JSON) or as a "true"/"false" string (some external sources). The second
+// return reports whether a usable value was found, so callers can leave a
+// pointer-bool unset (inherit) when the key is absent or unparsable.
+func metaBool(v any) (bool, bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "true", "yes", "1":
+			return true, true
+		case "false", "no", "0":
+			return false, true
+		}
+	}
+	return false, false
+}
+
 // applyCategories resolves flexible categories metadata onto the page:
 // numeric IDs (float64 from JSON, numeric strings over gRPC, GO-030) fill
 // Categories, while any non-numeric name switches the whole list to
@@ -195,6 +214,19 @@ func (d *Document) ToPage() (*models.Page, error) {
 	// arrives flattened to a scalar (GO-014)
 	page.Aliases = stringSliceMeta(d.Metadata["aliases"])
 
+	// alias_stubs: false on a page emits only the 301 for its aliases (no
+	// meta-refresh copy); true forces a stub. Unset inherits the site-wide
+	// default. Overrides duplicate-page behaviour per page (#65).
+	if b, ok := metaBool(d.Metadata["alias_stubs"]); ok {
+		page.AliasStubs = &b
+	}
+
+	// schema: per-page JSON-LD override/extension, deep-merged over the derived
+	// structured data (#61).
+	if m, ok := d.Metadata["schema"].(map[string]interface{}); ok {
+		page.Schema = m
+	}
+
 	// Series grouping (AX-005)
 	if series, ok := d.Metadata["series"].(string); ok {
 		page.Series = series
@@ -208,6 +240,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"categories": true, "description": true, "keywords": true, "lang": true,
 		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
 		"category": true, "layout": true, "template": true, "aliases": true, "series": true,
+		"alias_stubs": true, "schema": true,
 	}
 
 	page.Extra = make(map[string]interface{})

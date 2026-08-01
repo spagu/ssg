@@ -126,6 +126,35 @@ func TestBuildOpenGraphEscapesAttributes(t *testing.T) {
 	}
 }
 
+// ─── #64: featured image feeds og:image, twitter:image and JSON-LD image ────
+
+func TestBuildOpenGraphEmitsFeaturedImage(t *testing.T) {
+	g := newTestGen(t, "")
+	og := g.buildOpenGraph(models.Page{
+		Title:         "Post",
+		Slug:          "post",
+		FeaturedImage: "/media/hero.jpg",
+	}, true)
+	for _, want := range []string{
+		`<meta property="og:image" content="/media/hero.jpg">`,
+		`<meta name="twitter:image" content="/media/hero.jpg">`,
+		`"image":"/media/hero.jpg"`,
+	} {
+		if !strings.Contains(og, want) {
+			t.Errorf("buildOpenGraph missing %q in:\n%s", want, og)
+		}
+	}
+}
+
+// A page without a featured image must not emit empty image tags.
+func TestBuildOpenGraphNoImageWhenUnset(t *testing.T) {
+	g := newTestGen(t, "")
+	og := g.buildOpenGraph(models.Page{Title: "Post", Slug: "post"}, true)
+	if strings.Contains(og, "og:image") || strings.Contains(og, "twitter:image") || strings.Contains(og, `"image"`) {
+		t.Errorf("no image tags expected when FeaturedImage is empty:\n%s", og)
+	}
+}
+
 // ─── GO-021: feed summary truncation is rune-safe ───────────────────────────
 
 func TestFeedSummaryTruncationRuneSafe(t *testing.T) {

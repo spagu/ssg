@@ -27,7 +27,7 @@ documentation, company sites, portfolios and landing pages.
 - Sitemap, robots.txt, Atom feeds, search index and SEO metadata
 - WebP conversion, responsive images, SCSS, minification and fingerprinting
 - Local server with automatic rebuilds
-- Redirects engine with chain flattening and a Next.js `redirects()` importer
+- Redirects engine with chain flattening and a `redirects()`-config importer
 - Cloudflare Pages Functions integration for payments, forms and dynamic endpoints
 - Native deployment to Cloudflare Pages, GitHub Pages, Netlify, Vercel, FTP and SFTP
 - GitHub Action and multi-architecture Docker images
@@ -221,8 +221,10 @@ For predictable results, pages and posts should define `title`, `status` and
 | `description` | string | SEO description; falls back to the excerpt |
 | `link` | string | Explicit URL path; overrides normal URL rules |
 | `canonical` | string | Explicit canonical URL |
-| `aliases` | list | Previous paths that should redirect to this item |
-| `featured_image` | string | Hero and Open Graph image |
+| `aliases` | list | Previous paths that `301` to this item (and, by default, get a redirect stub) |
+| `alias_stubs` | bool | Per-page override: `false` = 301 only (no duplicate copy), `true` = force a stub |
+| `schema` | map | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
+| `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion) |
 | `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
 | `template` | string | Page template file override |
 | `robots` | string | Robots directive; `noindex` also excludes from sitemap |
@@ -291,6 +293,9 @@ Common options:
 | Generate Atom feeds | `feed: true` | `--feed` |
 | Generate search index | `search_index: true` | `--search-index` |
 | Add SEO metadata | `seo: true` | `--seo` |
+| Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
+| Fail the build on any violation | `strict: true` | `--strict` |
+| Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
@@ -336,7 +341,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
-| Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a Next.js config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |

@@ -233,6 +233,9 @@ func autocertCacheDir() string {
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	h := http.Handler(http.FileServer(http.Dir(cfg.OutputDir)))
+	// Vendor-neutral endpoints intercept their paths before the file server;
+	// everything else is still served statically (#63).
+	h = endpointHandler(cfg, h)
 	h = cacheControlMiddleware(h)
 	h = securityHeadersMiddleware(h, tlsOn)
 	if cfg.Gzip {

@@ -68,7 +68,7 @@ What it does have:
 
 - **Cloudflare D1** for storage, **Turnstile** on submit, and a **heuristic spam score** (drop in an Akismet key if you want real scoring).
 - **Moderation by default.** New comments land as `pending` and are invisible until you approve them in a password-protected panel. Nothing a stranger types appears unreviewed.
-- **A migration path.** An admin-only import endpoint takes a normalized JSON array, so moving off Disqus or WordPress is a convert-and-POST. It's idempotent — re-running the same export inserts nothing new.
+- **A migration path.** An admin-only import endpoint takes a normalized JSON array, so moving off your old comment system is a convert-and-POST. It's idempotent — re-running the same export inserts nothing new.
 - **Auto-close.** Set `COMMENTS_CLOSE_AFTER_DAYS` and a thread stops taking comments once it's been quiet that long, which is most of your spam surface gone for free.
 
 For compliance it keeps a salted hash of the IP and the user agent — enough to answer an abuse report, not enough to profile anyone. The widget is dependency-free, XSS-safe (every field goes in as text, never HTML), and translated the same way the banner is.

@@ -42,17 +42,19 @@ func TestResolveLegacyDefaults(t *testing.T) {
 	if len(names) != 3 || names[0] != "category" || names[1] != "tag" || names[2] != "series" {
 		t.Fatalf("names = %v", names)
 	}
+	// Built-ins are now folded onto the registry (Folded, not Legacy) but keep
+	// byte-identical output via their legacy-compatible renderers (#44).
 	cat := defs["category"]
-	if !cat.Legacy || cat.Field != "categories" || cat.Path != "category" || !cat.Multiple ||
+	if !cat.Folded || cat.Field != "categories" || cat.Path != "category" || !cat.Multiple ||
 		!cat.Archive || !cat.Feed || !cat.Sitemap || cat.Template != "category.html" || cat.Sort != "name" || !cat.Slugify {
 		t.Fatalf("category defaults = %+v", cat)
 	}
 	tag := defs["tag"]
-	if !tag.Legacy || tag.Field != "tags" || !tag.Multiple || !tag.Feed || tag.Template != "tag.html" {
+	if !tag.Folded || tag.Field != "tags" || !tag.Multiple || !tag.Feed || tag.Template != "tag.html" {
 		t.Fatalf("tag defaults = %+v", tag)
 	}
 	ser := defs["series"]
-	if !ser.Legacy || ser.Multiple || ser.Feed || ser.Path != "series" || ser.Singular != "Series" {
+	if !ser.Folded || ser.Multiple || ser.Feed || ser.Path != "series" || ser.Singular != "Series" {
 		t.Fatalf("series defaults = %+v", ser)
 	}
 }
@@ -67,7 +69,7 @@ func TestResolveCustomDefaultsAndOrdering(t *testing.T) {
 		t.Fatalf("names = %v", names)
 	}
 	tech := defs["technology"]
-	if tech.Legacy || tech.Field != "technology" || tech.Label != "Technology" || tech.Singular != "Technology" ||
+	if tech.Folded || tech.Field != "technology" || tech.Label != "Technology" || tech.Singular != "Technology" ||
 		tech.Path != "technology" || !tech.Multiple || !tech.Archive || tech.Feed || !tech.Sitemap ||
 		tech.Template != "" || tech.Sort != "name" || !tech.Slugify || tech.CaseSensitive || tech.GenerateEmpty {
 		t.Fatalf("custom defaults = %+v", tech)
@@ -96,8 +98,8 @@ func TestResolveOverrides(t *testing.T) {
 		t.Fatalf("overrides = %+v", tech)
 	}
 	tag := defs["tag"]
-	if !tag.Legacy || tag.Feed || tag.Label != "Etykiety" || tag.Path != "tag" {
-		t.Fatalf("legacy override = %+v", tag)
+	if !tag.Folded || tag.Feed || tag.Label != "Etykiety" || tag.Path != "tag" {
+		t.Fatalf("folded override = %+v", tag)
 	}
 }
 

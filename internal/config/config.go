@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
+	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/taxonomy"
 	"gopkg.in/yaml.v3"
 )
@@ -108,6 +109,12 @@ type Config struct {
 	Gzip     bool   `yaml:"gzip" toml:"gzip" json:"gzip"`                // gzip-compress responses on the fly
 	MaxConns int    `yaml:"max_conns" toml:"max_conns" json:"max_conns"` // cap concurrent connections (0 = unlimited)
 	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // soft runtime memory limit, e.g. "512MiB"
+
+	// BuildWorkers caps concurrency for the parallelizable build stages (WebP
+	// image conversion first). Unset ⇒ one worker per CPU (use the whole machine);
+	// an explicit 0 ⇒ off (fully sequential, the historical behaviour); N ⇒
+	// exactly N workers. Output is byte-identical regardless of the count.
+	BuildWorkers *int `yaml:"build_workers" toml:"build_workers" json:"build_workers"`
 	// HTTP3 also serves HTTP/3 (QUIC) alongside HTTPS/2 and advertises it via
 	// Alt-Svc. Requires TLS (QUIC is always encrypted). HTTP/2 is already automatic
 	// over TLS; this adds QUIC on the same UDP port (v1.8.1).
@@ -310,6 +317,20 @@ type Config struct {
 	// client-side search widget (PLAT-004).
 	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`
 
+	// ContentSchemas declares per-type frontmatter contracts (#62): required
+	// fields and per-field type/format/enum rules, validated after content load
+	// so missing/malformed frontmatter is caught at build instead of shipping a
+	// broken page. Keyed by content type ("post", "page", …).
+	ContentSchemas map[string]models.ContentSchema `yaml:"content_schemas" toml:"content_schemas" json:"content_schemas"`
+
+	// Strict escalates soft build problems into hard failures (#62): content-schema
+	// violations, and link checking when check_links is set are treated as errors.
+	Strict bool `yaml:"strict" toml:"strict" json:"strict"`
+
+	// RouteManifest writes routes.json — a machine-readable list of every generated
+	// route and its metadata — for external tooling and typed clients (#62).
+	RouteManifest bool `yaml:"route_manifest" toml:"route_manifest" json:"route_manifest"`
+
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`
@@ -375,6 +396,11 @@ type Config struct {
 	Redirects  []RedirectRule `yaml:"redirects" toml:"redirects" json:"redirects"`
 	AliasStubs *bool          `yaml:"alias_stubs" toml:"alias_stubs" json:"alias_stubs"`
 
+	// Schema declares site-wide JSON-LD defaults merged into every page's
+	// generated structured data (e.g. a publisher/Organization block). Per-page
+	// frontmatter schema: overrides it, which overrides the derived data (#61).
+	Schema map[string]interface{} `yaml:"schema" toml:"schema" json:"schema"`
+
 	// Worker wires a single Cloudflare Pages Functions directory (or a prebuilt
 	// _worker.js) into the build output and generates _routes.json, so
 	// transactional endpoints (Stripe, forms, dynamic pricing) live beside the
@@ -387,8 +413,56 @@ type Config struct {
 	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
 	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
 
+	// Endpoints declares vendor-neutral server endpoints (#63): defined once here,
+	// they are served natively by the built-in server (self-hosted, no external
+	// runtime) and — via adapters — compiled to platform functions. Empty = a
+	// pure-static build, unchanged.
+	Endpoints []Endpoint `yaml:"endpoints" toml:"endpoints" json:"endpoints"`
+
+	// EndpointsPlatform selects which adapter compiles endpoints: into functions
+	// at build time (cloudflare | netlify | vercel). Empty = self-hosted only,
+	// served natively by --http; the same declarations, a different target (#63).
+	EndpointsPlatform string `yaml:"endpoints_platform" toml:"endpoints_platform" json:"endpoints_platform"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
+}
+
+// Endpoint is one vendor-neutral server endpoint (#63). The same declaration is
+// served natively by the built-in server and compiled to platform functions by
+// the adapters, so an endpoint is defined once regardless of where it runs.
+type Endpoint struct {
+	Path string `yaml:"path" toml:"path" json:"path"` // request path, e.g. /api/quote
+	Type string `yaml:"type" toml:"type" json:"type"` // redirect | proxy | form
+
+	// redirect: send the client to To with an HTTP status (default 302).
+	// form: To is the delivery webhook the submission is POSTed to as JSON.
+	To     string `yaml:"to" toml:"to" json:"to"`
+	Status int    `yaml:"status" toml:"status" json:"status"`
+
+	// proxy: forward the request to Target, keeping upstream credentials
+	// server-side. Methods restricts the allowed HTTP methods (empty = any).
+	// AllowPrivate permits a private/loopback upstream (a self-hosted API) for a
+	// proxy or a form's delivery webhook; otherwise the SSRF guard refuses private
+	// ranges at dial time.
+	Target       string   `yaml:"target" toml:"target" json:"target"`
+	Methods      []string `yaml:"methods" toml:"methods" json:"methods"`
+	AllowPrivate bool     `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
+
+	// form: collect a POSTed submission and deliver it as JSON to To. Fields
+	// restricts which form fields are forwarded (empty = all). Honeypot names a
+	// field that must stay empty — a filled one is a bot, silently accepted and
+	// dropped. Redirect is where the browser is sent after a successful submit
+	// (303); empty returns a small JSON ok.
+	Fields   []string `yaml:"fields" toml:"fields" json:"fields"`
+	Honeypot string   `yaml:"honeypot" toml:"honeypot" json:"honeypot"`
+	Redirect string   `yaml:"redirect" toml:"redirect" json:"redirect"`
+
+	// auth: Basic-auth guard the built-in server applies to Path as a prefix (a
+	// protected section). User is the username; Password is the secret and should
+	// reference an environment variable ($MEMBERS_PW), never a literal.
+	User     string `yaml:"user" toml:"user" json:"user"`
+	Password string `yaml:"password" toml:"password" json:"password"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.

@@ -171,6 +171,31 @@ If wrangler is required but missing, the deploy fails with an actionable
 message; switch to `mode: worker` with a prebuilt bundle to avoid the Node
 dependency.
 
+## Deployment topologies (which requests reach your Functions)
+
+Whether a `workers:` endpoint actually runs depends on the shape of your
+Cloudflare deployment, not just on `routes_include`. Two caveats bite silently.
+
+| Topology | What runs | Functions active? |
+|---|---|---|
+| Pure static (no `worker:`/`workers:`) | assets only | — |
+| Functions mode (`mode: functions`, the default) | `functions/` tree per `_routes.json` | **yes** |
+| Advanced mode (a `_worker.js` at the output root) | that single Worker for **every** request | **no** |
+| Zone Worker route (e.g. `example.com/api/*`) owns a prefix | the zone Worker on that prefix | shadowed there |
+
+- **Advanced mode disables Functions entirely.** If a `_worker.js` sits at the
+  output root (Pages "advanced mode"), Cloudflare runs *only* that Worker and the
+  `functions/` tree is ignored — so every `workers:` endpoint is silently dead.
+  Pick one: the `functions/` model (`mode: functions`) **or** a single hand-built
+  `_worker.js` (`mode: worker`) that does its own routing. SSG's `workers:` merge
+  targets the Functions model.
+- **Zone-level Worker routes shadow Function routes.** A route like
+  `example.com/api/*` bound to a standalone Worker on the zone runs *before* Pages
+  Functions, so a `workers:` endpoint under the same prefix (say
+  `/api/consent/*`) never fires. Either move the endpoint off the owned prefix, or
+  carve it out of the zone route. A quick smoke test after deploy — `curl` each
+  endpoint path — catches both cases before your visitors do.
+
 ## What SSG does not do
 
 - No JS/TS bundler — Cloudflare Pages builds Functions from source; `mode:

@@ -12,10 +12,22 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
+
+// resolveWorkers maps a configured worker count onto a concrete pool size:
+// 0 (or less) means one worker per CPU; anything else is used as-is.
+func resolveWorkers(n int) int {
+	if n < 1 {
+		return runtime.NumCPU()
+	}
+	return n
+}
 
 // ConvertOptions holds WebP conversion options
 type ConvertOptions struct {
@@ -29,6 +41,10 @@ type ConvertOptions struct {
 	// to .webp (GO-052). Default false preserves the historical
 	// replace-in-place behaviour.
 	KeepOriginal bool
+	// Workers caps concurrent cwebp conversions. 0 = one per CPU; 1 = sequential.
+	// Each image is independent (own source → own .webp), so the output is
+	// identical to the sequential build regardless of worker count.
+	Workers int
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -87,51 +103,62 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		}
 	}
 
-	// Second pass: convert with progress
-	for i, path := range imagePaths {
-		info, statErr := os.Stat(path)
-		if statErr != nil {
-			continue
-		}
+	// Second pass: convert in parallel. Each image is independent (own source →
+	// own .webp/variants → own removal), so a worker pool produces byte-identical
+	// output to the sequential build; only the accumulators and the progress
+	// counter are shared, guarded atomically.
+	var savedBytesA, convertedA, progress int64
+	sem := make(chan struct{}, resolveWorkers(opts.Workers))
+	var wg sync.WaitGroup
+	for _, path := range imagePaths {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		originalSize := info.Size()
-		webpPath := webpTargetPath(path)
+			info, statErr := os.Stat(path)
+			if statErr != nil {
+				return
+			}
+			originalSize := info.Size()
+			webpPath := webpTargetPath(path)
 
-		if !opts.Quiet {
-			fmt.Printf("   🖼️  Converting %d/%d: %s\n", i+1, total, filepath.Base(path))
-		}
-
-		if convErr := convertImage(path, webpPath, opts.Quality); convErr != nil {
 			if !opts.Quiet {
-				fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), convErr)
+				fmt.Printf("   🖼️  Converting %d/%d: %s\n", atomic.AddInt64(&progress, 1), total, filepath.Base(path))
 			}
-			continue
-		}
-
-		// Get new size; this also confirms the .webp actually exists before the
-		// original is deleted below (GO-016).
-		newInfo, statErr := os.Stat(webpPath)
-		if statErr != nil {
-			continue // output missing despite reported success — keep the original
-		}
-		savedBytes += originalSize - newInfo.Size()
-
-		// Responsive variants: derive smaller widths from the original before it is
-		// removed, so quality is best and no upscaling occurs (ASSET-004).
-		if len(opts.Sizes) > 0 {
-			generateResponsiveVariants(path, webpPath, opts)
-		}
-
-		// Replace mode removes the original; keep mode leaves it next to the
-		// .webp so hardcoded extension references stay valid (GO-052).
-		if !opts.KeepOriginal {
-			if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
-				fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+			if convErr := convertImage(path, webpPath, opts.Quality); convErr != nil {
+				if !opts.Quiet {
+					fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), convErr)
+				}
+				return
 			}
-		}
+			// Get new size; this also confirms the .webp actually exists before the
+			// original is deleted below (GO-016).
+			newInfo, statErr := os.Stat(webpPath)
+			if statErr != nil {
+				return // output missing despite reported success — keep the original
+			}
+			atomic.AddInt64(&savedBytesA, originalSize-newInfo.Size())
 
-		converted++
+			// Responsive variants: derive smaller widths from the original before it
+			// is removed, so quality is best and no upscaling occurs (ASSET-004).
+			if len(opts.Sizes) > 0 {
+				generateResponsiveVariants(path, webpPath, opts)
+			}
+			// Replace mode removes the original; keep mode leaves it next to the
+			// .webp so hardcoded extension references stay valid (GO-052).
+			if !opts.KeepOriginal {
+				if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
+					fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+				}
+			}
+			atomic.AddInt64(&convertedA, 1)
+		}(path)
 	}
+	wg.Wait()
+	savedBytes = savedBytesA
+	converted = int(convertedA)
 
 	return converted, savedBytes, nil
 }
@@ -404,6 +431,29 @@ var imageRefAttrRe = regexp.MustCompile(`(?i)(?:^|[\s"'>])(?:src|srcset|href)\s*
 // cssURLRe captures url(...) references in stylesheets and inline <style> blocks (GO-017).
 var cssURLRe = regexp.MustCompile(`(?i)url\(\s*("[^"]*"|'[^']*'|[^'")]+)\)`)
 
+// socialImageMetaRe captures whole <meta> tags; those carrying an og:image /
+// twitter:image property have their content URL extension-rewritten to .webp so
+// share previews point at the file that actually shipped (#64). Non-image metas
+// (description, og:title) are skipped by socialImageMetaTag, and non-image
+// content (og:image:width "1200") is left alone by rewriteLocalImageURL.
+var socialImageMetaRe = regexp.MustCompile(`(?i)<meta\b[^>]*>`)
+
+// metaContentRe captures a meta tag's content="..." (or single-quoted) value.
+var metaContentRe = regexp.MustCompile(`(?i)\bcontent\s*=\s*("[^"]*"|'[^']*')`)
+
+// ldJSONScriptRe captures JSON-LD script blocks; ldImageValRe then rewrites the
+// "image" URL inside them, keeping schema.org markup consistent with og:image (#64).
+var ldJSONScriptRe = regexp.MustCompile(`(?is)<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>(.*?)</script>`)
+var ldImageValRe = regexp.MustCompile(`(?i)("image"\s*:\s*)"([^"]+)"`)
+
+// socialImageMetaTag reports whether a <meta> tag advertises a social preview
+// image (og:image family or twitter:image), matched quote-agnostically.
+func socialImageMetaTag(tag string) bool {
+	l := strings.ToLower(tag)
+	return strings.Contains(l, `property="og:image`) || strings.Contains(l, `property='og:image`) ||
+		strings.Contains(l, `name="twitter:image`) || strings.Contains(l, `name='twitter:image`)
+}
+
 // collectWebpSet walks dir and records every existing .webp file by cleaned
 // path, so reference rewriting can verify a conversion actually succeeded (GO-017).
 func collectWebpSet(dir string) (map[string]bool, error) {
@@ -469,9 +519,9 @@ func rewriteRefList(value, baseDir, root string, webpSet map[string]bool) string
 	return strings.Join(parts, ",")
 }
 
-// rewriteImageRefs rewrites image references inside src/srcset/href attributes
-// and CSS url(...) only; everything else — prose, remote URLs, scripts — is left
-// untouched (GO-017).
+// rewriteImageRefs rewrites image references inside src/srcset/href attributes,
+// CSS url(...), og:image/twitter:image meta content, and JSON-LD "image" values;
+// everything else — prose, remote URLs, scripts — is left untouched (GO-017).
 func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) string {
 	out := imageRefAttrRe.ReplaceAllStringFunc(content, func(m string) string {
 		quoted := imageRefAttrRe.FindStringSubmatch(m)[1]
@@ -482,7 +532,7 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 		}
 		return strings.Replace(m, quoted, quoted[:1]+rewritten+quoted[len(quoted)-1:], 1)
 	})
-	return cssURLRe.ReplaceAllStringFunc(out, func(m string) string {
+	out = cssURLRe.ReplaceAllStringFunc(out, func(m string) string {
 		raw := cssURLRe.FindStringSubmatch(m)[1]
 		quote, inner := "", raw
 		if len(raw) >= 2 && (raw[0] == '"' || raw[0] == '\'') {
@@ -494,6 +544,34 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 			return m
 		}
 		return "url(" + quote + rewritten + quote + ")"
+	})
+	// Social preview images live in <meta> content, not src/href, so the passes
+	// above miss them — the exact gap that left og:image pointing at a removed
+	// .jpg (#64). Rewrite the content URL of og:image / twitter:image metas only.
+	out = socialImageMetaRe.ReplaceAllStringFunc(out, func(tag string) string {
+		if !socialImageMetaTag(tag) {
+			return tag
+		}
+		return metaContentRe.ReplaceAllStringFunc(tag, func(attr string) string {
+			quoted := metaContentRe.FindStringSubmatch(attr)[1]
+			inner := quoted[1 : len(quoted)-1]
+			rewritten := rewriteLocalImageURL(inner, baseDir, root, webpSet)
+			if rewritten == inner {
+				return attr
+			}
+			return strings.Replace(attr, quoted, quoted[:1]+rewritten+quoted[len(quoted)-1:], 1)
+		})
+	})
+	// JSON-LD carries the same preview image as an "image" value; keep it in sync.
+	return ldJSONScriptRe.ReplaceAllStringFunc(out, func(block string) string {
+		return ldImageValRe.ReplaceAllStringFunc(block, func(m string) string {
+			sub := ldImageValRe.FindStringSubmatch(m)
+			rewritten := rewriteLocalImageURL(sub[2], baseDir, root, webpSet)
+			if rewritten == sub[2] {
+				return m
+			}
+			return sub[1] + `"` + rewritten + `"`
+		})
 	})
 }
 

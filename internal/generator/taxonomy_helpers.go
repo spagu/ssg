@@ -50,8 +50,8 @@ func termViews(terms []*taxonomy.Term, base string) []TaxonomyTerm {
 func (g *Generator) taxonomyInfo(def taxonomy.Definition, lang string) TaxonomyInfo {
 	info := TaxonomyInfo{Name: def.Name, Label: def.Label, Singular: def.Singular, Path: def.Path}
 	if def.Archive {
-		if def.Legacy {
-			info.URL = "/" + def.Path + "/" // legacy archives are never language-prefixed
+		if def.Folded {
+			info.URL = "/" + def.Path + "/" // built-in archives are never language-prefixed
 		} else {
 			info.URL = g.taxonomyBaseURL(def, lang)
 		}

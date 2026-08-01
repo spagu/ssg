@@ -1,10 +1,10 @@
 // Cloudflare Pages Function: bulk comment import (admin only).
 //   POST /api/comments/import  { items: [...], defaultStatus?: "approved" }
 //
-// The canonical target every migration converts into: Disqus, WordPress (WXR),
-// Commento, a spreadsheet — export them to this normalised JSON shape and post
-// it. No captcha and no spam check: this is a trusted admin operation behind the
-// same Basic-auth gate as moderation.
+// The canonical target every migration converts into: export your old comment
+// system (or a spreadsheet) to this normalised JSON shape and post it. No
+// captcha and no spam check: this is a trusted admin operation behind the same
+// Basic-auth gate as moderation.
 //
 // Idempotent: each row's id is a hash of (url, author, body, created_at) and the
 // insert is INSERT OR IGNORE, so re-posting the same export inserts nothing new

@@ -7,7 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.14] - 2026-08-01
+
 ### Added
+- ⚡ **Parallel builds (`--workers`)** — the build was fully sequential; WebP image
+  conversion now runs on a worker pool, so an image-heavy site publishes several
+  times faster on a multi-core machine. `build_workers` / `--workers=N`: unset
+  uses the whole machine (one worker per CPU), `N` caps it (e.g. `--workers=2` on
+  a shared box), `--workers=0` turns parallelism off (sequential). Each image is
+  independent, so the output is byte-identical whatever the count — verified with
+  the race detector and the golden harness. (The HTML-render loop stays sequential
+  for now; it threads mutable per-language state through the template context, so
+  parallelising it safely is a separate, race-audited change.)
+- 🔌 **Portable server endpoints, self-hosted first** (#63, foundation) — a new
+  vendor-neutral `endpoints:` block declares small server behaviours once, and the
+  built-in server (`--http`) runs them natively in the single Go binary — no
+  external runtime, works behind nginx/Caddy or the existing Docker image. Two
+  types to start: `redirect` (a request-time 3xx, the dynamic complement to the
+  static `_redirects`) and `proxy` (forward to an upstream, keeping its key
+  server-side). The proxy resolves and vets the upstream IP itself and **refuses
+  loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the
+  external-source client uses — with `allow_private: true` to opt in to a genuine
+  self-hosted upstream. Pure-static builds are unaffected (empty `endpoints:` is a
+  no-op).
+  - **Platform adapters (plugin per file).** Set `endpoints_platform` and the
+    build compiles the *same* `endpoints:` into a platform's functions — no
+    rewrite. Three adapters: **Cloudflare** Pages Functions (`functions/<path>.js`,
+    the same tree hand-written workers use, so there's no parallel mechanism),
+    **Netlify** Functions v2 (each declares its own route, no `_redirects`
+    wiring), and **Vercel** Edge Functions + a generated `vercel.json`. Each
+    adapter is a self-contained, self-registering file, so a new target is one
+    file. So an endpoint deploys unchanged to self-hosted, Cloudflare, Netlify or
+    Vercel.
+  - **`form` primitive.** A `form` endpoint accepts a `POST`ed submission, drops
+    bots via a `honeypot` field, and delivers the collected `fields` as JSON to a
+    `to` webhook (kept server-side), then `redirect`s the browser (or returns a
+    small JSON ok). Works self-hosted (same SSRF-guarded delivery as `proxy`) and
+    compiles to all three platforms — a contact form without a SaaS.
+  - **`auth` guard.** An `auth` endpoint protects its `path` as a prefix with HTTP
+    Basic auth (constant-time compare, password from an env var — never a literal),
+    covering both endpoints and static files beneath it. Runs on the built-in
+    server; adapters skip it (use the platform's own access control). The
+    `worker:` migration is the remaining piece of this epic.
+- 📋 **Content contracts: frontmatter schemas, strict mode, route manifest** (#62)
+  — declare per-type frontmatter contracts in `content_schemas` (required fields
+  plus `string`/`int`/`bool`/`date`/`url`/`list`/`enum` field rules) and the build
+  validates every post and page against its type's schema, reporting each
+  violation with file, field and reason. Violations warn by default; `strict`
+  (or `--strict`) turns them — and internal link checking — into hard build
+  failures, so a missing `author` or a renamed slug that orphans a link fails the
+  build instead of shipping. `route_manifest` (or `--route-manifest`) writes
+  `routes.json`: a sorted, deduplicated list of every generated route (posts,
+  pages, and category/tag/series/author/custom-taxonomy archives) with its type,
+  title, source and language — a machine-readable contract external tooling can
+  diff. All opt-in; a plain build is unchanged.
+- 🤖 **AI-first JSON-LD structured data** (#61) — with `seo` on, every page now
+  emits richer Schema.org Linked Data derived from existing frontmatter with zero
+  extra config, so AI agents and answer engines get machine-readable data without
+  running JavaScript. Content types map correctly — blog posts → `BlogPosting`
+  (with `headline`, `datePublished`/`dateModified`, `author`, `keywords` from
+  tags, `mainEntityOfPage`), the home page → `WebSite`, other pages → `WebPage`
+  (previously every non-post was mislabelled `WebSite`) — and every non-home page
+  also gets a `BreadcrumbList` from its URL. Two override layers deep-merge over
+  the derived data (most specific wins): site-wide `schema:` in the config (for a
+  publisher/Organization on every page) and per-page `schema:` in frontmatter.
+  `</script>` in any field is escaped, so untrusted titles can't break out.
+- 🔀 **Per-page `alias_stubs` — 301 instead of a duplicate copy** (#65) — an
+  `aliases:` entry has always emitted a `301` into `_redirects`; by default it
+  *also* writes a meta-refresh stub copy (a fallback for hosts without server
+  redirects). The site-wide `alias_stubs: false` that suppresses those stubs is
+  now overridable **per page** in frontmatter, so a migrated legacy slug can
+  consolidate to its canonical with a pure `301` (no 200-serving duplicate for
+  crawlers) while the rest of the site keeps its stubs — or the reverse. The
+  `301` is emitted either way.
 - 📈 **ssgtheme: Google Analytics 4 (gtag.js), consent-aware** — set
   `variables.gtag: "G-XXXXXXXXXX"` and the theme injects gtag.js with **Consent
   Mode v2**: every storage type defaults to `denied`, and when the cookie-consent
@@ -51,7 +123,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The comments worker README documents the pattern, including that a D1 binding
   is a project setting rather than a secret.
 
+### Changed
+- ♻️ **Built-in taxonomies unified onto the registry** (#44) — the built-in
+  `category`, `tag`, `series` and `author` archives are now driven by the single
+  taxonomy registry (`generateTaxonomies`) instead of four separate top-level
+  pipelines, so there is one place that renders every taxonomy. Output is
+  **byte-for-byte identical** (verified by the `make golden` equivalence harness
+  across the corpus, dynamic, multilingual and external fixtures): built-ins keep
+  their legacy-compatible rendering — no taxonomy index page, no i18n path prefix,
+  single-page archives, the `tag.html`→`category.html` template fallback, and
+  skip-not-fail URL collisions. No user-facing change; a `Folded` definition flag
+  marks a built-in migrated onto the registry.
+
 ### Fixed
+- 🐛 **Social preview images follow the WebP conversion** (#64) — with `webp` in
+  its default replace mode the original `.jpg`/`.png` is removed after
+  conversion, but `og:image` (and the new `twitter:image` / JSON-LD `image`) kept
+  pointing at the deleted file, so every share preview 404'd. The WebP reference
+  pass now rewrites those social-image references to the emitted `.webp`, same as
+  in-content `<img>`. SEO injection also now emits `twitter:image` and a JSON-LD
+  `image` from `featured_image` (previously only `og:image`), so one field drives
+  the whole preview. Absolute (`https://…`) references are still left untouched;
+  use `webp_keep_original` for hardcoded ones.
 - 🐛 **Moderation panel no longer double-prompts for auth** (GO-084) — the admin
   `401` carried a `WWW-Authenticate: Basic` header, so the browser popped its
   native login dialog on top of the panel's own password field. The header is

@@ -401,3 +401,51 @@ func TestTaxonomyHelperEdges(t *testing.T) {
 		t.Fatalf("fallback views = %+v", views)
 	}
 }
+
+// TestFoldedBuiltinsUnifiedDriver covers #44: all four built-ins (category, tag,
+// series, author) render through the single registry driver generateTaxonomies —
+// one post carrying every built-in produces every archive, and g.tagSlugs /
+// g.authorSlugs (sitemap/feeds) are populated by the folded dispatch.
+func TestFoldedBuiltinsUnifiedDriver(t *testing.T) {
+	tmp := t.TempDir()
+	contentDir := filepath.Join(tmp, "content", "site")
+	postsDir := filepath.Join(contentDir, "posts", "news")
+	mustWrite(t, filepath.Join(contentDir, "metadata.json"),
+		`{"categories":[{"id":1,"name":"News","slug":"news"}],"exported_at":"","media":[],`+
+			`"users":[{"id":1,"name":"Ed","slug":"ed"}]}`)
+	body := "---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\n" +
+		"categories: [News]\ntags: [Go]\nseries: Saga\nauthor: 1\n---\n\nBody.\n"
+	mustWrite(t, filepath.Join(postsDir, "one.md"), body)
+	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
+
+	gen, err := New(Config{
+		Source: "site", Template: "simple", Domain: "example.com",
+		ContentDir:   filepath.Join(tmp, "content"),
+		TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir:    filepath.Join(tmp, "output"),
+		Feed:         true, Quiet: true,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	out := filepath.Join(tmp, "output")
+	wantFiles(t,
+		filepath.Join(out, "category", "news", "index.html"),
+		filepath.Join(out, "tag", "go", "index.html"),
+		filepath.Join(out, "series", "saga", "index.html"),
+		filepath.Join(out, "author", "ed", "index.html"),
+	)
+	// Folded dispatch must have populated the sitemap/feed slug maps.
+	if gen.tagSlugs["Go"] == "" {
+		t.Errorf("folded tag dispatch did not populate g.tagSlugs: %v", gen.tagSlugs)
+	}
+	if len(gen.authorSlugs) == 0 {
+		t.Errorf("folded author dispatch did not populate g.authorSlugs")
+	}
+	// Tag archives are emitted once (by the registry, not also the old pipeline).
+	wantContains(t, "tag sitemap", mustRead(t, filepath.Join(out, "sitemap.xml")),
+		"<loc>https://example.com/tag/go/</loc>")
+}
