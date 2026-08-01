@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.14] - 2026-08-01
+
 ### Added
 - 🔌 **Portable server endpoints, self-hosted first** (#63, foundation) — a new
   vendor-neutral `endpoints:` block declares small server behaviours once, and the
