@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-01
 tags: [performance, images, webp, build, static-sites]
-excerpt: "SSG's build was honest but sequential: one image at a time, one page at a time. WebP conversion is now parallel — one worker per CPU, or however many you cap it to. And while we were in there, three speed features that were already quietly working turn out to have never been written down."
+excerpt: "SSG's build was honest but sequential: one image at a time, one page at a time. Now page rendering and WebP conversion both run in parallel — one worker per CPU, or however many you cap it to. And while we were in there, three speed features that were already quietly working turn out to have never been written down."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"
@@ -25,9 +25,10 @@ feature and three you already had.
 
 ## The new part: `--workers`
 
-WebP conversion now runs on a worker pool. Each image is independent — its own
-source, its own `.webp`, its own responsive variants, its own cleanup — so there
-is nothing to coordinate and nothing to get wrong. Point it at your cores:
+Page/post rendering **and** WebP conversion now run on a worker pool. Each output
+is independent — a page renders to its own file, an image gets its own `.webp` —
+so there is nothing to coordinate and nothing to get wrong. Point it at your
+cores:
 
 ```bash
 ssg my-site simple example.com --webp            # one worker per CPU (default)
@@ -106,7 +107,14 @@ deterministic, the features are opt-in, and it's still one Go binary with no
 — and, as it turns out, it was already spending them carefully. We just never
 said so out loud.
 
-The one honest caveat: **HTML rendering is still sequential.** It threads a
-mutable "current language" through the template context, so making it parallel
-safely is its own careful, race-audited change rather than a flag flip. Images
-were the isolated, obvious win, so images went first.
+**Update:** HTML rendering is parallel now too. Images were the isolated first
+win; the render loop was the harder one, because it threads a mutable "current
+language" through the template context. The fix was to stop mutating that state
+per page: pages are grouped by language, the shared site view is set **once** per
+language, and then that language's pages render together on the pool. The
+render-time caches (the markdown-conversion memo, shortcode templates, the
+missing-translation warnings) are now guarded, with the expensive markdown
+conversion happening *outside* the lock so it still parallelises. Same proof as
+the images: byte-for-byte identical output under the race detector and the golden
+harness — on a real site here, `--workers=8` roughly halved the build. `--workers`
+now governs both stages; `0` still turns it all off.

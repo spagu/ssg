@@ -486,7 +486,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		PostsPath:            cfg.PostsPath,
 		StaticDir:            cfg.StaticDir,
 		DataDir:              cfg.DataDir,
-		RewriteMdLinks:       cfg.RewriteMdLinks,
+		RewriteMdLinks:       cfg.RewriteMdLinks == nil || *cfg.RewriteMdLinks, // default on (#1.8.15)
 		StripMdLinkText:      cfg.StripMdLinkText,
 		PreserveSlugCase:     cfg.PreserveSlugCase,
 		Permalinks:           cfg.Permalinks,
@@ -521,6 +521,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentSchemas:       cfg.ContentSchemas,
 		Strict:               cfg.Strict,
 		RouteManifest:        cfg.RouteManifest,
+		BuildWorkers:         resolveBuildWorkers(cfg.BuildWorkers),
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,

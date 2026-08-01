@@ -392,8 +392,10 @@ the alias is a pure `301` and there is no copy to disagree with the redirect.
 
 ## Relative Markdown links
 
-With `rewrite_md_links: true`, links to source Markdown files are rewritten to
-their generated URLs:
+Links to source Markdown files are rewritten to their generated URLs. This is
+**on by default** (since 1.8.15) — a raw `.md` link otherwise 404s or serves the
+source file; set `rewrite_md_links: false` to opt out. The behaviour is
+unchanged, only the default:
 
 ```markdown
 See [Authentication](AUTHENTICATION.md) and [API](../reference/API.md).
