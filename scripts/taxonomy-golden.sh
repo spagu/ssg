@@ -29,18 +29,24 @@ sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasu
 # manifest <dir> — one "sha256  ./relative/path" line per file, sorted, so two
 # runs of the same output compare deterministically and diffs are readable.
 #
-# Atom feeds and the sitemap embed a build-time <updated>/<lastmod> (SSG sets a
-# feed's <updated> to the latest page lastMod, which falls back to "now"), so
-# those tags are normalised to a placeholder before hashing in .xml files —
-# paths, entries and all other content are still compared, only the volatile
-# timestamp is neutralised so the golden is reproducible.
+# Some output embeds a build-time value that changes between runs and would make
+# the golden falsely red: Atom feeds and the sitemap carry <updated>/<lastmod>
+# (SSG falls back to "now"), and the external-sources example renders the fetch
+# date ("Products fetched YYYY-MM-DD"). These are normalised to a placeholder
+# before hashing in .xml and .html files — paths, entries and all other content
+# are still compared, only the volatile timestamps are neutralised so the golden
+# is reproducible on any day.
+NORMALIZE='s#<updated>[^<]*</updated>#<updated>NORM</updated>#g; s#<lastmod>[^<]*</lastmod>#<lastmod>NORM</lastmod>#g; s#fetched [0-9]{4}-[0-9]{2}-[0-9]{2}#fetched NORM#g'
 manifest() {
   (cd "$1" && find . -type f | LC_ALL=C sort | while read -r f; do
-    if [ "${f##*.}" = "xml" ]; then
-      h="$(sed -E 's#<updated>[^<]*</updated>#<updated>NORM</updated>#g; s#<lastmod>[^<]*</lastmod>#<lastmod>NORM</lastmod>#g' "$f" | sha | cut -d' ' -f1)"
-    else
-      h="$(sha "$f" | cut -d' ' -f1)"
-    fi
+    case "${f##*.}" in
+      xml|html)
+        h="$(sed -E "$NORMALIZE" "$f" | sha | cut -d' ' -f1)"
+        ;;
+      *)
+        h="$(sha "$f" | cut -d' ' -f1)"
+        ;;
+    esac
     echo "$h  $f"
   done)
 }
