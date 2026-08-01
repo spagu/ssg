@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.15] - 2026-08-01
+
 ### Added
 - ⚡ **Parallel page/post rendering (`--workers`)** — the HTML render loop, not
   just WebP conversion, now runs on the worker pool, so a content-heavy site
