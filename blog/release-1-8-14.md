@@ -175,10 +175,11 @@ Leave `--workers` unset and it uses the whole machine; write a number for exactl
 that many; write `0` to turn it off and build sequentially. The output is
 byte-identical whatever you pick — checked under Go's race detector and the same
 golden harness. On an image-heavy site this is the difference you'll notice most.
-The HTML render stays sequential for now (it threads per-language state through
-the template context, so parallelising it safely is its own change). The longer
-story — plus three build-speed features that were quietly working all along and
-never got written down — is in [The Build Got Parallel](/blog/faster-builds/).
+In 1.8.14 the HTML render itself stayed sequential; **1.8.15 makes it parallel
+too** (by grouping pages per language so the shared state is set once, not per
+page). The longer story — plus three build-speed features that were quietly
+working all along and never got written down — is in
+[The Build Got Parallel](/blog/faster-builds/).
 
 ## Getting it
 
