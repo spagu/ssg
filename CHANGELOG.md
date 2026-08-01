@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 🔗 **`rewrite_md_links` is now on by default** — a relative `.md` link in
+  content is rewritten to its final output URL out of the box, since a raw `.md`
+  link otherwise 404s or serves the source file. Set `rewrite_md_links: false` to
+  opt out; the rewriting behaviour itself is unchanged.
+
 ## [1.8.14] - 2026-08-01
 
 ### Added
