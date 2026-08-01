@@ -77,6 +77,19 @@ sitemap_off: false
 robots_off: false
 search_index: true
 
+# Dogfood the 1.8.14 SEO stack: seo injects the AI-first JSON-LD (BlogPosting /
+# WebPage / WebSite + BreadcrumbList) alongside the theme's own OpenGraph, and
+# schema adds a site-wide publisher to every page's structured data (#61).
+seo: true
+schema:
+  publisher:
+    "@type": Organization
+    name: SSG
+    url: https://ssg.tradik.com/
+
+# Emit routes.json so the route contract ships with the site (#62).
+route_manifest: true
+
 # Code blocks: Chroma syntax highlighting with line numbers, and Mermaid
 # diagrams rendered from ```mermaid fences (runtime injected only on pages that
 # use one).

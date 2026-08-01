@@ -1,0 +1,68 @@
+# Reference config for the 1.8.14 feature set: portable server endpoints (#63),
+# content contracts (#62) and AI-first structured data (#61). Point ssg at it
+# with --config examples/server-endpoints/ssg.yaml (add your own content_dir).
+
+source: site
+template: simple
+domain: example.com
+
+# ── #63 Portable server endpoints ────────────────────────────────────────────
+# Defined once, run natively by the built-in server (ssg … --http) with no
+# external runtime. Set endpoints_platform to also compile them to a platform's
+# functions at build time (cloudflare | netlify | vercel); leave it empty for
+# self-hosted only.
+endpoints_platform: cloudflare
+endpoints:
+  # A request-time redirect (the dynamic complement to the static _redirects).
+  - path: /go/latest
+    type: redirect
+    to: /releases/1-8-14/
+    status: 302
+
+  # Proxy to an upstream, keeping its key server-side. On the built-in server the
+  # upstream IP is vetted at dial time (private/loopback refused) — no SSRF pivot.
+  - path: /api/quote
+    type: proxy
+    target: https://api.example.com/v1/quote
+    methods: [GET, POST]
+
+  # A contact form without a SaaS: POSTed fields are delivered as JSON to a
+  # webhook (kept server-side); the honeypot drops bots; then a 303 to /thanks/.
+  - path: /api/contact
+    type: form
+    to: https://hooks.example.com/email
+    fields: [name, email, message]
+    honeypot: company
+    redirect: /thanks/
+
+  # Basic-auth guard over a whole section (built-in server only). The password is
+  # read from the environment — never a literal in the file.
+  - path: /members/
+    type: auth
+    user: ada
+    password: $MEMBERS_PW
+
+# ── #62 Content contracts ────────────────────────────────────────────────────
+# Validate frontmatter per type at build. strict (or --strict) turns violations
+# and internal link checks into hard build failures; route_manifest writes
+# routes.json.
+strict: false
+route_manifest: true
+content_schemas:
+  post:
+    required: [title, date, author]
+    fields:
+      title: { type: string }
+      date: { type: date }
+      status: { type: enum, values: [publish, draft] }
+      featured_image: { type: url }
+
+# ── #61 AI-first structured data ─────────────────────────────────────────────
+# seo injects JSON-LD (BlogPosting / WebPage / WebSite + BreadcrumbList) from
+# frontmatter; schema adds a site-wide publisher to every page's structured data.
+seo: true
+schema:
+  publisher:
+    "@type": Organization
+    name: Example Co.
+    url: https://example.com/
