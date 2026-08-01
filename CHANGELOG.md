@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ⚡ **Parallel page/post rendering (`--workers`)** — the HTML render loop, not
+  just WebP conversion, now runs on the worker pool, so a content-heavy site
+  publishes much faster (on the docs site here, `--workers=8` roughly halved the
+  build). Pages are grouped by language and the shared site view is set **once**
+  per language, so multilingual output stays correct; the render-time caches
+  (markdown-conversion memo, shortcode templates, missing-translation warnings)
+  are mutex-guarded, with the expensive markdown conversion kept outside the lock
+  so it still parallelises. Output is byte-for-byte identical to a sequential
+  build — verified with the race detector and the golden harness on every corpus.
+  `build_workers` / `--workers=N` governs both render and WebP: unset = one per
+  CPU, `N` = exactly N, `0` = off (sequential).
+
 ### Changed
 - 🔗 **`rewrite_md_links` is now on by default** — a relative `.md` link in
   content is rewritten to its final output URL out of the box, since a raw `.md`

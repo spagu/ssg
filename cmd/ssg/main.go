@@ -521,6 +521,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentSchemas:       cfg.ContentSchemas,
 		Strict:               cfg.Strict,
 		RouteManifest:        cfg.RouteManifest,
+		BuildWorkers:         resolveBuildWorkers(cfg.BuildWorkers),
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,

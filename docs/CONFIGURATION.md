@@ -318,11 +318,14 @@ HTML regions can opt out of minification:
 | `image_sizes_attr` | `100vw` | `--image-sizes-attr` | Generated HTML `sizes` value |
 | `build_workers` | one per CPU | `--workers=N` | Parallel build workers; `0` = off (sequential) |
 
-`build_workers` (`--workers=N`) sets how many images convert to WebP in parallel.
-Leave it unset to use the **whole machine** (one worker per CPU), set an explicit
-`N` (e.g. `--workers=2`) to cap it on a shared box, or `--workers=0` to turn
-parallelism **off** and build sequentially. Each image is independent, so the
-output is byte-identical whatever the count — only the wall-clock changes.
+`build_workers` (`--workers=N`) sets how many **pages/posts render and images
+convert to WebP in parallel**. Leave it unset to use the **whole machine** (one
+worker per CPU), set an explicit `N` (e.g. `--workers=2`) to cap it on a shared
+box, or `--workers=0` to turn parallelism **off** and build sequentially. The
+render is grouped by language, so multilingual output stays correct; each item
+writes its own file, so the output is byte-identical whatever the worker count —
+only the wall-clock changes (verified with the race detector and the golden
+snapshot harness).
 
 WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).

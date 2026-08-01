@@ -213,6 +213,9 @@ type Config struct {
 	ContentSchemas map[string]models.ContentSchema
 	Strict         bool
 	RouteManifest  bool
+	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
+	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
+	BuildWorkers int
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -336,6 +339,14 @@ type Generator struct {
 	mdCache       map[string]string
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
+
+	// mdMu guards mdCache/mdConversions; renderMu guards the other render-time
+	// caches (mdLinkWarned, shortcodeTmpls, bracketRes, shortcodeFailures). Both
+	// are uncontended in a sequential build and make per-page rendering safe to
+	// run on a worker pool (--workers). The expensive markdown conversion happens
+	// OUTSIDE mdMu, so only the map get/put is serialized (BUILD-PARALLEL).
+	mdMu     sync.Mutex
+	renderMu sync.Mutex
 
 	// aliasRedirects collects frontmatter alias→URL pairs during page/post
 	// generation for the _redirects file (GO-063). Single-goroutine build —
@@ -2023,13 +2034,16 @@ func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[strin
 		return // plain unknown link: keep the historical silent pass-through
 	}
 	key := base + "\x00" + lang
+	g.renderMu.Lock()
 	if g.mdLinkWarned == nil {
 		g.mdLinkWarned = map[string]bool{}
 	}
 	if g.mdLinkWarned[key] {
+		g.renderMu.Unlock()
 		return
 	}
 	g.mdLinkWarned[key] = true
+	g.renderMu.Unlock()
 	fmt.Printf("   ⚠️  link %q has no %q translation (enable i18n.content_fallback or add the translation)\n", base, lang)
 }
 
@@ -2256,7 +2270,10 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 	// Memoized per exact source: feeds, search index, JSON output and both
 	// page-format paths reuse one conversion instead of 6–8 (PERF-004).
 	if g.mdCache != nil {
-		if html, ok := g.mdCache[s]; ok {
+		g.mdMu.Lock()
+		html, ok := g.mdCache[s]
+		g.mdMu.Unlock()
+		if ok {
 			return html
 		}
 	}
@@ -2264,6 +2281,8 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 	if md == nil {
 		md = buildMarkdown(g.config)
 	}
+	// Conversion runs outside the lock so different content converts in parallel;
+	// a rare double-convert of the same string is harmless (identical output).
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(s), &buf); err != nil {
 		fmt.Printf("   ⚠️  Warning: markdown conversion failed: %v\n", err)
@@ -2271,8 +2290,10 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 	}
 	out := buf.String()
 	if g.mdCache != nil {
+		g.mdMu.Lock()
 		g.mdCache[s] = out
 		g.mdConversions++
+		g.mdMu.Unlock()
 	}
 	return out
 }
@@ -2390,14 +2411,18 @@ func (g *Generator) processShortcodesWith(content string, render func(Shortcode)
 func (g *Generator) processBracketShortcodesWith(content string, render func(Shortcode) string) string {
 	// Process each defined shortcode by name (avoids backreference limitation in Go regexp)
 	for name, baseSc := range g.shortcodeMap {
+		g.renderMu.Lock()
 		res, ok := g.bracketRes[name]
+		g.renderMu.Unlock()
 		if !ok {
 			// Generators built as struct literals (tests) miss New()'s precompile.
 			res = compileBracketRes(name)
+			g.renderMu.Lock()
 			if g.bracketRes == nil {
 				g.bracketRes = make(map[string]bracketShortcodeRes)
 			}
 			g.bracketRes[name] = res
+			g.renderMu.Unlock()
 		}
 		// First: closing-tag with optional attrs [name ...]...[/name]
 		content = res.closing.ReplaceAllStringFunc(content, func(match string) string {
@@ -2462,13 +2487,17 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 
 	templatePath := filepath.Join(g.config.TemplatesDir, g.config.Template, sc.Template)
 
+	g.renderMu.Lock()
 	tmpl, cached := g.shortcodeTmpls[templatePath]
-	if !cached {
+	g.renderMu.Unlock()
+	if !cached { // production precompiles these in New(); this path is the test fallback
 		tmpl = g.parseShortcodeTemplate(templatePath)
+		g.renderMu.Lock()
 		if g.shortcodeTmpls == nil { // struct-literal generators (tests) skip New()
 			g.shortcodeTmpls = make(map[string]*template.Template)
 		}
 		g.shortcodeTmpls[templatePath] = tmpl // nil is cached too: warn once, not per page
+		g.renderMu.Unlock()
 	}
 	if tmpl == nil {
 		return g.shortcodeFailed(sc, fmt.Sprintf("shortcode %q: template %s could not be loaded", sc.Name, templatePath))
@@ -2497,7 +2526,9 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 //     an HTML comment would not.
 func (g *Generator) shortcodeFailed(sc Shortcode, msg string) string {
 	fmt.Printf("   ⚠️  Warning: %s\n", msg)
+	g.renderMu.Lock()
 	g.shortcodeFailures = append(g.shortcodeFailures, msg)
+	g.renderMu.Unlock()
 	switch g.config.ShortcodeErrors {
 	case "keep", "strict":
 		return sc.Raw
@@ -2724,6 +2755,86 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 }
 
 // generateSite generates all HTML files
+// renderContent renders every page and post, grouped by language so the shared
+// site view is set once per language (setLanguageContext) and stays constant
+// while that language's items render in parallel on the worker pool. Non-i18n
+// sites are a single "" batch. Output is identical to the sequential build —
+// each item writes its own file; only the render-time caches are shared, and
+// they are mutex-guarded (BUILD-PARALLEL).
+func (g *Generator) renderContent() {
+	workers := g.config.BuildWorkers
+	if workers < 1 {
+		workers = 1
+	}
+	// Warm the shared image processor once so no page races on its lazy init.
+	g.imageProcessor()
+	for _, lang := range distinctLangs(g.siteData.Pages, g.siteData.Posts) {
+		g.setLanguageContext(lang)
+		g.parallelRender(languagePages(g.siteData.Pages, lang), workers, func(p models.Page) {
+			if err := g.generatePage(p); err != nil {
+				fmt.Printf("   ⚠️  Warning: failed to generate page %s: %v\n", p.Slug, err)
+			}
+		})
+		g.parallelRender(languagePages(g.siteData.Posts, lang), workers, func(p models.Page) {
+			if err := g.generatePost(p); err != nil {
+				fmt.Printf("   ⚠️  Warning: failed to generate post %s: %v\n", p.Slug, err)
+			}
+		})
+	}
+}
+
+// setLanguageContext points the shared site view at one language before that
+// language's items render. Called once per batch (sequentially), so the per-page
+// render — which reads currentLang and Site.Language/LanguagePages/Posts through
+// template helpers — runs in parallel without racing on them.
+func (g *Generator) setLanguageContext(lang string) {
+	g.currentLang = lang
+	if !g.config.I18n.Enabled {
+		return
+	}
+	if l, ok := ssgi18n.Language(g.siteData.Languages, lang); ok {
+		g.siteData.Language = l
+	}
+	g.siteData.LanguagePages = languagePages(g.siteData.Pages, lang)
+	g.siteData.LanguagePosts = languagePages(g.siteData.Posts, lang)
+}
+
+// parallelRender runs fn over items on a bounded worker pool. workers <= 1 (or a
+// single item) renders inline, preserving the exact sequential path.
+func (g *Generator) parallelRender(items []models.Page, workers int, fn func(models.Page)) {
+	if workers <= 1 || len(items) <= 1 {
+		for _, it := range items {
+			fn(it)
+		}
+		return
+	}
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for _, it := range items {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(it models.Page) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			fn(it)
+		}(it)
+	}
+	wg.Wait()
+}
+
+// distinctLangs returns the sorted set of languages present across pages and
+// posts, so every item lands in exactly one language batch (non-i18n: [""]).
+func distinctLangs(pages, posts []models.Page) []string {
+	set := map[string]bool{}
+	for _, p := range pages {
+		set[p.Lang] = true
+	}
+	for _, p := range posts {
+		set[p.Lang] = true
+	}
+	return sortedKeys(set)
+}
+
 func (g *Generator) generateSite() error {
 	outputPath := g.config.OutputDir
 	// #nosec G301 -- Web content directories need to be world-traversable
@@ -2736,19 +2847,8 @@ func (g *Generator) generateSite() error {
 		return fmt.Errorf("generating index: %w", err)
 	}
 
-	// Generate pages
-	for _, page := range g.siteData.Pages {
-		if err := g.generatePage(page); err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to generate page %s: %v\n", page.Slug, err)
-		}
-	}
-
-	// Generate posts
-	for _, post := range g.siteData.Posts {
-		if err := g.generatePost(post); err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to generate post %s: %v\n", post.Slug, err)
-		}
-	}
+	// Render pages and posts, per language, on a worker pool (BUILD-PARALLEL).
+	g.renderContent()
 
 	// Category archives are now driven by the registry as a folded built-in (#44);
 	// see renderFoldedBuiltin. Sitemap/feeds still use their own category paths.
@@ -3297,14 +3397,10 @@ func (g *Generator) contentContextValue(content string) interface{} {
 // pageToTemplateData converts a Page to a map for templates, flattening Extra fields to top level
 // This allows templates to use {{.dupa}} instead of {{.Page.Extra.dupa}}
 func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string]interface{} {
-	if g.config.I18n.Enabled {
-		g.currentLang = page.Lang
-		if lang, ok := ssgi18n.Language(g.siteData.Languages, page.Lang); ok {
-			g.siteData.Language = lang
-		}
-		g.siteData.LanguagePages = languagePages(g.siteData.Pages, page.Lang)
-		g.siteData.LanguagePosts = languagePages(g.siteData.Posts, page.Lang)
-	}
+	// The language context (currentLang, Site.Language/LanguagePages/Posts) is set
+	// once per language batch by setLanguageContext before that language's pages
+	// render, so this function only READS the shared site view — which is what
+	// makes per-page rendering safe to run in parallel (BUILD-PARALLEL).
 	data := map[string]interface{}{
 		"Site":             g.siteData,
 		"Domain":           g.config.Domain,
