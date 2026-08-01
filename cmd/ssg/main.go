@@ -30,6 +30,7 @@ import (
 	"github.com/spagu/ssg/internal/fetch"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mddb"
+	"github.com/spagu/ssg/internal/notify"
 	"github.com/spagu/ssg/internal/theme"
 	"github.com/spagu/ssg/internal/webp"
 )
@@ -458,6 +459,22 @@ func buildAIClient(cfg config.AIConfig) *ai.Client {
 	return ai.New(models, cfg.DefaultModel, cfg.CacheDir, timeout)
 }
 
+// buildNotifier constructs the post-publish notifier, or nil when --notify is
+// off or no destinations are declared (so builds never announce by accident).
+func buildNotifier(cfg *config.Config) *notify.Notifier {
+	if !cfg.Notify || len(cfg.Notifications) == 0 {
+		return nil
+	}
+	dests := make([]notify.Dest, 0, len(cfg.Notifications))
+	for _, d := range cfg.Notifications {
+		dests = append(dests, notify.Dest{
+			Name: d.Name, URL: d.URL, Method: d.Method,
+			Headers: d.Headers, AllowPrivate: d.AllowPrivate,
+		})
+	}
+	return notify.New(dests, cfg.NotifyState)
+}
+
 func createGeneratorConfig(cfg *config.Config) generator.Config {
 	// Convert shortcodes from config to generator format
 	shortcodes := make([]generator.Shortcode, len(cfg.Shortcodes))
@@ -541,6 +558,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		RouteManifest:        cfg.RouteManifest,
 		BuildWorkers:         resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                   buildAIClient(cfg.AI),
+		Notify:               buildNotifier(cfg),
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,
@@ -686,6 +704,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
 		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
+		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean":      &cfg.Clean,
 		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,

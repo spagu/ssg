@@ -30,6 +30,7 @@ import (
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
+	"github.com/spagu/ssg/internal/notify"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/spagu/ssg/internal/taxonomy"
 	"github.com/yuin/goldmark"
@@ -220,6 +221,9 @@ type Config struct {
 	// AI answers [ai …] content shortcodes at build time (cached). nil = the
 	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
 	AI *ai.Client
+	// Notify announces new/changed posts to webhook destinations after a
+	// successful build. nil unless --notify is set with destinations (#1.8.16).
+	Notify *notify.Notifier
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -715,6 +719,11 @@ func (g *Generator) Generate() error {
 
 	if err := g.runHooks("post_build", nil); err != nil {
 		return fmt.Errorf("post_build hook: %w", err)
+	}
+
+	// Announce new/changed posts to webhook destinations (only with --notify).
+	if err := g.sendNotifications(); err != nil {
+		return fmt.Errorf("sending notifications: %w", err)
 	}
 
 	return nil

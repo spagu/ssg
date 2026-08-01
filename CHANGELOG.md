@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📣 **Post-publish notifications** — announce each newly published (or changed)
+  post to webhook destinations you define (`notifications:`), pointing them at a
+  platform API, an automation service or your own endpoint; they receive the post
+  as JSON `{slug, title, url, excerpt, date, tags}`. A **committed state file**
+  (`notify_state`, default `.ssg-notifications.json`) dedupes on a content hash,
+  so a post fires **once** — again only when its content changes — and it never
+  sends unless you pass `--notify`, so dev builds stay quiet. Header secrets use
+  `$ENV`; the delivery transport refuses private/loopback ranges at dial time
+  (SSRF-hardened) unless `allow_private` is set; a failed destination retries next
+  run.
 - 🤖 **`[ai …]` content shortcode — ask an AI at build time** — declare named
   models under `ai.models` (endpoint, `$ENV` key, model id, optional system
   prompt) and ask them questions from inside content: `[ai model="fast"

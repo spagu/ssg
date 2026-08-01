@@ -806,6 +806,42 @@ In content:
 - Because answers are cached by `(model, question)`, committing `cache_dir` lets
   CI rebuild the exact same content with no API key and no network.
 
+## Notifications (announce new posts)
+
+Send each newly published — or changed — post to webhook destinations you define:
+point them at a platform API, an automation service (Zapier / Make / n8n / IFTTT)
+or your own endpoint, and they receive the post as JSON. A committed state file
+dedupes, so a post is announced **once**, again only when its content changes. It
+never fires unless you pass `--notify`, so local dev builds stay quiet.
+
+| Key | Notes |
+|---|---|
+| `notifications[].url` | Destination the post JSON is POSTed to |
+| `notifications[].name` | Label used in build logs |
+| `notifications[].method` | HTTP method (default `POST`) |
+| `notifications[].headers` | Extra headers (auth) — use `$ENV_VAR` for secrets |
+| `notifications[].allow_private` | Permit a private/loopback destination |
+| `notify_state` | Dedup state file (default `.ssg-notifications.json`) |
+| `notify` / `--notify` | Actually send this build (off by default) |
+
+```yaml
+notify_state: .ssg-notifications.json   # commit it — CI needs the sent-history
+notifications:
+  - name: zapier
+    url: https://hooks.zapier.com/hooks/catch/…   # fans out to X / LinkedIn / …
+    headers: { X-Token: $ZAP_TOKEN }
+```
+
+```bash
+ssg --config .ssg.yaml --notify --deploy cloudflare   # announce on publish
+```
+
+The payload is `{slug, title, url, excerpt, date, tags}`. The dedup key is a hash
+of the post's title, body and date, so an edit re-announces it and an untouched
+post is skipped. A destination that fails is retried on the next `--notify` run.
+The transport refuses private/loopback ranges at dial time unless
+`allow_private` is set, so a webhook URL can't be turned into an SSRF pivot.
+
 ## Server endpoints (portable, no vendor lock-in)
 
 Some sites need a little server behind the static output — a redirect that

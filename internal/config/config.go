@@ -420,6 +420,15 @@ type Config struct {
 	// are stable across builds and re-queried only when the question/model changes.
 	AI AIConfig `yaml:"ai" toml:"ai" json:"ai"`
 
+	// Notifications POST each newly published (or changed) post to user-defined
+	// webhook destinations (point them at a social API, an automation service, or
+	// your own endpoint). Only fires with --notify; a committed state file
+	// (notify_state, default .ssg-notifications.json) dedupes so a post is
+	// announced once — again only when its content changes (#1.8.16).
+	Notifications []NotifyDest `yaml:"notifications" toml:"notifications" json:"notifications"`
+	Notify        bool         `yaml:"notify" toml:"notify" json:"notify"`
+	NotifyState   string       `yaml:"notify_state" toml:"notify_state" json:"notify_state"`
+
 	// Endpoints declares vendor-neutral server endpoints (#63): defined once here,
 	// they are served natively by the built-in server (self-hosted, no external
 	// runtime) and — via adapters — compiled to platform functions. Empty = a
@@ -490,6 +499,18 @@ type AIModel struct {
 	System string  `yaml:"system" toml:"system" json:"system"` // optional system prompt
 	MaxTok int     `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
 	Temp   float64 `yaml:"temperature" toml:"temperature" json:"temperature"`
+}
+
+// NotifyDest is one webhook destination the post payload is sent to (#1.8.16).
+// The payload is JSON; point the URL at a platform API, an automation service
+// (Zapier/Make/n8n/IFTTT) or your own endpoint. Headers add auth — use $ENV for
+// secrets. AllowPrivate permits a private/loopback destination.
+type NotifyDest struct {
+	Name         string            `yaml:"name" toml:"name" json:"name"`
+	URL          string            `yaml:"url" toml:"url" json:"url"`
+	Method       string            `yaml:"method" toml:"method" json:"method"` // default POST
+	Headers      map[string]string `yaml:"headers" toml:"headers" json:"headers"`
+	AllowPrivate bool              `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.
