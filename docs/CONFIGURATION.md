@@ -239,7 +239,7 @@ fingerprinted assets.
 | `page_format` | `directory` behaviour | `--page-format` | `directory`, `flat` or `both` |
 | `permalinks.post` | empty | `--permalink-post` | Tokenised post URL pattern |
 | `permalinks.page` | empty | `--permalink-page` | Tokenised page URL pattern |
-| `rewrite_md_links` | `false` | config only | Rewrite source `.md` links to final URLs (anchors and query strings are carried over) |
+| `rewrite_md_links` | `true` | config only | Rewrite source `.md` links to final URLs (anchors/queries carried over); `false` opts out |
 | `strip_md_link_text` | `false` | config only | Drop `.md` from link text that is a bare filename (`[CONFIGURATION.md]…` → "CONFIGURATION") |
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |

@@ -183,8 +183,10 @@ type Config struct {
 	// subdirectories) into the output during generation (default: "static").
 	StaticDir string `yaml:"static_dir" toml:"static_dir" json:"static_dir"`
 
-	// RewriteMdLinks rewrites relative .md links in content to their final output URLs (opt-in)
-	RewriteMdLinks bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
+	// RewriteMdLinks rewrites relative .md links in content to their final output
+	// URLs. Default ON since 1.8.15 (a raw .md link otherwise 404s or serves
+	// source); set rewrite_md_links: false to opt out. Pointer so unset ⇒ on.
+	RewriteMdLinks *bool `yaml:"rewrite_md_links" toml:"rewrite_md_links" json:"rewrite_md_links"`
 	// StripMdLinkText drops the ".md" from a link's visible text when that text
 	// is exactly a filename (e.g. `[CONFIGURATION.md](CONFIGURATION.md)` renders
 	// as "CONFIGURATION"). Only anchor text that is a bare filename is touched —
