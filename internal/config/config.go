@@ -415,6 +415,11 @@ type Config struct {
 	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
 	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
 
+	// AI wires build-time AI queries used by the [ai …] content shortcode: named
+	// models (endpoint, key, model id) plus a content-addressed cache so answers
+	// are stable across builds and re-queried only when the question/model changes.
+	AI AIConfig `yaml:"ai" toml:"ai" json:"ai"`
+
 	// Endpoints declares vendor-neutral server endpoints (#63): defined once here,
 	// they are served natively by the built-in server (self-hosted, no external
 	// runtime) and — via adapters — compiled to platform functions. Empty = a
@@ -465,6 +470,26 @@ type Endpoint struct {
 	// reference an environment variable ($MEMBERS_PW), never a literal.
 	User     string `yaml:"user" toml:"user" json:"user"`
 	Password string `yaml:"password" toml:"password" json:"password"`
+}
+
+// AIConfig configures build-time AI queries for the [ai …] content shortcode.
+type AIConfig struct {
+	DefaultModel string             `yaml:"default_model" toml:"default_model" json:"default_model"`
+	CacheDir     string             `yaml:"cache_dir" toml:"cache_dir" json:"cache_dir"` // default ".ai-cache"
+	Timeout      string             `yaml:"timeout" toml:"timeout" json:"timeout"`       // default per-query, e.g. "30s"
+	Models       map[string]AIModel `yaml:"models" toml:"models" json:"models"`
+}
+
+// AIModel is one named AI endpoint. Key should reference an environment variable
+// ($OPENAI_KEY), never a literal. The request/response shape is OpenAI-compatible
+// chat completions, which most providers expose.
+type AIModel struct {
+	URL    string  `yaml:"url" toml:"url" json:"url"`          // chat-completions endpoint
+	Key    string  `yaml:"key" toml:"key" json:"key"`          // bearer token; use $ENV
+	Model  string  `yaml:"model" toml:"model" json:"model"`    // provider model id
+	System string  `yaml:"system" toml:"system" json:"system"` // optional system prompt
+	MaxTok int     `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
+	Temp   float64 `yaml:"temperature" toml:"temperature" json:"temperature"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.

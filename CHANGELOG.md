@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🤖 **`[ai …]` content shortcode — ask an AI at build time** — declare named
+  models under `ai.models` (endpoint, `$ENV` key, model id, optional system
+  prompt) and ask them questions from inside content: `[ai model="fast"
+  question="…" ifs="lang == en" fallback="…"]`. The answer is fetched **once**
+  and **content-addressed cached** (`ai.cache_dir`, default `.ai-cache`), so a
+  build is deterministic and only re-queries when the question or model changes —
+  commit the cache and CI rebuilds identically with no key and no network. `ifs`
+  is an optional guard over the page's fields with `AND`/`OR` and `==`/`!=`/
+  `contains`/`>`/`<`/`>=`/`<=`; when it is false, or the query fails, the
+  `fallback` text is used. Keys are read from the environment, never literals.
+
 ## [1.8.15] - 2026-08-01
 
 ### Added

@@ -1,0 +1,128 @@
+package ai
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+func chatServer(t *testing.T, reply string, calls *int) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*calls++
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(body), `"model":"m1"`) {
+			t.Errorf("request missing model id: %s", body)
+		}
+		if r.Header.Get("Authorization") != "Bearer sekret" {
+			t.Errorf("missing bearer key: %q", r.Header.Get("Authorization"))
+		}
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"`+reply+`"}}]}`)
+	}))
+}
+
+// TestQueryCaches: a query hits the endpoint once, then serves from cache (disk +
+// memory), and the same (model,question) is deterministic.
+func TestQueryCaches(t *testing.T) {
+	t.Setenv("AI_KEY", "sekret")
+	var calls int
+	srv := chatServer(t, "42", &calls)
+	defer srv.Close()
+
+	c := New(map[string]Model{"fast": {URL: srv.URL, Key: "$AI_KEY", Model: "m1"}}, "fast", t.TempDir(), 0)
+	if !c.Enabled() {
+		t.Fatal("client should be enabled")
+	}
+
+	got, err := c.Query("fast", "what is the answer?", 0)
+	if err != nil || got != "42" {
+		t.Fatalf("query = %q, %v", got, err)
+	}
+	// Second call: served from memory, endpoint not hit again.
+	if _, err := c.Query("fast", "what is the answer?", 0); err != nil {
+		t.Fatalf("cached query: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("endpoint called %d times, want 1 (rest cached)", calls)
+	}
+
+	// A fresh client with the same cache dir reads the disk cache — still no call.
+	c2 := New(map[string]Model{"fast": {URL: srv.URL, Key: "$AI_KEY", Model: "m1"}}, "fast", c.cacheDir, 0)
+	if got, _ := c2.Query("fast", "what is the answer?", 0); got != "42" || calls != 1 {
+		t.Errorf("disk cache miss: got %q, calls %d", got, calls)
+	}
+}
+
+// TestQueryErrors: unknown model and a 5xx endpoint both return errors so the
+// shortcode can fall back.
+func TestQueryErrors(t *testing.T) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer bad.Close()
+	c := New(map[string]Model{"x": {URL: bad.URL, Model: "m1"}}, "x", t.TempDir(), 2*time.Second)
+
+	if _, err := c.Query("nope", "q", 0); err == nil {
+		t.Error("unknown model must error")
+	}
+	if _, err := c.Query("x", "q", 0); err == nil {
+		t.Error("5xx endpoint must error")
+	}
+}
+
+// TestResolveModelSingle: with exactly one model and no default, it is used
+// without naming.
+func TestResolveModelSingle(t *testing.T) {
+	c := New(map[string]Model{"only": {URL: "http://x", Model: "m1"}}, "", t.TempDir(), 0)
+	if _, name, err := c.resolveModel(""); err != nil || name != "only" {
+		t.Errorf("single-model resolve = %q, %v", name, err)
+	}
+}
+
+// TestNewDefaults: empty cacheDir/timeout fall back to sane defaults.
+func TestNewDefaults(t *testing.T) {
+	c := New(map[string]Model{"m": {URL: "http://x", Model: "m1"}}, "", "", 0)
+	if c.cacheDir != ".ai-cache" || c.timeout != 30*time.Second {
+		t.Errorf("defaults = %q / %v", c.cacheDir, c.timeout)
+	}
+}
+
+// TestAskPayloadAndParse: system/max_tokens/temperature reach the request, and a
+// malformed or empty response is an error.
+func TestAskPayloadAndParse(t *testing.T) {
+	var gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"}}]}`)
+	}))
+	defer srv.Close()
+	c := New(map[string]Model{"m": {URL: srv.URL, Model: "m1", System: "be brief", MaxTokens: 50, Temperature: 0.2}}, "m", t.TempDir(), 0)
+	if _, err := c.Query("m", "q", time.Second); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	for _, want := range []string{`"role":"system"`, `"be brief"`, `"max_tokens":50`, `"temperature":0.2`} {
+		if !strings.Contains(gotBody, want) {
+			t.Errorf("payload missing %q in %s", want, gotBody)
+		}
+	}
+
+	// Empty choices → error.
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"choices":[]}`)
+	}))
+	defer empty.Close()
+	if _, err := New(map[string]Model{"m": {URL: empty.URL, Model: "m1"}}, "m", t.TempDir(), 0).Query("m", "q", 0); err == nil {
+		t.Error("empty choices must error")
+	}
+	// Malformed JSON → error.
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `not json`)
+	}))
+	defer bad.Close()
+	if _, err := New(map[string]Model{"m": {URL: bad.URL, Model: "m1"}}, "m", t.TempDir(), 0).Query("m", "q", 0); err == nil {
+		t.Error("malformed response must error")
+	}
+}

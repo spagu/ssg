@@ -23,6 +23,7 @@ import (
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
@@ -216,6 +217,9 @@ type Config struct {
 	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
 	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
 	BuildWorkers int
+	// AI answers [ai …] content shortcodes at build time (cached). nil = the
+	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
+	AI *ai.Client
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -662,6 +666,10 @@ func (g *Generator) Generate() error {
 	if err := g.validateContentSchemas(); err != nil {
 		return err
 	}
+
+	// Resolve [ai …] content shortcodes (cached) before rendering, sequentially,
+	// so the ifs guard sees full page context (#1.8.16).
+	g.resolveAIContent()
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err

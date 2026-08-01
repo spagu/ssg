@@ -760,6 +760,52 @@ headers:
     Access-Control-Allow-Origin: "*"
 ```
 
+## AI content (build-time `[ai …]` shortcode)
+
+Declare named AI models, then ask them questions from inside content with the
+`[ai …]` shortcode — the answer is fetched **once, at build time**, and
+content-addressed cached so a rebuild is deterministic and only re-queries when
+the question or model changes. Keys reference environment variables, never
+literals; the request/response shape is OpenAI-compatible chat completions.
+
+| Key | Notes |
+|---|---|
+| `ai.models.<name>.url` | Chat-completions endpoint |
+| `ai.models.<name>.key` | Bearer token — use `$ENV_VAR` |
+| `ai.models.<name>.model` | Provider model id |
+| `ai.models.<name>.system` | Optional system prompt |
+| `ai.models.<name>.max_tokens` / `temperature` | Optional generation controls |
+| `ai.default_model` | Model used when a shortcode omits one |
+| `ai.cache_dir` | Content-addressed answer cache (default `.ai-cache`) |
+| `ai.timeout` | Default per-query timeout (e.g. `30s`) |
+
+```yaml
+ai:
+  default_model: fast
+  cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
+  models:
+    fast:
+      url: https://api.openai.com/v1/chat/completions
+      key: $OPENAI_KEY
+      model: gpt-4o-mini
+      system: "Answer in one short paragraph."
+```
+
+In content:
+
+```markdown
+[ai model="fast" question="Summarise the 1.8 release line in one sentence."
+   ifs="lang == en AND status == publish" timeout="20s" fallback="_summary unavailable_"]
+```
+
+- `ifs` is an optional guard evaluated against the page's fields (`lang`,
+  `status`, `type`, `category`, `series`, `slug`, `title`, `tags`, any custom
+  frontmatter, and site `variables`). It supports `AND`/`OR` and the operators
+  `==`, `!=`, `contains`, `>`, `<`, `>=`, `<=`. When it is false — or the query
+  fails, or no model answers — the `fallback` text is used.
+- Because answers are cached by `(model, question)`, committing `cache_dir` lets
+  CI rebuild the exact same content with no API key and no network.
+
 ## Server endpoints (portable, no vendor lock-in)
 
 Some sites need a little server behind the static output — a redirect that

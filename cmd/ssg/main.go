@@ -23,6 +23,7 @@ import (
 	"time"
 	_ "time/tzdata" // embed the IANA zone db so --timezone works in static/Windows builds (I18N-001)
 
+	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/deploy"
 	"github.com/spagu/ssg/internal/engine"
@@ -440,6 +441,23 @@ func downloadOnlineTheme(cfg *config.Config) {
 }
 
 // createGeneratorConfig creates generator.Config from app config
+// buildAIClient constructs the build-time AI client from config, or nil when no
+// models are declared (the [ai …] shortcode then resolves to its fallback).
+func buildAIClient(cfg config.AIConfig) *ai.Client {
+	if len(cfg.Models) == 0 {
+		return nil
+	}
+	models := make(map[string]ai.Model, len(cfg.Models))
+	for name, m := range cfg.Models {
+		models[name] = ai.Model{
+			URL: m.URL, Key: m.Key, Model: m.Model, System: m.System,
+			MaxTokens: m.MaxTok, Temperature: m.Temp,
+		}
+	}
+	timeout, _ := time.ParseDuration(cfg.Timeout) // 0 on error/empty ⇒ client default
+	return ai.New(models, cfg.DefaultModel, cfg.CacheDir, timeout)
+}
+
 func createGeneratorConfig(cfg *config.Config) generator.Config {
 	// Convert shortcodes from config to generator format
 	shortcodes := make([]generator.Shortcode, len(cfg.Shortcodes))
@@ -522,6 +540,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Strict:               cfg.Strict,
 		RouteManifest:        cfg.RouteManifest,
 		BuildWorkers:         resolveBuildWorkers(cfg.BuildWorkers),
+		AI:                   buildAIClient(cfg.AI),
 		CheckLinks:           cfg.CheckLinks,
 		Bundles:              cfg.Bundles,
 		Outputs:              cfg.Outputs,
