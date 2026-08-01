@@ -320,6 +320,12 @@ HTML regions can opt out of minification:
 WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).
 
+**Scope.** WebP conversion runs over the **entire output tree** — content media,
+copied `static/` files and theme assets alike, every `.jpg`/`.jpeg`/`.png` — not
+just images under your content. There is no per-directory exclude list;
+`webp_keep_original` (below) is the escape hatch when something must keep its
+original extension.
+
 By default WebP conversion **replaces** each original in the output (the
 historical behaviour): `logo.png` becomes `logo.webp` and references are
 rewritten to match. Rewriting covers `<img src>`/`srcset`, `href`, CSS
@@ -327,9 +333,13 @@ rewritten to match. Rewriting covers `<img src>`/`srcset`, `href`, CSS
 `image` value — so share previews follow the conversion instead of pointing at a
 removed `.jpg`. Only references SSG cannot resolve to a local file stay on the
 original extension: **absolute** URLs to your own images (`https://…/logo.png`,
-which are left untouched on purpose) and paths embedded in JavaScript. If a theme
-hardcodes those, set `webp_keep_original: true` to emit the `.webp` next to the
-original — rewritten references serve WebP, hardcoded ones keep working (v1.8.5).
+left untouched on purpose) and — the common footgun — **paths built in
+JavaScript at runtime**. SSG only rewrites HTML/CSS, so a script that fetches
+`marker-icon.png` (e.g. a map library's default marker) keeps requesting the
+`.png` that replace mode just deleted → a silent 404. When an asset is referenced
+from JS, set `webp_keep_original: true` to emit the `.webp` next to the original —
+rewritten HTML/CSS references serve WebP, the runtime `.png` still resolves
+(v1.8.5) — or reference it from HTML/CSS instead so the rewrite can reach it.
 
 ## Authoring
 

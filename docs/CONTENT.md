@@ -383,6 +383,13 @@ Per-page `alias_stubs` overrides the site-wide default either way — set it `tr
 on a page to keep its stub even when the site disables stubs. The `301` is
 emitted regardless; only the stub copy is affected.
 
+**Trailing slash.** The `301` is written for the alias path exactly as declared,
+while the stub copy is a directory index (`/old-slug/index.html`). On a host that
+serves `_redirects`, a hand-written rule for `/old-slug` and the stub at
+`/old-slug/` can therefore answer differently per trailing slash (one `301`s, the
+other serves the 200 copy). If that split matters, set `alias_stubs: false` so
+the alias is a pure `301` and there is no copy to disagree with the redirect.
+
 ## Relative Markdown links
 
 With `rewrite_md_links: true`, links to source Markdown files are rewritten to
