@@ -1,6 +1,7 @@
 package webp
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -79,5 +80,37 @@ func TestConvertReplaceRemovesAfterConversion(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "photo.webp")); err != nil {
 		t.Fatal("webp output missing")
+	}
+}
+
+// TestConvertDirectoryParallel stresses the worker pool: many independent images
+// convert concurrently to a byte-identical result (all .webp present, all
+// originals removed, exact converted count). The -race build guards the shared
+// atomic accumulators.
+func TestConvertDirectoryParallel(t *testing.T) {
+	withFakeCwebp(t)
+	dir := t.TempDir()
+	const n = 24
+	for i := 0; i < n; i++ {
+		p := filepath.Join(dir, fmt.Sprintf("img%02d.png", i))
+		if err := os.WriteFile(p, []byte("PNGDATA-PNGDATA-PNGDATA"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	converted, saved, err := ConvertDirectory(dir, ConvertOptions{Quality: 60, Quiet: true, Workers: 4})
+	if err != nil || converted != n {
+		t.Fatalf("converted = %d (want %d), err %v", converted, n, err)
+	}
+	if saved == 0 {
+		t.Errorf("expected some bytes saved across %d images", n)
+	}
+	for i := 0; i < n; i++ {
+		base := filepath.Join(dir, fmt.Sprintf("img%02d", i))
+		if _, e := os.Stat(base + ".webp"); e != nil {
+			t.Errorf("missing %s.webp: %v", base, e)
+		}
+		if _, e := os.Stat(base + ".png"); !os.IsNotExist(e) {
+			t.Errorf("original %s.png must be removed in replace mode", base)
+		}
 	}
 }

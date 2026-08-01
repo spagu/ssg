@@ -12,10 +12,22 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
+
+// resolveWorkers maps a configured worker count onto a concrete pool size:
+// 0 (or less) means one worker per CPU; anything else is used as-is.
+func resolveWorkers(n int) int {
+	if n < 1 {
+		return runtime.NumCPU()
+	}
+	return n
+}
 
 // ConvertOptions holds WebP conversion options
 type ConvertOptions struct {
@@ -29,6 +41,10 @@ type ConvertOptions struct {
 	// to .webp (GO-052). Default false preserves the historical
 	// replace-in-place behaviour.
 	KeepOriginal bool
+	// Workers caps concurrent cwebp conversions. 0 = one per CPU; 1 = sequential.
+	// Each image is independent (own source → own .webp), so the output is
+	// identical to the sequential build regardless of worker count.
+	Workers int
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -87,51 +103,62 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		}
 	}
 
-	// Second pass: convert with progress
-	for i, path := range imagePaths {
-		info, statErr := os.Stat(path)
-		if statErr != nil {
-			continue
-		}
+	// Second pass: convert in parallel. Each image is independent (own source →
+	// own .webp/variants → own removal), so a worker pool produces byte-identical
+	// output to the sequential build; only the accumulators and the progress
+	// counter are shared, guarded atomically.
+	var savedBytesA, convertedA, progress int64
+	sem := make(chan struct{}, resolveWorkers(opts.Workers))
+	var wg sync.WaitGroup
+	for _, path := range imagePaths {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		originalSize := info.Size()
-		webpPath := webpTargetPath(path)
+			info, statErr := os.Stat(path)
+			if statErr != nil {
+				return
+			}
+			originalSize := info.Size()
+			webpPath := webpTargetPath(path)
 
-		if !opts.Quiet {
-			fmt.Printf("   🖼️  Converting %d/%d: %s\n", i+1, total, filepath.Base(path))
-		}
-
-		if convErr := convertImage(path, webpPath, opts.Quality); convErr != nil {
 			if !opts.Quiet {
-				fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), convErr)
+				fmt.Printf("   🖼️  Converting %d/%d: %s\n", atomic.AddInt64(&progress, 1), total, filepath.Base(path))
 			}
-			continue
-		}
-
-		// Get new size; this also confirms the .webp actually exists before the
-		// original is deleted below (GO-016).
-		newInfo, statErr := os.Stat(webpPath)
-		if statErr != nil {
-			continue // output missing despite reported success — keep the original
-		}
-		savedBytes += originalSize - newInfo.Size()
-
-		// Responsive variants: derive smaller widths from the original before it is
-		// removed, so quality is best and no upscaling occurs (ASSET-004).
-		if len(opts.Sizes) > 0 {
-			generateResponsiveVariants(path, webpPath, opts)
-		}
-
-		// Replace mode removes the original; keep mode leaves it next to the
-		// .webp so hardcoded extension references stay valid (GO-052).
-		if !opts.KeepOriginal {
-			if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
-				fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+			if convErr := convertImage(path, webpPath, opts.Quality); convErr != nil {
+				if !opts.Quiet {
+					fmt.Printf("   ⚠️  Failed to convert %s: %v\n", filepath.Base(path), convErr)
+				}
+				return
 			}
-		}
+			// Get new size; this also confirms the .webp actually exists before the
+			// original is deleted below (GO-016).
+			newInfo, statErr := os.Stat(webpPath)
+			if statErr != nil {
+				return // output missing despite reported success — keep the original
+			}
+			atomic.AddInt64(&savedBytesA, originalSize-newInfo.Size())
 
-		converted++
+			// Responsive variants: derive smaller widths from the original before it
+			// is removed, so quality is best and no upscaling occurs (ASSET-004).
+			if len(opts.Sizes) > 0 {
+				generateResponsiveVariants(path, webpPath, opts)
+			}
+			// Replace mode removes the original; keep mode leaves it next to the
+			// .webp so hardcoded extension references stay valid (GO-052).
+			if !opts.KeepOriginal {
+				if rmErr := os.Remove(path); rmErr != nil && !opts.Quiet {
+					fmt.Printf("   ⚠️  Failed to remove original %s: %v\n", filepath.Base(path), rmErr)
+				}
+			}
+			atomic.AddInt64(&convertedA, 1)
+		}(path)
 	}
+	wg.Wait()
+	savedBytes = savedBytesA
+	converted = int(convertedA)
 
 	return converted, savedBytes, nil
 }

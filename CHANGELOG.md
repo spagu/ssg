@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.14] - 2026-08-01
 
 ### Added
+- ⚡ **Parallel builds (`--workers`)** — the build was fully sequential; WebP image
+  conversion now runs on a worker pool, so an image-heavy site publishes several
+  times faster on a multi-core machine. `build_workers` / `--workers=N`: unset
+  uses the whole machine (one worker per CPU), `N` caps it (e.g. `--workers=2` on
+  a shared box), `--workers=0` turns parallelism off (sequential). Each image is
+  independent, so the output is byte-identical whatever the count — verified with
+  the race detector and the golden harness. (The HTML-render loop stays sequential
+  for now; it threads mutable per-language state through the template context, so
+  parallelising it safely is a separate, race-audited change.)
 - 🔌 **Portable server endpoints, self-hosted first** (#63, foundation) — a new
   vendor-neutral `endpoints:` block declares small server behaviours once, and the
   built-in server (`--http`) runs them natively in the single Go binary — no

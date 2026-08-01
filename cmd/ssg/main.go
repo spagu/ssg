@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -839,6 +840,7 @@ func parseIntEqualFlags(arg string, cfg *config.Config) bool {
 	switch {
 	case setIntEqual(arg, "--webp-quality=", 1, 100, func(n int) { cfg.WebPQuality = n }):
 	case setIntEqual(arg, "--max-conns=", 0, 0, func(n int) { cfg.MaxConns = n }):
+	case setIntEqual(arg, "--workers=", 0, 0, func(n int) { cfg.BuildWorkers = &n }):
 	case setIntEqual(arg, "--paginate=", 0, 0, func(n int) { cfg.Paginate = n }):
 	case setIntEqual(arg, "--feed-items=", 1, 0, func(n int) { cfg.FeedItems = n }):
 	case setIntEqual(arg, "--toc-depth=", 1, 0, func(n int) { cfg.TOCDepth = n }):
@@ -924,7 +926,7 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 // flags (GO-053). --check-links is absent by design: its bare form is a
 // boolean toggle, so only the "=" spelling can carry a mode.
 var extraEqualValueFlags = []string{
-	"--webp-quality", "--max-conns", "--paginate", "--feed-items", "--toc-depth",
+	"--webp-quality", "--max-conns", "--workers", "--paginate", "--feed-items", "--toc-depth",
 	"--port", "--mddb-timeout", "--mddb-batch-size", "--mddb-watch-interval",
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
@@ -1031,6 +1033,19 @@ func runImagesGC(gen *generator.Generator, cfg *config.Config) {
 	fmt.Printf("   🧹 Image cache GC: %s %d file(s), %d bytes\n", verb, files, bytes)
 }
 
+// resolveBuildWorkers turns the configured --workers value into a concrete pool
+// size: unset ⇒ one per CPU (the whole machine), an explicit 0 (or negative) ⇒ 1
+// (parallelism off / sequential), N ⇒ exactly N (#63… build parallelism).
+func resolveBuildWorkers(n *int) int {
+	if n == nil {
+		return runtime.NumCPU()
+	}
+	if *n < 1 {
+		return 1
+	}
+	return *n
+}
+
 // runWebP converts output images to WebP and rewrites references when --webp is set.
 func runWebP(cfg *config.Config) error {
 	if !cfg.WebP {
@@ -1042,6 +1057,7 @@ func runWebP(cfg *config.Config) error {
 		Force:        cfg.ReconvertImages,
 		Sizes:        cfg.ImageSizes,
 		KeepOriginal: cfg.WebPKeepOriginal,
+		Workers:      resolveBuildWorkers(cfg.BuildWorkers),
 	}
 	converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
 	if err != nil {
@@ -1304,6 +1320,7 @@ func printUsage() {
 	fmt.Println("  --http3                - Advertise & serve HTTP/3 (QUIC) alongside HTTP/2 (requires TLS)")
 	fmt.Println("  --gzip                 - gzip-compress responses when the client accepts it")
 	fmt.Println("  --max-conns=N          - Cap simultaneous connections (0 = unlimited)")
+	fmt.Println("  --workers=N            - Parallel build workers (default: one per CPU; 0 = off/sequential)")
 	fmt.Println("  --mem-limit=SIZE       - Soft memory limit, e.g. 512MiB, 1GiB (runtime GC target)")
 	fmt.Println("")
 	fmt.Println("Output Control:")

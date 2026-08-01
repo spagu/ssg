@@ -316,6 +316,13 @@ HTML regions can opt out of minification:
 | `reconvert_images` | `false` | `--reconvert-images` | Ignore existing conversion result |
 | `image_sizes` | empty | `--image-sizes` | Responsive widths; no upscaling |
 | `image_sizes_attr` | `100vw` | `--image-sizes-attr` | Generated HTML `sizes` value |
+| `build_workers` | one per CPU | `--workers=N` | Parallel build workers; `0` = off (sequential) |
+
+`build_workers` (`--workers=N`) sets how many images convert to WebP in parallel.
+Leave it unset to use the **whole machine** (one worker per CPU), set an explicit
+`N` (e.g. `--workers=2`) to cap it on a shared box, or `--workers=0` to turn
+parallelism **off** and build sequentially. Each image is independent, so the
+output is byte-identical whatever the count — only the wall-clock changes.
 
 WebP encoding requires the optional `cwebp` executable. Build-time resize,
 crop, filter and source-set helpers are covered by [IMAGES.md](IMAGES.md).

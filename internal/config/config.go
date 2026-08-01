@@ -109,6 +109,12 @@ type Config struct {
 	Gzip     bool   `yaml:"gzip" toml:"gzip" json:"gzip"`                // gzip-compress responses on the fly
 	MaxConns int    `yaml:"max_conns" toml:"max_conns" json:"max_conns"` // cap concurrent connections (0 = unlimited)
 	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // soft runtime memory limit, e.g. "512MiB"
+
+	// BuildWorkers caps concurrency for the parallelizable build stages (WebP
+	// image conversion first). Unset ⇒ one worker per CPU (use the whole machine);
+	// an explicit 0 ⇒ off (fully sequential, the historical behaviour); N ⇒
+	// exactly N workers. Output is byte-identical regardless of the count.
+	BuildWorkers *int `yaml:"build_workers" toml:"build_workers" json:"build_workers"`
 	// HTTP3 also serves HTTP/3 (QUIC) alongside HTTPS/2 and advertises it via
 	// Alt-Svc. Requires TLS (QUIC is always encrypted). HTTP/2 is already automatic
 	// over TLS; this adds QUIC on the same UDP port (v1.8.1).
