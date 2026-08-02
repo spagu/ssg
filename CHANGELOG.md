@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.16] - 2026-08-02
+
 ### Added
 - 🔌 **`ssg mcp` — development MCP server (designer + content manager)** — a
   Model Context Protocol server over stdio that lets an AI assistant work on the
@@ -1897,7 +1899,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.10...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.16...HEAD
+[1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
