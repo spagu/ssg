@@ -440,8 +440,35 @@ type Config struct {
 	// served natively by --http; the same declarations, a different target (#63).
 	EndpointsPlatform string `yaml:"endpoints_platform" toml:"endpoints_platform" json:"endpoints_platform"`
 
+	// MCP configures the development MCP server (`ssg mcp`): an AI assistant
+	// connects to it to edit templates (designer) and content (content manager)
+	// live, and — when git is configured — to branch, commit and open a PR for the
+	// changes (#1.8.16).
+	MCP MCPConfig `yaml:"mcp" toml:"mcp" json:"mcp"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
+}
+
+// MCPConfig configures the `ssg mcp` development server (#1.8.16). Git is
+// optional: without it the assistant edits files in place (live reload); with it,
+// mutations land on a working branch and a PR is opened only on an explicit,
+// human-approved step.
+type MCPConfig struct {
+	Git MCPGit `yaml:"git" toml:"git" json:"git"`
+}
+
+// MCPGit enables the git write-back flow. When Token (and a resolvable repo) is
+// set, the git_* tools are exposed: create a branch, commit changes to it, and
+// open a pull request against DefaultBranch. Token must reference an environment
+// variable ($GITHUB_TOKEN), never a literal.
+type MCPGit struct {
+	Account       string `yaml:"account" toml:"account" json:"account"`                      // GitHub owner/org the PR is attributed to
+	Token         string `yaml:"token" toml:"token" json:"token"`                            // PAT for opening PRs — use $ENV
+	Repo          string `yaml:"repo" toml:"repo" json:"repo"`                               // owner/name; empty ⇒ derived from the remote
+	Remote        string `yaml:"remote" toml:"remote" json:"remote"`                         // git remote to push to (default "origin")
+	DefaultBranch string `yaml:"default_branch" toml:"default_branch" json:"default_branch"` // PR base (default "main")
+	BranchPrefix  string `yaml:"branch_prefix" toml:"branch_prefix" json:"branch_prefix"`    // working-branch prefix (default "mcp/")
 }
 
 // Endpoint is one vendor-neutral server endpoint (#63). The same declaration is

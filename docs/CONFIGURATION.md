@@ -877,6 +877,67 @@ post is skipped. A destination that fails is retried on the next `--notify` run.
 The transport refuses private/loopback ranges at dial time unless
 `allow_private` is set, so a webhook URL can't be turned into an SSRF pivot.
 
+## Development MCP server (`ssg mcp`)
+
+`ssg mcp` runs a Model Context Protocol server over stdio so an AI assistant can
+work on the site during development in two clearly-scoped roles:
+
+- **Designer** (`designer_*`) — changes how the site *looks*: lists, reads and
+  writes templates, partials, CSS and theme assets. It cannot touch content,
+  delete files, or write outside the template/static directories.
+- **Content manager** (`content_*`) — changes what the site *says*: lists, reads,
+  creates, updates and deletes Markdown (frontmatter + body). It cannot touch
+  templates or write non-Markdown files.
+
+Every tool description tells the model exactly what it **can** and **cannot** do,
+an always-present `help` tool restates the whole contract, and the same guidance
+is handed to the client at connect time. By default every successful change
+triggers a rebuild — a template or content error comes straight back to the
+model as the tool result, so it fixes its own mistakes before moving on.
+
+```bash
+ssg mcp                    # both roles, rebuild after every change
+ssg mcp --role=designer    # designer only
+ssg mcp --role=content     # content manager only
+ssg mcp --no-watch         # edit only, no rebuilds
+```
+
+Register it in an MCP-capable assistant as a stdio server:
+
+```json
+{ "command": "ssg", "args": ["mcp", "--config", ".ssg.yaml"] }
+```
+
+### Git write-back (optional)
+
+With a git account and token configured, the assistant additionally gets a safe
+write-back flow: `git_new_branch` → edit → `git_commit` → **human reviews** →
+`git_open_pr`. Edits never land on the base branch, commits stage only the
+content/template directories, and the pull request is opened only after the
+person explicitly approves. The token must reference an environment variable,
+never a literal.
+
+| Key | Notes |
+|---|---|
+| `mcp.git.account` | Git account/owner the PR is attributed to |
+| `mcp.git.token` | API token for opening PRs — use `$ENV_VAR` (e.g. `$GITHUB_TOKEN`) |
+| `mcp.git.repo` | `owner/name`; empty = derived from the remote URL |
+| `mcp.git.remote` | Remote to push to (default `origin`) |
+| `mcp.git.default_branch` | PR base branch (default `main`) |
+| `mcp.git.branch_prefix` | Working-branch prefix (default `mcp/`) |
+
+```yaml
+mcp:
+  git:
+    account: spagu
+    token: $GITHUB_TOKEN        # never a literal
+    default_branch: main
+    branch_prefix: mcp/
+```
+
+Without `mcp.git.token`, the `git_*` tools are simply not exposed — the assistant
+edits files in place and version control stays fully manual.
+
 ## Server endpoints (portable, no vendor lock-in)
 
 Some sites need a little server behind the static output — a redirect that

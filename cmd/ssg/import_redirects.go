@@ -39,6 +39,9 @@ func dispatchSingleVerb(args []string) (int, bool) {
 	if len(args) >= 1 && args[0] == "init" {
 		return runInit(args[1:]), true
 	}
+	if len(args) >= 1 && args[0] == "mcp" {
+		return runMCP(args[1:]), true
+	}
 	return 0, false
 }
 

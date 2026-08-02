@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔌 **`ssg mcp` — development MCP server (designer + content manager)** — a
+  Model Context Protocol server over stdio that lets an AI assistant work on the
+  site live during development, in two clearly-scoped roles: **designer**
+  (`designer_*` — templates, partials, CSS, theme assets; cannot touch content or
+  delete) and **content manager** (`content_*` — create/update/fix/delete
+  Markdown; cannot touch templates or write non-Markdown). Every tool description
+  states what the model can and cannot do, an always-present `help` tool restates
+  the whole contract, and by default each change **rebuilds the site** — errors
+  come back as the tool result so the assistant fixes its own mistakes.
+  `--role=designer|content` exposes one role; `--no-watch` disables rebuilds. With
+  `mcp.git` configured (account + `$ENV` token) the assistant also gets a safe
+  **git write-back flow**: `git_new_branch` → edit → `git_commit` → human reviews
+  → `git_open_pr` — edits never land on the base branch, only the
+  content/template directories are staged, and the PR is opened only after
+  explicit human approval. Without a token the `git_*` tools are not exposed.
 - 🔗 **Related-posts template helpers** — `{{ range related . 5 }}` returns the
   posts most related to the current page by shared **tags and keywords** (ranked
   by overlap, then recency, then slug — deterministic, reads the already-loaded

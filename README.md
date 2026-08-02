@@ -351,6 +351,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
+| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles and an approve-then-PR git flow ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)) |
 
 ## Templates
 
