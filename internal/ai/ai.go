@@ -24,6 +24,37 @@ type Model struct {
 	URL, Key, Model, System string
 	MaxTokens               int
 	Temperature             float64
+	Rules                   []string // constraints folded into the system prompt
+	Skills                  []string // capabilities folded into the system prompt
+}
+
+// systemPrompt composes the effective system message from the base system text
+// plus the user-defined rules and skills, so a model's behaviour is fully
+// declared in config and any change to it invalidates the cache.
+func (m Model) systemPrompt() string {
+	parts := make([]string, 0, 3)
+	if m.System != "" {
+		parts = append(parts, m.System)
+	}
+	if len(m.Rules) > 0 {
+		parts = append(parts, "Rules you must follow:\n"+bulletList(m.Rules))
+	}
+	if len(m.Skills) > 0 {
+		parts = append(parts, "Skills you can use:\n"+bulletList(m.Skills))
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func bulletList(items []string) string {
+	var b strings.Builder
+	for i, it := range items {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString("- ")
+		b.WriteString(it)
+	}
+	return b.String()
 }
 
 // Client answers questions via named models, caching every result on disk.
@@ -82,7 +113,7 @@ func (c *Client) resolveModel(name string) (Model, string, error) {
 
 // cacheKey derives the deterministic cache key for a query.
 func cacheKey(m Model, question string) string {
-	h := sha256.Sum256([]byte(m.URL + "\x00" + m.Model + "\x00" + m.System + "\x00" +
+	h := sha256.Sum256([]byte(m.URL + "\x00" + m.Model + "\x00" + m.systemPrompt() + "\x00" +
 		fmt.Sprintf("%d\x00%g\x00", m.MaxTokens, m.Temperature) + question))
 	return hex.EncodeToString(h[:])
 }
@@ -127,8 +158,8 @@ func (c *Client) ask(m Model, question string, timeout time.Duration) (string, e
 		timeout = c.timeout
 	}
 	msgs := []map[string]string{}
-	if m.System != "" {
-		msgs = append(msgs, map[string]string{"role": "system", "content": m.System})
+	if sys := m.systemPrompt(); sys != "" {
+		msgs = append(msgs, map[string]string{"role": "system", "content": sys})
 	}
 	msgs = append(msgs, map[string]string{"role": "user", "content": question})
 	payload := map[string]interface{}{"model": m.Model, "messages": msgs}

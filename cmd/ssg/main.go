@@ -453,6 +453,7 @@ func buildAIClient(cfg config.AIConfig) *ai.Client {
 		models[name] = ai.Model{
 			URL: m.URL, Key: m.Key, Model: m.Model, System: m.System,
 			MaxTokens: m.MaxTok, Temperature: m.Temp,
+			Rules: m.Rules, Skills: m.Skills,
 		}
 	}
 	timeout, _ := time.ParseDuration(cfg.Timeout) // 0 on error/empty ⇒ client default

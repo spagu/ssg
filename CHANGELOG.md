@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is an optional guard over the page's fields with `AND`/`OR` and `==`/`!=`/
   `contains`/`>`/`<`/`>=`/`<=`; when it is false, or the query fails, the
   `fallback` text is used. Keys are read from the environment, never literals.
+  Each model also takes user-defined **`rules`** (guardrails it must obey) and
+  **`skills`** (jobs it's set up for), folded into the system prompt and the cache
+  key so a change re-queries.
 
 ## [1.8.15] - 2026-08-01
 

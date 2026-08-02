@@ -774,6 +774,8 @@ literals; the request/response shape is OpenAI-compatible chat completions.
 | `ai.models.<name>.key` | Bearer token — use `$ENV_VAR` |
 | `ai.models.<name>.model` | Provider model id |
 | `ai.models.<name>.system` | Optional system prompt |
+| `ai.models.<name>.rules` | List of constraints the model must follow (folded into the prompt) |
+| `ai.models.<name>.skills` | List of capabilities the model should apply (folded into the prompt) |
 | `ai.models.<name>.max_tokens` / `temperature` | Optional generation controls |
 | `ai.default_model` | Model used when a shortcode omits one |
 | `ai.cache_dir` | Content-addressed answer cache (default `.ai-cache`) |
@@ -789,7 +791,18 @@ ai:
       key: $OPENAI_KEY
       model: gpt-4o-mini
       system: "Answer in one short paragraph."
+      rules:                       # constraints the model must follow
+        - "Answer in the page's language."
+        - "Never invent facts or links."
+      skills:                      # capabilities the model should apply
+        - "Summarise long text into one sentence."
+        - "Write concise meta descriptions."
 ```
+
+`rules` and `skills` are folded into the model's system prompt (and the cache key,
+so editing them re-queries). `rules` are the guardrails a model must obey; `skills`
+are the jobs it's set up to do — define them once per model and every `[ai …]`
+using that model inherits them.
 
 In content:
 

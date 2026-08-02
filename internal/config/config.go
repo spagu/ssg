@@ -499,6 +499,11 @@ type AIModel struct {
 	System string  `yaml:"system" toml:"system" json:"system"` // optional system prompt
 	MaxTok int     `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
 	Temp   float64 `yaml:"temperature" toml:"temperature" json:"temperature"`
+	// Rules are constraints the model must follow; Skills are capabilities /
+	// instructions it should apply. Both are user-defined and folded into the
+	// system prompt (and the cache key, so editing them re-queries) (#1.8.16).
+	Rules  []string `yaml:"rules" toml:"rules" json:"rules"`
+	Skills []string `yaml:"skills" toml:"skills" json:"skills"`
 }
 
 // NotifyDest is one webhook destination the post payload is sent to (#1.8.16).

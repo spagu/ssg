@@ -126,3 +126,38 @@ func TestAskPayloadAndParse(t *testing.T) {
 		t.Error("malformed response must error")
 	}
 }
+
+// TestRulesAndSkills covers #1.8.16: rules and skills compose into the system
+// prompt (and reach the request), and changing them changes the cache key so the
+// answer is re-queried.
+func TestRulesAndSkills(t *testing.T) {
+	m := Model{System: "Be brief.", Rules: []string{"Answer in Polish", "No links"}, Skills: []string{"summarise"}}
+	sys := m.systemPrompt()
+	for _, want := range []string{"Be brief.", "Rules you must follow:", "- Answer in Polish", "- No links", "Skills you can use:", "- summarise"} {
+		if !strings.Contains(sys, want) {
+			t.Errorf("systemPrompt missing %q in:\n%s", want, sys)
+		}
+	}
+	// The composed prompt reaches the request.
+	var gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"}}]}`)
+	}))
+	defer srv.Close()
+	mm := m
+	mm.URL, mm.Model = srv.URL, "m1"
+	if _, err := New(map[string]Model{"m": mm}, "m", t.TempDir(), 0).Query("m", "q", 0); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !strings.Contains(gotBody, "Answer in Polish") || !strings.Contains(gotBody, "summarise") {
+		t.Errorf("rules/skills not in request: %s", gotBody)
+	}
+	// Editing a rule changes the cache key (re-query).
+	m2 := m
+	m2.Rules = []string{"Answer in English"}
+	if cacheKey(m, "q") == cacheKey(m2, "q") {
+		t.Error("changing a rule must change the cache key")
+	}
+}
