@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🔗 **Related-posts template helpers** — `{{ range related . 5 }}` returns the
+  posts most related to the current page by shared **tags and keywords** (ranked
+  by overlap, then recency, then slug — deterministic, reads the already-loaded
+  content, no network). `{{ range relatedFromMddb . 5 }}` does the same by
+  querying the **mddb** corpus (a live `Search` filtered by the page's
+  tags/keywords), so it can surface articles beyond the pages built into this
+  site. See `examples/related-posts/` for the keyword, mddb and embeddings/vector
+  approaches.
 - ✉️ **Comments worker: email on a new comment** — set `COMMENTS_MAIL_URL` /
   `COMMENTS_MAIL_FROM` / `COMMENTS_MAIL_TO` (plus `COMMENTS_MAIL_KEY` for a bearer
   token) and the worker emails a moderation notice whenever a **non-spam** comment

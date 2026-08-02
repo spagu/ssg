@@ -60,6 +60,24 @@ falls back to deep comparison.
 
 ## Collection helpers
 
+### `related` / `relatedFromMddb` — related posts
+
+```gotemplate
+{{ range related . 5 }}<a href="{{ .Link }}">{{ .Title }}</a>{{ end }}
+```
+
+`related <page> <n>` returns up to `n` posts most related to `<page>`, ranked by
+the number of shared **tags and keywords** (then recency, then slug for a stable
+order). It reads the already-loaded posts — whatever the content source — so it
+needs no network and is reproducible; posts with no overlap are excluded.
+
+`relatedFromMddb <page> <n>` does the same by querying the **mddb** server
+(`Search` filtered by the page's tags/keywords), so it can surface articles from
+the whole corpus, not just the pages built into this site. It is a live query
+(not cached) and returns nothing when mddb is not configured or the query fails.
+See [`examples/related-posts/`](../examples/related-posts/) for the keyword, mddb
+and embeddings/vector approaches.
+
 ### `where` — filter by field equality
 
 ```gotemplate

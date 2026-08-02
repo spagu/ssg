@@ -356,6 +356,12 @@ type Generator struct {
 	mdMu     sync.Mutex
 	renderMu sync.Mutex
 
+	// relatedMddb is the lazily-built client the relatedFromMddb template helper
+	// queries; relatedMddbOnce guards its one-time creation (safe under the
+	// parallel render). Closed in Generate's teardown (#1.8.16).
+	relatedMddb     mddb.MddbClient
+	relatedMddbOnce sync.Once
+
 	// aliasRedirects collects frontmatter alias→URL pairs during page/post
 	// generation for the _redirects file (GO-063). Single-goroutine build —
 	// needs a mutex before any future parallel rendering (see currentLang).
@@ -653,6 +659,9 @@ func exportVariablesToEnv(vars map[string]interface{}, prefix string) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
+	// Release the lazily-built related-posts mddb client when the build ends.
+	defer g.closeRelatedMddb()
+
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
 	}
@@ -2145,6 +2154,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	}
 	// External-source helpers (getExternal/getExternalMeta).
 	for name, fn := range g.externalFuncs() {
+		funcs[name] = fn
+	}
+	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
+	for name, fn := range g.relatedFuncs() {
 		funcs[name] = fn
 	}
 	return funcs
