@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [release, ai, notifications, content, static-sites]
-excerpt: "1.8.16 is about the edges of publishing: ask an AI a question from inside a post (cached, deterministic), announce a new post to wherever you like without ever double-posting, show related articles by keyword or from your whole database, and get an email the moment a comment needs review. All opt-in, all still one static build."
+excerpt: "1.8.16 is about the edges of publishing: ask an AI a question from inside a post (cached, deterministic), announce a new post to wherever you like without ever double-posting, show related articles by keyword or from your whole database, get an email the moment a comment needs review — and hand your AI assistant a development server with designer and content-manager roles that ships nothing without your approval. All opt-in, all still one static build."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"
@@ -86,10 +86,23 @@ and never mailed. It uses an HTTP email API (the shape providers like Resend
 accept, or your own relay), because a Cloudflare Worker can't speak SMTP — and
 shouldn't have to.
 
+## A development server your assistant can work in
+
+Finally, `ssg mcp` starts a Model Context Protocol server so an AI assistant can
+work on the site *during development* — as two coworkers with hard boundaries. The
+**designer** edits templates and theme assets and can't touch content; the
+**content manager** creates, fixes and removes Markdown and can't touch templates.
+Each tool spells out what the model can and cannot do, every change rebuilds the
+site (errors go straight back to the assistant to fix), and with a git account and
+`$ENV` token configured the work lands on a branch and becomes a pull request
+**only after you approve**. There's a [full walkthrough with the flow
+diagram](/blog/mcp-development-server/).
+
 ## The through-line
 
 None of this is a new runtime. The AI answer is HTML in the file. The notification
 is a build-time POST. The related list is computed while the page renders. The
-comment email runs at the edge, next to the comment. Static-first was never about
+comment email runs at the edge, next to the comment. The MCP server edits the same
+files you would, behind the same git gate you'd use. Static-first was never about
 doing less — it was about doing it once, at build or at the edge, and shipping
-plain output. 1.8.16 just moves four more chores to that side of the line.
+plain output. 1.8.16 just moves five more chores to that side of the line.
