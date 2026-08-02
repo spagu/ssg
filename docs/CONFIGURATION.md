@@ -899,7 +899,8 @@ work on the site during development in two clearly-scoped roles:
 
 - **Designer** (`designer_*`) — changes how the site *looks*: lists, reads and
   writes templates, partials, CSS and theme assets. It cannot touch content,
-  delete files, or write outside the template/static directories.
+  delete files, or write outside the template/static directories. It **also owns
+  the presentation settings in the config file** — see below.
 - **Content manager** (`content_*`) — changes what the site *says*: lists, reads,
   creates, updates and deletes Markdown (frontmatter + body). It cannot touch
   templates or write non-Markdown files.
@@ -922,6 +923,35 @@ Register it in an MCP-capable assistant as a stdio server:
 ```json
 { "command": "ssg", "args": ["mcp", "--config", ".ssg.yaml"] }
 ```
+
+### Designer-owned configuration keys
+
+Presentation does not live in templates alone — the theme, the syntax-highlight
+style, whether diagrams render. So the designer gets `designer_config_read` and
+`designer_config_set` over a **narrow allow-list** of presentation settings:
+
+`template`, `templates_dir`, `static_dir`, `mermaid`, `mermaid_theme`,
+`mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`,
+`math`, `toc`, `toc_depth`, `minify_html`, `minify_css`, `minify_js`,
+`minify_all`, `pretty_html`, `sourcemap`, `fingerprint`, `paginate`, `webp`,
+`webp_quality`, `image_sizes_attr`.
+
+Every other key is refused by construction — secrets (API keys, tokens,
+`jwt_secret`, auth), deployment, server, endpoints, hooks, `sass_binary` (an
+executable path) and all content/URL structure. `designer_config_read` shows only
+the writable keys, so the rest of the file is never even surfaced to the model.
+
+Three properties make this safe to hand over:
+
+- **Comments and key order survive.** The file is edited as a YAML document, not
+  re-serialised, so your annotated config stays annotated.
+- **Invalid changes roll back.** After each write the config is re-loaded; if it
+  no longer loads, the previous file is restored and the model is told why.
+- **Changes apply immediately.** Since the watcher treats the config as a watched
+  input, a `designer_config_set` in watch mode reloads and rebuilds at once.
+
+The tools appear only when a config file is in play; without one, there is
+nothing to edit and they are not exposed.
 
 ### Git write-back (optional)
 

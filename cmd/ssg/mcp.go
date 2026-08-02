@@ -71,6 +71,11 @@ func runMCP(args []string) int {
 		Version:      Version,
 		Git:          buildMCPGit(cfg),
 		Logf:         logf,
+		ConfigPath:   configPathOf(rest),
+		ValidateConfig: func(path string) error {
+			_, err := loadConfigFile(path)
+			return err
+		},
 		Rebuild: func() (string, error) {
 			// Rebuild quietly, capturing anything printed so build noise cannot
 			// leak into the JSON-RPC stdout channel and errors flow to the model.

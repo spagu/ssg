@@ -24,6 +24,12 @@ type Options struct {
 	Version      string
 	Rebuild      func() (string, error)
 	Logf         func(string, ...any)
+
+	// ConfigPath is the site config file the designer may edit presentation keys
+	// in; empty disables the config tools. ValidateConfig re-loads it after an
+	// edit so an invalid change can be rolled back.
+	ConfigPath     string
+	ValidateConfig func(path string) error
 }
 
 // Server is a running MCP stdio server.

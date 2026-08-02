@@ -16,7 +16,7 @@ func (s *Server) designerBases() []string {
 // templates and theme assets. It never touches content and never deletes files.
 func (s *Server) designerTools() []tool {
 	bases := strings.Join(s.designerBases(), ", ")
-	return []tool{
+	tools := []tool{
 		{
 			name: "designer_list",
 			description: "DESIGNER · List every template and theme-asset file you may edit " +
@@ -47,6 +47,12 @@ func (s *Server) designerTools() []tool {
 			handler: s.designerWrite,
 		},
 	}
+	// Presentation lives partly in configuration (theme, highlight style,
+	// diagrams), so the designer owns those keys too — narrowly (#1.8.16).
+	if s.opts.ConfigPath != "" {
+		tools = append(tools, s.configTools()...)
+	}
+	return tools
 }
 
 func (s *Server) designerList(map[string]any) toolResult {

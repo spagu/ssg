@@ -24,8 +24,13 @@ it gives the assistant *two roles with real boundaries*.
 ## Two coworkers, two contracts
 
 - The **designer** changes how the site *looks*. It can list, read and write
-  templates, partials, CSS and theme assets. It cannot touch your content, cannot
-  delete files, and cannot write outside the template directories.
+  templates, partials, CSS and theme assets — and set the *presentation* keys in
+  your config (theme, syntax-highlight style, diagrams, minification), because
+  that's where half of "how it looks" actually lives. It cannot touch your
+  content, cannot delete files, cannot write outside the template directories,
+  and cannot change any other config key: secrets, deployment, server settings
+  and URL structure are all refused. Comments in your config survive the edit,
+  and a change that breaks the config is rolled back automatically.
 - The **content manager** changes what the site *says*. It can list, read,
   create, update and delete Markdown — frontmatter and body. It cannot touch
   templates, and it can only write Markdown.

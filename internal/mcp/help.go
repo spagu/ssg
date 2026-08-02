@@ -12,6 +12,12 @@ func (s *Server) instructions() string {
 		b.WriteString("DESIGNER (designer_*) — changes how the site LOOKS.\n")
 		b.WriteString("  CAN: list/read/create/update templates, partials, CSS and theme assets under " +
 			strings.Join(s.designerBases(), ", ") + ".\n")
+		if s.opts.ConfigPath != "" {
+			b.WriteString("  CAN: read and set presentation settings in " + s.opts.ConfigPath +
+				" (theme, highlight style, diagrams, minification) — see designer_config_read.\n")
+			b.WriteString("  CANNOT: change any other configuration key — secrets, deployment, server, " +
+				"endpoints, hooks and content/URL structure are refused.\n")
+		}
 		b.WriteString("  CANNOT: touch content, delete files, or write outside those directories.\n\n")
 	}
 	if s.opts.Roles["content"] {

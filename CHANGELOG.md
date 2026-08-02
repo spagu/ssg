@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   → `git_open_pr` — edits never land on the base branch, only the
   content/template directories are staged, and the PR is opened only after
   explicit human approval. Without a token the `git_*` tools are not exposed.
+  The designer additionally owns the **presentation keys in the config file**
+  (`designer_config_read` / `designer_config_set`): a narrow allow-list — theme,
+  mermaid, syntax highlighting, math, TOC, minification, fingerprinting,
+  pagination, WebP — while every other key (secrets, deployment, server,
+  endpoints, hooks, content and URL structure) is refused by construction. Edits
+  preserve the file's comments and key order, and a change that leaves the
+  configuration invalid is rolled back automatically.
 - 🔗 **Related-posts template helpers** — `{{ range related . 5 }}` returns the
   posts most related to the current page by shared **tags and keywords** (ranked
   by overlap, then recency, then slug — deterministic, reads the already-loaded
