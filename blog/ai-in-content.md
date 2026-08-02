@@ -39,7 +39,11 @@ ai:
       system: "Answer in one short, factual sentence."
 ```
 
-Then you ask, from inside the Markdown:
+A model is just the endpoint — where to reach the provider. When you want a
+reusable *role* — a persona with rules it must follow and skills it's set up for —
+you define an **agent** on top of a model and call it with `agent="…"`. The
+[how-to](/blog/using-ai-shortcode/) walks through that; here a bare model is
+enough. Then you ask, from inside the Markdown:
 
 ```markdown
 ## TL;DR

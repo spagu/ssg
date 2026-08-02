@@ -63,7 +63,10 @@ func (g *Generator) runAIShortcode(attrs, vars map[string]string) string {
 	if question == "" {
 		return fallback
 	}
-	answer, err := g.config.AI.Query(firstOf(attrs, "model", "ai_model"), question, parseAITimeout(attrs["timeout"]))
+	answer, err := g.config.AI.Query(
+		firstOf(attrs, "agent", "ai_agent"),
+		firstOf(attrs, "model", "ai_model"),
+		question, parseAITimeout(attrs["timeout"]))
 	if err != nil {
 		fmt.Printf("   ⚠️  ai query: %v\n", err)
 		return fallback

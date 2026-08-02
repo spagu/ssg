@@ -34,19 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `$ENV`; the delivery transport refuses private/loopback ranges at dial time
   (SSRF-hardened) unless `allow_private` is set; a failed destination retries next
   run.
-- 🤖 **`[ai …]` content shortcode — ask an AI at build time** — declare named
-  models under `ai.models` (endpoint, `$ENV` key, model id, optional system
-  prompt) and ask them questions from inside content: `[ai model="fast"
-  question="…" ifs="lang == en" fallback="…"]`. The answer is fetched **once**
-  and **content-addressed cached** (`ai.cache_dir`, default `.ai-cache`), so a
-  build is deterministic and only re-queries when the question or model changes —
-  commit the cache and CI rebuilds identically with no key and no network. `ifs`
-  is an optional guard over the page's fields with `AND`/`OR` and `==`/`!=`/
-  `contains`/`>`/`<`/`>=`/`<=`; when it is false, or the query fails, the
-  `fallback` text is used. Keys are read from the environment, never literals.
-  Each model also takes user-defined **`rules`** (guardrails it must obey) and
-  **`skills`** (jobs it's set up for), folded into the system prompt and the cache
-  key so a change re-queries.
+- 🤖 **`[ai …]` content shortcode — ask an AI at build time** — a two-layer
+  setup: **models** under `ai.models` are endpoints (url, `$ENV` key, model id,
+  optional base system prompt, params), and **agents** under `ai.agents` are roles
+  built on a model that layer a persona plus user-defined **`rules`** (constraints
+  they must follow) and **`skills`** (jobs they apply). Ask from inside content
+  with `[ai agent="writer" question="…" ifs="lang == en" fallback="…"]`, or invoke
+  a bare model with `model="…"`. The answer is fetched **once** and
+  **content-addressed cached** (`ai.cache_dir`, default `.ai-cache`) keyed by the
+  effective request, so a build is deterministic and only re-queries when the
+  question, model, rules, skills or params change — commit the cache and CI
+  rebuilds identically with no key and no network. `ifs` is an optional guard over
+  the page's fields with `AND`/`OR` and `==`/`!=`/`contains`/`>`/`<`/`>=`/`<=`;
+  when it is false, or the query fails, the `fallback` text is used. Precedence is
+  explicit agent → explicit model → `ai.default_agent` → `ai.default_model` → sole
+  agent → sole model. Keys are read from the environment, never literals.
 
 ## [1.8.15] - 2026-08-01
 

@@ -762,62 +762,84 @@ headers:
 
 ## AI content (build-time `[ai …]` shortcode)
 
-Declare named AI models, then ask them questions from inside content with the
-`[ai …]` shortcode — the answer is fetched **once, at build time**, and
+Two layers configure build-time AI, then you ask questions from inside content
+with the `[ai …]` shortcode:
+
+- A **model** is an *endpoint* — where to reach the provider (url, key, provider
+  model id) and the base generation params. It is the connection.
+- An **agent** is a *role* built on a model — it runs on a model and layers a
+  persona plus user-defined **rules** (constraints it must follow) and **skills**
+  (jobs it applies) on top. It is the behaviour.
+
+A shortcode invokes an **agent** (`agent="…"`, preferred) or a **bare model**
+(`model="…"`). The answer is fetched **once, at build time**, and
 content-addressed cached so a rebuild is deterministic and only re-queries when
-the question or model changes. Keys reference environment variables, never
-literals; the request/response shape is OpenAI-compatible chat completions.
+the question or the effective request (model, prompt, rules, skills, params)
+changes. Keys reference environment variables, never literals; the
+request/response shape is OpenAI-compatible chat completions.
 
 | Key | Notes |
 |---|---|
 | `ai.models.<name>.url` | Chat-completions endpoint |
 | `ai.models.<name>.key` | Bearer token — use `$ENV_VAR` |
 | `ai.models.<name>.model` | Provider model id |
-| `ai.models.<name>.system` | Optional system prompt |
-| `ai.models.<name>.rules` | List of constraints the model must follow (folded into the prompt) |
-| `ai.models.<name>.skills` | List of capabilities the model should apply (folded into the prompt) |
+| `ai.models.<name>.system` | Optional base system prompt |
 | `ai.models.<name>.max_tokens` / `temperature` | Optional generation controls |
-| `ai.default_model` | Model used when a shortcode omits one |
+| `ai.agents.<name>.model` | Model this agent runs on (empty ⇒ default/sole model) |
+| `ai.agents.<name>.system` | Persona, layered on the model's system prompt |
+| `ai.agents.<name>.rules` | Constraints the agent must follow (folded into the prompt) |
+| `ai.agents.<name>.skills` | Capabilities the agent applies (folded into the prompt) |
+| `ai.agents.<name>.max_tokens` / `temperature` | Override the model when non-zero |
+| `ai.default_agent` | Agent used when a shortcode names neither |
+| `ai.default_model` | Model used when a shortcode names neither and no default agent |
 | `ai.cache_dir` | Content-addressed answer cache (default `.ai-cache`) |
 | `ai.timeout` | Default per-query timeout (e.g. `30s`) |
 
 ```yaml
 ai:
-  default_model: fast
+  default_agent: writer
   cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
-  models:
+  models:                     # endpoints — the connection
     fast:
       url: https://api.openai.com/v1/chat/completions
       key: $OPENAI_KEY
       model: gpt-4o-mini
-      system: "Answer in one short paragraph."
-      rules:                       # constraints the model must follow
+      system: "Answer in one short paragraph."   # house style, inherited by agents
+  agents:                     # roles — built on a model
+    writer:
+      model: fast             # runs on the "fast" model
+      system: "You are the site's copy editor."
+      rules:                       # constraints the agent must follow
         - "Answer in the page's language."
         - "Never invent facts or links."
-      skills:                      # capabilities the model should apply
+      skills:                      # jobs the agent is set up for
         - "Summarise long text into one sentence."
         - "Write concise meta descriptions."
 ```
 
-`rules` and `skills` are folded into the model's system prompt (and the cache key,
-so editing them re-queries). `rules` are the guardrails a model must obey; `skills`
-are the jobs it's set up to do — define them once per model and every `[ai …]`
-using that model inherits them.
+The effective system prompt for an agent is its model's `system`, then the
+agent's `system`, then its `rules`, then its `skills` — all composed and folded
+into the cache key, so editing any of them re-queries. Define an agent once and
+every `[ai agent="writer" …]` inherits its role; a bare `[ai model="fast" …]`
+uses only the model's own settings.
 
 In content:
 
 ```markdown
-[ai model="fast" question="Summarise the 1.8 release line in one sentence."
+[ai agent="writer" question="Summarise the 1.8 release line in one sentence."
    ifs="lang == en AND status == publish" timeout="20s" fallback="_summary unavailable_"]
 ```
 
+- Precedence when resolving a shortcode: an explicit `agent`, then an explicit
+  `model`, then `ai.default_agent`, then `ai.default_model`, then a sole agent,
+  then a sole model.
 - `ifs` is an optional guard evaluated against the page's fields (`lang`,
   `status`, `type`, `category`, `series`, `slug`, `title`, `tags`, any custom
   frontmatter, and site `variables`). It supports `AND`/`OR` and the operators
   `==`, `!=`, `contains`, `>`, `<`, `>=`, `<=`. When it is false — or the query
-  fails, or no model answers — the `fallback` text is used.
-- Because answers are cached by `(model, question)`, committing `cache_dir` lets
-  CI rebuild the exact same content with no API key and no network.
+  fails, or nothing answers — the `fallback` text is used.
+- Because answers are cached by the effective request, committing `cache_dir`
+  lets CI rebuild the exact same content with no API key and no network.
 
 ## Notifications (announce new posts)
 

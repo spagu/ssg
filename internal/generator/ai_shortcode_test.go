@@ -21,7 +21,10 @@ func TestResolveAIContent(t *testing.T) {
 	defer srv.Close()
 
 	g := newTestGen(t, "")
-	g.config.AI = ai.New(map[string]ai.Model{"fast": {URL: srv.URL, Model: "m1"}}, "fast", t.TempDir(), 0)
+	g.config.AI = ai.New(
+		map[string]ai.Model{"fast": {URL: srv.URL, Model: "m1"}},
+		map[string]ai.Agent{"writer": {Model: "fast", Rules: []string{"be terse"}}},
+		"fast", "", t.TempDir(), 0)
 	g.siteData.Posts = []models.Page{
 		{ // ifs true → answer injected
 			Slug: "a", Type: "post", Lang: "en", Status: "publish",
@@ -35,6 +38,10 @@ func TestResolveAIContent(t *testing.T) {
 			Slug: "c", Type: "post",
 			Content: `[ai model="fast" fallback="NOQ"]`,
 		},
+		{ // invoked by agent name
+			Slug: "d", Type: "post",
+			Content: `[ai agent="writer" question="hi?" fallback="(none)"]`,
+		},
 	}
 	g.resolveAIContent()
 
@@ -46,6 +53,9 @@ func TestResolveAIContent(t *testing.T) {
 	}
 	if got := g.siteData.Posts[2].Content; got != "NOQ" {
 		t.Errorf("no-question post = %q, want fallback NOQ", got)
+	}
+	if got := g.siteData.Posts[3].Content; !strings.Contains(got, "AI SAYS HI") {
+		t.Errorf("agent-invoked post: %q", got)
 	}
 }
 

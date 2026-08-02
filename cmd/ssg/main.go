@@ -453,11 +453,18 @@ func buildAIClient(cfg config.AIConfig) *ai.Client {
 		models[name] = ai.Model{
 			URL: m.URL, Key: m.Key, Model: m.Model, System: m.System,
 			MaxTokens: m.MaxTok, Temperature: m.Temp,
-			Rules: m.Rules, Skills: m.Skills,
+		}
+	}
+	agents := make(map[string]ai.Agent, len(cfg.Agents))
+	for name, a := range cfg.Agents {
+		agents[name] = ai.Agent{
+			Model: a.Model, System: a.System,
+			Rules: a.Rules, Skills: a.Skills,
+			MaxTokens: a.MaxTok, Temperature: a.Temp,
 		}
 	}
 	timeout, _ := time.ParseDuration(cfg.Timeout) // 0 on error/empty ⇒ client default
-	return ai.New(models, cfg.DefaultModel, cfg.CacheDir, timeout)
+	return ai.New(models, agents, cfg.DefaultModel, cfg.DefaultAgent, cfg.CacheDir, timeout)
 }
 
 // buildNotifier constructs the post-publish notifier, or nil when --notify is

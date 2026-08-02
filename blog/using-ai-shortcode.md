@@ -25,38 +25,51 @@ export OPENAI_KEY="sk-…"        # locally
 # in CI: add OPENAI_KEY as a secret and export it in the job
 ```
 
-## 2. Declare a model
+## 2. Declare a model, then an agent
+
+Think of it in two layers. A **model** is the *endpoint* — where to reach the
+provider. An **agent** is a *role* built on a model — a persona with `rules` it
+must follow and `skills` it's set up for. You call an agent by name and it carries
+its whole role with it.
 
 In your `.ssg.yaml`:
 
 ```yaml
 ai:
-  default_model: fast
+  default_agent: writer
   cache_dir: .ai-cache
   timeout: 30s
-  models:
+  models:                            # endpoints — the connection
     fast:
       url: https://api.openai.com/v1/chat/completions
       key: $OPENAI_KEY               # ← reads the env var, never a literal
       model: gpt-4o-mini
       system: "Answer in one short, factual sentence. No preamble."
-      rules:                         # guardrails every query with this model obeys
-        - "Answer in the page's language."
-        - "Never invent facts or links."
-      skills:                        # what this model is set up to do
-        - "Summarise long text into one sentence."
     smart:
       url: https://api.openai.com/v1/chat/completions
       key: $OPENAI_KEY
       model: gpt-4o
+  agents:                            # roles — built on a model
+    writer:
+      model: fast                    # runs on the fast model
+      system: "You are the site's copy editor."
+      rules:                         # guardrails this agent always obeys
+        - "Answer in the page's language."
+        - "Never invent facts or links."
+      skills:                        # what this agent is set up to do
+        - "Summarise long text into one sentence."
+    researcher:
+      model: smart                   # the same rules, a stronger model
+      rules: ["Never invent facts or links."]
+      skills: ["Explain a technical topic for a general reader."]
 ```
 
 Two models is a common setup: a cheap fast one for summaries, a stronger one for
-the occasional harder ask. The `system` prompt is where you set tone and length —
-spend a minute here and every answer gets better. `rules` are the guardrails a
-model must obey and `skills` are the jobs it's set up for; define them once and
-every `[ai …]` using that model inherits them (change either and the cache
-re-queries).
+the occasional harder ask. Agents sit on top: define the role once — tone, rules,
+skills — and every `[ai agent="writer" …]` inherits it. The model's `system` is
+the house style; the agent's `system`, `rules` and `skills` layer on top. Change
+any of them and the cache re-queries. Prefer agents; a bare `model="fast"` is
+there for one-off asks that don't need a role.
 
 ## 3. Write your first shortcode
 
@@ -69,9 +82,17 @@ In any post's Markdown:
    fallback="_summary pending_"]
 ```
 
-Build the site. The shortcode is replaced by the model's answer; the `fallback`
-shows only if the query fails or the feature is off. With one model configured you
-can drop `model=` entirely — it uses the default.
+Build the site. The shortcode is replaced by the answer; the `fallback` shows only
+if the query fails or the feature is off. We set `default_agent: writer`, so the
+shortcode above uses that agent — you only name one when you want a different role:
+
+```markdown
+[ai agent="researcher" question="Explain WebP in one sentence for a non-expert."]
+[ai model="fast" question="Give me a raw one-liner, no persona."]
+```
+
+Precedence is simple: an explicit `agent=` wins, then an explicit `model=`, then
+`default_agent`, then `default_model` — so with a default set you can drop both.
 
 ## 4. Gate it with `ifs`
 
@@ -99,10 +120,12 @@ graph LR
     C --> E[same answer, no network]
 ```
 
-Answers are cached by a hash of `model + question`. **Commit `.ai-cache/`** and the
-win is real: CI rebuilds the exact same content with **no key and no network** —
-the answers are versioned next to your words. You only re-query when you change the
-question or the model. A rebuild after a typo fix is free.
+Answers are cached by a hash of the **effective request** — the model, the composed
+prompt (model system + agent persona + rules + skills), the params, and the
+question. **Commit `.ai-cache/`** and the win is real: CI rebuilds the exact same
+content with **no key and no network** — the answers are versioned next to your
+words. You only re-query when one of those inputs changes. A rebuild after a typo
+fix is free.
 
 ```bash
 git add .ai-cache && git commit -m "cache AI answers"

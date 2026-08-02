@@ -482,28 +482,42 @@ type Endpoint struct {
 }
 
 // AIConfig configures build-time AI queries for the [ai …] content shortcode.
+// Two layers: models are endpoints, agents are roles built on a model. A shortcode
+// invokes an agent (preferred) or a bare model (#1.8.16).
 type AIConfig struct {
 	DefaultModel string             `yaml:"default_model" toml:"default_model" json:"default_model"`
+	DefaultAgent string             `yaml:"default_agent" toml:"default_agent" json:"default_agent"`
 	CacheDir     string             `yaml:"cache_dir" toml:"cache_dir" json:"cache_dir"` // default ".ai-cache"
 	Timeout      string             `yaml:"timeout" toml:"timeout" json:"timeout"`       // default per-query, e.g. "30s"
 	Models       map[string]AIModel `yaml:"models" toml:"models" json:"models"`
+	Agents       map[string]AIAgent `yaml:"agents" toml:"agents" json:"agents"`
 }
 
-// AIModel is one named AI endpoint. Key should reference an environment variable
-// ($OPENAI_KEY), never a literal. The request/response shape is OpenAI-compatible
-// chat completions, which most providers expose.
+// AIModel is one named AI endpoint — the connection layer. Key should reference an
+// environment variable ($OPENAI_KEY), never a literal. The request/response shape
+// is OpenAI-compatible chat completions, which most providers expose.
 type AIModel struct {
 	URL    string  `yaml:"url" toml:"url" json:"url"`          // chat-completions endpoint
 	Key    string  `yaml:"key" toml:"key" json:"key"`          // bearer token; use $ENV
 	Model  string  `yaml:"model" toml:"model" json:"model"`    // provider model id
-	System string  `yaml:"system" toml:"system" json:"system"` // optional system prompt
+	System string  `yaml:"system" toml:"system" json:"system"` // optional base system prompt
 	MaxTok int     `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
 	Temp   float64 `yaml:"temperature" toml:"temperature" json:"temperature"`
-	// Rules are constraints the model must follow; Skills are capabilities /
-	// instructions it should apply. Both are user-defined and folded into the
-	// system prompt (and the cache key, so editing them re-queries) (#1.8.16).
+}
+
+// AIAgent is a named role built on a model. It runs on Model (or the default/sole
+// model when empty) and layers a persona plus user-defined rules and skills on top
+// of the model's own system prompt. Rules are constraints it must follow; Skills
+// are capabilities it applies. Both fold into the system prompt and the cache key,
+// so editing either re-queries. MaxTok/Temp override the model when non-zero. A
+// shortcode invokes an agent with agent="name" (#1.8.16).
+type AIAgent struct {
+	Model  string   `yaml:"model" toml:"model" json:"model"`    // model it runs on; empty ⇒ default
+	System string   `yaml:"system" toml:"system" json:"system"` // persona, layered on the model's system
 	Rules  []string `yaml:"rules" toml:"rules" json:"rules"`
 	Skills []string `yaml:"skills" toml:"skills" json:"skills"`
+	MaxTok int      `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
+	Temp   float64  `yaml:"temperature" toml:"temperature" json:"temperature"`
 }
 
 // NotifyDest is one webhook destination the post payload is sent to (#1.8.16).

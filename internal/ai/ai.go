@@ -1,7 +1,12 @@
-// Package ai runs build-time AI queries for the [ai …] content shortcode. Answers
-// are content-addressed cached (keyed by model + question), so a build is
-// deterministic and a model is only re-queried when its question or config
-// changes — the same guarantee the image pipeline gives (#1.8.16).
+// Package ai runs build-time AI queries for the [ai …] content shortcode.
+//
+// Two layers are configured: a model is an endpoint (url, key, provider model id,
+// generation params), and an agent is a role built on a model — it names the model
+// it runs on and layers a persona plus user-defined rules and skills on top. A
+// shortcode invokes an agent or a bare model; both reduce to a single effective
+// request. Answers are content-addressed cached (keyed by that effective request),
+// so a build is deterministic and a query only re-runs when its inputs change —
+// the same guarantee the image pipeline gives (#1.8.16).
 package ai
 
 import (
@@ -19,32 +24,39 @@ import (
 	"time"
 )
 
-// Model is one named AI endpoint (OpenAI-compatible chat completions).
+// Model is one named AI endpoint (OpenAI-compatible chat completions). It is the
+// connection layer: where to reach the provider and the base generation params.
+// The persona (rules/skills) lives on an Agent that runs on the model.
 type Model struct {
 	URL, Key, Model, System string
 	MaxTokens               int
 	Temperature             float64
-	Rules                   []string // constraints folded into the system prompt
-	Skills                  []string // capabilities folded into the system prompt
 }
 
-// systemPrompt composes the effective system message from the base system text
-// plus the user-defined rules and skills, so a model's behaviour is fully
-// declared in config and any change to it invalidates the cache.
-func (m Model) systemPrompt() string {
-	parts := make([]string, 0, 3)
-	if m.System != "" {
-		parts = append(parts, m.System)
-	}
-	if len(m.Rules) > 0 {
-		parts = append(parts, "Rules you must follow:\n"+bulletList(m.Rules))
-	}
-	if len(m.Skills) > 0 {
-		parts = append(parts, "Skills you can use:\n"+bulletList(m.Skills))
-	}
-	return strings.Join(parts, "\n\n")
+// Agent is a named role built on a model: it runs on a model (by name, or the
+// default/sole model when empty) and layers a persona plus user-defined rules and
+// skills on top of the model's own system prompt. A shortcode can invoke an agent
+// or a bare model. (#1.8.16)
+type Agent struct {
+	Model       string   // model it runs on; empty ⇒ default/sole model
+	System      string   // persona, layered on top of the model's own system prompt
+	Rules       []string // constraints the agent must follow
+	Skills      []string // capabilities the agent applies
+	MaxTokens   int      // 0 ⇒ inherit the model
+	Temperature float64  // 0 ⇒ inherit the model
 }
 
+// resolved is an effective request: a model endpoint plus the composed system
+// prompt and generation params after any agent layering. All caching and requests
+// operate on this, so an agent and a bare model that reduce to the same request
+// share a cache entry.
+type resolved struct {
+	url, key, model, system string
+	maxTokens               int
+	temperature             float64
+}
+
+// bulletList renders items as a "- item" block.
 func bulletList(items []string) string {
 	var b strings.Builder
 	for i, it := range items {
@@ -57,10 +69,32 @@ func bulletList(items []string) string {
 	return b.String()
 }
 
-// Client answers questions via named models, caching every result on disk.
+// composeSystem layers a model's base system text, an agent persona, and the
+// agent's rules/skills into one system prompt.
+func composeSystem(base, persona string, rules, skills []string) string {
+	parts := make([]string, 0, 4)
+	if base != "" {
+		parts = append(parts, base)
+	}
+	if persona != "" {
+		parts = append(parts, persona)
+	}
+	if len(rules) > 0 {
+		parts = append(parts, "Rules you must follow:\n"+bulletList(rules))
+	}
+	if len(skills) > 0 {
+		parts = append(parts, "Skills you can use:\n"+bulletList(skills))
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// Client answers questions via named models and agents, caching every result on
+// disk.
 type Client struct {
 	models   map[string]Model
-	def      string
+	agents   map[string]Agent
+	def      string // default model name
+	defAgent string // default agent name (takes precedence over def)
 	cacheDir string
 	timeout  time.Duration
 	http     *http.Client
@@ -69,9 +103,9 @@ type Client struct {
 	mem map[string]string // in-memory cache mirror, guards concurrent Query
 }
 
-// New builds a client. cacheDir defaults to ".ai-cache", timeout to 30s. Model
-// keys beginning with "$" are read from the environment.
-func New(models map[string]Model, defaultModel, cacheDir string, timeout time.Duration) *Client {
+// New builds a client. cacheDir defaults to ".ai-cache", timeout to 30s. Model and
+// agent keys beginning with "$" are read from the environment.
+func New(models map[string]Model, agents map[string]Agent, defaultModel, defaultAgent, cacheDir string, timeout time.Duration) *Client {
 	if cacheDir == "" {
 		cacheDir = ".ai-cache"
 	}
@@ -80,7 +114,9 @@ func New(models map[string]Model, defaultModel, cacheDir string, timeout time.Du
 	}
 	return &Client{
 		models:   models,
+		agents:   agents,
 		def:      defaultModel,
+		defAgent: defaultAgent,
 		cacheDir: cacheDir,
 		timeout:  timeout,
 		http:     &http.Client{Timeout: timeout},
@@ -88,45 +124,90 @@ func New(models map[string]Model, defaultModel, cacheDir string, timeout time.Du
 	}
 }
 
-// Enabled reports whether any model is configured.
+// Enabled reports whether the feature is usable — at least one model is
+// configured. Agents run on models, so agents alone are inert.
 func (c *Client) Enabled() bool { return c != nil && len(c.models) > 0 }
 
-// resolveModel returns the named model, or the default when name is empty.
-func (c *Client) resolveModel(name string) (Model, string, error) {
+// resolveModel returns the named model as an effective request, or the default /
+// sole model when name is empty.
+func (c *Client) resolveModel(name string) (resolved, error) {
 	if name == "" {
 		name = c.def
 	}
-	if name == "" {
-		// Exactly one model configured ⇒ use it without naming.
-		if len(c.models) == 1 {
-			for k := range c.models {
-				name = k
-			}
+	if name == "" && len(c.models) == 1 {
+		for k := range c.models {
+			name = k
 		}
 	}
 	m, ok := c.models[name]
 	if !ok {
-		return Model{}, name, fmt.Errorf("unknown ai model %q (configure it under ai.models)", name)
+		return resolved{}, fmt.Errorf("unknown ai model %q (configure it under ai.models)", name)
 	}
-	return m, name, nil
+	return resolved{url: m.URL, key: m.Key, model: m.Model, system: m.System, maxTokens: m.MaxTokens, temperature: m.Temperature}, nil
 }
 
-// cacheKey derives the deterministic cache key for a query.
-func cacheKey(m Model, question string) string {
-	h := sha256.Sum256([]byte(m.URL + "\x00" + m.Model + "\x00" + m.systemPrompt() + "\x00" +
-		fmt.Sprintf("%d\x00%g\x00", m.MaxTokens, m.Temperature) + question))
+// resolveAgent returns the named agent as an effective request: its model with the
+// persona, rules and skills layered onto the system prompt and any param overrides
+// applied.
+func (c *Client) resolveAgent(name string) (resolved, error) {
+	a, ok := c.agents[name]
+	if !ok {
+		return resolved{}, fmt.Errorf("unknown ai agent %q (configure it under ai.agents)", name)
+	}
+	r, err := c.resolveModel(a.Model) // empty ⇒ default/sole model
+	if err != nil {
+		return resolved{}, fmt.Errorf("ai agent %q: %w", name, err)
+	}
+	r.system = composeSystem(r.system, a.System, a.Rules, a.Skills)
+	if a.MaxTokens > 0 {
+		r.maxTokens = a.MaxTokens
+	}
+	if a.Temperature > 0 {
+		r.temperature = a.Temperature
+	}
+	return r, nil
+}
+
+// resolve selects the effective request for a shortcode. Precedence: an explicit
+// agent, then an explicit model, then the default agent, then the default model,
+// then a sole agent, then a sole model.
+func (c *Client) resolve(agentName, modelName string) (resolved, error) {
+	switch {
+	case agentName != "":
+		return c.resolveAgent(agentName)
+	case modelName != "":
+		return c.resolveModel(modelName)
+	case c.defAgent != "":
+		return c.resolveAgent(c.defAgent)
+	case c.def != "":
+		return c.resolveModel(c.def)
+	case len(c.agents) == 1:
+		for k := range c.agents {
+			return c.resolveAgent(k)
+		}
+	case len(c.models) == 1:
+		return c.resolveModel("")
+	}
+	return resolved{}, fmt.Errorf("no ai agent or model specified (set agent= or model= on the shortcode, or ai.default_agent / ai.default_model)")
+}
+
+// cacheKey derives the deterministic cache key for an effective request.
+func cacheKey(r resolved, question string) string {
+	h := sha256.Sum256([]byte(r.url + "\x00" + r.model + "\x00" + r.system + "\x00" +
+		fmt.Sprintf("%d\x00%g\x00", r.maxTokens, r.temperature) + question))
 	return hex.EncodeToString(h[:])
 }
 
-// Query answers question via the named model (default when empty), returning the
-// cached answer when present. timeout <= 0 uses the client default. On any
-// transport/parse failure it returns the error so the caller can fall back.
-func (c *Client) Query(modelName, question string, timeout time.Duration) (string, error) {
-	m, _, err := c.resolveModel(modelName)
+// Query answers question via the named agent (preferred) or model, returning the
+// cached answer when present. Either name may be empty; see resolve for the
+// precedence. timeout <= 0 uses the client default. On any transport/parse failure
+// it returns the error so the caller can fall back.
+func (c *Client) Query(agentName, modelName, question string, timeout time.Duration) (string, error) {
+	r, err := c.resolve(agentName, modelName)
 	if err != nil {
 		return "", err
 	}
-	key := cacheKey(m, question)
+	key := cacheKey(r, question)
 
 	c.mu.Lock()
 	if v, ok := c.mem[key]; ok {
@@ -141,7 +222,7 @@ func (c *Client) Query(modelName, question string, timeout time.Duration) (strin
 		return v, nil
 	}
 
-	answer, err := c.ask(m, question, timeout)
+	answer, err := c.ask(r, question, timeout)
 	if err != nil {
 		return "", err
 	}
@@ -152,35 +233,35 @@ func (c *Client) Query(modelName, question string, timeout time.Duration) (strin
 	return answer, nil
 }
 
-// ask performs the live chat-completions request.
-func (c *Client) ask(m Model, question string, timeout time.Duration) (string, error) {
+// ask performs the live chat-completions request for an effective request.
+func (c *Client) ask(r resolved, question string, timeout time.Duration) (string, error) {
 	if timeout <= 0 {
 		timeout = c.timeout
 	}
 	msgs := []map[string]string{}
-	if sys := m.systemPrompt(); sys != "" {
-		msgs = append(msgs, map[string]string{"role": "system", "content": sys})
+	if r.system != "" {
+		msgs = append(msgs, map[string]string{"role": "system", "content": r.system})
 	}
 	msgs = append(msgs, map[string]string{"role": "user", "content": question})
-	payload := map[string]interface{}{"model": m.Model, "messages": msgs}
-	if m.MaxTokens > 0 {
-		payload["max_tokens"] = m.MaxTokens
+	payload := map[string]interface{}{"model": r.model, "messages": msgs}
+	if r.maxTokens > 0 {
+		payload["max_tokens"] = r.maxTokens
 	}
-	if m.Temperature > 0 {
-		payload["temperature"] = m.Temperature
+	if r.temperature > 0 {
+		payload["temperature"] = r.temperature
 	}
 	body, _ := json.Marshal(payload)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	// #nosec G704 -- m.URL is author config (not request-controlled); the AI
+	// #nosec G704 -- r.url is author config (not request-controlled); the AI
 	// endpoint and key are trusted build-time settings.
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.URL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.url, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if key := expandEnv(m.Key); key != "" {
+	if key := expandEnv(r.key); key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
 	resp, err := c.http.Do(req)
