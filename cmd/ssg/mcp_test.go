@@ -69,6 +69,19 @@ func TestCaptureStdout(t *testing.T) {
 	}
 }
 
+// TestGitRunner: git is resolved to an absolute path once and actually runs; when
+// it cannot be resolved, the runner refuses instead of executing anything.
+func TestGitRunner(t *testing.T) {
+	if out, err := gitRunner()("--version"); err != nil || !strings.Contains(out, "git version") {
+		t.Errorf("git --version = %q, %v", out, err)
+	}
+	t.Setenv("PATH", t.TempDir()) // no git on PATH
+	out, err := gitRunner()("status")
+	if err == nil || !strings.Contains(err.Error(), "git is unavailable") || out != "" {
+		t.Errorf("missing git must refuse: %q, %v", out, err)
+	}
+}
+
 // TestRoleNames: display names for the role sets.
 func TestRoleNames(t *testing.T) {
 	if roleNames(nil) != "designer+content" {

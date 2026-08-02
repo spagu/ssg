@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -136,15 +137,32 @@ func roleNames(roles map[string]bool) string {
 	return strings.Join(names, "+")
 }
 
+// gitRunner returns a runner that executes git through an absolute path resolved
+// once from PATH, so a writable or attacker-controlled PATH entry cannot swap the
+// binary out between calls (S4036). A git that is missing, or resolves to a
+// relative path, yields a runner that refuses to execute anything.
+func gitRunner() func(args ...string) (string, error) {
+	bin, err := exec.LookPath("git")
+	if err == nil && !filepath.IsAbs(bin) {
+		err = fmt.Errorf("git resolved to the non-absolute path %q", bin)
+	}
+	if err != nil {
+		return func(...string) (string, error) {
+			return "", fmt.Errorf("git is unavailable: %w", err)
+		}
+	}
+	return func(args ...string) (string, error) {
+		out, cmdErr := exec.Command(bin, args...).CombinedOutput() // #nosec G204 -- absolute binary resolved once; args are built by the mcp package
+		return string(out), cmdErr
+	}
+}
+
 // buildMCPGit wires the git write-back flow from config.mcp.git: token from $ENV,
 // repo derived from the remote when unset, PRs opened via the GitHub REST API.
 func buildMCPGit(cfg *config.Config) mcp.GitOptions {
 	gc := cfg.MCP.Git
 	token := expandEnvValue(gc.Token)
-	run := func(args ...string) (string, error) {
-		out, err := exec.Command("git", args...).CombinedOutput() // #nosec G204 -- fixed binary, args built by the mcp package
-		return string(out), err
-	}
+	run := gitRunner()
 	g := mcp.GitOptions{
 		Token:         token,
 		Repo:          gc.Repo,
