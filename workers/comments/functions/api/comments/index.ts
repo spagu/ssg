@@ -11,6 +11,7 @@ import {
   Env, CommentRow, json, sha256hex, verifyTurnstile, normaliseURL, isSpam,
   closeWindowMs, isClosed,
 } from "./_lib";
+import { notifyByEmail } from "./_mail";
 import { ensureSchema } from "./_schema";
 
 // lastActivity is the newest comment on a thread (approved or pending — a
@@ -59,7 +60,7 @@ interface Body {
   parentId?: string; // id of the (approved, top-level) comment this replies to
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   let payload: Body;
   try {
     payload = (await request.json()) as Body;
@@ -146,6 +147,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     email ? await sha256hex(email.toLowerCase()) : null,
     parentId,
   ).run();
+
+  // Email a moderation notice for genuine (non-spam) comments, in the background
+  // so delivery never blocks the response (#1.8.16). A no-op unless configured.
+  if (!spam) {
+    waitUntil(notifyByEmail(env, { url, author, body }));
+  }
 
   // Never reveal the spam verdict to the submitter — a spammer must not learn
   // they were filtered. Both paths look like "thanks, awaiting review".

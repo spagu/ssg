@@ -14,6 +14,14 @@ export interface Env {
   COMMENTS_CLOSE_AFTER_DAYS?: string; // auto-close a thread after N days of inactivity (0/unset = never)
   COMMENTS_AKISMET_KEY?: string;
   COMMENTS_AKISMET_URL?: string;
+  // Email-on-new-comment via an HTTP email API (e.g. Resend, or your own relay).
+  // A moderation notice is sent when a non-spam comment lands. No-op unless
+  // MAIL_URL + MAIL_FROM + MAIL_TO are set (#1.8.16).
+  COMMENTS_MAIL_URL?: string; // POST endpoint accepting {from,to,subject,text}
+  COMMENTS_MAIL_KEY?: string; // bearer token for the email API
+  COMMENTS_MAIL_FROM?: string; // sender address
+  COMMENTS_MAIL_TO?: string; // comma-separated recipient(s)
+  COMMENTS_MAIL_SUBJECT?: string; // optional subject prefix
 }
 
 export interface CommentRow {

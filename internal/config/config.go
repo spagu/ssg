@@ -415,6 +415,20 @@ type Config struct {
 	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
 	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
 
+	// AI wires build-time AI queries used by the [ai …] content shortcode: named
+	// models (endpoint, key, model id) plus a content-addressed cache so answers
+	// are stable across builds and re-queried only when the question/model changes.
+	AI AIConfig `yaml:"ai" toml:"ai" json:"ai"`
+
+	// Notifications POST each newly published (or changed) post to user-defined
+	// webhook destinations (point them at a social API, an automation service, or
+	// your own endpoint). Only fires with --notify; a committed state file
+	// (notify_state, default .ssg-notifications.json) dedupes so a post is
+	// announced once — again only when its content changes (#1.8.16).
+	Notifications []NotifyDest `yaml:"notifications" toml:"notifications" json:"notifications"`
+	Notify        bool         `yaml:"notify" toml:"notify" json:"notify"`
+	NotifyState   string       `yaml:"notify_state" toml:"notify_state" json:"notify_state"`
+
 	// Endpoints declares vendor-neutral server endpoints (#63): defined once here,
 	// they are served natively by the built-in server (self-hosted, no external
 	// runtime) and — via adapters — compiled to platform functions. Empty = a
@@ -426,8 +440,35 @@ type Config struct {
 	// served natively by --http; the same declarations, a different target (#63).
 	EndpointsPlatform string `yaml:"endpoints_platform" toml:"endpoints_platform" json:"endpoints_platform"`
 
+	// MCP configures the development MCP server (`ssg mcp`): an AI assistant
+	// connects to it to edit templates (designer) and content (content manager)
+	// live, and — when git is configured — to branch, commit and open a PR for the
+	// changes (#1.8.16).
+	MCP MCPConfig `yaml:"mcp" toml:"mcp" json:"mcp"`
+
 	// Other
 	Quiet bool `yaml:"quiet" toml:"quiet" json:"quiet"`
+}
+
+// MCPConfig configures the `ssg mcp` development server (#1.8.16). Git is
+// optional: without it the assistant edits files in place (live reload); with it,
+// mutations land on a working branch and a PR is opened only on an explicit,
+// human-approved step.
+type MCPConfig struct {
+	Git MCPGit `yaml:"git" toml:"git" json:"git"`
+}
+
+// MCPGit enables the git write-back flow. When Token (and a resolvable repo) is
+// set, the git_* tools are exposed: create a branch, commit changes to it, and
+// open a pull request against DefaultBranch. Token must reference an environment
+// variable ($GITHUB_TOKEN), never a literal.
+type MCPGit struct {
+	Account       string `yaml:"account" toml:"account" json:"account"`                      // GitHub owner/org the PR is attributed to
+	Token         string `yaml:"token" toml:"token" json:"token"`                            // PAT for opening PRs — use $ENV
+	Repo          string `yaml:"repo" toml:"repo" json:"repo"`                               // owner/name; empty ⇒ derived from the remote
+	Remote        string `yaml:"remote" toml:"remote" json:"remote"`                         // git remote to push to (default "origin")
+	DefaultBranch string `yaml:"default_branch" toml:"default_branch" json:"default_branch"` // PR base (default "main")
+	BranchPrefix  string `yaml:"branch_prefix" toml:"branch_prefix" json:"branch_prefix"`    // working-branch prefix (default "mcp/")
 }
 
 // Endpoint is one vendor-neutral server endpoint (#63). The same declaration is
@@ -465,6 +506,57 @@ type Endpoint struct {
 	// reference an environment variable ($MEMBERS_PW), never a literal.
 	User     string `yaml:"user" toml:"user" json:"user"`
 	Password string `yaml:"password" toml:"password" json:"password"`
+}
+
+// AIConfig configures build-time AI queries for the [ai …] content shortcode.
+// Two layers: models are endpoints, agents are roles built on a model. A shortcode
+// invokes an agent (preferred) or a bare model (#1.8.16).
+type AIConfig struct {
+	DefaultModel string             `yaml:"default_model" toml:"default_model" json:"default_model"`
+	DefaultAgent string             `yaml:"default_agent" toml:"default_agent" json:"default_agent"`
+	CacheDir     string             `yaml:"cache_dir" toml:"cache_dir" json:"cache_dir"` // default ".ai-cache"
+	Timeout      string             `yaml:"timeout" toml:"timeout" json:"timeout"`       // default per-query, e.g. "30s"
+	Models       map[string]AIModel `yaml:"models" toml:"models" json:"models"`
+	Agents       map[string]AIAgent `yaml:"agents" toml:"agents" json:"agents"`
+}
+
+// AIModel is one named AI endpoint — the connection layer. Key should reference an
+// environment variable ($OPENAI_KEY), never a literal. The request/response shape
+// is OpenAI-compatible chat completions, which most providers expose.
+type AIModel struct {
+	URL    string  `yaml:"url" toml:"url" json:"url"`          // chat-completions endpoint
+	Key    string  `yaml:"key" toml:"key" json:"key"`          // bearer token; use $ENV
+	Model  string  `yaml:"model" toml:"model" json:"model"`    // provider model id
+	System string  `yaml:"system" toml:"system" json:"system"` // optional base system prompt
+	MaxTok int     `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
+	Temp   float64 `yaml:"temperature" toml:"temperature" json:"temperature"`
+}
+
+// AIAgent is a named role built on a model. It runs on Model (or the default/sole
+// model when empty) and layers a persona plus user-defined rules and skills on top
+// of the model's own system prompt. Rules are constraints it must follow; Skills
+// are capabilities it applies. Both fold into the system prompt and the cache key,
+// so editing either re-queries. MaxTok/Temp override the model when non-zero. A
+// shortcode invokes an agent with agent="name" (#1.8.16).
+type AIAgent struct {
+	Model  string   `yaml:"model" toml:"model" json:"model"`    // model it runs on; empty ⇒ default
+	System string   `yaml:"system" toml:"system" json:"system"` // persona, layered on the model's system
+	Rules  []string `yaml:"rules" toml:"rules" json:"rules"`
+	Skills []string `yaml:"skills" toml:"skills" json:"skills"`
+	MaxTok int      `yaml:"max_tokens" toml:"max_tokens" json:"max_tokens"`
+	Temp   float64  `yaml:"temperature" toml:"temperature" json:"temperature"`
+}
+
+// NotifyDest is one webhook destination the post payload is sent to (#1.8.16).
+// The payload is JSON; point the URL at a platform API, an automation service
+// (Zapier/Make/n8n/IFTTT) or your own endpoint. Headers add auth — use $ENV for
+// secrets. AllowPrivate permits a private/loopback destination.
+type NotifyDest struct {
+	Name         string            `yaml:"name" toml:"name" json:"name"`
+	URL          string            `yaml:"url" toml:"url" json:"url"`
+	Method       string            `yaml:"method" toml:"method" json:"method"` // default POST
+	Headers      map[string]string `yaml:"headers" toml:"headers" json:"headers"`
+	AllowPrivate bool              `yaml:"allow_private" toml:"allow_private" json:"allow_private"`
 }
 
 // RedirectRule is one entry in the redirects: list; see Config.Redirects.

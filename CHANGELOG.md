@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.16] - 2026-08-02
+
+### Added
+- 📋 **`format: changelog` — a `CHANGELOG.md` as structured data** (#69) — a local
+  file source with `format: changelog` parses the Keep-a-Changelog convention into
+  `.ExternalData.<name>.versions`, `.latest` (first released version) and
+  `.unreleased`, each with `version` / `date` / `released`, `sections` keyed by the
+  lowercased `###` heading (`added`, `fixed`, …) and a flat `entries` list. Every
+  entry is split into `title` (the leading bold run, rendered), `html` (the rest),
+  `full`, `marker` (leading emoji) and `text` (raw Markdown), so a "What's New"
+  panel is a `range` over the file you already edit at release time — no pre-build
+  script, nothing to go stale. Both `## [1.8.16] - 2026-08-02` and
+  `## 1.8.16 - 2026-08-02` headings parse; `-`/`*` bullets and wrapped entries are
+  handled.
+- 🔌 **`ssg mcp` — development MCP server (designer + content manager)** — a
+  Model Context Protocol server over stdio that lets an AI assistant work on the
+  site live during development, in two clearly-scoped roles: **designer**
+  (`designer_*` — templates, partials, CSS, theme assets; cannot touch content or
+  delete) and **content manager** (`content_*` — create/update/fix/delete
+  Markdown; cannot touch templates or write non-Markdown). Every tool description
+  states what the model can and cannot do, an always-present `help` tool restates
+  the whole contract, and by default each change **rebuilds the site** — errors
+  come back as the tool result so the assistant fixes its own mistakes.
+  `--role=designer|content` exposes one role; `--no-watch` disables rebuilds. With
+  `mcp.git` configured (account + `$ENV` token) the assistant also gets a safe
+  **git write-back flow**: `git_new_branch` → edit → `git_commit` → human reviews
+  → `git_open_pr` — edits never land on the base branch, only the
+  content/template directories are staged, and the PR is opened only after
+  explicit human approval. Without a token the `git_*` tools are not exposed.
+  The designer additionally owns the **presentation keys in the config file**
+  (`designer_config_read` / `designer_config_set`): a narrow allow-list — theme,
+  mermaid, syntax highlighting, math, TOC, minification, fingerprinting,
+  pagination, WebP — while every other key (secrets, deployment, server,
+  endpoints, hooks, content and URL structure) is refused by construction. Edits
+  preserve the file's comments and key order, and a change that leaves the
+  configuration invalid is rolled back automatically.
+- 🔗 **Related-posts template helpers** — `{{ range related . 5 }}` returns the
+  posts most related to the current page by shared **tags and keywords** (ranked
+  by overlap, then recency, then slug — deterministic, reads the already-loaded
+  content, no network). `{{ range relatedFromMddb . 5 }}` does the same by
+  querying the **mddb** corpus (a live `Search` filtered by the page's
+  tags/keywords), so it can surface articles beyond the pages built into this
+  site. See `examples/related-posts/` for the keyword, mddb and embeddings/vector
+  approaches.
+- ✉️ **Comments worker: email on a new comment** — set `COMMENTS_MAIL_URL` /
+  `COMMENTS_MAIL_FROM` / `COMMENTS_MAIL_TO` (plus `COMMENTS_MAIL_KEY` for a bearer
+  token) and the worker emails a moderation notice whenever a **non-spam** comment
+  lands. Delivery is a JSON `POST` of `{from, to, subject, text}` — the shape
+  providers like Resend accept, or point it at your own relay — sent in the
+  background (`waitUntil`) so it never delays the submitter, with gateway errors
+  logged rather than fatal. Spam is filtered silently and never mailed; unset ⇒
+  no email.
+- 📣 **Post-publish notifications** — announce each newly published (or changed)
+  post to webhook destinations you define (`notifications:`), pointing them at a
+  platform API, an automation service or your own endpoint; they receive the post
+  as JSON `{slug, title, url, excerpt, date, tags}`. A **committed state file**
+  (`notify_state`, default `.ssg-notifications.json`) dedupes on a content hash,
+  so a post fires **once** — again only when its content changes — and it never
+  sends unless you pass `--notify`, so dev builds stay quiet. Header secrets use
+  `$ENV`; the delivery transport refuses private/loopback ranges at dial time
+  (SSRF-hardened) unless `allow_private` is set; a failed destination retries next
+  run.
+- 🤖 **`[ai …]` content shortcode — ask an AI at build time** — a two-layer
+  setup: **models** under `ai.models` are endpoints (url, `$ENV` key, model id,
+  optional base system prompt, params), and **agents** under `ai.agents` are roles
+  built on a model that layer a persona plus user-defined **`rules`** (constraints
+  they must follow) and **`skills`** (jobs they apply). Ask from inside content
+  with `[ai agent="writer" question="…" ifs="lang == en" fallback="…"]`, or invoke
+  a bare model with `model="…"`. The answer is fetched **once** and
+  **content-addressed cached** (`ai.cache_dir`, default `.ai-cache`) keyed by the
+  effective request, so a build is deterministic and only re-queries when the
+  question, model, rules, skills or params change — commit the cache and CI
+  rebuilds identically with no key and no network. `ifs` is an optional guard over
+  the page's fields with `AND`/`OR` and `==`/`!=`/`contains`/`>`/`<`/`>=`/`<=`;
+  when it is false, or the query fails, the `fallback` text is used. Precedence is
+  explicit agent → explicit model → `ai.default_agent` → `ai.default_model` → sole
+  agent → sole model. Keys are read from the environment, never literals.
+
+### Fixed
+- 👀 **`--watch` now watches the configuration file** (#70) — editing `.ssg.yaml`
+  during a watch session reloads the configuration and rebuilds with the new
+  settings. Previously the watcher observed only content and templates and kept
+  building from the configuration loaded at startup, so a changed theme or option
+  silently did nothing until a restart — with no hint that it had been ignored.
+  Command-line flags still take precedence over the file, exactly as at startup.
+  A config edit that leaves the file unparseable is reported and the **last good
+  configuration is kept running**, so a half-saved file never kills the session.
+  The startup line now names every watched input, e.g. `👀 Watching for changes in
+  content, templates, data, config (.ssg.yaml)...`.
+
 ## [1.8.15] - 2026-08-01
 
 ### Added
@@ -1839,7 +1929,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.10...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.16...HEAD
+[1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8

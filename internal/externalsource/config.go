@@ -216,8 +216,9 @@ type Source struct {
 // nameRe matches the same identifier space as taxonomy names.
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 
-// supportedFormats for the file connector.
-var supportedFormats = map[string]bool{"yaml": true, "json": true, "toml": true, "csv": true, "xml": true}
+// supportedFormats for the file connector. "changelog" parses a Keep-a-Changelog
+// Markdown file into structured versions/sections/entries (#69).
+var supportedFormats = map[string]bool{"yaml": true, "json": true, "toml": true, "csv": true, "xml": true, "changelog": true}
 
 // cmsAdapters are the supported CMS adapters.
 var cmsAdapters = map[string]bool{"wordpress": true, "drupal": true, "movable_type": true}

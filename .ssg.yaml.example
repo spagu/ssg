@@ -293,7 +293,7 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # Content directory structure (optional, these are defaults)
 # pages_path: "pages"   # Subdirectory inside source for static pages (default: "pages")
 # posts_path: "posts"   # Subdirectory inside source for blog posts  (default: "posts")
-# rewrite_md_links: false      # Rewrite relative .md links to final output URLs (opt-in)
+# rewrite_md_links: true       # Rewrite relative .md links to final output URLs (default: on; set false to disable)
 # strip_md_link_text: false    # Drop ".md" from link text that is a bare filename (needs rewrite_md_links; opt-in)
 # preserve_slug_case: false    # Keep original casing in slugs/URLs (default: lowercase)
 
@@ -305,6 +305,42 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #   analytics_id: "$GA_ID"       # Resolved from env var $GA_ID at build time
 #   api:
 #     endpoint: "https://api.example.com"  # Nested: {{.Vars.api.endpoint}}, exported as SSG_API_ENDPOINT
+
+# Build-time AI ([ai ...] shortcode) - models are endpoints, agents are roles
+# built on a model (persona + rules + skills). Keys always come from $ENV.
+# ai:
+#   default_agent: writer
+#   cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
+#   timeout: 30s
+#   models:
+#     fast:
+#       url: https://api.openai.com/v1/chat/completions
+#       key: $OPENAI_KEY        # never a literal
+#       model: gpt-4o-mini
+#       system: "Answer in one short paragraph."
+#   agents:
+#     writer:
+#       model: fast
+#       system: "You are the site's copy editor."
+#       rules: ["Answer in the page's language.", "Never invent facts or links."]
+#       skills: ["Summarise long text into one sentence."]
+
+# Post-publish notifications - POST each new/changed post to webhooks you define.
+# Only sends with --notify; the committed state file dedupes (once per content).
+# notify_state: .ssg-notifications.json
+# notifications:
+#   - name: zapier
+#     url: https://hooks.zapier.com/hooks/catch/XXX/YYY
+#     headers: { X-Token: $ZAP_TOKEN }
+
+# Development MCP server (ssg mcp) - designer + content-manager roles for an AI
+# assistant; optional git write-back: branch -> commit -> human review -> PR.
+# mcp:
+#   git:
+#     account: you
+#     token: $GITHUB_TOKEN      # never a literal; unset = git tools hidden
+#     default_branch: main
+#     branch_prefix: mcp/
 
 # Other
 quiet: false         # Suppress output (only exit codes)

@@ -23,12 +23,14 @@ import (
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
+	"github.com/spagu/ssg/internal/notify"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/spagu/ssg/internal/taxonomy"
 	"github.com/yuin/goldmark"
@@ -216,6 +218,12 @@ type Config struct {
 	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
 	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
 	BuildWorkers int
+	// AI answers [ai …] content shortcodes at build time (cached). nil = the
+	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
+	AI *ai.Client
+	// Notify announces new/changed posts to webhook destinations after a
+	// successful build. nil unless --notify is set with destinations (#1.8.16).
+	Notify *notify.Notifier
 
 	// SanitizeHTML runs rendered content through bluemonday's UGCPolicy to
 	// neutralise stored XSS from untrusted mddb content (FE-005 / SEC-003).
@@ -347,6 +355,12 @@ type Generator struct {
 	// OUTSIDE mdMu, so only the map get/put is serialized (BUILD-PARALLEL).
 	mdMu     sync.Mutex
 	renderMu sync.Mutex
+
+	// relatedMddb is the lazily-built client the relatedFromMddb template helper
+	// queries; relatedMddbOnce guards its one-time creation (safe under the
+	// parallel render). Closed in Generate's teardown (#1.8.16).
+	relatedMddb     mddb.MddbClient
+	relatedMddbOnce sync.Once
 
 	// aliasRedirects collects frontmatter alias→URL pairs during page/post
 	// generation for the _redirects file (GO-063). Single-goroutine build —
@@ -645,6 +659,9 @@ func exportVariablesToEnv(vars map[string]interface{}, prefix string) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
+	// Release the lazily-built related-posts mddb client when the build ends.
+	defer g.closeRelatedMddb()
+
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
 	}
@@ -662,6 +679,10 @@ func (g *Generator) Generate() error {
 	if err := g.validateContentSchemas(); err != nil {
 		return err
 	}
+
+	// Resolve [ai …] content shortcodes (cached) before rendering, sequentially,
+	// so the ifs guard sees full page context (#1.8.16).
+	g.resolveAIContent()
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
@@ -707,6 +728,11 @@ func (g *Generator) Generate() error {
 
 	if err := g.runHooks("post_build", nil); err != nil {
 		return fmt.Errorf("post_build hook: %w", err)
+	}
+
+	// Announce new/changed posts to webhook destinations (only with --notify).
+	if err := g.sendNotifications(); err != nil {
+		return fmt.Errorf("sending notifications: %w", err)
 	}
 
 	return nil
@@ -2128,6 +2154,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	}
 	// External-source helpers (getExternal/getExternalMeta).
 	for name, fn := range g.externalFuncs() {
+		funcs[name] = fn
+	}
+	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
+	for name, fn := range g.relatedFuncs() {
 		funcs[name] = fn
 	}
 	return funcs

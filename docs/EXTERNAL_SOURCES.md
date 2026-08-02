@@ -118,6 +118,56 @@ XML maps to nested template-friendly maps: attributes become plain keys,
 repeated elements collect into lists, text-only elements collapse to strings
 and mixed content keeps its text under `#text`.
 
+### `format: changelog` — a CHANGELOG.md as structured data
+
+A `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com)
+convention is already the canonical record of what shipped. `format: changelog`
+parses it into data, so a "What's New" panel reads from the same file you edit
+at release time instead of a pre-build script or hand-maintained HTML that goes
+stale. It must be set explicitly — a `.md` extension infers nothing.
+
+```yaml
+external_sources:
+  changelog:
+    type: file
+    path: CHANGELOG.md
+    format: changelog
+```
+
+The parsed shape:
+
+| Path | Contents |
+|---|---|
+| `.versions` | Every version block, in document order |
+| `.latest` | The first **released** version (skips `Unreleased`) |
+| `.unreleased` | The `Unreleased` block, when the file has one |
+| `<version>.version` / `.date` / `.released` | `"1.8.16"`, `"2026-08-02"`, `true` |
+| `<version>.sections` | Lowercased `###` headings ⇒ `added`, `changed`, `fixed`, … |
+| `<version>.entries` | Every bullet of that version, regardless of section |
+
+Each entry is split so a template can wrap the parts in its own markup:
+
+| Field | Contents |
+|---|---|
+| `title` | The leading `**bold**` run, rendered inline (`""` when absent) |
+| `html` | The rest of the entry, rendered inline |
+| `full` | The whole entry rendered inline, when you want it in one piece |
+| `marker` | The leading emoji, when the entry opens with one |
+| `text` | The whole entry as raw Markdown |
+
+```gotemplate
+<h3>What's New in v{{ .ExternalData.changelog.latest.version }}</h3>
+<ul>
+  {{ range first 6 .ExternalData.changelog.latest.sections.added }}
+    <li><strong>{{ .title | safeHTML }}</strong> — {{ .html | safeHTML }}</li>
+  {{ end }}
+</ul>
+```
+
+Headings parse in both `## [1.8.16] - 2026-08-02` and `## 1.8.16 - 2026-08-02`
+form, `-` and `*` bullets are equivalent, and a bullet wrapped over several lines
+is joined back into one entry.
+
 ## Remote HTTP (`type: http`)
 
 ```yaml

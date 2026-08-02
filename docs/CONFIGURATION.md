@@ -140,13 +140,28 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `http` | `false` | `--http` | Start the built-in server after building |
 | `host` | `127.0.0.1` | `--host` | Bind address |
 | `port` | `8888` | `--port` | TCP port |
-| `watch` | `false` | `--watch` | Rebuild after local file changes |
+| `watch` | `false` | `--watch` | Rebuild after local file changes (content, templates, data and the config file) |
 | `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
+
+### What the watcher observes
+
+`--watch` names its inputs at startup, e.g.
+`👀 Watching for changes in content, templates, data, config (.ssg.yaml)...`
+
+The **config file is a watched input of its own**: editing it reloads the
+configuration and rebuilds with the new settings — no restart needed to change a
+theme, a permalink scheme or any other option. Command-line flags still win over
+the file, exactly as at startup. If an edit leaves the file unparseable, the
+error is reported and the watcher keeps the **last good configuration** running
+rather than exiting, so a half-saved file never kills a dev session.
+
+A change is detected by content, not mtime: touching a file without changing its
+bytes does not trigger a rebuild.
 
 `watch_runner_config` points the runner at a config file kept anywhere on disk,
 so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.
@@ -759,6 +774,214 @@ headers:
   /api/*:
     Access-Control-Allow-Origin: "*"
 ```
+
+## AI content (build-time `[ai …]` shortcode)
+
+Two layers configure build-time AI, then you ask questions from inside content
+with the `[ai …]` shortcode:
+
+- A **model** is an *endpoint* — where to reach the provider (url, key, provider
+  model id) and the base generation params. It is the connection.
+- An **agent** is a *role* built on a model — it runs on a model and layers a
+  persona plus user-defined **rules** (constraints it must follow) and **skills**
+  (jobs it applies) on top. It is the behaviour.
+
+A shortcode invokes an **agent** (`agent="…"`, preferred) or a **bare model**
+(`model="…"`). The answer is fetched **once, at build time**, and
+content-addressed cached so a rebuild is deterministic and only re-queries when
+the question or the effective request (model, prompt, rules, skills, params)
+changes. Keys reference environment variables, never literals; the
+request/response shape is OpenAI-compatible chat completions.
+
+| Key | Notes |
+|---|---|
+| `ai.models.<name>.url` | Chat-completions endpoint |
+| `ai.models.<name>.key` | Bearer token — use `$ENV_VAR` |
+| `ai.models.<name>.model` | Provider model id |
+| `ai.models.<name>.system` | Optional base system prompt |
+| `ai.models.<name>.max_tokens` / `temperature` | Optional generation controls |
+| `ai.agents.<name>.model` | Model this agent runs on (empty ⇒ default/sole model) |
+| `ai.agents.<name>.system` | Persona, layered on the model's system prompt |
+| `ai.agents.<name>.rules` | Constraints the agent must follow (folded into the prompt) |
+| `ai.agents.<name>.skills` | Capabilities the agent applies (folded into the prompt) |
+| `ai.agents.<name>.max_tokens` / `temperature` | Override the model when non-zero |
+| `ai.default_agent` | Agent used when a shortcode names neither |
+| `ai.default_model` | Model used when a shortcode names neither and no default agent |
+| `ai.cache_dir` | Content-addressed answer cache (default `.ai-cache`) |
+| `ai.timeout` | Default per-query timeout (e.g. `30s`) |
+
+```yaml
+ai:
+  default_agent: writer
+  cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
+  models:                     # endpoints — the connection
+    fast:
+      url: https://api.openai.com/v1/chat/completions
+      key: $OPENAI_KEY
+      model: gpt-4o-mini
+      system: "Answer in one short paragraph."   # house style, inherited by agents
+  agents:                     # roles — built on a model
+    writer:
+      model: fast             # runs on the "fast" model
+      system: "You are the site's copy editor."
+      rules:                       # constraints the agent must follow
+        - "Answer in the page's language."
+        - "Never invent facts or links."
+      skills:                      # jobs the agent is set up for
+        - "Summarise long text into one sentence."
+        - "Write concise meta descriptions."
+```
+
+The effective system prompt for an agent is its model's `system`, then the
+agent's `system`, then its `rules`, then its `skills` — all composed and folded
+into the cache key, so editing any of them re-queries. Define an agent once and
+every `[ai agent="writer" …]` inherits its role; a bare `[ai model="fast" …]`
+uses only the model's own settings.
+
+In content:
+
+```markdown
+[ai agent="writer" question="Summarise the 1.8 release line in one sentence."
+   ifs="lang == en AND status == publish" timeout="20s" fallback="_summary unavailable_"]
+```
+
+- Precedence when resolving a shortcode: an explicit `agent`, then an explicit
+  `model`, then `ai.default_agent`, then `ai.default_model`, then a sole agent,
+  then a sole model.
+- `ifs` is an optional guard evaluated against the page's fields (`lang`,
+  `status`, `type`, `category`, `series`, `slug`, `title`, `tags`, any custom
+  frontmatter, and site `variables`). It supports `AND`/`OR` and the operators
+  `==`, `!=`, `contains`, `>`, `<`, `>=`, `<=`. When it is false — or the query
+  fails, or nothing answers — the `fallback` text is used.
+- Because answers are cached by the effective request, committing `cache_dir`
+  lets CI rebuild the exact same content with no API key and no network.
+
+## Notifications (announce new posts)
+
+Send each newly published — or changed — post to webhook destinations you define:
+point them at a platform API, an automation service (Zapier / Make / n8n / IFTTT)
+or your own endpoint, and they receive the post as JSON. A committed state file
+dedupes, so a post is announced **once**, again only when its content changes. It
+never fires unless you pass `--notify`, so local dev builds stay quiet.
+
+| Key | Notes |
+|---|---|
+| `notifications[].url` | Destination the post JSON is POSTed to |
+| `notifications[].name` | Label used in build logs |
+| `notifications[].method` | HTTP method (default `POST`) |
+| `notifications[].headers` | Extra headers (auth) — use `$ENV_VAR` for secrets |
+| `notifications[].allow_private` | Permit a private/loopback destination |
+| `notify_state` | Dedup state file (default `.ssg-notifications.json`) |
+| `notify` / `--notify` | Actually send this build (off by default) |
+
+```yaml
+notify_state: .ssg-notifications.json   # commit it — CI needs the sent-history
+notifications:
+  - name: zapier
+    url: https://hooks.zapier.com/hooks/catch/…   # fans out to X / LinkedIn / …
+    headers: { X-Token: $ZAP_TOKEN }
+```
+
+```bash
+ssg --config .ssg.yaml --notify --deploy cloudflare   # announce on publish
+```
+
+The payload is `{slug, title, url, excerpt, date, tags}`. The dedup key is a hash
+of the post's title, body and date, so an edit re-announces it and an untouched
+post is skipped. A destination that fails is retried on the next `--notify` run.
+The transport refuses private/loopback ranges at dial time unless
+`allow_private` is set, so a webhook URL can't be turned into an SSRF pivot.
+
+## Development MCP server (`ssg mcp`)
+
+`ssg mcp` runs a Model Context Protocol server over stdio so an AI assistant can
+work on the site during development in two clearly-scoped roles:
+
+- **Designer** (`designer_*`) — changes how the site *looks*: lists, reads and
+  writes templates, partials, CSS and theme assets. It cannot touch content,
+  delete files, or write outside the template/static directories. It **also owns
+  the presentation settings in the config file** — see below.
+- **Content manager** (`content_*`) — changes what the site *says*: lists, reads,
+  creates, updates and deletes Markdown (frontmatter + body). It cannot touch
+  templates or write non-Markdown files.
+
+Every tool description tells the model exactly what it **can** and **cannot** do,
+an always-present `help` tool restates the whole contract, and the same guidance
+is handed to the client at connect time. By default every successful change
+triggers a rebuild — a template or content error comes straight back to the
+model as the tool result, so it fixes its own mistakes before moving on.
+
+```bash
+ssg mcp                    # both roles, rebuild after every change
+ssg mcp --role=designer    # designer only
+ssg mcp --role=content     # content manager only
+ssg mcp --no-watch         # edit only, no rebuilds
+```
+
+Register it in an MCP-capable assistant as a stdio server:
+
+```json
+{ "command": "ssg", "args": ["mcp", "--config", ".ssg.yaml"] }
+```
+
+### Designer-owned configuration keys
+
+Presentation does not live in templates alone — the theme, the syntax-highlight
+style, whether diagrams render. So the designer gets `designer_config_read` and
+`designer_config_set` over a **narrow allow-list** of presentation settings:
+
+`template`, `templates_dir`, `static_dir`, `mermaid`, `mermaid_theme`,
+`mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`,
+`math`, `toc`, `toc_depth`, `minify_html`, `minify_css`, `minify_js`,
+`minify_all`, `pretty_html`, `sourcemap`, `fingerprint`, `paginate`, `webp`,
+`webp_quality`, `image_sizes_attr`.
+
+Every other key is refused by construction — secrets (API keys, tokens,
+`jwt_secret`, auth), deployment, server, endpoints, hooks, `sass_binary` (an
+executable path) and all content/URL structure. `designer_config_read` shows only
+the writable keys, so the rest of the file is never even surfaced to the model.
+
+Three properties make this safe to hand over:
+
+- **Comments and key order survive.** The file is edited as a YAML document, not
+  re-serialised, so your annotated config stays annotated.
+- **Invalid changes roll back.** After each write the config is re-loaded; if it
+  no longer loads, the previous file is restored and the model is told why.
+- **Changes apply immediately.** Since the watcher treats the config as a watched
+  input, a `designer_config_set` in watch mode reloads and rebuilds at once.
+
+The tools appear only when a config file is in play; without one, there is
+nothing to edit and they are not exposed.
+
+### Git write-back (optional)
+
+With a git account and token configured, the assistant additionally gets a safe
+write-back flow: `git_new_branch` → edit → `git_commit` → **human reviews** →
+`git_open_pr`. Edits never land on the base branch, commits stage only the
+content/template directories, and the pull request is opened only after the
+person explicitly approves. The token must reference an environment variable,
+never a literal.
+
+| Key | Notes |
+|---|---|
+| `mcp.git.account` | Git account/owner the PR is attributed to |
+| `mcp.git.token` | API token for opening PRs — use `$ENV_VAR` (e.g. `$GITHUB_TOKEN`) |
+| `mcp.git.repo` | `owner/name`; empty = derived from the remote URL |
+| `mcp.git.remote` | Remote to push to (default `origin`) |
+| `mcp.git.default_branch` | PR base branch (default `main`) |
+| `mcp.git.branch_prefix` | Working-branch prefix (default `mcp/`) |
+
+```yaml
+mcp:
+  git:
+    account: spagu
+    token: $GITHUB_TOKEN        # never a literal
+    default_branch: main
+    branch_prefix: mcp/
+```
+
+Without `mcp.git.token`, the `git_*` tools are simply not exposed — the assistant
+edits files in place and version control stays fully manual.
 
 ## Server endpoints (portable, no vendor lock-in)
 
