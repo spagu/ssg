@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.16] - 2026-08-02
 
 ### Added
+- 📋 **`format: changelog` — a `CHANGELOG.md` as structured data** (#69) — a local
+  file source with `format: changelog` parses the Keep-a-Changelog convention into
+  `.ExternalData.<name>.versions`, `.latest` (first released version) and
+  `.unreleased`, each with `version` / `date` / `released`, `sections` keyed by the
+  lowercased `###` heading (`added`, `fixed`, …) and a flat `entries` list. Every
+  entry is split into `title` (the leading bold run, rendered), `html` (the rest),
+  `full`, `marker` (leading emoji) and `text` (raw Markdown), so a "What's New"
+  panel is a `range` over the file you already edit at release time — no pre-build
+  script, nothing to go stale. Both `## [1.8.16] - 2026-08-02` and
+  `## 1.8.16 - 2026-08-02` headings parse; `-`/`*` bullets and wrapped entries are
+  handled.
 - 🔌 **`ssg mcp` — development MCP server (designer + content manager)** — a
   Model Context Protocol server over stdio that lets an AI assistant work on the
   site live during development, in two clearly-scoped roles: **designer**
@@ -66,6 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when it is false, or the query fails, the `fallback` text is used. Precedence is
   explicit agent → explicit model → `ai.default_agent` → `ai.default_model` → sole
   agent → sole model. Keys are read from the environment, never literals.
+
+### Fixed
+- 👀 **`--watch` now watches the configuration file** (#70) — editing `.ssg.yaml`
+  during a watch session reloads the configuration and rebuilds with the new
+  settings. Previously the watcher observed only content and templates and kept
+  building from the configuration loaded at startup, so a changed theme or option
+  silently did nothing until a restart — with no hint that it had been ignored.
+  Command-line flags still take precedence over the file, exactly as at startup.
+  A config edit that leaves the file unparseable is reported and the **last good
+  configuration is kept running**, so a half-saved file never kills the session.
+  The startup line now names every watched input, e.g. `👀 Watching for changes in
+  content, templates, data, config (.ssg.yaml)...`.
 
 ## [1.8.15] - 2026-08-01
 
