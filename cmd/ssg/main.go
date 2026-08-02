@@ -114,8 +114,9 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 // incremental builds where any real change still triggers a full, correct rebuild
 // (PLAT-006).
 func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
+	configPath := configPathOf(os.Args[1:])
 	if !cfg.Quiet {
-		fmt.Println("👀 Watching for changes in content and templates...")
+		fmt.Printf("👀 Watching for changes in %s...\n", strings.Join(watchedInputs(cfg, configPath), ", "))
 	}
 	// A configured worker defaults the watch runner to `wrangler pages dev`, so
 	// the static preview and the Functions run together (GO-065). Only here, in
@@ -145,13 +146,65 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	sigCache := newFileSigCache()
 	lastBuild := time.Now()
 	lastSig := sigCache.signature(dirs)
+	configSig := fileSignature(configPath)
 
 	for {
 		time.Sleep(1 * time.Second)
+		// The config file is watched as an input of its own: an edit reloads it
+		// and rebuilds with the new settings, so the watcher never keeps building
+		// from the configuration it started with (#70).
+		if sig := fileSignature(configPath); sig != configSig {
+			configSig = sig
+			if newGen, newCfg, ok := reloadWatchConfig(configPath, cfg); ok {
+				genCfg, cfg = newGen, newCfg
+				dirs = watchDirs(cfg)
+				sigCache = newFileSigCache()
+				lastSig = sigCache.signature(dirs)
+			}
+			rebuildOnChange(genCfg, cfg)
+			lastBuild = time.Now()
+			continue
+		}
 		lastBuild, lastSig = watchIteration(dirs, sigCache, lastBuild, lastSig, func() {
 			rebuildOnChange(genCfg, cfg)
 		})
 	}
+}
+
+// watchedInputs names what the watcher observes, so the startup line tells the
+// truth about which edits trigger a rebuild (#70).
+func watchedInputs(cfg *config.Config, configPath string) []string {
+	inputs := []string{"content", "templates"}
+	if cfg.DataDir != "" {
+		inputs = append(inputs, "data")
+	}
+	if configPath != "" {
+		inputs = append(inputs, "config ("+configPath+")")
+	}
+	return inputs
+}
+
+// reloadWatchConfig re-runs the startup configuration pipeline after the config
+// file changed, returning the refreshed pair. On a config that no longer loads it
+// reports the error and returns ok=false, so the watcher keeps the last good
+// settings instead of dying on a half-saved edit.
+func reloadWatchConfig(configPath string, old *config.Config) (generator.Config, *config.Config, bool) {
+	args := os.Args[1:]
+	cfg, err := loadConfigFile(configPath)
+	if err != nil {
+		if !old.Quiet {
+			fmt.Fprintf(os.Stderr, "❌ Config error: %v\n", err)
+			fmt.Println("⚠️  Keeping the previous configuration — fix the file and save to retry...")
+		}
+		return generator.Config{}, nil, false
+	}
+	parseFlags(args, cfg) // command-line flags still win over the file
+	applyMinifyAll(cfg)
+	setupTemplateEngine(cfg)
+	if !cfg.Quiet {
+		fmt.Printf("♻️  Configuration reloaded from %s\n", configPath)
+	}
+	return createGeneratorConfig(cfg), cfg, true
 }
 
 // watchIteration runs one poll of the watch loop: detect changes, skip
@@ -275,33 +328,35 @@ const configFlag = "--config"
 
 // loadConfig loads configuration from file or returns defaults
 func loadConfig(args []string) *config.Config {
-	var configPath string
+	cfg, err := loadConfigFile(configPathOf(args))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+	return cfg
+}
 
-	// Look for --config flag
+// configPathOf resolves which configuration file a run uses: an explicit
+// --config, else the auto-detected default, else "" for a flags-only run.
+func configPathOf(args []string) string {
 	for i, arg := range args {
 		if strings.HasPrefix(arg, configFlag+"=") {
-			configPath = strings.TrimPrefix(arg, configFlag+"=")
+			return strings.TrimPrefix(arg, configFlag+"=")
 		} else if arg == configFlag && i+1 < len(args) {
-			configPath = args[i+1]
+			return args[i+1]
 		}
 	}
+	return config.FindConfigFile()
+}
 
-	// If no --config, look for default config file
-	if configPath == "" {
-		configPath = config.FindConfigFile()
+// loadConfigFile loads a config file, or returns the defaults when path is empty.
+// Unlike loadConfig it reports errors instead of exiting, so the watcher can keep
+// running on a broken edit (#70).
+func loadConfigFile(path string) (*config.Config, error) {
+	if path == "" {
+		return config.DefaultConfig(), nil
 	}
-
-	// Load config file if exists
-	if configPath != "" {
-		cfg, err := config.Load(configPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
-			os.Exit(1)
-		}
-		return cfg
-	}
-
-	return config.DefaultConfig()
+	return config.Load(path)
 }
 
 // validateRequiredFields validates and populates required config fields

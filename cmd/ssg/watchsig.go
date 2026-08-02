@@ -74,3 +74,22 @@ func (c *fileSigCache) signature(dirs []string) string {
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
+
+// fileSignature is the content hash of a single file, used to watch the config
+// file independently of the content tree (#70). A missing or unreadable file
+// hashes to "", so appearing and disappearing both register as a change.
+func fileSignature(path string) string {
+	if path == "" {
+		return ""
+	}
+	f, err := os.Open(path) // #nosec G304 -- CLI hashes the config file it was given
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}

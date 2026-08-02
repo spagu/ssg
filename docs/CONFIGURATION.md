@@ -140,13 +140,28 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `http` | `false` | `--http` | Start the built-in server after building |
 | `host` | `127.0.0.1` | `--host` | Bind address |
 | `port` | `8888` | `--port` | TCP port |
-| `watch` | `false` | `--watch` | Rebuild after local file changes |
+| `watch` | `false` | `--watch` | Rebuild after local file changes (content, templates, data and the config file) |
 | `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
+
+### What the watcher observes
+
+`--watch` names its inputs at startup, e.g.
+`👀 Watching for changes in content, templates, data, config (.ssg.yaml)...`
+
+The **config file is a watched input of its own**: editing it reloads the
+configuration and rebuilds with the new settings — no restart needed to change a
+theme, a permalink scheme or any other option. Command-line flags still win over
+the file, exactly as at startup. If an edit leaves the file unparseable, the
+error is reported and the watcher keeps the **last good configuration** running
+rather than exiting, so a half-saved file never kills a dev session.
+
+A change is detected by content, not mtime: touching a file without changing its
+bytes does not trigger a rebuild.
 
 `watch_runner_config` points the runner at a config file kept anywhere on disk,
 so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.
