@@ -62,10 +62,10 @@ tidy: ## 🧹 Tidy go modules
 	@$(GO) mod tidy
 	@echo "${GREEN}✅ Modules tidied${RESET}"
 
-version-sync: ## 🔖 Propagate ./VERSION into all packaging manifests (DOC-005)
+version-sync: ## 🔖 Propagate ./VERSION into every file that states it (DOC-005)
 	@bash scripts/sync-version.sh
 
-version-check: ## 🔎 Fail if any packaging manifest drifts from ./VERSION
+version-check: ## 🔎 Fail if any file drifts from ./VERSION
 	@bash scripts/sync-version.sh --check
 
 # Build

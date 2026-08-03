@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🔖 **`make version-sync` now covers every file that states the version** — the
+  Docker image (build arg + OCI label), the man page, the install docs, the docs
+  site and the theme README were bumped by hand each release, so `man/ssg.1`
+  drifted a release behind and `--check` reported everything in sync. All five are
+  now synced and, because CI already runs the check, drift in any of them fails
+  the build. Patterns are anchored per line and require a semver, so a bump can
+  never wander into neighbouring keys (`docs-site.yaml`'s analytics
+  `version: "1"`) or into prose — a blog sentence naming the release that
+  introduced a feature is a historical fact, not a version to sync.
+- 📝 **Corrected a historical range in `snap/snapcraft.yaml`** — the note about
+  the Snap Store freeze said it ran "through 1.8.16"; it was extended by each
+  release's find-and-replace even though the fix landed in **1.8.13**. It now
+  reads 1.8.6 → 1.8.12, with both it and the equivalent note in `homebrew.yml`
+  marked as history that must not be bumped.
+
 ## [1.8.16] - 2026-08-02
 
 ### Added
