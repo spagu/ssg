@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- ⚡ **Builds are up to 5.25x faster on large sites** (PERF-012 / PERF-013) — two
+  costs that only showed up at scale. `copyColocatedAssets` listed a post's
+  category directory **once per post**, so N posts sharing a directory did N
+  scans of an N-entry directory: on a 2000-post corpus that single `os.ReadDir`
+  was two thirds of the whole build. It is now read once per directory and shared
+  (mutex-guarded for parallel render). `ComputeReadingStats` then became the
+  largest cost at ~48%: it stripped markup with `regexp.ReplaceAllString` and
+  called `strings.Fields`, running the regex engine over every page and
+  allocating two throwaway strings per page just to count words. A single-pass
+  scanner does it **7.8x faster with zero allocations** (was 47KB / 15 allocs per
+  page), pinned to the original regex by a test over the awkward shapes plus 4000
+  random inputs. Measured best-of-3 on an M2: 2000 posts 2.96s → 0.95s, 5000
+  posts 12.07s → 2.30s, with the per-post cost now flat (~0.46ms) instead of
+  climbing. Output is unchanged — golden byte-identical on all four corpora.
+- ⏱️ **`make bench`** — a new `scripts/bench-build.sh` generates a fixed-seed
+  synthetic corpus (100/500/2000 posts by default, configurable) and reports build
+  time per page, so throughput claims are reproducible on your own hardware.
+
 ### Fixed
 - 🔖 **`make version-sync` now covers every file that states the version** — the
   Docker image (build arg + OCI label), the man page, the install docs, the docs
