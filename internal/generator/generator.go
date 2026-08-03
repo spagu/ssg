@@ -372,9 +372,14 @@ type Generator struct {
 	relatedMddbOnce sync.Once
 
 	// aliasRedirects collects frontmatter alias→URL pairs during page/post
-	// generation for the _redirects file (GO-063). Single-goroutine build —
-	// needs a mutex before any future parallel rendering (see currentLang).
+	// generation for the _redirects file (GO-063). Pages render on a worker pool
+	// (BUILD-PARALLEL), so aliasMu guards the append: unsynchronized, concurrent
+	// appends both raced on the slice header and silently dropped entries, which
+	// showed up as missing 301s in _redirects (PERF-012 follow-up). The arrival
+	// order is still scheduler-dependent, so collectRedirects sorts these before
+	// emitting — see sortedRedirects.
 	aliasRedirects []RedirectRule
+	aliasMu        sync.Mutex
 
 	// images is the lazily-built processor behind the image* template helpers
 	// (audit/images-processing-feature.md).
@@ -3204,8 +3209,11 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		if rel == "" || rel == "." {
 			continue
 		}
-		// Record the alias as a 301 for the _redirects file (GO-063).
+		// Record the alias as a 301 for the _redirects file (GO-063). Guarded:
+		// this runs on the parallel render pool.
+		g.aliasMu.Lock()
 		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
+		g.aliasMu.Unlock()
 		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
 		// alias_stubs: false drops them and keeps only the _redirects entry.
 		if writeStub {

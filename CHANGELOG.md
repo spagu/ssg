@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   time per page, so throughput claims are reproducible on your own hardware.
 
 ### Fixed
+- 🐛 **Frontmatter `aliases:` silently lost redirects, and `_redirects` was not
+  reproducible** — a regression from parallel rendering (1.8.15). Pages render on
+  a worker pool, and each one appended its aliases to a shared slice with no
+  synchronization: concurrent appends raced on the slice header and **dropped
+  entries** (a 200-alias reproduction recorded only 170), so a migrated site
+  could ship missing 301s without any warning. The arrival order was also
+  scheduler-dependent, so identical content produced a **different `_redirects`
+  file on every build** — 10 builds of the same site gave 9 distinct outputs.
+  The append is now mutex-guarded and the collected aliases are sorted before
+  emitting, so the file is byte-identical across builds and worker counts. The
+  existing corpora never caught this because none of them use aliases; a test now
+  drives the concurrent path directly and pins the ordering.
 - 🔖 **`make version-sync` now covers every file that states the version** — the
   Docker image (build arg + OCI label), the man page, the install docs, the docs
   site and the theme README were bumped by hand each release, so `man/ssg.1`
