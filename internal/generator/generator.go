@@ -356,6 +356,15 @@ type Generator struct {
 	mdMu     sync.Mutex
 	renderMu sync.Mutex
 
+	// assetDirs memoizes os.ReadDir per co-located asset directory (PERF-012).
+	// A post's SourceDir is its whole category directory, so listing it per post
+	// made the directory scan quadratic in the number of posts sharing it — on a
+	// 2000-post corpus that single ReadDir was two thirds of the entire build.
+	// The listing is immutable for a build, so one scan per directory serves
+	// every post in it. assetDirsMu keeps it safe under parallel render.
+	assetDirs   map[string][]os.DirEntry
+	assetDirsMu sync.Mutex
+
 	// relatedMddb is the lazily-built client the relatedFromMddb template helper
 	// queries; relatedMddbOnce guards its one-time creation (safe under the
 	// parallel render). Closed in Generate's teardown (#1.8.16).
@@ -3643,8 +3652,8 @@ func isContentAsset(name string) bool {
 // copyColocatedAssets copies non-markdown files from a content source directory
 // to the corresponding output directory of the generated page/post
 func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) error {
-	entries, err := os.ReadDir(sourceDir)
-	if err != nil {
+	entries := g.assetDirEntries(sourceDir)
+	if entries == nil {
 		return nil // Source dir might not exist, that's fine
 	}
 
@@ -3684,6 +3693,29 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 	}
 
 	return nil
+}
+
+// assetDirEntries returns sourceDir's listing, reading it from disk at most once
+// per build (PERF-012). Posts in one category share a SourceDir, so the previous
+// per-post os.ReadDir scanned the same directory once for every post in it —
+// quadratic, and the single largest cost in a large build. Returns nil when the
+// directory cannot be read, which callers treat as "nothing to copy". A failed
+// read is memoized too, so a missing directory is not re-stat'ed per post.
+func (g *Generator) assetDirEntries(sourceDir string) []os.DirEntry {
+	g.assetDirsMu.Lock()
+	defer g.assetDirsMu.Unlock()
+	if entries, ok := g.assetDirs[sourceDir]; ok {
+		return entries
+	}
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		entries = nil
+	}
+	if g.assetDirs == nil {
+		g.assetDirs = map[string][]os.DirEntry{}
+	}
+	g.assetDirs[sourceDir] = entries
+	return entries
 }
 
 // Media-path rewrite patterns, compiled once instead of per rendered page;

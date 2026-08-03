@@ -75,3 +75,6 @@ examples/*/output/
 # Local wrangler dev artifacts (miniflare state, generated config)
 .wrangler/
 /wrangler.toml
+
+# Build-throughput benchmark corpora (scripts/bench-build.sh, make bench)
+ssg-bench/
