@@ -88,7 +88,16 @@ jobs:
 
       # The hero image is encoded as WebP, which SSG delegates to cwebp.
       - name: Install cwebp
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends webp
+        # webp comes from the Ubuntu archive. The runner image also ships
+        # third-party lists (Google Chrome, Microsoft) that we do not need, and a
+        # mirror-sync race in one of them fails `apt-get update` outright — it
+        # broke this deploy once with "File has unexpected size (1411 != 1410)".
+        # Updating only the Ubuntu sources keeps an unrelated vendor's repository
+        # from blocking a release.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/*.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends webp
 
       - name: Build ssg from this commit
         run: go build -ldflags "-s -w -X main.Version=$(cat VERSION)" -o build/ssg ./cmd/ssg
