@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.18] - 2026-08-04
+
 ### Added
 - 🔎 **Three build-time checks over the generated HTML**, in the same shape as
   `check_links` (off / `warn` / `strict`, escalated by `strict: true`). Each
@@ -2069,7 +2071,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.17...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.18...HEAD
+[1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
