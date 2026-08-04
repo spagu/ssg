@@ -51,7 +51,8 @@ jobs:
 
           # Every failure path below is fatal on purpose. This step used to
           # warn and exit 0, so releases v1.7.15 through v1.8.15 all reported
-          # success while the tap sat on v1.7.14 for a week.
+          # success while the tap sat on v1.7.14 for a week. That range is
+          # history — do NOT bump it when releasing.
           fail() {
             echo "::error::$1"
             {

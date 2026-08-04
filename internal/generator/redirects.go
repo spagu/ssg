@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -58,6 +59,25 @@ func normalizeRedirects(rules []RedirectRule) []RedirectRule {
 		}
 		out = append(out, r)
 	}
+	return out
+}
+
+// sortedRedirects returns rules in a deterministic order, independent of the
+// order they were collected in. Frontmatter aliases are appended by the parallel
+// render pool, so their arrival order varies between builds; without this the
+// same content produced a different _redirects file every time. Sorts by From,
+// then To, then Status for a total order over identical Froms.
+func sortedRedirects(rules []RedirectRule) []RedirectRule {
+	out := append([]RedirectRule(nil), rules...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].From != out[j].From {
+			return out[i].From < out[j].From
+		}
+		if out[i].To != out[j].To {
+			return out[i].To < out[j].To
+		}
+		return out[i].Status < out[j].Status
+	})
 	return out
 }
 
@@ -193,7 +213,12 @@ func (g *Generator) collectRedirects() ([]RedirectRule, []string, error) {
 		fromSeen[r.From] = true
 	}
 	var warnings []string
-	for _, alias := range normalizeRedirects(g.aliasRedirects) {
+	// Aliases are recorded by the parallel render pool, so their slice order is
+	// whatever the scheduler produced — the same content emitted a different
+	// _redirects on every build. Sorting restores the project's byte-identical
+	// guarantee; the order between exact alias rules carries no meaning, since
+	// each has a distinct From and cannot shadow another.
+	for _, alias := range sortedRedirects(normalizeRedirects(g.aliasRedirects)) {
 		if fromSeen[alias.From] {
 			warnings = append(warnings, fmt.Sprintf("alias %q overridden by an explicit redirects: rule", alias.From))
 			continue

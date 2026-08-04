@@ -314,9 +314,23 @@ Individual content fields are flattened at the root:
 | `.Lang`, `.Languages`, `.DefaultLanguage` | Language state |
 | `.Translations`, `.Hreflang` | Language switching/alternate links |
 
-For compatibility, the complete model is also available as `.Page` on pages or
-`.Post` on posts. Unknown frontmatter keys are flattened into the same root but
-cannot overwrite standard values.
+The complete model is also available as a nested value — but the key differs by
+content type: **`.Page` in `page.html`, `.Post` in `post.html`.** A post template
+reaching for `.Page.Title` gets nothing, silently: no error, just an empty
+heading and empty taxonomy lists.
+
+```gotemplate
+{{/* post.html */}}  <h1>{{ .Post.Title }}</h1>{{ .Post.Content | safeHTML }}
+{{/* page.html */}}  <h1>{{ .Page.Title }}</h1>{{ .Page.Content | safeHTML }}
+```
+
+Note the `| safeHTML` in both: a content field is the **raw Markdown source**, and
+`safeHTML` is what converts it to HTML (see
+[docs/TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md)). Printing `{{ .Content }}`
+directly ships unrendered Markdown to the reader.
+
+Unknown frontmatter keys are flattened into the same root but cannot overwrite
+standard values.
 
 ### Category, tag, author and series archives
 

@@ -1,10 +1,10 @@
 name: static-site-generator
 # The version is NOT hardcoded here: it is read from ./VERSION at build time by
 # the `ssg` part below (adopt-info). A literal `version:` field is what let the
-# Snap Store sit on 1.8.6 from 1.8.6 through 1.8.16 while every release reported
+# Snap Store sit on 1.8.6 from 1.8.6 through 1.8.12 while every release reported
 # a successful publish — sync-version.sh never covered this file, so the number
 # was frozen. Reading the single source of truth directly makes drift impossible
-# (OPS-013).
+# (OPS-013). Fixed in 1.8.13; the range above is history — do NOT bump it.
 adopt-info: ssg
 title: SSG - Static Site Generator
 summary: Fast static site generator written in Go

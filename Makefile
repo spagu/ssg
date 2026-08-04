@@ -37,7 +37,7 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
-        site site-watch golden golden-update \
+        site site-watch golden golden-update bench determinism \
         clean install uninstall release test-action
 
 # Default target
@@ -62,10 +62,10 @@ tidy: ## 🧹 Tidy go modules
 	@$(GO) mod tidy
 	@echo "${GREEN}✅ Modules tidied${RESET}"
 
-version-sync: ## 🔖 Propagate ./VERSION into all packaging manifests (DOC-005)
+version-sync: ## 🔖 Propagate ./VERSION into every file that states it (DOC-005)
 	@bash scripts/sync-version.sh
 
-version-check: ## 🔎 Fail if any packaging manifest drifts from ./VERSION
+version-check: ## 🔎 Fail if any file drifts from ./VERSION
 	@bash scripts/sync-version.sh --check
 
 # Build
@@ -139,6 +139,12 @@ test: ## 🧪 Run tests
 test-coverage: test ## 📊 Run tests with coverage report
 	@echo "${BLUE}📊 Generating coverage report...${RESET}"
 	@$(GO) tool cover -html=coverage.out -o coverage.html
+
+bench: ## ⏱️  Measure build throughput on a synthetic corpus (PERF-012/013)
+	@./scripts/bench-build.sh
+
+determinism: ## 🎲 Fail if the worker count changes the generated site (BUILD-PARALLEL)
+	@./scripts/determinism.sh
 
 golden: ## 🔒 Check taxonomy output against the backward-compat golden baseline (#44)
 	@./scripts/taxonomy-golden.sh

@@ -498,8 +498,17 @@ Useful targets:
 | `make test-coverage` | Run tests and generate coverage |
 | `make lint` | Run static checks |
 | `make security` | Run security scanners |
+| `make golden` | Check generated output against the recorded baseline |
+| `make determinism` | Check the worker count does not change the output |
+| `make bench` | Measure build throughput on a synthetic corpus |
 | `make all` | Dependencies, lint, tests and build |
 | `make install` | Install the binary and manual page |
+
+`make golden` and `make determinism` guard the two properties the test suite
+cannot express as unit tests: that a change did not alter generated output, and
+that parallel rendering produces the same site as a sequential build. Both run in
+CI. After an *intended* output change, re-record the baseline with
+`make golden-update` and commit it.
 
 Development workflow and review requirements are in
 [CONTRIBUTING.md](CONTRIBUTING.md). Please follow

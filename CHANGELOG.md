@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.17] - 2026-08-04
+
+### Changed
+- ⚡ **Builds are up to 5.25x faster on large sites** (PERF-012 / PERF-013) — two
+  costs that only showed up at scale. `copyColocatedAssets` listed a post's
+  category directory **once per post**, so N posts sharing a directory did N
+  scans of an N-entry directory: on a 2000-post corpus that single `os.ReadDir`
+  was two thirds of the whole build. It is now read once per directory and shared
+  (mutex-guarded for parallel render). `ComputeReadingStats` then became the
+  largest cost at ~48%: it stripped markup with `regexp.ReplaceAllString` and
+  called `strings.Fields`, running the regex engine over every page and
+  allocating two throwaway strings per page just to count words. A single-pass
+  scanner does it **7.8x faster with zero allocations** (was 47KB / 15 allocs per
+  page), pinned to the original regex by a test over the awkward shapes plus 4000
+  random inputs. Measured best-of-3 on an M2: 2000 posts 2.96s → 0.95s, 5000
+  posts 12.07s → 2.30s, with the per-post cost now flat (~0.46ms) instead of
+  climbing. Output is unchanged — golden byte-identical on all four corpora.
+- 🎲 **`make determinism`** — builds every corpus sequentially and on a full
+  worker pool, then compares the output trees file by file, so shared render
+  state missing a lock or an ordering fails the build instead of surfacing as a
+  bug report months later. It carries its own stress corpus (300 aliased posts
+  with `link_rewrites`), because the shipped corpora are too small for the
+  scheduler to vary — verified by re-introducing the fixed bugs: the shipped
+  corpora alone caught none of them, the stress corpus catches the `_redirects`
+  ordering and the lost-alias regressions. It complements `go test -race` rather
+  than replacing it; the `link_rewrites` memo race is the reverse case, caught by
+  `-race` while the output survives. **`make golden` and `make determinism` now
+  both run in CI** — neither did before, which is how those bugs shipped.
+- ⏱️ **`make bench`** — a new `scripts/bench-build.sh` generates a fixed-seed
+  synthetic corpus (100/500/2000 posts by default, configurable) and reports build
+  time per page, so throughput claims are reproducible on your own hardware.
+
+### Fixed
+- 📄 **`dynamic-taxonomies` and `external-sources` examples shipped broken output**
+  — both post templates read `.Page.*`, but posts receive their model under
+  `.Post`, so every generated post had an empty `<title>`, an empty `<h1>` and
+  empty taxonomy footers. Both also printed `{{.Content}}`, which is the **raw
+  Markdown source** — `safeHTML` is the helper that converts it — so readers got
+  unrendered Markdown. Fixed in both examples, and the docs that let this happen
+  are clearer: `docs/TEMPLATES.md` now spells out `.Page` in `page.html` vs
+  `.Post` in `post.html` and warns that the mismatch fails silently, and
+  `docs/TEMPLATE_HELPERS.md` describes `safeHTML` as what renders a Markdown body
+  rather than merely an escaping escape hatch.
+- 🔒 **Two more parallel-render races, found by auditing the whole render tree**
+  after the alias bug below. `link_rewrites` memoized its sorted prefix list with
+  an unguarded check-then-write, and it runs on the worker pool (the `safeHTML`
+  template helper calls it during `ExecuteTemplate`), so concurrent pages raced on
+  the slice header and could rewrite links against a torn or empty prefix list —
+  intermittently masked depending on whether an earlier sequential render warmed
+  the memo. The shared image processor had the same unguarded lazy init, kept
+  correct only by a warm-up call placed before the pool. Both now build under a
+  `sync.Once`. Alias stub files also moved out of the pool: writing them during
+  rendering made the "alias collides with an existing page" check a race against a
+  half-written output tree, so the warning appeared or not depending on timing and
+  two pages claiming the same alias raced to write the same file. They are now
+  recorded during rendering and written afterwards in sorted order, once every
+  real page exists.
+- 🐛 **Frontmatter `aliases:` silently lost redirects, and `_redirects` was not
+  reproducible** — a regression from parallel rendering (1.8.15). Pages render on
+  a worker pool, and each one appended its aliases to a shared slice with no
+  synchronization: concurrent appends raced on the slice header and **dropped
+  entries** (a 200-alias reproduction recorded only 170), so a migrated site
+  could ship missing 301s without any warning. The arrival order was also
+  scheduler-dependent, so identical content produced a **different `_redirects`
+  file on every build** — 10 builds of the same site gave 9 distinct outputs.
+  The append is now mutex-guarded and the collected aliases are sorted before
+  emitting, so the file is byte-identical across builds and worker counts. The
+  existing corpora never caught this because none of them use aliases; a test now
+  drives the concurrent path directly and pins the ordering.
+- 🔖 **`make version-sync` now covers every file that states the version** — the
+  Docker image (build arg + OCI label), the man page, the install docs, the docs
+  site and the theme README were bumped by hand each release, so `man/ssg.1`
+  drifted a release behind and `--check` reported everything in sync. All five are
+  now synced and, because CI already runs the check, drift in any of them fails
+  the build. Patterns are anchored per line and require a semver, so a bump can
+  never wander into neighbouring keys (`docs-site.yaml`'s analytics
+  `version: "1"`) or into prose — a blog sentence naming the release that
+  introduced a feature is a historical fact, not a version to sync.
+- 📝 **Corrected a historical range in `snap/snapcraft.yaml`** — the note about
+  the Snap Store freeze said it ran "through 1.8.16"; it was extended by each
+  release's find-and-replace even though the fix landed in **1.8.13**. It now
+  reads 1.8.6 → 1.8.12, with both it and the equivalent note in `homebrew.yml`
+  marked as history that must not be bumped.
+
 ## [1.8.16] - 2026-08-02
 
 ### Added
@@ -1929,7 +2013,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.16...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.17...HEAD
+[1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9

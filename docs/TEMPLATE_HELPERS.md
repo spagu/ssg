@@ -224,10 +224,23 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 SSG registers several helper functions in the Go template engine for date formatting, HTML cleaning, metadata lookup, and logic controls.
 
 ### HTML and String Utilities
-* **`safeHTML value`** — Returns `template.HTML` to prevent the Go template engine from auto-escaping HTML. Necessary when rendering custom templates or shortcode outputs.
+* **`safeHTML value`** — **Renders a page's Markdown body.** Despite the name, this
+  is not only an escaping escape hatch: it is the pipeline that turns the raw
+  Markdown source into HTML — shortcodes, the table of contents marker, Markdown
+  conversion, `.md` link rewriting, `link_rewrites`, sanitizing — and returns
+  `template.HTML` so the result is not escaped again.
+
+  **A content field piped through anything else is emitted as raw Markdown.**
+  `{{ .Content }}` renders `# Title` literally instead of an `<h1>`, which is the
+  single most common template mistake:
+
   ```gotemplate
-  {{ .Content | safeHTML }}
+  {{ .Post.Content | safeHTML }}   {{/* posts   — correct */}}
+  {{ .Page.Content | safeHTML }}   {{/* pages   — correct */}}
+  {{ .Content }}                   {{/* WRONG — raw Markdown reaches the reader */}}
   ```
+
+  Use it for shortcode output and other pre-rendered HTML too.
 * **`decodeHTML value`** — Unescapes standard HTML entity sequences (e.g. `&amp;` becomes `&`).
   ```gotemplate
   {{ decodeHTML .Title }}

@@ -307,10 +307,11 @@ type Generator struct {
 	data         map[string]interface{}   // Data files loaded into .Data.* (PLAT-002)
 	translations map[string][]Translation // slug → language variants (PLAT-005)
 	catalog      *ssgi18n.Catalog
-	// currentLang is the language of the page being rendered. Mutable per-render
-	// state (set in pageToTemplateData / the per-language index loop): correct for
-	// the single-goroutine build, but must become per-render context before any
-	// future parallel rendering.
+	// currentLang is the language of the pages currently rendering. It is shared
+	// mutable state, made safe under the render pool by batching: renderContent
+	// groups items by language and calls setLanguageContext once per batch,
+	// sequentially, so every worker in a batch only ever reads it (BUILD-PARALLEL).
+	// Anything that would set it per page must take per-render context instead.
 	currentLang string
 	md          goldmark.Markdown  // configured Markdown renderer (AX-001/002/003)
 	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
@@ -333,6 +334,7 @@ type Generator struct {
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
+	linkRewriteOnce   sync.Once                      // built on the render pool, so memoize under a Once
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
 	gitRoot           string                         // repo top-level dir for lastmod lookups (PERF-001)
 	gitTimes          map[string]time.Time           // repo-relative path → last commit date (PERF-001)
@@ -343,7 +345,8 @@ type Generator struct {
 	// mdCache memoizes goldmark conversions keyed by the exact markdown source, so
 	// feeds, the search index, JSON output and per-path renders do not re-convert
 	// the same content (PERF-004). mdConversions counts REAL conversions and backs
-	// the once-per-content acceptance test. Builds are single-goroutine.
+	// the once-per-content acceptance test. Pages render on a worker pool, so both
+	// are guarded by mdMu below.
 	mdCache       map[string]string
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
@@ -356,6 +359,15 @@ type Generator struct {
 	mdMu     sync.Mutex
 	renderMu sync.Mutex
 
+	// assetDirs memoizes os.ReadDir per co-located asset directory (PERF-012).
+	// A post's SourceDir is its whole category directory, so listing it per post
+	// made the directory scan quadratic in the number of posts sharing it — on a
+	// 2000-post corpus that single ReadDir was two thirds of the entire build.
+	// The listing is immutable for a build, so one scan per directory serves
+	// every post in it. assetDirsMu keeps it safe under parallel render.
+	assetDirs   map[string][]os.DirEntry
+	assetDirsMu sync.Mutex
+
 	// relatedMddb is the lazily-built client the relatedFromMddb template helper
 	// queries; relatedMddbOnce guards its one-time creation (safe under the
 	// parallel render). Closed in Generate's teardown (#1.8.16).
@@ -363,13 +375,23 @@ type Generator struct {
 	relatedMddbOnce sync.Once
 
 	// aliasRedirects collects frontmatter alias→URL pairs during page/post
-	// generation for the _redirects file (GO-063). Single-goroutine build —
-	// needs a mutex before any future parallel rendering (see currentLang).
+	// generation for the _redirects file (GO-063). Pages render on a worker pool
+	// (BUILD-PARALLEL), so aliasMu guards the append: unsynchronized, concurrent
+	// appends both raced on the slice header and silently dropped entries, which
+	// showed up as missing 301s in _redirects (PERF-012 follow-up). The arrival
+	// order is still scheduler-dependent, so collectRedirects sorts these before
+	// emitting — see sortedRedirects.
 	aliasRedirects []RedirectRule
+	// aliasStubs are the meta-refresh stub files requested during rendering and
+	// written by flushAliasStubs once the real pages exist. aliasMu guards both.
+	aliasStubs []aliasStubReq
+	aliasMu    sync.Mutex
 
 	// images is the lazily-built processor behind the image* template helpers
-	// (audit/images-processing-feature.md).
-	images *images.Processor
+	// (audit/images-processing-feature.md). The helpers run on the render pool,
+	// so imagesOnce guards the construction.
+	images     *images.Processor
+	imagesOnce sync.Once
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -2899,6 +2921,13 @@ func (g *Generator) generateSite() error {
 		return fmt.Errorf("generating taxonomies: %w", err)
 	}
 
+	// Alias stubs are written last, once every real page exists. Writing them
+	// during the parallel render made the "collides with an existing page" check
+	// a race against a half-written output tree: the warning appeared or not
+	// depending on scheduling, and two pages claiming the same alias raced to
+	// write the same file (BUILD-PARALLEL follow-up).
+	g.flushAliasStubs()
+
 	return nil
 }
 
@@ -3172,10 +3201,15 @@ func (g *Generator) generatePost(post models.Page) error {
 	return nil
 }
 
-// writeAliasStubs emits meta-refresh + canonical redirect stubs for each alias of
-// a page (SEO-002). Alias paths are sanitized and confined to the output root
+// writeAliasStubs records each alias of a page: a 301 for the _redirects file
+// (GO-063) and, unless alias_stubs is off, a meta-refresh stub for non-Cloudflare
+// hosts (SEO-002). Alias paths are sanitized and confined to the output root
 // (SEC-001); aliases are excluded from the sitemap because they are not real
-// pages. An alias colliding with an already-generated page is skipped.
+// pages.
+//
+// It only records — flushAliasStubs writes the files once rendering is done. It
+// runs on the render worker pool, where writing immediately made the "collides
+// with an existing page" check race a half-written output tree.
 func (g *Generator) writeAliasStubs(page models.Page) {
 	if len(page.Aliases) == 0 {
 		return
@@ -3195,18 +3229,53 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		if rel == "" || rel == "." {
 			continue
 		}
-		// Record the alias as a 301 for the _redirects file (GO-063).
+		// Record the alias as a 301 for the _redirects file (GO-063), and queue
+		// its stub for flushAliasStubs. Both are guarded: this runs on the
+		// parallel render pool.
+		g.aliasMu.Lock()
 		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
-		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
-		// alias_stubs: false drops them and keeps only the _redirects entry.
 		if writeStub {
-			g.writeAliasStub(alias, rel, target)
+			g.aliasStubs = append(g.aliasStubs, aliasStubReq{alias: alias, rel: rel, target: target})
 		}
+		g.aliasMu.Unlock()
 	}
 }
 
 // writeAliasStub writes one meta-refresh stub page for an alias, confined to
 // the output root and skipped when it would collide with a real page (SEO-002).
+// aliasStubReq is one alias stub queued during rendering (BUILD-PARALLEL).
+type aliasStubReq struct {
+	alias, rel, target string
+}
+
+// flushAliasStubs writes the alias stubs collected during rendering. It runs
+// after every real page exists, so the collision check below is meaningful, and
+// it walks the requests in a fixed order so duplicate aliases resolve the same
+// way on every build.
+func (g *Generator) flushAliasStubs() {
+	g.aliasMu.Lock()
+	reqs := append([]aliasStubReq(nil), g.aliasStubs...)
+	g.aliasMu.Unlock()
+
+	sort.Slice(reqs, func(i, j int) bool {
+		if reqs[i].rel != reqs[j].rel {
+			return reqs[i].rel < reqs[j].rel
+		}
+		return reqs[i].target < reqs[j].target
+	})
+	written := make(map[string]bool, len(reqs))
+	for _, r := range reqs {
+		// First request for a path wins; with the sort above that is deterministic
+		// rather than whichever worker happened to finish first.
+		if written[r.rel] {
+			fmt.Printf("   ⚠️  Alias %q declared more than once; keeping the first target\n", r.alias)
+			continue
+		}
+		written[r.rel] = true
+		g.writeAliasStub(r.alias, r.rel, r.target)
+	}
+}
+
 func (g *Generator) writeAliasStub(alias, rel, target string) {
 	outPath := filepath.Join(g.config.OutputDir, rel, indexHTMLName)
 	if strings.HasSuffix(strings.ToLower(rel), ".html") {
@@ -3643,8 +3712,8 @@ func isContentAsset(name string) bool {
 // copyColocatedAssets copies non-markdown files from a content source directory
 // to the corresponding output directory of the generated page/post
 func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) error {
-	entries, err := os.ReadDir(sourceDir)
-	if err != nil {
+	entries := g.assetDirEntries(sourceDir)
+	if entries == nil {
 		return nil // Source dir might not exist, that's fine
 	}
 
@@ -3684,6 +3753,29 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 	}
 
 	return nil
+}
+
+// assetDirEntries returns sourceDir's listing, reading it from disk at most once
+// per build (PERF-012). Posts in one category share a SourceDir, so the previous
+// per-post os.ReadDir scanned the same directory once for every post in it —
+// quadratic, and the single largest cost in a large build. Returns nil when the
+// directory cannot be read, which callers treat as "nothing to copy". A failed
+// read is memoized too, so a missing directory is not re-stat'ed per post.
+func (g *Generator) assetDirEntries(sourceDir string) []os.DirEntry {
+	g.assetDirsMu.Lock()
+	defer g.assetDirsMu.Unlock()
+	if entries, ok := g.assetDirs[sourceDir]; ok {
+		return entries
+	}
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		entries = nil
+	}
+	if g.assetDirs == nil {
+		g.assetDirs = map[string][]os.DirEntry{}
+	}
+	g.assetDirs[sourceDir] = entries
+	return entries
 }
 
 // Media-path rewrite patterns, compiled once instead of per rendered page;

@@ -157,6 +157,7 @@ func TestWriteAliasStubs(t *testing.T) {
 	g := newTestGen(t, "")
 	page := models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/", "/legacy.html"}}
 	g.writeAliasStubs(page)
+	g.flushAliasStubs() // stubs are written after rendering, not during it
 
 	for _, rel := range []string{"old/index.html", "legacy.html"} {
 		data, err := os.ReadFile(filepath.Join(g.config.OutputDir, rel))
@@ -182,6 +183,7 @@ func TestWriteAliasStubsRedirectOnly(t *testing.T) {
 	// Per-page alias_stubs: false → no stub file, but the 301 is still emitted.
 	g := newTestGen(t, "")
 	g.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}, AliasStubs: &falsePtr})
+	g.flushAliasStubs()
 	if _, err := os.Stat(filepath.Join(g.config.OutputDir, "old/index.html")); !os.IsNotExist(err) {
 		t.Errorf("alias_stubs:false must not write a stub copy")
 	}
@@ -193,6 +195,7 @@ func TestWriteAliasStubsRedirectOnly(t *testing.T) {
 	g2 := newTestGen(t, "")
 	g2.config.AliasStubsOff = true
 	g2.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}, AliasStubs: &truePtr})
+	g2.flushAliasStubs()
 	if _, err := os.Stat(filepath.Join(g2.config.OutputDir, "old/index.html")); err != nil {
 		t.Errorf("per-page alias_stubs:true must force a stub even when site disables them: %v", err)
 	}
@@ -201,6 +204,7 @@ func TestWriteAliasStubsRedirectOnly(t *testing.T) {
 	g3 := newTestGen(t, "")
 	g3.config.AliasStubsOff = true
 	g3.writeAliasStubs(models.Page{Type: "page", Slug: "new", Aliases: []string{"/old/"}})
+	g3.flushAliasStubs()
 	if _, err := os.Stat(filepath.Join(g3.config.OutputDir, "old/index.html")); !os.IsNotExist(err) {
 		t.Errorf("site-wide alias_stubs:false must not write a stub copy")
 	}

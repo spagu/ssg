@@ -12,6 +12,9 @@ tags:
   - go
 series: getting-started
 author: test-author
+aliases:
+  - "/old/test-post"
+  - "/2024/01/test-post"
 ---
 
 # Test Post

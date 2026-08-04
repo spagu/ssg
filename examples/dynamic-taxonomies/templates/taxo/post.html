@@ -1,8 +1,8 @@
-{{define "post.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Page.Title}}</title></head><body>
-<article><h1>{{.Page.Title}}</h1>{{.Content}}</article>
+{{define "post.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><title>{{.Post.Title}}</title></head><body>
+<article><h1>{{.Post.Title}}</h1>{{.Post.Content | safeHTML}}</article>
 <footer>
-<p>Difficulty: {{range pageTerms "difficulty" .Page}}<a href="{{.URL}}">{{.Name}}</a>{{end}}</p>
-<p>Platforms: {{range pageTerms "platform" .Page}}<a href="{{.URL}}">{{.Name}}</a> {{end}}</p>
-{{if hasTerm "technology" "Go" .Page}}<p>Part of our <a href="{{termURL "technology" "Go"}}">Go collection</a>.</p>{{end}}
+<p>Difficulty: {{range pageTerms "difficulty" .Post}}<a href="{{.URL}}">{{.Name}}</a>{{end}}</p>
+<p>Platforms: {{range pageTerms "platform" .Post}}<a href="{{.URL}}">{{.Name}}</a> {{end}}</p>
+{{if hasTerm "technology" "Go" .Post}}<p>Part of our <a href="{{termURL "technology" "Go"}}">Go collection</a>.</p>{{end}}
 </footer>
 </body></html>{{end}}

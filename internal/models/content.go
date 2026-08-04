@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/spagu/ssg/internal/i18n"
 )
@@ -261,17 +263,19 @@ func SanitizeRelPath(p string) string {
 // wordsPerMinute is the assumed silent-reading speed used for ReadingTime (BLOG-006).
 const wordsPerMinute = 200
 
-// markupStripRe removes markup so word counts reflect prose, not tags/shortcodes:
-// HTML tags (<...>), brace shortcodes ({{...}}) and bracket shortcodes ([name ...]).
+// markupStripRe is the markup this counter ignores so word counts reflect prose,
+// not tags/shortcodes: HTML tags (<...>), brace shortcodes ({{...}}) and bracket
+// shortcodes ([name ...]). countProseWords implements exactly this pattern by
+// hand; the expression is kept as the specification it is checked against
+// (TestCountProseWordsMatchesRegex).
 var markupStripRe = regexp.MustCompile(`<[^>]*>|{{[^}]*}}|\[/?[a-zA-Z][^\]]*\]`)
 
 // ComputeReadingStats computes WordCount and ReadingTime from Content (BLOG-006).
-// Markup is stripped first so the count reflects readable prose. ReadingTime is
+// Markup is skipped so the count reflects readable prose. ReadingTime is
 // ceil(words / wordsPerMinute), at least 1 minute for any non-empty text and 0
 // for empty content. Safe to call multiple times (idempotent).
 func (p *Page) ComputeReadingStats() {
-	text := markupStripRe.ReplaceAllString(p.Content, " ")
-	words := len(strings.Fields(text))
+	words := countProseWords(p.Content)
 	p.WordCount = words
 	if words == 0 {
 		p.ReadingTime = 0
@@ -282,6 +286,78 @@ func (p *Page) ComputeReadingStats() {
 		minutes = 1
 	}
 	p.ReadingTime = minutes
+}
+
+// countProseWords counts whitespace-separated words in s, treating each markup
+// token (see markupStripRe) as a separator rather than as text.
+//
+// This is the hot path of a large build: it used to strip markup with a regex
+// ReplaceAllString and then call strings.Fields, which ran the regex engine over
+// every page and allocated two throwaway strings per page — on a 2000-post corpus
+// that was roughly half the build. Scanning once, counting word boundaries in
+// place, allocates nothing (PERF-013). Behaviour is identical by construction and
+// checked against the regex on random input.
+func countProseWords(s string) int {
+	words := 0
+	inWord := false
+	for i := 0; i < len(s); {
+		if n := markupTokenLen(s, i); n > 0 {
+			inWord = false // markup separates words, as replacing it with " " did
+			i += n
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		switch {
+		case unicode.IsSpace(r):
+			inWord = false
+		case !inWord:
+			inWord = true
+			words++
+		}
+		i += size
+	}
+	return words
+}
+
+// markupTokenLen returns the byte length of the markup token starting at s[i], or
+// 0 when none starts there. The three forms mirror markupStripRe; each needs its
+// closing delimiter, so an unterminated "<" is ordinary text, exactly as the
+// regex treats it.
+func markupTokenLen(s string, i int) int {
+	switch s[i] {
+	case '<': // <[^>]*>
+		if j := strings.IndexByte(s[i+1:], '>'); j >= 0 {
+			return j + 2
+		}
+	case '{': // {{[^}]*}}
+		if i+1 < len(s) && s[i+1] == '{' {
+			k := i + 2
+			for k < len(s) && s[k] != '}' {
+				k++
+			}
+			if k+1 < len(s) && s[k] == '}' && s[k+1] == '}' {
+				return k + 2 - i
+			}
+		}
+	case '[': // \[/?[a-zA-Z][^\]]*\]
+		k := i + 1
+		if k < len(s) && s[k] == '/' {
+			k++
+		}
+		if k < len(s) && isASCIILetter(s[k]) {
+			for k < len(s) && s[k] != ']' {
+				k++
+			}
+			if k < len(s) {
+				return k + 1 - i
+			}
+		}
+	}
+	return 0
+}
+
+func isASCIILetter(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 // HasValidCategories returns true if post has categories other than "Bez kategorii" (ID 1)
