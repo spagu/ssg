@@ -558,82 +558,88 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 	}
 
 	return generator.Config{
-		Source:               cfg.Source,
-		Template:             cfg.Template,
-		Domain:               cfg.Domain,
-		ContentDir:           cfg.ContentDir,
-		TemplatesDir:         cfg.TemplatesDir,
-		OutputDir:            cfg.OutputDir,
-		SitemapOff:           cfg.SitemapOff,
-		RobotsOff:            cfg.RobotsOff,
-		PrettyHTML:           cfg.PrettyHTML,
-		PostURLFormat:        cfg.PostURLFormat,
-		PageFormat:           cfg.PageFormat,
-		RelativeLinks:        cfg.RelativeLinks,
-		Shortcodes:           shortcodes,
-		ShortcodeBrackets:    cfg.ShortcodeBrackets,
-		MinifyHTML:           cfg.MinifyHTML,
-		MinifyCSS:            cfg.MinifyCSS,
-		MinifyJS:             cfg.MinifyJS,
-		SourceMap:            cfg.SourceMap,
-		Clean:                cfg.Clean,
-		Quiet:                cfg.Quiet,
-		Engine:               cfg.Engine,
-		Variables:            cfg.Variables,
-		PagesPath:            cfg.PagesPath,
-		PostsPath:            cfg.PostsPath,
-		StaticDir:            cfg.StaticDir,
-		DataDir:              cfg.DataDir,
-		RewriteMdLinks:       cfg.RewriteMdLinks == nil || *cfg.RewriteMdLinks, // default on (#1.8.15)
-		StripMdLinkText:      cfg.StripMdLinkText,
-		PreserveSlugCase:     cfg.PreserveSlugCase,
-		Permalinks:           cfg.Permalinks,
-		LastmodFromGit:       cfg.LastmodFromGit,
-		Fingerprint:          cfg.Fingerprint,
-		SCSS:                 cfg.SCSS,
-		SassBinary:           cfg.SassBinary,
-		Timezone:             cfg.Timezone,
-		LanguageTimezones:    cfg.LanguageTimezones,
-		Math:                 cfg.Math,
-		Paginate:             cfg.Paginate,
-		Languages:            cfg.Languages,
-		DefaultLanguage:      cfg.DefaultLanguage,
-		LanguageConfigs:      cfg.LanguageConfigs,
-		I18n:                 cfg.I18n,
-		Taxonomies:           cfg.Taxonomies,
-		ExternalSources:      cfg.ExternalSources,
-		Hooks:                cfg.Hooks,
-		Feed:                 cfg.Feed,
-		FeedItems:            cfg.FeedItems,
-		FeedFullContent:      cfg.FeedFullContent,
-		Highlight:            cfg.Highlight,
-		HighlightStyle:       cfg.HighlightStyle,
-		HighlightLineNumbers: cfg.HighlightLineNumbers,
-		Mermaid:              cfg.Mermaid,
-		MermaidTheme:         cfg.MermaidTheme,
-		MermaidBackground:    cfg.MermaidBackground,
-		TOC:                  cfg.TOC,
-		TOCDepth:             cfg.TOCDepth,
-		SEO:                  cfg.SEO,
-		Schema:               cfg.Schema,
-		ContentSchemas:       cfg.ContentSchemas,
-		Strict:               cfg.Strict,
-		RouteManifest:        cfg.RouteManifest,
-		BuildWorkers:         resolveBuildWorkers(cfg.BuildWorkers),
-		AI:                   buildAIClient(cfg.AI),
-		Notify:               buildNotifier(cfg),
-		CheckLinks:           cfg.CheckLinks,
-		Bundles:              cfg.Bundles,
-		Outputs:              cfg.Outputs,
-		SearchIndex:          cfg.SearchIndex,
-		SanitizeHTML:         cfg.SanitizeHTML,
-		ShortcodeErrors:      cfg.ShortcodeErrors,
-		ContentSources:       contentSourcesOf(cfg),
-		LinkRewrites:         cfg.LinkRewrites,
-		AutoExcerpt:          cfg.AutoExcerpt,
-		Headers:              cfg.Headers,
-		HeadersDefaultsOff:   cfg.HeadersDefaultsOff,
-		Redirects:            redirectsOf(cfg),
+		Source:                cfg.Source,
+		Template:              cfg.Template,
+		Domain:                cfg.Domain,
+		ContentDir:            cfg.ContentDir,
+		TemplatesDir:          cfg.TemplatesDir,
+		OutputDir:             cfg.OutputDir,
+		SitemapOff:            cfg.SitemapOff,
+		RobotsOff:             cfg.RobotsOff,
+		PrettyHTML:            cfg.PrettyHTML,
+		PostURLFormat:         cfg.PostURLFormat,
+		PageFormat:            cfg.PageFormat,
+		RelativeLinks:         cfg.RelativeLinks,
+		Shortcodes:            shortcodes,
+		ShortcodeBrackets:     cfg.ShortcodeBrackets,
+		MinifyHTML:            cfg.MinifyHTML,
+		MinifyCSS:             cfg.MinifyCSS,
+		MinifyJS:              cfg.MinifyJS,
+		SourceMap:             cfg.SourceMap,
+		Clean:                 cfg.Clean,
+		Quiet:                 cfg.Quiet,
+		Engine:                cfg.Engine,
+		Variables:             cfg.Variables,
+		PagesPath:             cfg.PagesPath,
+		PostsPath:             cfg.PostsPath,
+		StaticDir:             cfg.StaticDir,
+		DataDir:               cfg.DataDir,
+		RewriteMdLinks:        cfg.RewriteMdLinks == nil || *cfg.RewriteMdLinks, // default on (#1.8.15)
+		StripMdLinkText:       cfg.StripMdLinkText,
+		PreserveSlugCase:      cfg.PreserveSlugCase,
+		Permalinks:            cfg.Permalinks,
+		LastmodFromGit:        cfg.LastmodFromGit,
+		Fingerprint:           cfg.Fingerprint,
+		SCSS:                  cfg.SCSS,
+		SassBinary:            cfg.SassBinary,
+		Timezone:              cfg.Timezone,
+		LanguageTimezones:     cfg.LanguageTimezones,
+		Math:                  cfg.Math,
+		Paginate:              cfg.Paginate,
+		Languages:             cfg.Languages,
+		DefaultLanguage:       cfg.DefaultLanguage,
+		LanguageConfigs:       cfg.LanguageConfigs,
+		I18n:                  cfg.I18n,
+		Taxonomies:            cfg.Taxonomies,
+		ExternalSources:       cfg.ExternalSources,
+		Hooks:                 cfg.Hooks,
+		Feed:                  cfg.Feed,
+		FeedItems:             cfg.FeedItems,
+		FeedFullContent:       cfg.FeedFullContent,
+		Highlight:             cfg.Highlight,
+		HighlightStyle:        cfg.HighlightStyle,
+		HighlightLineNumbers:  cfg.HighlightLineNumbers,
+		Mermaid:               cfg.Mermaid,
+		MermaidTheme:          cfg.MermaidTheme,
+		MermaidBackground:     cfg.MermaidBackground,
+		TOC:                   cfg.TOC,
+		TOCDepth:              cfg.TOCDepth,
+		SEO:                   cfg.SEO,
+		Schema:                cfg.Schema,
+		ContentSchemas:        cfg.ContentSchemas,
+		Strict:                cfg.Strict,
+		RouteManifest:         cfg.RouteManifest,
+		BuildWorkers:          resolveBuildWorkers(cfg.BuildWorkers),
+		AI:                    buildAIClient(cfg.AI),
+		Notify:                buildNotifier(cfg),
+		CheckLinks:            cfg.CheckLinks,
+		CheckImages:           cfg.CheckImages,
+		CheckMeta:             cfg.CheckMeta,
+		CheckOrphans:          cfg.CheckOrphans,
+		ContentExclude:        cfg.ContentExclude,
+		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
+		MetaLimits:            cfg.MetaLimits,
+		Bundles:               cfg.Bundles,
+		Outputs:               cfg.Outputs,
+		SearchIndex:           cfg.SearchIndex,
+		SanitizeHTML:          cfg.SanitizeHTML,
+		ShortcodeErrors:       cfg.ShortcodeErrors,
+		ContentSources:        contentSourcesOf(cfg),
+		LinkRewrites:          cfg.LinkRewrites,
+		AutoExcerpt:           cfg.AutoExcerpt,
+		Headers:               cfg.Headers,
+		HeadersDefaultsOff:    cfg.HeadersDefaultsOff,
+		Redirects:             redirectsOf(cfg),
 		// aliases produce meta-refresh stubs by default; alias_stubs: false
 		// keeps only the _redirects 301s (GO-063).
 		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
@@ -737,6 +743,18 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	}
 	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
 		cfg.CheckLinks = "warn"
+		return true
+	}
+	if arg == "--check-images" { // same shape: bare form means warn (#75)
+		cfg.CheckImages = "warn"
+		return true
+	}
+	if arg == "--check-meta" { // same shape: bare form means warn (#76)
+		cfg.CheckMeta = "warn"
+		return true
+	}
+	if arg == "--check-orphans" { // same shape: bare form means warn (#77)
+		cfg.CheckOrphans = "warn"
 		return true
 	}
 	if arg == "--seo-off" { // deprecated no-op: SEO injection is opt-in since v1.8.2
@@ -989,6 +1007,19 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	case strings.HasPrefix(arg, "--check-links="):
 		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
 			cfg.CheckLinks = v
+		}
+	case strings.HasPrefix(arg, "--check-images="):
+		// strict-decorative additionally reports alt="" (#75).
+		if v := strings.TrimPrefix(arg, "--check-images="); v == "warn" || v == "strict" || v == "strict-decorative" {
+			cfg.CheckImages = v
+		}
+	case strings.HasPrefix(arg, "--check-meta="):
+		if v := strings.TrimPrefix(arg, "--check-meta="); v == "warn" || v == "strict" {
+			cfg.CheckMeta = v
+		}
+	case strings.HasPrefix(arg, "--check-orphans="):
+		if v := strings.TrimPrefix(arg, "--check-orphans="); v == "warn" || v == "strict" {
+			cfg.CheckOrphans = v
 		}
 	// Repeatable: each --content-source adds one root. The CLI form takes the
 	// path only; type/category need the config file (CONTENT-002).
@@ -1476,6 +1507,12 @@ func printUsage() {
 	fmt.Println("  --outputs=LIST         - Extra output formats per page, comma-separated (e.g. json)")
 	fmt.Println("  --check-links          - Validate internal links after build (warn mode)")
 	fmt.Println("  --check-links=MODE     - warn | strict (strict fails the build on dead links)")
+	fmt.Println("  --check-images         - Report images with no alt attribute (warn mode)")
+	fmt.Println("  --check-images=MODE    - warn | strict | strict-decorative (also reports alt=\"\")")
+	fmt.Println("  --check-meta           - Validate title/description on indexable pages (warn mode)")
+	fmt.Println("  --check-meta=MODE      - warn | strict (strict fails the build)")
+	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")
+	fmt.Println("  --check-orphans=MODE   - warn | strict (strict fails the build)")
 	fmt.Println("  --auto-excerpt         - Derive a missing excerpt from the opening paragraph")
 	fmt.Println("  --shortcode-errors=M   - drop (default) | keep | strict — what a shortcode that")
 	fmt.Println("                           fails to render leaves in the page (keep = its raw source,")

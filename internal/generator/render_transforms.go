@@ -129,6 +129,13 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	if !strings.Contains(s, "hreflang") {
 		b.WriteString(string(g.hreflangTags(page)))
 	}
+	// Fall back to the front-matter description when the theme emitted no usable
+	// one (#76). Nothing is invented here — the author already wrote it, it just
+	// never reached the output because the template interpolated a different
+	// field. An existing but EMPTY tag is rewritten in place rather than joined by
+	// a second one: two description tags, the first of them blank, is worse than
+	// the problem being fixed.
+	s = fillMetaDescription(s, page.Description)
 	if b.Len() == 0 {
 		return s
 	}

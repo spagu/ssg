@@ -529,6 +529,12 @@ implemented.
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `check_links` | empty | `--check-links[=warn|strict]` | Validate internal links |
+| `check_images` | empty | `--check-images[=warn|strict|strict-decorative]` | Report images with **no** `alt` attribute |
+| `check_meta` | empty | `--check-meta[=warn|strict]` | Validate `<title>` and meta description on indexable pages |
+| `check_orphans` | empty | `--check-orphans[=warn|strict]` | Report indexable pages nothing links to |
+| `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
+| `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
+| `content_exclude` | empty | — | Globs for Markdown under `content_dir` that is **not** a page |
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
@@ -566,6 +572,86 @@ Violations **warn** by default so a site can adopt schemas incrementally. Turn o
 failures**: a renamed slug that orphans a link, or a post missing a required
 field, then fails the build instead of shipping. `strict` enables link checking
 even when `check_links` is unset.
+
+### Validating the built output
+
+Three checks run over the generated HTML, in the same shape as `check_links`:
+empty (off), `warn`, or `strict` (a finding fails the build). `strict: true`
+escalates any enabled check.
+
+**`check_images`** reports images with **no `alt` attribute at all**. It never
+generates alt text — an invented description reads as authoritative while being
+wrong, which is worse for a screen-reader user than silence. `alt=""` is the
+correct treatment for a decorative image (a logo next to the site name that would
+otherwise be announced twice) and stays **silent**; `strict-decorative` opts into
+reviewing those too.
+
+| state | verdict |
+|---|---|
+| no `alt` attribute | reported — the author has to decide |
+| `alt=""` | valid (decorative), silent unless `strict-decorative` |
+| `alt="…"` | valid |
+
+**`check_meta`** requires a non-empty `<title>` and meta description on every
+indexable page. `noindex` pages are skipped: a 404 page legitimately has neither.
+This catches a failure that is otherwise invisible — a theme interpolating a field
+that happens to always be empty emits a blank tag on every page, forever, and the
+generator has no reason to complain because it did exactly what the template
+asked.
+
+Lengths are reported as advisory notes, **never** as build failures, and the
+ranges are yours to set. A headline that reads well at 62 characters beats one
+mangled to fit, and a check that blocked the build on it would simply get
+switched off.
+
+```yaml
+check_meta: warn
+meta_limits:
+  title_min: 30          # unset ⇒ default; explicit 0 disables the bound
+  title_max: 60
+  description_min: 70
+  description_max: 160
+```
+
+**`check_orphans`** reports indexable pages that nothing links to. Only `<a href>`
+counts: every page links to itself through `<link rel="canonical">`, so counting
+all references would make nothing an orphan and the check would pass on a site
+full of them. Self-links, `noindex` pages and the site root are ignored.
+
+`seo: true` also fills in a missing meta description from the front-matter
+`description:`. Nothing is invented — the author already wrote it, it just never
+reached the output. An existing but empty tag is rewritten in place rather than
+joined by a second one.
+
+### Keeping the sitemap honest
+
+`sitemap.xml` never lists a page whose rendered HTML says `noindex`: asking a
+crawler to index a URL the page itself declines is reported as an error by search
+consoles. This needs no configuration — the sitemap is written after rendering, so
+the answer is already on disk, wherever the `noindex` came from.
+
+Pages whose canonical points at a **different** URL are a separate case, and are
+kept by default. A canonical that disagrees with the permalink is far more often a
+theme bug than a deliberate exclusion, and quietly removing real pages from the
+sitemap over one would be worse than the contradiction it fixes. Opt in with
+`sitemap_prune_canonical: true`.
+
+### Excluding Markdown that is not a page
+
+`content_dir` is scanned recursively and every `.md` becomes a page. A file that
+is *data* — a sample documenting another tool's front-matter format, say — may be
+perfectly valid for its own purpose and unparseable as a page, and `status: draft`
+cannot help because the failure happens while unmarshalling, before any status
+field is read.
+
+```yaml
+content_exclude:
+  - "docs/examples/**"    # ** crosses directory separators
+  - "sample-*.md"         # bare filenames work too
+```
+
+Patterns are matched before parsing, against the full path, the content-relative
+path and the filename, so each form behaves the way it reads.
 
 `route_manifest` (or `--route-manifest`) writes `routes.json` to the output root:
 a sorted, deduplicated list of every generated route — posts, pages, and category

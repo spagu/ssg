@@ -89,6 +89,36 @@ seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by def
                      # Legacy seo_off / --seo-off are still accepted as no-ops.
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
 
+# Validation over the generated HTML. Same shape as check_links; strict: true
+# escalates any of them to a build failure.
+check_images: ""     # "" | warn | strict | strict-decorative — reports images with NO alt
+                     # attribute. alt="" is a valid decorative image and stays silent
+                     # unless strict-decorative. Alt text is never generated (#75).
+check_meta: ""       # "" | warn | strict — indexable pages need a <title> and a
+                     # non-empty meta description; noindex pages are skipped (#76).
+check_orphans: ""    # "" | warn | strict — indexable pages nothing links to. Only
+                     # <a href> counts; self-links and the site root are ignored (#77).
+
+# Advisory length ranges for check_meta. Warnings only, never build failures.
+# Unset ⇒ the built-in default; an explicit 0 disables that bound.
+meta_limits:
+  title_min: 30
+  title_max: 60
+  description_min: 70
+  description_max: 160
+
+# sitemap.xml always drops pages whose rendered HTML says noindex. Pages whose
+# canonical points elsewhere are kept unless you opt in here — a mismatched
+# canonical is usually a theme bug, not a deliberate exclusion (#78).
+sitemap_prune_canonical: false
+
+# Markdown under content_dir that is data, not a page: matched before parsing, so
+# a file whose front matter cannot be read as a page is skipped cleanly (#74).
+# "**" crosses directory separators.
+content_exclude: []
+#  - "docs/examples/**"
+#  - "sample-*.md"
+
 # Asset bundling — concatenate groups before minify/fingerprint (reference the bundle in templates)
 # bundles:
 #   app.css: ["reset.css", "layout.css", "theme.css"]
