@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🎲 **`TestRenderParallelDeterministic` was intermittently failing** — it built
+  its corpus twice, once per worker count, so the two builds read source files
+  with different mtimes. A post with no explicit `modified:` takes its feed
+  `<updated>` from that mtime, so whenever the two writes straddled a second
+  boundary the feeds differed and the test failed on a difference it was never
+  meant to measure. It blocked the 1.8.17 release tag. The corpus is now written
+  once and both builds read it, leaving the worker count as the only variable;
+  200 runs plus 60 under `-race` are clean (it previously failed roughly 1 run in
+  30 under `-race`).
+
 ## [1.8.17] - 2026-08-04
 
 ### Changed
