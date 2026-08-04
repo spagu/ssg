@@ -5,6 +5,8 @@ date: "2025-01-01T12:00:00Z"
 description: "About page for testing SSG GitHub Action"
 status: "publish"
 type: "page"
+aliases:
+  - "/about-us"
 ---
 
 # About

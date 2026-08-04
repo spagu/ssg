@@ -11,6 +11,8 @@ tags:
   - tutorial
 series: getting-started
 author: test-author
+aliases:
+  - "/old/test-post-2"
 ---
 
 # Test Post Two

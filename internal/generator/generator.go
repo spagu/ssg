@@ -307,10 +307,11 @@ type Generator struct {
 	data         map[string]interface{}   // Data files loaded into .Data.* (PLAT-002)
 	translations map[string][]Translation // slug → language variants (PLAT-005)
 	catalog      *ssgi18n.Catalog
-	// currentLang is the language of the page being rendered. Mutable per-render
-	// state (set in pageToTemplateData / the per-language index loop): correct for
-	// the single-goroutine build, but must become per-render context before any
-	// future parallel rendering.
+	// currentLang is the language of the pages currently rendering. It is shared
+	// mutable state, made safe under the render pool by batching: renderContent
+	// groups items by language and calls setLanguageContext once per batch,
+	// sequentially, so every worker in a batch only ever reads it (BUILD-PARALLEL).
+	// Anything that would set it per page must take per-render context instead.
 	currentLang string
 	md          goldmark.Markdown  // configured Markdown renderer (AX-001/002/003)
 	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
@@ -343,7 +344,8 @@ type Generator struct {
 	// mdCache memoizes goldmark conversions keyed by the exact markdown source, so
 	// feeds, the search index, JSON output and per-path renders do not re-convert
 	// the same content (PERF-004). mdConversions counts REAL conversions and backs
-	// the once-per-content acceptance test. Builds are single-goroutine.
+	// the once-per-content acceptance test. Pages render on a worker pool, so both
+	// are guarded by mdMu below.
 	mdCache       map[string]string
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
