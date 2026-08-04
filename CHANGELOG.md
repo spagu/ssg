@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   time per page, so throughput claims are reproducible on your own hardware.
 
 ### Fixed
+- 📄 **`dynamic-taxonomies` and `external-sources` examples shipped broken output**
+  — both post templates read `.Page.*`, but posts receive their model under
+  `.Post`, so every generated post had an empty `<title>`, an empty `<h1>` and
+  empty taxonomy footers. Both also printed `{{.Content}}`, which is the **raw
+  Markdown source** — `safeHTML` is the helper that converts it — so readers got
+  unrendered Markdown. Fixed in both examples, and the docs that let this happen
+  are clearer: `docs/TEMPLATES.md` now spells out `.Page` in `page.html` vs
+  `.Post` in `post.html` and warns that the mismatch fails silently, and
+  `docs/TEMPLATE_HELPERS.md` describes `safeHTML` as what renders a Markdown body
+  rather than merely an escaping escape hatch.
 - 🔒 **Two more parallel-render races, found by auditing the whole render tree**
   after the alias bug below. `link_rewrites` memoized its sorted prefix list with
   an unguarded check-then-write, and it runs on the worker pool (the `safeHTML`
