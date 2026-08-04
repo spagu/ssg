@@ -37,7 +37,7 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
-        site site-watch golden golden-update bench \
+        site site-watch golden golden-update bench determinism \
         clean install uninstall release test-action
 
 # Default target
@@ -142,6 +142,9 @@ test-coverage: test ## 📊 Run tests with coverage report
 
 bench: ## ⏱️  Measure build throughput on a synthetic corpus (PERF-012/013)
 	@./scripts/bench-build.sh
+
+determinism: ## 🎲 Fail if the worker count changes the generated site (BUILD-PARALLEL)
+	@./scripts/determinism.sh
 
 golden: ## 🔒 Check taxonomy output against the backward-compat golden baseline (#44)
 	@./scripts/taxonomy-golden.sh

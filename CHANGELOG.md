@@ -22,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   random inputs. Measured best-of-3 on an M2: 2000 posts 2.96s → 0.95s, 5000
   posts 12.07s → 2.30s, with the per-post cost now flat (~0.46ms) instead of
   climbing. Output is unchanged — golden byte-identical on all four corpora.
+- 🎲 **`make determinism`** — builds every corpus sequentially and on a full
+  worker pool, then compares the output trees file by file, so shared render
+  state missing a lock or an ordering fails the build instead of surfacing as a
+  bug report months later. It carries its own stress corpus (300 aliased posts
+  with `link_rewrites`), because the shipped corpora are too small for the
+  scheduler to vary — verified by re-introducing the fixed bugs: the shipped
+  corpora alone caught none of them, the stress corpus catches the `_redirects`
+  ordering and the lost-alias regressions. It complements `go test -race` rather
+  than replacing it; the `link_rewrites` memo race is the reverse case, caught by
+  `-race` while the output survives. **`make golden` and `make determinism` now
+  both run in CI** — neither did before, which is how those bugs shipped.
 - ⏱️ **`make bench`** — a new `scripts/bench-build.sh` generates a fixed-seed
   synthetic corpus (100/500/2000 posts by default, configurable) and reports build
   time per page, so throughput claims are reproducible on your own hardware.

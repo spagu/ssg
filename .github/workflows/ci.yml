@@ -94,6 +94,16 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      # The generated site must not depend on the recorded baseline drifting, nor
+      # on how many workers built it. Neither check ran in CI before, which is how
+      # four parallel-render bugs shipped: each lived on a path the unit tests
+      # never drove, so -race stayed silent and nobody rebuilt the corpora by hand.
+      - name: Check output against the golden baseline
+        run: bash scripts/taxonomy-golden.sh
+
+      - name: Check output is independent of worker count
+        run: bash scripts/determinism.sh
+
       - name: Upload coverage
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
