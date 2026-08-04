@@ -42,22 +42,27 @@ func (g *Generator) applyLinkRewrites(html string) string {
 // linkRewritePrefixes returns the configured prefixes longest-first, so the
 // most specific rule wins regardless of map iteration order. Computed once per
 // build and cached: content rendering calls this for every page.
+//
+// The memo is built under a sync.Once because this runs on the render worker
+// pool — applyLinkRewrites is reached from the safeHTML template helper during
+// ExecuteTemplate. An unguarded check-then-write let concurrent pages race on the
+// slice header and rewrite links against a torn or empty prefix list
+// (BUILD-PARALLEL follow-up).
 func (g *Generator) linkRewritePrefixes() []string {
-	if g.linkRewriteKeys != nil {
-		return g.linkRewriteKeys
-	}
-	keys := make([]string, 0, len(g.config.LinkRewrites))
-	for prefix := range g.config.LinkRewrites {
-		if prefix != "" {
-			keys = append(keys, prefix)
+	g.linkRewriteOnce.Do(func() {
+		keys := make([]string, 0, len(g.config.LinkRewrites))
+		for prefix := range g.config.LinkRewrites {
+			if prefix != "" {
+				keys = append(keys, prefix)
+			}
 		}
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		if len(keys[i]) != len(keys[j]) {
-			return len(keys[i]) > len(keys[j])
-		}
-		return keys[i] < keys[j] // stable for equal lengths
+		sort.Slice(keys, func(i, j int) bool {
+			if len(keys[i]) != len(keys[j]) {
+				return len(keys[i]) > len(keys[j])
+			}
+			return keys[i] < keys[j] // stable for equal lengths
+		})
+		g.linkRewriteKeys = keys
 	})
-	g.linkRewriteKeys = keys
-	return keys
+	return g.linkRewriteKeys
 }

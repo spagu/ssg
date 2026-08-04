@@ -334,6 +334,7 @@ type Generator struct {
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
+	linkRewriteOnce   sync.Once                      // built on the render pool, so memoize under a Once
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
 	gitRoot           string                         // repo top-level dir for lastmod lookups (PERF-001)
 	gitTimes          map[string]time.Time           // repo-relative path → last commit date (PERF-001)
@@ -381,11 +382,16 @@ type Generator struct {
 	// order is still scheduler-dependent, so collectRedirects sorts these before
 	// emitting — see sortedRedirects.
 	aliasRedirects []RedirectRule
-	aliasMu        sync.Mutex
+	// aliasStubs are the meta-refresh stub files requested during rendering and
+	// written by flushAliasStubs once the real pages exist. aliasMu guards both.
+	aliasStubs []aliasStubReq
+	aliasMu    sync.Mutex
 
 	// images is the lazily-built processor behind the image* template helpers
-	// (audit/images-processing-feature.md).
-	images *images.Processor
+	// (audit/images-processing-feature.md). The helpers run on the render pool,
+	// so imagesOnce guards the construction.
+	images     *images.Processor
+	imagesOnce sync.Once
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -2915,6 +2921,13 @@ func (g *Generator) generateSite() error {
 		return fmt.Errorf("generating taxonomies: %w", err)
 	}
 
+	// Alias stubs are written last, once every real page exists. Writing them
+	// during the parallel render made the "collides with an existing page" check
+	// a race against a half-written output tree: the warning appeared or not
+	// depending on scheduling, and two pages claiming the same alias raced to
+	// write the same file (BUILD-PARALLEL follow-up).
+	g.flushAliasStubs()
+
 	return nil
 }
 
@@ -3188,10 +3201,15 @@ func (g *Generator) generatePost(post models.Page) error {
 	return nil
 }
 
-// writeAliasStubs emits meta-refresh + canonical redirect stubs for each alias of
-// a page (SEO-002). Alias paths are sanitized and confined to the output root
+// writeAliasStubs records each alias of a page: a 301 for the _redirects file
+// (GO-063) and, unless alias_stubs is off, a meta-refresh stub for non-Cloudflare
+// hosts (SEO-002). Alias paths are sanitized and confined to the output root
 // (SEC-001); aliases are excluded from the sitemap because they are not real
-// pages. An alias colliding with an already-generated page is skipped.
+// pages.
+//
+// It only records — flushAliasStubs writes the files once rendering is done. It
+// runs on the render worker pool, where writing immediately made the "collides
+// with an existing page" check race a half-written output tree.
 func (g *Generator) writeAliasStubs(page models.Page) {
 	if len(page.Aliases) == 0 {
 		return
@@ -3211,21 +3229,53 @@ func (g *Generator) writeAliasStubs(page models.Page) {
 		if rel == "" || rel == "." {
 			continue
 		}
-		// Record the alias as a 301 for the _redirects file (GO-063). Guarded:
-		// this runs on the parallel render pool.
+		// Record the alias as a 301 for the _redirects file (GO-063), and queue
+		// its stub for flushAliasStubs. Both are guarded: this runs on the
+		// parallel render pool.
 		g.aliasMu.Lock()
 		g.aliasRedirects = append(g.aliasRedirects, RedirectRule{From: "/" + rel, To: target, Status: 301})
-		g.aliasMu.Unlock()
-		// Meta-refresh stubs are the client-side fallback for non-CF hosts;
-		// alias_stubs: false drops them and keeps only the _redirects entry.
 		if writeStub {
-			g.writeAliasStub(alias, rel, target)
+			g.aliasStubs = append(g.aliasStubs, aliasStubReq{alias: alias, rel: rel, target: target})
 		}
+		g.aliasMu.Unlock()
 	}
 }
 
 // writeAliasStub writes one meta-refresh stub page for an alias, confined to
 // the output root and skipped when it would collide with a real page (SEO-002).
+// aliasStubReq is one alias stub queued during rendering (BUILD-PARALLEL).
+type aliasStubReq struct {
+	alias, rel, target string
+}
+
+// flushAliasStubs writes the alias stubs collected during rendering. It runs
+// after every real page exists, so the collision check below is meaningful, and
+// it walks the requests in a fixed order so duplicate aliases resolve the same
+// way on every build.
+func (g *Generator) flushAliasStubs() {
+	g.aliasMu.Lock()
+	reqs := append([]aliasStubReq(nil), g.aliasStubs...)
+	g.aliasMu.Unlock()
+
+	sort.Slice(reqs, func(i, j int) bool {
+		if reqs[i].rel != reqs[j].rel {
+			return reqs[i].rel < reqs[j].rel
+		}
+		return reqs[i].target < reqs[j].target
+	})
+	written := make(map[string]bool, len(reqs))
+	for _, r := range reqs {
+		// First request for a path wins; with the sort above that is deterministic
+		// rather than whichever worker happened to finish first.
+		if written[r.rel] {
+			fmt.Printf("   ⚠️  Alias %q declared more than once; keeping the first target\n", r.alias)
+			continue
+		}
+		written[r.rel] = true
+		g.writeAliasStub(r.alias, r.rel, r.target)
+	}
+}
+
 func (g *Generator) writeAliasStub(alias, rel, target string) {
 	outPath := filepath.Join(g.config.OutputDir, rel, indexHTMLName)
 	if strings.HasSuffix(strings.ToLower(rel), ".html") {

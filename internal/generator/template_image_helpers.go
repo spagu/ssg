@@ -13,32 +13,37 @@ import (
 
 // imageProcessor lazily builds the shared processor. Source lookup order per
 // the spec: assets/ → static dir → the content source dir → the theme dir.
+//
+// Built under a sync.Once: the image* template helpers and shortcode templates
+// reach this from the render worker pool, so a plain check-then-assign would race
+// on the field. renderContent still warms it before rendering, but that warm-up
+// is now an optimization rather than the thing keeping this correct
+// (BUILD-PARALLEL follow-up).
 func (g *Generator) imageProcessor() *images.Processor {
-	if g.images != nil {
-		return g.images
-	}
-	staticDir := g.config.StaticDir
-	if staticDir == "" {
-		staticDir = defaultStaticDir
-	}
-	// Search order per the spec, plus every extra Markdown root: an image kept
-	// beside content in a content_sources directory resolves like one beside
-	// the primary source (CONTENT-002).
-	dirs := []string{
-		"assets",
-		staticDir,
-		filepath.Join(g.config.ContentDir, g.config.Source),
-		filepath.Join(g.config.TemplatesDir, g.config.Template),
-	}
-	for _, src := range g.config.ContentSources {
-		if src.Path != "" {
-			dirs = append(dirs, src.Path)
+	g.imagesOnce.Do(func() {
+		staticDir := g.config.StaticDir
+		if staticDir == "" {
+			staticDir = defaultStaticDir
 		}
-	}
-	g.images = images.New(images.Config{
-		SourceDirs: dirs,
-		OutputDir:  g.config.OutputDir,
-		Quiet:      g.config.Quiet,
+		// Search order per the spec, plus every extra Markdown root: an image kept
+		// beside content in a content_sources directory resolves like one beside
+		// the primary source (CONTENT-002).
+		dirs := []string{
+			"assets",
+			staticDir,
+			filepath.Join(g.config.ContentDir, g.config.Source),
+			filepath.Join(g.config.TemplatesDir, g.config.Template),
+		}
+		for _, src := range g.config.ContentSources {
+			if src.Path != "" {
+				dirs = append(dirs, src.Path)
+			}
+		}
+		g.images = images.New(images.Config{
+			SourceDirs: dirs,
+			OutputDir:  g.config.OutputDir,
+			Quiet:      g.config.Quiet,
+		})
 	})
 	return g.images
 }

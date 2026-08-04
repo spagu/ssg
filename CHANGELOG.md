@@ -27,6 +27,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   time per page, so throughput claims are reproducible on your own hardware.
 
 ### Fixed
+- 🔒 **Two more parallel-render races, found by auditing the whole render tree**
+  after the alias bug below. `link_rewrites` memoized its sorted prefix list with
+  an unguarded check-then-write, and it runs on the worker pool (the `safeHTML`
+  template helper calls it during `ExecuteTemplate`), so concurrent pages raced on
+  the slice header and could rewrite links against a torn or empty prefix list —
+  intermittently masked depending on whether an earlier sequential render warmed
+  the memo. The shared image processor had the same unguarded lazy init, kept
+  correct only by a warm-up call placed before the pool. Both now build under a
+  `sync.Once`. Alias stub files also moved out of the pool: writing them during
+  rendering made the "alias collides with an existing page" check a race against a
+  half-written output tree, so the warning appeared or not depending on timing and
+  two pages claiming the same alias raced to write the same file. They are now
+  recorded during rendering and written afterwards in sorted order, once every
+  real page exists.
 - 🐛 **Frontmatter `aliases:` silently lost redirects, and `_redirects` was not
   reproducible** — a regression from parallel rendering (1.8.15). Pages render on
   a worker pool, and each one appended its aliases to a shared slice with no

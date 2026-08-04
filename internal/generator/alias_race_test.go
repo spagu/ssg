@@ -2,6 +2,9 @@ package generator
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -61,6 +64,45 @@ func TestAliasRedirectsUnderParallelRender(t *testing.T) {
 		if seen[from] != 1 {
 			t.Errorf("alias %s recorded %d times, want exactly 1", from, seen[from])
 		}
+	}
+}
+
+// TestDuplicateAliasStubIsDeterministic covers the TOCTOU half: stubs used to be
+// written from the render pool, so two pages claiming the same alias raced to
+// write the same file and the winner depended on scheduling. Recording during
+// render and flushing afterwards in sorted order makes the winner fixed.
+func TestDuplicateAliasStubIsDeterministic(t *testing.T) {
+	const runs = 12
+	var first string
+	for i := 0; i < runs; i++ {
+		g := newTestGen(t, "")
+		// Two pages claim /shared/, recorded from the pool in varying order.
+		pages := []models.Page{
+			{Type: "page", Slug: "alpha", Aliases: []string{"/shared/"}},
+			{Type: "page", Slug: "beta", Aliases: []string{"/shared/"}},
+		}
+		var wg sync.WaitGroup
+		for _, p := range pages {
+			wg.Add(1)
+			go func(p models.Page) { defer wg.Done(); g.writeAliasStubs(p) }(p)
+		}
+		wg.Wait()
+		g.flushAliasStubs()
+
+		data, err := os.ReadFile(filepath.Join(g.config.OutputDir, "shared", indexHTMLName))
+		if err != nil {
+			t.Fatalf("run %d: stub not written: %v", i, err)
+		}
+		if i == 0 {
+			first = string(data)
+			continue
+		}
+		if string(data) != first {
+			t.Fatalf("run %d produced a different stub than run 0 — duplicate aliases are still scheduler-dependent", i)
+		}
+	}
+	if !strings.Contains(first, "/alpha/") {
+		t.Errorf("sorted flush should keep the first target by (rel, target); got %q", first)
 	}
 }
 
