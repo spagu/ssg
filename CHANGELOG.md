@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.18] - 2026-08-04
+
+### Fixed
+- 🔗 **`simple` theme: the canonical URL ignored the permalink scheme** — `post.html`
+  and `page.html` hardcoded `https://<domain>/<slug>/`, so every post on a
+  date-based permalink (the default) advertised a canonical pointing at a URL that
+  does not exist: `/test-post/` for a page served at `/2025/01/01/test-post/`.
+  Both now use the model's own `GetCanonical`, which follows the configured
+  permalink scheme, and still honour an explicit frontmatter `canonical:`. Found
+  while testing #78: pruning the sitemap on canonical mismatch silently dropped
+  real posts, and the theme — not the check — was wrong.
+
+### Added
+- 🔎 **Three build-time checks over the generated HTML**, in the same shape as
+  `check_links` (off / `warn` / `strict`, escalated by `strict: true`). Each
+  targets a failure that is invisible today because the generator did exactly what
+  it was told.
+  - **`--check-images` / `check_images`** (#75) reports images with **no `alt`
+    attribute**. It never generates alt text: an invented description reads as
+    authoritative while being wrong, which is worse for a screen-reader user than
+    silence. `alt=""` is the correct treatment for a decorative image and stays
+    silent; `strict-decorative` opts into reviewing those too.
+  - **`--check-meta` / `check_meta`** (#76) requires a non-empty `<title>` and meta
+    description on indexable pages, skipping `noindex`. Catches the whole-site
+    failure where a theme interpolates a field that is always empty and every page
+    ships a blank tag. Title and description **lengths** are advisory notes, never
+    build failures, and the ranges are configurable via **`meta_limits`** —
+    `title_min`/`title_max`/`description_min`/`description_max`, where unset means
+    the built-in default and an explicit `0` disables that bound.
+  - **`--check-orphans` / `check_orphans`** (#77) reports indexable pages nothing
+    links to. Only `<a href>` counts — every page links to itself through
+    `<link rel="canonical">`, so counting all references would make nothing an
+    orphan; self-links, `noindex` pages and the site root are ignored.
+- 🧹 **`content_exclude`** (#74) — globs for Markdown under `content_dir` that must
+  not be loaded as a page. Matched **before** parsing, so a data file whose front
+  matter is valid for its own purpose but unparseable as a page is skipped cleanly
+  instead of warning and being silently dropped. `status: draft` cannot help there,
+  because the failure happens while unmarshalling, before any status is read.
+  `**` crosses directory separators; the full path, the content-relative path and
+  the bare filename are all matched.
+
+### Changed
+- 🏷️ **`seo: true` now fills in a missing meta description** from the front-matter
+  `description:` (#76). Nothing is invented — the author already wrote it, it just
+  never reached the output. An existing but **empty** tag is rewritten in place
+  rather than joined by a second one, since two description tags with a blank first
+  is worse than the problem being fixed.
+- 🗺️ **`sitemap.xml` no longer lists pages whose rendered HTML says `noindex`**
+  (#78). The sitemap asks a crawler to index a URL the page itself declines, which
+  search consoles report as an error. No configuration needed: the sitemap is
+  written after rendering, so the answer is on disk wherever the `noindex` came
+  from — front matter or theme. Pages whose canonical points at a **different** URL
+  are kept by default and pruned only with **`sitemap_prune_canonical: true`**: a
+  canonical disagreeing with the permalink is far more often a theme bug than a
+  deliberate exclusion, and the shipped `simple` theme is itself an example, so
+  pruning on it by default would silently drop real posts.
+
+### Fixed
+- 🎲 **`TestRenderParallelDeterministic` was intermittently failing** — it built
+  its corpus twice, once per worker count, so the two builds read source files
+  with different mtimes. A post with no explicit `modified:` takes its feed
+  `<updated>` from that mtime, so whenever the two writes straddled a second
+  boundary the feeds differed and the test failed on a difference it was never
+  meant to measure. It blocked the 1.8.17 release tag. The corpus is now written
+  once and both builds read it, leaving the worker count as the only variable;
+  200 runs plus 60 under `-race` are clean (it previously failed roughly 1 run in
+  30 under `-race`).
+
 ## [1.8.17] - 2026-08-04
 
 ### Changed
@@ -2013,7 +2081,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.17...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.18...HEAD
+[1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10

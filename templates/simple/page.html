@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Page.Title}} - {{.Domain}}</title>
     <meta name="description" content="{{.Page.Excerpt}}">
-    <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/">
+    <link rel="canonical" href="{{with .Canonical}}{{.}}{{else}}{{$.Page.GetCanonical $.Domain}}{{end}}">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>

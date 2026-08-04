@@ -6,10 +6,14 @@ import (
 	"testing"
 )
 
-// buildSiteWithWorkers builds a small multi-page site (pages + posts + a shortcode
-// + an .md link, across two languages) at the given worker count and returns the
-// output dir. Exercises the shared render caches (mdCache, shortcode, mdLinkWarned).
-func buildSiteWithWorkers(t *testing.T, workers int) string {
+// writeParallelCorpus writes a small multi-page site (pages + posts + a shortcode
+// + an .md link) and returns its root. Written ONCE per test: both builds must
+// read the same files, because a post with no explicit `modified:` takes its feed
+// <updated> from the source file's mtime. Writing a fresh copy per build made the
+// two corpora differ whenever the writes straddled a second boundary, so the test
+// failed intermittently on a difference it was never meant to measure — it bit a
+// release tag before this was fixed.
+func writeParallelCorpus(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
 	contentDir := filepath.Join(tmp, "content", "site")
@@ -28,12 +32,21 @@ func buildSiteWithWorkers(t *testing.T, workers int) string {
 				"\nstatus: publish\ntype: page\n---\n\nSome page body.\n")
 	}
 	writeSimpleTemplates(t, filepath.Join(tmp, "templates", "simple"))
+	return tmp
+}
 
+// buildSiteWithWorkers builds the given corpus at a worker count, into its own
+// output dir, and returns that dir. The corpus is shared so the worker count is
+// the only difference between two builds. Exercises the shared render caches
+// (mdCache, shortcode, mdLinkWarned).
+func buildSiteWithWorkers(t *testing.T, root string, workers int) string {
+	t.Helper()
+	out := filepath.Join(t.TempDir(), "output")
 	gen, err := New(Config{
 		Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir:   filepath.Join(tmp, "content"),
-		TemplatesDir: filepath.Join(tmp, "templates"),
-		OutputDir:    filepath.Join(tmp, "output"),
+		ContentDir:   filepath.Join(root, "content"),
+		TemplatesDir: filepath.Join(root, "templates"),
+		OutputDir:    out,
 		Feed:         true, RewriteMdLinks: true, BuildWorkers: workers, Quiet: true,
 	})
 	if err != nil {
@@ -42,7 +55,7 @@ func buildSiteWithWorkers(t *testing.T, workers int) string {
 	if err := gen.Generate(); err != nil {
 		t.Fatalf("Generate(workers=%d): %v", workers, err)
 	}
-	return filepath.Join(tmp, "output")
+	return out
 }
 
 // snapshot maps every output file to its bytes.
@@ -65,8 +78,9 @@ func snapshot(t *testing.T, dir string) map[string]string {
 // byte-for-byte the same output tree as a sequential one (1 worker). Run under
 // -race, the parallel build also proves the shared render caches are race-free.
 func TestRenderParallelDeterministic(t *testing.T) {
-	seq := snapshot(t, buildSiteWithWorkers(t, 1))
-	par := snapshot(t, buildSiteWithWorkers(t, 8))
+	root := writeParallelCorpus(t)
+	seq := snapshot(t, buildSiteWithWorkers(t, root, 1))
+	par := snapshot(t, buildSiteWithWorkers(t, root, 8))
 
 	if len(seq) != len(par) {
 		t.Fatalf("file count differs: sequential %d, parallel %d", len(seq), len(par))

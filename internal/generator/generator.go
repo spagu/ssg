@@ -204,8 +204,22 @@ type Config struct {
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
-	Schema      map[string]interface{}
-	CheckLinks  string
+	Schema map[string]interface{}
+	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
+	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
+	CheckLinks   string
+	CheckImages  string
+	CheckMeta    string
+	CheckOrphans string
+	// ContentExclude are glob patterns for Markdown files that must not be loaded
+	// as pages (#74).
+	ContentExclude []string
+	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
+	// sitemap; noindex pages are dropped regardless (#78).
+	SitemapPruneCanonical bool
+	// MetaLimits tunes the advisory title/description length ranges --check-meta
+	// reports on; zero values fall back to the built-in defaults (#76).
+	MetaLimits  models.MetaLimits
 	Bundles     map[string][]string
 	Outputs     []string
 	SearchIndex bool
@@ -392,6 +406,11 @@ type Generator struct {
 	// so imagesOnce guards the construction.
 	images     *images.Processor
 	imagesOnce sync.Once
+
+	// sitemapSelf memoizes, per output path, whether a rendered page excludes
+	// itself from the sitemap via noindex or a foreign canonical (#78).
+	sitemapSelf   map[string]bool
+	sitemapSelfMu sync.Mutex
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -802,8 +821,20 @@ func (g *Generator) assetPhase() error {
 	if err := g.fingerprintIfRequested(); err != nil {
 		return err
 	}
-	// Link checking runs last, over the final output tree (SEO-005).
-	return g.checkLinksIfRequested()
+	// Validation runs last, over the final output tree: links (SEO-005), image alt
+	// attributes (#75) and page metadata (#76). Each reports everything it finds
+	// before the first strict failure returns, so one build surfaces the whole
+	// list rather than one problem at a time.
+	if err := g.checkLinksIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkImagesIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkMetaIfRequested(); err != nil {
+		return err
+	}
+	return g.checkOrphansIfRequested()
 }
 
 // hookTimeout bounds every lifecycle hook so a hung command cannot stall the build.
@@ -1726,6 +1757,15 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		}
 
 		if !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		// content_exclude opts a file out of being treated as a page (#74).
+		// Checked BEFORE parsing: a file that is data rather than content — a
+		// sample documenting another tool's front-matter format, say — may have
+		// front matter that is valid for its own purpose and unparseable as a
+		// page. status: draft cannot help, because the failure happens while
+		// unmarshalling, before any status field is read.
+		if g.excludedFromContent(entryPath) {
 			continue
 		}
 
@@ -4008,7 +4048,7 @@ func (g *Generator) generateSitemap() error {
 	// Homepage — skip if any index page has noindex
 	skipHomepage := false
 	for _, page := range g.siteData.Pages {
-		if (page.Slug == "" || page.Slug == "index") && excludeFromSitemap(page) {
+		if (page.Slug == "" || page.Slug == "index") && g.excludesFromSitemap(page) {
 			skipHomepage = true
 			break
 		}
@@ -4032,7 +4072,7 @@ func (g *Generator) generateSitemap() error {
 
 	// Pages
 	for _, page := range g.siteData.Pages {
-		if excludeFromSitemap(page) {
+		if g.excludesFromSitemap(page) {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
@@ -4048,7 +4088,7 @@ func (g *Generator) generateSitemap() error {
 
 	// Posts
 	for _, post := range g.siteData.Posts {
-		if excludeFromSitemap(post) {
+		if g.excludesFromSitemap(post) {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)

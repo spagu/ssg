@@ -15,3 +15,18 @@ type FieldRule struct {
 	Type   string   `yaml:"type" toml:"type" json:"type"`
 	Values []string `yaml:"values" toml:"values" json:"values"`
 }
+
+// MetaLimits are the advisory character ranges --check-meta reports on (#76).
+// Every field is optional: unset uses the built-in default, and an explicit 0
+// switches that bound off. Lengths are counted in runes, so an accented or CJK
+// title is measured as a reader sees it rather than in bytes.
+//
+// These produce warnings, never build failures. A headline that reads well at 62
+// characters is worth more than one mangled to fit, and a check that blocked the
+// build on it would simply get switched off the first time it fired.
+type MetaLimits struct {
+	TitleMin       *int `yaml:"title_min" toml:"title_min" json:"title_min"`
+	TitleMax       *int `yaml:"title_max" toml:"title_max" json:"title_max"`
+	DescriptionMin *int `yaml:"description_min" toml:"description_min" json:"description_min"`
+	DescriptionMax *int `yaml:"description_max" toml:"description_max" json:"description_max"`
+}

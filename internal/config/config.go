@@ -307,6 +307,45 @@ type Config struct {
 	// (non-zero exit on a dead internal link) (SEO-005).
 	CheckLinks string `yaml:"check_links" toml:"check_links" json:"check_links"`
 
+	// CheckImages validates image alt attributes after build: "" (off), "warn",
+	// "strict", or "strict-decorative". Only an image with NO alt attribute is a
+	// finding — `alt=""` is the correct treatment for a decorative image and stays
+	// silent unless "strict-decorative" asks for it. Nothing is ever generated:
+	// an invented description is worse than none (#75).
+	CheckImages string `yaml:"check_images" toml:"check_images" json:"check_images"`
+
+	// CheckMeta validates rendered page metadata after build: "" (off), "warn" or
+	// "strict". An indexable page must have a non-empty <title> and meta
+	// description; noindex pages are skipped. Catches the silent whole-site
+	// failure where a template interpolates a field that is always empty (#76).
+	CheckMeta string `yaml:"check_meta" toml:"check_meta" json:"check_meta"`
+
+	// SitemapPruneCanonical also drops pages whose rendered canonical points at a
+	// different URL from sitemap.xml. Off by default: a canonical that disagrees
+	// with the permalink is usually a theme bug rather than a deliberate
+	// exclusion, and removing real pages from the sitemap over one would be worse
+	// than the contradiction it fixes. noindex pages are pruned either way (#78).
+	SitemapPruneCanonical bool `yaml:"sitemap_prune_canonical" toml:"sitemap_prune_canonical" json:"sitemap_prune_canonical"`
+
+	// ContentExclude lists glob patterns for Markdown files under content_dir that
+	// must NOT be loaded as pages — data files, samples documenting another tool's
+	// front-matter format, anything that is not content. Matched before parsing,
+	// so a file whose front matter cannot be unmarshalled as a page is skipped
+	// cleanly instead of warning and being silently dropped (#74).
+	ContentExclude []string `yaml:"content_exclude" toml:"content_exclude" json:"content_exclude"`
+
+	// CheckOrphans reports published, indexable pages that nothing links to:
+	// "" (off), "warn" or "strict". Only <a href> counts as a link — every page
+	// links to itself via <link rel="canonical">, so counting all refs would make
+	// nothing an orphan; self-links and noindex pages are ignored too (#77).
+	CheckOrphans string `yaml:"check_orphans" toml:"check_orphans" json:"check_orphans"`
+
+	// MetaLimits tunes the advisory length ranges --check-meta reports on. What
+	// counts as a good title or description depends on the site and on which
+	// search engines matter, so the built-in numbers are a starting point, not a
+	// rule (#76).
+	MetaLimits models.MetaLimits `yaml:"meta_limits" toml:"meta_limits" json:"meta_limits"`
+
 	// Bundles concatenate groups of CSS/JS into one artifact before minify/fingerprint
 	// (ASSET-002): {"app.css": ["reset.css","theme.css"]}.
 	Bundles map[string][]string `yaml:"bundles" toml:"bundles" json:"bundles"`
