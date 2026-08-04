@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.18] - 2026-08-04
 
+### Fixed
+- 🔗 **`simple` theme: the canonical URL ignored the permalink scheme** — `post.html`
+  and `page.html` hardcoded `https://<domain>/<slug>/`, so every post on a
+  date-based permalink (the default) advertised a canonical pointing at a URL that
+  does not exist: `/test-post/` for a page served at `/2025/01/01/test-post/`.
+  Both now use the model's own `GetCanonical`, which follows the configured
+  permalink scheme, and still honour an explicit frontmatter `canonical:`. Found
+  while testing #78: pruning the sitemap on canonical mismatch silently dropped
+  real posts, and the theme — not the check — was wrong.
+
 ### Added
 - 🔎 **Three build-time checks over the generated HTML**, in the same shape as
   `check_links` (off / `warn` / `strict`, escalated by `strict: true`). Each
