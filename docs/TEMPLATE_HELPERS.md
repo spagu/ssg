@@ -224,6 +224,18 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 SSG registers several helper functions in the Go template engine for date formatting, HTML cleaning, metadata lookup, and logic controls.
 
 ### HTML and String Utilities
+* **`raw value`** (alias **`html`**) — Emits a value as HTML with **no processing
+  at all** — the plain `template.HTML` cast. Use it for markup that comes from
+  data: inline SVG, a pre-rendered snippet, an embedded config blob.
+
+  ```gotemplate
+  <svg viewBox="0 0 24 24">{{ index .Data.icons .Name | raw }}</svg>
+  ```
+
+  `safeHTML` is **not** a substitute here: in a page template it runs the Markdown
+  pipeline, which wraps the fragment in a `<p>`. Inside `<svg>` that is invalid,
+  so nothing draws and nothing warns.
+
 * **`safeHTML value`** — **Renders a page's Markdown body.** Despite the name, this
   is not only an escaping escape hatch: it is the pipeline that turns the raw
   Markdown source into HTML — shortcodes, the table of contents marker, Markdown

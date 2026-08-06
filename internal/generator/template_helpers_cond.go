@@ -5,6 +5,7 @@ package generator
 
 import (
 	"fmt"
+	"html/template"
 	"reflect"
 	"regexp"
 	"strings"
@@ -130,4 +131,29 @@ func tmplTernary(condition bool, trueValue, falseValue any) any {
 		return trueValue
 	}
 	return falseValue
+}
+
+// tmplRaw emits a value as HTML with no processing whatsoever — the plain
+// template.HTML cast, exposed as `raw` (and `html`).
+//
+// It exists because `safeHTML` means two different things depending on where it
+// is called: in a page template it is the Markdown pipeline (correct for
+// .Content), while the shortcode func map defines it as a bare cast. A theme
+// inlining markup from a data file — SVG geometry, a pre-rendered snippet, an
+// embedded config blob — needs the cast, and reaching for safeHTML instead got
+// the Markdown renderer, which wrapped the fragment in a <p>. Inside <svg> that
+// is invalid, so nothing drew and nothing warned (#83).
+func tmplRaw(v interface{}) template.HTML {
+	switch s := v.(type) {
+	case template.HTML:
+		return s
+	case string:
+		return template.HTML(s) // #nosec G203 -- author-controlled template/data, by definition
+	case fmt.Stringer:
+		return template.HTML(s.String()) // #nosec G203 -- as above
+	case nil:
+		return ""
+	default:
+		return template.HTML(fmt.Sprint(v)) // #nosec G203 -- as above
+	}
 }

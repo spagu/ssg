@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🧩 **`raw` (alias `html`) template helper** (#83) — a plain `template.HTML` cast
+  for markup that comes from data: inline SVG, a pre-rendered snippet, an embedded
+  config blob. `safeHTML` is not interchangeable: in a page template it runs the
+  **Markdown pipeline** (right for `.Content`), while the shortcode func map
+  defines it as a bare cast — the same name meaning two things. Passing SVG
+  geometry through it wrapped the fragment in a `<p>`, which is invalid inside
+  `<svg>`, so the icon silently did not draw.
+- 📦 **`static_sources:`** (#84) — more than one verbatim passthrough root,
+  mirroring `content_sources:`. One `static_dir` forces either a committed
+  duplicate that drifts or a staging script every contributor has to know about,
+  which is untenable when the files a site publishes already live elsewhere in the
+  repository and are read there by tests and CI. Each entry keeps its own name so
+  existing public URLs keep resolving (`path: xml` serves `/xml/…`); `dest:` places
+  it elsewhere and `dest: "."` spreads a directory's contents at the output root,
+  the way `static_dir` behaves. Copied after `static_dir`; a later entry wins.
+
+### Fixed
+- 🔗 **`link:` no longer has `page_format` appended to it** (#81) — a page whose
+  frontmatter set `link: /validator.html` was written to `validator.html.html`
+  under `page_format: flat`, and to a directory literally named `validator.html/`
+  under `directory`, with the sitemap advertising `/validator.html/`. `link` is
+  documented as the highest-precedence URL source, so a path that already names a
+  file is now final: no second extension, no trailing slash. Links without an
+  extension are unchanged, and a dot that is not an extension (`/spec/v1.0`) is
+  still a directory.
+- 📚 **`bundles:` documentation named paths that cannot work** (#79) — the example
+  used bare filenames, but bundle names and sources resolve against the **output
+  root**. Following it literally reported every source missing and wrote an empty
+  bundle, which reads as a broken theme rather than a config mistake.
+- 📚 **The theme-vs-generator SEO precedence is now documented** (#80) — `seo` is
+  not all-or-nothing. A theme that emits its own Open Graph tags (to control
+  `og:image`) still gets JSON-LD generated from frontmatter. Undocumented, that
+  reads as "provide OG and you are on your own", so theme authors hand-write
+  structured data SSG would have produced.
+- 📚 **`TEMPLATES.md` implied the field table applies under `.Page`/`.Post`** (#82)
+  — wording introduced in 1.8.17. It does not: `.URL`, `.CanonicalURL`,
+  `.OutputPath`, `.TOC` and `.Hreflang` are computed for the template root and have
+  no struct field behind them, so `.Page.TOC` fails at render, the page is skipped
+  with a warning, and on a first build it looks like the content never loaded. The
+  guide now separates root-only from nested values, gives the method equivalents
+  (`.Page.GetCanonical .Domain`) and documents `.Extra` as the accessor for custom
+  frontmatter.
+
 ## [1.8.18] - 2026-08-04
 
 ### Fixed

@@ -161,6 +161,13 @@ func (p Page) GetURL() string {
 			if !strings.HasPrefix(path, "/") {
 				path = "/" + path
 			}
+			// A link that already names a file is final: it is the highest-precedence
+			// URL source, so decorating it further contradicts what it declares.
+			// Appending a slash turned "/validator.html" into "/validator.html/",
+			// which is a directory, not the file the author asked for (#81).
+			if HasPageExtension(path) {
+				return path
+			}
 			if !strings.HasSuffix(path, "/") {
 				path = path + "/"
 			}
@@ -244,6 +251,19 @@ func (p Page) getOutputSubPath() string {
 	}
 	// Pages: use slug
 	return p.Slug
+}
+
+// HasPageExtension reports whether a path already names an HTML-ish file, in
+// which case page_format must not decorate it further (#81). Only the handful of
+// extensions a page is actually served under count — a slug that merely contains
+// a dot ("v1.0") is still a directory.
+func HasPageExtension(p string) bool {
+	ext := strings.ToLower(path.Ext(strings.TrimSuffix(p, "/")))
+	switch ext {
+	case ".html", ".htm", ".xml", ".json", ".txt":
+		return true
+	}
+	return false
 }
 
 // SanitizeRelPath returns a cleaned, relative sub-path that cannot escape its

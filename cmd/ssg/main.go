@@ -628,6 +628,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckOrphans:          cfg.CheckOrphans,
 		ContentExclude:        cfg.ContentExclude,
 		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
+		StaticSources:         cfg.StaticSources,
 		MetaLimits:            cfg.MetaLimits,
 		Bundles:               cfg.Bundles,
 		Outputs:               cfg.Outputs,
