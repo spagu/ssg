@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.19] - 2026-08-06
+
 ### Added
 - 🧩 **`raw` (alias `html`) template helper** (#83) — a plain `template.HTML` cast
   for markup that comes from data: inline SVG, a pre-rendered snippet, an embedded
@@ -2125,7 +2127,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.18...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.19...HEAD
+[1.8.19]: https://github.com/spagu/ssg/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
