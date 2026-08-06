@@ -214,6 +214,8 @@ type Config struct {
 	// ContentExclude are glob patterns for Markdown files that must not be loaded
 	// as pages (#74).
 	ContentExclude []string
+	// StaticSources are extra verbatim passthrough roots beyond static_dir (#84).
+	StaticSources []models.StaticSource
 	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
 	// sitemap; noindex pages are dropped regardless (#78).
 	SitemapPruneCanonical bool
@@ -2139,7 +2141,14 @@ func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[strin
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
 	funcs := template.FuncMap{
-		"safeHTML":             g.tmplSafeHTML(pageLinks, mdLinkMap),
+		"safeHTML": g.tmplSafeHTML(pageLinks, mdLinkMap),
+		// raw emits a string as HTML with no processing at all — the plain
+		// template.HTML cast. safeHTML is NOT that: in a page template it renders
+		// Markdown, which is right for .Content and wrong for markup coming from
+		// data. Inlining SVG geometry through safeHTML wrapped it in a <p>, which
+		// is invalid inside <svg>, so the icon silently did not draw (#83).
+		"raw":                  tmplRaw,
+		"html":                 tmplRaw, // alias, for themes that expect this name
 		"decodeHTML":           tmplDecodeHTML,
 		"formatDate":           tmplFormatDate,
 		"formatDatePL":         tmplFormatDatePL,
@@ -2657,6 +2666,8 @@ func (g *Generator) parseShortcodeTemplate(templatePath string) *template.Templa
 // shortcodeFuncMap returns template functions available in shortcode templates
 func (g *Generator) shortcodeFuncMap() template.FuncMap {
 	funcs := template.FuncMap{
+		"raw":  tmplRaw,
+		"html": tmplRaw,
 		"safeHTML": func(s string) template.HTML {
 			return template.HTML(s) // #nosec G203 -- shortcode content is author-controlled
 		},
@@ -3109,6 +3120,13 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 	// Special handling for 404 page - always generate as flat file for static hosting compatibility
 	if subPath == "404" {
 		return []string{filepath.Join(g.config.OutputDir, "404.html")}
+	}
+
+	// A frontmatter `link:` that already names a file is final — page_format has
+	// nothing left to decide. Suffixing it produced "validator.html.html" under
+	// flat, and a directory literally named "validator.html/" under directory (#81).
+	if models.HasPageExtension(subPath) {
+		return []string{filepath.Join(g.config.OutputDir, subPath)}
 	}
 
 	switch g.config.PageFormat {
@@ -3663,6 +3681,15 @@ func (g *Generator) copyAssets() error {
 // subset of static assets reached the output. A missing directory is a no-op so
 // the step is safe for sites that do not use one.
 func (g *Generator) copyStaticDir() error {
+	// static_dir is optional and may not exist; static_sources must still run, so
+	// the two are sequenced here rather than chained off the first one's success.
+	if err := g.copyStaticDirOnly(); err != nil {
+		return err
+	}
+	return g.copyStaticSources()
+}
+
+func (g *Generator) copyStaticDirOnly() error {
 	staticDir := g.config.StaticDir
 	if staticDir == "" {
 		staticDir = defaultStaticDir
@@ -3685,6 +3712,65 @@ func (g *Generator) copyStaticDir() error {
 
 	if !g.config.Quiet {
 		fmt.Printf("   📦 Copied static/ directory (%s) to output\n", staticDir)
+	}
+	return nil
+}
+
+// copyStaticSources copies each extra verbatim root declared in static_sources
+// (#84), after static_dir, so a later entry wins on a collision — the same
+// last-writer rule static_dir already has over theme assets.
+//
+// One static_dir is not enough when the files a site publishes verbatim already
+// live elsewhere in the repository and are not copies: a specification read by
+// the validator, the test suite and CI at the repo root, which must also keep
+// resolving at stable public URLs. The alternatives are committing a second copy
+// that drifts, or a staging script every contributor has to know about.
+//
+// A source may be a directory or a single file, and `dest` places it under a
+// prefix in the output.
+func (g *Generator) copyStaticSources() error {
+	for _, src := range g.config.StaticSources {
+		path := strings.TrimSpace(src.Path)
+		if path == "" {
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Printf("   ⚠️  static_sources: %s does not exist, skipping\n", path)
+				continue
+			}
+			return err
+		}
+		// An entry names a thing to publish, so it keeps its own name by default:
+		// `path: xml` serves /xml/..., which is the point — those URLs already
+		// exist and must keep resolving. `dest:` places it somewhere else, and
+		// `dest: "."` spreads a directory's contents at the output root, the way
+		// static_dir behaves.
+		rel := strings.TrimSpace(src.Dest)
+		if rel == "" {
+			rel = filepath.Base(path)
+		}
+		dest := g.config.OutputDir
+		if d := models.SanitizeRelPath(rel); d != "" && d != "." {
+			dest = filepath.Join(dest, d)
+		}
+		if info.IsDir() {
+			if err := g.copyDir(path, dest); err != nil {
+				return err
+			}
+		} else {
+			// #nosec G301 -- Web content directories need to be world-traversable
+			if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+				return err
+			}
+			if err := g.copyFile(path, dest); err != nil {
+				return err
+			}
+		}
+		if !g.config.Quiet {
+			fmt.Printf("   📦 Copied static source %s to output\n", path)
+		}
 	}
 	return nil
 }

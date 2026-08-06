@@ -116,6 +116,15 @@ sitemap_prune_canonical: false
 # a file whose front matter cannot be read as a page is skipped cleanly (#74).
 # "**" crosses directory separators.
 content_exclude: []
+
+# Extra verbatim passthrough roots beyond static_dir (#84). Each entry keeps its
+# own name, so files already published at stable URLs keep resolving. dest: moves
+# an entry; dest: "." spreads a directory's contents at the output root.
+static_sources: []
+#  - path: schema.json
+#  - path: xml
+#  - path: editor
+#    dest: editor
 #  - "docs/examples/**"
 #  - "sample-*.md"
 

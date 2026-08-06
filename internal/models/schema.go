@@ -30,3 +30,12 @@ type MetaLimits struct {
 	DescriptionMin *int `yaml:"description_min" toml:"description_min" json:"description_min"`
 	DescriptionMax *int `yaml:"description_max" toml:"description_max" json:"description_max"`
 }
+
+// StaticSource is one extra verbatim passthrough root, beyond the single
+// static_dir (#84). Path may be a directory or a single file; Dest optionally
+// places it under a prefix in the output instead of at the root. Copied after
+// static_dir, so a later entry wins on a collision.
+type StaticSource struct {
+	Path string `yaml:"path" toml:"path" json:"path"`
+	Dest string `yaml:"dest" toml:"dest" json:"dest"`
+}

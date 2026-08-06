@@ -327,6 +327,14 @@ type Config struct {
 	// than the contradiction it fixes. noindex pages are pruned either way (#78).
 	SitemapPruneCanonical bool `yaml:"sitemap_prune_canonical" toml:"sitemap_prune_canonical" json:"sitemap_prune_canonical"`
 
+	// StaticSources are extra verbatim passthrough roots, mirroring
+	// content_sources: a site may publish files that already live elsewhere in the
+	// repository and are not copies — a specification read by the validator, tests
+	// and CI at the repo root that must also stay reachable at stable public URLs.
+	// One static_dir forces either a duplicate that drifts or a staging script
+	// (#84). Copied after static_dir; a later entry wins on a collision.
+	StaticSources []models.StaticSource `yaml:"static_sources" toml:"static_sources" json:"static_sources"`
+
 	// ContentExclude lists glob patterns for Markdown files under content_dir that
 	// must NOT be loaded as pages — data files, samples documenting another tool's
 	// front-matter format, anything that is not content. Matched before parsing,

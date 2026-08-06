@@ -128,7 +128,7 @@ variables:
   logo: logo.png          # assets/logo.png — transparent PNG
   hero_image: river.jpg   # assets/river.jpg
   github_repo: spagu/ssg
-  version: "1.8.18"
+  version: "1.8.19"
   nav:
     - label: Docs
       url: /#documentation

@@ -314,10 +314,35 @@ Individual content fields are flattened at the root:
 | `.Lang`, `.Languages`, `.DefaultLanguage` | Language state |
 | `.Translations`, `.Hreflang` | Language switching/alternate links |
 
-The complete model is also available as a nested value — but the key differs by
-content type: **`.Page` in `page.html`, `.Post` in `post.html`.** A post template
-reaching for `.Page.Title` gets nothing, silently: no error, just an empty
+The `models.Page` struct is also available as a nested value — but the key differs
+by content type: **`.Page` in `page.html`, `.Post` in `post.html`.** A post
+template reaching for `.Page.Title` gets nothing, silently: no error, just an empty
 heading and empty taxonomy lists.
+
+**The nested value is the struct, not the table above.** The table lists what the
+template *root* provides, and the two are not the same set — several root values
+are computed for the template and have no struct field behind them. Reaching for
+one under `.Page` fails at render with a message that does not hint at the fix,
+and the page is then skipped with a warning, so on a first build it looks like the
+content never loaded:
+
+```
+executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface {}
+```
+
+| Value | Where it lives |
+|---|---|
+| `.URL`, `.CanonicalURL`, `.OutputPath`, `.TOC`, `.Hreflang` | **root only** — computed for the template, no struct field behind them |
+| `.Site`, `.Domain`, `.Vars`, `.Data`, `.ExternalData`, `.Languages` | **root only** — site-level, not per-page |
+| `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
+| custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
+
+Under the nested struct the computed ones have method equivalents:
+`{{ .Page.GetURL }}`, `{{ .Page.GetCanonical .Domain }}`, `{{ .Page.GetOutputPath }}`.
+
+Custom frontmatter keys are flattened to the root (so `{{ .lead }}` works) but
+cannot overwrite a standard value; under the nested struct they live in the
+`Extra` map.
 
 ```gotemplate
 {{/* post.html */}}  <h1>{{ .Post.Title }}</h1>{{ .Post.Content | safeHTML }}
@@ -328,9 +353,6 @@ Note the `| safeHTML` in both: a content field is the **raw Markdown source**, a
 `safeHTML` is what converts it to HTML (see
 [docs/TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md)). Printing `{{ .Content }}`
 directly ships unrendered Markdown to the reader.
-
-Unknown frontmatter keys are flattened into the same root but cannot overwrite
-standard values.
 
 ### Category, tag, author and series archives
 

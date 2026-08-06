@@ -201,7 +201,7 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `type` | string | both | Use `page` or `post`; affects URL and template behaviour |
 | `date` | date | post | Publication date and default date-based URL |
 | `modified` | date | both | Last modification date |
-| `link` | string | both | Explicit URL path; highest URL precedence |
+| `link` | string | both | Explicit URL path; highest URL precedence. A value that already names a file (`/validator.html`) is **final** — `page_format` does not decorate it |
 | `author` | integer/string | post | Author ID, numeric string, name or slug |
 | `categories` | list | post | Category IDs, numeric strings, names or slugs |
 | `category` | string | post | Single free-form category value exposed to templates |

@@ -113,10 +113,33 @@ empty value.
 | `templates_dir` | `templates` | `--templates-dir` | Parent of themes |
 | `output_dir` | `output` | `--output-dir` | Generated site destination |
 | `static_dir` | `static` | `--static-dir` | Verbatim passthrough files |
+| `static_sources` | empty | config only | Extra verbatim passthrough roots, each keeping its own name |
 | `data_dir` | `data` | `--data-dir` | YAML/JSON data for `.Data` |
 | `pages_path` | `pages` | config only | Pages directory inside a source |
 | `posts_path` | `posts` | config only | Posts directory inside a source |
 | `quiet` | `false` | `--quiet`, `-q` | Suppress normal output |
+
+### Publishing files that live elsewhere (`static_sources`)
+
+`static_dir` is a single root. When the files a site publishes verbatim already
+live somewhere else in the repository — a specification the validator, the tests
+and CI all read at the repo root — copying them into `static/` means maintaining
+two copies that will drift, and staging them with a script means every
+contributor has to know to run it.
+
+```yaml
+static_sources:
+  - path: schema.json      # a file, served at /schema.json
+  - path: xml              # a directory, served at /xml/... — the name is kept
+  - path: editor
+    dest: app              # placed at /app/ instead
+  - path: build/assets
+    dest: "."              # contents spread at the output root, like static_dir
+```
+
+Each entry keeps its own name by default, which is the point: URLs that already
+exist keep resolving. Sources are copied **after** `static_dir`, so a later entry
+wins a collision, and a missing path is a warning rather than a failed build.
 
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
@@ -299,13 +322,24 @@ Frontmatter `link` always has higher priority. Detailed URL rules are in
 | `sass_binary` | `sass` on PATH | `--sass-binary` | Explicit Dart Sass executable |
 | `bundles` | empty | config only | Concatenate named CSS/JS groups |
 
-Example bundles:
+**Bundle names and sources are paths relative to the output root**, not to the
+theme. A theme whose assets land in `output/css/` must say so, otherwise every
+source is reported missing and the bundle is written empty — which looks like a
+broken theme rather than a config mistake:
 
 ```yaml
 bundles:
-  app.css: [reset.css, layout.css, theme.css]
-  app.js: [vendor.js, main.js]
+  css/app.css:
+    - css/reset.css
+    - css/layout.css
+    - css/theme.css
+  js/app.js:
+    - js/vendor.js
+    - js/main.js
 ```
+
+Bundling runs after assets are copied, so the paths to use are the ones you see
+in `output/` after a build.
 
 Bundles are created before minification and fingerprinting. Fingerprinting
 renames CSS/JS to `name.<hash8>.ext`, emits `assets-manifest.json`, and rewrites
@@ -540,9 +574,22 @@ implemented.
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
 
-SEO injection is non-destructive and skips pages that already provide their own
-Open Graph tags. The old `seo_off`/`--seo-off` setting is a deprecated no-op.
-Plain `--check-links` selects warning mode; strict mode fails the build.
+SEO injection is non-destructive, and it is **not** all-or-nothing. It looks at
+what the page already rendered and fills only the gaps:
+
+| The theme emitted | SSG injects |
+|---|---|
+| no `og:title` | Open Graph, Twitter **and** JSON-LD |
+| `og:title`, no `application/ld+json` | **JSON-LD only** |
+| both | nothing |
+
+The middle row is the useful one: a theme can own its Open Graph tags — to control
+`og:image`, say — and still get structured data generated from frontmatter, with
+no need to hand-write JSON-LD. It also fills in a missing meta description from the
+frontmatter `description:`.
+
+The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
+selects warning mode; strict mode fails the build.
 
 ### Content contracts (schemas, strict mode, route manifest)
 
