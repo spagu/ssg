@@ -4136,10 +4136,13 @@ func (g *Generator) generateSitemap() error {
 	sb.WriteString(`>`)
 	sb.WriteString("\n")
 
-	// Homepage — skip if any index page has noindex
+	// Homepage — judged against the file actually served at "/", which is the root
+	// index.html. A page slugged "index" also emits "/index/"; reading the
+	// homepage's verdict from that duplicate dropped the site root whenever a
+	// theme marked the duplicate noindex (#88).
 	skipHomepage := false
 	for _, page := range g.siteData.Pages {
-		if (page.Slug == "" || page.Slug == "index") && g.excludesFromSitemap(page) {
+		if (page.Slug == "" || page.Slug == "index") && g.excludesFromSitemapAt(page, indexHTMLName) {
 			skipHomepage = true
 			break
 		}

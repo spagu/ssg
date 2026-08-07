@@ -397,19 +397,31 @@ func (g *Generator) linkTarget(href, fromRel string) string {
 // page declines — Search Console reports both as errors. The sitemap is written
 // after rendering, so by this point the answer is on disk.
 func (g *Generator) excludesFromSitemap(page models.Page) bool {
+	return g.excludesFromSitemapAt(page, page.GetOutputPath())
+}
+
+// excludesFromSitemapAt is the same decision for ONE emitted URL, judged against
+// the file actually served at it.
+//
+// Exclusion has to be per URL, not per page: a source file can emit more than one
+// URL — a page slugged "index" produces both "/" and "/index/" — and reading one
+// page's verdict from one file applied it to every URL it emitted. A theme
+// marking the "/index/" duplicate noindex therefore also dropped the site root,
+// which is far worse than the duplicate it was fixing, and silently (#88).
+func (g *Generator) excludesFromSitemapAt(page models.Page, relFile string) bool {
 	if excludeFromSitemap(page) {
 		return true
 	}
-	return g.renderedExcludesItself(page)
+	return g.renderedExcludesItself(page, relFile)
 }
 
 // renderedExcludesItself reports whether a page's own output marks it noindex or
 // canonicalises to a different URL. Results are memoized per output path; an
 // unreadable page is not excluded, since a missing file is not a statement.
-func (g *Generator) renderedExcludesItself(page models.Page) bool {
-	// GetOutputPath yields the page's directory ("docs/intro"), not the file that
-	// serves it, so resolve to the index.html actually written there.
-	rel := strings.TrimPrefix(page.GetOutputPath(), "/")
+func (g *Generator) renderedExcludesItself(page models.Page, outputPath string) bool {
+	// The path names the page's directory ("docs/intro"), not the file that serves
+	// it, so resolve to the index.html actually written there.
+	rel := strings.TrimPrefix(outputPath, "/")
 	if !strings.HasSuffix(rel, ".html") {
 		rel = path.Join(rel, indexHTMLName)
 	}
@@ -434,7 +446,9 @@ func (g *Generator) renderedExcludesItself(page models.Page) bool {
 			// sitemap_prune_canonical.
 			excluded = isNoindexDoc(doc)
 			if !excluded && g.config.SitemapPruneCanonical {
-				excluded = canonicalPointsElsewhere(doc, page.GetCanonical(g.config.Domain))
+				// Compare against the URL this file is served at, which for the
+				// site root is "/" rather than the page's own permalink (#88).
+				excluded = canonicalPointsElsewhere(doc, httpsScheme+g.config.Domain+urlForOutputFile(rel))
 			}
 		}
 	}
@@ -590,4 +604,20 @@ func matchGlob(pattern, name string) bool {
 	sb.WriteString("$")
 	re, err := regexp.Compile(sb.String())
 	return err == nil && re.MatchString(name)
+}
+
+// urlForOutputFile is the URL an output file is served at: "a/b/index.html" is
+// "/a/b/", and the root "index.html" is "/".
+func urlForOutputFile(rel string) string {
+	rel = strings.TrimPrefix(filepath.ToSlash(rel), "/")
+	if rel == indexHTMLName {
+		return "/"
+	}
+	if dir := path.Dir(rel); strings.HasSuffix(rel, "/"+indexHTMLName) || path.Base(rel) == indexHTMLName {
+		if dir == "." {
+			return "/"
+		}
+		return "/" + dir + "/"
+	}
+	return "/" + rel
 }

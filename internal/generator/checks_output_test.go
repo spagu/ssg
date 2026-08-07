@@ -364,3 +364,56 @@ func TestSitemapSelfExclusion(t *testing.T) {
 		t.Error("sitemap_prune_canonical must drop a non-self-canonical page")
 	}
 }
+
+// TestSitemapExclusionIsPerURL covers #88, a regression from #78: exclusion was
+// decided per page and read from one output file, so a source emitting more than
+// one URL had every one of them judged by that single verdict. A page slugged
+// "index" emits both "/" and "/index/", so a theme marking the duplicate noindex
+// silently removed the site root — worse than the duplicate it was fixing.
+func TestSitemapExclusionIsPerURL(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.Domain = "ex.com"
+	// The root is indexable; the /index/ duplicate is not.
+	writeOut(t, g, "index.html", `<html><head><link rel="canonical" href="/"></head><body>home</body></html>`)
+	writeOut(t, g, "index/index.html", `<html><head><meta name="robots" content="noindex, follow"><link rel="canonical" href="/"></head></html>`)
+
+	page := models.Page{Slug: "index", Type: "page", Status: "publish"}
+
+	// The URL "/" is served by the root index.html and belongs in the sitemap.
+	if g.excludesFromSitemapAt(page, indexHTMLName) {
+		t.Error("the site root must not be excluded because a duplicate URL is noindex")
+	}
+	// The URL "/index/" is served by index/index.html and does not.
+	if !g.excludesFromSitemapAt(page, page.GetOutputPath()) {
+		t.Error("the noindex duplicate must be excluded")
+	}
+
+	// Same split with canonical pruning enabled: the root is self-canonical.
+	g2 := newTestGen(t, "")
+	g2.config.Domain, g2.config.SitemapPruneCanonical = "ex.com", true
+	writeOut(t, g2, "index.html", `<html><head><link rel="canonical" href="/"></head></html>`)
+	writeOut(t, g2, "index/index.html", `<html><head><link rel="canonical" href="/"></head></html>`)
+	if g2.excludesFromSitemapAt(page, indexHTMLName) {
+		t.Error("a self-canonical root must stay in the sitemap under canonical pruning")
+	}
+	if !g2.excludesFromSitemapAt(page, page.GetOutputPath()) {
+		t.Error("a duplicate canonicalising to / must be pruned")
+	}
+}
+
+// TestURLForOutputFile: the URL an output file is served at, which is what the
+// canonical comparison must use.
+func TestURLForOutputFile(t *testing.T) {
+	cases := map[string]string{
+		"index.html":      "/",
+		"docs/index.html": "/docs/",
+		"a/b/index.html":  "/a/b/",
+		"feed.xml":        "/feed.xml",
+		"validator.html":  "/validator.html",
+	}
+	for in, want := range cases {
+		if got := urlForOutputFile(in); got != want {
+			t.Errorf("urlForOutputFile(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

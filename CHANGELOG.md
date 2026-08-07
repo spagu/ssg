@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `full_content` overrides. `feed: true` behaviour is unchanged.
 
 ### Fixed
+- 🗺️ **Excluding a page no longer drops every URL it emitted** (#88) — a regression
+  from the 1.8.18 sitemap work. Exclusion was decided per **page** and read from a
+  single output file, so a source emitting more than one URL had all of them
+  judged by that one verdict. A page slugged `index` emits both `/` and `/index/`,
+  so a theme marking the duplicate `noindex` — or canonicalising it away under
+  `sitemap_prune_canonical` — silently removed **the site root** from
+  `sitemap.xml`, which is far worse than the duplicate it was fixing. Each `<loc>`
+  is now judged against the file actually served at that URL: `/` against the root
+  `index.html`, `/index/` against `index/index.html`. Before 1.8.18 a theme-set
+  `noindex` did not affect the sitemap at all, so this could not happen.
+
 - 🔗 **Feed autodiscovery now covers every feed, and every page** (#86). One
   `<link rel="alternate">` per published feed, with its own MIME type and title —
   a reader offering a choice reads exactly those links, so advertising four feeds
