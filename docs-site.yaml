@@ -135,10 +135,16 @@ headers:
   # A day-long cache keeps virtually all the benefit — the hash already changes
   # the URL whenever the content does, so nothing stale is ever requested — while
   # leaving any poisoned entry to expire on its own instead of persisting.
+  #
+  # must-revalidate is the part that actually bites: Cloudflare Pages rewrites
+  # max-age on static assets (the year comes back regardless of what is asked
+  # for here) but preserves the directives, so the directive is the only
+  # dependable lever. It forces a revalidation once stale rather than letting a
+  # wrong cached body ride out the full year.
   /css/*:
-    Cache-Control: "public, max-age=86400"
+    Cache-Control: "public, max-age=86400, must-revalidate"
   /js/*:
-    Cache-Control: "public, max-age=86400"
+    Cache-Control: "public, max-age=86400, must-revalidate"
   /comments.js:
     Cache-Control: "public, max-age=0, must-revalidate"
   /comments.css:
