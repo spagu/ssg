@@ -153,6 +153,17 @@ feeds:
     items: 10
 ```
 
+Two things worth knowing even if you only ever want Atom:
+
+- **`feed: true` names the feed after the bare hostname.** A declared feed takes a
+  `title`, so it can be called what it actually is. That alone is a reason to
+  declare one rather than rely on `feed: true`.
+- **SSG injects the autodiscovery `<link>` tags itself**, for every feed, into
+  every page — so a theme should *not* hand-write them or the page ships
+  duplicates. Turn injection off with `feed_autodiscovery: false` if the theme
+  wants to own them.
+
+
 | Key | Meaning |
 |---|---|
 | `path` | Output path — also the URL. Required |
@@ -641,9 +652,9 @@ shortcode_errors: strict
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
-| `feed` | `false` | `--feed` |
-| `feeds` | empty | config only | Extra feeds, each with its own selection, path and format |
-| `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page | Root and category/tag Atom feeds |
+| `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
+| `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
+| `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
@@ -696,11 +707,11 @@ implemented.
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
-| `check_links` | empty | `--check-links[=warn|strict]` | Validate internal links |
-| `check_images` | empty | `--check-images[=warn|strict|strict-decorative]` | Report images with **no** `alt` attribute |
-| `check_meta` | empty | `--check-meta[=warn|strict]` | Validate `<title>` and meta description on indexable pages |
-| `check_orphans` | empty | `--check-orphans[=warn|strict]` | Report indexable pages nothing links to |
-| `check_redirects` | empty | `--check-redirects[=warn|strict]` | Report links the host would redirect (needs `pretty_urls`) |
+| `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
+| `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
+| `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
+| `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
+| `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
@@ -1018,7 +1029,7 @@ mddb:
 |---|---:|---|
 | `mddb.enabled` | `false` | enabled by `--mddb-url` |
 | `mddb.url` | empty | `--mddb-url` |
-| `mddb.protocol` | HTTP behaviour | `--mddb-protocol=http|grpc` |
+| `mddb.protocol` | HTTP behaviour | `--mddb-protocol=http\|grpc` |
 | `mddb.collection` | empty | `--mddb-collection` |
 | `mddb.lang` | empty | `--mddb-lang` |
 | `mddb.api_key` | empty | `--mddb-key` |

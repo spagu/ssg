@@ -251,12 +251,12 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 
 | Helper | Equivalent to | Example |
 |--------|---------------|---------|
-| `latest field n c` | `sort field "desc" \| first n` | `{{ .Site.Posts \| latest "Modified" 5 }}` |
-| `published c` | `where "Status" "publish"` | `{{ .Site.Pages \| published }}` |
-| `byTag t c` | `filter "Tags" "contains" t` | `{{ .Site.Posts \| byTag "go" }}` |
-| `byCategory name c` | *(site-aware)* | `{{ .Site.Posts \| byCategory "guides" }}` — matches frontmatter `Category` or resolved category names/slugs, case-insensitive; `[]models.Page` only |
-| `byAuthor a c` | *(site-aware)* | `{{ .Site.Posts \| byAuthor "jan-kowalski" }}` — by ID, name or slug; `[]models.Page` only |
-| `related page n c` | *(scored)* | `{{ .Site.Posts \| related .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
+| `latest field n c` | `sort field "desc" \\| first n` | `{{ .Site.Posts \\| latest "Modified" 5 }}` |
+| `published c` | `where "Status" "publish"` | `{{ .Site.Pages \\| published }}` |
+| `byTag t c` | `filter "Tags" "contains" t` | `{{ .Site.Posts \\| byTag "go" }}` |
+| `byCategory name c` | *(site-aware)* | `{{ .Site.Posts \\| byCategory "guides" }}` — matches frontmatter `Category` or resolved category names/slugs, case-insensitive; `[]models.Page` only |
+| `byAuthor a c` | *(site-aware)* | `{{ .Site.Posts \\| byAuthor "jan-kowalski" }}` — by ID, name or slug; `[]models.Page` only |
+| `related page n c` | *(scored)* | `{{ .Site.Posts \\| related .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
 
 ---
 

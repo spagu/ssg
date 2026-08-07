@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `flatten` are the general tools, useful well beyond feeds.
 
 ### Fixed
+- 📚 **Declared feeds were undocumented, and the config table was corrupted** (#92).
+  `feeds:`, RSS output and the per-feed `title` appeared nowhere a reader would
+  look: the table described `feed` as Atom-only and `--help` agreed, so someone
+  reasonably concluded RSS was unsupported and wrote a converter instead. The
+  sections added in 1.8.20 also broke the table they were inserted into — the
+  `feed` row lost its description to the row below it — and **12 table rows across
+  the docs carried an unescaped `|` inside inline code**, which splits a cell and
+  shifts every column after it. Table repaired, pipes escaped, `--help` now points
+  at `feeds:`, and two things are stated explicitly: a declared feed can be
+  *named*, and SSG injects the autodiscovery tags itself so a theme must not
+  hand-write them.
+
 - 🐛 **`format: feed` rejected every feed fetched over HTTP** (#90) — the format
   was added to the parser but not to the transport's content-type allowlist, so
   `accepted[format]` was `nil` and a real feed was refused before parsing. It
