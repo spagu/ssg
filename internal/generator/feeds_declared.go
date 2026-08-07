@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spagu/ssg/internal/externalsource"
 	"github.com/spagu/ssg/internal/models"
 )
 
@@ -27,7 +28,7 @@ import (
 // or reader is told about it.
 type feedFormat struct {
 	mime   string
-	render func(g *Generator, f models.FeedSpec, title, selfURL, altURL string, posts []models.Page, full bool) string
+	render func(g *Generator, page feedPage) string
 }
 
 // feedFormats is the supported set. Podcast and news shapes are deliberately
@@ -68,7 +69,18 @@ func (g *Generator) generateDeclaredFeeds() error {
 	return nil
 }
 
-// writeDeclaredFeed selects the posts for one spec and writes it in its format.
+// feedPage is one rendered page of a feed: its metadata, its items, and the
+// RFC 5005 links tying it to its neighbours when the feed is paginated.
+type feedPage struct {
+	title, selfURL, altURL string
+	items                  []externalsource.FeedItem
+	full                   bool
+	prevURL, nextURL       string
+	firstURL, lastURL      string
+}
+
+// writeDeclaredFeed collects a feed's items and writes it, in pages when the
+// spec asks for them.
 func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 	rel := models.SanitizeRelPath(strings.TrimSpace(spec.Path))
 	if rel == "" {
@@ -79,7 +91,12 @@ func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 		return err
 	}
 
-	posts := g.selectFeedPosts(spec)
+	full := g.config.FeedFullContent
+	if spec.FullContent != nil {
+		full = *spec.FullContent
+	}
+	items := g.feedItemsFor(spec, full)
+
 	limit := g.config.FeedItems
 	if limit <= 0 {
 		limit = 20
@@ -87,27 +104,83 @@ func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 	if spec.Items != nil && *spec.Items > 0 {
 		limit = *spec.Items
 	}
-	ordered := sortPostsByDate(posts)
-	if len(ordered) > limit {
-		ordered = ordered[:limit]
+	if len(items) > limit {
+		items = items[:limit]
 	}
 
 	title := strings.TrimSpace(spec.Title)
 	if title == "" {
 		title = g.config.Domain
 	}
-	full := g.config.FeedFullContent
-	if spec.FullContent != nil {
-		full = *spec.FullContent
-	}
-
 	base := httpsScheme + g.config.Domain
-	selfURL := base + "/" + filepath.ToSlash(rel)
-	// A feed for a section points at that section; a whole-site feed at the root.
 	altURL := base + "/" + strings.TrimPrefix(feedAltPath(spec), "/")
 
-	body := format.render(g, spec, title, selfURL, altURL, ordered, full)
+	// Pagination splits the archive rather than shipping one huge document; the
+	// pages are linked with RFC 5005 rel="next"/"prev" so a reader can walk back
+	// through them instead of only seeing the newest slice.
+	per := spec.Paginate
+	if per <= 0 || per >= len(items) {
+		page := feedPage{title: title, selfURL: base + "/" + filepath.ToSlash(rel),
+			altURL: altURL, items: items, full: full}
+		return g.writeFeedFile(rel, format.render(g, page), len(items))
+	}
+	total := (len(items) + per - 1) / per
+	for n := 1; n <= total; n++ {
+		lo := (n - 1) * per
+		hi := lo + per
+		if hi > len(items) {
+			hi = len(items)
+		}
+		page := feedPage{
+			title: title, altURL: altURL, items: items[lo:hi], full: full,
+			selfURL:  base + "/" + filepath.ToSlash(feedPagePath(rel, n)),
+			firstURL: base + "/" + filepath.ToSlash(feedPagePath(rel, 1)),
+			lastURL:  base + "/" + filepath.ToSlash(feedPagePath(rel, total)),
+		}
+		if n > 1 {
+			page.prevURL = base + "/" + filepath.ToSlash(feedPagePath(rel, n-1))
+		}
+		if n < total {
+			page.nextURL = base + "/" + filepath.ToSlash(feedPagePath(rel, n+1))
+		}
+		if err := g.writeFeedFile(feedPagePath(rel, n), format.render(g, page), hi-lo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+// feedItemsFor returns a feed's items: an aggregate of several inputs, or this
+// site's own posts when no aggregation is declared.
+func (g *Generator) feedItemsFor(spec models.FeedSpec, full bool) []externalsource.FeedItem {
+	if len(spec.Aggregate) > 0 {
+		return g.aggregateItems(spec)
+	}
+	posts := sortPostsByDate(g.selectFeedPosts(spec))
+	out := make([]externalsource.FeedItem, 0, len(posts))
+	for _, p := range posts {
+		htmlBody, summary := g.feedBody(p, full)
+		canonical := p.GetCanonical(g.config.Domain)
+		out = append(out, externalsource.FeedItem{
+			ID: canonical, URL: canonical, Title: p.Title, Summary: summary,
+			ContentHTML: htmlBody, Published: p.Date, Updated: g.lastModFor(p), Tags: p.Tags,
+		})
+	}
+	return out
+}
+
+// feedPagePath is the file for page n: page 1 keeps the declared path, so the
+// advertised URL never moves as the archive grows.
+func feedPagePath(rel string, n int) string {
+	if n <= 1 {
+		return rel
+	}
+	ext := path.Ext(rel)
+	return strings.TrimSuffix(rel, ext) + fmt.Sprintf("-%d", n) + ext
+}
+
+// writeFeedFile writes one rendered feed page.
+func (g *Generator) writeFeedFile(rel, body string, count int) error {
 	outPath := filepath.Join(g.config.OutputDir, filepath.FromSlash(rel))
 	if err := g.ensureWithinOutput(outPath); err != nil {
 		return err
@@ -121,7 +194,7 @@ func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 		return err
 	}
 	if !g.config.Quiet {
-		fmt.Printf("   📰 %s (%d item(s))\n", filepath.ToSlash(rel), len(ordered))
+		fmt.Printf("   📰 %s (%d item(s))\n", filepath.ToSlash(rel), count)
 	}
 	return nil
 }
@@ -241,39 +314,46 @@ func truncateRunes(s string, n int) string {
 	return string(r[:n])
 }
 
-// renderAtomFeed renders Atom 1.0 — the same shape the built-in feeds use.
-func renderAtomFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL string, posts []models.Page, full bool) string {
+// renderAtomFeed renders Atom 1.0.
+func renderAtomFeed(g *Generator, p feedPage) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	sb.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom"`)
-	if len(posts) > 0 && posts[0].Locale != "" {
-		fmt.Fprintf(&sb, ` xml:lang="%s"`, stdhtml.EscapeString(posts[0].Locale))
+	sb.WriteString(`<feed xmlns="http://www.w3.org/2005/Atom">` + "\n")
+	fmt.Fprintf(&sb, "  <title>%s</title>\n", stdhtml.EscapeString(p.title))
+	fmt.Fprintf(&sb, "  <link href=%q rel=\"alternate\"/>\n", p.altURL)
+	fmt.Fprintf(&sb, "  <link href=%q rel=\"self\"/>\n", p.selfURL)
+	// RFC 5005 paging, so a reader can walk the whole archive rather than only
+	// the newest page.
+	for rel, href := range map[string]string{"first": p.firstURL, "last": p.lastURL, "previous": p.prevURL, "next": p.nextURL} {
+		if href != "" {
+			fmt.Fprintf(&sb, "  <link href=%q rel=%q/>\n", href, rel)
+		}
 	}
-	sb.WriteString(">\n")
-	fmt.Fprintf(&sb, "  <title>%s</title>\n", stdhtml.EscapeString(title))
-	fmt.Fprintf(&sb, "  <link href=%q rel=\"alternate\"/>\n", altURL)
-	fmt.Fprintf(&sb, "  <link href=%q rel=\"self\"/>\n", selfURL)
-	fmt.Fprintf(&sb, "  <id>%s</id>\n", altURL)
-	if u := g.newestUpdate(posts); !u.IsZero() {
+	fmt.Fprintf(&sb, "  <id>%s</id>\n", p.altURL)
+	if u := newestItemUpdate(p.items); !u.IsZero() {
 		fmt.Fprintf(&sb, "  <updated>%s</updated>\n", u.UTC().Format(time.RFC3339))
 	}
-	for _, p := range posts {
-		canonical := p.GetCanonical(g.config.Domain)
-		htmlBody, summary := g.feedBody(p, full)
+	for _, it := range p.items {
 		sb.WriteString("  <entry>\n")
-		fmt.Fprintf(&sb, "    <title>%s</title>\n", stdhtml.EscapeString(p.Title))
-		fmt.Fprintf(&sb, "    <link href=%q/>\n", canonical)
-		fmt.Fprintf(&sb, "    <id>%s</id>\n", canonical)
-		if !p.Date.IsZero() {
-			fmt.Fprintf(&sb, "    <published>%s</published>\n", p.Date.UTC().Format(time.RFC3339))
+		fmt.Fprintf(&sb, "    <title>%s</title>\n", stdhtml.EscapeString(it.Title))
+		fmt.Fprintf(&sb, "    <link href=%q/>\n", it.URL)
+		fmt.Fprintf(&sb, "    <id>%s</id>\n", stdhtml.EscapeString(it.ID))
+		if !it.Published.IsZero() {
+			fmt.Fprintf(&sb, "    <published>%s</published>\n", it.Published.UTC().Format(time.RFC3339))
 		}
-		if m := g.lastModFor(p); !m.IsZero() {
-			fmt.Fprintf(&sb, "    <updated>%s</updated>\n", m.UTC().Format(time.RFC3339))
+		if !it.Updated.IsZero() {
+			fmt.Fprintf(&sb, "    <updated>%s</updated>\n", it.Updated.UTC().Format(time.RFC3339))
 		}
-		if full {
-			fmt.Fprintf(&sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(htmlBody))
+		if it.Author != "" {
+			fmt.Fprintf(&sb, "    <author><name>%s</name></author>\n", stdhtml.EscapeString(it.Author))
+		}
+		for _, t := range feedItemTerms(it) {
+			fmt.Fprintf(&sb, "    <category term=%q/>\n", stdhtml.EscapeString(t))
+		}
+		if p.full && it.ContentHTML != "" {
+			fmt.Fprintf(&sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(it.ContentHTML))
 		} else {
-			fmt.Fprintf(&sb, "    <summary>%s</summary>\n", stdhtml.EscapeString(summary))
+			fmt.Fprintf(&sb, "    <summary>%s</summary>\n", stdhtml.EscapeString(it.Summary))
 		}
 		sb.WriteString("  </entry>\n")
 	}
@@ -281,40 +361,38 @@ func renderAtomFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL stri
 	return sb.String()
 }
 
-// renderRSSFeed renders RSS 2.0. Dates are RFC 1123Z, which is what the format
-// requires — an RFC 3339 timestamp is silently ignored by strict readers.
-func renderRSSFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL string, posts []models.Page, full bool) string {
+// renderRSSFeed renders RSS 2.0. Dates are RFC 1123Z, which the format requires —
+// an RFC 3339 timestamp is silently ignored by strict readers.
+func renderRSSFeed(g *Generator, p feedPage) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	sb.WriteString(`<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">` + "\n")
 	sb.WriteString("  <channel>\n")
-	fmt.Fprintf(&sb, "    <title>%s</title>\n", stdhtml.EscapeString(title))
-	fmt.Fprintf(&sb, "    <link>%s</link>\n", stdhtml.EscapeString(altURL))
-	fmt.Fprintf(&sb, "    <description>%s</description>\n", stdhtml.EscapeString(title))
-	fmt.Fprintf(&sb, "    <atom:link href=%q rel=\"self\" type=\"application/rss+xml\"/>\n", selfURL)
-	if len(posts) > 0 && posts[0].Locale != "" {
-		fmt.Fprintf(&sb, "    <language>%s</language>\n", stdhtml.EscapeString(posts[0].Locale))
+	fmt.Fprintf(&sb, "    <title>%s</title>\n", stdhtml.EscapeString(p.title))
+	fmt.Fprintf(&sb, "    <link>%s</link>\n", stdhtml.EscapeString(p.altURL))
+	fmt.Fprintf(&sb, "    <description>%s</description>\n", stdhtml.EscapeString(p.title))
+	fmt.Fprintf(&sb, "    <atom:link href=%q rel=\"self\" type=\"application/rss+xml\"/>\n", p.selfURL)
+	for rel, href := range map[string]string{"first": p.firstURL, "last": p.lastURL, "previous": p.prevURL, "next": p.nextURL} {
+		if href != "" {
+			fmt.Fprintf(&sb, "    <atom:link href=%q rel=%q/>\n", href, rel)
+		}
 	}
-	if u := g.newestUpdate(posts); !u.IsZero() {
+	if u := newestItemUpdate(p.items); !u.IsZero() {
 		fmt.Fprintf(&sb, "    <lastBuildDate>%s</lastBuildDate>\n", u.UTC().Format(time.RFC1123Z))
 	}
-	for _, p := range posts {
-		canonical := p.GetCanonical(g.config.Domain)
-		htmlBody, summary := g.feedBody(p, full)
-		body := summary
-		if full {
-			body = htmlBody
+	for _, it := range p.items {
+		body := it.Summary
+		if p.full && it.ContentHTML != "" {
+			body = it.ContentHTML
 		}
 		sb.WriteString("    <item>\n")
-		fmt.Fprintf(&sb, "      <title>%s</title>\n", stdhtml.EscapeString(p.Title))
-		fmt.Fprintf(&sb, "      <link>%s</link>\n", stdhtml.EscapeString(canonical))
-		// isPermaLink=false: the guid is an identifier, and saying otherwise makes
-		// a reader re-fetch it as a URL.
-		fmt.Fprintf(&sb, "      <guid isPermaLink=\"false\">%s</guid>\n", stdhtml.EscapeString(canonical))
-		if !p.Date.IsZero() {
-			fmt.Fprintf(&sb, "      <pubDate>%s</pubDate>\n", p.Date.UTC().Format(time.RFC1123Z))
+		fmt.Fprintf(&sb, "      <title>%s</title>\n", stdhtml.EscapeString(it.Title))
+		fmt.Fprintf(&sb, "      <link>%s</link>\n", stdhtml.EscapeString(it.URL))
+		fmt.Fprintf(&sb, "      <guid isPermaLink=\"false\">%s</guid>\n", stdhtml.EscapeString(it.ID))
+		if !it.Published.IsZero() {
+			fmt.Fprintf(&sb, "      <pubDate>%s</pubDate>\n", it.Published.UTC().Format(time.RFC1123Z))
 		}
-		for _, t := range p.Tags {
+		for _, t := range feedItemTerms(it) {
 			fmt.Fprintf(&sb, "      <category>%s</category>\n", stdhtml.EscapeString(t))
 		}
 		fmt.Fprintf(&sb, "      <description>%s</description>\n", stdhtml.EscapeString(body))
@@ -324,10 +402,9 @@ func renderRSSFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL strin
 	return sb.String()
 }
 
-// renderJSONFeed renders JSON Feed 1.1. Built with encoding/json rather than
-// string concatenation, so escaping is the encoder's problem and cannot be got
-// wrong by hand.
-func renderJSONFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL string, posts []models.Page, full bool) string {
+// renderJSONFeed renders JSON Feed 1.1, built through encoding/json so escaping
+// is the encoder's problem rather than something to get wrong by hand.
+func renderJSONFeed(g *Generator, p feedPage) string {
 	type jsonItem struct {
 		ID            string   `json:"id"`
 		URL           string   `json:"url"`
@@ -338,36 +415,41 @@ func renderJSONFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL stri
 		DatePublished string   `json:"date_published,omitempty"`
 		DateModified  string   `json:"date_modified,omitempty"`
 		Tags          []string `json:"tags,omitempty"`
+		Author        *struct {
+			Name string `json:"name"`
+		} `json:"author,omitempty"`
 	}
 	doc := struct {
 		Version     string     `json:"version"`
 		Title       string     `json:"title"`
 		HomePageURL string     `json:"home_page_url"`
 		FeedURL     string     `json:"feed_url"`
+		NextURL     string     `json:"next_url,omitempty"`
 		Items       []jsonItem `json:"items"`
 	}{
-		Version:     "https://jsonfeed.org/version/1.1",
-		Title:       title,
-		HomePageURL: altURL,
-		FeedURL:     selfURL,
-		Items:       make([]jsonItem, 0, len(posts)),
+		Version: "https://jsonfeed.org/version/1.1", Title: p.title,
+		HomePageURL: p.altURL, FeedURL: p.selfURL, NextURL: p.nextURL,
+		Items: make([]jsonItem, 0, len(p.items)),
 	}
-	for _, p := range posts {
-		htmlBody, summary := g.feedBody(p, full)
-		canonical := p.GetCanonical(g.config.Domain)
-		it := jsonItem{ID: canonical, URL: canonical, Title: p.Title, Summary: summary, Tags: p.Tags}
-		if full {
-			it.ContentHTML = htmlBody
+	for _, it := range p.items {
+		ji := jsonItem{ID: it.ID, URL: it.URL, Title: it.Title, Summary: it.Summary, Tags: feedItemTerms(it)}
+		if p.full && it.ContentHTML != "" {
+			ji.ContentHTML = it.ContentHTML
 		} else {
-			it.ContentText = summary
+			ji.ContentText = it.Summary
 		}
-		if !p.Date.IsZero() {
-			it.DatePublished = p.Date.UTC().Format(time.RFC3339)
+		if it.Author != "" {
+			ji.Author = &struct {
+				Name string `json:"name"`
+			}{Name: it.Author}
 		}
-		if m := g.lastModFor(p); !m.IsZero() {
-			it.DateModified = m.UTC().Format(time.RFC3339)
+		if !it.Published.IsZero() {
+			ji.DatePublished = it.Published.UTC().Format(time.RFC3339)
 		}
-		doc.Items = append(doc.Items, it)
+		if !it.Updated.IsZero() {
+			ji.DateModified = it.Updated.UTC().Format(time.RFC3339)
+		}
+		doc.Items = append(doc.Items, ji)
 	}
 	b, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
@@ -376,12 +458,27 @@ func renderJSONFeed(g *Generator, _ models.FeedSpec, title, selfURL, altURL stri
 	return string(b) + "\n"
 }
 
-// newestUpdate is the most recent modification across a feed's posts.
-func (g *Generator) newestUpdate(posts []models.Page) time.Time {
+// feedItemTerms are the item's tags plus its provenance label, so a reader or a
+// downstream template can group an aggregate by where each item came from —
+// which is the whole reason the label is carried through collection.
+func feedItemTerms(it externalsource.FeedItem) []string {
+	terms := append([]string(nil), it.Tags...)
+	if it.Label != "" {
+		terms = append(terms, it.Label)
+	}
+	return terms
+}
+
+// newestItemUpdate is the most recent timestamp across a page's items.
+func newestItemUpdate(items []externalsource.FeedItem) time.Time {
 	var newest time.Time
-	for _, p := range posts {
-		if m := g.lastModFor(p); m.After(newest) {
-			newest = m
+	for _, it := range items {
+		t := it.Updated
+		if t.IsZero() {
+			t = it.Published
+		}
+		if t.After(newest) {
+			newest = t
 		}
 	}
 	return newest

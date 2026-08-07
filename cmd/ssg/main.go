@@ -626,6 +626,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckImages:           cfg.CheckImages,
 		CheckMeta:             cfg.CheckMeta,
 		CheckOrphans:          cfg.CheckOrphans,
+		CheckRedirects:        cfg.CheckRedirects,
+		PrettyURLs:            cfg.PrettyURLs,
 		ContentExclude:        cfg.ContentExclude,
 		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
 		StaticSources:         cfg.StaticSources,
@@ -757,6 +759,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	}
 	if arg == "--check-orphans" { // same shape: bare form means warn (#77)
 		cfg.CheckOrphans = "warn"
+		return true
+	}
+	if arg == "--check-redirects" { // same shape: bare form means warn (#87)
+		cfg.CheckRedirects = "warn"
 		return true
 	}
 	if arg == "--seo-off" { // deprecated no-op: SEO injection is opt-in since v1.8.2
@@ -1022,6 +1028,10 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	case strings.HasPrefix(arg, "--check-orphans="):
 		if v := strings.TrimPrefix(arg, "--check-orphans="); v == "warn" || v == "strict" {
 			cfg.CheckOrphans = v
+		}
+	case strings.HasPrefix(arg, "--check-redirects="):
+		if v := strings.TrimPrefix(arg, "--check-redirects="); v == "warn" || v == "strict" {
+			cfg.CheckRedirects = v
 		}
 	// Repeatable: each --content-source adds one root. The CLI form takes the
 	// path only; type/category need the config file (CONTENT-002).
@@ -1515,6 +1525,8 @@ func printUsage() {
 	fmt.Println("  --check-meta=MODE      - warn | strict (strict fails the build)")
 	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")
 	fmt.Println("  --check-orphans=MODE   - warn | strict (strict fails the build)")
+	fmt.Println("  --check-redirects      - Report links the host would redirect (needs pretty_urls)")
+	fmt.Println("  --check-redirects=MODE - warn | strict (strict fails the build)")
 	fmt.Println("  --auto-excerpt         - Derive a missing excerpt from the opening paragraph")
 	fmt.Println("  --shortcode-errors=M   - drop (default) | keep | strict — what a shortcode that")
 	fmt.Println("                           fails to render leaves in the page (keep = its raw source,")

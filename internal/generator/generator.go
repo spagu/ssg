@@ -211,6 +211,10 @@ type Config struct {
 	CheckImages  string
 	CheckMeta    string
 	CheckOrphans string
+	// CheckRedirects reports links the host would redirect; PrettyURLs models that
+	// host behaviour (#87).
+	CheckRedirects string
+	PrettyURLs     bool
 	// ContentExclude are glob patterns for Markdown files that must not be loaded
 	// as pages (#74).
 	ContentExclude []string
@@ -841,7 +845,10 @@ func (g *Generator) assetPhase() error {
 	if err := g.checkMetaIfRequested(); err != nil {
 		return err
 	}
-	return g.checkOrphansIfRequested()
+	if err := g.checkOrphansIfRequested(); err != nil {
+		return err
+	}
+	return g.checkRedirectsIfRequested()
 }
 
 // hookTimeout bounds every lifecycle hook so a hung command cannot stall the build.

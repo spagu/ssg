@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🌍 **Feeds can now be read as well as written — and merged** (#89). `format: feed`
+  on an external source accepts **Atom 1.0, RSS 2.0 or JSON Feed 1.1** and
+  normalizes all three into one shape, with dates parsed into real timestamps.
+  The format is detected from the payload rather than the declaration, since a
+  `.xml` URL may be either and a redirect can change what arrives. A declared feed
+  can then **aggregate** several inputs — other sites' feeds *and your own posts*
+  — into one published feed: sorted newest first, deduplicated by URL, each item
+  carrying a **provenance label** emitted as a category so an aggregate can be
+  grouped by where things came from. Filters run **per source first, then
+  feed-wide**, because what counts as noise depends on the feed it came from and
+  that context disappears once everything is merged; `words` match the title and
+  summary, `tags` match categories, and exclusion beats inclusion. `paginate:`
+  splits a large archive into RFC 5005 `rel="next"`/`"prev"` linked pages, with
+  page one keeping the declared path so a subscribed URL never moves.
+
 - 📰 **`feeds:` — as many syndication feeds as a site needs, each with its own
   selection and format** (#86). `feed: true` publishes one Atom feed of every
   post, plus one per language and per taxonomy term; that is all-or-nothing, so a
@@ -19,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `full_content` overrides. `feed: true` behaviour is unchanged.
 
 ### Fixed
+- 📚 **`external_sources` examples were missing the `sources:` level** — wording
+  introduced with `format: changelog` in 1.8.18. Sources live under
+  `external_sources.sources:`, so the documented example, copied literally,
+  produced `unknown configuration key` warnings and loaded nothing.
+
 - 🗺️ **Excluding a page no longer drops every URL it emitted** (#88) — a regression
   from the 1.8.18 sitemap work. Exclusion was decided per **page** and read from a
   single output file, so a source emitting more than one URL had all of them

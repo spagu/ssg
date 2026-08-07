@@ -169,6 +169,67 @@ Selection criteria are optional and combine with **AND** — `source: blog` plus
 `tags: [release]` means release posts *from the blog folder*. A feed with no
 criteria covers every post, at a path you choose.
 
+### Aggregating feeds (a "planet")
+
+A feed can merge several inputs — other sites' feeds and **your own posts** —
+into one published feed. Read the sources with `format: feed`, then list them:
+
+```yaml
+external_sources:
+  sources:
+    ssg:  { type: http, url: https://ssg.tradik.com/feed.xml,  format: feed }
+    mddb: { type: http, url: https://mddb.tradik.com/feed.xml, format: feed }
+
+feeds:
+  - path: /planet.xml
+    title: "Planet Tradik"
+    format: rss
+    aggregate:
+      - source: ssg
+        label: "SSG"
+      - source: mddb
+        label: "MDDB"
+        exclude:
+          tags: [events]        # narrow this source only
+      - site: blog              # your own content — "*" for every post
+        label: "Tradik"
+    exclude:
+      words: [sponsored]        # applies to the whole feed
+    items: 200                  # how many entries the feed carries at all
+    paginate: 20                # how many per page
+```
+
+**Your own blog is an input like any other.** A planet without you is not your
+planet — an aggregate that only republishes other people reads as a link dump.
+
+| Key | Meaning |
+|---|---|
+| `aggregate[].source` | An `external_sources` name declared with `format: feed` |
+| `aggregate[].site` | Your own content: a folder name, or `*` for every post |
+| `aggregate[].label` | Provenance — attached to each item and emitted as a category |
+| `aggregate[].include` / `.exclude` | Filters for **that source only** |
+| `include` / `exclude` | Filters for the merged feed |
+| `paginate` | Items per page; 0 (default) writes one file |
+
+Filtering happens twice on purpose: **per source first, then feed-wide.** What
+counts as noise depends on the feed it came from, and that context is gone once
+everything is merged — one rule for the whole aggregate either lets noise through
+or drops wanted items from the quieter sources. `words` match the title and
+summary case-insensitively; `tags` match an item's categories. **Exclusion beats
+inclusion**: a feed republishing other people's writing has to be able to say
+"not this" with certainty.
+
+Items are sorted newest first and **deduplicated by URL** — the same post reached
+through two feeds is one item, and publishing it twice is the most visible way an
+aggregate looks broken. A source that is unreachable or not declared with
+`format: feed` warns and is skipped, rather than failing the build over one
+site being down.
+
+Paginated feeds are linked with RFC 5005 `rel="next"`/`"prev"`/`"first"`/`"last"`,
+so a reader can walk the whole archive. **Page one keeps the declared path** —
+`/planet.xml`, never `/planet-1.xml` — so the URL people already subscribed to
+does not move as the archive grows.
+
 Every published feed gets its own `<link rel="alternate">` with the correct MIME
 type and title, injected into **every page including the homepage** — a reader
 offering a choice reads exactly those links, so one Atom link would hide the rest.

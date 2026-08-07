@@ -118,6 +118,40 @@ XML maps to nested template-friendly maps: attributes become plain keys,
 repeated elements collect into lists, text-only elements collapse to strings
 and mixed content keeps its text under `#text`.
 
+### `format: feed` — read any syndication feed
+
+SSG could always *fetch* a feed, but not *understand* one: Atom puts its entries
+at `.feed.entry`, RSS at `.rss.channel.item` and JSON Feed at `.items`, with the
+title, link and date in different places and dates in different encodings. A
+template had to know which format was on the other end, and swapping a source
+from RSS to Atom broke it even though the content was identical.
+
+`format: feed` accepts **Atom 1.0, RSS 2.0 or JSON Feed 1.1** and returns one
+shape. The format is detected from the payload, not the declaration — a `.xml`
+URL may be either, and a redirect can change what arrives.
+
+```yaml
+external_sources:
+  sources:
+    mddb:
+      type: http
+      url: https://mddb.tradik.com/feed.xml
+      format: feed
+```
+
+| Path | Contents |
+|---|---|
+| `.title`, `.home_page_url` | Feed metadata |
+| `.items` | Every entry, in feed order |
+| `<item>.title`, `.url`, `.id` | Identity |
+| `<item>.summary`, `.content_html` | Body |
+| `<item>.published`, `.updated` | **Parsed `time.Time`** — the date helpers and sorting work on them |
+| `<item>.tags`, `.author` | Categories and byline |
+
+Dates being real timestamps is what lets items from different feeds sort against
+each other, which is what makes aggregating several sources possible at all — see
+`feeds:` in [CONFIGURATION.md](CONFIGURATION.md).
+
 ### `format: changelog` — a CHANGELOG.md as structured data
 
 A `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com)
@@ -128,10 +162,11 @@ stale. It must be set explicitly — a `.md` extension infers nothing.
 
 ```yaml
 external_sources:
-  changelog:
-    type: file
-    path: CHANGELOG.md
-    format: changelog
+  sources:                 # sources live under `sources:`, not directly here
+    changelog:
+      type: file
+      path: CHANGELOG.md
+      format: changelog
 ```
 
 The parsed shape:

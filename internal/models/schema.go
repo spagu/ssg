@@ -59,8 +59,54 @@ type FeedSpec struct {
 	Tags       []string `yaml:"tags" toml:"tags" json:"tags"`
 	Type       string   `yaml:"type" toml:"type" json:"type"` // "post" (default) or "page"
 
+	// Aggregate turns this into a combined feed: several inputs — other sites'
+	// feeds and this site's own content — merged, sorted newest first and
+	// deduplicated by URL (#89). Empty means an ordinary feed of site content.
+	Aggregate []FeedInput `yaml:"aggregate" toml:"aggregate" json:"aggregate"`
+
+	// Exclude/Include filter an aggregated feed by word or tag.
+	Exclude FeedFilter `yaml:"exclude" toml:"exclude" json:"exclude"`
+	Include FeedFilter `yaml:"include" toml:"include" json:"include"`
+
+	// Paginate splits the feed into pages of N items linked with RFC 5005
+	// rel="next"/"prev", so a large archive does not ship as one huge document.
+	Paginate int `yaml:"paginate" toml:"paginate" json:"paginate"`
+
 	// Overrides for the site-wide defaults; nil inherits feed_items /
 	// feed_full_content rather than repeating them per entry.
 	Items       *int  `yaml:"items" toml:"items" json:"items"`
 	FullContent *bool `yaml:"full_content" toml:"full_content" json:"full_content"`
+}
+
+// FeedInput is one input of an aggregating feed (#89): either an external feed
+// declared in external_sources, or this site's own content.
+//
+// Label is provenance. Once items from several places are mixed, "where did this
+// come from" is the first thing a reader and a template both need, and it cannot
+// be recovered afterwards — so it is attached at the point of collection and
+// carried into the output as a tag.
+type FeedInput struct {
+	Source string `yaml:"source" toml:"source" json:"source"` // an external_sources name
+	Site   string `yaml:"site" toml:"site" json:"site"`       // this site: a content folder, or "*" for all posts
+	Label  string `yaml:"label" toml:"label" json:"label"`
+
+	// Per-input filters, applied as this source is collected and before the
+	// feed-wide ones. Sources differ in character — one publishes release notes
+	// among conference chatter, another tags everything — so a single rule for
+	// the whole aggregate either lets noise through or drops wanted items from
+	// the quiet sources. Narrowing at the source keeps each decision local to the
+	// feed it is about (#89).
+	Include FeedFilter `yaml:"include" toml:"include" json:"include"`
+	Exclude FeedFilter `yaml:"exclude" toml:"exclude" json:"exclude"`
+}
+
+// FeedFilter drops items from an aggregated feed. Words match case-insensitively
+// against the title and summary; tags match an item's tags or categories.
+//
+// Exclusion beats inclusion: a feed republishing other people's writing needs to
+// be able to say "not this" with certainty, and an item matching both lists is
+// far more likely to be the thing being excluded than a wanted one.
+type FeedFilter struct {
+	Words []string `yaml:"words" toml:"words" json:"words"`
+	Tags  []string `yaml:"tags" toml:"tags" json:"tags"`
 }
