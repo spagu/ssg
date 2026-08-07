@@ -198,6 +198,18 @@ func contentTypeAccepted(format, contentType string) bool {
 		"xml":  {"application/xml", "text/xml", "+xml"},
 		"yaml": {"application/yaml", "text/yaml", "application/x-yaml"},
 		"toml": {"application/toml"},
+		// "feed" spans three wire formats on purpose: the parser detects Atom,
+		// RSS or JSON Feed from the payload precisely because the caller cannot
+		// know which is on the other end, so the transport gate must not be
+		// narrower than the parser. Without this entry accepted[format] was nil
+		// and every real feed was rejected before parsing — ssg could not read a
+		// feed it had generated itself (#90).
+		"feed": {
+			"application/atom+xml", "application/rss+xml", "application/feed+json",
+			"application/xml", "text/xml", "+xml",
+			"application/json", "+json",
+		},
+		"changelog": {"text/markdown", "text/x-markdown"},
 	}
 	for _, want := range accepted[format] {
 		if strings.HasSuffix(ct, want) || ct == want {
