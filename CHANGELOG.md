@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.21] - 2026-08-07
+
 ### Added
 - 🔗 **`feed_autodiscovery: false`** — keep publishing feeds but stop injecting
   `<link rel="alternate">` into the HTML, for a theme that wants control over the
@@ -2233,7 +2235,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.20...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.21...HEAD
+[1.8.21]: https://github.com/spagu/ssg/compare/v1.8.20...v1.8.21
 [1.8.20]: https://github.com/spagu/ssg/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/spagu/ssg/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
