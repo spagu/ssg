@@ -524,6 +524,11 @@ func (g *Generator) injectFeedLinks(s string) string {
 	if !g.config.Feed && len(g.config.Feeds) == 0 {
 		return s
 	}
+	// feed_autodiscovery: false hands the links to the theme, for a site that
+	// wants control over their order, titles or which feeds are advertised.
+	if g.config.FeedAutodiscovery != nil && !*g.config.FeedAutodiscovery {
+		return s
+	}
 	if strings.Contains(s, `rel="alternate" type="application/atom+xml"`) ||
 		strings.Contains(s, `rel="alternate" type="application/rss+xml"`) ||
 		strings.Contains(s, `rel="alternate" type="application/feed+json"`) {

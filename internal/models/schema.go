@@ -50,6 +50,7 @@ type StaticSource struct {
 // AND; an entry with none of them covers the whole site at a path you choose.
 type FeedSpec struct {
 	Path   string `yaml:"path" toml:"path" json:"path"`       // output path, e.g. "/blog/feed.xml"
+	Name   string `yaml:"name" toml:"name" json:"name"`       // optional handle for the `feed` template helper (#91)
 	Title  string `yaml:"title" toml:"title" json:"title"`    // feed title; defaults to the site domain
 	Format string `yaml:"format" toml:"format" json:"format"` // atom (default) | rss | json
 

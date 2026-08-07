@@ -272,6 +272,13 @@ type Config struct {
 	// (#86).
 	Feeds []models.FeedSpec `yaml:"feeds" toml:"feeds" json:"feeds"`
 
+	// FeedAutodiscovery injects a <link rel="alternate"> for every published feed
+	// into every page. Default true — set false to place them yourself, when the
+	// theme wants control over their order, titles, or which feeds are advertised
+	// at all. A theme that emits its own feed link already suppresses injection;
+	// this is the explicit form of that (#86).
+	FeedAutodiscovery *bool `yaml:"feed_autodiscovery" toml:"feed_autodiscovery" json:"feed_autodiscovery"`
+
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")

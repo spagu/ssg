@@ -236,3 +236,29 @@ func TestFeedAltPath(t *testing.T) {
 		}
 	}
 }
+
+// TestFeedAutodiscoveryCanBeDisabled: a theme that wants to place the links
+// itself — different order, different titles, or only some feeds — turns
+// injection off explicitly instead of relying on the implicit "theme already
+// emitted one" escape hatch.
+func TestFeedAutodiscoveryCanBeDisabled(t *testing.T) {
+	g := feedGen(t)
+	g.config.Feed = true
+	g.config.Feeds = []models.FeedSpec{{Path: "/rss.xml", Format: "rss"}}
+	page := `<html><head><title>H</title></head><body>x</body></html>`
+
+	if got := g.injectFeedLinks(page); !strings.Contains(got, `rel="alternate"`) {
+		t.Fatal("links should be injected by default")
+	}
+	off := false
+	g.config.FeedAutodiscovery = &off
+	if got := g.injectFeedLinks(page); got != page {
+		t.Errorf("feed_autodiscovery: false must inject nothing, got:\n%s", got)
+	}
+	// Explicit true is the default, not a third state.
+	on := true
+	g.config.FeedAutodiscovery = &on
+	if got := g.injectFeedLinks(page); !strings.Contains(got, `rel="alternate"`) {
+		t.Error("feed_autodiscovery: true must inject")
+	}
+}

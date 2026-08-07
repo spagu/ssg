@@ -222,6 +222,9 @@ type Config struct {
 	StaticSources []models.StaticSource
 	// Feeds are the declared extra syndication feeds (#86).
 	Feeds []models.FeedSpec
+	// FeedAutodiscovery injects the <link rel="alternate"> elements; nil/true
+	// keeps the default behaviour (#86).
+	FeedAutodiscovery *bool
 	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
 	// sitemap; noindex pages are dropped regardless (#78).
 	SitemapPruneCanonical bool
@@ -419,6 +422,12 @@ type Generator struct {
 	// itself from the sitemap via noindex or a foreign canonical (#78).
 	sitemapSelf   map[string]bool
 	sitemapSelfMu sync.Mutex
+
+	// feedItemsCache memoizes a declared feed's merged items for the `feed`
+	// template helper (#91). Feeds are written after rendering, so this is
+	// computed on first call; the mutex is because helpers run on the render pool.
+	feedItemsCache map[string][]externalsource.FeedItem
+	feedItemsMu    sync.Mutex
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -2159,6 +2168,9 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		// Markdown, which is right for .Content and wrong for markup coming from
 		// data. Inlining SVG geometry through safeHTML wrapped it in a <p>, which
 		// is invalid inside <svg>, so the icon silently did not draw (#83).
+		"feed":                 g.tmplFeedItems,
+		"concat":               tmplConcat,
+		"flatten":              tmplFlatten,
 		"raw":                  tmplRaw,
 		"html":                 tmplRaw, // alias, for themes that expect this name
 		"decodeHTML":           tmplDecodeHTML,

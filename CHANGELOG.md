@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🔗 **`feed_autodiscovery: false`** — keep publishing feeds but stop injecting
+  `<link rel="alternate">` into the HTML, for a theme that wants control over the
+  links' order, titles or which feeds are advertised. A theme emitting its own
+  feed link already suppressed injection; this is the explicit form, so the
+  behaviour no longer depends on SSG noticing what the theme happened to render.
+  Default `true` — existing sites are unaffected.
+- 🧩 **`feed` template helper, plus `concat` and `flatten`** (#91) — a site could
+  publish an aggregated feed but not *show* one. The merge, filters, dedupe,
+  ordering and provenance labels were all computed, but only the feed writer
+  could see them, and a template had no way to compose two collections
+  (`slice a b` builds a list *of* two lists and nothing unnests it) — so an HTML
+  page fell back to one section per source, the "two lists printed one after the
+  other" that is not a merge. `feed "<path-or-name>"` returns a declared feed's
+  items, so page and feed come from one computation and cannot drift; `concat`
+  and `flatten` are the general tools, useful well beyond feeds.
+
+### Fixed
+- 🐛 **`format: feed` rejected every feed fetched over HTTP** (#90) — the format
+  was added to the parser but not to the transport's content-type allowlist, so
+  `accepted[format]` was `nil` and a real feed was refused before parsing. It
+  blocked the headline feature of 1.8.20 outright: SSG could not read a feed it
+  had generated itself. `format: changelog` (1.8.18) had the same gap. Both now
+  list their content types — `feed` deliberately spanning Atom, RSS and JSON,
+  since the parser detects the format from the payload and the transport gate
+  must not be narrower than the parser. The tests covered the parser but used
+  `type: file`, which never touches this gate; there is now a check that **every**
+  supported format has an entry, so the class of bug cannot recur.
+
 ## [1.8.20] - 2026-08-07
 
 ### Added

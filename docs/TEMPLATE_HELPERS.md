@@ -78,6 +78,47 @@ the whole corpus, not just the pages built into this site. It is a live query
 See [`examples/related-posts/`](../examples/related-posts/) for the keyword, mddb
 and embeddings/vector approaches.
 
+### `feed` — a declared feed's items
+
+```gotemplate
+{{ range feed "/planet.xml" }}
+  <article>
+    <span class="badge">{{ .Label }}</span>
+    <h3><a href="{{ .URL }}">{{ .Title }}</a></h3>
+    <p>{{ .Summary }}</p>
+  </article>
+{{ end }}
+```
+
+`feed <path-or-name>` returns the items of a feed declared in `feeds:` — already
+merged, filtered, deduplicated, sorted newest first and carrying its provenance
+`.Label`. A page built this way and the feed itself come from the same
+computation, so they cannot drift.
+
+Each item exposes `.Title`, `.URL`, `.ID`, `.Summary`, `.ContentHTML`,
+`.Published`, `.Updated`, `.Tags`, `.Author`, `.Source` and `.Label`.
+
+Look a feed up by its `path`, or by an optional `name:` on the spec. It returns
+the **whole** feed, not one page — paginate the HTML yourself with `first` /
+`offset` if you want that. An undeclared feed yields nothing and warns, rather
+than failing the render.
+
+### `concat` / `flatten` — compose collections
+
+```gotemplate
+{{ $all := concat .Site.Posts .ExternalData.mddb.items }}
+{{ range $all | sort "Published" "desc" | first 12 }}…{{ end }}
+
+{{ flatten (slice $a $b) }}
+```
+
+Go templates cannot join two collections: `slice a b` builds a list *of* two
+lists, and nothing unnests it. `concat` joins any number of collections into one
+`[]any` — which the helpers above handle by reflection, so it composes with
+`sort`, `first` and the rest. Element types need not match. A `nil` input
+contributes nothing rather than a hole for `range` to trip on. `flatten` unnests
+one level.
+
 ### `where` — filter by field equality
 
 ```gotemplate

@@ -632,6 +632,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
 		StaticSources:         cfg.StaticSources,
 		Feeds:                 cfg.Feeds,
+		FeedAutodiscovery:     cfg.FeedAutodiscovery,
 		MetaLimits:            cfg.MetaLimits,
 		Bundles:               cfg.Bundles,
 		Outputs:               cfg.Outputs,

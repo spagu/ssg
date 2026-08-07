@@ -205,3 +205,63 @@ func strSlice(v interface{}) []string {
 	}
 	return nil
 }
+
+// tmplFeedItems exposes a declared feed's items to templates (#91).
+//
+// Publishing a planet and *showing* one were two different problems: the merge,
+// filters, dedupe, sort and provenance labels were all computed, but only the
+// feed writer could see them, so an HTML page had to re-implement the lot — and
+// could not, since no helper composes two collections. The page and the feed now
+// come from the same computation, so they cannot drift.
+//
+// Feeds are written after rendering, so this computes on first call and caches.
+// The cache is mutex-guarded because template helpers run on the render worker
+// pool.
+func (g *Generator) tmplFeedItems(pathOrName string) []externalsource.FeedItem {
+	key := strings.TrimSpace(pathOrName)
+	if key == "" {
+		return nil
+	}
+	g.feedItemsMu.Lock()
+	defer g.feedItemsMu.Unlock()
+	if items, ok := g.feedItemsCache[key]; ok {
+		return items
+	}
+	spec, ok := g.findFeedSpec(key)
+	if !ok {
+		fmt.Printf("   ⚠️  feed %q is not declared in feeds: — returning nothing\n", key)
+		if g.feedItemsCache == nil {
+			g.feedItemsCache = map[string][]externalsource.FeedItem{}
+		}
+		g.feedItemsCache[key] = nil
+		return nil
+	}
+	full := g.config.FeedFullContent
+	if spec.FullContent != nil {
+		full = *spec.FullContent
+	}
+	items := g.feedItemsFor(spec, full)
+	if spec.Items != nil && *spec.Items > 0 && len(items) > *spec.Items {
+		items = items[:*spec.Items]
+	}
+	if g.feedItemsCache == nil {
+		g.feedItemsCache = map[string][]externalsource.FeedItem{}
+	}
+	g.feedItemsCache[key] = items
+	return items
+}
+
+// findFeedSpec matches a declared feed by its path or its optional name, so a
+// template can refer to whichever reads better.
+func (g *Generator) findFeedSpec(key string) (models.FeedSpec, bool) {
+	want := strings.Trim(key, "/")
+	for _, spec := range g.config.Feeds {
+		if strings.TrimSpace(spec.Name) == key {
+			return spec, true
+		}
+		if strings.Trim(models.SanitizeRelPath(spec.Path), "/") == want {
+			return spec, true
+		}
+	}
+	return models.FeedSpec{}, false
+}

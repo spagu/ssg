@@ -152,3 +152,108 @@ func TestFeedPagePath(t *testing.T) {
 		t.Errorf("nested path paginated wrong: %q", got)
 	}
 }
+
+// TestTmplFeedItems covers #91: a template can reach a declared feed's items, so
+// an HTML page shows the same list the feed carries — filters, dedupe, ordering
+// and labels included — instead of re-implementing them and drifting.
+func TestTmplFeedItems(t *testing.T) {
+	g := aggGen(t)
+	g.config.Feeds = []models.FeedSpec{{
+		Path: "/planet.xml", Name: "planet", Title: "Planet",
+		Aggregate: []models.FeedInput{
+			{Source: "ssg", Label: "SSG"},
+			{Source: "mddb", Label: "MDDB"},
+			{Site: "blog", Label: "Tradik"},
+		},
+		Exclude: models.FeedFilter{Words: []string{"sponsored"}},
+	}}
+
+	byPath := g.tmplFeedItems("/planet.xml")
+	if len(byPath) != 4 {
+		t.Fatalf("got %d items, want 4 (one excluded): %v", len(byPath), aggTitles(byPath))
+	}
+	// The feed's own rules applied — this is the whole point of reusing it.
+	if strings.Contains(strings.Join(aggTitles(byPath), " "), "Sponsored") {
+		t.Error("the feed's exclude must apply to the template view too")
+	}
+	if byPath[0].Title != "Our own post" {
+		t.Errorf("ordering must match the feed (newest first): %v", aggTitles(byPath))
+	}
+	if byPath[0].Label != "Tradik" {
+		t.Errorf("provenance label must reach the template: %+v", byPath[0])
+	}
+
+	// Reachable by name as well as by path, whichever reads better in a theme.
+	if byName := g.tmplFeedItems("planet"); len(byName) != len(byPath) {
+		t.Errorf("lookup by name = %d items, by path = %d", len(byName), len(byPath))
+	}
+	// An undeclared feed returns nothing rather than breaking the render.
+	if got := g.tmplFeedItems("/nope.xml"); got != nil {
+		t.Errorf("unknown feed should yield nothing, got %v", aggTitles(got))
+	}
+	if got := g.tmplFeedItems(""); got != nil {
+		t.Error("an empty key should yield nothing")
+	}
+	// Registered under the name a template actually calls.
+	if _, ok := g.buildTemplateFuncs(nil)["feed"]; !ok {
+		t.Error("the feed helper must be registered")
+	}
+}
+
+// TestTmplFeedItemsRespectsItemCap: the template view is capped like the feed, so
+// the page cannot quietly show more than the feed advertises.
+func TestTmplFeedItemsRespectsItemCap(t *testing.T) {
+	g := aggGen(t)
+	two := 2
+	g.config.Feeds = []models.FeedSpec{{
+		Path: "/planet.xml", Items: &two,
+		Aggregate: []models.FeedInput{{Source: "ssg"}, {Source: "mddb"}, {Site: "blog"}},
+	}}
+	if got := g.tmplFeedItems("/planet.xml"); len(got) != 2 {
+		t.Errorf("items: 2 should cap the template view, got %d", len(got))
+	}
+}
+
+// TestTmplConcatAndFlatten covers the general helpers #91 asked for: Go templates
+// cannot compose two collections — `slice a b` builds a list OF two lists and
+// nothing flattens it — so a page mixing site posts with external items had no
+// way to produce one ordered list.
+func TestTmplConcatAndFlatten(t *testing.T) {
+	a := []string{"one", "two"}
+	b := []interface{}{3, 4}
+
+	got := tmplConcat(a, b)
+	if len(got) != 4 {
+		t.Fatalf("concat = %v, want four elements", got)
+	}
+	// Mixed element types are fine: the result is []any, which the collection
+	// helpers handle by reflection, so concat composes with sort/first.
+	if got[0] != "one" || got[3] != 4 {
+		t.Errorf("concat lost or reordered elements: %v", got)
+	}
+	// A nil input contributes nothing rather than a nil hole for range to trip on.
+	if n := len(tmplConcat(a, nil, b)); n != 4 {
+		t.Errorf("nil input should contribute nothing, got %d elements", n)
+	}
+	if n := len(tmplConcat()); n != 0 {
+		t.Errorf("concat of nothing should be empty, got %d", n)
+	}
+	// A non-collection is one element, so concat works with a single item too.
+	if n := len(tmplConcat("solo")); n != 1 {
+		t.Errorf("a scalar should count as one element, got %d", n)
+	}
+
+	// flatten unnests one level — the shape `slice a b` produces.
+	flat := tmplFlatten([]interface{}{a, b})
+	if len(flat) != 4 {
+		t.Errorf("flatten = %v, want four elements", flat)
+	}
+	if n := len(tmplFlatten(nil)); n != 0 {
+		t.Errorf("flatten(nil) should be empty, got %d", n)
+	}
+	for _, name := range []string{"concat", "flatten"} {
+		if _, ok := newTestGen(t, "").buildTemplateFuncs(nil)[name]; !ok {
+			t.Errorf("%s must be registered", name)
+		}
+	}
+}

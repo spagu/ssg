@@ -235,6 +235,22 @@ type and title, injected into **every page including the homepage** — a reader
 offering a choice reads exactly those links, so one Atom link would hide the rest.
 A theme that advertises its own feed is left alone.
 
+Set `feed_autodiscovery: false` to keep the feeds but **stop the injection into
+your HTML** — for a theme that wants control over the links' order, their titles,
+or which feeds are advertised at all:
+
+```yaml
+feed: true
+feeds:
+  - path: /rss.xml
+    format: rss
+feed_autodiscovery: false     # the feeds are still written; the <link> tags are yours
+```
+
+The links then have to come from the theme. A theme that already emits its own
+feed link suppresses injection anyway — this is the explicit form of that, so the
+behaviour does not depend on SSG noticing what the theme happened to render.
+
 ### Publishing files that live elsewhere (`static_sources`)
 
 `static_dir` is a single root. When the files a site publishes verbatim already
@@ -626,7 +642,8 @@ shortcode_errors: strict
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
 | `feed` | `false` | `--feed` |
-| `feeds` | empty | config only | Extra feeds, each with its own selection, path and format | Root and category/tag Atom feeds |
+| `feeds` | empty | config only | Extra feeds, each with its own selection, path and format |
+| `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page | Root and category/tag Atom feeds |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
