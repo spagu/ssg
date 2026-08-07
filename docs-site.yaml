@@ -110,11 +110,18 @@ mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"
 
-# Worker client assets live at the site root (/comments.js, /cookie-consent.js,
-# …) and are updated in place — so they must NOT get the default one-year,
-# immutable asset cache, or a browser keeps a stale copy for a year. Serve them
-# revalidating: the etag is checked on each load (a 304 when unchanged), so a
-# widget update propagates on the next visit.
+# Content-address CSS/JS names, so a changed asset arrives under a new URL.
+#
+# Without this the generated _headers still marks /css/* and /js/* immutable for
+# a year, and `immutable` tells the browser not even to revalidate — so a
+# stylesheet edit stays invisible to anyone who visited before, and no change to
+# the header can reach them, because they never ask again. A content hash in the
+# name is the way out: the URL changes, so the stale copy is simply not
+# requested, and the year-long cache becomes correct rather than dangerous.
+fingerprint: true
+
+# Assets that keep a stable path — the worker widgets, served from the site root
+# and updated in place — still need to revalidate for exactly the reason above.
 headers:
   /comments.js:
     Cache-Control: "public, max-age=0, must-revalidate"
