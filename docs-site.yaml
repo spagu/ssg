@@ -80,15 +80,6 @@ post_url_format: slug
 feed: true
 feed_items: 20
 
-# The same posts as /feed.xml, in RSS 2.0 (#86). Plenty of readers, aggregators
-# and server-side integrations accept only RSS, and publishing both costs one
-# extra file — each is advertised with its own <link rel="alternate"> so a reader
-# offering a choice sees both rather than only the Atom one.
-feeds:
-  - path: /rss.xml
-    title: "SSG"
-    format: rss
-
 pretty_html: true
 sitemap_off: false
 robots_off: false
@@ -142,7 +133,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.8.20"
+  version: "1.8.21"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants
