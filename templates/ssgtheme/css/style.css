@@ -726,3 +726,119 @@ a:hover {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Marquee ────────────────────────────────────────────────────────────────
+   A scrolling "deploys natively to" strip.
+
+   The track is duplicated in the markup and the animation translates by exactly
+   one track width, so the copy lands where the original started and the loop has
+   no seam. That only holds if the two tracks sit flush: the leading gap belongs
+   to each track's own padding, never to a gap on the viewport, or every lap
+   jumps by the width of that gap.
+
+   Motion is the reader's choice. Under prefers-reduced-motion the animation stops
+   and an ordinary horizontally scrollable row remains, so nothing becomes
+   unreachable (WCAG 2.2 2.3.3). It also pauses on hover and on keyboard focus,
+   because a link moving under the pointer cannot be clicked.                    */
+
+.marquee {
+  /* No token names a duration this long — the motion tokens size
+     micro-interactions. Exposed here so a site can tune the pace. */
+  --marquee-duration: 32s;
+  margin: var(--space-16) 0;
+  text-align: center;
+}
+
+.marquee__title {
+  margin-bottom: var(--space-6);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+
+.marquee__viewport {
+  display: flex;
+  overflow: hidden;
+  /* Fade the edges so entries arrive and leave instead of being cut mid-letter. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.marquee__track {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-16);
+  /* The leading gap lives here rather than on the viewport — see the note above. */
+  padding-left: var(--space-16);
+  margin: 0;
+  list-style: none;
+  animation: marquee-scroll var(--marquee-duration) linear infinite;
+}
+
+.marquee__viewport:hover .marquee__track,
+.marquee__viewport:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+
+.marquee__item {
+  flex: 0 0 auto;
+  color: var(--color-fg-secondary);
+  transition: color var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.marquee__item:hover,
+.marquee__item:focus-within {
+  color: var(--color-fg-primary);
+}
+
+.marquee__item a,
+.marquee__item > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Sized in em so the mark scales with its label rather than against it. */
+.marquee__logo {
+  width: 1.75em;
+  height: 1.75em;
+  flex: 0 0 auto;
+}
+
+.marquee__name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__viewport {
+    overflow-x: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .marquee__track {
+    animation: none;
+  }
+
+  /* The duplicate exists only to hide the seam; with the animation off it is
+     redundant repetition in a plain scrollable row. */
+  .marquee__track[aria-hidden="true"] {
+    display: none;
+  }
+}

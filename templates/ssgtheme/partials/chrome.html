@@ -230,3 +230,63 @@
     </footer>
     <script src="/js/main.js"></script>
 {{end}}
+
+{{/*
+  sc-marquee — a horizontal scrolling strip of names, for "works natively with …".
+
+  Config-driven so the theme carries no site's marketing: a site fills
+  variables.marquee with {title, items:[{name, url}]} and the strip appears;
+  without it, nothing renders.
+
+  The track is duplicated because a seamless loop needs the content to repeat —
+  the animation translates by exactly -50%, so the copy arrives where the
+  original started and the seam is invisible. The duplicate is aria-hidden, or a
+  screen reader announces every name twice.
+
+  Motion is opt-out by the reader, not by us: under prefers-reduced-motion the
+  animation stops and the strip becomes an ordinary scrollable row, so the
+  information stays reachable without movement (WCAG 2.2 2.3.3). It also pauses
+  on hover and on keyboard focus, so a link is possible to hit.
+*/}}
+{{define "sc-marquee"}}
+{{ with .Vars.marquee }}
+<section class="marquee" aria-label="{{ .title }}">
+    <p class="marquee__title">{{ .title }}</p>
+    <div class="marquee__viewport">
+        <ul class="marquee__track">
+            {{ range .items }}
+            <li class="marquee__item">
+                {{ if .url }}<a href="{{ .url }}">{{ template "sc-marquee-face" . }}</a>
+                {{ else }}<span>{{ template "sc-marquee-face" . }}</span>{{ end }}
+            </li>
+            {{ end }}
+        </ul>
+        <ul class="marquee__track" aria-hidden="true">
+            {{ range .items }}
+            <li class="marquee__item">
+                {{ if .url }}<a href="{{ .url }}" tabindex="-1">{{ template "sc-marquee-face" . }}</a>
+                {{ else }}<span>{{ template "sc-marquee-face" . }}</span>{{ end }}
+            </li>
+            {{ end }}
+        </ul>
+    </div>
+</section>
+{{ end }}
+{{end}}
+
+{{/*
+  sc-marquee-face — one entry: the brand mark, then its name.
+
+  The path is an attribute value, never raw HTML, so a config file cannot inject
+  markup here. fill="currentColor" makes a monochrome mark inherit the text
+  colour, so it stays legible in both light and dark themes instead of turning
+  into a black square on a dark background.
+
+  The name stays visible next to the mark: a logo alone is unreadable to anyone
+  who does not already recognise it, and the svg is aria-hidden so a screen
+  reader announces the name once rather than twice.
+*/}}
+{{define "sc-marquee-face"}}
+{{- if .icon }}<svg class="marquee__logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="{{ .icon }}"/></svg>{{ end -}}
+<span class="marquee__name">{{ .name }}</span>
+{{end}}
