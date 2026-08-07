@@ -157,3 +157,55 @@ func tmplRaw(v interface{}) template.HTML {
 		return template.HTML(fmt.Sprint(v)) // #nosec G203 -- as above
 	}
 }
+
+// tmplConcat joins several collections into one (#91). Go templates have no way
+// to compose two collections: `slice a b` builds a list *of* two lists, and
+// nothing flattens it — so a page mixing site posts with external items had no
+// way to produce a single ordered list, only one section per source.
+//
+// Element types are not required to match: the result is []any, which the
+// collection helpers already handle by reflection, so `concat` composes with
+// sort, first and the rest.
+func tmplConcat(collections ...interface{}) []interface{} {
+	out := []interface{}{}
+	for _, c := range collections {
+		out = append(out, flattenOne(c)...)
+	}
+	return out
+}
+
+// tmplFlatten flattens one level of nesting, so the output of `slice a b` — or
+// anything else that produced a list of lists — becomes usable.
+func tmplFlatten(v interface{}) []interface{} {
+	out := []interface{}{}
+	for _, e := range flattenOne(v) {
+		out = append(out, flattenOne(e)...)
+	}
+	return out
+}
+
+// flattenOne returns a slice/array as []any, or the value itself as a single
+// element. A nil is nothing rather than a nil entry, so concatenating an absent
+// external source does not leave a hole for `range` to trip on.
+func flattenOne(v interface{}) []interface{} {
+	if v == nil {
+		return nil
+	}
+	rv := reflect.ValueOf(v)
+	for rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface {
+		if rv.IsNil() {
+			return nil
+		}
+		rv = rv.Elem()
+	}
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		out := make([]interface{}, 0, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			out = append(out, rv.Index(i).Interface())
+		}
+		return out
+	default:
+		return []interface{}{v}
+	}
+}

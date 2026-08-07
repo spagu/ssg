@@ -632,6 +632,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
 		StaticSources:         cfg.StaticSources,
 		Feeds:                 cfg.Feeds,
+		FeedAutodiscovery:     cfg.FeedAutodiscovery,
 		MetaLimits:            cfg.MetaLimits,
 		Bundles:               cfg.Bundles,
 		Outputs:               cfg.Outputs,
@@ -1513,6 +1514,7 @@ func printUsage() {
 	fmt.Println("")
 	fmt.Println("Feeds, Search & Listings:")
 	fmt.Println("  --feed                 - Generate an Atom feed (feed.xml)")
+	fmt.Println("                           (feeds: in config adds more, in atom | rss | json)")
 	fmt.Println("  --feed-items=N         - Max entries in the feed (default: 20)")
 	fmt.Println("  --search-index         - Emit search-index.json for client-side search")
 	fmt.Println("  --paginate=N           - Posts per index page; 0 disables pagination (default)")

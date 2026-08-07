@@ -131,6 +131,11 @@ static_sources: []
 # format: atom (default), rss (2.0) or json (JSON Feed 1.1). Selection criteria
 # (source / categories / tags / type) are optional and combine with AND.
 feeds: []
+
+# Inject <link rel="alternate"> for every feed into every HTML page. Default true.
+# Set false to keep publishing the feeds but place the tags yourself — for a theme
+# that wants control over their order, titles, or which feeds are advertised.
+feed_autodiscovery: true
 #  - path: /blog/feed.xml
 #    title: "Blog"
 #    source: blog            # a content_sources path or content folder
@@ -138,6 +143,8 @@ feeds: []
 #    title: "Blog"
 #    source: blog
 #    format: rss
+#  - path: /planet.xml
+#    name: planet          # optional handle for the `feed` template helper
 #  - path: /releases.xml
 #    title: "Release notes"
 #    format: rss
