@@ -123,6 +123,22 @@ fingerprint: true
 # Assets that keep a stable path — the worker widgets, served from the site root
 # and updated in place — still need to revalidate for exactly the reason above.
 headers:
+  # `immutable` is deliberately NOT used here, even though the names now carry a
+  # content hash and it would normally be exactly right.
+  #
+  # _headers matches by path pattern, not by what was actually served, so the
+  # rule also lands on a 404 fallback for a path under /css/. Ask for an asset in
+  # the window before a deploy has propagated and the edge pins that HTML page
+  # under the asset URL — for a year, unrevalidatable. That is not hypothetical:
+  # it is what took the stylesheet down on this site.
+  #
+  # A day-long cache keeps virtually all the benefit — the hash already changes
+  # the URL whenever the content does, so nothing stale is ever requested — while
+  # leaving any poisoned entry to expire on its own instead of persisting.
+  /css/*:
+    Cache-Control: "public, max-age=86400"
+  /js/*:
+    Cache-Control: "public, max-age=86400"
   /comments.js:
     Cache-Control: "public, max-age=0, must-revalidate"
   /comments.css:
