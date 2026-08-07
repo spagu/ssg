@@ -9,6 +9,12 @@
  * Nothing here hard-codes a colour, size or duration that a token names.
  */
 
+/* Cache-bust marker. The edge pinned a 404 page under this file's previous
+   content-addressed URL with a year-long immutable header, which no redeploy
+   could correct; changing the bytes changes the URL, which is the only way past
+   a poisoned immutable entry. Bump the date if it ever happens again.
+   Last bust: 2026-08-07. */
+
 @import url("tokens.css");
 
 /* ── Reset ──────────────────────────────────────────────────────────────── */
