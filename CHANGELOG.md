@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ↪️ **`check_redirects` + `pretty_urls` — links that only resolve through a host
+  redirect** (#87). `check_links` resolves against the output directory, which is
+  not how a host answers, so a link can pass and still cost every visitor a round
+  trip; one `.html` link in a shared footer puts the whole site through one.
+  `pretty_urls` describes the host — it strips `.html` and appends a trailing
+  slash — and makes link checking agree in **both** directions: `check_links`
+  stops reporting `/docs/swagger` broken when the host serves it from
+  `swagger.html`, and `check_redirects` reports the reverse with the destination
+  named. Off for a plain object store, where the extensionless form is a genuine
+  404 rather than a redirect, and the check then skips with a message rather than
+  reporting shapes the host never rewrites.
+
 - 🌍 **Feeds can now be read as well as written — and merged** (#89). `format: feed`
   on an external source accepts **Atom 1.0, RSS 2.0 or JSON Feed 1.1** and
   normalizes all three into one shape, with dates parsed into real timestamps.

@@ -683,6 +683,8 @@ implemented.
 | `check_images` | empty | `--check-images[=warn|strict|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn|strict]` | Report indexable pages nothing links to |
+| `check_redirects` | empty | `--check-redirects[=warn|strict]` | Report links the host would redirect (needs `pretty_urls`) |
+| `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
 | `content_exclude` | empty | — | Globs for Markdown under `content_dir` that is **not** a page |
@@ -786,6 +788,41 @@ full of them. Self-links, `noindex` pages and the site root are ignored.
 `description:`. Nothing is invented — the author already wrote it, it just never
 reached the output. An existing but empty tag is rewritten in place rather than
 joined by a second one.
+
+### Links the host redirects (`pretty_urls`, `check_redirects`)
+
+`check_links` resolves a URL against the output directory. That is not how a host
+answers it, so a link can pass and still cost every visitor a redirect. Most
+static hosts serve **pretty URLs**: they strip a `.html` extension and append a
+trailing slash, answering the un-normalised form with a 308.
+
+```yaml
+pretty_urls: true       # describe how the host serves URLs
+check_redirects: warn   # "" | warn | strict
+```
+
+`pretty_urls` makes link checking agree with the host in **both** directions:
+
+- `check_links` stops reporting `/docs/swagger` as broken when the output holds
+  `docs/swagger.html` and the host serves it — without this the checker pushes you
+  to restructure a page into a directory to satisfy the tool rather than the site.
+- `check_redirects` reports the reverse: links that resolve *only* through a
+  redirect, naming the destination so the fix is obvious.
+
+```
+⚠️  redirected link in index.html → /docs/swagger.html  →  /docs/swagger/
+⚠️  redirected link in index.html → /docs/intro  →  /docs/intro/
+```
+
+Nothing here is broken, which is why `check_links` passes it — but each one is a
+round trip per visitor and a hop of crawl budget per crawler, and it multiplies: a
+single `.html` link in a shared footer puts every page on the site through a
+redirect. It is invisible locally, because local resolution is not what the host
+does.
+
+Leave `pretty_urls` off for a plain object store, which rewrites nothing. There
+`/docs/swagger` is a genuine 404 rather than a redirect, and `check_redirects`
+skips with a message rather than reporting shapes the host never rewrites.
 
 ### Keeping the sitemap honest
 

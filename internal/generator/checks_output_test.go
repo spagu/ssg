@@ -417,3 +417,106 @@ func TestURLForOutputFile(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckRedirects covers #87: links that resolve fine against the output but
+// which a pretty-URL host answers with a redirect. Nothing is broken — which is
+// why check_links passes them — but each costs a visitor a round trip, and one
+// such link in shared chrome puts every page on the site through one.
+func TestCheckRedirects(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.Domain = "ex.com"
+	writeOut(t, g, "docs/intro/index.html", `<html><body>x</body></html>`)
+	writeOut(t, g, "page.html", `<html><body>
+		<a href="/docs/intro.html">ext</a>
+		<a href="/docs/intro">noslash</a>
+		<a href="/docs/intro/">correct</a>
+		<a href="/feed.xml">feed</a>
+		<a href="https://example.com/out">external</a>
+	</body></html>`)
+
+	// Off without pretty_urls: on a plain object store the extensionless form is a
+	// genuine 404, so reporting it as "a redirect" would be wrong.
+	g.config.CheckRedirects = "warn"
+	out, err := capture(t, g.checkRedirectsIfRequested)
+	if err != nil {
+		t.Fatalf("warn must not fail: %v", err)
+	}
+	if !strings.Contains(out, "pretty_urls") {
+		t.Errorf("without pretty_urls the check should explain why it skipped:\n%s", out)
+	}
+
+	g.config.PrettyURLs = true
+	out, err = capture(t, g.checkRedirectsIfRequested)
+	if err != nil {
+		t.Fatalf("warn must not fail: %v", err)
+	}
+	for _, want := range []string{"/docs/intro.html  →  /docs/intro/", "/docs/intro  →  /docs/intro/"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing finding %q:\n%s", want, out)
+		}
+	}
+	// The already-final form, a non-page file and an external link are all silent.
+	if strings.Contains(out, `"/docs/intro/"`) || strings.Contains(out, "feed.xml") || strings.Contains(out, "example.com") {
+		t.Errorf("reported something that costs no redirect:\n%s", out)
+	}
+
+	g.config.CheckRedirects = "strict"
+	if _, err := capture(t, g.checkRedirectsIfRequested); err == nil {
+		t.Error("strict must fail when links only resolve through a redirect")
+	}
+}
+
+// TestRedirectTargetOf pins the shapes a pretty-URL host rewrites.
+func TestRedirectTargetOf(t *testing.T) {
+	g := newTestGen(t, "")
+	writeOut(t, g, "docs/intro/index.html", "x")
+	cases := map[string]string{
+		"/docs/intro.html":       "/docs/intro/",
+		"/docs/intro/index.html": "/docs/intro/",
+		"/docs/intro":            "/docs/intro/",
+		"/docs/intro/":           "", // already final
+		"/feed.xml":              "", // not a page
+		"/nowhere":               "", // no directory there — check_links' finding, not ours
+		"/":                      "",
+	}
+	for href, want := range cases {
+		if got := g.redirectTargetOf(href); got != want {
+			t.Errorf("redirectTargetOf(%q) = %q, want %q", href, got, want)
+		}
+	}
+	// A query or fragment is carried onto the reported destination.
+	if got := g.redirectTargetOf("/docs/intro?a=1"); got != "/docs/intro/?a=1" {
+		t.Errorf("query not carried: %q", got)
+	}
+}
+
+// TestPrettyURLsMakesLinkCheckAgree: with pretty_urls the link checker stops
+// contradicting the host in the other direction, so an author is not pushed to
+// restructure content around a limitation of the checker.
+func TestPrettyURLsMakesLinkCheckAgree(t *testing.T) {
+	g := newTestGen(t, "")
+	g.refCache = map[string]bool{}
+	// A FLAT page: docs/swagger.html, with no directory of that name. This is the
+	// shape the issue hit — a directory-backed page already resolved.
+	writeOut(t, g, "docs/swagger.html", "x")
+	writeOut(t, g, "docs/intro/index.html", "x")
+	dir := g.config.OutputDir
+
+	if g.refResolves("/docs/swagger", dir) {
+		t.Error("without pretty_urls an extensionless link to a flat page does not resolve")
+	}
+	g.config.PrettyURLs = true
+	g.refCache = map[string]bool{} // the verdict is cached per path
+	if !g.refResolves("/docs/swagger", dir) {
+		t.Error("with pretty_urls the host strips .html and serves it — not a broken link")
+	}
+	// A directory-backed page resolves either way.
+	g.refCache = map[string]bool{}
+	if !g.refResolves("/docs/intro", dir) {
+		t.Error("a directory-backed page must resolve")
+	}
+	g.refCache = map[string]bool{}
+	if g.refResolves("/docs/missing", dir) {
+		t.Error("a genuinely missing page must still be reported")
+	}
+}

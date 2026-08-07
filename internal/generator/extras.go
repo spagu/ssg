@@ -159,6 +159,9 @@ func (g *Generator) refResolves(ref, htmlDir string) bool {
 		}
 	}
 	v := refTargetExists(target, strings.HasSuffix(ref, "/"))
+	if !v && g.config.PrettyURLs {
+		v = refTargetExistsPretty(target, strings.HasSuffix(ref, "/"))
+	}
 	if g.refCache != nil {
 		g.refCache[key] = v
 	}
@@ -178,6 +181,35 @@ func refTargetExists(target string, dirStyle bool) bool {
 	if dirStyle {
 		_, e := os.Stat(filepath.Join(target, indexHTMLName))
 		return e == nil
+	}
+	return false
+}
+
+// refTargetExistsPretty is refTargetExists on a host that serves pretty URLs: it
+// also accepts the forms such a host normalizes before answering (#87).
+//
+// Without this, link checking contradicts the host in the other direction:
+// "/docs/intro" is reported broken even though the host serves it by appending a
+// slash, which pushes an author to restructure content around a limitation of
+// the checker rather than of the site.
+func refTargetExistsPretty(target string, dirStyle bool) bool {
+	if refTargetExists(target, dirStyle) {
+		return true
+	}
+	// Extensionless, pointing at a flat file: the host strips ".html", so
+	// "/docs/swagger" is served by docs/swagger.html. The directory form is
+	// already handled above; this is the case that made the checker disagree with
+	// the host and pushed authors to restructure pages into directories.
+	if filepath.Ext(target) == "" {
+		if info, err := os.Stat(target + ".html"); err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	// ".html": the host strips the extension and serves the directory of that name.
+	if strings.EqualFold(filepath.Ext(target), ".html") {
+		if _, err := os.Stat(filepath.Join(strings.TrimSuffix(target, filepath.Ext(target)), indexHTMLName)); err == nil {
+			return true
+		}
 	}
 	return false
 }
