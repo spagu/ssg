@@ -211,11 +211,17 @@ type Config struct {
 	CheckImages  string
 	CheckMeta    string
 	CheckOrphans string
+	// CheckRedirects reports links the host would redirect; PrettyURLs models that
+	// host behaviour (#87).
+	CheckRedirects string
+	PrettyURLs     bool
 	// ContentExclude are glob patterns for Markdown files that must not be loaded
 	// as pages (#74).
 	ContentExclude []string
 	// StaticSources are extra verbatim passthrough roots beyond static_dir (#84).
 	StaticSources []models.StaticSource
+	// Feeds are the declared extra syndication feeds (#86).
+	Feeds []models.FeedSpec
 	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
 	// sitemap; noindex pages are dropped regardless (#78).
 	SitemapPruneCanonical bool
@@ -753,6 +759,9 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
+	if err := g.generateDeclaredFeeds(); err != nil {
+		return err
+	}
 	if err := g.generateFeeds(); err != nil {
 		return fmt.Errorf("generating feeds: %w", err)
 	}
@@ -836,7 +845,10 @@ func (g *Generator) assetPhase() error {
 	if err := g.checkMetaIfRequested(); err != nil {
 		return err
 	}
-	return g.checkOrphansIfRequested()
+	if err := g.checkOrphansIfRequested(); err != nil {
+		return err
+	}
+	return g.checkRedirectsIfRequested()
 }
 
 // hookTimeout bounds every lifecycle hook so a hung command cannot stall the build.
@@ -4131,10 +4143,13 @@ func (g *Generator) generateSitemap() error {
 	sb.WriteString(`>`)
 	sb.WriteString("\n")
 
-	// Homepage — skip if any index page has noindex
+	// Homepage — judged against the file actually served at "/", which is the root
+	// index.html. A page slugged "index" also emits "/index/"; reading the
+	// homepage's verdict from that duplicate dropped the site root whenever a
+	// theme marked the duplicate noindex (#88).
 	skipHomepage := false
 	for _, page := range g.siteData.Pages {
-		if (page.Slug == "" || page.Slug == "index") && g.excludesFromSitemap(page) {
+		if (page.Slug == "" || page.Slug == "index") && g.excludesFromSitemapAt(page, indexHTMLName) {
 			skipHomepage = true
 			break
 		}

@@ -94,8 +94,14 @@ func TestBuildOpenGraphAndInjectSEO(t *testing.T) {
 	page := models.Page{Title: "T", Description: "D", Slug: "s", Type: "post"}
 	g.config.SEO = true // opt-in (v1.8.2): injection only runs when enabled
 	data := g.seoHTMLString("<html><head></head><body></body></html>", page, true)
-	if !strings.Contains(data, "og:title") || !strings.Contains(data, "application/atom+xml") {
+	if !strings.Contains(data, "og:title") {
 		t.Errorf("seoHTMLString missing tags: %s", data)
+	}
+	// Feed autodiscovery moved out of the SEO block into transformHTMLPage, so it
+	// also reaches pages with no page context — the homepage above all (#86).
+	full := g.transformHTMLPage("<html><head></head><body></body></html>", &page, true)
+	if !strings.Contains(full, "application/atom+xml") {
+		t.Errorf("rendered page missing the feed link: %s", full)
 	}
 
 	// Opt-out (default): injection is a no-op unless SEO is enabled.

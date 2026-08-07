@@ -27,6 +27,8 @@ func Parse(format string, r io.Reader, opts CSVOptions) (interface{}, error) {
 		return parseXML(r)
 	case "changelog":
 		return parseChangelog(r)
+	case "feed":
+		return parseFeed(r)
 	}
 	return nil, fmt.Errorf("no parser for format %q", format)
 }

@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.20] - 2026-08-07
+
+### Added
+- ↪️ **`check_redirects` + `pretty_urls` — links that only resolve through a host
+  redirect** (#87). `check_links` resolves against the output directory, which is
+  not how a host answers, so a link can pass and still cost every visitor a round
+  trip; one `.html` link in a shared footer puts the whole site through one.
+  `pretty_urls` describes the host — it strips `.html` and appends a trailing
+  slash — and makes link checking agree in **both** directions: `check_links`
+  stops reporting `/docs/swagger` broken when the host serves it from
+  `swagger.html`, and `check_redirects` reports the reverse with the destination
+  named. Off for a plain object store, where the extensionless form is a genuine
+  404 rather than a redirect, and the check then skips with a message rather than
+  reporting shapes the host never rewrites.
+
+- 🌍 **Feeds can now be read as well as written — and merged** (#89). `format: feed`
+  on an external source accepts **Atom 1.0, RSS 2.0 or JSON Feed 1.1** and
+  normalizes all three into one shape, with dates parsed into real timestamps.
+  The format is detected from the payload rather than the declaration, since a
+  `.xml` URL may be either and a redirect can change what arrives. A declared feed
+  can then **aggregate** several inputs — other sites' feeds *and your own posts*
+  — into one published feed: sorted newest first, deduplicated by URL, each item
+  carrying a **provenance label** emitted as a category so an aggregate can be
+  grouped by where things came from. Filters run **per source first, then
+  feed-wide**, because what counts as noise depends on the feed it came from and
+  that context disappears once everything is merged; `words` match the title and
+  summary, `tags` match categories, and exclusion beats inclusion. `paginate:`
+  splits a large archive into RFC 5005 `rel="next"`/`"prev"` linked pages, with
+  page one keeping the declared path so a subscribed URL never moves.
+
+- 📰 **`feeds:` — as many syndication feeds as a site needs, each with its own
+  selection and format** (#86). `feed: true` publishes one Atom feed of every
+  post, plus one per language and per taxonomy term; that is all-or-nothing, so a
+  site with several content roots cannot offer "just the blog", and "the three
+  tags that mean *release*" needs three subscriptions. A declared feed chooses
+  **what goes in** (`source` folder, `categories`, `tags`, `type` — optional and
+  combined with AND), **where it is written** (`path`) and **in what format**:
+  **Atom 1.0**, **RSS 2.0** or **JSON Feed 1.1**, alongside per-feed `items` and
+  `full_content` overrides. `feed: true` behaviour is unchanged.
+
+### Fixed
+- 📚 **`external_sources` examples were missing the `sources:` level** — wording
+  introduced with `format: changelog` in 1.8.18. Sources live under
+  `external_sources.sources:`, so the documented example, copied literally,
+  produced `unknown configuration key` warnings and loaded nothing.
+
+- 🗺️ **Excluding a page no longer drops every URL it emitted** (#88) — a regression
+  from the 1.8.18 sitemap work. Exclusion was decided per **page** and read from a
+  single output file, so a source emitting more than one URL had all of them
+  judged by that one verdict. A page slugged `index` emits both `/` and `/index/`,
+  so a theme marking the duplicate `noindex` — or canonicalising it away under
+  `sitemap_prune_canonical` — silently removed **the site root** from
+  `sitemap.xml`, which is far worse than the duplicate it was fixing. Each `<loc>`
+  is now judged against the file actually served at that URL: `/` against the root
+  `index.html`, `/index/` against `index/index.html`. Before 1.8.18 a theme-set
+  `noindex` did not affect the sitemap at all, so this could not happen.
+
+- 🔗 **Feed autodiscovery now covers every feed, and every page** (#86). One
+  `<link rel="alternate">` per published feed, with its own MIME type and title —
+  a reader offering a choice reads exactly those links, so advertising four feeds
+  behind a single Atom link hid three of them. The links were also injected by
+  the SEO block, which only runs for pages carrying a page context, so the **site
+  homepage — the first place a reader or subscription tool looks — advertised no
+  feed at all**. A theme that provides its own link is still left alone.
+
 ## [1.8.19] - 2026-08-06
 
 ### Added
@@ -2127,7 +2192,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.19...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.20...HEAD
+[1.8.20]: https://github.com/spagu/ssg/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/spagu/ssg/compare/v1.8.18...v1.8.19
 [1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17

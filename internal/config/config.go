@@ -266,6 +266,12 @@ type Config struct {
 	FeedItems       int  `yaml:"feed_items" toml:"feed_items" json:"feed_items"`                      // item cap (default 20)
 	FeedFullContent bool `yaml:"feed_full_content" toml:"feed_full_content" json:"feed_full_content"` // true=full content, false=summary
 
+	// Feeds declares extra syndication feeds beyond the built-in ones, each with
+	// its own selection (source folder, categories, tags), path and format —
+	// atom, rss or json. `feed: true` keeps emitting exactly what it emits today
+	// (#86).
+	Feeds []models.FeedSpec `yaml:"feeds" toml:"feeds" json:"feeds"`
+
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")
@@ -347,6 +353,24 @@ type Config struct {
 	// links to itself via <link rel="canonical">, so counting all refs would make
 	// nothing an orphan; self-links and noindex pages are ignored too (#77).
 	CheckOrphans string `yaml:"check_orphans" toml:"check_orphans" json:"check_orphans"`
+
+	// CheckRedirects reports internal links the HOST would redirect rather than
+	// serve: "" (off), "warn" or "strict". Nothing is broken — which is why
+	// check_links passes them — but each costs a visitor a round trip and a
+	// crawler a hop, and one such link in shared chrome multiplies across every
+	// page. Requires pretty_urls to know what the host does (#87).
+	CheckRedirects string `yaml:"check_redirects" toml:"check_redirects" json:"check_redirects"`
+
+	// PrettyURLs describes how the host serves URLs: it strips a ".html"
+	// extension and appends a trailing slash to a directory, answering the
+	// un-normalised form with a redirect. Most static hosts do this; a plain
+	// object store does not, and there the extensionless form is a genuine 404.
+	//
+	// It makes link checking match reality in both directions: check_links stops
+	// reporting "/docs/intro" as broken when the host serves it, and
+	// check_redirects can report "/docs/intro.html" as a link that only resolves
+	// through a redirect (#87).
+	PrettyURLs bool `yaml:"pretty_urls" toml:"pretty_urls" json:"pretty_urls"`
 
 	// MetaLimits tunes the advisory length ranges --check-meta reports on. What
 	// counts as a good title or description depends on the site and on which

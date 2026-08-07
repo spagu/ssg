@@ -122,10 +122,6 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 		// themes that supply their own social meta (e.g. ssgtheme).
 		b.WriteString(g.buildJSONLD(page, isPost))
 	}
-	if g.config.Feed && !strings.Contains(s, "application/atom+xml") {
-		fmt.Fprintf(&b, `<link rel="alternate" type="application/atom+xml" title=%q href="/feed.xml">`+"\n",
-			stdhtml.EscapeString(g.config.Domain))
-	}
 	if !strings.Contains(s, "hreflang") {
 		b.WriteString(string(g.hreflangTags(page)))
 	}
@@ -167,6 +163,11 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
 	}
+	// Feed autodiscovery is injected for every page, not only those with a page
+	// context. The SEO block runs only for posts and pages, so the site homepage
+	// — the first place a reader or a subscription tool looks — never advertised
+	// a feed at all (#86).
+	s = g.injectFeedLinks(s)
 	if g.config.Math {
 		s = mathHTMLString(s)
 	}

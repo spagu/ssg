@@ -397,19 +397,31 @@ func (g *Generator) linkTarget(href, fromRel string) string {
 // page declines — Search Console reports both as errors. The sitemap is written
 // after rendering, so by this point the answer is on disk.
 func (g *Generator) excludesFromSitemap(page models.Page) bool {
+	return g.excludesFromSitemapAt(page, page.GetOutputPath())
+}
+
+// excludesFromSitemapAt is the same decision for ONE emitted URL, judged against
+// the file actually served at it.
+//
+// Exclusion has to be per URL, not per page: a source file can emit more than one
+// URL — a page slugged "index" produces both "/" and "/index/" — and reading one
+// page's verdict from one file applied it to every URL it emitted. A theme
+// marking the "/index/" duplicate noindex therefore also dropped the site root,
+// which is far worse than the duplicate it was fixing, and silently (#88).
+func (g *Generator) excludesFromSitemapAt(page models.Page, relFile string) bool {
 	if excludeFromSitemap(page) {
 		return true
 	}
-	return g.renderedExcludesItself(page)
+	return g.renderedExcludesItself(page, relFile)
 }
 
 // renderedExcludesItself reports whether a page's own output marks it noindex or
 // canonicalises to a different URL. Results are memoized per output path; an
 // unreadable page is not excluded, since a missing file is not a statement.
-func (g *Generator) renderedExcludesItself(page models.Page) bool {
-	// GetOutputPath yields the page's directory ("docs/intro"), not the file that
-	// serves it, so resolve to the index.html actually written there.
-	rel := strings.TrimPrefix(page.GetOutputPath(), "/")
+func (g *Generator) renderedExcludesItself(page models.Page, outputPath string) bool {
+	// The path names the page's directory ("docs/intro"), not the file that serves
+	// it, so resolve to the index.html actually written there.
+	rel := strings.TrimPrefix(outputPath, "/")
 	if !strings.HasSuffix(rel, ".html") {
 		rel = path.Join(rel, indexHTMLName)
 	}
@@ -434,7 +446,9 @@ func (g *Generator) renderedExcludesItself(page models.Page) bool {
 			// sitemap_prune_canonical.
 			excluded = isNoindexDoc(doc)
 			if !excluded && g.config.SitemapPruneCanonical {
-				excluded = canonicalPointsElsewhere(doc, page.GetCanonical(g.config.Domain))
+				// Compare against the URL this file is served at, which for the
+				// site root is "/" rather than the page's own permalink (#88).
+				excluded = canonicalPointsElsewhere(doc, httpsScheme+g.config.Domain+urlForOutputFile(rel))
 			}
 		}
 	}
@@ -590,4 +604,114 @@ func matchGlob(pattern, name string) bool {
 	sb.WriteString("$")
 	re, err := regexp.Compile(sb.String())
 	return err == nil && re.MatchString(name)
+}
+
+// urlForOutputFile is the URL an output file is served at: "a/b/index.html" is
+// "/a/b/", and the root "index.html" is "/".
+func urlForOutputFile(rel string) string {
+	rel = strings.TrimPrefix(filepath.ToSlash(rel), "/")
+	if rel == indexHTMLName {
+		return "/"
+	}
+	if dir := path.Dir(rel); strings.HasSuffix(rel, "/"+indexHTMLName) || path.Base(rel) == indexHTMLName {
+		if dir == "." {
+			return "/"
+		}
+		return "/" + dir + "/"
+	}
+	return "/" + rel
+}
+
+// checkRedirectsIfRequested reports internal links the host would redirect
+// rather than serve (#87).
+//
+// Nothing here is broken — which is exactly why check_links passes them — but
+// each one costs a visitor a round trip and a crawler a hop of budget, and the
+// cost multiplies: one ".html" link in shared chrome puts every page on the site
+// through a redirect. It is invisible locally, because resolution against the
+// output directory is not how the host answers.
+//
+// The rules are host behaviour, not ours, so this only runs with pretty_urls set:
+// on a plain object store nothing is rewritten and "/docs/intro" is a genuine 404
+// rather than a redirect, so reporting it would be wrong.
+func (g *Generator) checkRedirectsIfRequested() error {
+	mode := g.resolveMode(g.config.CheckRedirects)
+	if mode == "" {
+		return nil
+	}
+	if !g.config.PrettyURLs {
+		fmt.Println("   ⚠️  check_redirects needs pretty_urls to know how the host serves URLs — skipping")
+		return nil
+	}
+	g.log("↪️  Checking for links that only resolve via a redirect...")
+
+	var findings []finding
+	err := g.walkOutputHTML(func(rel string, doc *html.Node) {
+		for _, tag := range []string{"a", "link"} {
+			forEachElement(doc, tag, func(n *html.Node) {
+				href, ok := attr(n, "href")
+				if !ok || !isInternalRef(href) {
+					return
+				}
+				if final := g.redirectTargetOf(href); final != "" {
+					findings = append(findings, finding{rel, href + "  →  " + final})
+				}
+			})
+		}
+	})
+	if err != nil {
+		return err
+	}
+	sortFindings(findings)
+	return g.report(findings, mode, "redirected link", "no link needs a redirect",
+		"%d internal link(s) that only resolve through a redirect")
+}
+
+// redirectTargetOf returns the URL a pretty-URL host would answer with, or ""
+// when the link is already the final form. Two shapes cost a redirect:
+//
+//	/docs/intro.html  →  /docs/intro/   (the extension is stripped)
+//	/docs/intro       →  /docs/intro/   (the slash is appended)
+//
+// A file that is not a page — a feed, an image, a stylesheet — is served as-is
+// and is never a finding.
+func (g *Generator) redirectTargetOf(href string) string {
+	clean, suffix := splitURLSuffix(href)
+	if clean == "" || clean == "/" {
+		return ""
+	}
+	switch {
+	case strings.HasSuffix(clean, "/"+indexHTMLName):
+		return strings.TrimSuffix(clean, indexHTMLName) + suffix
+	case strings.HasSuffix(strings.ToLower(clean), ".html"):
+		return strings.TrimSuffix(clean, filepath.Ext(clean)) + "/" + suffix
+	case !strings.HasSuffix(clean, "/") && path.Ext(clean) == "":
+		// Extensionless and slashless: a redirect only if a directory is actually
+		// served there — otherwise it is a genuinely missing page, which is
+		// check_links' finding to make, not ours.
+		if g.outputDirExists(clean) {
+			return clean + "/" + suffix
+		}
+	}
+	return ""
+}
+
+// splitURLSuffix separates a query/fragment so it can be carried onto the
+// reported destination.
+func splitURLSuffix(href string) (string, string) {
+	if i := strings.IndexAny(href, "?#"); i >= 0 {
+		return href[:i], href[i:]
+	}
+	return href, ""
+}
+
+// outputDirExists reports whether a root-relative link names a directory holding
+// an index.html in the built output.
+func (g *Generator) outputDirExists(clean string) bool {
+	if !strings.HasPrefix(clean, "/") {
+		return false // relative links are resolved by check_links, not modelled here
+	}
+	p := filepath.Join(g.config.OutputDir, filepath.FromSlash(strings.TrimPrefix(clean, "/")), indexHTMLName)
+	info, err := os.Stat(p)
+	return err == nil && !info.IsDir()
 }

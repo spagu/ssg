@@ -119,6 +119,122 @@ empty value.
 | `posts_path` | `posts` | config only | Posts directory inside a source |
 | `quiet` | `false` | `--quiet`, `-q` | Suppress normal output |
 
+### Extra feeds (`feeds`)
+
+`feed: true` publishes one Atom feed of every post at `/feed.xml`, plus one per
+language and one per taxonomy term. That is all-or-nothing: a site with several
+content roots cannot offer "just the blog", and "the three tags that mean
+*release*" would need three subscriptions.
+
+`feeds:` declares any number of extra feeds, each choosing **what goes in**, **where
+it is written** and **in what format**. `feed: true` keeps doing exactly what it
+does today, so adding this changes nothing that already works.
+
+```yaml
+feeds:
+  - path: /blog/feed.xml       # a whole content root
+    title: "Blog"
+    source: blog               # a content_sources path, or a content folder
+
+  - path: /blog/rss.xml        # the same posts, a second format
+    title: "Blog"
+    source: blog
+    format: rss
+
+  - path: /docs/feed.json
+    title: "Documentation updates"
+    source: docs
+    format: json
+
+  - path: /releases.xml        # several terms in one feed
+    title: "Release notes"
+    format: rss
+    categories: [release, changelog]
+    items: 10
+```
+
+| Key | Meaning |
+|---|---|
+| `path` | Output path — also the URL. Required |
+| `title` | Feed title; defaults to the site domain |
+| `format` | `atom` (default), `rss` (2.0) or `json` (JSON Feed 1.1) |
+| `source` | A content root: matches that folder and everything beneath it |
+| `categories` | Category names or slugs — any of |
+| `tags` | Tags — any of |
+| `type` | `post` (default) or `page` |
+| `items` | Item cap for this feed; defaults to `feed_items` |
+| `full_content` | Full body vs summary; defaults to `feed_full_content` |
+
+Selection criteria are optional and combine with **AND** — `source: blog` plus
+`tags: [release]` means release posts *from the blog folder*. A feed with no
+criteria covers every post, at a path you choose.
+
+### Aggregating feeds (a "planet")
+
+A feed can merge several inputs — other sites' feeds and **your own posts** —
+into one published feed. Read the sources with `format: feed`, then list them:
+
+```yaml
+external_sources:
+  sources:
+    ssg:  { type: http, url: https://ssg.tradik.com/feed.xml,  format: feed }
+    mddb: { type: http, url: https://mddb.tradik.com/feed.xml, format: feed }
+
+feeds:
+  - path: /planet.xml
+    title: "Planet Tradik"
+    format: rss
+    aggregate:
+      - source: ssg
+        label: "SSG"
+      - source: mddb
+        label: "MDDB"
+        exclude:
+          tags: [events]        # narrow this source only
+      - site: blog              # your own content — "*" for every post
+        label: "Tradik"
+    exclude:
+      words: [sponsored]        # applies to the whole feed
+    items: 200                  # how many entries the feed carries at all
+    paginate: 20                # how many per page
+```
+
+**Your own blog is an input like any other.** A planet without you is not your
+planet — an aggregate that only republishes other people reads as a link dump.
+
+| Key | Meaning |
+|---|---|
+| `aggregate[].source` | An `external_sources` name declared with `format: feed` |
+| `aggregate[].site` | Your own content: a folder name, or `*` for every post |
+| `aggregate[].label` | Provenance — attached to each item and emitted as a category |
+| `aggregate[].include` / `.exclude` | Filters for **that source only** |
+| `include` / `exclude` | Filters for the merged feed |
+| `paginate` | Items per page; 0 (default) writes one file |
+
+Filtering happens twice on purpose: **per source first, then feed-wide.** What
+counts as noise depends on the feed it came from, and that context is gone once
+everything is merged — one rule for the whole aggregate either lets noise through
+or drops wanted items from the quieter sources. `words` match the title and
+summary case-insensitively; `tags` match an item's categories. **Exclusion beats
+inclusion**: a feed republishing other people's writing has to be able to say
+"not this" with certainty.
+
+Items are sorted newest first and **deduplicated by URL** — the same post reached
+through two feeds is one item, and publishing it twice is the most visible way an
+aggregate looks broken. A source that is unreachable or not declared with
+`format: feed` warns and is skipped, rather than failing the build over one
+site being down.
+
+Paginated feeds are linked with RFC 5005 `rel="next"`/`"prev"`/`"first"`/`"last"`,
+so a reader can walk the whole archive. **Page one keeps the declared path** —
+`/planet.xml`, never `/planet-1.xml` — so the URL people already subscribed to
+does not move as the archive grows.
+
+Every published feed gets its own `<link rel="alternate">` with the correct MIME
+type and title, injected into **every page including the homepage** — a reader
+offering a choice reads exactly those links, so one Atom link would hide the rest.
+A theme that advertises its own feed is left alone.
+
 ### Publishing files that live elsewhere (`static_sources`)
 
 `static_dir` is a single root. When the files a site publishes verbatim already
@@ -509,7 +625,8 @@ shortcode_errors: strict
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
-| `feed` | `false` | `--feed` | Root and category/tag Atom feeds |
+| `feed` | `false` | `--feed` |
+| `feeds` | empty | config only | Extra feeds, each with its own selection, path and format | Root and category/tag Atom feeds |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
@@ -566,6 +683,8 @@ implemented.
 | `check_images` | empty | `--check-images[=warn|strict|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn|strict]` | Report indexable pages nothing links to |
+| `check_redirects` | empty | `--check-redirects[=warn|strict]` | Report links the host would redirect (needs `pretty_urls`) |
+| `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
 | `content_exclude` | empty | — | Globs for Markdown under `content_dir` that is **not** a page |
@@ -669,6 +788,41 @@ full of them. Self-links, `noindex` pages and the site root are ignored.
 `description:`. Nothing is invented — the author already wrote it, it just never
 reached the output. An existing but empty tag is rewritten in place rather than
 joined by a second one.
+
+### Links the host redirects (`pretty_urls`, `check_redirects`)
+
+`check_links` resolves a URL against the output directory. That is not how a host
+answers it, so a link can pass and still cost every visitor a redirect. Most
+static hosts serve **pretty URLs**: they strip a `.html` extension and append a
+trailing slash, answering the un-normalised form with a 308.
+
+```yaml
+pretty_urls: true       # describe how the host serves URLs
+check_redirects: warn   # "" | warn | strict
+```
+
+`pretty_urls` makes link checking agree with the host in **both** directions:
+
+- `check_links` stops reporting `/docs/swagger` as broken when the output holds
+  `docs/swagger.html` and the host serves it — without this the checker pushes you
+  to restructure a page into a directory to satisfy the tool rather than the site.
+- `check_redirects` reports the reverse: links that resolve *only* through a
+  redirect, naming the destination so the fix is obvious.
+
+```
+⚠️  redirected link in index.html → /docs/swagger.html  →  /docs/swagger/
+⚠️  redirected link in index.html → /docs/intro  →  /docs/intro/
+```
+
+Nothing here is broken, which is why `check_links` passes it — but each one is a
+round trip per visitor and a hop of crawl budget per crawler, and it multiplies: a
+single `.html` link in a shared footer puts every page on the site through a
+redirect. It is invisible locally, because local resolution is not what the host
+does.
+
+Leave `pretty_urls` off for a plain object store, which rewrites nothing. There
+`/docs/swagger` is a genuine 404 rather than a redirect, and `check_redirects`
+skips with a message rather than reporting shapes the host never rewrites.
 
 ### Keeping the sitemap honest
 
