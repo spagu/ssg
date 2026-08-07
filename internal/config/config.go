@@ -266,6 +266,12 @@ type Config struct {
 	FeedItems       int  `yaml:"feed_items" toml:"feed_items" json:"feed_items"`                      // item cap (default 20)
 	FeedFullContent bool `yaml:"feed_full_content" toml:"feed_full_content" json:"feed_full_content"` // true=full content, false=summary
 
+	// Feeds declares extra syndication feeds beyond the built-in ones, each with
+	// its own selection (source folder, categories, tags), path and format —
+	// atom, rss or json. `feed: true` keeps emitting exactly what it emits today
+	// (#86).
+	Feeds []models.FeedSpec `yaml:"feeds" toml:"feeds" json:"feeds"`
+
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")

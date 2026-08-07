@@ -629,6 +629,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentExclude:        cfg.ContentExclude,
 		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
 		StaticSources:         cfg.StaticSources,
+		Feeds:                 cfg.Feeds,
 		MetaLimits:            cfg.MetaLimits,
 		Bundles:               cfg.Bundles,
 		Outputs:               cfg.Outputs,

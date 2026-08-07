@@ -119,6 +119,61 @@ empty value.
 | `posts_path` | `posts` | config only | Posts directory inside a source |
 | `quiet` | `false` | `--quiet`, `-q` | Suppress normal output |
 
+### Extra feeds (`feeds`)
+
+`feed: true` publishes one Atom feed of every post at `/feed.xml`, plus one per
+language and one per taxonomy term. That is all-or-nothing: a site with several
+content roots cannot offer "just the blog", and "the three tags that mean
+*release*" would need three subscriptions.
+
+`feeds:` declares any number of extra feeds, each choosing **what goes in**, **where
+it is written** and **in what format**. `feed: true` keeps doing exactly what it
+does today, so adding this changes nothing that already works.
+
+```yaml
+feeds:
+  - path: /blog/feed.xml       # a whole content root
+    title: "Blog"
+    source: blog               # a content_sources path, or a content folder
+
+  - path: /blog/rss.xml        # the same posts, a second format
+    title: "Blog"
+    source: blog
+    format: rss
+
+  - path: /docs/feed.json
+    title: "Documentation updates"
+    source: docs
+    format: json
+
+  - path: /releases.xml        # several terms in one feed
+    title: "Release notes"
+    format: rss
+    categories: [release, changelog]
+    items: 10
+```
+
+| Key | Meaning |
+|---|---|
+| `path` | Output path — also the URL. Required |
+| `title` | Feed title; defaults to the site domain |
+| `format` | `atom` (default), `rss` (2.0) or `json` (JSON Feed 1.1) |
+| `source` | A content root: matches that folder and everything beneath it |
+| `categories` | Category names or slugs — any of |
+| `tags` | Tags — any of |
+| `type` | `post` (default) or `page` |
+| `items` | Item cap for this feed; defaults to `feed_items` |
+| `full_content` | Full body vs summary; defaults to `feed_full_content` |
+
+Selection criteria are optional and combine with **AND** — `source: blog` plus
+`tags: [release]` means release posts *from the blog folder*. A feed with no
+criteria covers every post, at a path you choose.
+
+Every published feed gets its own `<link rel="alternate">` with the correct MIME
+type and title, injected into **every page including the homepage** — a reader
+offering a choice reads exactly those links, so one Atom link would hide the rest.
+A theme that advertises its own feed is left alone.
+
 ### Publishing files that live elsewhere (`static_sources`)
 
 `static_dir` is a single root. When the files a site publishes verbatim already
@@ -509,7 +564,8 @@ shortcode_errors: strict
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
-| `feed` | `false` | `--feed` | Root and category/tag Atom feeds |
+| `feed` | `false` | `--feed` |
+| `feeds` | empty | config only | Extra feeds, each with its own selection, path and format | Root and category/tag Atom feeds |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |

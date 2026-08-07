@@ -216,6 +216,8 @@ type Config struct {
 	ContentExclude []string
 	// StaticSources are extra verbatim passthrough roots beyond static_dir (#84).
 	StaticSources []models.StaticSource
+	// Feeds are the declared extra syndication feeds (#86).
+	Feeds []models.FeedSpec
 	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
 	// sitemap; noindex pages are dropped regardless (#78).
 	SitemapPruneCanonical bool
@@ -753,6 +755,9 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
+	if err := g.generateDeclaredFeeds(); err != nil {
+		return err
+	}
 	if err := g.generateFeeds(); err != nil {
 		return fmt.Errorf("generating feeds: %w", err)
 	}

@@ -39,3 +39,28 @@ type StaticSource struct {
 	Path string `yaml:"path" toml:"path" json:"path"`
 	Dest string `yaml:"dest" toml:"dest" json:"dest"`
 }
+
+// FeedSpec is one declared syndication feed (#86). It answers two questions the
+// built-in feeds cannot: WHICH posts, and in WHAT format.
+//
+// The built-in `feed: true` output is all-or-nothing — every post, or one
+// taxonomy term — so a site with several content roots cannot offer "just the
+// blog" or "just the guides", and "the three tags that mean release" needs three
+// subscriptions. Selection here is a set of optional narrowings combined with
+// AND; an entry with none of them covers the whole site at a path you choose.
+type FeedSpec struct {
+	Path   string `yaml:"path" toml:"path" json:"path"`       // output path, e.g. "/blog/feed.xml"
+	Title  string `yaml:"title" toml:"title" json:"title"`    // feed title; defaults to the site domain
+	Format string `yaml:"format" toml:"format" json:"format"` // atom (default) | rss | json
+
+	// Selection — all optional, combined with AND.
+	Source     string   `yaml:"source" toml:"source" json:"source"`             // a content_sources path / content folder
+	Categories []string `yaml:"categories" toml:"categories" json:"categories"` // category name or slug
+	Tags       []string `yaml:"tags" toml:"tags" json:"tags"`
+	Type       string   `yaml:"type" toml:"type" json:"type"` // "post" (default) or "page"
+
+	// Overrides for the site-wide defaults; nil inherits feed_items /
+	// feed_full_content rather than repeating them per entry.
+	Items       *int  `yaml:"items" toml:"items" json:"items"`
+	FullContent *bool `yaml:"full_content" toml:"full_content" json:"full_content"`
+}

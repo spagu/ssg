@@ -121,6 +121,23 @@ content_exclude: []
 # own name, so files already published at stable URLs keep resolving. dest: moves
 # an entry; dest: "." spreads a directory's contents at the output root.
 static_sources: []
+
+# Extra feeds beyond `feed: true` (#86). Each picks its own posts, path and
+# format: atom (default), rss (2.0) or json (JSON Feed 1.1). Selection criteria
+# (source / categories / tags / type) are optional and combine with AND.
+feeds: []
+#  - path: /blog/feed.xml
+#    title: "Blog"
+#    source: blog            # a content_sources path or content folder
+#  - path: /blog/rss.xml
+#    title: "Blog"
+#    source: blog
+#    format: rss
+#  - path: /releases.xml
+#    title: "Release notes"
+#    format: rss
+#    categories: [release, changelog]
+#    items: 10
 #  - path: schema.json
 #  - path: xml
 #  - path: editor

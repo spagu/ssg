@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 📰 **`feeds:` — as many syndication feeds as a site needs, each with its own
+  selection and format** (#86). `feed: true` publishes one Atom feed of every
+  post, plus one per language and per taxonomy term; that is all-or-nothing, so a
+  site with several content roots cannot offer "just the blog", and "the three
+  tags that mean *release*" needs three subscriptions. A declared feed chooses
+  **what goes in** (`source` folder, `categories`, `tags`, `type` — optional and
+  combined with AND), **where it is written** (`path`) and **in what format**:
+  **Atom 1.0**, **RSS 2.0** or **JSON Feed 1.1**, alongside per-feed `items` and
+  `full_content` overrides. `feed: true` behaviour is unchanged.
+
+### Fixed
+- 🔗 **Feed autodiscovery now covers every feed, and every page** (#86). One
+  `<link rel="alternate">` per published feed, with its own MIME type and title —
+  a reader offering a choice reads exactly those links, so advertising four feeds
+  behind a single Atom link hid three of them. The links were also injected by
+  the SEO block, which only runs for pages carrying a page context, so the **site
+  homepage — the first place a reader or subscription tool looks — advertised no
+  feed at all**. A theme that provides its own link is still left alone.
+
 ## [1.8.19] - 2026-08-06
 
 ### Added
