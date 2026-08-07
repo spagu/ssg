@@ -1,3 +1,7 @@
+/* Cache-bust marker. The edge pinned a 404 page under this file's previous
+   content-addressed URL with a year-long immutable header, which no redeploy
+   could correct; changing the bytes changes the URL. Last bust: 2026-08-07. */
+
 /* ssgtheme — progressive enhancement only.
  *
  * Nothing here is required to read the site: the navigation is a plain wrapping

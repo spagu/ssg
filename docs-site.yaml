@@ -177,6 +177,12 @@ variables:
       - name: "Vercel"
         url: /deployment/#vercel
         icon: 'm12 1.608 12 20.784H0Z'
+      - name: "FTP"
+        url: /deployment/#ftp
+        icon: 'M12 2a1 1 0 0 1 .7.3l4 4a1 1 0 1 1-1.4 1.4L13 5.42V14a1 1 0 1 1-2 0V5.42L8.7 7.7a1 1 0 0 1-1.4-1.4l4-4A1 1 0 0 1 12 2ZM4 15a1 1 0 0 1 1 1v3h14v-3a1 1 0 1 1 2 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Z'
+      - name: "SFTP"
+        url: /deployment/#sftp
+        icon: 'M12 2a1 1 0 0 1 .7.3l4 4a1 1 0 1 1-1.4 1.4L13 5.42V14a1 1 0 1 1-2 0V5.42L8.7 7.7a1 1 0 0 1-1.4-1.4l4-4A1 1 0 0 1 12 2ZM4 15a1 1 0 0 1 1 1v3h14v-3a1 1 0 1 1 2 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Z'
 
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
