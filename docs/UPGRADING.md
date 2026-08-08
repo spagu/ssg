@@ -147,9 +147,9 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-steps">
 
-<div class="upgrade-step" data-since="1.8.22">
+<div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.22 — `related`'s three-argument form is now `relatedIn`
+### 1.8.23 — `related`'s three-argument form is now `relatedIn`
 
 Two different functions were registered under the name `related`, and the
 two-argument one won. So the three-argument form the reference documented never
@@ -172,9 +172,9 @@ collection you hand it.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.22">
+<div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.22 — `formatDate` actually formats
+### 1.8.23 — `formatDate` actually formats
 
 It never did: every non-string fell through to Go's `%v`, and `Page.Date` is a
 `time.Time`, so themes rendered `2017-05-13 20:36:46 +0000 UTC` — including
@@ -193,9 +193,9 @@ passed through untouched, so a theme that pre-formats its dates is unaffected.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.22">
+<div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.22 — a `404.html` is generated
+### 1.8.23 — a `404.html` is generated
 
 Static hosts answer an unmatched path by falling back to `index.html` **with a
 `200`** unless the output contains a `404.html`, so every dead URL read to a
@@ -212,9 +212,9 @@ Note the new file in your output; a deploy diff will show it once.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.22">
+<div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.22 — `pretty_urls` now decides what a page says about itself
+### 1.8.23 — `pretty_urls` now decides what a page says about itself
 
 It used to feed link checking only, so a site on a host that strips extensions
 published canonical tags, `og:url`, JSON-LD and a sitemap naming URLs that
@@ -242,9 +242,9 @@ every post.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.22">
+<div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.22 — the bundled theme reads `variables.gtm_id`
+### 1.8.23 — the bundled theme reads `variables.gtm_id`
 
 `ssgtheme` had the Tag Manager container ID hardcoded, so using GTM meant
 editing the theme — which put the ID in the theme rather than the site, lost it
