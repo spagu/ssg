@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.22] - 2026-08-08
+
 ### Fixed
 - 🔗 **`pretty_urls` did not reach what a page says about itself** (#103) — it
   fed link checking only, so a site on a host that strips extensions published
@@ -2344,7 +2346,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.21...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.22...HEAD
+[1.8.22]: https://github.com/spagu/ssg/compare/v1.8.21...v1.8.22
 [1.8.21]: https://github.com/spagu/ssg/compare/v1.8.20...v1.8.21
 [1.8.20]: https://github.com/spagu/ssg/compare/v1.8.19...v1.8.20
 [1.8.19]: https://github.com/spagu/ssg/compare/v1.8.18...v1.8.19
