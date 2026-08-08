@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/spagu/ssg/internal/models"
 )
 
 // fingerprintFixture returns a generator writing into a fresh output directory
@@ -280,5 +283,163 @@ func TestFilterUnknownOperatorListsTheNewOnes(t *testing.T) {
 		if !strings.Contains(err.Error(), op) {
 			t.Errorf("error does not mention %q: %s", op, err)
 		}
+	}
+}
+
+// --- #98: formatDate -------------------------------------------------------
+
+// TestFormatDateFormats is the reported bug: Page.Date is a time.Time, so every
+// call fell through to Sprintf("%v") and themes rendered Go's debug form.
+func TestFormatDateFormats(t *testing.T) {
+	d := time.Date(2017, 5, 13, 20, 36, 46, 0, time.UTC)
+
+	if got := tmplFormatDate(d); got != "13 May 2017" {
+		t.Errorf("default layout: got %q", got)
+	}
+	if got := tmplFormatDate(d, "2006-01-02"); got != "2017-05-13" {
+		t.Errorf("explicit layout: got %q", got)
+	}
+	if got := tmplFormatDate(&d, "2006-01-02"); got != "2017-05-13" {
+		t.Errorf("pointer: got %q", got)
+	}
+	if strings.Contains(tmplFormatDate(d), "+0000 UTC") {
+		t.Error("still rendering Go's default time.Time string")
+	}
+}
+
+// TestFormatDateEmptyForNoDate: a page without a date should show nothing, not
+// a placeholder that looks like real data.
+func TestFormatDateEmptyForNoDate(t *testing.T) {
+	for name, in := range map[string]any{
+		"zero time": time.Time{},
+		"nil":       nil,
+		"nil ptr":   (*time.Time)(nil),
+	} {
+		if got := tmplFormatDate(in); got != "" {
+			t.Errorf("%s: got %q, want empty", name, got)
+		}
+	}
+}
+
+// TestFormatDatePassesStringsThrough keeps the one documented behaviour that
+// always held, so a theme handing over a pre-formatted date is unaffected.
+func TestFormatDatePassesStringsThrough(t *testing.T) {
+	if got := tmplFormatDate("13 May 2017"); got != "13 May 2017" {
+		t.Errorf("got %q", got)
+	}
+	if got := tmplFormatDate("13 May 2017", "2006-01-02"); got != "13 May 2017" {
+		t.Errorf("a layout must not reinterpret a string: got %q", got)
+	}
+}
+
+// --- #99: one name, one function -------------------------------------------
+
+// TestTemplateFuncsHaveNoDuplicateNames is the structural guard. Two functions
+// shared the name "related", the merge silently won, and the documented
+// three-argument form became unreachable — every post then failed to render
+// with an arity error while the build still reported success.
+func TestTemplateFuncsHaveNoDuplicateNames(t *testing.T) {
+	g := &Generator{config: Config{Quiet: true}, siteData: &models.SiteData{}}
+	seen := map[string]bool{}
+	for _, group := range []map[string]interface{}{
+		g.imageFuncs(), g.taxonomyFuncs(), g.externalFuncs(), g.relatedFuncs(),
+	} {
+		for name := range group {
+			if seen[name] {
+				t.Errorf("helper %q is registered by two groups", name)
+			}
+			seen[name] = true
+		}
+	}
+	// The literal must not collide with the merged groups either — that is the
+	// exact shape of the reported bug.
+	funcs := g.buildTemplateFuncs(nil)
+	for name := range seen {
+		if funcs[name] == nil {
+			t.Errorf("helper %q vanished from the final map", name)
+		}
+	}
+}
+
+// TestRelatedFormsAreBothReachable: `related` keeps the two-argument behaviour
+// that actually ran, and the collection form is reachable under its own name.
+func TestRelatedFormsAreBothReachable(t *testing.T) {
+	g := &Generator{config: Config{Quiet: true}, siteData: &models.SiteData{}}
+	funcs := g.buildTemplateFuncs(nil)
+
+	if funcs["related"] == nil || funcs["relatedIn"] == nil {
+		t.Fatal("both related and relatedIn must be registered")
+	}
+	if _, ok := funcs["relatedIn"].(func(models.Page, int, any) ([]models.Page, error)); !ok {
+		t.Errorf("relatedIn is not the three-argument collection form: %T", funcs["relatedIn"])
+	}
+	if _, ok := funcs["related"].(func(models.Page, int) []models.Page); !ok {
+		t.Errorf("related is not the two-argument form that shipped: %T", funcs["related"])
+	}
+}
+
+// --- #102: soft-404s and a status the host drops ---------------------------
+
+// TestGenerateNotFound: without a 404.html a static host answers unmatched
+// paths with index.html and a 200, so every dead URL reads as a live copy of
+// the home page.
+func TestGenerateNotFound(t *testing.T) {
+	out := t.TempDir()
+	g := &Generator{config: Config{OutputDir: out, Domain: "example.com", Quiet: true}}
+	if err := g.generateNotFound(); err != nil {
+		t.Fatalf("generateNotFound: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(out, "404.html"))
+	if err != nil {
+		t.Fatalf("404.html not written: %v", err)
+	}
+	for _, want := range []string{"404", `name="robots" content="noindex"`, "example.com"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("404.html missing %q", want)
+		}
+	}
+}
+
+// TestGenerateNotFoundYieldsToTheSite: a page slugged "404" already renders to
+// /404.html, and the generated fallback must not overwrite it.
+func TestGenerateNotFoundYieldsToTheSite(t *testing.T) {
+	out := t.TempDir()
+	mustWrite(t, filepath.Join(out, "404.html"), "<h1>the theme's own</h1>")
+	g := &Generator{config: Config{OutputDir: out, Domain: "example.com", Quiet: true}}
+	if err := g.generateNotFound(); err != nil {
+		t.Fatalf("generateNotFound: %v", err)
+	}
+	body, _ := os.ReadFile(filepath.Join(out, "404.html"))
+	if !strings.Contains(string(body), "the theme's own") {
+		t.Error("the site's own 404.html was overwritten")
+	}
+}
+
+// TestRedirect410WarnsOnlyForCloudflare: 410 is a Netlify extension. Cloudflare
+// Pages drops it silently, so the rule reads as handled while the path keeps
+// answering 200 — but warning about it on Netlify would be noise, since there
+// it works.
+func TestRedirect410WarnsOnlyForCloudflare(t *testing.T) {
+	rules := []RedirectRule{{From: "/category/*", To: "/", Status: 410}}
+
+	joined := strings.Join(validateRedirects(rules, "cloudflare"), "\n")
+	if !strings.Contains(joined, "Cloudflare Pages ignores") {
+		t.Errorf("cloudflare: no warning for a 410 rule:\n%s", joined)
+	}
+
+	for _, platform := range []string{"netlify", ""} {
+		joined := strings.Join(validateRedirects(rules, platform), "\n")
+		if strings.Contains(joined, "Cloudflare Pages ignores") {
+			t.Errorf("platform %q: warned about a 410 that is valid there:\n%s", platform, joined)
+		}
+	}
+}
+
+// TestRedirect303IsAccepted: both hosts support it, and it was missing from the
+// accepted set, so a legitimate rule drew an "unsupported status" warning.
+func TestRedirect303IsAccepted(t *testing.T) {
+	joined := strings.Join(validateRedirects([]RedirectRule{{From: "/a", To: "/b", Status: 303}}, "cloudflare"), "\n")
+	if strings.Contains(joined, "unsupported status") {
+		t.Errorf("303 reported as unsupported:\n%s", joined)
 	}
 }

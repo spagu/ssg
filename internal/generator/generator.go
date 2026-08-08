@@ -96,6 +96,8 @@ type Config struct {
 	// New options
 	SitemapOff        bool        // Disable sitemap generation
 	RobotsOff         bool        // Disable robots.txt generation
+	NotFoundOff       bool        // Disable the generated 404.html (#102)
+	Deploy            string      // Deploy provider name, so redirect rules a host will drop can be reported (#102)
 	PrettyHTML        bool        // Prettify HTML output (remove extra blank lines)
 	PostURLFormat     string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
 	PageFormat        string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
@@ -925,7 +927,7 @@ func (g *Generator) cleanOutputIfRequested() error {
 
 // generateSitemapAndRobots generates sitemap.xml and robots.txt if enabled
 func (g *Generator) generateSitemapAndRobots() error {
-	if g.config.SitemapOff && g.config.RobotsOff {
+	if g.config.SitemapOff && g.config.RobotsOff && g.config.NotFoundOff {
 		return nil
 	}
 
@@ -939,6 +941,11 @@ func (g *Generator) generateSitemapAndRobots() error {
 	if !g.config.RobotsOff {
 		if err := g.generateRobots(); err != nil {
 			return fmt.Errorf("generating robots.txt: %w", err)
+		}
+	}
+	if !g.config.NotFoundOff {
+		if err := g.generateNotFound(); err != nil {
+			return fmt.Errorf("generating 404.html: %w", err)
 		}
 	}
 	return nil
@@ -2237,26 +2244,46 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"byTag":      tmplByTag,
 		"byCategory": g.tmplByCategory,
 		"byAuthor":   g.tmplByAuthor,
-		"related":    tmplRelated,
+		// `relatedIn`, not `related` (#99): both were registered as "related" and
+		// the merge below silently won, so this one was unreachable while the
+		// docs described it. `related` keeps the behaviour that actually ran —
+		// renaming that instead would break every theme written against what
+		// works — and the collection form gets a name of its own.
+		"relatedIn": tmplRelated,
 	}
 	// Image-processing helpers (imageInfo/Resize/Crop/Process/Filter/SrcSet).
-	for name, fn := range g.imageFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.imageFuncs())
 	// Taxonomy helpers (taxonomies/taxonomy/taxonomyTerms/pageTerms/termURL/
 	// hasTerm/pagesByTerm) — taxonomies-feature.md.
-	for name, fn := range g.taxonomyFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.taxonomyFuncs())
 	// External-source helpers (getExternal/getExternalMeta).
-	for name, fn := range g.externalFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.externalFuncs())
 	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
-	for name, fn := range g.relatedFuncs() {
+	mergeTemplateFuncs(funcs, g.relatedFuncs())
+	return funcs
+}
+
+// mergeTemplateFuncs copies extra into funcs, reporting a name that is already
+// taken (#99).
+//
+// These merges run after the map literal, so a duplicate name silently replaced
+// whatever the literal registered — that is how two different `related`
+// functions came to share one name, with the documented three-argument form
+// unreachable and every post failing to render with an arity error. A theme
+// author saw "wrong number of args", and the build reported success with no
+// post pages at all.
+//
+// A collision here is an SSG bug rather than anything a site can cause, so this
+// says so loudly instead of failing the build: a warning names the helper, and
+// the last registration still wins, which is the behaviour that already
+// existed.
+func mergeTemplateFuncs(funcs template.FuncMap, extra map[string]interface{}) {
+	for name, fn := range extra {
+		if _, taken := funcs[name]; taken {
+			fmt.Printf("   ⚠️  template helper %q is registered twice — the later one wins; please report this at https://github.com/spagu/ssg/issues\n", name)
+		}
 		funcs[name] = fn
 	}
-	return funcs
 }
 
 // tmplDefault returns the default value if the given value is empty
@@ -2744,11 +2771,54 @@ func tmplDecodeHTML(s string) string {
 	return stdhtml.UnescapeString(s)
 }
 
-func tmplFormatDate(t interface{}) string {
-	if v, ok := t.(string); ok {
-		return v
+// defaultDateLayout is what formatDate uses when the template gives no layout.
+const defaultDateLayout = "2 January 2006"
+
+// tmplFormatDate renders a date, optionally in a given layout (#98).
+//
+//	{{ formatDate .Date }}                {{/* 13 May 2017 */}}
+//	{{ formatDate .Date "2006-01-02" }}   {{/* 2017-05-13 */}}
+//
+// It previously formatted nothing: every non-string fell through to
+// Sprintf("%v"), and Page.Date is a time.Time, so themes rendered Go's debug
+// form — "2017-05-13 20:36:46 +0000 UTC" — including inside datetime
+// attributes, where it is not valid HTML. formatDatePL took a time.Time and
+// formatted it properly, so a Polish theme looked right while an English one
+// did not, which is what kept this hidden.
+//
+// A zero time renders empty rather than "1 January 0001": a page with no date
+// should show nothing, not a placeholder that looks like data.
+//
+// Strings are still passed through unchanged, which is the one part of the
+// documented behaviour that always held — a theme handing over a
+// pre-formatted date keeps working.
+func tmplFormatDate(value interface{}, layout ...string) string {
+	l := defaultDateLayout
+	if len(layout) > 0 && strings.TrimSpace(layout[0]) != "" {
+		l = layout[0]
 	}
-	return fmt.Sprintf("%v", t)
+	switch v := value.(type) {
+	case string:
+		return v
+	case time.Time:
+		return formatTimeOrEmpty(v, l)
+	case *time.Time:
+		if v == nil {
+			return ""
+		}
+		return formatTimeOrEmpty(*v, l)
+	case nil:
+		return ""
+	}
+	return fmt.Sprintf("%v", value)
+}
+
+// formatTimeOrEmpty renders t, or nothing at all if it carries no date.
+func formatTimeOrEmpty(t time.Time, layout string) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(layout)
 }
 
 func tmplFormatDatePL(t time.Time) string {
@@ -4444,6 +4514,46 @@ Sitemap: https://%s/sitemap.xml
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "robots.txt"), []byte(content), 0644)
+}
+
+// generateNotFound writes a minimal 404.html when the site does not already
+// have one (#102).
+//
+// Static hosts fall back to index.html for any unmatched path when no 404.html
+// is present, and answer 200 while doing it — so every dead URL becomes, to a
+// crawler, a live page duplicating the home page. That is the worst available
+// SEO outcome and it was the out-of-the-box behaviour for a first-class deploy
+// target.
+//
+// A theme or a page owns this if it wants to: a page slugged "404" already
+// renders to /404.html, and this only fills the gap when nothing did. Set
+// not_found_off to suppress it entirely, mirroring robots_off.
+func (g *Generator) generateNotFound() error {
+	path := filepath.Join(g.config.OutputDir, "404.html")
+	if _, err := os.Stat(path); err == nil {
+		return nil // the site provides its own
+	}
+	title := g.config.Domain
+	if title == "" {
+		title = "This site"
+	}
+	content := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>404 — page not found</title>
+</head>
+<body>
+<h1>404 — page not found</h1>
+<p>That page does not exist on %s.</p>
+<p><a href="/">Go to the home page</a></p>
+</body>
+</html>
+`, template.HTMLEscapeString(title))
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare

@@ -75,6 +75,12 @@ needs no network and is reproducible; posts with no overlap are excluded.
 (`Search` filtered by the page's tags/keywords), so it can surface articles from
 the whole corpus, not just the pages built into this site. It is a live query
 (not cached) and returns nothing when mddb is not configured or the query fails.
+`relatedIn <page> <n> <collection>` scores an explicit collection instead of the
+loaded posts, and ranks differently: shared tags (3) > shared categories (2) >
+same author (1). Until 1.8.22 it was registered under the name `related` as
+well, where it was unreachable — use `related` for keyword and tag scoring over
+the site's own posts, and `relatedIn` when you have a collection in hand.
+
 See [`examples/related-posts/`](../examples/related-posts/) for the keyword, mddb
 and embeddings/vector approaches.
 
@@ -263,6 +269,16 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 
 ---
 
+## Taxonomy helpers
+
+`taxonomies`, `taxonomy`, `taxonomyTerms`, `pageTerms`, `termURL`, `hasTerm` and
+`pagesByTerm` are documented with the feature they belong to, in
+[TAXONOMIES.md](TAXONOMIES.md#template-helpers).
+
+`termURL` is also the answer to "where is `urlize`/`slugify`" — there is no
+general slugify helper, and `termURL "category" "Marsaskala"` is how a term
+link is built. The built-in taxonomy names are `category`, `tag` and `series`.
+
 ## Conditional helpers
 
 | Helper | Signature | Example |
@@ -293,7 +309,7 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 | `byTag t c` | `filter "Tags" "contains" t` | `{{ .Site.Posts \\| byTag "go" }}` |
 | `byCategory name c` | *(site-aware)* | `{{ .Site.Posts \\| byCategory "guides" }}` — matches frontmatter `Category` or resolved category names/slugs, case-insensitive; `[]models.Page` only |
 | `byAuthor a c` | *(site-aware)* | `{{ .Site.Posts \\| byAuthor "jan-kowalski" }}` — by ID, name or slug; `[]models.Page` only |
-| `related page n c` | *(scored)* | `{{ .Site.Posts \\| related .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
+| `relatedIn page n c` | *(scored)* | `{{ .Site.Posts \\| relatedIn .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
 
 ---
 

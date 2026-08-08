@@ -1541,8 +1541,13 @@ func TestGenerateSitemapAndRobotsPartial(t *testing.T) {
 }
 
 func TestGenerateSitemapAndRobotsBothOff(t *testing.T) {
+	// A real output directory, not the zero value: the step writes files, so an
+	// empty OutputDir writes them into the working directory — which is the
+	// package directory under `go test`.
+	out := t.TempDir()
 	gen := &Generator{
 		config: Config{
+			OutputDir:  out,
 			SitemapOff: true,
 			RobotsOff:  true,
 		},
@@ -1550,6 +1555,39 @@ func TestGenerateSitemapAndRobotsBothOff(t *testing.T) {
 
 	if err := gen.generateSitemapAndRobots(); err != nil {
 		t.Errorf("Expected nil when both off, got: %v", err)
+	}
+	for _, name := range []string{"sitemap.xml", "robots.txt"} {
+		if _, err := os.Stat(filepath.Join(out, name)); err == nil {
+			t.Errorf("%s written despite being switched off", name)
+		}
+	}
+	// 404.html has its own switch (#102), so turning the other two off does not
+	// turn it off — leaving a site with soft-404s it never asked for.
+	if _, err := os.Stat(filepath.Join(out, "404.html")); err != nil {
+		t.Errorf("404.html should still be generated: %v", err)
+	}
+}
+
+func TestGenerateSitemapAndRobotsAllOff(t *testing.T) {
+	out := t.TempDir()
+	gen := &Generator{
+		config: Config{
+			OutputDir:   out,
+			SitemapOff:  true,
+			RobotsOff:   true,
+			NotFoundOff: true,
+		},
+	}
+
+	if err := gen.generateSitemapAndRobots(); err != nil {
+		t.Errorf("Expected nil when all off, got: %v", err)
+	}
+	entries, err := os.ReadDir(out)
+	if err != nil {
+		t.Fatalf("readdir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("nothing should be written when all three are off, got %d files", len(entries))
 	}
 }
 

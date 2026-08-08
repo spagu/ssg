@@ -121,8 +121,12 @@ type Config struct {
 	HTTP3 bool `yaml:"http3" toml:"http3" json:"http3"`
 
 	// Output Control
-	SitemapOff    bool   `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
-	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
+	RobotsOff  bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	// NotFoundOff suppresses the generated 404.html (#102). Without a 404.html,
+	// Cloudflare Pages answers every unknown path with index.html and a 200, so
+	// each dead URL reads to a crawler as a live copy of the home page.
+	NotFoundOff   bool   `yaml:"not_found_off" toml:"not_found_off" json:"not_found_off"`
 	PrettyHTML    bool   `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"

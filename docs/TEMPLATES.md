@@ -303,7 +303,22 @@ Individual content fields are flattened at the root:
 | `.Content`, `.Excerpt`, `.Description`, `.Keywords` | Body and metadata text |
 | `.URL`, `.CanonicalURL`, `.OutputPath` | Computed destinations |
 | `.Link`, `.Canonical`, `.Robots`, `.Sitemap` | Explicit URL/SEO values |
-| `.Author`, `.Categories`, `.Category`, `.Tags` | Taxonomy values |
+| `.Author` | `int` — a metadata ID, **not** a name. Resolve with `getAuthorName .Author` |
+| `.Categories` | `[]int` — metadata IDs. Resolve each with `getCategoryName` / `getCategorySlug` |
+| `.Category` | `string` — the primary category name |
+| `.Tags` | `[]string` — names already |
+
+> ⚠️ The four do not behave alike. An exporter writes **names** in frontmatter
+> (`author: "Zonqor"`, `categories: ["Marsaskala"]`), but `.Author` and
+> `.Categories` hold the **IDs** those names resolved to. So
+> `{{ .Author }} · {{ range .Categories }}{{ . }}{{ end }}` renders `2 · 3, 4`.
+> It is not an error, just wrong output, which is why it survives review — use
+> `getAuthorName`, `getCategoryName` and `getCategorySlug`.
+
+> There is no `urlize` or `slugify` helper. To build a term URL use
+> `termURL "category" "Marsaskala"` — see
+> [TAXONOMIES.md](TAXONOMIES.md#template-helpers) for the taxonomy helper set,
+> which [TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md) cross-references.
 | `.FeaturedImage` | Hero/social image |
 | `.Layout`, `.Template` | Content template selection fields |
 | `.WordCount`, `.ReadingTime` | Computed reading statistics |

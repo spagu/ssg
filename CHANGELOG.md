@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- 📅 **`formatDate` formatted nothing** (#98) — every non-string fell through to
+  `Sprintf("%v")`, and `Page.Date` is a `time.Time`, so themes rendered Go's
+  debug form (`2017-05-13 20:36:46 +0000 UTC`) — including inside `datetime`
+  attributes, where it is not valid HTML. `formatDatePL` took a `time.Time` and
+  formatted it properly, so a Polish theme looked right while an English one did
+  not, which is what kept it hidden. It now formats, takes an optional layout
+  (`{{ formatDate .Date "2006-01-02" }}`), and renders a zero time as empty
+  rather than `1 January 0001`. Strings are still passed through unchanged.
+- 🔗 **`related` was registered twice under one name** (#99) — two different
+  functions shared the key and the merge after the map literal silently won, so
+  the documented three-argument form was unreachable and every post failed to
+  render with an arity error, while the build still reported success and simply
+  had no post pages. `related` keeps the two-argument behaviour that actually
+  ran; the collection form is now `relatedIn`. Helper merges report a name that
+  is already taken, so this cannot recur silently.
+- 🚦 **`410` redirects are dropped by Cloudflare Pages** (#102) — `410` is a
+  Netlify extension; Pages honours 301/302/303/307/308 only and ignores the rest
+  without a word, so the path keeps answering `200` while the rule reads as
+  handled. Building with `deploy: cloudflare` now warns. `303` was also missing
+  from the accepted set, so a valid rule drew an "unsupported status" warning.
+  The docs said `301/302/307/308/410` for every platform; corrected.
 - 🔏 **`fingerprint` double-hashed assets when the output was not cleaned**
   (#95) — the step reads the output directory, so a rebuild treated its own
   previous output as fresh input: `style.<hash>.css` became
@@ -22,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deleted, since a theme may legitimately ship such a name.
 
 ### Added
+- 🚧 **A generated `404.html`** (#102) — static hosts answer an unmatched path
+  by falling back to `index.html` **with a `200`** unless the output has a
+  `404.html`, so every dead URL read to a crawler as another live copy of the
+  home page. That was the out-of-the-box behaviour for a first-class deploy
+  target, and a migration trap: `next export` generates one, so a site moving to
+  SSG lost proper 404s silently. A page slugged `404` still takes precedence;
+  `not_found_off: true` (or `--not-found-off`) suppresses it.
 - 🧩 **`append`** (#96) — add values to a list, so a theme can build a derived
   collection. `slice` only ever made a literal, which left an ordinary
   requirement — "list the sub-pages of this section" — with no direct
@@ -33,6 +61,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selecting pages under a path had to fall back to `contains`, which is
   substring-wise and also matches `/not-special/`. Applied to a non-string
   field they report the mistake instead of answering false.
+- 🏷️ **`variables.gtm_id`** (#101) — the Tag Manager container ID was hardcoded
+  in `ssgtheme`, which made it part of the theme rather than the site: lost on a
+  theme update, and impossible to differ between two sites sharing a theme. It
+  now mirrors `variables.gtag`. When `variables.cookie_consent` is also set the
+  loader ships as `type="text/plain" data-consent-category="analytics"` so the
+  consent worker starts it only after the visitor accepts — the container
+  request is itself a third-party call, so a site running a banner should not be
+  making it beforehand.
+
+### Documentation
+- 📚 **Four gaps that each required reading the Go source** (#100) — `.Author`
+  is an `int` and `.Categories` is `[]int` (metadata IDs) while `.Tags` is
+  `[]string` and `.Category` is a `string`, so the obvious template renders
+  `2 · 3, 4`; the types and the `getAuthorName`/`getCategoryName` resolvers are
+  now in the table. There is no `urlize`/`slugify`, and the taxonomy helpers
+  were absent from the helper reference — both now cross-referenced. The
+  built-in taxonomy names are `category`, `tag` and `series` (singular, not the
+  frontmatter field names), and an unknown name returns `""` rather than an
+  error. `variables.cookie_consent` is documented as the supported integration
+  point it already was.
 
 ### Documentation
 - 📈 **`docs/UPGRADING.md`** — every version-to-version step in one page, with a

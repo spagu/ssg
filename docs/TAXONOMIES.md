@@ -112,6 +112,18 @@ compatibility with `category.html` — `.Category`, `.Kind` and `.Name`. With
 | `hasTerm` | `{{if hasTerm "technology" "Go" .Page}}` | normalized membership test |
 | `pagesByTerm` | `{{range pagesByTerm "technology" "Go"}}…{{end}}` | the term's posts, newest first |
 
+Every helper above takes a **taxonomy name**. The examples use a custom one, so
+it is worth stating the built-in names outright — they are `category`, `tag` and
+`series`, **singular**, not the plural frontmatter field names:
+
+```gotemplate
+{{ termURL "category" "Marsaskala" }}   {{/* ✅ /category/marsaskala/ */}}
+{{ termURL "categories" "Marsaskala" }} {{/* ❌ "" — no such taxonomy */}}
+```
+
+An unknown taxonomy name returns an empty string rather than an error, so the
+mistake shows up as `href=""` rather than as a failed build.
+
 ## Multilingual builds
 
 With `i18n.enabled`, terms live in per-language buckets and custom archives are

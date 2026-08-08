@@ -124,9 +124,10 @@ func flattenRedirectChains(rules []RedirectRule) ([]RedirectRule, error) {
 
 // validateRedirects returns human-readable warnings: duplicate sources, wildcard
 // rules shadowing later rules, `:splat` without a `*` source, unsupported status
-// codes and the Cloudflare Pages rule caps. Warnings never fail the build —
-// targets may be external or served by a Worker.
-func validateRedirects(rules []RedirectRule) []string {
+// codes and the Cloudflare Pages rule caps. platform names the deploy target, so
+// a status the host will silently drop can be reported. Warnings never fail the
+// build — targets may be external or served by a Worker.
+func validateRedirects(rules []RedirectRule, platform string) []string {
 	var warnings []string
 	seenFrom := make(map[string]bool, len(rules))
 	staticCount, dynamicCount := 0, 0
@@ -141,9 +142,16 @@ func validateRedirects(rules []RedirectRule) []string {
 			staticCount++
 		}
 		switch r.Status {
-		case 301, 302, 307, 308, 410:
+		case 301, 302, 303, 307, 308, 410:
 		default:
-			warnings = append(warnings, fmt.Sprintf("redirect %q has unsupported status %d (use 301, 302, 307, 308 or 410)", r.From, r.Status))
+			warnings = append(warnings, fmt.Sprintf("redirect %q has unsupported status %d (use 301, 302, 303, 307, 308 or 410)", r.From, r.Status))
+		}
+		// 410 is a Netlify extension. Cloudflare Pages honours 301, 302, 303,
+		// 307 and 308 only and drops anything else without a word, so the rule
+		// reads as handled and does nothing — worse than no rule at all, since
+		// the path keeps answering 200 (#102).
+		if r.Status == 410 && platform == "cloudflare" {
+			warnings = append(warnings, fmt.Sprintf("redirect %q uses status 410, which Cloudflare Pages ignores — the path will keep answering 200; serve a 404/410 from a Pages Function, or drop the rule", r.From))
 		}
 		if strings.Contains(r.To, ":splat") && !strings.Contains(r.From, "*") {
 			warnings = append(warnings, fmt.Sprintf("redirect %q uses :splat in destination but has no * in source", r.From))
@@ -230,7 +238,7 @@ func (g *Generator) collectRedirects() ([]RedirectRule, []string, error) {
 	if err != nil {
 		return nil, warnings, err
 	}
-	warnings = append(warnings, validateRedirects(flattened)...)
+	warnings = append(warnings, validateRedirects(flattened, strings.ToLower(strings.TrimSpace(g.config.Deploy)))...)
 	// Exact internal destinations should exist in the output tree (or be
 	// another redirect's source, already flattened away above).
 	for _, r := range flattened {

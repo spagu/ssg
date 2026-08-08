@@ -75,7 +75,44 @@ it, it is not secret:
 everywhere with no Function at all. Drop `logEndpoint` to skip the audit record.
 `position`: `bottom` (default), `top` or `center`.
 
+### Or drive it from the config: `variables.cookie_consent`
+
+Literal HTML ties the config to the theme. `ssgtheme` instead reads a config
+variable and serialises it, so the settings live in `.ssg.yaml`, the theme stays
+generic, and nothing is lost on a theme update:
+
+```yaml
+variables:
+  cookie_consent:
+    version: "1"
+    policyUrl: /cookie-policy/
+    position: bottom
+    geoMode: edge
+    expiryDays: 180
+    logEndpoint: /api/consent/log
+    categories:
+      - { id: necessary, required: true }
+      - { id: analytics }
+      - { id: marketing }
+```
+
+```gotemplate
+{{ with .Ctx.Vars.cookie_consent }}
+<link rel="stylesheet" href="/cookie-consent.css">
+<script id="ssg-consent-config" type="application/json">{{ . | toJSON }}</script>
+<script src="/cookie-consent.js" defer></script>
+{{ end }}
+```
+
+The variable is the supported integration point: the whole block disappears when
+it is unset, so a theme carrying it works on sites with no banner at all. The
+keys are exactly those of the JSON above — `toJSON` passes them through.
+
 ## 3. Gating scripts (the compliant part)
+
+> A tag manager's `<noscript>` iframe cannot honour a prior choice at all — it
+> fires whenever scripting is off, before any banner can run. A theme that gates
+> the loader should omit the iframe rather than ship it live; `ssgtheme` does.
 
 Non-essential tags must not run until consent. Mark them `type="text/plain"`
 with the category; the banner activates them once granted:

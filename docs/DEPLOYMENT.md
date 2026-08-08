@@ -4,6 +4,16 @@ SSG can package a generated site, publish it directly, or run as a GitHub
 Action. Deployment always happens after generation and enabled post-processing,
 so providers receive the final output tree.
 
+## The 404 page
+
+Static hosts answer an unmatched path by falling back to the site's
+`index.html` — with a `200` — unless the output contains a `404.html`. Every
+dead URL then looks to a crawler like another live copy of the home page, which
+is why SSG generates a minimal `404.html` when the site does not provide one.
+
+To own it, add a page slugged `404`; it renders to `/404.html` and takes
+precedence. To suppress it entirely, set `not_found_off: true`.
+
 ## Production build
 
 A conservative production command is:
