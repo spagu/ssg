@@ -23,6 +23,10 @@ accounts for most of that size; no external libraries or runtimes are needed.
 
 ---
 
+> **Upgrading an existing install?** See
+> [UPGRADING.md](UPGRADING.md) for the steps between your version and this one.
+> Most releases are drop-in; the few that are not are listed there.
+
 ## Quick Install
 
 ### One-liner (Linux/macOS)

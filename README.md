@@ -57,6 +57,8 @@ Other supported installation methods:
 | Build from source | `make build` |
 
 For platform-specific instructions, see [docs/INSTALL.md](docs/INSTALL.md).
+Already running an older SSG? [docs/UPGRADING.md](docs/UPGRADING.md) lists
+every step between your version and this one — most upgrades need none.
 
 ### 2. Create the smallest useful site
 
@@ -521,6 +523,7 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
+| [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |

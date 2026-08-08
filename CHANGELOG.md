@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- 📈 **`docs/UPGRADING.md`** — every version-to-version step in one page, with a
+  picker that narrows the list to what applies between your current version and
+  today. Organised by what changed rather than by release, because 53 of the 63
+  releases so far need no action and a section per version would bury the ten
+  that do. The picker is progressive enhancement: without JavaScript it stays
+  hidden and every step is shown.
+
 ## [1.8.21] - 2026-08-07
 
 ### Added
