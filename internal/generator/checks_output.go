@@ -639,7 +639,7 @@ func (g *Generator) checkRedirectsIfRequested() error {
 	if mode == "" {
 		return nil
 	}
-	if !g.config.PrettyURLs {
+	if !g.config.PrettyURLs.Enabled() {
 		fmt.Println("   ⚠️  check_redirects needs pretty_urls to know how the host serves URLs — skipping")
 		return nil
 	}
@@ -676,19 +676,21 @@ func (g *Generator) checkRedirectsIfRequested() error {
 // A file that is not a page — a feed, an image, a stylesheet — is served as-is
 // and is never a finding.
 func (g *Generator) redirectTargetOf(href string) string {
+	// The mode decides the destination, not a fixed assumption (#103): under
+	// `strip` the host serves /docs/intro with no trailing slash, so suggesting
+	// /docs/intro/ would name a URL that host would itself redirect.
+	if served := g.config.PrettyURLs.ServedURL(href); served != href {
+		return served
+	}
 	clean, suffix := splitURLSuffix(href)
 	if clean == "" || clean == "/" {
 		return ""
 	}
-	switch {
-	case strings.HasSuffix(clean, "/"+indexHTMLName):
-		return strings.TrimSuffix(clean, indexHTMLName) + suffix
-	case strings.HasSuffix(strings.ToLower(clean), ".html"):
-		return strings.TrimSuffix(clean, filepath.Ext(clean)) + "/" + suffix
-	case !strings.HasSuffix(clean, "/") && path.Ext(clean) == "":
-		// Extensionless and slashless: a redirect only if a directory is actually
-		// served there — otherwise it is a genuinely missing page, which is
-		// check_links' finding to make, not ours.
+	// Extensionless and slashless costs a redirect only where the host appends
+	// the slash, and only if a directory is actually served there — otherwise it
+	// is a genuinely missing page, which is check_links' finding to make.
+	if g.config.PrettyURLs == models.PrettyStripSlash &&
+		!strings.HasSuffix(clean, "/") && path.Ext(clean) == "" {
 		if g.outputDirExists(clean) {
 			return clean + "/" + suffix
 		}

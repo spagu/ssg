@@ -18,7 +18,7 @@ import (
 // schema: overrides everything. json.Marshal HTML-escapes </script>, so
 // untrusted titles cannot break out of the script element.
 func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
-	canonical := page.GetCanonical(g.config.Domain)
+	canonical := g.servedCanonical(page)
 	// Precedence: site-wide defaults < derived per-page data < per-page schema.
 	merged := deepMergeLD(cloneLD(g.config.Schema), g.derivedLD(page, isPost, canonical))
 	merged = deepMergeLD(merged, page.Schema)
@@ -107,7 +107,7 @@ func (g *Generator) breadcrumbLD(page models.Page) map[string]interface{} {
 			if page.Title != "" {
 				name = page.Title
 			}
-			itemURL = page.GetCanonical(g.config.Domain)
+			itemURL = g.servedCanonical(page)
 		}
 		items = append(items, crumb(i+2, name, itemURL))
 	}

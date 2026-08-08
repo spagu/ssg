@@ -216,7 +216,7 @@ type Config struct {
 	// CheckRedirects reports links the host would redirect; PrettyURLs models that
 	// host behaviour (#87).
 	CheckRedirects string
-	PrettyURLs     bool
+	PrettyURLs     models.PrettyURLMode
 	// ContentExclude are glob patterns for Markdown files that must not be loaded
 	// as pages (#74).
 	ContentExclude []string
@@ -948,6 +948,7 @@ func (g *Generator) generateSitemapAndRobots() error {
 			return fmt.Errorf("generating 404.html: %w", err)
 		}
 	}
+	g.warnPrettyURLMismatch()
 	return nil
 }
 
@@ -1207,7 +1208,7 @@ func (g *Generator) computeTranslations() {
 				Locale:    pages[i].Locale,
 				Title:     pages[i].Title,
 				URL:       pages[i].GetURL(),
-				Canonical: pages[i].GetCanonical(g.config.Domain),
+				Canonical: g.servedCanonical(pages[i]),
 				IsDefault: pages[i].Lang == g.config.DefaultLanguage || pages[i].Lang == "",
 			})
 		}
@@ -2233,6 +2234,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"endsWith":   strings.HasSuffix,
 		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
 		"hasSuffix":  strings.HasSuffix,
+		// Without these a theme could test for a suffix but not remove one, so
+		// stripping ".html" was impossible in a template (#103).
+		"trimPrefix": strings.TrimPrefix,
+		"trimSuffix": strings.TrimSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -2750,6 +2755,10 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"endsWith":   strings.HasSuffix,
 		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
 		"hasSuffix":  strings.HasSuffix,
+		// Without these a theme could test for a suffix but not remove one, so
+		// stripping ".html" was impossible in a template (#103).
+		"trimPrefix": strings.TrimPrefix,
+		"trimSuffix": strings.TrimSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -3457,11 +3466,60 @@ func (g *Generator) writeAliasStub(alias, rel, target string) {
 	}
 }
 
+// servedCanonical returns the page's canonical URL as the host will answer it
+// (#103).
+//
+// pretty_urls fed link checking only, so a site on a host that strips
+// extensions published canonical tags, og:url and a sitemap naming URLs that
+// 308 — the one thing a canonical tag must not do. It is invisible locally,
+// because resolution against the output directory is not how the host answers,
+// and check_redirects made it easier to miss by reporting the links *between*
+// pages while staying silent about each page's own declared identity.
+//
+// Feed entries deliberately keep the raw canonical: a reader keys an item on
+// its id, so rewriting those would re-deliver every post already read.
+func (g *Generator) servedCanonical(page models.Page) string {
+	return g.servedURL(page.GetCanonical(g.config.Domain))
+}
+
+// warnPrettyURLMismatch reports the one combination this release makes newly
+// dangerous (#103).
+//
+// pretty_urls used to feed link checking only, so `true` on a host that does
+// not append a trailing slash was merely a wrong suggestion in a report. Now it
+// decides the canonical tag, og:url and the sitemap, so the same setting
+// publishes URLs the host will redirect. Cloudflare Pages strips the extension
+// and adds no slash, so `strip-slash` plus a Cloudflare deploy is provably the
+// wrong pairing and is worth saying out loud rather than leaving to be noticed
+// in a crawl report weeks later.
+func (g *Generator) warnPrettyURLMismatch() {
+	if g.config.PrettyURLs != models.PrettyStripSlash {
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(g.config.Deploy), "cloudflare") {
+		return
+	}
+	fmt.Println("   ⚠️  pretty_urls is strip-slash (the meaning of `true`), but Cloudflare Pages serves /page.html at /page with no trailing slash.")
+	fmt.Println("       Canonical tags, og:url and sitemap entries will name URLs Pages redirects. Use `pretty_urls: strip`.")
+}
+
+// servedURL applies the host's URL handling to an absolute site URL.
+func (g *Generator) servedURL(raw string) string {
+	if !g.config.PrettyURLs.Enabled() {
+		return raw
+	}
+	prefix := "https://" + g.config.Domain
+	if !strings.HasPrefix(raw, prefix) {
+		return raw
+	}
+	return prefix + g.config.PrettyURLs.ServedURL(strings.TrimPrefix(raw, prefix))
+}
+
 // buildOpenGraph renders OpenGraph + Twitter Card + JSON-LD markup for a page (SEO-003).
 func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	title := page.Title
 	desc := page.Description
-	url := page.GetCanonical(g.config.Domain)
+	url := g.servedCanonical(page)
 	ogType := "website"
 	if isPost {
 		ogType = "article"
@@ -3708,7 +3766,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"SeriesNextTitle": page.SeriesNextTitle,
 		// URL helpers
 		"URL":          page.GetURL(),
-		"CanonicalURL": page.GetCanonical(g.config.Domain),
+		"CanonicalURL": g.servedCanonical(page),
 		"OutputPath":   page.GetOutputPath(),
 	}
 
@@ -4261,7 +4319,7 @@ func (g *Generator) generateSitemap() error {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
+		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(page))
 		g.writeSitemapAlternates(&sb, page)
 		if lastmod := g.lastModFor(page); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
@@ -4277,7 +4335,7 @@ func (g *Generator) generateSitemap() error {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
+		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(post))
 		g.writeSitemapAlternates(&sb, post)
 		if lastmod := g.lastModFor(post); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))

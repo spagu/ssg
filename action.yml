@@ -15,16 +15,24 @@ branding:
   color: "green"
 
 inputs:
+  config:
+    description: >-
+      Path to a .ssg.yaml/.toml/.json config file. Everything a real site keeps
+      there — redirects, worker, variables, the check_* validators — has no input
+      equivalent, so without this the action cannot build a config-driven site
+      (#104). When set, source/template/domain are optional: the config supplies
+      them, and repeating them here is how they drift.
+    required: false
   source:
-    description: "Content source folder name (inside content/ directory)"
-    required: true
+    description: "Content source folder name (inside content/ directory). Optional when `config` is set."
+    required: false
   template:
-    description: "Template name to use (inside templates/ directory)"
-    required: true
+    description: "Template name to use (inside templates/ directory). Optional when `config` is set."
+    required: false
     default: "simple"
   domain:
-    description: "Target domain for the generated site"
-    required: true
+    description: "Target domain for the generated site. Optional when `config` is set."
+    required: false
   version:
     description: "SSG version to use (default: latest)"
     required: false
@@ -214,6 +222,7 @@ runs:
       # quoted shell variables. Never interpolate ${{ inputs.* }} directly inside
       # run: — that lets attacker-controlled input inject shell commands.
       env:
+        IN_CONFIG: ${{ inputs.config }}
         IN_SOURCE: ${{ inputs.source }}
         IN_TEMPLATE: ${{ inputs.template }}
         IN_DOMAIN: ${{ inputs.domain }}
@@ -281,31 +290,57 @@ runs:
           [[ -n "$IN_DEPLOY_TARGET" ]] && FLAGS+=(--deploy-target="$IN_DEPLOY_TARGET")
         fi
 
-        # Check if content directory exists
-        if [[ ! -d "$IN_CONTENT_DIR/$IN_SOURCE" ]]; then
-          echo "::error::Content source directory not found: $IN_CONTENT_DIR/$IN_SOURCE"
-          exit 1
-        fi
-
-        # Check if templates exist, copy from action repo if not
-        if [[ ! -d "$IN_TEMPLATES_DIR/$IN_TEMPLATE" ]]; then
-          if [[ -d "$ACTION_PATH/templates/$IN_TEMPLATE" ]]; then
-            echo "📁 Copying template '$IN_TEMPLATE' from action..."
-            mkdir -p "$IN_TEMPLATES_DIR"
-            cp -r "$ACTION_PATH/templates/$IN_TEMPLATE" "$IN_TEMPLATES_DIR/"
-          else
-            echo "::error::Template directory not found: $IN_TEMPLATES_DIR/$IN_TEMPLATE"
+        # A config file supplies source/template/domain and the directory layout,
+        # so the checks below — which assume the positional form — do not apply
+        # and would reject a perfectly valid config-driven build (#104).
+        if [[ -n "$IN_CONFIG" ]]; then
+          if [[ ! -f "$IN_CONFIG" ]]; then
+            echo "::error::Config file not found: $IN_CONFIG"
             exit 1
+          fi
+        else
+          if [[ -z "$IN_SOURCE" || -z "$IN_DOMAIN" ]]; then
+            echo "::error::Without 'config', both 'source' and 'domain' are required."
+            exit 1
+          fi
+          # Check if content directory exists
+          if [[ ! -d "$IN_CONTENT_DIR/$IN_SOURCE" ]]; then
+            echo "::error::Content source directory not found: $IN_CONTENT_DIR/$IN_SOURCE"
+            exit 1
+          fi
+
+          # Check if templates exist, copy from action repo if not
+          if [[ ! -d "$IN_TEMPLATES_DIR/$IN_TEMPLATE" ]]; then
+            if [[ -d "$ACTION_PATH/templates/$IN_TEMPLATE" ]]; then
+              echo "📁 Copying template '$IN_TEMPLATE' from action..."
+              mkdir -p "$IN_TEMPLATES_DIR"
+              cp -r "$ACTION_PATH/templates/$IN_TEMPLATE" "$IN_TEMPLATES_DIR/"
+            else
+              echo "::error::Template directory not found: $IN_TEMPLATES_DIR/$IN_TEMPLATE"
+              exit 1
+            fi
           fi
         fi
 
         # Run generator
         echo "::group::Running SSG"
-        ssg "$IN_SOURCE" "$IN_TEMPLATE" "$IN_DOMAIN" \
-          --content-dir="$IN_CONTENT_DIR" \
-          --templates-dir="$IN_TEMPLATES_DIR" \
-          --output-dir="$IN_OUTPUT_DIR" \
-          "${FLAGS[@]}"
+        if [[ -n "$IN_CONFIG" ]]; then
+          # Flags are passed through rather than merged here: the CLI already
+          # resolves flag-versus-config precedence, and re-implementing that in
+          # bash is how the two would disagree. Directory overrides are only
+          # forwarded when explicitly given, so the config's own paths stand.
+          CONFIG_FLAGS=()
+          [[ -n "$IN_CONTENT_DIR" ]] && CONFIG_FLAGS+=(--content-dir="$IN_CONTENT_DIR")
+          [[ -n "$IN_TEMPLATES_DIR" ]] && CONFIG_FLAGS+=(--templates-dir="$IN_TEMPLATES_DIR")
+          [[ -n "$IN_OUTPUT_DIR" ]] && CONFIG_FLAGS+=(--output-dir="$IN_OUTPUT_DIR")
+          ssg --config="$IN_CONFIG" "${CONFIG_FLAGS[@]}" "${FLAGS[@]}"
+        else
+          ssg "$IN_SOURCE" "$IN_TEMPLATE" "$IN_DOMAIN" \
+            --content-dir="$IN_CONTENT_DIR" \
+            --templates-dir="$IN_TEMPLATES_DIR" \
+            --output-dir="$IN_OUTPUT_DIR" \
+            "${FLAGS[@]}"
+        fi
         echo "::endgroup::"
 
         # Set outputs
@@ -313,7 +348,13 @@ runs:
 
         # Handle ZIP output
         if [[ "$IN_ZIP" == "true" ]]; then
-          ZIP_FILE="$IN_DOMAIN.zip"
+          # With a config file the domain lives there, not in the inputs, so the
+          # archive is found rather than assumed from a name we may not have.
+          if [[ -n "$IN_DOMAIN" ]]; then
+            ZIP_FILE="$IN_DOMAIN.zip"
+          else
+            ZIP_FILE=$(ls -1 ./*.zip 2>/dev/null | head -1)
+          fi
           if [[ -f "$ZIP_FILE" ]]; then
             ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat --format=%s "$ZIP_FILE")
             echo "zip-file=$ZIP_FILE" >> "$GITHUB_OUTPUT"

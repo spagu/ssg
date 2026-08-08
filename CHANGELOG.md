@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- 🔗 **`pretty_urls` did not reach what a page says about itself** (#103) — it
+  fed link checking only, so a site on a host that strips extensions published
+  canonical tags, `og:url`, JSON-LD and a sitemap naming URLs that `308` — the
+  one thing a canonical must not do. Invisible locally, because resolving
+  against the output directory is not how the host answers, and easy to miss
+  because `check_redirects` reported the links *between* pages while staying
+  silent about each page's own declared identity. It now also decides those.
+  Feed entry IDs deliberately keep the raw form: a reader keys an item on its
+  id, so rewriting them would re-deliver every post already read.
+- 🧭 **`pretty_urls` assumed a trailing slash** (#103) — Cloudflare Pages strips
+  `.html` and adds **no** slash, so the target `check_redirects` suggested was
+  itself a URL Pages would redirect. It is now a mode: `off`, `strip` (Pages) or
+  `strip-slash`. **`true` and `false` keep meaning exactly what they meant** —
+  `true` is `strip-slash` — so no existing config changes behaviour by being
+  re-read. Building with `deploy: cloudflare` and `strip-slash` warns, because
+  that pairing now publishes canonicals the host redirects.
 - 📅 **`formatDate` formatted nothing** (#98) — every non-string fell through to
   `Sprintf("%v")`, and `Page.Date` is a `time.Time`, so themes rendered Go's
   debug form (`2017-05-13 20:36:46 +0000 UTC`) — including inside `datetime`
@@ -43,6 +59,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deleted, since a theme may legitimately ship such a name.
 
 ### Added
+- ⚙️ **A `config` input for the GitHub Action** (#104) — the action exposed the
+  three positional arguments and a subset of flags, with no way to say "use the
+  `.ssg.yaml` I already have". Everything a real site keeps there — `redirects`,
+  `worker`, `variables`, the `check_*` validators — has no input equivalent, so
+  the action could not build a config-driven site at all, and the mismatch only
+  surfaced after writing a workflow that quietly ignored half the configuration
+  and deployed anyway. With `config` set, `source`/`template`/`domain` become
+  optional; flags are passed through so the CLI resolves precedence.
+- ✂️ **`trimPrefix` / `trimSuffix`** (#103) — a theme could test for an affix but
+  not remove one, so stripping `.html` was impossible inside a template.
 - 🚧 **A generated `404.html`** (#102) — static hosts answer an unmatched path
   by falling back to `index.html` **with a `200`** unless the output has a
   `404.html`, so every dead URL read to a crawler as another live copy of the

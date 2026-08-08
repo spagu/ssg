@@ -5,7 +5,7 @@ the binary, rebuild, and the site you had is the site you get.
 
 Where that is not true — where a default changed, a flag moved, or a setting
 started meaning something new — it is listed below, with the version it landed
-in and what to do about it. Of the 63 releases so far, 53 need nothing at
+in and what to do about it. Of the 64 releases so far, 53 need nothing at
 all, which is why this page is organised by **what changed**, not by release
 number: a section per version would be mostly empty and would bury the handful
 that matter.
@@ -146,6 +146,123 @@ today. Without JavaScript the selector stays hidden and every step is shown,
 which is a longer read but never a wrong one.
 
 <div class="upgrade-steps">
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — `related`'s three-argument form is now `relatedIn`
+
+Two different functions were registered under the name `related`, and the
+two-argument one won. So the three-argument form the reference documented never
+ran: a theme using it failed with *"wrong number of args for related"*, every
+post was skipped, and the build still reported success — which on a first build
+reads as though the content never loaded.
+
+**If you use `related page n`, do nothing** — that is the form that always ran,
+and it is unchanged. **If you followed the old reference and passed a
+collection**, the name is now `relatedIn`:
+
+```gotemplate
+{{ .Site.Posts | relatedIn .Page 3 }}
+```
+
+The two rank differently, which is why both survive rather than one being
+dropped: `related` scores shared tags and keywords over the site's own posts,
+`relatedIn` scores shared tags (3) > categories (2) > same author (1) over the
+collection you hand it.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — `formatDate` actually formats
+
+It never did: every non-string fell through to Go's `%v`, and `Page.Date` is a
+`time.Time`, so themes rendered `2017-05-13 20:36:46 +0000 UTC` — including
+inside `datetime` attributes, where it is not valid HTML.
+
+**Your dates will change appearance.** The default is now `13 May 2017`, and a
+layout is accepted:
+
+```gotemplate
+{{ formatDate .Date }}                {{/* 13 May 2017 */}}
+{{ formatDate .Date "2006-01-02" }}   {{/* 2017-05-13 */}}
+```
+
+A zero date now renders empty instead of `1 January 0001`. Strings are still
+passed through untouched, so a theme that pre-formats its dates is unaffected.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — a `404.html` is generated
+
+Static hosts answer an unmatched path by falling back to `index.html` **with a
+`200`** unless the output contains a `404.html`, so every dead URL read to a
+crawler as another live copy of the home page.
+
+**Do nothing** — a minimal one is generated, and a page slugged `404` still
+takes precedence. If you deliberately want none:
+
+```yaml
+not_found_off: true
+```
+
+Note the new file in your output; a deploy diff will show it once.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — `pretty_urls` now decides what a page says about itself
+
+It used to feed link checking only, so a site on a host that strips extensions
+published canonical tags, `og:url`, JSON-LD and a sitemap naming URLs that
+`308` — the one thing a canonical must not do. Those now name the URL the host
+actually answers.
+
+**Check which host you have.** `pretty_urls: true` still means what it always
+meant — strip `.html` *and* add a trailing slash. Cloudflare Pages does **not**
+add the slash, so on Pages the accurate setting is:
+
+```yaml
+pretty_urls: strip        # /docs/intro.html → /docs/intro
+```
+
+| Value | Host behaviour |
+|---|---|
+| `false` / `off` | Serves files literally |
+| `strip` | Drops `.html`, no trailing slash (Cloudflare Pages) |
+| `true` / `strip-slash` | Drops `.html`, adds the slash |
+
+If you leave `true` on a host that does not add the slash, your canonical tags
+will name URLs that redirect — the situation this release exists to fix. Feed
+entry IDs deliberately keep the raw form, so subscribers are not re-delivered
+every post.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — the bundled theme reads `variables.gtm_id`
+
+`ssgtheme` had the Tag Manager container ID hardcoded, so using GTM meant
+editing the theme — which put the ID in the theme rather than the site, lost it
+on every theme update, and made two sites sharing the theme impossible.
+
+**If you edited the theme to insert your container ID, move it to the config**,
+or Tag Manager will stop loading:
+
+```yaml
+variables:
+  gtm_id: GTM-XXXXXXX
+```
+
+When `variables.cookie_consent` is also set the loader is consent-gated rather
+than live, since the container request is itself a third-party call made before
+any choice.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.18">
 

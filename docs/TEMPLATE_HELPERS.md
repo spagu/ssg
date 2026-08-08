@@ -269,6 +269,18 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 
 ---
 
+## String helpers
+
+`hasPrefix`, `hasSuffix`, `startsWith`, `endsWith`, `matches`, `trimPrefix` and
+`trimSuffix` all take plain strings.
+
+```gotemplate
+{{ trimSuffix .Page.Link ".html" }}
+```
+
+`trimPrefix`/`trimSuffix` exist because testing for an affix without being able
+to remove one left no way to strip an extension inside a template (#103).
+
 ## Taxonomy helpers
 
 `taxonomies`, `taxonomy`, `taxonomyTerms`, `pageTerms`, `termURL`, `hasTerm` and

@@ -445,7 +445,7 @@ func TestCheckRedirects(t *testing.T) {
 		t.Errorf("without pretty_urls the check should explain why it skipped:\n%s", out)
 	}
 
-	g.config.PrettyURLs = true
+	g.config.PrettyURLs = models.PrettyStripSlash
 	out, err = capture(t, g.checkRedirectsIfRequested)
 	if err != nil {
 		t.Fatalf("warn must not fail: %v", err)
@@ -505,7 +505,7 @@ func TestPrettyURLsMakesLinkCheckAgree(t *testing.T) {
 	if g.refResolves("/docs/swagger", dir) {
 		t.Error("without pretty_urls an extensionless link to a flat page does not resolve")
 	}
-	g.config.PrettyURLs = true
+	g.config.PrettyURLs = models.PrettyStripSlash
 	g.refCache = map[string]bool{} // the verdict is cached per path
 	if !g.refResolves("/docs/swagger", dir) {
 		t.Error("with pretty_urls the host strips .html and serves it — not a broken link")

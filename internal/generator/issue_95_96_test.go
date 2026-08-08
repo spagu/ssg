@@ -443,3 +443,96 @@ func TestRedirect303IsAccepted(t *testing.T) {
 		t.Errorf("303 reported as unsupported:\n%s", joined)
 	}
 }
+
+// --- #103: what a page says about itself ------------------------------------
+
+// TestServedCanonicalFollowsTheMode: pretty_urls fed link checking only, so a
+// site on a host that strips extensions published canonical tags, og:url and a
+// sitemap naming URLs that 308 — which is the one thing a canonical must not do.
+func TestServedCanonicalFollowsTheMode(t *testing.T) {
+	page := models.Page{Link: "/malta/marsaskala/batterija.html", Title: "B"}
+	for _, tc := range []struct {
+		mode models.PrettyURLMode
+		want string
+	}{
+		{models.PrettyOff, "https://zonqor.com/malta/marsaskala/batterija.html"},
+		{models.PrettyStrip, "https://zonqor.com/malta/marsaskala/batterija"},
+		{models.PrettyStripSlash, "https://zonqor.com/malta/marsaskala/batterija/"},
+	} {
+		g := &Generator{config: Config{Domain: "zonqor.com", PrettyURLs: tc.mode, Quiet: true}}
+		if got := g.servedCanonical(page); got != tc.want {
+			t.Errorf("mode %q: got %q, want %q", tc.mode, got, tc.want)
+		}
+	}
+}
+
+// TestServedURLLeavesForeignURLsAlone: only this site's own URLs are ours to
+// normalise.
+func TestServedURLLeavesForeignURLsAlone(t *testing.T) {
+	g := &Generator{config: Config{Domain: "zonqor.com", PrettyURLs: models.PrettyStrip, Quiet: true}}
+	external := "https://example.com/other/page.html"
+	if got := g.servedURL(external); got != external {
+		t.Errorf("rewrote an external URL: %q", got)
+	}
+}
+
+// TestPrettyURLModeParsesBooleans keeps every config written before modes
+// existed meaning exactly what it meant: true was strip-and-slash.
+func TestPrettyURLModeParsesBooleans(t *testing.T) {
+	for in, want := range map[string]models.PrettyURLMode{
+		"true":        models.PrettyStripSlash,
+		"strip-slash": models.PrettyStripSlash,
+		"false":       models.PrettyOff,
+		"off":         models.PrettyOff,
+		"":            models.PrettyOff,
+		"strip":       models.PrettyStrip,
+	} {
+		got, err := models.ParsePrettyURLMode(in)
+		if err != nil {
+			t.Errorf("%q: %v", in, err)
+		}
+		if got != want {
+			t.Errorf("%q: got %q, want %q", in, got, want)
+		}
+	}
+	if _, err := models.ParsePrettyURLMode("nonsense"); err == nil {
+		t.Error("an unknown mode should be reported, not silently treated as off")
+	} else if !strings.Contains(err.Error(), "--help") {
+		t.Errorf("error should point at --help: %v", err)
+	}
+}
+
+// TestRedirectTargetMatchesTheMode: under `strip` the host serves the bare
+// form, so suggesting a trailing slash would name a URL it would itself
+// redirect — the correction being wrong is worse than no correction.
+func TestRedirectTargetMatchesTheMode(t *testing.T) {
+	for _, tc := range []struct {
+		mode models.PrettyURLMode
+		want string
+	}{
+		{models.PrettyStripSlash, "/malta/window.html"},
+		{models.PrettyStrip, "/malta/window.html"},
+	} {
+		g := &Generator{config: Config{Domain: "z.com", PrettyURLs: tc.mode, Quiet: true}}
+		got := g.redirectTargetOf(tc.want)
+		wantTarget := "/malta/window/"
+		if tc.mode == models.PrettyStrip {
+			wantTarget = "/malta/window"
+		}
+		if got != wantTarget {
+			t.Errorf("mode %q: got %q, want %q", tc.mode, got, wantTarget)
+		}
+	}
+}
+
+// TestTrimHelpersRegistered: a theme could test for a suffix but not remove
+// one, so stripping ".html" was impossible in a template.
+func TestTrimHelpersRegistered(t *testing.T) {
+	g := &Generator{config: Config{Quiet: true}, siteData: &models.SiteData{}}
+	funcs := g.buildTemplateFuncs(nil)
+	for _, name := range []string{"trimPrefix", "trimSuffix"} {
+		if funcs[name] == nil {
+			t.Errorf("%s is not registered", name)
+		}
+	}
+}

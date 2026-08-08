@@ -395,15 +395,35 @@ Since v1.8.5 the action logs the resolved version on every run (a `::notice::`
 when `latest` was used) and exposes it as the `version` output, so unpinned
 builds are at least traceable.
 
+### Building a config-driven site
+
+Point the action at your config file. Everything a real site keeps there —
+`redirects:`, `worker:`, `variables:`, the `check_*` validators — has no input
+equivalent, so this is the only way the action can build it:
+
+```yaml
+- uses: spagu/ssg@v1
+  with:
+    config: .ssg.yaml
+    deploy: cloudflare
+    deploy-project: my-site
+```
+
+With `config` set, `source`, `template` and `domain` are optional — the config
+supplies them, and repeating them here is how the two drift apart. Other inputs
+are still passed through as flags; the CLI resolves flag-versus-config
+precedence, so a flag wins over the same setting in the file.
+
 ### Action inputs
 
 The action intentionally exposes a stable subset of the complete CLI:
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
-| `source` | yes | — | Content source name |
-| `template` | yes | `simple` | Theme name |
-| `domain` | yes | — | Canonical host |
+| `config` | no | — | Path to `.ssg.yaml`/`.toml`/`.json`. Makes the three below optional |
+| `source` | unless `config` | — | Content source name |
+| `template` | unless `config` | `simple` | Theme name |
+| `domain` | unless `config` | — | Canonical host |
 | `version` | no | `latest` | Binary release to download |
 | `content-dir` | no | `content` | Content root |
 | `templates-dir` | no | `templates` | Theme root |

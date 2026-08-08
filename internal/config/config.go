@@ -381,7 +381,14 @@ type Config struct {
 	// reporting "/docs/intro" as broken when the host serves it, and
 	// check_redirects can report "/docs/intro.html" as a link that only resolves
 	// through a redirect (#87).
-	PrettyURLs bool `yaml:"pretty_urls" toml:"pretty_urls" json:"pretty_urls"`
+	//
+	// It also decides what a page says about itself — canonical, og:url, JSON-LD
+	// and the sitemap — so those name the URL the host answers rather than one
+	// it redirects (#103). Modes: `off`, `strip` (drop .html, no trailing slash
+	// — Cloudflare Pages) and `strip-slash` (drop .html, add the slash).
+	// Accepts the historical booleans as well as the named modes: `true` is
+	// `strip-slash` and `false` is `off`, so an existing config is unchanged.
+	PrettyURLs models.PrettyURLMode `yaml:"pretty_urls" toml:"pretty_urls" json:"pretty_urls"`
 
 	// MetaLimits tunes the advisory length ranges --check-meta reports on. What
 	// counts as a good title or description depends on the site and on which
