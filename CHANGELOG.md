@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🧨 **`--minify-js` deleted code inside string literals** (#106) — comment
+  stripping was a pair of regexes, which cannot tell a comment from the same
+  characters in a string. `return "/*" + "x" + "*/"` minified to `return ""`:
+  the scan started at the `/*` in the first literal and ran to the `*/` in the
+  third, taking the closing quote with it. That example still parses, so the
+  build reported success and the behaviour changed silently; on a vendored
+  bundle whose CSS-comment parser holds `/*` in strings, the output had an
+  unterminated string and the browser refused the file — with minify,
+  fingerprint and every `check_*` validator passing. Replaced with a scanner
+  that tracks strings, template literals (including `${}`) and regex literals,
+  and that keeps a comment whenever it cannot be sure. CSS gets the same
+  treatment, since `content: "/*"` is legal there.
+- 🔗 **`rewrite_md_links` rewrote absolute external URLs** (#107) — any href
+  ending in `.md` was matched on its basename, so a link to a page's own history
+  on GitHub became a link to the page containing it. `check_links` passes, since
+  the target exists, so nothing reported it. Links with a scheme or a `//`
+  prefix are now left alone: an absolute URL to another host cannot be an
+  in-repository link.
+- 🧭 **`rewrite_md_links` and `check_orphans` ignored `pretty_urls`** (#107) —
+  the same gap #103 closed for canonicals. The rewriter emitted `.html` while
+  `check_redirects` correctly reported that link as one the host redirects, and
+  the author could not fix it in the Markdown without abandoning the feature.
+  `check_orphans` compared the pre-normalisation path, so with `pretty_urls:
+  strip` a nav linking `/validator` left every page reported as an orphan while
+  `check_links` resolved the very same links.
+
 ## [1.8.22] - 2026-08-08
 
 ### Fixed

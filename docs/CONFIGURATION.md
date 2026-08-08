@@ -432,7 +432,11 @@ tokens are `:year`, `:month`, `:day`, `:slug` and `:category`.
 
 `rewrite_md_links` turns in-repository links (`CONFIGURATION.md`,
 `./guide.md#section`) into the built page URLs, carrying any `#anchor` or
-`?query` across. `strip_md_link_text` complements it at publish time: when a
+`?query` across. **Only in-repository links**: an href with a scheme or a `//`
+prefix is left alone, so a link to a file's history on a code host stays where
+it points even though it ends in `.md`. The emitted URL follows
+[`pretty_urls`](#link-checking), so the rewriter and `check_redirects` agree
+about the same link. `strip_md_link_text` complements it at publish time: when a
 link's visible text is exactly a filename ending in `.md`, the `.md` is dropped
 (`[CONFIGURATION.md](CONFIGURATION.md)` renders as "CONFIGURATION"). Only bare
 filename link text is touched — prose, inline code (`` `CONFIGURATION.md` ``) and
@@ -459,7 +463,7 @@ Frontmatter `link` always has higher priority. Detailed URL rules are in
 | `minify_all` | `false` | `--minify-all` | Enable HTML, CSS and JS minification |
 | `minify_html` | `false` | `--minify-html` | Minify HTML only |
 | `minify_css` | `false` | `--minify-css` | Minify CSS only |
-| `minify_js` | `false` | `--minify-js` | Minify JavaScript only |
+| `minify_js` | `false` | `--minify-js` | Minify JavaScript only. Comments are removed by a scanner that understands strings, template literals and regex literals, so comment characters inside them are kept |
 | `sourcemap` | `false` | `--sourcemap` | Emit v3 maps for minified CSS/JS |
 | `fingerprint` | `false` | `--fingerprint` | Hash CSS/JS names and rewrite references |
 | `scss` | `false` | `--scss` | Compile SCSS with Dart Sass |

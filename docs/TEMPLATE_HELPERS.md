@@ -77,7 +77,7 @@ the whole corpus, not just the pages built into this site. It is a live query
 (not cached) and returns nothing when mddb is not configured or the query fails.
 `relatedIn <page> <n> <collection>` scores an explicit collection instead of the
 loaded posts, and ranks differently: shared tags (3) > shared categories (2) >
-same author (1). Until 1.8.22 it was registered under the name `related` as
+same author (1). Until 1.8.23 it was registered under the name `related` as
 well, where it was unreachable — use `related` for keyword and tag scoring over
 the site's own posts, and `relatedIn` when you have a collection in hand.
 
