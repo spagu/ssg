@@ -414,6 +414,7 @@ fingerprinted assets.
 |---|---:|---|---|
 | `sitemap_off` | `false` | `--sitemap-off` | Disable `sitemap.xml` |
 | `robots_off` | `false` | `--robots-off` | Disable `robots.txt` |
+| `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence |
 | `pretty_html` | `false` | `--pretty-html` | Remove blank lines from HTML |
 | `relative_links` | `false` | `--relative-links` | Convert absolute site links to relative links |
 | `post_url_format` | `date` behaviour | `--post-url-format` | `date` or `slug` |
@@ -958,6 +959,31 @@ Values beginning with `$` resolve from the current process environment. Nested
 keys are flattened for environment names, for example
 `SSG_API_ENDPOINT`. Do not commit secrets to configuration files.
 
+### Variables the bundled theme reads
+
+`ssgtheme` is generic: each block below renders only when its variable is set,
+so nothing here is required. They are the supported integration points, and are
+listed because they were previously discoverable only by reading the theme.
+
+| Variable | Renders |
+|---|---|
+| `gtag` | Google Analytics 4 (gtag.js) with Consent Mode v2 defaulting every storage type to `denied` |
+| `gtm_id` | Google Tag Manager. When `cookie_consent` is also set the loader ships as `type="text/plain" data-consent-category="analytics"`, so the consent worker starts it only after the visitor accepts — the container request is itself a third-party call, so a site running a banner should not make it first |
+| `cookie_consent` | The cookie banner. The value is serialised to the worker's client config; see [the worker's README](../workers/cookie-consent/README.md) for the keys |
+| `marquee` | A horizontal "works with" strip: `{title, items: [{name, url, icon}]}`, where `icon` is SVG path data on a 24×24 viewBox |
+| `repository_url` | The "source" link in the hero |
+
+```yaml
+variables:
+  gtag: G-XXXXXXXXXX
+  gtm_id: GTM-XXXXXXX
+  cookie_consent:
+    policyUrl: /cookie-policy/
+    categories:
+      - { id: necessary, required: true }
+      - { id: analytics }
+```
+
 ## Internationalisation and timezones
 
 ```yaml
@@ -1070,7 +1096,13 @@ and GitHub Action inputs are in [DEPLOYMENT.md](DEPLOYMENT.md).
 | `headers_defaults_off` | `false` | drop the built-in security/cache blocks |
 
 `redirects:` generates a real `_redirects` file: exact paths, `/old/*` splats
-(`:splat` in the destination) and statuses `301`/`302`/`307`/`308`/`410`.
+(`:splat` in the destination) and statuses `301`/`302`/`303`/`307`/`308`/`410`.
+
+> ⚠️ **`410` is a Netlify extension.** Cloudflare Pages honours `301`, `302`,
+> `303`, `307` and `308` only, and drops anything else without a word — so the
+> path keeps answering `200` while the rule reads as handled. Building with
+> `deploy: cloudflare` warns about this; serve a gone page from a Pages Function
+> if you need one.
 Frontmatter `aliases:` are added as `301`s and exact chains are flattened to a
 single hop. By default each alias also gets a meta-refresh stub copy (a fallback
 for hosts without server redirects); set `alias_stubs: false` — site-wide or per

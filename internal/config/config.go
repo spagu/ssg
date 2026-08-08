@@ -121,8 +121,12 @@ type Config struct {
 	HTTP3 bool `yaml:"http3" toml:"http3" json:"http3"`
 
 	// Output Control
-	SitemapOff    bool   `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
-	RobotsOff     bool   `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
+	RobotsOff  bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	// NotFoundOff suppresses the generated 404.html (#102). Without a 404.html,
+	// Cloudflare Pages answers every unknown path with index.html and a 200, so
+	// each dead URL reads to a crawler as a live copy of the home page.
+	NotFoundOff   bool   `yaml:"not_found_off" toml:"not_found_off" json:"not_found_off"`
 	PrettyHTML    bool   `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"
@@ -377,7 +381,14 @@ type Config struct {
 	// reporting "/docs/intro" as broken when the host serves it, and
 	// check_redirects can report "/docs/intro.html" as a link that only resolves
 	// through a redirect (#87).
-	PrettyURLs bool `yaml:"pretty_urls" toml:"pretty_urls" json:"pretty_urls"`
+	//
+	// It also decides what a page says about itself — canonical, og:url, JSON-LD
+	// and the sitemap — so those name the URL the host answers rather than one
+	// it redirects (#103). Modes: `off`, `strip` (drop .html, no trailing slash
+	// — Cloudflare Pages) and `strip-slash` (drop .html, add the slash).
+	// Accepts the historical booleans as well as the named modes: `true` is
+	// `strip-slash` and `false` is `off`, so an existing config is unchanged.
+	PrettyURLs models.PrettyURLMode `yaml:"pretty_urls" toml:"pretty_urls" json:"pretty_urls"`
 
 	// MetaLimits tunes the advisory length ranges --check-meta reports on. What
 	// counts as a good title or description depends on the site and on which

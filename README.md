@@ -475,6 +475,18 @@ jobs:
           domain: example.com
           clean: "true"
           minify: "true"
+
+```
+
+For a site configured by `.ssg.yaml` — redirects, workers, variables — point the
+action at the file instead; `source`/`template`/`domain` then come from it:
+
+```yaml
+      - uses: spagu/ssg@v1
+        with:
+          config: .ssg.yaml
+          deploy: cloudflare
+          deploy-project: my-site
 ```
 
 All supported inputs and outputs are defined in [action.yml](action.yml). Deployment

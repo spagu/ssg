@@ -72,7 +72,7 @@ func TestValidateRedirects_Warnings(t *testing.T) {
 		{From: "/dup", To: "/b", Status: 301},
 		{From: "/bad", To: "/c", Status: 418},
 		{From: "/x", To: "/y/:splat", Status: 301},
-	})
+	}, "")
 	joined := strings.Join(warnings, "\n")
 	for _, want := range []string{"duplicate redirect source", "unsupported status 418", ":splat in destination but has no *"} {
 		if !strings.Contains(joined, want) {
@@ -86,7 +86,7 @@ func TestValidateRedirects_ShadowingAndCaps(t *testing.T) {
 		{From: "/blog/*", To: "/articles/:splat", Status: 301},
 		{From: "/blog/post-1", To: "/articles/post-1", Status: 301},
 	}
-	warnings := validateRedirects(rules)
+	warnings := validateRedirects(rules, "")
 	if !strings.Contains(strings.Join(warnings, "\n"), "shadows later rule") {
 		t.Fatalf("expected a shadowing warning, got: %v", warnings)
 	}
@@ -95,7 +95,7 @@ func TestValidateRedirects_ShadowingAndCaps(t *testing.T) {
 	for i := range many {
 		many[i] = RedirectRule{From: "/p" + itoa(i), To: "/q", Status: 301}
 	}
-	if !strings.Contains(strings.Join(validateRedirects(many), "\n"), "exceed the Cloudflare Pages limit") {
+	if !strings.Contains(strings.Join(validateRedirects(many, ""), "\n"), "exceed the Cloudflare Pages limit") {
 		t.Fatal("expected a static-cap warning")
 	}
 }
@@ -176,7 +176,7 @@ func TestGenerateRedirectsFile_CycleErrors(t *testing.T) {
 }
 
 func TestValidateRedirects_EmptyDestAndDynamicCap(t *testing.T) {
-	warnings := validateRedirects([]RedirectRule{{From: "/a", To: "", Status: 302}})
+	warnings := validateRedirects([]RedirectRule{{From: "/a", To: "", Status: 302}}, "")
 	if !strings.Contains(strings.Join(warnings, "\n"), "empty destination") {
 		t.Fatalf("expected empty-destination warning, got %v", warnings)
 	}
@@ -184,7 +184,7 @@ func TestValidateRedirects_EmptyDestAndDynamicCap(t *testing.T) {
 	for i := range many {
 		many[i] = RedirectRule{From: "/p" + itoa(i) + "/*", To: "/q/:splat", Status: 301}
 	}
-	if !strings.Contains(strings.Join(validateRedirects(many), "\n"), "dynamic redirects exceed") {
+	if !strings.Contains(strings.Join(validateRedirects(many, ""), "\n"), "dynamic redirects exceed") {
 		t.Fatal("expected a dynamic-cap warning")
 	}
 }

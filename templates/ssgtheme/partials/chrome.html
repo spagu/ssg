@@ -73,18 +73,51 @@
     </script>
     {{ end }}
 
-    {{/* Google Tag Manager — replace GTM-XXXXXXX with the real container ID.
-         Inert until then: the loader returns early while the placeholder is
-         still in place, so no request is made. */}}
-    <script>
+    {{/* Google Tag Manager — rendered only when variables.gtm_id is set, the
+         same convention as variables.gtag above (#101). The container ID used to
+         be hardcoded here, which made it part of the theme rather than part of
+         the site: it was lost on a theme update and two sites sharing the theme
+         could not differ.
+
+         When a cookie-consent banner is configured, the loader ships as
+         type="text/plain" with data-consent-category="analytics", which is the
+         hook the consent worker activates once the visitor accepts. Consent Mode
+         v2 default-deny is a defensible reading on its own, but the request for
+         the container is itself a third-party call made before any choice, so a
+         site that went to the trouble of running a banner should not be making
+         it. With no banner configured there is nothing to wait for and the
+         loader runs directly.
+
+         No <noscript> iframe: it cannot honour a prior choice at all, so it
+         would defeat the gating above.
+
+         The two branches repeat the loader on purpose. html/template escapes by
+         context, and type="text/plain" makes the element ordinary text rather
+         than script, so a conditional attribute leaves the {{if}} branches in
+         different contexts and the template is rejected outright. A shared
+         {{define}} cannot bridge it either — one block cannot be escaped two
+         ways. */}}
+    {{ with .Ctx.Vars.gtm_id }}
+    {{ if $.Ctx.Vars.cookie_consent }}
+    <script type="text/plain" data-consent-category="analytics">
       (function (w, d, s, l, i) {
-        if (!i || i.includes('XXXXXXX')) { return; }
         w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
         var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
         j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
         f.parentNode.insertBefore(j, f);
-      })(window, document, 'script', 'dataLayer', 'GTM-XXXXXXX');
+      })(window, document, 'script', 'dataLayer', '{{ . }}');
     </script>
+    {{ else }}
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', '{{ . }}');
+    </script>
+    {{ end }}
+    {{ end }}
     {{/* Apply the stored colour scheme before paint so the page never flashes. */}}
     <script>
       (function () {

@@ -42,6 +42,12 @@ rate_burst: 0        # Token-bucket size (default 2×rate_limit)
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
 robots_off: false    # Disable robots.txt generation
+
+# A 404.html is generated when the site does not provide one. Without it, static
+# hosts fall back to index.html for unmatched paths and answer 200, so every dead
+# URL looks to a crawler like a live copy of the home page. A page slugged "404"
+# takes precedence; set this to suppress the generated one entirely.
+not_found_off: false
 pretty_html: false   # Prettify HTML (remove all blank lines)
 relative_links: false # Convert absolute URLs to relative links
 post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "slug" (/slug/)
@@ -308,7 +314,9 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #   sftp         → SSH_USERNAME, SSH_PASSWORD or SSH_KEY_FILE (host in known_hosts)
 
 # Redirects (Cloudflare Pages / Netlify _redirects; GO-063). Empty by default.
-# Exact paths, /old/* splats (:splat in the destination), status 301/302/307/308/410.
+# Exact paths, /old/* splats (:splat in the destination), status
+# 301/302/303/307/308/410. Note 410 is Netlify-only — Cloudflare Pages ignores
+# it and the path keeps answering 200; the build warns when deploy: cloudflare.
 # Frontmatter aliases: are added as 301s and exact chains are flattened to one hop.
 # Import an existing Next.js rule set with: ssg import redirects next.config.ts
 # redirects:

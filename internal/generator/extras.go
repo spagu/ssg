@@ -159,7 +159,7 @@ func (g *Generator) refResolves(ref, htmlDir string) bool {
 		}
 	}
 	v := refTargetExists(target, strings.HasSuffix(ref, "/"))
-	if !v && g.config.PrettyURLs {
+	if !v && g.config.PrettyURLs.Enabled() {
 		v = refTargetExistsPretty(target, strings.HasSuffix(ref, "/"))
 	}
 	if g.refCache != nil {

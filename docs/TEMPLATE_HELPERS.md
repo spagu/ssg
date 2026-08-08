@@ -75,6 +75,12 @@ needs no network and is reproducible; posts with no overlap are excluded.
 (`Search` filtered by the page's tags/keywords), so it can surface articles from
 the whole corpus, not just the pages built into this site. It is a live query
 (not cached) and returns nothing when mddb is not configured or the query fails.
+`relatedIn <page> <n> <collection>` scores an explicit collection instead of the
+loaded posts, and ranks differently: shared tags (3) > shared categories (2) >
+same author (1). Until 1.8.22 it was registered under the name `related` as
+well, where it was unreachable — use `related` for keyword and tag scoring over
+the site's own posts, and `relatedIn` when you have a collection in hand.
+
 See [`examples/related-posts/`](../examples/related-posts/) for the keyword, mddb
 and embeddings/vector approaches.
 
@@ -139,10 +145,22 @@ type. A missing field/key is an error (no silent fallback).
 {{ .Site.Pages | filter "Type" "in" (slice "guide" "tutorial") }}
 ```
 
+```gotemplate
+{{ .Site.Pages | filter "Link" "hasPrefix" "/special/" }}
+{{ .Site.Posts | filter "Title" "matches" "^Baby " }}
+```
+
 Signature `filter(field, operator, expected, collection)`. Operators:
-`eq` `ne` `gt` `ge` `lt` `le` `contains` `notContains` `in` `notIn`.
+`eq` `ne` `gt` `ge` `lt` `le` `contains` `notContains` `in` `notIn`
+`hasPrefix` `hasSuffix` `matches`.
 `contains` searches strings (substring) and slices/arrays (element);
 `in`/`notIn` test the field value against a provided collection.
+
+`hasPrefix`, `hasSuffix` and `matches` (regular expression) are anchored string
+tests, and need a string field and a string value — applied to a `[]string`
+field they report an error rather than quietly answering false. Reach for them
+where `contains` is too loose: `contains "/special/"` also matches
+`/not-special/thing/`, while `hasPrefix "/special/"` does not.
 
 ### `sort` — stable sort by field
 
@@ -207,6 +225,31 @@ First occurrence wins. `uniq` on structs/maps errors — use `uniqBy`.
 > sub-slicing function. Bundled themes do not use the builtin; if yours does,
 > switch to `printf "%.10s"` for strings or restructure the data.
 
+### `append` — add to a list
+
+```gotemplate
+{{ $kids := slice }}
+{{ range .Site.Pages }}
+  {{ if and (ne .GetURL $.URL) (hasPrefix .GetURL $.URL) }}
+    {{ $kids = append $kids . }}
+  {{ end }}
+{{ end }}
+{{ range $kids }}<a href="{{ .GetURL }}">{{ .Title }}</a>{{ end }}
+```
+
+`slice` builds a literal; `append` is what lets a loop accumulate one, so a
+theme can derive a collection — "the sub-pages of this section" — from the page
+tree instead of from per-site configuration.
+
+The collection may be either the first or the last argument, so both the Go
+form (`append $kids .`) and the pipeline form (`$kids | append .`) work; when
+both ends are lists the first is the one appended to, as in Go. The input list
+is never modified, so appending twice to the same base gives two independent
+results.
+
+Values that do not share the list's element type widen the result to a generic
+list rather than failing.
+
 ### `pluck` — extract one field
 
 ```gotemplate
@@ -225,6 +268,28 @@ Returns a `[]any` of field values (`nil` for nil-pointer elements).
 Duplicate keys and empty keys are **errors** (no silent overwrites).
 
 ---
+
+## String helpers
+
+`hasPrefix`, `hasSuffix`, `startsWith`, `endsWith`, `matches`, `trimPrefix` and
+`trimSuffix` all take plain strings.
+
+```gotemplate
+{{ trimSuffix .Page.Link ".html" }}
+```
+
+`trimPrefix`/`trimSuffix` exist because testing for an affix without being able
+to remove one left no way to strip an extension inside a template (#103).
+
+## Taxonomy helpers
+
+`taxonomies`, `taxonomy`, `taxonomyTerms`, `pageTerms`, `termURL`, `hasTerm` and
+`pagesByTerm` are documented with the feature they belong to, in
+[TAXONOMIES.md](TAXONOMIES.md#template-helpers).
+
+`termURL` is also the answer to "where is `urlize`/`slugify`" — there is no
+general slugify helper, and `termURL "category" "Marsaskala"` is how a term
+link is built. The built-in taxonomy names are `category`, `tag` and `series`.
 
 ## Conditional helpers
 
@@ -256,7 +321,7 @@ For pipeline-style membership tests use `filter … "in" …` instead.
 | `byTag t c` | `filter "Tags" "contains" t` | `{{ .Site.Posts \\| byTag "go" }}` |
 | `byCategory name c` | *(site-aware)* | `{{ .Site.Posts \\| byCategory "guides" }}` — matches frontmatter `Category` or resolved category names/slugs, case-insensitive; `[]models.Page` only |
 | `byAuthor a c` | *(site-aware)* | `{{ .Site.Posts \\| byAuthor "jan-kowalski" }}` — by ID, name or slug; `[]models.Page` only |
-| `related page n c` | *(scored)* | `{{ .Site.Posts \\| related .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
+| `relatedIn page n c` | *(scored)* | `{{ .Site.Posts \\| relatedIn .Page 3 }}` — ranks by shared tags (3) > shared categories (2) > same author (1), recency breaks ties, excludes the current page, only positive scores |
 
 ---
 
@@ -392,7 +457,7 @@ theme actually needs (column splits, "page N of M", index offsets).
 
 - **Theme templates** (`base/index/post/page/category.html`, layouts, partials):
   every helper above.
-- **Shortcode templates**: the safe, deterministic subset — `slice`, `in`,
+- **Shortcode templates**: the safe, deterministic subset — `slice`, `append`, `in`,
   `notIn`, `contains`, `startsWith`, `endsWith`, `hasPrefix`, `hasSuffix`,
   `matches`, `isNil`, `isEmpty`, `ternary` — plus the image helpers
   (`imageResize`, `imageSrcSet`, …) and the read-only external-source helpers

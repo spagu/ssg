@@ -96,6 +96,8 @@ type Config struct {
 	// New options
 	SitemapOff        bool        // Disable sitemap generation
 	RobotsOff         bool        // Disable robots.txt generation
+	NotFoundOff       bool        // Disable the generated 404.html (#102)
+	Deploy            string      // Deploy provider name, so redirect rules a host will drop can be reported (#102)
 	PrettyHTML        bool        // Prettify HTML output (remove extra blank lines)
 	PostURLFormat     string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
 	PageFormat        string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
@@ -214,7 +216,7 @@ type Config struct {
 	// CheckRedirects reports links the host would redirect; PrettyURLs models that
 	// host behaviour (#87).
 	CheckRedirects string
-	PrettyURLs     bool
+	PrettyURLs     models.PrettyURLMode
 	// ContentExclude are glob patterns for Markdown files that must not be loaded
 	// as pages (#74).
 	ContentExclude []string
@@ -925,7 +927,7 @@ func (g *Generator) cleanOutputIfRequested() error {
 
 // generateSitemapAndRobots generates sitemap.xml and robots.txt if enabled
 func (g *Generator) generateSitemapAndRobots() error {
-	if g.config.SitemapOff && g.config.RobotsOff {
+	if g.config.SitemapOff && g.config.RobotsOff && g.config.NotFoundOff {
 		return nil
 	}
 
@@ -941,6 +943,12 @@ func (g *Generator) generateSitemapAndRobots() error {
 			return fmt.Errorf("generating robots.txt: %w", err)
 		}
 	}
+	if !g.config.NotFoundOff {
+		if err := g.generateNotFound(); err != nil {
+			return fmt.Errorf("generating 404.html: %w", err)
+		}
+	}
+	g.warnPrettyURLMismatch()
 	return nil
 }
 
@@ -1200,7 +1208,7 @@ func (g *Generator) computeTranslations() {
 				Locale:    pages[i].Locale,
 				Title:     pages[i].Title,
 				URL:       pages[i].GetURL(),
-				Canonical: pages[i].GetCanonical(g.config.Domain),
+				Canonical: g.servedCanonical(pages[i]),
 				IsDefault: pages[i].Lang == g.config.DefaultLanguage || pages[i].Lang == "",
 			})
 		}
@@ -2214,6 +2222,7 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"uniqBy":  tmplUniqBy,
 		"reverse": tmplReverse,
 		"slice":   tmplSliceOf, // NOTE: overrides Go's builtin slice(str,i,j)
+		"append":  tmplAppend,  // build a derived collection (#96)
 		"pluck":   tmplPluck,
 		"indexBy": tmplIndexBy,
 
@@ -2225,6 +2234,10 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"endsWith":   strings.HasSuffix,
 		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
 		"hasSuffix":  strings.HasSuffix,
+		// Without these a theme could test for a suffix but not remove one, so
+		// stripping ".html" was impossible in a template (#103).
+		"trimPrefix": strings.TrimPrefix,
+		"trimSuffix": strings.TrimSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -2236,26 +2249,46 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"byTag":      tmplByTag,
 		"byCategory": g.tmplByCategory,
 		"byAuthor":   g.tmplByAuthor,
-		"related":    tmplRelated,
+		// `relatedIn`, not `related` (#99): both were registered as "related" and
+		// the merge below silently won, so this one was unreachable while the
+		// docs described it. `related` keeps the behaviour that actually ran —
+		// renaming that instead would break every theme written against what
+		// works — and the collection form gets a name of its own.
+		"relatedIn": tmplRelated,
 	}
 	// Image-processing helpers (imageInfo/Resize/Crop/Process/Filter/SrcSet).
-	for name, fn := range g.imageFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.imageFuncs())
 	// Taxonomy helpers (taxonomies/taxonomy/taxonomyTerms/pageTerms/termURL/
 	// hasTerm/pagesByTerm) — taxonomies-feature.md.
-	for name, fn := range g.taxonomyFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.taxonomyFuncs())
 	// External-source helpers (getExternal/getExternalMeta).
-	for name, fn := range g.externalFuncs() {
-		funcs[name] = fn
-	}
+	mergeTemplateFuncs(funcs, g.externalFuncs())
 	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
-	for name, fn := range g.relatedFuncs() {
+	mergeTemplateFuncs(funcs, g.relatedFuncs())
+	return funcs
+}
+
+// mergeTemplateFuncs copies extra into funcs, reporting a name that is already
+// taken (#99).
+//
+// These merges run after the map literal, so a duplicate name silently replaced
+// whatever the literal registered — that is how two different `related`
+// functions came to share one name, with the documented three-argument form
+// unreachable and every post failing to render with an arity error. A theme
+// author saw "wrong number of args", and the build reported success with no
+// post pages at all.
+//
+// A collision here is an SSG bug rather than anything a site can cause, so this
+// says so loudly instead of failing the build: a warning names the helper, and
+// the last registration still wins, which is the behaviour that already
+// existed.
+func mergeTemplateFuncs(funcs template.FuncMap, extra map[string]interface{}) {
+	for name, fn := range extra {
+		if _, taken := funcs[name]; taken {
+			fmt.Printf("   ⚠️  template helper %q is registered twice — the later one wins; please report this at https://github.com/spagu/ssg/issues\n", name)
+		}
 		funcs[name] = fn
 	}
-	return funcs
 }
 
 // tmplDefault returns the default value if the given value is empty
@@ -2714,6 +2747,7 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		// Safe, deterministic conditional helpers (v1.8.3). Collection helpers
 		// that depend on site-wide data stay normal-template-only by design.
 		"slice":      tmplSliceOf,
+		"append":     tmplAppend,
 		"in":         tmplIn,
 		"notIn":      tmplNotIn,
 		"contains":   tmplContains,
@@ -2721,6 +2755,10 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"endsWith":   strings.HasSuffix,
 		"hasPrefix":  strings.HasPrefix, // Hugo-compatible aliases (v1.8.5)
 		"hasSuffix":  strings.HasSuffix,
+		// Without these a theme could test for a suffix but not remove one, so
+		// stripping ".html" was impossible in a template (#103).
+		"trimPrefix": strings.TrimPrefix,
+		"trimSuffix": strings.TrimSuffix,
 		"matches":    tmplMatches,
 		"isNil":      tmplIsNil,
 		"isEmpty":    tmplIsEmpty,
@@ -2742,11 +2780,54 @@ func tmplDecodeHTML(s string) string {
 	return stdhtml.UnescapeString(s)
 }
 
-func tmplFormatDate(t interface{}) string {
-	if v, ok := t.(string); ok {
-		return v
+// defaultDateLayout is what formatDate uses when the template gives no layout.
+const defaultDateLayout = "2 January 2006"
+
+// tmplFormatDate renders a date, optionally in a given layout (#98).
+//
+//	{{ formatDate .Date }}                {{/* 13 May 2017 */}}
+//	{{ formatDate .Date "2006-01-02" }}   {{/* 2017-05-13 */}}
+//
+// It previously formatted nothing: every non-string fell through to
+// Sprintf("%v"), and Page.Date is a time.Time, so themes rendered Go's debug
+// form — "2017-05-13 20:36:46 +0000 UTC" — including inside datetime
+// attributes, where it is not valid HTML. formatDatePL took a time.Time and
+// formatted it properly, so a Polish theme looked right while an English one
+// did not, which is what kept this hidden.
+//
+// A zero time renders empty rather than "1 January 0001": a page with no date
+// should show nothing, not a placeholder that looks like data.
+//
+// Strings are still passed through unchanged, which is the one part of the
+// documented behaviour that always held — a theme handing over a
+// pre-formatted date keeps working.
+func tmplFormatDate(value interface{}, layout ...string) string {
+	l := defaultDateLayout
+	if len(layout) > 0 && strings.TrimSpace(layout[0]) != "" {
+		l = layout[0]
 	}
-	return fmt.Sprintf("%v", t)
+	switch v := value.(type) {
+	case string:
+		return v
+	case time.Time:
+		return formatTimeOrEmpty(v, l)
+	case *time.Time:
+		if v == nil {
+			return ""
+		}
+		return formatTimeOrEmpty(*v, l)
+	case nil:
+		return ""
+	}
+	return fmt.Sprintf("%v", value)
+}
+
+// formatTimeOrEmpty renders t, or nothing at all if it carries no date.
+func formatTimeOrEmpty(t time.Time, layout string) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(layout)
 }
 
 func tmplFormatDatePL(t time.Time) string {
@@ -3385,11 +3466,60 @@ func (g *Generator) writeAliasStub(alias, rel, target string) {
 	}
 }
 
+// servedCanonical returns the page's canonical URL as the host will answer it
+// (#103).
+//
+// pretty_urls fed link checking only, so a site on a host that strips
+// extensions published canonical tags, og:url and a sitemap naming URLs that
+// 308 — the one thing a canonical tag must not do. It is invisible locally,
+// because resolution against the output directory is not how the host answers,
+// and check_redirects made it easier to miss by reporting the links *between*
+// pages while staying silent about each page's own declared identity.
+//
+// Feed entries deliberately keep the raw canonical: a reader keys an item on
+// its id, so rewriting those would re-deliver every post already read.
+func (g *Generator) servedCanonical(page models.Page) string {
+	return g.servedURL(page.GetCanonical(g.config.Domain))
+}
+
+// warnPrettyURLMismatch reports the one combination this release makes newly
+// dangerous (#103).
+//
+// pretty_urls used to feed link checking only, so `true` on a host that does
+// not append a trailing slash was merely a wrong suggestion in a report. Now it
+// decides the canonical tag, og:url and the sitemap, so the same setting
+// publishes URLs the host will redirect. Cloudflare Pages strips the extension
+// and adds no slash, so `strip-slash` plus a Cloudflare deploy is provably the
+// wrong pairing and is worth saying out loud rather than leaving to be noticed
+// in a crawl report weeks later.
+func (g *Generator) warnPrettyURLMismatch() {
+	if g.config.PrettyURLs != models.PrettyStripSlash {
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(g.config.Deploy), "cloudflare") {
+		return
+	}
+	fmt.Println("   ⚠️  pretty_urls is strip-slash (the meaning of `true`), but Cloudflare Pages serves /page.html at /page with no trailing slash.")
+	fmt.Println("       Canonical tags, og:url and sitemap entries will name URLs Pages redirects. Use `pretty_urls: strip`.")
+}
+
+// servedURL applies the host's URL handling to an absolute site URL.
+func (g *Generator) servedURL(raw string) string {
+	if !g.config.PrettyURLs.Enabled() {
+		return raw
+	}
+	prefix := "https://" + g.config.Domain
+	if !strings.HasPrefix(raw, prefix) {
+		return raw
+	}
+	return prefix + g.config.PrettyURLs.ServedURL(strings.TrimPrefix(raw, prefix))
+}
+
 // buildOpenGraph renders OpenGraph + Twitter Card + JSON-LD markup for a page (SEO-003).
 func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	title := page.Title
 	desc := page.Description
-	url := page.GetCanonical(g.config.Domain)
+	url := g.servedCanonical(page)
 	ogType := "website"
 	if isPost {
 		ogType = "article"
@@ -3636,7 +3766,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"SeriesNextTitle": page.SeriesNextTitle,
 		// URL helpers
 		"URL":          page.GetURL(),
-		"CanonicalURL": page.GetCanonical(g.config.Domain),
+		"CanonicalURL": g.servedCanonical(page),
 		"OutputPath":   page.GetOutputPath(),
 	}
 
@@ -4189,7 +4319,7 @@ func (g *Generator) generateSitemap() error {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", page.GetCanonical(g.config.Domain))
+		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(page))
 		g.writeSitemapAlternates(&sb, page)
 		if lastmod := g.lastModFor(page); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
@@ -4205,7 +4335,7 @@ func (g *Generator) generateSitemap() error {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", post.GetCanonical(g.config.Domain))
+		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(post))
 		g.writeSitemapAlternates(&sb, post)
 		if lastmod := g.lastModFor(post); !lastmod.IsZero() {
 			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
@@ -4442,6 +4572,46 @@ Sitemap: https://%s/sitemap.xml
 
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "robots.txt"), []byte(content), 0644)
+}
+
+// generateNotFound writes a minimal 404.html when the site does not already
+// have one (#102).
+//
+// Static hosts fall back to index.html for any unmatched path when no 404.html
+// is present, and answer 200 while doing it — so every dead URL becomes, to a
+// crawler, a live page duplicating the home page. That is the worst available
+// SEO outcome and it was the out-of-the-box behaviour for a first-class deploy
+// target.
+//
+// A theme or a page owns this if it wants to: a page slugged "404" already
+// renders to /404.html, and this only fills the gap when nothing did. Set
+// not_found_off to suppress it entirely, mirroring robots_off.
+func (g *Generator) generateNotFound() error {
+	path := filepath.Join(g.config.OutputDir, "404.html")
+	if _, err := os.Stat(path); err == nil {
+		return nil // the site provides its own
+	}
+	title := g.config.Domain
+	if title == "" {
+		title = "This site"
+	}
+	content := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>404 — page not found</title>
+</head>
+<body>
+<h1>404 — page not found</h1>
+<p>That page does not exist on %s.</p>
+<p><a href="/">Go to the home page</a></p>
+</body>
+</html>
+`, template.HTMLEscapeString(title))
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare
@@ -4681,17 +4851,56 @@ func (g *Generator) fingerprintAssets() error {
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "assets-manifest.json"), mj, 0644)
 }
 
+// fingerprintedName matches an asset this step has already renamed
+// (name.<hash8>.ext). The dev server uses the same shape to decide what may be
+// cached immutably (cmd/ssg/server.go), so it is the project's existing
+// convention for "this name carries a fingerprint", not a new guess.
+var fingerprintedName = regexp.MustCompile(`\.[0-9a-f]{8}\.(css|js)$`)
+
 // collectFingerprintAssets returns the JS and CSS files under the output dir,
 // sorted for deterministic processing.
+//
+// Output from a previous build is skipped and deleted rather than hashed again
+// (#95). This step reads the output directory, so without that check a rebuild
+// into a directory that was not cleaned treats its own last output as fresh
+// input: style.<hash>.css becomes style.<hash>.<hash>.css while the original
+// lingers, and the HTML is rewritten to a name that no longer matches what the
+// pages reference. --clean hid it by emptying the directory first, which is why
+// it only appeared on rebuilds — and why --watch, whose rebuilds are in place,
+// hit it on every save.
+//
+// Removing the leftovers also bounds the directory: it previously accumulated
+// every historical hash of every asset forever. Only files the manifest claims
+// are removed — the name pattern alone is not proof of authorship, so it skips
+// rather than deletes.
 func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
+	stale := g.previousFingerprints()
 	err = filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || fi.IsDir() {
 			return err
 		}
-		switch strings.ToLower(filepath.Ext(path)) {
-		case ".js":
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".js" && ext != ".css" {
+			return nil
+		}
+		rel, _ := filepath.Rel(g.config.OutputDir, path)
+		// The manifest is authoritative: it names exactly what the last build
+		// wrote, so those files are safe to delete.
+		if stale[filepath.ToSlash(rel)] {
+			_ = os.Remove(path)
+			return nil
+		}
+		// Without a manifest the name pattern is all there is, and it can be
+		// wrong: a theme may legitimately ship app.deadbeef.js. So this only
+		// skips — never deletes. Skipping is enough to stop the double-hash,
+		// and leaving the file alone means references to it still resolve,
+		// whichever of the two it turns out to be.
+		if fingerprintedName.MatchString(path) {
+			return nil
+		}
+		if ext == ".js" {
 			js = append(js, path)
-		case ".css":
+		} else {
 			css = append(css, path)
 		}
 		return nil
@@ -4699,6 +4908,26 @@ func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
 	sort.Strings(js)
 	sort.Strings(css)
 	return js, css, err
+}
+
+// previousFingerprints reads the manifest left by an earlier build and returns
+// the hashed paths it produced, so they can be told apart from this build's
+// fresh assets. A missing or unreadable manifest is not an error: it only means
+// the name pattern above carries the whole job.
+func (g *Generator) previousFingerprints() map[string]bool {
+	raw, err := os.ReadFile(filepath.Join(g.config.OutputDir, "assets-manifest.json")) // #nosec G304 -- CLI reads its own output
+	if err != nil {
+		return nil
+	}
+	var m map[string]string
+	if json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	out := make(map[string]bool, len(m))
+	for _, hashed := range m {
+		out[hashed] = true
+	}
+	return out
 }
 
 // fingerprintOne hashes a single asset (after rewriting references to assets that
