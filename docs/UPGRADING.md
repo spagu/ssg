@@ -5,7 +5,7 @@ the binary, rebuild, and the site you had is the site you get.
 
 Where that is not true — where a default changed, a flag moved, or a setting
 started meaning something new — it is listed below, with the version it landed
-in and what to do about it. Of the 64 releases so far, 53 need nothing at
+in and what to do about it. Of the 64 releases so far, 52 need nothing at
 all, which is why this page is organised by **what changed**, not by release
 number: a section per version would be mostly empty and would bury the handful
 that matter.
@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.22">1.8.22 — 2026-08-08</option>
       <option value="1.8.21">1.8.21 — 2026-08-07</option>
       <option value="1.8.20">1.8.20 — 2026-08-07</option>
       <option value="1.8.19">1.8.19 — 2026-08-06</option>
@@ -147,9 +148,71 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-steps">
 
+<!--
+  The version numbers below are historical facts: each names the release a
+  change actually landed in, and the selector filters on data-since. A bulk
+  find-replace during a version bump has rewritten them once already, which made
+  the guide claim the wrong release and the filter show the wrong steps. Add new
+  entries; never renumber existing ones.
+-->
+
+
 <div class="upgrade-step" data-since="1.8.23">
 
-### 1.8.23 — `related`'s three-argument form is now `relatedIn`
+### 1.8.23 — rebuild if you minify JavaScript
+
+`--minify-js` stripped comments with a regex, which cannot tell a comment from
+the same characters inside a string. So this
+
+```js
+function f() { return "/*" + "x" + "*/"; }
+```
+
+minified to `return "";` — the scan ran from the `/*` in the first literal to
+the `*/` in the third and took the closing quote with it. **The damaged output
+often still parses**, so the build reported success and nothing in it warned.
+
+**If you use `--minify-js` (or `--minify-all`), rebuild and redeploy.** Anything
+already published may be silently altered, and the shapes most at risk are
+vendored libraries — a CSS-comment parser holds `/*` and `*/` in strings, which
+is how this was found. Grepping your deployed JS for an unterminated string is
+not practical; rebuilding is.
+
+**If you disabled JS minification to avoid this, you can turn it back on.**
+
+CSS was affected the same way (`content: "/*"` is legal), and is fixed too.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.23">
+
+### 1.8.23 — `.md` link rewriting got narrower and follows `pretty_urls`
+
+Three things changed, all of them output:
+
+**Absolute URLs are no longer rewritten.** Any href ending in `.md` used to be
+matched on its filename, so a link to a page's own history on a code host became
+a link to the page containing it. `check_links` passed, because the target
+existed. **Check any external `.md` link you have** — it was pointing at the
+wrong place and now points where you wrote it.
+
+**Rewritten links follow `pretty_urls`.** With `pretty_urls: strip` a rewritten
+`[CONTRIBUTING.md](./CONTRIBUTING.md)` now emits `/contributing`, not
+`/contributing.html`. If `check_redirects` was reporting those, it will stop.
+
+**`check_orphans` stops reporting false orphans.** With `pretty_urls` set and a
+nav linking `/validator`, every page was reported as an orphan while
+`check_links` resolved the same links. If you switched the check off because of
+that noise, it is worth switching back on.
+
+**Do nothing** for any of these — they are corrections. The first is the one to
+look at, because it changed where a link goes.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.22">
+
+### 1.8.22 — `related`'s three-argument form is now `relatedIn`
 
 Two different functions were registered under the name `related`, and the
 two-argument one won. So the three-argument form the reference documented never
@@ -172,9 +235,9 @@ collection you hand it.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.23">
+<div class="upgrade-step" data-since="1.8.22">
 
-### 1.8.23 — `formatDate` actually formats
+### 1.8.22 — `formatDate` actually formats
 
 It never did: every non-string fell through to Go's `%v`, and `Page.Date` is a
 `time.Time`, so themes rendered `2017-05-13 20:36:46 +0000 UTC` — including
@@ -193,9 +256,9 @@ passed through untouched, so a theme that pre-formats its dates is unaffected.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.23">
+<div class="upgrade-step" data-since="1.8.22">
 
-### 1.8.23 — a `404.html` is generated
+### 1.8.22 — a `404.html` is generated
 
 Static hosts answer an unmatched path by falling back to `index.html` **with a
 `200`** unless the output contains a `404.html`, so every dead URL read to a
@@ -212,9 +275,9 @@ Note the new file in your output; a deploy diff will show it once.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.23">
+<div class="upgrade-step" data-since="1.8.22">
 
-### 1.8.23 — `pretty_urls` now decides what a page says about itself
+### 1.8.22 — `pretty_urls` now decides what a page says about itself
 
 It used to feed link checking only, so a site on a host that strips extensions
 published canonical tags, `og:url`, JSON-LD and a sitemap naming URLs that
@@ -242,9 +305,9 @@ every post.
 
 </div>
 
-<div class="upgrade-step" data-since="1.8.23">
+<div class="upgrade-step" data-since="1.8.22">
 
-### 1.8.23 — the bundled theme reads `variables.gtm_id`
+### 1.8.22 — the bundled theme reads `variables.gtm_id`
 
 `ssgtheme` had the Tag Manager container ID hardcoded, so using GTM meant
 editing the theme — which put the ID in the theme rather than the site, lost it
