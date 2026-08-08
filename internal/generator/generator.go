@@ -2107,6 +2107,12 @@ func (g *Generator) explicitMdLinkLang(base, fallback string) string {
 // and silently shipped as a dead .md href (GO-056). Rendering language comes
 // from g.currentLang (set before each page render); unresolved multilingual
 // targets warn once per (link, language) and are left as-is.
+//
+// The rewritten URL goes through pretty_urls, so the rewriter and
+// check_redirects agree about the same link (#107). They did not: the rewriter
+// emitted "/contributing.html" and the checker then correctly reported it as a
+// link the host redirects — a disagreement the author could not fix in the
+// Markdown without giving up the feature.
 var mdLinkRe = regexp.MustCompile(`href="([^"#?]*\.md)([#?][^"]*)?"`)
 
 func (g *Generator) rewriteMdLinks(html string, mdLinkMap map[string]map[string]string) string {
@@ -2115,17 +2121,25 @@ func (g *Generator) rewriteMdLinks(html string, mdLinkMap map[string]map[string]
 		if len(parts) < 3 {
 			return match
 		}
+		// An absolute URL to another host is not an in-repository link, however
+		// it ends (#107). Without this check, a link to the file's own history
+		// on GitHub — .../content/site/pages/privacy.md — was matched on its
+		// basename and rewritten to the very page containing it. check_links
+		// passes, because the target exists, so nothing reported it.
+		if !isInternalRef(parts[1]) {
+			return match
+		}
 		// parts[1] is the .md path, parts[2] the "#anchor"/"?query" tail (may be "").
 		base := filepath.Base(parts[1])
 		suffix := parts[2]
 		lang := g.explicitMdLinkLang(base, g.currentLang)
 		if url, ok := g.resolveMdLink(mdLinkMap[base], lang); ok {
-			return `href="` + url + suffix + `"`
+			return `href="` + g.config.PrettyURLs.ServedURL(url) + suffix + `"`
 		}
 		// Try without .md extension
 		noExt := strings.TrimSuffix(base, ".md")
 		if url, ok := g.resolveMdLink(mdLinkMap[noExt], lang); ok {
-			return `href="` + url + suffix + `"`
+			return `href="` + g.config.PrettyURLs.ServedURL(url) + suffix + `"`
 		}
 		g.warnMdLink(base, lang, mdLinkMap)
 		return match // no match — leave as-is
@@ -4635,11 +4649,8 @@ var (
 	minHTMLCommentRe  = regexp.MustCompile(`<!--[\s\S]*?-->`)
 	minTagGapRe       = regexp.MustCompile(`>\s+<`)
 	minMultiSpaceRe   = regexp.MustCompile(`\s{2,}`)
-	minCSSCommentRe   = regexp.MustCompile(`/\*[\s\S]*?\*/`)
 	minCSSSpacesRe    = regexp.MustCompile(`\s*([:{};,])\s*`)
-	minJSLineCmtRe    = regexp.MustCompile(`(?m)^\s*//.*$`)
 	minJSEmptyLinesRe = regexp.MustCompile(`\n\s*\n`)
-	minLineCommentRe  = regexp.MustCompile(`^\s*//.*$`)
 	minIntraSpaceRe   = regexp.MustCompile(`[ \t]{2,}`)
 )
 
@@ -4651,8 +4662,9 @@ func minifyCSSFile(path string) error {
 	}
 
 	s := string(content)
-	// Remove CSS comments
-	s = minCSSCommentRe.ReplaceAllString(s, "")
+	// Remove CSS comments, leaving any inside a string alone — `content: "/*"`
+	// is legal CSS and the regex this replaced could not tell them apart (#106).
+	s = stripComments(s, styleCSS, false)
 	// Remove newlines
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
@@ -4674,10 +4686,9 @@ func minifyJSFile(path string) error {
 	}
 
 	s := string(content)
-	// Remove single-line comments (but not in strings - simplified)
-	s = minJSLineCmtRe.ReplaceAllString(s, "")
-	// Remove multi-line comments
-	s = minCSSCommentRe.ReplaceAllString(s, "")
+	// Comments only — a scanner rather than a regex, so `/*` inside a string,
+	// template literal or regex literal is left where it is (#106).
+	s = stripComments(s, styleJS, false)
 	// Remove empty lines
 	s = minJSEmptyLinesRe.ReplaceAllString(s, "\n")
 	// Trim
@@ -4706,19 +4717,10 @@ func (g *Generator) minifyAssetFile(path string, full func(string) error, linePr
 	return writeWithSourceMap(path, string(original), minified)
 }
 
-// blockCommentToNewlines replaces /* ... */ comments with the same number of
-// newlines they spanned, so total line count (and thus a line-level source map)
-// is preserved across removal.
-func blockCommentToNewlines(s string) string {
-	return minCSSCommentRe.ReplaceAllStringFunc(s, func(m string) string {
-		return strings.Repeat("\n", strings.Count(m, "\n"))
-	})
-}
-
 // minifyCSSLinePreserving strips comments and collapses intra-line whitespace but
 // keeps one output line per input line, so the emitted source map is exact.
 func minifyCSSLinePreserving(s string) string {
-	s = blockCommentToNewlines(s)
+	s = stripComments(s, styleCSS, true)
 	lines := strings.Split(s, "\n")
 	for i, ln := range lines {
 		lines[i] = strings.TrimRight(minIntraSpaceRe.ReplaceAllString(ln, " "), " \t")
@@ -4729,13 +4731,9 @@ func minifyCSSLinePreserving(s string) string {
 // minifyJSLinePreserving strips comments and collapses intra-line whitespace while
 // keeping the line count stable, so the emitted source map is exact.
 func minifyJSLinePreserving(s string) string {
-	s = blockCommentToNewlines(s)
+	s = stripComments(s, styleJS, true)
 	lines := strings.Split(s, "\n")
 	for i, ln := range lines {
-		if minLineCommentRe.MatchString(ln) {
-			lines[i] = ""
-			continue
-		}
 		lines[i] = strings.TrimRight(minIntraSpaceRe.ReplaceAllString(ln, " "), " \t")
 	}
 	return strings.Join(lines, "\n")

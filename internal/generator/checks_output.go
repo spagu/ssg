@@ -381,10 +381,23 @@ func (g *Generator) linkTarget(href, fromRel string) string {
 		return indexHTMLName
 	case strings.HasSuffix(rel, ".html"):
 		return rel
-	default:
-		// A directory-style link is served by its index.html.
-		return path.Join(rel, indexHTMLName)
 	}
+	// A directory-style link is served by its index.html — but where the host
+	// strips extensions, "/validator" is served by validator.html and there is
+	// no directory at all (#107). Comparing the pre-normalisation path made
+	// every such page an orphan while check_links resolved the very same links.
+	dirIndex := path.Join(rel, indexHTMLName)
+	if g.config.PrettyURLs.Enabled() && !g.outputFileExists(dirIndex) && g.outputFileExists(rel+".html") {
+		return rel + ".html"
+	}
+	return dirIndex
+}
+
+// outputFileExists reports whether an output-relative path is a file that was
+// written.
+func (g *Generator) outputFileExists(rel string) bool {
+	info, err := os.Stat(filepath.Join(g.config.OutputDir, filepath.FromSlash(rel)))
+	return err == nil && !info.IsDir()
 }
 
 // excludesFromSitemap decides whether a page belongs in sitemap.xml, consulting
