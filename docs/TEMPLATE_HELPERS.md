@@ -139,10 +139,22 @@ type. A missing field/key is an error (no silent fallback).
 {{ .Site.Pages | filter "Type" "in" (slice "guide" "tutorial") }}
 ```
 
+```gotemplate
+{{ .Site.Pages | filter "Link" "hasPrefix" "/special/" }}
+{{ .Site.Posts | filter "Title" "matches" "^Baby " }}
+```
+
 Signature `filter(field, operator, expected, collection)`. Operators:
-`eq` `ne` `gt` `ge` `lt` `le` `contains` `notContains` `in` `notIn`.
+`eq` `ne` `gt` `ge` `lt` `le` `contains` `notContains` `in` `notIn`
+`hasPrefix` `hasSuffix` `matches`.
 `contains` searches strings (substring) and slices/arrays (element);
 `in`/`notIn` test the field value against a provided collection.
+
+`hasPrefix`, `hasSuffix` and `matches` (regular expression) are anchored string
+tests, and need a string field and a string value — applied to a `[]string`
+field they report an error rather than quietly answering false. Reach for them
+where `contains` is too loose: `contains "/special/"` also matches
+`/not-special/thing/`, while `hasPrefix "/special/"` does not.
 
 ### `sort` — stable sort by field
 
@@ -206,6 +218,31 @@ First occurrence wins. `uniq` on structs/maps errors — use `uniqBy`.
 > ⚠️ Registering `slice` **overrides Go's builtin** `slice(value, i, j)`
 > sub-slicing function. Bundled themes do not use the builtin; if yours does,
 > switch to `printf "%.10s"` for strings or restructure the data.
+
+### `append` — add to a list
+
+```gotemplate
+{{ $kids := slice }}
+{{ range .Site.Pages }}
+  {{ if and (ne .GetURL $.URL) (hasPrefix .GetURL $.URL) }}
+    {{ $kids = append $kids . }}
+  {{ end }}
+{{ end }}
+{{ range $kids }}<a href="{{ .GetURL }}">{{ .Title }}</a>{{ end }}
+```
+
+`slice` builds a literal; `append` is what lets a loop accumulate one, so a
+theme can derive a collection — "the sub-pages of this section" — from the page
+tree instead of from per-site configuration.
+
+The collection may be either the first or the last argument, so both the Go
+form (`append $kids .`) and the pipeline form (`$kids | append .`) work; when
+both ends are lists the first is the one appended to, as in Go. The input list
+is never modified, so appending twice to the same base gives two independent
+results.
+
+Values that do not share the list's element type widen the result to a generic
+list rather than failing.
 
 ### `pluck` — extract one field
 
@@ -392,7 +429,7 @@ theme actually needs (column splits, "page N of M", index offsets).
 
 - **Theme templates** (`base/index/post/page/category.html`, layouts, partials):
   every helper above.
-- **Shortcode templates**: the safe, deterministic subset — `slice`, `in`,
+- **Shortcode templates**: the safe, deterministic subset — `slice`, `append`, `in`,
   `notIn`, `contains`, `startsWith`, `endsWith`, `hasPrefix`, `hasSuffix`,
   `matches`, `isNil`, `isEmpty`, `ternary` — plus the image helpers
   (`imageResize`, `imageSrcSet`, …) and the read-only external-source helpers

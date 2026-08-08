@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🔏 **`fingerprint` double-hashed assets when the output was not cleaned**
+  (#95) — the step reads the output directory, so a rebuild treated its own
+  previous output as fresh input: `style.<hash>.css` became
+  `style.<hash>.<hash>.css` while the original lingered, and the HTML was
+  rewritten to a name the pages no longer referenced. `--clean` hid it by
+  emptying the directory first, which is why it only showed on rebuilds — and
+  why `--watch`, whose rebuilds are in place, hit it on every save. The
+  previous build's `assets-manifest.json` now identifies its own output, which
+  is removed rather than hashed again; this also bounds a directory that
+  otherwise kept every historical hash of every asset forever. A name matching
+  `name.<hash8>.ext` with no manifest to confirm it is skipped but **not**
+  deleted, since a theme may legitimately ship such a name.
+
+### Added
+- 🧩 **`append`** (#96) — add values to a list, so a theme can build a derived
+  collection. `slice` only ever made a literal, which left an ordinary
+  requirement — "list the sub-pages of this section" — with no direct
+  expression in a Go template. The collection may be the first or the last
+  argument, so both `append $kids .` and `$kids | append .` work; the input is
+  never mutated. Available in shortcode templates too.
+- 🔤 **`filter` gained `hasPrefix`, `hasSuffix` and `matches`** (#96) — these
+  existed as standalone helpers but could not be used as filter predicates, so
+  selecting pages under a path had to fall back to `contains`, which is
+  substring-wise and also matches `/not-special/`. Applied to a non-string
+  field they report the mistake instead of answering false.
+
 ### Documentation
 - 📈 **`docs/UPGRADING.md`** — every version-to-version step in one page, with a
   picker that narrows the list to what applies between your current version and

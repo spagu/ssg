@@ -2214,6 +2214,7 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"uniqBy":  tmplUniqBy,
 		"reverse": tmplReverse,
 		"slice":   tmplSliceOf, // NOTE: overrides Go's builtin slice(str,i,j)
+		"append":  tmplAppend,  // build a derived collection (#96)
 		"pluck":   tmplPluck,
 		"indexBy": tmplIndexBy,
 
@@ -2714,6 +2715,7 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		// Safe, deterministic conditional helpers (v1.8.3). Collection helpers
 		// that depend on site-wide data stay normal-template-only by design.
 		"slice":      tmplSliceOf,
+		"append":     tmplAppend,
 		"in":         tmplIn,
 		"notIn":      tmplNotIn,
 		"contains":   tmplContains,
@@ -4681,17 +4683,56 @@ func (g *Generator) fingerprintAssets() error {
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "assets-manifest.json"), mj, 0644)
 }
 
+// fingerprintedName matches an asset this step has already renamed
+// (name.<hash8>.ext). The dev server uses the same shape to decide what may be
+// cached immutably (cmd/ssg/server.go), so it is the project's existing
+// convention for "this name carries a fingerprint", not a new guess.
+var fingerprintedName = regexp.MustCompile(`\.[0-9a-f]{8}\.(css|js)$`)
+
 // collectFingerprintAssets returns the JS and CSS files under the output dir,
 // sorted for deterministic processing.
+//
+// Output from a previous build is skipped and deleted rather than hashed again
+// (#95). This step reads the output directory, so without that check a rebuild
+// into a directory that was not cleaned treats its own last output as fresh
+// input: style.<hash>.css becomes style.<hash>.<hash>.css while the original
+// lingers, and the HTML is rewritten to a name that no longer matches what the
+// pages reference. --clean hid it by emptying the directory first, which is why
+// it only appeared on rebuilds — and why --watch, whose rebuilds are in place,
+// hit it on every save.
+//
+// Removing the leftovers also bounds the directory: it previously accumulated
+// every historical hash of every asset forever. Only files the manifest claims
+// are removed — the name pattern alone is not proof of authorship, so it skips
+// rather than deletes.
 func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
+	stale := g.previousFingerprints()
 	err = filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || fi.IsDir() {
 			return err
 		}
-		switch strings.ToLower(filepath.Ext(path)) {
-		case ".js":
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".js" && ext != ".css" {
+			return nil
+		}
+		rel, _ := filepath.Rel(g.config.OutputDir, path)
+		// The manifest is authoritative: it names exactly what the last build
+		// wrote, so those files are safe to delete.
+		if stale[filepath.ToSlash(rel)] {
+			_ = os.Remove(path)
+			return nil
+		}
+		// Without a manifest the name pattern is all there is, and it can be
+		// wrong: a theme may legitimately ship app.deadbeef.js. So this only
+		// skips — never deletes. Skipping is enough to stop the double-hash,
+		// and leaving the file alone means references to it still resolve,
+		// whichever of the two it turns out to be.
+		if fingerprintedName.MatchString(path) {
+			return nil
+		}
+		if ext == ".js" {
 			js = append(js, path)
-		case ".css":
+		} else {
 			css = append(css, path)
 		}
 		return nil
@@ -4699,6 +4740,26 @@ func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
 	sort.Strings(js)
 	sort.Strings(css)
 	return js, css, err
+}
+
+// previousFingerprints reads the manifest left by an earlier build and returns
+// the hashed paths it produced, so they can be told apart from this build's
+// fresh assets. A missing or unreadable manifest is not an error: it only means
+// the name pattern above carries the whole job.
+func (g *Generator) previousFingerprints() map[string]bool {
+	raw, err := os.ReadFile(filepath.Join(g.config.OutputDir, "assets-manifest.json")) // #nosec G304 -- CLI reads its own output
+	if err != nil {
+		return nil
+	}
+	var m map[string]string
+	if json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	out := make(map[string]bool, len(m))
+	for _, hashed := range m {
+		out[hashed] = true
+	}
+	return out
 }
 
 // fingerprintOne hashes a single asset (after rewriting references to assets that
