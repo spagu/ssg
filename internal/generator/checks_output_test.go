@@ -467,8 +467,13 @@ func TestCheckRedirects(t *testing.T) {
 }
 
 // TestRedirectTargetOf pins the shapes a pretty-URL host rewrites.
+//
+// The mode has to be set explicitly: since #103 the destination depends on it,
+// because a host that strips the extension without adding a slash would itself
+// redirect the slashed form this case expects.
 func TestRedirectTargetOf(t *testing.T) {
 	g := newTestGen(t, "")
+	g.config.PrettyURLs = models.PrettyStripSlash
 	writeOut(t, g, "docs/intro/index.html", "x")
 	cases := map[string]string{
 		"/docs/intro.html":       "/docs/intro/",
