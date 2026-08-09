@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🏠 **The home page emitted no structured data** (#109) — `seo: true` injects
+  JSON-LD, OpenGraph and hreflang for posts and pages, but the render transform
+  applies the SEO block only when a page context exists and the index was
+  rendered without one. So the page a crawler reaches first, and the only
+  sensible home for site-level types, had nothing — and `derivedLD`'s `WebSite`
+  branch was unreachable, since the sole page that selects it never arrived.
+  Site-wide `schema:` defaults did not reach the home page either. The same
+  shape was fixed for feed autodiscovery in #86; this closes it for SEO. A
+  paginated `/page/2/` declares its own URL rather than being canonicalised onto
+  page one.
+
 ## [1.8.23] - 2026-08-08
 
 ### Fixed

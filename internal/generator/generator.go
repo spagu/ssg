@@ -3214,7 +3214,33 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		ExternalDataMeta: g.externalMeta,
 		Pager:            pager,
 	}
-	return g.renderTemplate(indexHTMLName, outPath, data)
+	// Render with a page context so the SEO block applies (#109). Without one,
+	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
+	// hreflang for the home page entirely — the page a crawler reaches first,
+	// and the only sensible home for site-level structured data. It also left
+	// derivedLD's WebSite branch unreachable, since the sole page that selects
+	// it never arrived. Feed autodiscovery had the same shape and was fixed for
+	// feeds alone in #86.
+	return g.renderPageTemplate(indexHTMLName, outPath, data, g.indexPageContext(outPath), false)
+}
+
+// indexPageContext synthesises the page record the home page never had.
+//
+// Link carries the index's own URL rather than always "/", so a paginated
+// /page/2/ declares itself and is not canonicalised onto the first page.
+func (g *Generator) indexPageContext(outPath string) *models.Page {
+	rel, err := filepath.Rel(g.config.OutputDir, outPath)
+	if err != nil {
+		rel = indexHTMLName
+	}
+	link := "/" + filepath.ToSlash(filepath.Dir(rel)) + "/"
+	if link == "/./" {
+		link = "/"
+	}
+	// The domain is the only site-level name SSG holds — metadata.json's title
+	// is not read into SiteData. A site wanting a better one sets `name` in the
+	// home entry of schema_defaults, which outranks this.
+	return &models.Page{Title: g.config.Domain, Type: "page", Link: link}
 }
 
 // getOutputPaths returns one or more output file paths based on PageFormat config.
