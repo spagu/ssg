@@ -1245,6 +1245,10 @@ The transport refuses private/loopback ranges at dial time unless
 
 ## Development MCP server (`ssg mcp`)
 
+> Full reference — roles, every tool with its CAN/CANNOT contract, and the
+> git write-back flow — is in [MCP.md](MCP.md). This section covers the
+> configuration block.
+
 `ssg mcp` runs a Model Context Protocol server over stdio so an AI assistant can
 work on the site during development in two clearly-scoped roles:
 

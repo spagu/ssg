@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- 🤖 **`docs/MCP.md`** — a reference for the `ssg mcp` server aimed at AI agents:
+  both roles with every tool and its CAN/CANNOT contract, the presentation-key
+  allow-list, watch mode as the feedback loop, and the branch → commit → PR
+  write-back. MCP was previously described only inside the configuration
+  reference and a blog post, so an agent had no page to read before deciding
+  whether the server could do what it needed.
+
 ### Fixed
 - 🏠 **The home page emitted no structured data** (#109) — `seo: true` injects
   JSON-LD, OpenGraph and hreflang for posts and pages, but the render transform
