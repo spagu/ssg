@@ -25,18 +25,70 @@
     <div class="container">
         <section class="hero{{ if $hero }} hero--image{{ end }}"
                  {{ if $hero }}style="--hero-image: url('{{ $hero }}'); --hero-image-sm: url('{{ $heroSmall }}');"{{ end }}>
-            <p class="eyebrow">Static site generator</p>
-            <h1>Markdown in, a hardened static site out.</h1>
-            <p>
-                {{ .Domain }} builds local Markdown, remote APIs, SQL and CMS databases
-                into one static site — with WebP images, feeds, a search index, i18n
-                and single-command deploys.
+            <p class="eyebrow">Open source · Go · BSD-3-Clause</p>
+            {{/* The H1 leads with the category and the project name rather than a
+                 tagline: it is the page's one indexable heading, and "Static Site
+                 Generator" is what someone actually searches for. The benefit line
+                 moves directly beneath it, where it still reads first. */}}
+            <h1>Static Site Generator — spagu/ssg</h1>
+            <p class="hero-lead">
+                Build fast, secure sites from Markdown, SQL databases and build-time AI.
+                A 5 000-post site builds in 2.3 seconds, and nothing ships to the browser
+                that does not have to.
             </p>
             <div class="hero-actions">
                 <a class="btn btn--primary" href="#documentation">Read the docs</a>
                 <a class="btn btn--secondary"
                    href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}">Source on GitHub</a>
             </div>
+        </section>
+
+        {{/* Three pillars. Every number here is measured and every claim is
+             checkable from this repository — no comparisons to other tools, and
+             no superlatives that cannot be substantiated. The speed figure is
+             SSG 1.8.16 → 1.8.17 on a 5 000-post corpus (12.07s → 2.30s), which
+             is a self-comparison and is described as one. */}}
+        <section class="sections pillars" id="why" aria-labelledby="why-title">
+            <p class="eyebrow">Why ssg</p>
+            <h2 class="section-title" id="why-title">Three things it does differently</h2>
+            <ul class="pillar-list">
+                <li class="pillar">
+                    <h3>Builds in seconds, not minutes</h3>
+                    <p>
+                        A 5 000-post site builds in <strong>2.3 seconds</strong> — 5.25×
+                        faster than the previous release, after two costs that only
+                        appeared at scale were removed. Output is byte-identical however
+                        many workers run, so a shorter CI job is the only difference.
+                    </p>
+                    <p class="pillar-more">
+                        <a href="/blog/making-builds-faster/">How that was measured</a>
+                    </p>
+                </li>
+                <li class="pillar">
+                    <h3>Reads your database directly</h3>
+                    <p>
+                        MySQL, MariaDB, PostgreSQL and SQLite are content sources like any
+                        other — <strong>no export step and no glue script</strong>. Queries
+                        run read-only at build time, so the database stays behind your
+                        firewall and never sits in the request path.
+                    </p>
+                    <p class="pillar-more">
+                        <a href="/external_sources/">External sources</a>
+                    </p>
+                </li>
+                <li class="pillar">
+                    <h3>AI at build time, not in the browser</h3>
+                    <p>
+                        Summaries, tags and related posts are computed while the site is
+                        built and cached by content hash, so a rebuild is reproducible.
+                        <strong>No API key or model call reaches the browser</strong>, and
+                        readers download no JavaScript for any of it.
+                    </p>
+                    <p class="pillar-more">
+                        <a href="/configuration/">Configuration</a>
+                    </p>
+                </li>
+            </ul>
         </section>
 
 {{ template "sc-marquee" . }}

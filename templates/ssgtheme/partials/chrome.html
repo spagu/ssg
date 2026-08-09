@@ -323,3 +323,32 @@
 {{- if .icon }}<svg class="marquee__logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="{{ .icon }}"/></svg>{{ end -}}
 <span class="marquee__name">{{ .name }}</span>
 {{end}}
+
+{{/*
+  sc-docs-nav — the list of guides, shown beside a guide.
+
+  Without it a reader who lands on a guide from search has no way to reach the
+  others except by going back to the home page: the header carries a hand-picked
+  handful, and the full set only exists in the card grid on the index.
+
+  Built from .Site.Pages, so a new file in docs/ appears here with no edit. The
+  current page is marked with aria-current rather than only a colour, so the
+  "you are here" is available to a screen reader too.
+
+  Expects the page context: {{ template "sc-docs-nav" . }}
+*/}}
+{{define "sc-docs-nav"}}
+<nav class="docs-nav" aria-label="Guides">
+    <p class="docs-nav__title">Guides</p>
+    <ul class="docs-nav__list">
+        {{ $current := .Page.Slug }}
+        {{ range .Site.Pages }}{{ if not .Extra.hide_from_lists }}
+        <li>
+            <a href="{{ .GetURL }}"
+               class="docs-nav__link{{ if eq .Slug $current }} is-current{{ end }}"
+               {{ if eq .Slug $current }}aria-current="page"{{ end }}>{{ .Title }}</a>
+        </li>
+        {{ end }}{{ end }}
+    </ul>
+</nav>
+{{end}}

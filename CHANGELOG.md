@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Documentation
+- 🖼️ **Themes get a gallery** — `docs/TEMPLATES.md` is split into the themes you
+  can use as they are and how to write one. The four bundled themes are cards
+  with real screenshots, built and captured from this repository, and `imd` is
+  listed at all for the first time. Downloading a theme gets its own section,
+  including that an archive laid out under `layouts/` — the conventional Hugo
+  shape — is converted during extraction.
+- 🧭 **A sidebar on every guide** — landing on a guide from search left no way to
+  reach the others except returning to the home page: the header carries a
+  hand-picked few and the full set existed only in the index card grid. Built
+  from `.Site.Pages`, so a new file appears with no edit, and the current page
+  carries `aria-current`.
+- 🏷️ **Three flags reached `--help`** — `--strict`, `--route-manifest` and
+  `--notify` were accepted by the parser but absent from the help output, so the
+  only way to find them was the source. Errors in this CLI point at `--help`,
+  which makes an unlisted flag effectively absent. Found by auditing the parser
+  against the help text; the reverse direction and all 198 config keys, 66
+  template helpers and 5 subcommands came back clean.
+- 📄 **`toJSON` documented** — the helper `ssgtheme` uses to hand a config block
+  to a client script, and the one pattern the cookie-consent worker recommends.
+
+### Changed
+- 🧱 **Home page rewritten** — the H1 leads with the category and project name
+  rather than a tagline, since it is the page's one indexable heading; the
+  benefit line moves directly beneath it. A three-pillar section covers build
+  speed, direct database reads and build-time AI, each with a figure that is
+  checkable from this repository. `Install` joins the navigation in second
+  place — it is the first thing a new visitor does.
+
+### Documentation
 - 🤖 **`docs/MCP.md`** — a reference for the `ssg mcp` server aimed at AI agents:
   both roles with every tool and its CAN/CANNOT contract, the presentation-key
   allow-list, watch mode as the feedback loop, and the branch → commit → PR

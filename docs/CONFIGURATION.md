@@ -343,7 +343,8 @@ relative `watch_runner_config` is resolved against **ssg's** working directory
 before the runner is started, so both options can be combined safely. A
 directory that does not exist aborts the runner (the build itself continues).
 
-`--wrangler-config=FILE`, `--wrangler-dir=DIR` and the `--workerd-*` pair are
+`--wrangler-config=FILE`, `--wrangler-dir=DIR`, `--workerd-config=FILE` and
+`--workerd-dir=DIR` are
 convenience spellings: each sets its value **and** selects that runner (so
 `--wrangler` is implied), in any flag order. Use `--watch-runner-config=FILE` /
 `--watch-runner-dir=DIR` with a custom `--watch-runner`.

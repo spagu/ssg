@@ -848,3 +848,191 @@ a:hover {
     display: none;
   }
 }
+
+/* ── Pillars ─────────────────────────────────────────────────────────────────
+   The three-column "why" row. Plain surfaces rather than cards: these are text
+   to be read, not links to be clicked, and giving them card affordances would
+   promise a click target that is not there — only the "more" line is a link.  */
+
+.pillars {
+  --pillar-rule: var(--color-border-subtle);
+}
+
+.pillar-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .pillar-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-10);
+  }
+}
+
+.pillar {
+  /* A hairline rather than a box: it groups the column without implying a
+     surface you can interact with. */
+  border-top: 1px solid var(--pillar-rule);
+  padding-top: var(--space-4);
+}
+
+.pillar h3 {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+.pillar p {
+  color: var(--color-fg-secondary);
+}
+
+.pillar strong {
+  color: var(--color-fg-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.pillar-more {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+/* The hero lead carries the sentence that used to be the H1, so it needs more
+   weight than body copy without competing with the heading above it. */
+.hero-lead {
+  font-size: var(--font-size-lg);
+  max-width: 46ch;
+}
+
+/* ── Docs layout ─────────────────────────────────────────────────────────────
+   A guide beside the list of guides. The sidebar is a plain <nav> in source
+   order before the article, so with no CSS — or on a narrow screen — it reads
+   as a table of contents above the page rather than disappearing.            */
+
+.docs-layout {
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1000px) {
+  .docs-layout {
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: var(--space-12);
+    align-items: start;
+  }
+
+  .docs-nav {
+    position: sticky;
+    /* Clears the fixed header, matching the anchor offset used site-wide. */
+    top: var(--space-16);
+    max-height: calc(100vh - var(--space-24));
+    overflow-y: auto;
+  }
+}
+
+.docs-nav__title {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+
+.docs-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.docs-nav__link {
+  display: block;
+  padding: var(--space-2) var(--space-4);
+  /* Sits on the list's rule, so the current item thickens the line rather than
+     shifting the text. */
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--color-fg-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.docs-nav__link:hover {
+  color: var(--color-fg-primary);
+  border-left-color: var(--color-border-default);
+}
+
+.docs-nav__link.is-current {
+  color: var(--color-fg-accent);
+  font-weight: var(--font-weight-medium);
+  border-left-color: var(--color-fg-accent);
+}
+
+/* ── Theme gallery ───────────────────────────────────────────────────────────
+   The bundled themes as cards. The screenshot is the point, so it leads; the
+   text underneath says what the theme is for.                                */
+
+.theme-cards {
+  list-style: none;
+  margin: var(--space-8) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .theme-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.theme-card {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* A consistent crop keeps the row tidy when themes have different heights;
+     top alignment keeps each header and hero in frame. */
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.theme-card__body {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.theme-card__body h3 {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.theme-card__body p {
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.theme-card__tag {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+}

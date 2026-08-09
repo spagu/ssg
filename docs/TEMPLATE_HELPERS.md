@@ -281,6 +281,21 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 `trimPrefix`/`trimSuffix` exist because testing for an affix without being able
 to remove one left no way to strip an extension inside a template (#103).
 
+### `toJSON` — a value as inline JSON
+
+```gotemplate
+<script id="ssg-consent-config" type="application/json">{{ .Ctx.Vars.cookie_consent | toJSON }}</script>
+```
+
+Marshals any value — a config map, a list, a struct — for embedding in a
+`<script>`. It returns `template.JS`, so the result is not HTML-escaped again;
+`json.Marshal` escapes `<`, `>` and `&`, which is what makes that safe inside a
+script element.
+
+This is how a theme passes a configuration block from `.ssg.yaml` to a client
+script without the theme having to know the block's shape — the pattern
+`ssgtheme` uses for the cookie banner.
+
 ## Taxonomy helpers
 
 `taxonomies`, `taxonomy`, `taxonomyTerms`, `pageTerms`, `termURL`, `hasTerm` and

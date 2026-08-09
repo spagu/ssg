@@ -233,6 +233,10 @@ variables:
   nav:
     - label: Docs
       url: /#documentation
+    # Installation sits second because it is the first thing a new visitor does;
+    # the order below follows the journey — what it is, install, configure, ship.
+    - label: Install
+      url: /install/
     - label: Configuration
       url: /configuration/
     - label: Blog
