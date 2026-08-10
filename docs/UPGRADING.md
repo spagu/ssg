@@ -5,7 +5,7 @@ the binary, rebuild, and the site you had is the site you get.
 
 Where that is not true — where a default changed, a flag moved, or a setting
 started meaning something new — it is listed below, with the version it landed
-in and what to do about it. Of the 65 releases so far, 52 need nothing at
+in and what to do about it. Of the 66 releases so far, 53 need nothing at
 all, which is why this page is organised by **what changed**, not by release
 number: a section per version would be mostly empty and would bury the handful
 that matter.
@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.24">1.8.24 — 2026-08-09</option>
       <option value="1.8.23">1.8.23 — 2026-08-08</option>
       <option value="1.8.22">1.8.22 — 2026-08-08</option>
       <option value="1.8.21">1.8.21 — 2026-08-07</option>

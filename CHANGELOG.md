@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.24] - 2026-08-09
+
 ### Added
 - 🧩 **`check_schema`** (#111) — validates the JSON-LD each page emits against the
   properties search engines require, alongside the existing `check_*` validators
@@ -2453,7 +2455,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.23...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.24...HEAD
+[1.8.24]: https://github.com/spagu/ssg/compare/v1.8.23...v1.8.24
 [1.8.23]: https://github.com/spagu/ssg/compare/v1.8.22...v1.8.23
 [1.8.22]: https://github.com/spagu/ssg/compare/v1.8.21...v1.8.22
 [1.8.21]: https://github.com/spagu/ssg/compare/v1.8.20...v1.8.21
