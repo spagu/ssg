@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
@@ -19,8 +20,12 @@ import (
 // untrusted titles cannot break out of the script element.
 func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
 	canonical := g.servedCanonical(page)
-	// Precedence: site-wide defaults < derived per-page data < per-page schema.
+	// Precedence: site-wide < derived < section defaults < per-page schema (#110).
+	// Section defaults outrank the derived data on purpose — overriding the
+	// derived @type is what they exist for — while a page's own schema still
+	// wins over its section.
 	merged := deepMergeLD(cloneLD(g.config.Schema), g.derivedLD(page, isPost, canonical))
+	merged = deepMergeLD(merged, g.sectionSchema(page))
 	merged = deepMergeLD(merged, page.Schema)
 	if _, ok := merged["@context"]; !ok {
 		merged["@context"] = "https://schema.org"
@@ -212,4 +217,56 @@ func deepMergeLD(base, overlay map[string]interface{}) map[string]interface{} {
 		base[k] = ov
 	}
 	return base
+}
+
+// sectionSchema returns the schema_defaults entry that applies to a page (#110).
+//
+// Keys match the page's content-relative directory by prefix, longest match
+// first — the same rule link_rewrites uses, so there is one prefix convention in
+// the project rather than two. "home" is reserved for the site root, which is
+// the only page that can carry a site-level @type without claiming it for every
+// other page too.
+func (g *Generator) sectionSchema(page models.Page) map[string]interface{} {
+	if len(g.config.SchemaDefaults) == 0 {
+		return nil
+	}
+	if strings.Trim(page.GetURL(), "/") == "" {
+		return g.config.SchemaDefaults["home"]
+	}
+	section := g.contentSection(page)
+	if section == "" {
+		return nil
+	}
+	best, bestLen := map[string]interface{}(nil), -1
+	for prefix, ld := range g.config.SchemaDefaults {
+		if prefix == "home" {
+			continue
+		}
+		p := strings.Trim(prefix, "/")
+		if p != "" && (section == p || strings.HasPrefix(section, p+"/")) && len(p) > bestLen {
+			best, bestLen = ld, len(p)
+		}
+	}
+	return best
+}
+
+// contentSection returns a page's directory path relative to the content root,
+// slash-separated, or "" when it cannot be placed.
+func (g *Generator) contentSection(page models.Page) string {
+	if page.SourceDir == "" {
+		return ""
+	}
+	// Relative to the *source* directory, not the content root, so a key reads
+	// "pages/recipes" rather than repeating the source name in every entry.
+	root := filepath.Join(g.config.ContentDir, g.config.Source)
+	rel, err := filepath.Rel(root, page.SourceDir)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		// Content that does not sit under the source (content_sources) still has
+		// a place — fall back to the content root.
+		rel, err = filepath.Rel(g.config.ContentDir, page.SourceDir)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return ""
+		}
+	}
+	return strings.Trim(filepath.ToSlash(rel), "/")
 }

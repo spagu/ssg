@@ -492,6 +492,22 @@ type Config struct {
 	// frontmatter schema: overrides it, which overrides the derived data (#61).
 	Schema map[string]interface{} `yaml:"schema" toml:"schema" json:"schema"`
 
+	// SchemaDefaults supplies structured-data defaults per content section, so a
+	// section can carry an @type without every file repeating it (#110).
+	//
+	// Site-wide `schema:` cannot hold @type — it would apply to everything, and
+	// setting SoftwareApplication for the home page would stop every post being a
+	// BlogPosting. That left @type to be written into each file: a hundred
+	// recipes meant a hundred copies and a hundred chances to mistype one.
+	//
+	// Keys match the page's content-relative directory by prefix, longest match
+	// first — the same rule as link_rewrites — plus the reserved key "home" for
+	// the site root. Precedence runs: schema < derived < schema_defaults < page
+	// frontmatter. Section defaults sit above the derived data deliberately:
+	// overriding the derived @type is the whole point, and a page's own schema
+	// still wins over its section.
+	SchemaDefaults map[string]map[string]interface{} `yaml:"schema_defaults" toml:"schema_defaults" json:"schema_defaults"`
+
 	// Worker wires a single Cloudflare Pages Functions directory (or a prebuilt
 	// _worker.js) into the build output and generates _routes.json, so
 	// transactional endpoints (Stripe, forms, dynamic pricing) live beside the
