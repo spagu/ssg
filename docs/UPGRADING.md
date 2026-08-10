@@ -5,7 +5,7 @@ the binary, rebuild, and the site you had is the site you get.
 
 Where that is not true — where a default changed, a flag moved, or a setting
 started meaning something new — it is listed below, with the version it landed
-in and what to do about it. Of the 65 releases so far, 53 need nothing at
+in and what to do about it. Of the 65 releases so far, 52 need nothing at
 all, which is why this page is organised by **what changed**, not by release
 number: a section per version would be mostly empty and would bury the handful
 that matter.
@@ -157,6 +157,25 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.24">
+
+### 1.8.24 — the home page now emits structured data
+
+`seo: true` injects JSON-LD, OpenGraph and hreflang for posts and pages, but the
+index was rendered without a page context, so the SEO block was skipped there
+entirely — the page a crawler reaches first had none of it, and the `WebSite`
+type it was supposed to carry was unreachable code.
+
+**Do nothing**, but expect a diff: your home page gains a JSON-LD block, an
+`og:url` and a canonical it did not have. If you were injecting those from your
+own theme, check you are not now emitting them twice — SSG skips its own block
+when the page already provides one, so a theme that emits `og:title` is left
+alone.
+
+Site-wide `schema:` defaults reach the home page for the first time too.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.23">
 
