@@ -206,13 +206,14 @@ type Config struct {
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
-	Schema map[string]interface{}
+	Schema         map[string]interface{}
 	SchemaDefaults map[string]map[string]interface{} // per-section structured-data defaults (#110)
 	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
 	CheckLinks   string
 	CheckImages  string
 	CheckMeta    string
+	CheckSchema  string // validate emitted JSON-LD: "" | warn | strict (#111)
 	CheckOrphans string
 	// CheckRedirects reports links the host would redirect; PrettyURLs models that
 	// host behaviour (#87).
@@ -855,6 +856,9 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkMetaIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkSchemaIfRequested(); err != nil {
 		return err
 	}
 	if err := g.checkOrphansIfRequested(); err != nil {

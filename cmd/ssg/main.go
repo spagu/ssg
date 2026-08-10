@@ -628,6 +628,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckLinks:            cfg.CheckLinks,
 		CheckImages:           cfg.CheckImages,
 		CheckMeta:             cfg.CheckMeta,
+		CheckSchema:           cfg.CheckSchema,
 		CheckOrphans:          cfg.CheckOrphans,
 		CheckRedirects:        cfg.CheckRedirects,
 		PrettyURLs:            cfg.PrettyURLs,
@@ -759,6 +760,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	}
 	if arg == "--check-meta" { // same shape: bare form means warn (#76)
 		cfg.CheckMeta = "warn"
+		return true
+	}
+	if arg == "--check-schema" { // same shape: bare form means warn (#111)
+		cfg.CheckSchema = "warn"
 		return true
 	}
 	if arg == "--check-orphans" { // same shape: bare form means warn (#77)
@@ -1029,6 +1034,10 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	case strings.HasPrefix(arg, "--check-meta="):
 		if v := strings.TrimPrefix(arg, "--check-meta="); v == "warn" || v == "strict" {
 			cfg.CheckMeta = v
+		}
+	case strings.HasPrefix(arg, "--check-schema="):
+		if v := strings.TrimPrefix(arg, "--check-schema="); v == "warn" || v == "strict" {
+			cfg.CheckSchema = v
 		}
 	case strings.HasPrefix(arg, "--check-orphans="):
 		if v := strings.TrimPrefix(arg, "--check-orphans="); v == "warn" || v == "strict" {
@@ -1532,6 +1541,8 @@ func printUsage() {
 	fmt.Println("  --check-images=MODE    - warn | strict | strict-decorative (also reports alt=\"\")")
 	fmt.Println("  --check-meta           - Validate title/description on indexable pages (warn mode)")
 	fmt.Println("  --check-meta=MODE      - warn | strict (strict fails the build)")
+	fmt.Println("  --check-schema         - Validate emitted JSON-LD against required properties (warn)")
+	fmt.Println("  --check-schema=MODE    - warn | strict (strict fails the build)")
 	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")
 	fmt.Println("  --check-orphans=MODE   - warn | strict (strict fails the build)")
 	fmt.Println("  --check-redirects      - Report links the host would redirect (needs pretty_urls)")

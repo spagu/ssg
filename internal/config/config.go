@@ -337,6 +337,12 @@ type Config struct {
 	// failure where a template interpolates a field that is always empty (#76).
 	CheckMeta string `yaml:"check_meta" toml:"check_meta" json:"check_meta"`
 
+	// CheckSchema validates the JSON-LD a page emits: "" (off), "warn" or
+	// "strict" (#111). Search engines reject structured data missing required
+	// properties and say nothing the author can see, so the build succeeds, the
+	// page ships and the rich result simply never appears.
+	CheckSchema string `yaml:"check_schema" toml:"check_schema" json:"check_schema"`
+
 	// SitemapPruneCanonical also drops pages whose rendered canonical points at a
 	// different URL from sitemap.xml. Off by default: a canonical that disagrees
 	// with the permalink is usually a theme bug rather than a deliberate

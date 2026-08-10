@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🧩 **`check_schema`** (#111) — validates the JSON-LD each page emits against the
+  properties search engines require, alongside the existing `check_*` validators
+  and with the same `warn`/`strict` modes. Incomplete structured data is
+  rejected silently from the author's side: the build succeeds, the page ships,
+  the rich result never appears, and the feedback arrives weeks later in Search
+  Console. Nested objects are checked too — an `Offer` missing `priceCurrency`
+  invalidates the `Product` around it. An unrecognised `@type` passes silently,
+  so the generality `schema:` exists for is not taken away, and only required
+  properties are checked, because warning about optional ones trains people to
+  ignore the warning.
 - 🏷️ **`schema_defaults`** (#110) — structured-data defaults per content section,
   so a section carries its `@type` without every file repeating it. Site-wide
   `schema:` cannot: it applies to every page, so a home-page

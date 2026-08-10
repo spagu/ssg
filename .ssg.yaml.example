@@ -107,6 +107,8 @@ seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by def
 #   home:          { "@type": WebSite }
 #   pages/recipes: { "@type": Recipe, recipeCuisine: Polish }
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
+check_schema: ""     # "" (off), "warn" or "strict" — validate emitted JSON-LD against
+                     # the properties search engines require (unknown @types pass)
 
 # Validation over the generated HTML. Same shape as check_links; strict: true
 # escalates any of them to a build failure.

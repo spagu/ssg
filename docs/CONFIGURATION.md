@@ -718,6 +718,7 @@ implemented.
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
+| `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
@@ -744,6 +745,32 @@ frontmatter `description:`.
 
 The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
 selects warning mode; strict mode fails the build.
+
+### Validating structured data
+
+`check_schema` reads the JSON-LD each page actually emits and reports required
+properties that are missing:
+
+```
+⚠️  structured data in recipes/pierogi.html → Recipe is missing image, recipeIngredient
+⚠️  structured data in shop/laptop.html → Offer is missing priceCurrency
+```
+
+Search engines reject incomplete structured data and say nothing the author can
+see: the build succeeds, the page ships, the rich result never appears, and the
+feedback arrives weeks later in Search Console. Nested objects are checked too —
+an `Offer` missing `priceCurrency` invalidates the `Product` containing it.
+
+Types checked: `Recipe`, `Product`, `Offer`, `Event`, `JobPosting`,
+`LocalBusiness`, `HowTo`, `VideoObject`, `Article`, `BlogPosting`,
+`NewsArticle`, `FAQPage`. **An unrecognised `@type` passes silently** — that is
+deliberate: schema.org has hundreds of types, and warning about the ones SSG
+does not know would take away the generality `schema:` exists for. A block that
+is not valid JSON is always reported, since a crawler cannot read it either and
+nothing in the rendered page shows it.
+
+Only the *required* properties are checked, not the recommended ones. Warning
+about every optional field would train people to ignore the warning.
 
 ### Structured data per section
 

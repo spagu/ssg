@@ -17,6 +17,11 @@ template: ssgtheme
 domain: ssg.tradik.com
 output_dir: .site
 
+# The theme screenshots live here rather than in the repo-root static/, which
+# every build run from this directory would copy — including the golden corpora,
+# where documentation images have no business appearing.
+static_dir: docs-static
+
 content_sources:
   - path: docs
     type: page

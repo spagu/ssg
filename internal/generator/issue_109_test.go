@@ -5,8 +5,6 @@ package generator
 import (
 	"path/filepath"
 	"testing"
-
-	"github.com/spagu/ssg/internal/models"
 )
 
 // TestIndexPageContextTypesTheHomePage: derivedLD types the site root as
@@ -60,5 +58,4 @@ func TestIndexPageContextSurvivesAnUnrelatedOutputPath(t *testing.T) {
 	} else if page.Title != "ex.com" {
 		t.Errorf("title: got %q", page.Title)
 	}
-	var _ models.Page = *g.indexPageContext("/out/index.html")
 }
