@@ -618,6 +618,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TOCDepth:              cfg.TOCDepth,
 		SEO:                   cfg.SEO,
 		Schema:                cfg.Schema,
+		SchemaDefaults:        cfg.SchemaDefaults,
 		ContentSchemas:        cfg.ContentSchemas,
 		Strict:                cfg.Strict,
 		RouteManifest:         cfg.RouteManifest,
@@ -627,6 +628,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckLinks:            cfg.CheckLinks,
 		CheckImages:           cfg.CheckImages,
 		CheckMeta:             cfg.CheckMeta,
+		CheckSchema:           cfg.CheckSchema,
 		CheckOrphans:          cfg.CheckOrphans,
 		CheckRedirects:        cfg.CheckRedirects,
 		PrettyURLs:            cfg.PrettyURLs,
@@ -758,6 +760,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	}
 	if arg == "--check-meta" { // same shape: bare form means warn (#76)
 		cfg.CheckMeta = "warn"
+		return true
+	}
+	if arg == "--check-schema" { // same shape: bare form means warn (#111)
+		cfg.CheckSchema = "warn"
 		return true
 	}
 	if arg == "--check-orphans" { // same shape: bare form means warn (#77)
@@ -1028,6 +1034,10 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	case strings.HasPrefix(arg, "--check-meta="):
 		if v := strings.TrimPrefix(arg, "--check-meta="); v == "warn" || v == "strict" {
 			cfg.CheckMeta = v
+		}
+	case strings.HasPrefix(arg, "--check-schema="):
+		if v := strings.TrimPrefix(arg, "--check-schema="); v == "warn" || v == "strict" {
+			cfg.CheckSchema = v
 		}
 	case strings.HasPrefix(arg, "--check-orphans="):
 		if v := strings.TrimPrefix(arg, "--check-orphans="); v == "warn" || v == "strict" {
@@ -1531,6 +1541,8 @@ func printUsage() {
 	fmt.Println("  --check-images=MODE    - warn | strict | strict-decorative (also reports alt=\"\")")
 	fmt.Println("  --check-meta           - Validate title/description on indexable pages (warn mode)")
 	fmt.Println("  --check-meta=MODE      - warn | strict (strict fails the build)")
+	fmt.Println("  --check-schema         - Validate emitted JSON-LD against required properties (warn)")
+	fmt.Println("  --check-schema=MODE    - warn | strict (strict fails the build)")
 	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")
 	fmt.Println("  --check-orphans=MODE   - warn | strict (strict fails the build)")
 	fmt.Println("  --check-redirects      - Report links the host would redirect (needs pretty_urls)")
@@ -1539,6 +1551,9 @@ func printUsage() {
 	fmt.Println("  --shortcode-errors=M   - drop (default) | keep | strict — what a shortcode that")
 	fmt.Println("                           fails to render leaves in the page (keep = its raw source,")
 	fmt.Println("                           strict = keep and fail the build)")
+	fmt.Println("  --strict               - Escalate every soft build problem into a hard failure")
+	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
+	fmt.Println("  --notify               - Announce new and changed posts to the configured channels")
 	fmt.Println("")
 	fmt.Println("Internationalisation (docs/I18N.md):")
 	fmt.Println("  --languages=LIST       - Build languages, comma-separated (e.g. en,pl)")

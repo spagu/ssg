@@ -17,6 +17,11 @@ template: ssgtheme
 domain: ssg.tradik.com
 output_dir: .site
 
+# The theme screenshots live here rather than in the repo-root static/, which
+# every build run from this directory would copy — including the golden corpora,
+# where documentation images have no business appearing.
+static_dir: docs-static
+
 content_sources:
   - path: docs
     type: page
@@ -193,7 +198,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.8.23"
+  version: "1.8.24"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants
@@ -230,9 +235,32 @@ variables:
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.
+  # Sidebar order on every guide: the path a reader actually takes, rather than
+  # the alphabetical order .Site.Pages arrives in. A guide missing from this list
+  # still appears, after the ordered ones.
+  docs_nav_order:
+    - install          # first thing anyone does
+    - content          # then write something
+    - configuration    # then tune it
+    - templates        # then change how it looks
+    - template_helpers
+    - styles
+    - images
+    - taxonomies
+    - external_sources
+    - i18n
+    - workers
+    - mcp
+    - deployment       # then ship it
+    - upgrading        # and keep it current
+
   nav:
     - label: Docs
       url: /#documentation
+    # Installation sits second because it is the first thing a new visitor does;
+    # the order below follows the journey — what it is, install, configure, ship.
+    - label: Install
+      url: /install/
     - label: Configuration
       url: /configuration/
     - label: Blog

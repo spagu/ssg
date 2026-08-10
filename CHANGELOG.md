@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🧩 **`check_schema`** (#111) — validates the JSON-LD each page emits against the
+  properties search engines require, alongside the existing `check_*` validators
+  and with the same `warn`/`strict` modes. Incomplete structured data is
+  rejected silently from the author's side: the build succeeds, the page ships,
+  the rich result never appears, and the feedback arrives weeks later in Search
+  Console. Nested objects are checked too — an `Offer` missing `priceCurrency`
+  invalidates the `Product` around it. An unrecognised `@type` passes silently,
+  so the generality `schema:` exists for is not taken away, and only required
+  properties are checked, because warning about optional ones trains people to
+  ignore the warning.
+- 🏷️ **`schema_defaults`** (#110) — structured-data defaults per content section,
+  so a section carries its `@type` without every file repeating it. Site-wide
+  `schema:` cannot: it applies to every page, so a home-page
+  `SoftwareApplication` would stop each post being a `BlogPosting`. That left the
+  type to be written into each file — a hundred recipes meant a hundred copies.
+  Keys match the page's directory relative to the source folder by prefix,
+  longest first (the same rule as `link_rewrites`), with `home` reserved for the
+  site root. Precedence: `schema:` < derived < `schema_defaults` < frontmatter —
+  section defaults outrank the derived type because overriding it is the point,
+  while a page's own `schema:` still wins over its section.
+
+### Changed
+- 🧭 **The guide sidebar follows the reading path** — it listed pages in
+  `.Site.Pages` order, which is by title, so "SSG Installation Guide" landed in
+  the middle. Order now comes from `variables.docs_nav_order`; a guide missing
+  from that list still appears, after the ordered ones, so a new file is never
+  hidden by forgetting to add it.
+
+### Documentation
+- 🖼️ **Themes get a gallery** — `docs/TEMPLATES.md` is split into the themes you
+  can use as they are and how to write one. The four bundled themes are cards
+  with real screenshots, built and captured from this repository, and `imd` is
+  listed at all for the first time. Downloading a theme gets its own section,
+  including that an archive laid out under `layouts/` — the conventional Hugo
+  shape — is converted during extraction.
+- 🧭 **A sidebar on every guide** — landing on a guide from search left no way to
+  reach the others except returning to the home page: the header carries a
+  hand-picked few and the full set existed only in the index card grid. Built
+  from `.Site.Pages`, so a new file appears with no edit, and the current page
+  carries `aria-current`.
+- 🏷️ **Three flags reached `--help`** — `--strict`, `--route-manifest` and
+  `--notify` were accepted by the parser but absent from the help output, so the
+  only way to find them was the source. Errors in this CLI point at `--help`,
+  which makes an unlisted flag effectively absent. Found by auditing the parser
+  against the help text; the reverse direction and all 198 config keys, 66
+  template helpers and 5 subcommands came back clean.
+- 📄 **`toJSON` documented** — the helper `ssgtheme` uses to hand a config block
+  to a client script, and the one pattern the cookie-consent worker recommends.
+
+### Changed
+- 🧱 **Home page rewritten** — the H1 leads with the category and project name
+  rather than a tagline, since it is the page's one indexable heading; the
+  benefit line moves directly beneath it. A three-pillar section covers build
+  speed, direct database reads and build-time AI, each with a figure that is
+  checkable from this repository. `Install` joins the navigation in second
+  place — it is the first thing a new visitor does.
+
+### Documentation
+- 🤖 **`docs/MCP.md`** — a reference for the `ssg mcp` server aimed at AI agents:
+  both roles with every tool and its CAN/CANNOT contract, the presentation-key
+  allow-list, watch mode as the feedback loop, and the branch → commit → PR
+  write-back. MCP was previously described only inside the configuration
+  reference and a blog post, so an agent had no page to read before deciding
+  whether the server could do what it needed.
+
+### Fixed
+- 🏠 **The home page emitted no structured data** (#109) — `seo: true` injects
+  JSON-LD, OpenGraph and hreflang for posts and pages, but the render transform
+  applies the SEO block only when a page context exists and the index was
+  rendered without one. So the page a crawler reaches first, and the only
+  sensible home for site-level types, had nothing — and `derivedLD`'s `WebSite`
+  branch was unreachable, since the sole page that selects it never arrived.
+  Site-wide `schema:` defaults did not reach the home page either. The same
+  shape was fixed for feed autodiscovery in #86; this closes it for SEO. A
+  paginated `/page/2/` declares its own URL rather than being canonicalised onto
+  page one.
+
 ## [1.8.23] - 2026-08-08
 
 ### Fixed

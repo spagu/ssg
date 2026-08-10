@@ -343,7 +343,8 @@ relative `watch_runner_config` is resolved against **ssg's** working directory
 before the runner is started, so both options can be combined safely. A
 directory that does not exist aborts the runner (the build itself continues).
 
-`--wrangler-config=FILE`, `--wrangler-dir=DIR` and the `--workerd-*` pair are
+`--wrangler-config=FILE`, `--wrangler-dir=DIR`, `--workerd-config=FILE` and
+`--workerd-dir=DIR` are
 convenience spellings: each sets its value **and** selects that runner (so
 `--wrangler` is implied), in any flag order. Use `--watch-runner-config=FILE` /
 `--watch-runner-dir=DIR` with a custom `--watch-runner`.
@@ -712,10 +713,12 @@ implemented.
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
+| `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
+| `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
@@ -742,6 +745,78 @@ frontmatter `description:`.
 
 The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
 selects warning mode; strict mode fails the build.
+
+### Validating structured data
+
+`check_schema` reads the JSON-LD each page actually emits and reports required
+properties that are missing:
+
+```
+⚠️  structured data in recipes/pierogi.html → Recipe is missing image, recipeIngredient
+⚠️  structured data in shop/laptop.html → Offer is missing priceCurrency
+```
+
+Search engines reject incomplete structured data and say nothing the author can
+see: the build succeeds, the page ships, the rich result never appears, and the
+feedback arrives weeks later in Search Console. Nested objects are checked too —
+an `Offer` missing `priceCurrency` invalidates the `Product` containing it.
+
+Types checked: `Recipe`, `Product`, `Offer`, `Event`, `JobPosting`,
+`LocalBusiness`, `HowTo`, `VideoObject`, `Article`, `BlogPosting`,
+`NewsArticle`, `FAQPage`. **An unrecognised `@type` passes silently** — that is
+deliberate: schema.org has hundreds of types, and warning about the ones SSG
+does not know would take away the generality `schema:` exists for. A block that
+is not valid JSON is always reported, since a crawler cannot read it either and
+nothing in the rendered page shows it.
+
+Only the *required* properties are checked, not the recommended ones. Warning
+about every optional field would train people to ignore the warning.
+
+### Structured data per section
+
+`schema:` in frontmatter is arbitrary JSON-LD, so any schema.org type works
+without SSG knowing it — `Recipe`, `Product`, `Event`, `Car`, nested objects and
+all:
+
+```yaml
+schema:
+  "@type": Recipe
+  cookTime: PT20M
+  recipeIngredient: ["500 g flour", "400 g potatoes"]
+  nutrition: { "@type": NutritionInformation, calories: "320 kcal" }
+```
+
+What site-wide `schema:` cannot carry is `@type`: it applies to every page, so
+setting `SoftwareApplication` for the home page would stop each post being a
+`BlogPosting`. `schema_defaults` fills that gap — defaults keyed by section:
+
+```yaml
+schema:
+  publisher: { "@type": Organization, name: Food }
+
+schema_defaults:
+  home:
+    "@type": WebSite
+    name: "Food — recipes and notes"
+  pages/recipes:
+    "@type": Recipe
+    recipeCuisine: Polish
+```
+
+Keys match the page's directory **relative to the source folder**, by prefix,
+longest match first — the same rule `link_rewrites` uses. `home` is reserved for
+the site root, the only page that can hold a site-level type without claiming it
+for everything else.
+
+Precedence, lowest to highest:
+
+```
+schema:  <  derived (BlogPosting/WebPage/WebSite)  <  schema_defaults  <  page frontmatter
+```
+
+Section defaults sit **above** the derived data deliberately — overriding the
+derived `@type` is what they exist for — while a page's own `schema:` still wins
+over its section.
 
 ### Content contracts (schemas, strict mode, route manifest)
 
@@ -1244,6 +1319,10 @@ The transport refuses private/loopback ranges at dial time unless
 `allow_private` is set, so a webhook URL can't be turned into an SSRF pivot.
 
 ## Development MCP server (`ssg mcp`)
+
+> Full reference — roles, every tool with its CAN/CANNOT contract, and the
+> git write-back flow — is in [MCP.md](MCP.md). This section covers the
+> configuration block.
 
 `ssg mcp` runs a Model Context Protocol server over stdio so an AI assistant can
 work on the site during development in two clearly-scoped roles:

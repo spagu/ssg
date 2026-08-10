@@ -1,8 +1,53 @@
 # Templates and themes
 
-This guide describes theme layout, rendering contexts and supported engines.
+Two halves: the themes you can use as they are, and how to write one.
+
 Go template helper signatures are in [TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md);
 image functions are in [IMAGES.md](IMAGES.md).
+
+## Ready-made themes
+
+Four themes ship with SSG. `simple` and `krowy` are embedded in the binary and
+scaffolded into an empty theme directory the first time you name one; `imd` and
+`ssgtheme` live in the repository, so copy the directory you want into your own
+`templates/`.
+
+The screenshots below are each theme's own demo content, built and captured from
+this repository.
+
+<ul class="theme-cards">
+  <li class="theme-card">
+    <img src="/img/themes/simple.webp" alt="The simple theme: a dark hero, a three-card post listing and a slim footer" loading="lazy" width="1600" height="1125">
+    <div class="theme-card__body">
+      <h3><code>simple</code> — a minimal blog</h3>
+      <p>Dark by default, one accent colour, cards for the post listing. The smallest theme in the set and the one to start from when writing your own.</p>
+      <span class="theme-card__tag">Embedded · scaffolded by <code>ssg init</code></span>
+    </div>
+  </li>
+  <li class="theme-card">
+    <img src="/img/themes/krowy.webp" alt="The krowy theme: a wood-texture background, a photo strip and a sidebar with recent posts and categories" loading="lazy" width="1600" height="1125">
+    <div class="theme-card__body">
+      <h3><code>krowy</code> — a fuller blog with a sidebar</h3>
+      <p>A wider layout with a sidebar for recent posts and categories, a photo strip in the header and a textured background. The one to look at for a content-heavy site.</p>
+      <span class="theme-card__tag">Embedded · used by the examples</span>
+    </div>
+  </li>
+  <li class="theme-card">
+    <img src="/img/themes/imd.webp" alt="The imd theme: a light agency landing page with a network illustration and a statistics panel" loading="lazy" width="1600" height="1125">
+    <div class="theme-card__body">
+      <h3><code>imd</code> — a corporate landing page</h3>
+      <p>A marketing layout rather than a blog: hero with a call to action, a statistics panel, a partner strip.</p>
+      <span class="theme-card__tag">In the repository · copy <code>templates/imd/</code></span>
+    </div>
+  </li>
+  <li class="theme-card">
+    <div class="theme-card__body">
+      <h3><code>ssgtheme</code> — documentation sites</h3>
+      <p>The theme this documentation is built with: card grids, a guide layout with the sidebar you are reading beside, a colour-scheme switch and shared chrome in <code>partials/</code>. You are looking at it.</p>
+      <span class="theme-card__tag">In the repository · <a href="../templates/ssgtheme/README.md">README</a></span>
+    </div>
+  </li>
+</ul>
 
 ## Selecting a theme
 
@@ -12,26 +57,35 @@ The second positional argument names a directory below `templates_dir`:
 ssg my-blog my-theme example.com
 ```
 
-With default paths, the theme is `templates/my-theme/`. The built-in `simple`
-and `krowy` themes are embedded and scaffolded when first used.
+With default paths, the theme is `templates/my-theme/`.
 
-| Bundled theme | For |
-|---|---|
-| `simple` | a minimal blog; scaffolded into an empty theme directory |
-| `krowy` | the fuller blog layout used by the examples |
-| `ssgtheme` | documentation sites: cards, guide layout, colour-scheme switch, shared chrome in `partials/` ([README](../templates/ssgtheme/README.md)) |
+## Downloading a theme
 
-An online theme can be downloaded before generation:
+A theme can be fetched before generation:
 
 ```bash
-ssg my-blog bearblog example.com \
+ssg my-blog some-theme example.com \
   --online-theme=https://github.com/user/some-theme
 ```
 
-GitHub, GitLab and direct ZIP URLs are accepted. A downloaded archive whose
-templates live under a `layouts/` directory (with `static/`/`assets/`) is
-converted into SSG's theme layout during extraction. Downloaded code and
-templates should be reviewed before use.
+GitHub, GitLab and direct ZIP URLs are accepted. Only ZIP archives are
+extracted — a tar URL is rejected up front rather than downloaded in full and
+then failing.
+
+**Themes laid out for other generators often work.** An archive whose templates
+live under `layouts/` alongside `static/` or `assets/` — the conventional
+layout for Hugo themes — is converted into SSG's structure during extraction, so
+a theme written for that layout can be a starting point rather than a rewrite.
+How much of it works depends on the template syntax it uses: see
+[template engines](#template-engines) for the alternatives SSG can render.
+
+Downloaded code and templates should be reviewed before use. A theme is
+executable template code, and extraction is bounded (100 MB per entry, 10 000
+entries) but not a sandbox.
+
+# Building a theme
+
+The rest of this guide is for writing or modifying a theme.
 
 ## Theme structure
 

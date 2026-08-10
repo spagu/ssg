@@ -337,6 +337,12 @@ type Config struct {
 	// failure where a template interpolates a field that is always empty (#76).
 	CheckMeta string `yaml:"check_meta" toml:"check_meta" json:"check_meta"`
 
+	// CheckSchema validates the JSON-LD a page emits: "" (off), "warn" or
+	// "strict" (#111). Search engines reject structured data missing required
+	// properties and say nothing the author can see, so the build succeeds, the
+	// page ships and the rich result simply never appears.
+	CheckSchema string `yaml:"check_schema" toml:"check_schema" json:"check_schema"`
+
 	// SitemapPruneCanonical also drops pages whose rendered canonical points at a
 	// different URL from sitemap.xml. Off by default: a canonical that disagrees
 	// with the permalink is usually a theme bug rather than a deliberate
@@ -491,6 +497,22 @@ type Config struct {
 	// generated structured data (e.g. a publisher/Organization block). Per-page
 	// frontmatter schema: overrides it, which overrides the derived data (#61).
 	Schema map[string]interface{} `yaml:"schema" toml:"schema" json:"schema"`
+
+	// SchemaDefaults supplies structured-data defaults per content section, so a
+	// section can carry an @type without every file repeating it (#110).
+	//
+	// Site-wide `schema:` cannot hold @type — it would apply to everything, and
+	// setting SoftwareApplication for the home page would stop every post being a
+	// BlogPosting. That left @type to be written into each file: a hundred
+	// recipes meant a hundred copies and a hundred chances to mistype one.
+	//
+	// Keys match the page's content-relative directory by prefix, longest match
+	// first — the same rule as link_rewrites — plus the reserved key "home" for
+	// the site root. Precedence runs: schema < derived < schema_defaults < page
+	// frontmatter. Section defaults sit above the derived data deliberately:
+	// overriding the derived @type is the whole point, and a page's own schema
+	// still wins over its section.
+	SchemaDefaults map[string]map[string]interface{} `yaml:"schema_defaults" toml:"schema_defaults" json:"schema_defaults"`
 
 	// Worker wires a single Cloudflare Pages Functions directory (or a prebuilt
 	// _worker.js) into the build output and generates _routes.json, so

@@ -535,6 +535,7 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
+| [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, git write-back |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |

@@ -206,12 +206,14 @@ type Config struct {
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
-	Schema map[string]interface{}
+	Schema         map[string]interface{}
+	SchemaDefaults map[string]map[string]interface{} // per-section structured-data defaults (#110)
 	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
 	CheckLinks   string
 	CheckImages  string
 	CheckMeta    string
+	CheckSchema  string // validate emitted JSON-LD: "" | warn | strict (#111)
 	CheckOrphans string
 	// CheckRedirects reports links the host would redirect; PrettyURLs models that
 	// host behaviour (#87).
@@ -854,6 +856,9 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkMetaIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkSchemaIfRequested(); err != nil {
 		return err
 	}
 	if err := g.checkOrphansIfRequested(); err != nil {
@@ -3214,7 +3219,33 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		ExternalDataMeta: g.externalMeta,
 		Pager:            pager,
 	}
-	return g.renderTemplate(indexHTMLName, outPath, data)
+	// Render with a page context so the SEO block applies (#109). Without one,
+	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
+	// hreflang for the home page entirely — the page a crawler reaches first,
+	// and the only sensible home for site-level structured data. It also left
+	// derivedLD's WebSite branch unreachable, since the sole page that selects
+	// it never arrived. Feed autodiscovery had the same shape and was fixed for
+	// feeds alone in #86.
+	return g.renderPageTemplate(indexHTMLName, outPath, data, g.indexPageContext(outPath), false)
+}
+
+// indexPageContext synthesises the page record the home page never had.
+//
+// Link carries the index's own URL rather than always "/", so a paginated
+// /page/2/ declares itself and is not canonicalised onto the first page.
+func (g *Generator) indexPageContext(outPath string) *models.Page {
+	rel, err := filepath.Rel(g.config.OutputDir, outPath)
+	if err != nil {
+		rel = indexHTMLName
+	}
+	link := "/" + filepath.ToSlash(filepath.Dir(rel)) + "/"
+	if link == "/./" {
+		link = "/"
+	}
+	// The domain is the only site-level name SSG holds — metadata.json's title
+	// is not read into SiteData. A site wanting a better one sets `name` in the
+	// home entry of schema_defaults, which outranks this.
+	return &models.Page{Title: g.config.Domain, Type: "page", Link: link}
 }
 
 // getOutputPaths returns one or more output file paths based on PageFormat config.
