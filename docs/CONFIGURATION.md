@@ -713,6 +713,7 @@ implemented.
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
+| `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
@@ -743,6 +744,52 @@ frontmatter `description:`.
 
 The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
 selects warning mode; strict mode fails the build.
+
+### Structured data per section
+
+`schema:` in frontmatter is arbitrary JSON-LD, so any schema.org type works
+without SSG knowing it — `Recipe`, `Product`, `Event`, `Car`, nested objects and
+all:
+
+```yaml
+schema:
+  "@type": Recipe
+  cookTime: PT20M
+  recipeIngredient: ["500 g flour", "400 g potatoes"]
+  nutrition: { "@type": NutritionInformation, calories: "320 kcal" }
+```
+
+What site-wide `schema:` cannot carry is `@type`: it applies to every page, so
+setting `SoftwareApplication` for the home page would stop each post being a
+`BlogPosting`. `schema_defaults` fills that gap — defaults keyed by section:
+
+```yaml
+schema:
+  publisher: { "@type": Organization, name: Food }
+
+schema_defaults:
+  home:
+    "@type": WebSite
+    name: "Food — recipes and notes"
+  pages/recipes:
+    "@type": Recipe
+    recipeCuisine: Polish
+```
+
+Keys match the page's directory **relative to the source folder**, by prefix,
+longest match first — the same rule `link_rewrites` uses. `home` is reserved for
+the site root, the only page that can hold a site-level type without claiming it
+for everything else.
+
+Precedence, lowest to highest:
+
+```
+schema:  <  derived (BlogPosting/WebPage/WebSite)  <  schema_defaults  <  page frontmatter
+```
+
+Section defaults sit **above** the derived data deliberately — overriding the
+derived `@type` is what they exist for — while a page's own `schema:` still wins
+over its section.
 
 ### Content contracts (schemas, strict mode, route manifest)
 

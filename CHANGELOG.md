@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🏷️ **`schema_defaults`** (#110) — structured-data defaults per content section,
+  so a section carries its `@type` without every file repeating it. Site-wide
+  `schema:` cannot: it applies to every page, so a home-page
+  `SoftwareApplication` would stop each post being a `BlogPosting`. That left the
+  type to be written into each file — a hundred recipes meant a hundred copies.
+  Keys match the page's directory relative to the source folder by prefix,
+  longest first (the same rule as `link_rewrites`), with `home` reserved for the
+  site root. Precedence: `schema:` < derived < `schema_defaults` < frontmatter —
+  section defaults outrank the derived type because overriding it is the point,
+  while a page's own `schema:` still wins over its section.
+
+### Changed
+- 🧭 **The guide sidebar follows the reading path** — it listed pages in
+  `.Site.Pages` order, which is by title, so "SSG Installation Guide" landed in
+  the middle. Order now comes from `variables.docs_nav_order`; a guide missing
+  from that list still appears, after the ordered ones, so a new file is never
+  hidden by forgetting to add it.
+
 ### Documentation
 - 🖼️ **Themes get a gallery** — `docs/TEMPLATES.md` is split into the themes you
   can use as they are and how to write one. The four bundled themes are cards

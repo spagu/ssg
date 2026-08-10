@@ -93,6 +93,19 @@ feed_full_content: false  # true = full rendered content, false = summary/excerp
 seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
                      # non-destructive — only fills pages that lack their own tags).
                      # Legacy seo_off / --seo-off are still accepted as no-ops.
+
+# Site-wide JSON-LD merged into every page (a publisher, for example).
+# schema:
+#   publisher: { "@type": Organization, name: Example }
+#
+# JSON-LD defaults per content section. Site-wide schema: cannot carry an @type —
+# it would apply to every page, so a home-page type would stop each post being a
+# BlogPosting. Keys match the page's directory relative to the source folder,
+# longest prefix first (the same rule as link_rewrites); "home" is reserved for
+# the site root. Precedence: schema < derived < schema_defaults < frontmatter.
+# schema_defaults:
+#   home:          { "@type": WebSite }
+#   pages/recipes: { "@type": Recipe, recipeCuisine: Polish }
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
 
 # Validation over the generated HTML. Same shape as check_links; strict: true

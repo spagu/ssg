@@ -230,6 +230,25 @@ variables:
 
   # Header navigation: a fixed, hand-picked set. The footer carries the full
   # guide directory, so this stays short whatever docs/ grows into.
+  # Sidebar order on every guide: the path a reader actually takes, rather than
+  # the alphabetical order .Site.Pages arrives in. A guide missing from this list
+  # still appears, after the ordered ones.
+  docs_nav_order:
+    - install          # first thing anyone does
+    - content          # then write something
+    - configuration    # then tune it
+    - templates        # then change how it looks
+    - template_helpers
+    - styles
+    - images
+    - taxonomies
+    - external_sources
+    - i18n
+    - workers
+    - mcp
+    - deployment       # then ship it
+    - upgrading        # and keep it current
+
   nav:
     - label: Docs
       url: /#documentation

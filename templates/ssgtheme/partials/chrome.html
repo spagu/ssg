@@ -340,9 +340,27 @@
 {{define "sc-docs-nav"}}
 <nav class="docs-nav" aria-label="Guides">
     <p class="docs-nav__title">Guides</p>
+    {{/* Order comes from variables.docs_nav_order, a list of slugs. .Site.Pages
+         is sorted by title, which put "SSG Installation Guide" in the middle of
+         the list — alphabetical order is not the order anyone reads docs in.
+         Anything not listed still appears, after the ordered ones, so a new
+         guide is never hidden by forgetting to add it here. */}}
+    {{ $current := .Page.Slug }}
+    {{/* slice with no arguments, not nil: notIn needs a collection, and a site
+         that never sets docs_nav_order must still get the full list. */}}
+    {{ $order := slice }}
+    {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
     <ul class="docs-nav__list">
-        {{ $current := .Page.Slug }}
-        {{ range .Site.Pages }}{{ if not .Extra.hide_from_lists }}
+        {{ range $slug := $order }}
+            {{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+        <li>
+            <a href="{{ .GetURL }}"
+               class="docs-nav__link{{ if eq .Slug $current }} is-current{{ end }}"
+               {{ if eq .Slug $current }}aria-current="page"{{ end }}>{{ .Title }}</a>
+        </li>
+            {{ end }}{{ end }}
+        {{ end }}
+        {{ range .Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $order) }}
         <li>
             <a href="{{ .GetURL }}"
                class="docs-nav__link{{ if eq .Slug $current }} is-current{{ end }}"
