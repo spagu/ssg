@@ -102,7 +102,7 @@
                 integration test.
             </p>
             <ul class="cards">
-                {{ range .Site.Pages }}{{ if not .Extra.hide_from_lists }}
+                {{ range first .HomePagesLimit .Site.Pages }}{{ if not .Extra.hide_from_lists }}
                 <li>
                     <a class="card" href="{{ .GetURL }}">
                         <h3>{{ .Title }}</h3>
@@ -112,6 +112,9 @@
                 </li>
                 {{ end }}{{ end }}
             </ul>
+            {{ if gt (len .Site.Pages) .HomePagesLimit }}
+            <p class="section-more">{{ len .Site.Pages }} guides in total — the full directory is in the footer below.</p>
+            {{ end }}
         </section>
 
         {{ if .Posts }}
@@ -119,7 +122,7 @@
             <p class="eyebrow">Updates</p>
             <h2 class="section-title">Latest posts</h2>
             <ul class="cards">
-                {{ range .Posts }}
+                {{ range first .HomePostsLimit .Posts }}
                 <li>
                     <a class="card" href="{{ .GetURL }}">
                         <h3>{{ .Title }}</h3>
@@ -131,6 +134,9 @@
                 </li>
                 {{ end }}
             </ul>
+            {{ if gt (len .Posts) .HomePostsLimit }}
+            <p class="section-more"><a class="btn btn--secondary" href="/blog/">All {{ len .Posts }} posts →</a></p>
+            {{ end }}
             {{ if gt .Pager.Total 1 }}
             <nav class="pager" aria-label="Pagination">
                 {{ if .Pager.PrevURL }}<a class="btn btn--secondary" href="{{ .Pager.PrevURL }}">← Newer</a>{{ end }}

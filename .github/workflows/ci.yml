@@ -144,7 +144,7 @@ jobs:
           cache: true
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0 # pinned (OPS-013)
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0 # NOSONAR S8545: pinned to an exact, reproducible version (OPS-013)
 
       - name: Run govulncheck
         run: govulncheck ./...

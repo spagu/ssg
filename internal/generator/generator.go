@@ -94,23 +94,24 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// New options
-	SitemapOff        bool        // Disable sitemap generation
-	RobotsOff         bool        // Disable robots.txt generation
-	NotFoundOff       bool        // Disable the generated 404.html (#102)
-	Deploy            string      // Deploy provider name, so redirect rules a host will drop can be reported (#102)
-	PrettyHTML        bool        // Prettify HTML output (remove extra blank lines)
-	PostURLFormat     string      // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
-	PageFormat        string      // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
-	RelativeLinks     bool        // Convert absolute URLs to relative links
-	Shortcodes        []Shortcode // Shortcodes definitions
-	ShortcodeBrackets bool        // Also match [shortcode] syntax
-	MinifyHTML        bool        // Minify HTML output
-	MinifyCSS         bool        // Minify CSS output
-	MinifyJS          bool        // Minify JS output
-	SourceMap         bool        // Emit v3 source maps for minified JS/CSS (BLOG-007/GO-004)
-	Clean             bool        // Clean output directory before build
-	Quiet             bool        // Suppress stdout output
-	Engine            string      // Template engine: go, pongo2, mustache, handlebars
+	SitemapOff        bool         // Disable sitemap generation
+	RobotsOff         bool         // Disable robots.txt generation
+	RobotsRules       []RobotsRule // custom per-crawler robots.txt directives (GO-089)
+	NotFoundOff       bool         // Disable the generated 404.html (#102)
+	Deploy            string       // Deploy provider name, so redirect rules a host will drop can be reported (#102)
+	PrettyHTML        bool         // Prettify HTML output (remove extra blank lines)
+	PostURLFormat     string       // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
+	PageFormat        string       // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
+	RelativeLinks     bool         // Convert absolute URLs to relative links
+	Shortcodes        []Shortcode  // Shortcodes definitions
+	ShortcodeBrackets bool         // Also match [shortcode] syntax
+	MinifyHTML        bool         // Minify HTML output
+	MinifyCSS         bool         // Minify CSS output
+	MinifyJS          bool         // Minify JS output
+	SourceMap         bool         // Emit v3 source maps for minified JS/CSS (BLOG-007/GO-004)
+	Clean             bool         // Clean output directory before build
+	Quiet             bool         // Suppress stdout output
+	Engine            string       // Template engine: go, pongo2, mustache, handlebars
 	// MDDB content source
 	Mddb MddbConfig // MDDB configuration
 
@@ -129,6 +130,20 @@ type Config struct {
 	// StripMdLinkText drops ".md" from a link's visible text when that text is a
 	// bare filename, at publish time — source files are untouched (GO-075).
 	StripMdLinkText bool
+	// MarkdownPublish emits index.md next to each page, a text/markdown <head>
+	// alternate, and a root llms.txt index — Markdown for agents (GO-085).
+	MarkdownPublish bool
+	// CleanSpecialChars normalises AI "smart" punctuation to ASCII across
+	// rendered content; CJK and other scripts are untouched (GO-086).
+	CleanSpecialChars bool
+	// OutputEncoding / OutputEncodingSections select the text-output encoding
+	// ("utf-8", "utf-16le", "utf-16be"), globally and per content section (GO-087).
+	OutputEncoding         string
+	OutputEncodingSections map[string]string
+	// HomePagesLimit / HomePostsLimit cap home-page cards; 0 = theme default,
+	// negative = no limit (GO-088).
+	HomePagesLimit int
+	HomePostsLimit int
 
 	// PreserveSlugCase keeps original casing in slugs derived from filenames.
 	// Default (false): slugs lowercased. When true: original case preserved.
@@ -766,6 +781,10 @@ func (g *Generator) Generate() error {
 
 	if err := g.generateSitemapAndRobots(); err != nil {
 		return err
+	}
+
+	if err := g.generateLLMsTxt(); err != nil {
+		return fmt.Errorf("generating llms.txt: %w", err)
 	}
 
 	if err := g.writeRouteManifest(); err != nil {
@@ -2434,6 +2453,10 @@ func linkifyListItem(line, content string, pageLinks map[string]string) string {
 // convertMarkdownToHTML converts markdown content to HTML using the generator's
 // configured renderer (footnotes/highlighting/heading-IDs per config).
 func (g *Generator) convertMarkdownToHTML(s string) string {
+	// Normalise AI "smart" punctuation to ASCII before anything else, so the
+	// cleanup reaches HTML, feeds and the search index alike (GO-086). CJK and
+	// other scripts are untouched.
+	s = g.cleanSpecialChars(s)
 	// Fenced ```math blocks become $$ display math before conversion, so the
 	// KaTeX injection gate and browser auto-render both see them (GO-055).
 	if g.config.Math {
@@ -3208,6 +3231,8 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		ExternalData     map[string]interface{}
 		ExternalDataMeta map[string]externalsource.Metadata
 		Pager            Pager
+		HomePagesLimit   int
+		HomePostsLimit   int
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -3218,6 +3243,8 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		ExternalData:     g.externalData,
 		ExternalDataMeta: g.externalMeta,
 		Pager:            pager,
+		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
+		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
@@ -3346,6 +3373,7 @@ func (g *Generator) generatePage(page models.Page) error {
 			}
 		}
 		g.writeJSONOutput(page, outputPath)
+		g.writeMarkdownOutput(page, outputPath)
 	}
 
 	g.writeAliasStubs(page)
@@ -3402,6 +3430,7 @@ func (g *Generator) generatePost(post models.Page) error {
 			return err
 		}
 		g.writeJSONOutput(post, outputPath)
+		g.writeMarkdownOutput(post, outputPath)
 	}
 
 	g.writeAliasStubs(post)
@@ -4608,15 +4637,50 @@ func (g *Generator) writeFeedEntry(sb *strings.Builder, p models.Page) {
 }
 
 // generateRobots creates robots.txt
+// RobotsRule is one User-agent block for a custom robots.txt (GO-089).
+type RobotsRule struct {
+	UserAgent  string
+	Allow      []string
+	Disallow   []string
+	CrawlDelay int
+}
+
 func (g *Generator) generateRobots() error {
-	content := fmt.Sprintf(`User-agent: *
-Allow: /
-
-Sitemap: https://%s/sitemap.xml
-`, g.config.Domain)
-
+	content := renderRobots(g.config.RobotsRules, g.config.Domain)
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "robots.txt"), []byte(content), 0644)
+}
+
+// renderRobots builds robots.txt from explicit per-crawler rules, or the
+// historical permissive default when none are configured. The Sitemap line is
+// always appended so search and AI crawlers can discover the index.
+func renderRobots(rules []RobotsRule, domain string) string {
+	var b strings.Builder
+	if len(rules) == 0 {
+		b.WriteString("User-agent: *\nAllow: /\n")
+	} else {
+		for i, r := range rules {
+			ua := strings.TrimSpace(r.UserAgent)
+			if ua == "" {
+				ua = "*"
+			}
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			fmt.Fprintf(&b, "User-agent: %s\n", ua)
+			for _, a := range r.Allow {
+				fmt.Fprintf(&b, "Allow: %s\n", a)
+			}
+			for _, d := range r.Disallow {
+				fmt.Fprintf(&b, "Disallow: %s\n", d)
+			}
+			if r.CrawlDelay > 0 {
+				fmt.Fprintf(&b, "Crawl-delay: %d\n", r.CrawlDelay)
+			}
+		}
+	}
+	fmt.Fprintf(&b, "\nSitemap: %s%s/sitemap.xml\n", httpsScheme, strings.TrimSuffix(domain, "/"))
+	return b.String()
 }
 
 // generateNotFound writes a minimal 404.html when the site does not already

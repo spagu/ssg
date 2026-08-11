@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.25] - 2026-08-11
+
+### Added
+- 🤖 **Markdown for agents** (`markdown_publish`, GO-085) — publishes a clean
+  Markdown copy of every page in both agent-friendly locations (`/page/index.md`
+  and the flat `/page.md`), links it from the page `<head>` as a `text/markdown`
+  alternate, and writes a root `llms.txt` index. SSG is Markdown-native, so the
+  published copy is the authored source, not an HTML round-trip — ideal for
+  language models and agents (including ChatGPT Search) that consume Markdown.
+- 🧹 **`clean_special_chars`** (GO-086) — normalises the "smart" Unicode AI tools
+  emit (curly quotes, en/em dashes, ellipsis, non-breaking and zero-width
+  spaces) to plain ASCII across all rendered content. Targets a fixed Western
+  allowlist only: **Chinese, Japanese, Korean and every other script — and CJK's
+  own full-width punctuation — pass through untouched.** Opt-in.
+- 🔤 **`output_encoding` / `output_encoding_sections`** (GO-087) — choose the
+  text-output encoding (`utf-8` default, `utf-16le`, `utf-16be` with BOM),
+  globally or per content section (longest-prefix, like `schema_defaults`). All
+  encodings are Unicode, so CJK round-trips losslessly.
+- 🗂️ **`home_pages_limit` / `home_posts_limit`** (GO-088) — cap the guide and
+  post cards on the home page (default 6) with a "see all" link, so the landing
+  page stays uncluttered.
+- 🕷️ **`robots_rules`** (GO-089) — explicit per-crawler `robots.txt` directives,
+  so a site can spell out its policy for AI and search crawlers (GPTBot,
+  OAI-SearchBot, Googlebot…). Empty keeps the allow-all default.
+
 ## [1.8.24] - 2026-08-09
 
 ### Added

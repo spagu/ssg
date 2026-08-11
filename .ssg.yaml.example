@@ -386,6 +386,19 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # posts_path: "posts"   # Subdirectory inside source for blog posts  (default: "posts")
 # rewrite_md_links: true       # Rewrite relative .md links to final output URLs (default: on; set false to disable)
 # strip_md_link_text: false    # Drop ".md" from link text that is a bare filename (needs rewrite_md_links; opt-in)
+
+# Markdown for agents / AI search (index.md + page.md + llms.txt + text/markdown <head> alternate)
+# markdown_publish: false      # Publish a Markdown copy of every page for LLMs and agents
+# clean_special_chars: false   # Normalise AI smart punctuation (quotes, dashes, NBSP, zero-width) to ASCII; CJK untouched
+# output_encoding: "utf-8"     # Text-output encoding: utf-8 | utf-16le | utf-16be (BOM added for UTF-16)
+# output_encoding_sections:    # Per-section overrides (longest prefix wins; "home" = root)
+#   legacy: "utf-16le"
+# home_pages_limit: 6          # Cap home-page guide cards (0 = default 6, negative = no limit)
+# home_posts_limit: 6          # Cap home-page post cards before a "see all" link
+# robots_rules:                # Explicit per-crawler robots.txt (empty = allow-all default)
+#   - { user_agent: "*", allow: ["/"] }
+#   - { user_agent: GPTBot, allow: ["/"] }
+#   - { user_agent: OAI-SearchBot, allow: ["/"] }
 # preserve_slug_case: false    # Keep original casing in slugs/URLs (default: lowercase)
 
 # Variables - custom variables available in all templates as {{.Vars.key}}

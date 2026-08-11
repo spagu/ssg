@@ -90,6 +90,24 @@ sitemap_off: false
 robots_off: false
 search_index: true
 
+# Markdown for agents (GO-085): publish index.md + page.md next to every page,
+# a text/markdown <head> alternate, and a root llms.txt. Agents and LLMs that
+# read Markdown (ChatGPT Search among them) get the authored source directly.
+markdown_publish: true
+
+# Explicit crawler policy (GO-089). The AI crawlers are welcomed because the
+# published Markdown/llms.txt above is written precisely for them; Google reads
+# the standard HTML regardless.
+robots_rules:
+  - user_agent: "*"
+    allow: ["/"]
+  - user_agent: GPTBot
+    allow: ["/"]
+  - user_agent: OAI-SearchBot
+    allow: ["/"]
+  - user_agent: Google-Extended
+    allow: ["/"]
+
 # Dogfood the 1.8.14 SEO stack: seo injects the AI-first JSON-LD (BlogPosting /
 # WebPage / WebSite + BreadcrumbList) alongside the theme's own OpenGraph, and
 # schema adds a site-wide publisher to every page's structured data (#61).
