@@ -65,10 +65,19 @@ func main() {
 	}
 
 	if cfg.HTTP {
+		if autoReloadEnabled(cfg) {
+			reloadHub = newLiveReloadHub()
+		}
 		go startServer(cfg)
 	}
 
 	runWatchOrServe(genCfg, cfg)
+}
+
+// autoReloadEnabled reports whether live reload should run: it needs both the
+// server and the watcher, and is on by default unless explicitly disabled.
+func autoReloadEnabled(cfg *config.Config) bool {
+	return cfg.HTTP && cfg.Watch && (cfg.AutoReload == nil || *cfg.AutoReload)
 }
 
 // applyMinifyAll sets all minify flags if minify_all is enabled. config.Load
@@ -310,12 +319,16 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 		fmt.Println("\n🔄 Changes detected! Rebuilding...")
 	}
 	if err := build(genCfg, cfg); err != nil {
+		notifyBuildError(err.Error()) // show the error overlay in connected browsers
 		if !cfg.Quiet {
 			fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
 			fmt.Println("⚠️  Fix the issue and save to retry...")
 		}
-	} else if !cfg.Quiet {
-		fmt.Printf("✅ Rebuilt successfully\n")
+	} else {
+		notifyReload() // refresh connected browsers (no-op unless --auto-reload)
+		if !cfg.Quiet {
+			fmt.Printf("✅ Rebuilt successfully\n")
+		}
 	}
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes...")
@@ -767,6 +780,11 @@ func parseFlags(args []string, cfg *config.Config) {
 // parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
 // on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
+	if arg == "--auto-reload" || arg == "--no-auto-reload" { // *bool: on by default in --watch
+		v := arg == "--auto-reload"
+		cfg.AutoReload = &v
+		return true
+	}
 	if arg == "--wrangler" || arg == "-wrangler" {
 		selectWatchRunner(cfg, "wrangler", "", "")
 		return true

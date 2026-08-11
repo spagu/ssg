@@ -256,6 +256,10 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 				orOpen(cfg.ServerAuth), len(cfg.IPAllowlist), len(cfg.IPBlocklist), cfg.RateLimit)
 		}
 	}
+	// Outermost: the live-reload endpoint bypasses gzip/auth (a dev-only stream),
+	// and HTML injection sees the finished page. A no-op unless --auto-reload
+	// created the hub (GO-090).
+	h = liveReloadMiddleware(h)
 	return h
 }
 

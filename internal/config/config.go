@@ -89,10 +89,15 @@ type Config struct {
 	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
 
 	// Server & Development
-	HTTP        bool   `yaml:"http" toml:"http" json:"http"`
-	Host        string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
-	Port        int    `yaml:"port" toml:"port" json:"port"`
-	Watch       bool   `yaml:"watch" toml:"watch" json:"watch"`
+	HTTP  bool   `yaml:"http" toml:"http" json:"http"`
+	Host  string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
+	Port  int    `yaml:"port" toml:"port" json:"port"`
+	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
+	// AutoReload injects a live-reload client into served HTML so the browser
+	// refreshes itself after each successful rebuild. On by default in
+	// --http --watch; --no-auto-reload (or auto_reload: false) opts out. Pointer
+	// so unset ⇒ on (GO-090).
+	AutoReload  *bool  `yaml:"auto_reload" toml:"auto_reload" json:"auto_reload"`
 	WatchRunner string `yaml:"watch_runner" toml:"watch_runner" json:"watch_runner"`
 	// WatchRunnerConfig points the watch runner at a config file living outside
 	// the project root (e.g. a wrangler.toml kept in deploy/ instead of .ssg/).

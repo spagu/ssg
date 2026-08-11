@@ -901,6 +901,15 @@ a:hover {
   font-size: var(--font-size-sm);
 }
 
+/* "See all" line under a card grid. A generous top margin keeps the button
+ * clearly separated from the clickable cards above, so adjacent targets never
+ * crowd each other (WCAG 2.2 §2.5.8 Target Size). */
+.section-more {
+  margin-block-start: var(--space-8);
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-secondary);
+}
+
 /* The hero lead carries the sentence that used to be the H1, so it needs more
    weight than body copy without competing with the heading above it. */
 .hero-lead {
