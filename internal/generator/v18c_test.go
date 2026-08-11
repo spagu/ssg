@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,8 +61,9 @@ func TestEnginePipeline(t *testing.T) {
 	}
 	_ = os.MkdirAll(g.config.OutputDir, 0755)
 	out := filepath.Join(g.config.OutputDir, "index.html")
-	// Content is raw markdown template.HTML → prepAltData pre-renders it.
-	data := map[string]interface{}{"Title": "Hello", "Content": template.HTML("# Heading")}
+	// contentContextValue renders root .Content upstream (#118); prepAltData then
+	// hands the rendered HTML to the alt engine as a string.
+	data := map[string]interface{}{"Title": "Hello", "Content": g.contentContextValue("# Heading")}
 	if err := g.renderTemplate("post.html", out, data); err != nil {
 		t.Fatalf("renderTemplate: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestEnginePipeline(t *testing.T) {
 		t.Errorf("engine render missing title: %s", got)
 	}
 	if !strings.Contains(string(got), "Heading</h1>") {
-		t.Errorf("prepAltData did not pre-render markdown Content: %s", got)
+		t.Errorf("alt-engine Content not rendered to HTML: %s", got)
 	}
 	// Missing template → error (fallback signal).
 	if err := g.renderTemplate("nope.html", out, data); err == nil {

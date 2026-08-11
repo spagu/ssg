@@ -394,6 +394,10 @@ type Generator struct {
 	mdCache       map[string]string
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
+	// renderContentFn is the safeHTML pipeline captured for reuse: it renders raw
+	// page Markdown to final HTML so root .Content is rendered, not raw (#118).
+	// Set by buildTemplateFuncs, which owns the pageLinks/mdLinkMap it needs.
+	renderContentFn func(string) template.HTML
 
 	// mdMu guards mdCache/mdConversions; renderMu guards the other render-time
 	// caches (mdLinkWarned, shortcodeTmpls, bracketRes, shortcodeFailures). Both
@@ -1995,23 +1999,25 @@ func (g *Generator) prepAltData(data interface{}) interface{} {
 	}
 	out := make(map[string]interface{}, len(m))
 	for k, v := range m {
-		if hv, isHTML := v.(template.HTML); isHTML {
-			if k == "Content" {
-				// Sanitize like the Go-engine path does, so --sanitize-html
-				// holds for pongo2/mustache/handlebars too (SEC-014).
-				out[k] = g.sanitizeHTML(g.convertMarkdownToHTML(string(hv)))
-			} else {
-				out[k] = string(hv)
+		// Root .Content is already rendered upstream (#118); sanitize it
+		// defensively (idempotent, no re-conversion) so --sanitize-html still
+		// holds for pongo2/mustache/handlebars, whichever form it arrives in.
+		if k == "Content" {
+			switch cv := v.(type) {
+			case template.HTML:
+				out[k] = g.sanitizeHTML(string(cv))
+			case string:
+				out[k] = g.sanitizeHTML(cv)
+			default:
+				out[k] = v
 			}
 			continue
 		}
-		// With the sanitizer on, Content is passed as a plain string (SEC-014);
-		// alt engines still need it pre-rendered to HTML.
-		if k == "Content" {
-			if sv, isStr := v.(string); isStr {
-				out[k] = g.sanitizeHTML(g.convertMarkdownToHTML(sv))
-				continue
-			}
+		// Other template.HTML values become plain strings for the alt engine,
+		// which has no safeHTML function.
+		if hv, isHTML := v.(template.HTML); isHTML {
+			out[k] = string(hv)
+			continue
 		}
 		out[k] = v
 	}
@@ -2207,8 +2213,11 @@ func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[strin
 // buildTemplateFuncs creates the template function map
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
+	// One render pipeline, reused for the safeHTML helper AND for pre-rendering
+	// root .Content (#118), so both paths agree byte-for-byte.
+	g.renderContentFn = g.tmplSafeHTML(pageLinks, mdLinkMap)
 	funcs := template.FuncMap{
-		"safeHTML": g.tmplSafeHTML(pageLinks, mdLinkMap),
+		"safeHTML": g.safeHTMLValue,
 		// raw emits a string as HTML with no processing at all — the plain
 		// template.HTML cast. safeHTML is NOT that: in a page template it renders
 		// Markdown, which is right for .Content and wrong for markup coming from
@@ -2390,6 +2399,28 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 			}
 		}
 		return template.HTML(s) // #nosec G203 -- rendered markdown (optionally sanitized, FE-005)
+	}
+}
+
+// safeHTMLValue is the safeHTML template helper. It renders a raw-Markdown
+// string through the content pipeline, and lets an already-rendered
+// template.HTML value pass through untouched — so both
+// {{ .Post.Content | safeHTML }} (a string) and {{ .Content | safeHTML }} (the
+// pre-rendered root value) work instead of the second raising a type error (#118).
+func (g *Generator) safeHTMLValue(v interface{}) template.HTML {
+	switch s := v.(type) {
+	case template.HTML:
+		return s // already rendered — pass through
+	case string:
+		if g.renderContentFn != nil {
+			return g.renderContentFn(s)
+		}
+		return template.HTML(s) // #nosec G203 -- before funcs are wired; SSG renders user markdown
+	case fmt.Stringer:
+		return g.safeHTMLValue(s.String())
+	default:
+		// Unknown types are escaped rather than trusted as markup.
+		return template.HTML(template.HTMLEscapeString(fmt.Sprint(v))) // #nosec G203 -- escaped
 	}
 }
 
@@ -3767,12 +3798,19 @@ func (g *Generator) renderTemplate(templateName, outputPath string, data interfa
 	return g.renderPageTemplate(templateName, outputPath, data, nil, false)
 }
 
-// contentContextValue returns the template-context value for raw page content.
-// Without the sanitizer it stays a template.HTML for backward compatibility.
-// With --sanitize-html it is a plain string, so a theme printing {{.Content}}
-// directly gets auto-escaped output instead of raw untrusted HTML; the safeHTML
-// pipeline (which sanitizes) is the only road to rendered markup (SEC-014).
+// contentContextValue returns the template-context value for root .Content: the
+// page Markdown rendered to final HTML through the same pipeline as safeHTML, so
+// a theme printing {{ .Content }} gets rendered output rather than raw Markdown
+// (#118). The pipeline sanitizes when --sanitize-html is on, so the rendered
+// value is safe to mark as HTML (SEC-014). Before the funcs are wired (or in a
+// bare Generator) it falls back to the raw cast.
 func (g *Generator) contentContextValue(content string) interface{} {
+	if g.renderContentFn != nil {
+		return g.renderContentFn(content) // rendered (and sanitized when enabled)
+	}
+	// Fallback before the funcs are wired (bare Generator): with the sanitizer
+	// on, hand back a plain string so a theme printing {{ .Content }} auto-escapes
+	// raw untrusted HTML rather than trusting it (SEC-014).
 	if g.sanitizer != nil {
 		return content
 	}

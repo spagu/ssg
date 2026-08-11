@@ -64,6 +64,13 @@ parts:
     source-type: local
     build-snaps:
       - go/latest/stable
+    # Bundle cwebp so `webp: true` works under strict confinement, where
+    # exec.LookPath only sees the snap's own rootfs — the host's /usr/bin/cwebp
+    # is invisible. `webp` puts cwebp in $SNAP/usr/bin, which is on the app PATH
+    # (#114). avifenc (libavif-bin) does the same for AVIF output.
+    stage-packages:
+      - webp
+      - libavif-bin
     build-environment:
       - GOTOOLCHAIN: auto
     override-build: |

@@ -17,25 +17,49 @@ import (
 
 // markdownAlternateTag is the discovery link injected into a page <head>; a
 // relative href resolves against the page directory (…/ → …/index.md).
-const markdownAlternateTag = `<link rel="alternate" type="text/markdown" href="index.md">`
+// markdownLeaf returns the Markdown filename a page's HTML links to, relative to
+// the page itself: "index.md" for a directory URL (…/) or "<slug>.md" for a flat
+// URL (…/slug.html, e.g. a WordPress export carrying link: /slug.html). Empty
+// when the URL has no publishable shape, so the alternate link and llms.txt
+// entry are both suppressed rather than pointing at a file that was never
+// written (#116).
+func markdownLeaf(u string) string {
+	switch {
+	case u == "":
+		return ""
+	case strings.HasSuffix(u, "/"):
+		return "index.md"
+	case strings.HasSuffix(u, ".html"):
+		base := u[strings.LastIndex(u, "/")+1:]
+		return strings.TrimSuffix(base, ".html") + ".md"
+	default:
+		return ""
+	}
+}
 
 // writeMarkdownOutput writes a page's Markdown copy when markdown_publish is
-// enabled, in both agent-friendly locations: /section/index.md (mirrors
-// index.html) and the flat sibling /section.md (for agents that append ".md" to
-// a clean URL). The site root has no slug, so it gets only index.md. Content is
-// re-encoded to the page's resolved output encoding. Mirrors writeJSONOutput.
+// enabled. Directory pages get /section/index.md plus the flat sibling
+// /section.md; a flat page (/slug.html) gets /slug.md. The site root has no
+// slug, so it gets only index.md. Content is re-encoded to the page's resolved
+// output encoding. Mirrors writeJSONOutput.
 func (g *Generator) writeMarkdownOutput(page models.Page, htmlPath string) {
-	if !g.config.MarkdownPublish || !strings.HasSuffix(htmlPath, indexHTMLName) {
+	if !g.config.MarkdownPublish || !strings.HasSuffix(strings.ToLower(htmlPath), ".html") {
 		return
 	}
 	data := encodeText(g.pageMarkdown(page), g.encodingFor(&page))
-	dir := filepath.Dir(htmlPath)
-	// #nosec G306 -- Web content files need to be world-readable
-	_ = os.WriteFile(filepath.Join(dir, "index.md"), data, 0644)
-	if filepath.Clean(dir) != filepath.Clean(g.config.OutputDir) {
+	if strings.HasSuffix(htmlPath, indexHTMLName) {
+		dir := filepath.Dir(htmlPath)
 		// #nosec G306 -- Web content files need to be world-readable
-		_ = os.WriteFile(dir+".md", data, 0644)
+		_ = os.WriteFile(filepath.Join(dir, "index.md"), data, 0644)
+		if filepath.Clean(dir) != filepath.Clean(g.config.OutputDir) {
+			// #nosec G306 -- Web content files need to be world-readable
+			_ = os.WriteFile(dir+".md", data, 0644)
+		}
+		return
 	}
+	// Flat page: /slug.html → /slug.md.
+	// #nosec G306 -- Web content files need to be world-readable
+	_ = os.WriteFile(strings.TrimSuffix(htmlPath, ".html")+".md", data, 0644)
 }
 
 // pageMarkdown returns the clean Markdown document for a page: an H1 title
@@ -64,16 +88,19 @@ func startsWithH1(md string) bool {
 	return false
 }
 
-// injectMarkdownAlternate adds the text/markdown discovery link to a page
-// <head>, unless one is already present.
-func injectMarkdownAlternate(html string) string {
-	if strings.Contains(html, `type="text/markdown"`) {
+// injectMarkdownAlternate adds the text/markdown discovery link (pointing at
+// href, relative to the page) to a page <head>, unless one is already present.
+// An empty href is a no-op, so a page with no Markdown copy never advertises a
+// missing one (#116).
+func injectMarkdownAlternate(html, href string) string {
+	if href == "" || strings.Contains(html, `type="text/markdown"`) {
 		return html
 	}
+	tag := `<link rel="alternate" type="text/markdown" href="` + href + `">`
 	if i := strings.LastIndex(html, "</head>"); i >= 0 {
-		return html[:i] + markdownAlternateTag + "\n" + html[i:]
+		return html[:i] + tag + "\n" + html[i:]
 	}
-	return markdownAlternateTag + "\n" + html
+	return tag + "\n" + html
 }
 
 // generateLLMsTxt writes /llms.txt: a plain-text index that points agents at the
@@ -138,12 +165,18 @@ func effectiveHomeLimit(cfg, total int) int {
 	}
 }
 
-// markdownURLFor returns the absolute URL of a page's Markdown copy, or "" for
-// pages that are not published as directory-style index.html (no index.md).
+// markdownURLFor returns the absolute URL of a page's Markdown copy: the
+// directory form (…/index.md) or the flat form (…/slug.md), matching what
+// writeMarkdownOutput wrote. Empty when the page has no publishable Markdown
+// (#116).
 func markdownURLFor(p models.Page, domain string) string {
 	u := p.GetURL()
-	if u == "" || !strings.HasSuffix(u, "/") {
-		return "" // flat/other formats have no index.md counterpart
+	if markdownLeaf(u) == "" {
+		return ""
 	}
-	return httpsScheme + strings.TrimSuffix(domain, "/") + u + "index.md"
+	base := httpsScheme + strings.TrimSuffix(domain, "/")
+	if strings.HasSuffix(u, "/") {
+		return base + u + "index.md"
+	}
+	return base + strings.TrimSuffix(u, ".html") + ".md" // flat: /slug.html → /slug.md
 }

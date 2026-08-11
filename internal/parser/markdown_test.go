@@ -8,6 +8,42 @@ import (
 	"testing"
 )
 
+// TestFrontmatterExcerpt covers #115: a frontmatter `excerpt:` reaches
+// page.Excerpt when there is no "## Excerpt" section, and the section still wins
+// when both are present.
+func TestFrontmatterExcerpt(t *testing.T) {
+	dir := t.TempDir()
+
+	// Frontmatter excerpt, no ## Excerpt section → frontmatter value is used.
+	fmOnly := filepath.Join(dir, "fm.md")
+	if err := os.WriteFile(fmOnly, []byte("---\ntitle: T\nstatus: publish\nexcerpt: \"From frontmatter.\"\n---\n\nBody text.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := ParseMarkdownFile(fmOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Excerpt != "From frontmatter." {
+		t.Fatalf("frontmatter excerpt not used: %q", p.Excerpt)
+	}
+	if _, dup := p.Extra["excerpt"]; dup {
+		t.Errorf("excerpt should not also leak into Extra")
+	}
+
+	// A "## Excerpt" section wins over frontmatter.
+	both := filepath.Join(dir, "both.md")
+	if err := os.WriteFile(both, []byte("---\ntitle: T\nstatus: publish\nexcerpt: \"From frontmatter.\"\n---\n\n## Excerpt\n\nFrom the section.\n\n## Content\n\nBody.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	p2, err := ParseMarkdownFile(both)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2.Excerpt != "From the section." {
+		t.Fatalf("section excerpt should win: %q", p2.Excerpt)
+	}
+}
+
 func TestParseMarkdownFile(t *testing.T) {
 	// Create temp test file
 	tmpDir := t.TempDir()
