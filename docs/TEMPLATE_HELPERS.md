@@ -173,6 +173,16 @@ Signature `sort(field, direction, collection)`; direction is `asc` or `desc`.
 Stable, non-mutating (returns a sorted copy). Field must exist on every element
 and hold a comparable type.
 
+The collection must be a slice or a **string-keyed** map. The site's own
+taxonomy maps are **int-keyed** (`.Site.Categories` and `.Site.Tags` are
+`map[int]Category`), so `{{ .Site.Categories | sort "Name" "asc" }}` fails with
+*"expected a slice or array, got map"*. Iterate those through the taxonomy
+helpers instead, which return an already-ordered slice of terms:
+
+```gotemplate
+{{ range taxonomyTerms "category" }}{{ .Name }} ({{ .Count }}){{ end }}
+```
+
 ### `first` / `last` / `limit` / `offset` — pagination
 
 ```gotemplate

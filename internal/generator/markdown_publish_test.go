@@ -130,13 +130,38 @@ func TestStartsWithH1(t *testing.T) {
 }
 
 func TestInjectMarkdownAlternate(t *testing.T) {
-	out := injectMarkdownAlternate(`<head><title>x</title></head><body></body>`)
+	out := injectMarkdownAlternate(`<head><title>x</title></head><body></body>`, "index.md")
 	if !strings.Contains(out, `<link rel="alternate" type="text/markdown" href="index.md">`) {
 		t.Fatalf("alternate not injected: %s", out)
 	}
 	// Idempotent.
-	if injectMarkdownAlternate(out) != out {
+	if injectMarkdownAlternate(out, "index.md") != out {
 		t.Fatal("second injection should be a no-op")
+	}
+	// A flat page links to its own <slug>.md.
+	flat := injectMarkdownAlternate(`<head></head>`, "recipe.md")
+	if !strings.Contains(flat, `href="recipe.md"`) {
+		t.Fatalf("flat href wrong: %s", flat)
+	}
+	// Empty href suppresses the link entirely (#116).
+	if got := injectMarkdownAlternate(`<head></head>`, ""); strings.Contains(got, "text/markdown") {
+		t.Fatalf("empty href must inject nothing: %s", got)
+	}
+}
+
+func TestMarkdownLeaf(t *testing.T) {
+	cases := map[string]string{
+		"/configuration/":   "index.md",
+		"/":                 "index.md",
+		"/recipe-name.html": "recipe-name.md",
+		"/a/b/post.html":    "post.md",
+		"":                  "",
+		"/weird":            "",
+	}
+	for u, want := range cases {
+		if got := markdownLeaf(u); got != want {
+			t.Errorf("markdownLeaf(%q) = %q, want %q", u, got, want)
+		}
 	}
 }
 
@@ -196,9 +221,50 @@ func TestMarkdownURLFor(t *testing.T) {
 	if got := markdownURLFor(p, "example.com"); got != "https://example.com/configuration/index.md" {
 		t.Fatalf("md url = %q", got)
 	}
-	// A non-directory URL (flat page) has no index.md counterpart.
-	flat := models.Page{Link: "/configuration.html"}
-	if got := markdownURLFor(flat, "example.com"); got != "" {
-		t.Fatalf("flat page should have no md url, got %q", got)
+	// A flat WordPress-style URL maps to /slug.md (#116).
+	flat := models.Page{Link: "/recipe-name.html"}
+	if got := markdownURLFor(flat, "example.com"); got != "https://example.com/recipe-name.md" {
+		t.Fatalf("flat page md url = %q, want …/recipe-name.md", got)
+	}
+}
+
+// TestMarkdownPublish_FlatURLPost is the #116 regression: a post with a flat
+// link publishes /slug.md, links it from <head>, and appears in llms.txt — and
+// crucially the alternate points at a file that exists (no self-broken link).
+func TestMarkdownPublish_FlatURLPost(t *testing.T) {
+	tmp := t.TempDir()
+	postsDir := filepath.Join(tmp, "content", "site", "posts", "news")
+	mustWrite(t, filepath.Join(postsDir, "cake.md"),
+		"---\ntitle: Lemon Cake\nslug: cake\nlink: \"/lemon-cake.html\"\nstatus: publish\ntype: post\ndate: 2024-01-01\n---\n\nA moist lemon cake.\n")
+	writeTaxonomyMeta(t, tmp)
+	writeTaxonomyTemplates(t, filepath.Join(tmp, "templates", "simple"))
+	cfg := taxonomyTestConfig(tmp)
+	cfg.Domain = "example.com"
+	cfg.MarkdownPublish = true
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	out := filepath.Join(tmp, "output")
+	// The flat Markdown twin exists.
+	md := mustRead(t, filepath.Join(out, "lemon-cake.md"))
+	if !strings.Contains(md, "# Lemon Cake") {
+		t.Fatalf("flat .md missing/thin:\n%s", md)
+	}
+	// The HTML advertises the flat .md, not a bogus index.md.
+	html := mustRead(t, filepath.Join(out, "lemon-cake.html"))
+	if !strings.Contains(html, `href="lemon-cake.md"`) {
+		t.Fatalf("alternate should point at lemon-cake.md:\n%s", html)
+	}
+	if strings.Contains(html, `href="index.md"`) {
+		t.Fatal("flat page must not ship the broken index.md alternate (#116)")
+	}
+	// llms.txt lists the flat post.
+	llms := mustRead(t, filepath.Join(out, "llms.txt"))
+	if !strings.Contains(llms, "https://example.com/lemon-cake.md") {
+		t.Fatalf("llms.txt missing the flat post:\n%s", llms)
 	}
 }

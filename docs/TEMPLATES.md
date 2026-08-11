@@ -299,7 +299,7 @@ at build time — never silently ignored.
 | Image (`imageResize`, `imageSrcSet`, `imageInfo`, …) | ✅ | ✅ | ✅ | ❌ |
 | External sources (`getExternal`, `getExternalMeta`) | ✅ | ✅ | ✅ | ❌ |
 | i18n (`t`) | ✅ | ✅ | ✅ | ❌ |
-| Collection (`where`, `filter`, `sortBy`, `groupBy`, `pluck`, …) | ✅ | ⚠️² | ⚠️² | ❌ |
+| Collection (`where`, `filter`, `sort`, `groupBy`, `pluck`, …) | ✅ | ⚠️² | ⚠️² | ❌ |
 
 ¹ Helpers returning HTML are marked safe automatically; pipe through pongo2's
 own `|safe` only if you compose further. ² Helpers with more than two arguments

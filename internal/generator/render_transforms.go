@@ -166,7 +166,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 		// pages get an index.md; the synthetic home/listing context carries no
 		// Content, so it is skipped and never advertises a missing .md.
 		if g.config.MarkdownPublish && page.Content != "" {
-			s = injectMarkdownAlternate(s)
+			s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 		}
 	}
 	// Feed autodiscovery is injected for every page, not only those with a page

@@ -94,6 +94,16 @@ func TestDeriveExcerpt(t *testing.T) {
 			"See the configuration guide for --flag and bold.",
 		},
 		{"nothing to derive", "```\ncode only\n```\n", ""},
+		{
+			"raw HTML block (WordPress) yields text (#115)",
+			`<p class="wp-block-paragraph">Give this buttery lemon cake a go.</p> <!--more--> <figure><img src="x.jpg"></figure>`,
+			"Give this buttery lemon cake a go.",
+		},
+		{
+			"HTML entities are unescaped (#115)",
+			`<p>Salt &amp; pepper, at 180&#176;C.</p>`,
+			"Salt & pepper, at 180°C.",
+		},
 	}
 
 	for _, tc := range tests {

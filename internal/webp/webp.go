@@ -51,7 +51,10 @@ type ConvertOptions struct {
 func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedBytes int64, err error) {
 	// Check if cwebp is available
 	if _, err := exec.LookPath("cwebp"); err != nil {
-		return 0, 0, fmt.Errorf("cwebp tool not found: please install 'webp' package")
+		return 0, 0, fmt.Errorf("cwebp tool not found: install the 'webp' package " +
+			"(Debian/Ubuntu: apt install webp; macOS: brew install webp). " +
+			"On the SSG snap, cwebp is bundled from 1.8.26 — refresh the snap; " +
+			"a snap older than that cannot see the host's cwebp under strict confinement")
 	}
 
 	if opts.Quality <= 0 || opts.Quality > 100 {

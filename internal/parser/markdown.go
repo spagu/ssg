@@ -4,6 +4,7 @@ package parser
 import (
 	"bufio"
 	"fmt"
+	stdhtml "html"
 	"os"
 	"regexp"
 	"strconv"
@@ -204,6 +205,15 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 
 	page := pf.ToPage()
 	page.Excerpt = strings.TrimSpace(p.excerpt.String())
+	// A frontmatter `excerpt:` fills the summary when no "## Excerpt" section
+	// did — the section wins, then frontmatter, then auto_excerpt. WordPress
+	// exporters write the excerpt as frontmatter, and without this it silently
+	// vanished into Extra, leaving empty meta descriptions and feed summaries (#115).
+	if page.Excerpt == "" {
+		if ex, ok := allFields["excerpt"].(string); ok {
+			page.Excerpt = strings.TrimSpace(ex)
+		}
+	}
 	page.Content = strings.TrimSpace(p.content.String())
 
 	// A file with no frontmatter has no status and would be skipped by the
@@ -230,6 +240,7 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 var knownFields = map[string]bool{
 	"id": true, "title": true, "slug": true, "date": true, "modified": true,
 	"status": true, "type": true, "link": true, "author": true, "categories": true,
+	"excerpt":     true,
 	"description": true, "keywords": true, "lang": true, "canonical": true,
 	"translation_key": true,
 	"robots":          true, "featured_image": true, "tags": true, "category": true,
@@ -456,7 +467,33 @@ var inlineMarkdownRe = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)|[*_` + "`" + 
 // "## Excerpt" section keeps its historically empty excerpt otherwise.
 func DeriveExcerpt(content string) string {
 	text := inlineMarkdownRe.ReplaceAllString(strings.Join(firstProseParagraph(content), " "), "$1")
-	return truncateRunes(strings.TrimSpace(text), ExcerptMaxRunes)
+	text = strings.TrimSpace(text)
+	if text == "" && htmlTagRe.MatchString(content) {
+		// The document opens with a raw-HTML block (e.g. a WordPress
+		// `<p class="wp-block-paragraph">…`), which has no Markdown prose line —
+		// firstProseParagraph skips every `<…` line. Fall back to the block's
+		// text with tags and comments stripped, so migrated content still gets a
+		// summary. Guarded on an actual tag so code-only content still yields no
+		// excerpt (#115).
+		text = htmlToText(content)
+	}
+	return truncateRunes(text, ExcerptMaxRunes)
+}
+
+// htmlToText strips HTML comments and tags and unescapes entities, collapsing
+// whitespace to a single line — enough to lift readable text out of a raw-HTML
+// content block for an excerpt.
+var (
+	htmlCommentRe = regexp.MustCompile(`(?s)<!--.*?-->`)
+	htmlTagRe     = regexp.MustCompile(`(?s)<[^>]+>`)
+	whitespaceRe  = regexp.MustCompile(`\s+`)
+)
+
+func htmlToText(content string) string {
+	s := htmlCommentRe.ReplaceAllString(content, " ")
+	s = htmlTagRe.ReplaceAllString(s, " ")
+	s = stdhtml.UnescapeString(s)
+	return strings.TrimSpace(whitespaceRe.ReplaceAllString(s, " "))
 }
 
 // firstProseParagraph collects the lines of the document's first paragraph of

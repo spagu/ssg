@@ -681,9 +681,24 @@ shortcode_errors: strict
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 
 Pagination writes page 1 at the site root and pages 2 onward under `/page/N/`.
-Themes receive `.Pager`. The search index contains title, URL, tags, excerpt,
-plain text and the per-post taxonomies map, intended for a client-side search
-widget.
+Themes receive `.Pager`.
+
+`search-index.json` is a JSON array of document objects, one per published page
+and post, for a client-side search widget. Each object:
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | string | Page title |
+| `url` | string | Final page URL |
+| `lang` | string | Language code (empty on single-language sites) |
+| `locale` | string | BCP-47 locale (empty if unset) |
+| `translation_key` | string | Groups a page's translations (empty if unset) |
+| `tags` | string[] | Tag names |
+| `excerpt` | string | Summary text |
+| `text` | string | Full body as plain text (HTML stripped) |
+| `taxonomies` | object | Present only when the page has custom taxonomies: `{ name: [terms…] }` |
+
+On a multilingual build the array is still flat; filter by `lang` client-side.
 
 ## Taxonomies
 

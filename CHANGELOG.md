@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.26] - 2026-08-11
+
+### Fixed
+- 🔗 **markdown_publish flat URLs** (#116) — posts carrying a flat `link:
+  /slug.html` (typical of a WordPress export) now publish a `/slug.md` twin,
+  appear in `llms.txt`, and get a `<head>` alternate pointing at that file
+  instead of a non-existent `index.md`. No more self-reported "broken link →
+  index.md" warnings; the alternate is suppressed when no Markdown copy exists.
+- ✂️ **frontmatter `excerpt:`** (#115) — a frontmatter `excerpt:` now reaches
+  `page.Excerpt` (section `## Excerpt` still wins, then frontmatter, then
+  `auto_excerpt`), so migrated content stops shipping empty meta descriptions,
+  card summaries and feed summaries. `auto_excerpt` also derives a summary from
+  content that opens with a raw-HTML block (e.g. WordPress `<p class="wp-block…">`).
+- 🖼️ **root `.Content` renders** (#118) — in page/post templates `.Content` is
+  now the rendered HTML, so `{{ .Content }}` no longer ships raw Markdown; and
+  `safeHTML` accepts an already-rendered `template.HTML` value, so both
+  `{{ .Content | safeHTML }}` and `{{ .Post.Content | safeHTML }}` work.
+  Sanitisation (`--sanitize-html`) is preserved.
+- 📦 **snap: WebP under strict confinement** (#114) — the snap now bundles
+  `cwebp` (and `avifenc`) via `stage-packages`, so `webp: true` works without the
+  host's tools, which strict confinement hides. The missing-tool error explains
+  the snap case.
+
+- 🏷️ **GitHub Action `@v1` stale** (#120) — the release workflow now re-points the
+  floating major tag (`v1`) to each release's commit, so `spagu/ssg@v1` always
+  ships the current `action.yml`. Inputs added later (e.g. `config`) are no longer
+  silently dropped for `@v1` users.
+
+### Documentation
+- **Template helpers** (#117) — corrected `sortBy` → `sort` in the engine-support
+  table; documented that `sort` needs a slice or string-keyed map and pointed
+  int-keyed taxonomy maps (`.Site.Categories`) at `taxonomyTerms`; documented the
+  `search-index.json` schema.
+
 ## [1.8.25] - 2026-08-11
 
 ### Added
