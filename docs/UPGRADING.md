@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.25">1.8.25 — 2026-08-11</option>
       <option value="1.8.24">1.8.24 — 2026-08-09</option>
       <option value="1.8.23">1.8.23 — 2026-08-08</option>
       <option value="1.8.22">1.8.22 — 2026-08-08</option>
@@ -158,6 +159,28 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.25">
+
+### 1.8.25 — the dev server reloads the browser itself
+
+`ssg --http --watch` now injects a tiny live-reload client into every served
+page: after a successful rebuild the tab refreshes on its own, and a failed
+build shows an error bar with the message instead of silently serving the stale
+page. Nothing is written to `output/` for this — the script is added only to the
+served HTML, never to the files on disk or to the published `.md` copies.
+
+**Do nothing** — it is a development convenience and production output is
+unchanged. Pass `--no-auto-reload` (or set `auto_reload: false`) if you would
+rather refresh by hand.
+
+The rest of 1.8.25 is opt-in and needs no action: `markdown_publish` (a Markdown
+copy of every page plus `llms.txt`, for AI agents), `clean_special_chars`,
+`output_encoding`, `robots_rules` and the home-page card limits are all off or
+default-compatible until you enable them — see
+[CONFIGURATION.md](CONFIGURATION.md) and [AI-AGENTS.md](AI-AGENTS.md).
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.24">
 

@@ -90,6 +90,24 @@ sitemap_off: false
 robots_off: false
 search_index: true
 
+# Markdown for agents (GO-085): publish index.md + page.md next to every page,
+# a text/markdown <head> alternate, and a root llms.txt. Agents and LLMs that
+# read Markdown (ChatGPT Search among them) get the authored source directly.
+markdown_publish: true
+
+# Explicit crawler policy (GO-089). The AI crawlers are welcomed because the
+# published Markdown/llms.txt above is written precisely for them; Google reads
+# the standard HTML regardless.
+robots_rules:
+  - user_agent: "*"
+    allow: ["/"]
+  - user_agent: GPTBot
+    allow: ["/"]
+  - user_agent: OAI-SearchBot
+    allow: ["/"]
+  - user_agent: Google-Extended
+    allow: ["/"]
+
 # Dogfood the 1.8.14 SEO stack: seo injects the AI-first JSON-LD (BlogPosting /
 # WebPage / WebSite + BreadcrumbList) alongside the theme's own OpenGraph, and
 # schema adds a site-wide publisher to every page's structured data (#61).
@@ -198,7 +216,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.8.24"
+  version: "1.8.25"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants

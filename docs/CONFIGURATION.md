@@ -427,6 +427,21 @@ fingerprinted assets.
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
 | `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
+| `markdown_publish` | `false` | config only | Publish a Markdown copy of every page (`index.md` + `page.md`), a `text/markdown` `<head>` alternate, and a root `llms.txt` — for language models and agents |
+| `clean_special_chars` | `false` | config only | Normalise AI "smart" punctuation (curly quotes, en/em dashes, ellipsis, NBSP, zero-width) to ASCII across all content; CJK and other scripts untouched |
+| `output_encoding` | `utf-8` | config only | Text-output encoding: `utf-8`, `utf-16le` or `utf-16be` (BOM added, `<meta charset>` kept in step) |
+| `output_encoding_sections` | empty | config only | Per-section `output_encoding` overrides, keyed by content directory (longest prefix wins; `home` = root) |
+| `home_pages_limit` / `home_posts_limit` | `6` | config only | Cap home-page guide/post cards before a "see all" link (`0` = default 6, negative = no limit) |
+| `robots_rules` | empty | config only | Explicit per-crawler `robots.txt` directives (welcome/deny GPTBot, OAI-SearchBot, Googlebot…); empty = allow-all default |
+
+The **Markdown-for-agents** set (`markdown_publish`, `clean_special_chars`,
+`output_encoding`) serves crawlers that consume Markdown — including ChatGPT
+Search and other LLMs. The published copy is the authored Markdown source, not
+an HTML round-trip. Note that Google Search ignores `llms.txt` and Markdown
+alternates (it reads the standard HTML), so these help third-party agents, not
+Google ranking; ssg's standard SEO surface (`seo`, `schema`, canonical,
+`sitemap`, `check_meta`/`check_images`, hreflang) covers Google's AI-optimization
+guidance. `robots_rules` lets you state crawler policy explicitly for both.
 
 The `permalinks` map contains the optional `post` and `page` patterns. Permalink
 tokens are `:year`, `:month`, `:day`, `:slug` and `:category`.

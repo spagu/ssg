@@ -60,6 +60,15 @@ type ContentSource struct {
 	Category string `yaml:"category" toml:"category" json:"category"`
 }
 
+// RobotsRule is one User-agent block in a custom robots.txt (GO-089). Allow and
+// Disallow are path patterns; CrawlDelay is seconds (0 = omitted).
+type RobotsRule struct {
+	UserAgent  string   `yaml:"user_agent" toml:"user_agent" json:"user_agent"`
+	Allow      []string `yaml:"allow" toml:"allow" json:"allow"`
+	Disallow   []string `yaml:"disallow" toml:"disallow" json:"disallow"`
+	CrawlDelay int      `yaml:"crawl_delay" toml:"crawl_delay" json:"crawl_delay"`
+}
+
 // Config represents all SSG configuration options
 type Config struct {
 	// Positional arguments (can be set in config)
@@ -80,10 +89,15 @@ type Config struct {
 	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
 
 	// Server & Development
-	HTTP        bool   `yaml:"http" toml:"http" json:"http"`
-	Host        string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
-	Port        int    `yaml:"port" toml:"port" json:"port"`
-	Watch       bool   `yaml:"watch" toml:"watch" json:"watch"`
+	HTTP  bool   `yaml:"http" toml:"http" json:"http"`
+	Host  string `yaml:"host" toml:"host" json:"host"` // Dev-server bind address (default: 127.0.0.1; use 0.0.0.0 to expose)
+	Port  int    `yaml:"port" toml:"port" json:"port"`
+	Watch bool   `yaml:"watch" toml:"watch" json:"watch"`
+	// AutoReload injects a live-reload client into served HTML so the browser
+	// refreshes itself after each successful rebuild. On by default in
+	// --http --watch; --no-auto-reload (or auto_reload: false) opts out. Pointer
+	// so unset ⇒ on (GO-090).
+	AutoReload  *bool  `yaml:"auto_reload" toml:"auto_reload" json:"auto_reload"`
 	WatchRunner string `yaml:"watch_runner" toml:"watch_runner" json:"watch_runner"`
 	// WatchRunnerConfig points the watch runner at a config file living outside
 	// the project root (e.g. a wrangler.toml kept in deploy/ instead of .ssg/).
@@ -123,6 +137,12 @@ type Config struct {
 	// Output Control
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 	RobotsOff  bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+	// RobotsRules replaces the default permissive robots.txt (User-agent: * /
+	// Allow: /) with explicit per-crawler directives, so a site can spell out
+	// its policy for AI and search crawlers — e.g. welcome GPTBot, OAI-SearchBot
+	// and Googlebot while disallowing crawl-wasteful paths. The Sitemap line is
+	// always appended. Empty ⇒ the historical allow-all default (GO-089).
+	RobotsRules []RobotsRule `yaml:"robots_rules" toml:"robots_rules" json:"robots_rules"`
 	// NotFoundOff suppresses the generated 404.html (#102). Without a 404.html,
 	// Cloudflare Pages answers every unknown path with index.html and a 200, so
 	// each dead URL reads to a crawler as a live copy of the home page.
@@ -197,6 +217,38 @@ type Config struct {
 	// prose, inline code and code blocks are left alone, and source .md files
 	// are not modified. Opt-in, at publish time (GO-075).
 	StripMdLinkText bool `yaml:"strip_md_link_text" toml:"strip_md_link_text" json:"strip_md_link_text"`
+	// MarkdownPublish emits a clean Markdown copy of every page next to its
+	// index.html (index.md), links it from the page <head> as a
+	// text/markdown alternate, and writes an llms.txt index at the site root.
+	// SSG is Markdown-native, so the published copy is the authored source, not
+	// an HTML round-trip — ideal for language models and agents that consume
+	// documentation. Opt-in (GO-085).
+	MarkdownPublish bool `yaml:"markdown_publish" toml:"markdown_publish" json:"markdown_publish"`
+	// CleanSpecialChars normalises the "smart" Unicode that AI tools routinely
+	// emit — curly quotes, en/em dashes, ellipsis, non-breaking and zero-width
+	// spaces — into their plain ASCII equivalents across all rendered content
+	// (HTML, published Markdown, feeds, search). Opt-in and off by default: many
+	// themes use this typography deliberately, so it is enabled per project
+	// where the content is known to carry AI artefacts (GO-086).
+	CleanSpecialChars bool `yaml:"clean_special_chars" toml:"clean_special_chars" json:"clean_special_chars"`
+	// OutputEncoding selects the character encoding of the rendered text output
+	// (HTML pages, published Markdown, llms.txt): "utf-8" (default), "utf-16le"
+	// or "utf-16be". UTF-16 output carries a byte-order mark and the HTML meta
+	// charset is set to match. Sitemaps, feeds and JSON stay UTF-8 — their
+	// formats standardise on it or carry their own encoding declaration (GO-087).
+	OutputEncoding string `yaml:"output_encoding" toml:"output_encoding" json:"output_encoding"`
+	// OutputEncodingSections overrides OutputEncoding per content section, keyed
+	// by the page's directory relative to the source (the same longest-prefix
+	// rule as schema_defaults; "home" is the site root). A section not listed
+	// falls back to the global OutputEncoding. All encodings are Unicode, so
+	// Chinese/Japanese/Korean and every other script round-trip losslessly in
+	// both UTF-8 and UTF-16 (GO-087).
+	OutputEncodingSections map[string]string `yaml:"output_encoding_sections" toml:"output_encoding_sections" json:"output_encoding_sections"`
+	// HomePagesLimit / HomePostsLimit cap how many documentation and post cards
+	// the home page lists before a "see all" link (0 = the theme default of 6,
+	// negative = no limit). Themes read these from the index context (GO-088).
+	HomePagesLimit int `yaml:"home_pages_limit" toml:"home_pages_limit" json:"home_pages_limit"`
+	HomePostsLimit int `yaml:"home_posts_limit" toml:"home_posts_limit" json:"home_posts_limit"`
 
 	// PreserveSlugCase keeps original casing in slugs/URLs derived from filenames.
 	// Default (false): slugs are lowercased (e.g. "API.md" → slug "api" → /api/).

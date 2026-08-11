@@ -65,10 +65,19 @@ func main() {
 	}
 
 	if cfg.HTTP {
+		if autoReloadEnabled(cfg) {
+			reloadHub = newLiveReloadHub()
+		}
 		go startServer(cfg)
 	}
 
 	runWatchOrServe(genCfg, cfg)
+}
+
+// autoReloadEnabled reports whether live reload should run: it needs both the
+// server and the watcher, and is on by default unless explicitly disabled.
+func autoReloadEnabled(cfg *config.Config) bool {
+	return cfg.HTTP && cfg.Watch && (cfg.AutoReload == nil || *cfg.AutoReload)
 }
 
 // applyMinifyAll sets all minify flags if minify_all is enabled. config.Load
@@ -310,12 +319,16 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 		fmt.Println("\n🔄 Changes detected! Rebuilding...")
 	}
 	if err := build(genCfg, cfg); err != nil {
+		notifyBuildError(err.Error()) // show the error overlay in connected browsers
 		if !cfg.Quiet {
 			fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
 			fmt.Println("⚠️  Fix the issue and save to retry...")
 		}
-	} else if !cfg.Quiet {
-		fmt.Printf("✅ Rebuilt successfully\n")
+	} else {
+		notifyReload() // refresh connected browsers (no-op unless --auto-reload)
+		if !cfg.Quiet {
+			fmt.Printf("✅ Rebuilt successfully\n")
+		}
 	}
 	if !cfg.Quiet {
 		fmt.Println("👀 Watching for changes...")
@@ -558,97 +571,104 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 	}
 
 	return generator.Config{
-		Source:                cfg.Source,
-		Template:              cfg.Template,
-		Domain:                cfg.Domain,
-		ContentDir:            cfg.ContentDir,
-		TemplatesDir:          cfg.TemplatesDir,
-		OutputDir:             cfg.OutputDir,
-		SitemapOff:            cfg.SitemapOff,
-		RobotsOff:             cfg.RobotsOff,
-		NotFoundOff:           cfg.NotFoundOff,
-		Deploy:                cfg.Deploy,
-		PrettyHTML:            cfg.PrettyHTML,
-		PostURLFormat:         cfg.PostURLFormat,
-		PageFormat:            cfg.PageFormat,
-		RelativeLinks:         cfg.RelativeLinks,
-		Shortcodes:            shortcodes,
-		ShortcodeBrackets:     cfg.ShortcodeBrackets,
-		MinifyHTML:            cfg.MinifyHTML,
-		MinifyCSS:             cfg.MinifyCSS,
-		MinifyJS:              cfg.MinifyJS,
-		SourceMap:             cfg.SourceMap,
-		Clean:                 cfg.Clean,
-		Quiet:                 cfg.Quiet,
-		Engine:                cfg.Engine,
-		Variables:             cfg.Variables,
-		PagesPath:             cfg.PagesPath,
-		PostsPath:             cfg.PostsPath,
-		StaticDir:             cfg.StaticDir,
-		DataDir:               cfg.DataDir,
-		RewriteMdLinks:        cfg.RewriteMdLinks == nil || *cfg.RewriteMdLinks, // default on (#1.8.15)
-		StripMdLinkText:       cfg.StripMdLinkText,
-		PreserveSlugCase:      cfg.PreserveSlugCase,
-		Permalinks:            cfg.Permalinks,
-		LastmodFromGit:        cfg.LastmodFromGit,
-		Fingerprint:           cfg.Fingerprint,
-		SCSS:                  cfg.SCSS,
-		SassBinary:            cfg.SassBinary,
-		Timezone:              cfg.Timezone,
-		LanguageTimezones:     cfg.LanguageTimezones,
-		Math:                  cfg.Math,
-		Paginate:              cfg.Paginate,
-		Languages:             cfg.Languages,
-		DefaultLanguage:       cfg.DefaultLanguage,
-		LanguageConfigs:       cfg.LanguageConfigs,
-		I18n:                  cfg.I18n,
-		Taxonomies:            cfg.Taxonomies,
-		ExternalSources:       cfg.ExternalSources,
-		Hooks:                 cfg.Hooks,
-		Feed:                  cfg.Feed,
-		FeedItems:             cfg.FeedItems,
-		FeedFullContent:       cfg.FeedFullContent,
-		Highlight:             cfg.Highlight,
-		HighlightStyle:        cfg.HighlightStyle,
-		HighlightLineNumbers:  cfg.HighlightLineNumbers,
-		Mermaid:               cfg.Mermaid,
-		MermaidTheme:          cfg.MermaidTheme,
-		MermaidBackground:     cfg.MermaidBackground,
-		TOC:                   cfg.TOC,
-		TOCDepth:              cfg.TOCDepth,
-		SEO:                   cfg.SEO,
-		Schema:                cfg.Schema,
-		SchemaDefaults:        cfg.SchemaDefaults,
-		ContentSchemas:        cfg.ContentSchemas,
-		Strict:                cfg.Strict,
-		RouteManifest:         cfg.RouteManifest,
-		BuildWorkers:          resolveBuildWorkers(cfg.BuildWorkers),
-		AI:                    buildAIClient(cfg.AI),
-		Notify:                buildNotifier(cfg),
-		CheckLinks:            cfg.CheckLinks,
-		CheckImages:           cfg.CheckImages,
-		CheckMeta:             cfg.CheckMeta,
-		CheckSchema:           cfg.CheckSchema,
-		CheckOrphans:          cfg.CheckOrphans,
-		CheckRedirects:        cfg.CheckRedirects,
-		PrettyURLs:            cfg.PrettyURLs,
-		ContentExclude:        cfg.ContentExclude,
-		SitemapPruneCanonical: cfg.SitemapPruneCanonical,
-		StaticSources:         cfg.StaticSources,
-		Feeds:                 cfg.Feeds,
-		FeedAutodiscovery:     cfg.FeedAutodiscovery,
-		MetaLimits:            cfg.MetaLimits,
-		Bundles:               cfg.Bundles,
-		Outputs:               cfg.Outputs,
-		SearchIndex:           cfg.SearchIndex,
-		SanitizeHTML:          cfg.SanitizeHTML,
-		ShortcodeErrors:       cfg.ShortcodeErrors,
-		ContentSources:        contentSourcesOf(cfg),
-		LinkRewrites:          cfg.LinkRewrites,
-		AutoExcerpt:           cfg.AutoExcerpt,
-		Headers:               cfg.Headers,
-		HeadersDefaultsOff:    cfg.HeadersDefaultsOff,
-		Redirects:             redirectsOf(cfg),
+		Source:                 cfg.Source,
+		Template:               cfg.Template,
+		Domain:                 cfg.Domain,
+		ContentDir:             cfg.ContentDir,
+		TemplatesDir:           cfg.TemplatesDir,
+		OutputDir:              cfg.OutputDir,
+		SitemapOff:             cfg.SitemapOff,
+		RobotsOff:              cfg.RobotsOff,
+		RobotsRules:            robotsRulesOf(cfg),
+		NotFoundOff:            cfg.NotFoundOff,
+		Deploy:                 cfg.Deploy,
+		PrettyHTML:             cfg.PrettyHTML,
+		PostURLFormat:          cfg.PostURLFormat,
+		PageFormat:             cfg.PageFormat,
+		RelativeLinks:          cfg.RelativeLinks,
+		Shortcodes:             shortcodes,
+		ShortcodeBrackets:      cfg.ShortcodeBrackets,
+		MinifyHTML:             cfg.MinifyHTML,
+		MinifyCSS:              cfg.MinifyCSS,
+		MinifyJS:               cfg.MinifyJS,
+		SourceMap:              cfg.SourceMap,
+		Clean:                  cfg.Clean,
+		Quiet:                  cfg.Quiet,
+		Engine:                 cfg.Engine,
+		Variables:              cfg.Variables,
+		PagesPath:              cfg.PagesPath,
+		PostsPath:              cfg.PostsPath,
+		StaticDir:              cfg.StaticDir,
+		DataDir:                cfg.DataDir,
+		RewriteMdLinks:         cfg.RewriteMdLinks == nil || *cfg.RewriteMdLinks, // default on (#1.8.15)
+		StripMdLinkText:        cfg.StripMdLinkText,
+		MarkdownPublish:        cfg.MarkdownPublish,
+		CleanSpecialChars:      cfg.CleanSpecialChars,
+		OutputEncoding:         cfg.OutputEncoding,
+		OutputEncodingSections: cfg.OutputEncodingSections,
+		HomePagesLimit:         cfg.HomePagesLimit,
+		HomePostsLimit:         cfg.HomePostsLimit,
+		PreserveSlugCase:       cfg.PreserveSlugCase,
+		Permalinks:             cfg.Permalinks,
+		LastmodFromGit:         cfg.LastmodFromGit,
+		Fingerprint:            cfg.Fingerprint,
+		SCSS:                   cfg.SCSS,
+		SassBinary:             cfg.SassBinary,
+		Timezone:               cfg.Timezone,
+		LanguageTimezones:      cfg.LanguageTimezones,
+		Math:                   cfg.Math,
+		Paginate:               cfg.Paginate,
+		Languages:              cfg.Languages,
+		DefaultLanguage:        cfg.DefaultLanguage,
+		LanguageConfigs:        cfg.LanguageConfigs,
+		I18n:                   cfg.I18n,
+		Taxonomies:             cfg.Taxonomies,
+		ExternalSources:        cfg.ExternalSources,
+		Hooks:                  cfg.Hooks,
+		Feed:                   cfg.Feed,
+		FeedItems:              cfg.FeedItems,
+		FeedFullContent:        cfg.FeedFullContent,
+		Highlight:              cfg.Highlight,
+		HighlightStyle:         cfg.HighlightStyle,
+		HighlightLineNumbers:   cfg.HighlightLineNumbers,
+		Mermaid:                cfg.Mermaid,
+		MermaidTheme:           cfg.MermaidTheme,
+		MermaidBackground:      cfg.MermaidBackground,
+		TOC:                    cfg.TOC,
+		TOCDepth:               cfg.TOCDepth,
+		SEO:                    cfg.SEO,
+		Schema:                 cfg.Schema,
+		SchemaDefaults:         cfg.SchemaDefaults,
+		ContentSchemas:         cfg.ContentSchemas,
+		Strict:                 cfg.Strict,
+		RouteManifest:          cfg.RouteManifest,
+		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
+		AI:                     buildAIClient(cfg.AI),
+		Notify:                 buildNotifier(cfg),
+		CheckLinks:             cfg.CheckLinks,
+		CheckImages:            cfg.CheckImages,
+		CheckMeta:              cfg.CheckMeta,
+		CheckSchema:            cfg.CheckSchema,
+		CheckOrphans:           cfg.CheckOrphans,
+		CheckRedirects:         cfg.CheckRedirects,
+		PrettyURLs:             cfg.PrettyURLs,
+		ContentExclude:         cfg.ContentExclude,
+		SitemapPruneCanonical:  cfg.SitemapPruneCanonical,
+		StaticSources:          cfg.StaticSources,
+		Feeds:                  cfg.Feeds,
+		FeedAutodiscovery:      cfg.FeedAutodiscovery,
+		MetaLimits:             cfg.MetaLimits,
+		Bundles:                cfg.Bundles,
+		Outputs:                cfg.Outputs,
+		SearchIndex:            cfg.SearchIndex,
+		SanitizeHTML:           cfg.SanitizeHTML,
+		ShortcodeErrors:        cfg.ShortcodeErrors,
+		ContentSources:         contentSourcesOf(cfg),
+		LinkRewrites:           cfg.LinkRewrites,
+		AutoExcerpt:            cfg.AutoExcerpt,
+		Headers:                cfg.Headers,
+		HeadersDefaultsOff:     cfg.HeadersDefaultsOff,
+		Redirects:              redirectsOf(cfg),
 		// aliases produce meta-refresh stubs by default; alias_stubs: false
 		// keeps only the _redirects 301s (GO-063).
 		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
@@ -721,6 +741,24 @@ func contentSourcesOf(cfg *config.Config) []generator.ContentSource {
 	return out
 }
 
+// robotsRulesOf converts the config's robots rules into the generator's own
+// type, keeping the two packages decoupled (same pattern as contentSourcesOf).
+func robotsRulesOf(cfg *config.Config) []generator.RobotsRule {
+	if len(cfg.RobotsRules) == 0 {
+		return nil
+	}
+	out := make([]generator.RobotsRule, 0, len(cfg.RobotsRules))
+	for _, r := range cfg.RobotsRules {
+		out = append(out, generator.RobotsRule{
+			UserAgent:  r.UserAgent,
+			Allow:      r.Allow,
+			Disallow:   r.Disallow,
+			CrawlDelay: r.CrawlDelay,
+		})
+	}
+	return out
+}
+
 func parseFlags(args []string, cfg *config.Config) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -742,6 +780,11 @@ func parseFlags(args []string, cfg *config.Config) {
 // parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
 // on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
+	if arg == "--auto-reload" || arg == "--no-auto-reload" { // *bool: on by default in --watch
+		v := arg == "--auto-reload"
+		cfg.AutoReload = &v
+		return true
+	}
 	if arg == "--wrangler" || arg == "-wrangler" {
 		selectWatchRunner(cfg, "wrangler", "", "")
 		return true

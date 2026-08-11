@@ -162,6 +162,12 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	}
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
+		// Point agents at the page's Markdown copy (GO-085). Only real source
+		// pages get an index.md; the synthetic home/listing context carries no
+		// Content, so it is skipped and never advertises a missing .md.
+		if g.config.MarkdownPublish && page.Content != "" {
+			s = injectMarkdownAlternate(s)
+		}
 	}
 	// Feed autodiscovery is injected for every page, not only those with a page
 	// context. The SEO block runs only for posts and pages, so the site homepage
@@ -198,9 +204,15 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 		return err
 	}
 	out := buf.String()
+	data2 := []byte(out)
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
 		out = g.transformHTMLPage(out, page, isPost)
+		// Re-encode the finished HTML to the page's output encoding, keeping the
+		// declared <meta charset> in step with the bytes on disk (GO-087).
+		enc := g.encodingFor(page)
+		out = setHTMLCharset(out, enc)
+		data2 = encodeText(out, enc)
 	}
 	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(outputPath, []byte(out), 0644)
+	return os.WriteFile(outputPath, data2, 0644)
 }
