@@ -118,6 +118,40 @@ func TestEncodingFor_SectionOverride(t *testing.T) {
 	}
 }
 
+func TestCleanSpecialChars_GuillemetsPrimesMinus(t *testing.T) {
+	g := &Generator{config: Config{CleanSpecialChars: true}}
+	in := "«quote» 5′ 10″ 3−1"
+	want := "\"quote\" 5' 10\" 3-1"
+	if got := g.cleanSpecialChars(in); got != want {
+		t.Fatalf("clean:\n got:  %q\n want: %q", got, want)
+	}
+}
+
+func TestSetHTMLCharset_NoMetaIsNoop(t *testing.T) {
+	html := `<html><head><title>x</title></head></html>`
+	if got := setHTMLCharset(html, encodingUTF16LE); got != html {
+		t.Fatalf("no <meta charset> present → must be a no-op, got: %s", got)
+	}
+}
+
+func TestEncodingFor_HomeOverride(t *testing.T) {
+	g := &Generator{config: Config{
+		OutputEncoding:         "utf-8",
+		OutputEncodingSections: map[string]string{"home": "utf-16be"},
+	}}
+	home := models.Page{Link: "/"}
+	if got := g.encodingFor(&home); got != "utf-16be" {
+		t.Fatalf("home override = %q, want utf-16be", got)
+	}
+}
+
+func TestRenderRobots_EmptyUserAgentDefaultsToStar(t *testing.T) {
+	got := renderRobots([]RobotsRule{{Allow: []string{"/"}}}, "example.com")
+	if !strings.Contains(got, "User-agent: *\nAllow: /") {
+		t.Fatalf("empty user_agent should default to *:\n%s", got)
+	}
+}
+
 func TestRenderRobots(t *testing.T) {
 	// Default (no rules) reproduces the historical allow-all.
 	def := renderRobots(nil, "example.com")
