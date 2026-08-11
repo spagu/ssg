@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   host's tools, which strict confinement hides. The missing-tool error explains
   the snap case.
 
+- 🏷️ **GitHub Action `@v1` stale** (#120) — the release workflow now re-points the
+  floating major tag (`v1`) to each release's commit, so `spagu/ssg@v1` always
+  ships the current `action.yml`. Inputs added later (e.g. `config`) are no longer
+  silently dropped for `@v1` users.
+
 ### Documentation
 - **Template helpers** (#117) — corrected `sortBy` → `sort` in the engine-support
   table; documented that `sort` needs a slice or string-keyed map and pointed

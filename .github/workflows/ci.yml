@@ -438,6 +438,17 @@ jobs:
             echo "version=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
           fi
 
+      # The GitHub Action is consumed as `spagu/ssg@v1`, a floating major tag.
+      # Without moving it on release it keeps pointing at an old action.yml, so
+      # inputs added later (e.g. `config`) are silently dropped for @v1 users
+      # (#120). Re-point the major tag to this release's commit on every tag push.
+      - name: Move the major action tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          MAJOR="v$(echo "${GITHUB_REF#refs/tags/v}" | cut -d. -f1)"
+          git tag -f "$MAJOR" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$MAJOR"
+
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
