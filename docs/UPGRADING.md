@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.26">1.8.26 — 2026-08-11</option>
       <option value="1.8.25">1.8.25 — 2026-08-11</option>
       <option value="1.8.24">1.8.24 — 2026-08-09</option>
       <option value="1.8.23">1.8.23 — 2026-08-08</option>
@@ -159,6 +160,35 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.26">
+
+### 1.8.26 — `{{ .Content }}` renders, and frontmatter `excerpt:` is read
+
+Two long-standing bugs are fixed, and each shows up as a diff rather than an error:
+
+**Root `.Content` now renders.** In `page.html`/`post.html` the root `.Content`
+was raw Markdown wrapped as HTML, so a theme printing `{{ .Content }}` shipped
+literal `## headings` and `**bold**`, while `{{ .Content | safeHTML }}` raised a
+type error. Now `.Content` is the rendered HTML and `safeHTML` also accepts an
+already-rendered value, so both forms work. The bundled themes use
+`{{ .Post.Content | safeHTML }}` and are unaffected; a theme that carried the
+workaround keeps working.
+
+**Frontmatter `excerpt:` is read.** A frontmatter `excerpt:` used to vanish into
+`Extra` and never reach `page.Excerpt` — empty meta descriptions, card summaries
+and feed summaries on WordPress migrations. It now fills the excerpt (a `##
+Excerpt` section still wins), and `auto_excerpt` derives one from content that
+opens with a raw-HTML block.
+
+**Do nothing** — but expect summaries, meta descriptions and feed entries that
+were blank to gain text. If you had worked around the empty excerpt by writing a
+`## Excerpt` section, that section still takes precedence.
+
+On the snap, `webp: true` now works under strict confinement (cwebp is bundled) —
+refresh the snap.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.25">
 
