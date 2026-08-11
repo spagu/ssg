@@ -34,6 +34,11 @@ html {
   text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: var(--space-16);
+  /* Safety net: nothing may widen the page past the viewport on phones. `clip`
+   * (not `hidden`) because it does not create a scroll container, so the sticky
+   * header keeps working. Individual wide elements (code, tables, diagrams)
+   * scroll inside their own overflow-x: auto containers instead. */
+  overflow-x: clip;
 }
 
 html,
@@ -112,6 +117,9 @@ a:hover {
 
 .prose {
   max-width: 44rem;
+  /* Long unbreakable tokens (URLs, config keys) wrap instead of widening the
+   * page past the viewport on phones. */
+  overflow-wrap: break-word;
 }
 
 .skip-link {
@@ -574,6 +582,11 @@ a:hover {
   background: var(--color-bg-sunken);
   padding: 0.15em 0.35em;
   border-radius: var(--radius-sm);
+  /* Inline flags like `--check-images[=warn|strict]` have no spaces and are
+   * wider than a phone viewport; let them break anywhere. A no-op inside
+   * .prose pre, where white-space: pre keeps code lines intact and the block
+   * scrolls instead. */
+  overflow-wrap: anywhere;
 }
 
 .prose pre {
