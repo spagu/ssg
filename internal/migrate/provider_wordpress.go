@@ -91,7 +91,12 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		return nil, err
 	}
 	if runErr := opts.run(bin, args); runErr != nil {
-		return nil, fmt.Errorf("wpexporter failed: %w", runErr)
+		// The likeliest cause of an immediate failure is an engine older than
+		// 1.8.1, which rejects --ssg-sections as an unknown flag; say so
+		// instead of leaving the operator with a bare exit status.
+		return nil, fmt.Errorf("wpexporter failed: %w\n"+
+			"   If it is older than 1.8.1 it does not know --ssg-sections/--assisted-crawl —\n"+
+			"   upgrade it, or re-run with --no-crawl for the crawl half only", runErr)
 	}
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped}
@@ -106,7 +111,17 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 // Unknown kinds are a hard error (a typo must not silently export
 // everything); unsupported-but-known kinds come back as skipped.
 func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err error) {
-	args = []string{"export", "-u", rawURL, "-f", "markdown", "-o", opts.Dest, "--link-style", "root"}
+	// --ssg-sections (wpexporter 1.8.1) emits the "## Excerpt" / "## Content"
+	// markers this parser reads and drops the duplicate leading H1; without it
+	// every migrated page carried its title twice. --assisted-crawl fetches the
+	// pages once more for SEO metadata and fills metadata.json's `marketing`
+	// and `analytics` blocks (GTM/GA4 ids, social profiles, favicon, og:image),
+	// which a migration needs and cannot reconstruct later.
+	args = []string{"export", "-u", rawURL, "-f", "markdown", "-o", opts.Dest,
+		"--link-style", "root", "--ssg-sections"}
+	if !opts.NoCrawl {
+		args = append(args, "--assisted-crawl")
+	}
 	if opts.Quiet {
 		args = append(args, "-q")
 	}

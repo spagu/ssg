@@ -29,6 +29,10 @@ type Options struct {
 	// metadata.json.
 	Dest  string
 	Quiet bool
+	// NoCrawl skips the extra per-page fetch that collects SEO metadata and
+	// the site's marketing/analytics wiring — faster, but the migrated site
+	// arrives without its tracking ids, social profiles and icons.
+	NoCrawl bool
 
 	LookPath func(file string) (string, error)
 	Run      func(name string, args []string, quiet bool) error

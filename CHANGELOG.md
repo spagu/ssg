@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the entities are the author's.
 
 ### Changed
+- 🎯 **Migrations now ask wpexporter (≥ 1.8.1) for the SSG format** —
+  `--ssg-sections` emits the `## Excerpt` / `## Content` markers this parser
+  reads and drops the leading H1 that duplicated every page's title, and
+  `--assisted-crawl` fills `metadata.json`'s `marketing` and `analytics`
+  blocks (GTM/GA4 ids, verification tokens, social profiles, favicon,
+  og:image) — data a migration cannot reconstruct afterwards. Skip the extra
+  crawl with **`--no-crawl`**.
 - 🤖 **Migration and `ssg mcp` now print how to connect an assistant** — the
   MCP server speaks stdio, so the client launches it; "run `ssg mcp`" left
   people with a server nobody talked to. Both now print the registration line

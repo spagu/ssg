@@ -20,7 +20,14 @@ ssg migrate --list
 
 | Provider | Engine | Content kinds |
 |---|---|---|
-| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.1** (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+
+The migration asks the engine for the SSG format (`--ssg-sections`) and for a
+metadata crawl (`--assisted-crawl`), so `content/<source>/metadata.json`
+arrives with `marketing` (verification tokens, social profiles, og:image,
+favicon, theme colour) and `analytics` (GA4, GTM, Pixel, …) alongside the
+content. Both flags arrived in wpexporter 1.8.1; an older engine rejects them
+as unknown, so upgrade it (the snap bundles a current one).
 
 Providers are built into the `ssg` binary — a new source type is a new
 provider behind the same interface. The `wordpress` provider delegates the
@@ -114,6 +121,7 @@ only designs.
 | `--content a,b,c` | Content kinds to fetch (default: everything the provider offers) |
 | `--watch --http` | Live mode: server first, then watch the data load |
 | `--source NAME` | Content source directory name (default: the site's host, `www.` stripped) |
+| `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |
 

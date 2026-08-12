@@ -40,6 +40,7 @@ type migrateFlags struct {
 	watch   bool
 	http    bool
 	quiet   bool
+	noCrawl bool
 	source  string
 }
 
@@ -115,6 +116,7 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 		Content: flags.content,
 		Dest:    filepath.Join(cfg.ContentDir, cfg.Source),
 		Quiet:   cfg.Quiet,
+		NoCrawl: flags.noCrawl,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -224,6 +226,8 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 			f.http = true
 		case arg == "--quiet" || arg == "-q":
 			f.quiet = true
+		case arg == "--no-crawl":
+			f.noCrawl = true
 		case strings.HasPrefix(arg, "--content="):
 			f.content = splitContentList(strings.TrimPrefix(arg, "--content="))
 		case arg == "--content" && i+1 < len(args):
@@ -289,6 +293,8 @@ flags:
                      explicitly with no-menus / no-tags / no-users.
    --watch --http    LIVE mode: scaffold + server first, then watch the data load
    --source NAME     content source directory name (default: the site's host)
+   --no-crawl        skip the SEO/marketing crawl (faster; no tracking ids,
+                     social profiles or icons in metadata.json)
    --quiet, -q       suppress progress output
 `)
 }

@@ -134,6 +134,31 @@ func TestWpexporterMetadataAlwaysShips(t *testing.T) {
 	}
 }
 
+// TestWpexporterSSGFlags: a migration must ask the engine for the format this
+// parser actually reads (--ssg-sections: "## Excerpt"/"## Content" markers and
+// no duplicate H1) and for the site's marketing wiring (--assisted-crawl fills
+// metadata.json's marketing/analytics blocks). --no-crawl trades that away for
+// speed, and says so by dropping only the crawl.
+func TestWpexporterSSGFlags(t *testing.T) {
+	args, _, err := wpexporterArgs("https://e.com", Options{Dest: "content/x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--ssg-sections") || !strings.Contains(joined, "--assisted-crawl") {
+		t.Fatalf("SSG format and crawl must be requested: %q", joined)
+	}
+
+	fast, _, err := wpexporterArgs("https://e.com", Options{Dest: "content/x", NoCrawl: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined = strings.Join(fast, " ")
+	if strings.Contains(joined, "--assisted-crawl") || !strings.Contains(joined, "--ssg-sections") {
+		t.Fatalf("--no-crawl drops only the crawl: %q", joined)
+	}
+}
+
 func TestWordpressFetch(t *testing.T) {
 	dest := t.TempDir()
 	writeFile := func(rel, body string) {
