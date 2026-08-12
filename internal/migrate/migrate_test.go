@@ -66,25 +66,6 @@ func TestWpexporterArgs(t *testing.T) {
 		t.Fatal("quiet must pass -q")
 	}
 
-	// Selection disables everything NOT requested, in sorted order.
-	sel := base
-	sel.Content = []string{"pages", " POSTS ", "media"}
-	args, skipped, err = wpexporterArgs("https://e.com", sel)
-	if err != nil || len(skipped) != 0 {
-		t.Fatalf("selection: %v %v", skipped, err)
-	}
-	joined = strings.Join(args, " ")
-	for _, off := range []string{"--no-tags", "--no-users", "--no-menus", "--no-products"} {
-		if !strings.Contains(joined, off) {
-			t.Errorf("missing %s in %q", off, joined)
-		}
-	}
-	for _, on := range []string{"--no-pages", "--no-posts", "--no-media"} {
-		if strings.Contains(joined, on) {
-			t.Errorf("requested kind disabled: %s in %q", on, joined)
-		}
-	}
-
 	// comments: recognised but unsupported → skipped, not an error.
 	com := base
 	com.Content = []string{"comments", "pages"}
@@ -107,6 +88,49 @@ func TestWpexporterArgs(t *testing.T) {
 	blank.Content = []string{"", " "}
 	if _, _, err = wpexporterArgs("https://e.com", blank); err != nil {
 		t.Fatalf("blank kinds: %v", err)
+	}
+}
+
+// TestWpexporterMetadataAlwaysShips: a --content list selects CONTENT; the
+// site's metadata (tags, users, menus) rides along regardless, because a
+// migration that silently drops the navigation, the category names and the
+// authors is not a migration (1.8.30). Metadata leaves only when named
+// explicitly as no-<kind>, and content kinds cannot be excluded that way.
+func TestWpexporterMetadataAlwaysShips(t *testing.T) {
+	base := Options{Dest: "content/x"}
+
+	sel := base
+	sel.Content = []string{"pages", " POSTS ", "media"}
+	args, skipped, err := wpexporterArgs("https://e.com", sel)
+	if err != nil || len(skipped) != 0 {
+		t.Fatalf("selection: %v %v", skipped, err)
+	}
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--no-products") {
+		t.Errorf("unrequested content kind must be disabled: %q", joined)
+	}
+	for _, on := range []string{"--no-pages", "--no-posts", "--no-media",
+		"--no-tags", "--no-users", "--no-menus"} {
+		if strings.Contains(joined, on) {
+			t.Errorf("must not disable %s: %q", on, joined)
+		}
+	}
+
+	excl := base
+	excl.Content = []string{"pages", "no-menus"}
+	if args, _, err = wpexporterArgs("https://e.com", excl); err != nil {
+		t.Fatal(err)
+	}
+	joined = strings.Join(args, " ")
+	if !strings.Contains(joined, "--no-menus") || strings.Contains(joined, "--no-tags") {
+		t.Errorf("explicit exclusion wrong: %q", joined)
+	}
+
+	bad := base
+	bad.Content = []string{"no-pages"}
+	if _, _, err = wpexporterArgs("https://e.com", bad); err == nil ||
+		!strings.Contains(err.Error(), "menus") {
+		t.Fatalf("only metadata may be excluded; error must list it: %v", err)
 	}
 }
 

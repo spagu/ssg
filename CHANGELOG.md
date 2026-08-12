@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.30] - 2026-08-12
+
+### Fixed
+- 🧭 **`--content` no longer strips a migrated site of its navigation** —
+  `ssg migrate wordpress <url> --content pages,posts,media` used to disable
+  menus, tags and users too (anything not listed), so the site came up without
+  a menu, without category names and without authors. Site **metadata** (tags,
+  users, menus) now always ships; `--content` selects *content*. Drop it
+  explicitly with `no-menus` / `no-tags` / `no-users`.
+- 👁️ **`ssg mcp --http` actually serves the site** — the flag was parsed into
+  the config and then ignored, so an assistant reworked a theme nobody could
+  look at. The preview now starts with the MCP server, announces its address on
+  stderr (stdout belongs to JSON-RPC) and refreshes on every MCP rebuild —
+  including the build-error overlay.
+- 🔤 **HTML entities in titles, excerpts and descriptions** — a WordPress
+  export carries them legitimately (the REST API serves `title.rendered` as
+  HTML), so "Domowe Kino &#8211; Warszawa" reached `<title>`, meta
+  descriptions, og:title, feeds and JSON-LD verbatim. Plain-text frontmatter
+  fields are now entity-decoded at parse time. Body markup is untouched: there
+  the entities are the author's.
+
+### Changed
+- 🤖 **Migration and `ssg mcp` now print how to connect an assistant** — the
+  MCP server speaks stdio, so the client launches it; "run `ssg mcp`" left
+  people with a server nobody talked to. Both now print the registration line
+  (`claude mcp add ssg -- ssg mcp`) and a Claude Desktop JSON snippet carrying
+  the project directory.
+
 ## [1.8.29] - 2026-08-12
 
 ### Fixed

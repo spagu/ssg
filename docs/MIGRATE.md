@@ -49,6 +49,15 @@ flag the provider's full default export runs.
 ssg migrate wordpress https://example.com --content pages,posts
 ```
 
+**Site metadata always ships.** Tags, users and menus describe the site around
+the content, so they are exported whether or not `--content` lists them — a
+migration that silently drops the navigation, the category names and the post
+authors is not a migration. Exclude them deliberately:
+
+```bash
+ssg migrate wordpress https://example.com --content pages,posts,no-menus
+```
+
 An unknown kind is a hard error (a typo must not silently export the whole
 site). A recognised-but-unsupported kind — `comments` today, which
 wpexporter's REST export does not deliver — is reported as skipped in the
@@ -77,15 +86,25 @@ everything, build once, report, exit.
 ## After the migration
 
 The migrated site builds on the `simple` starter theme. To rebuild the
-source site's look, run the [MCP server](MCP.md) and let an AI agent work
-with the `designer_*` tools:
+source site's look, hand the project to an AI agent over the
+[MCP server](MCP.md). The server speaks stdio, so **the assistant launches
+it** — you register it once:
 
 ```bash
-ssg mcp
+claude mcp add ssg -- ssg mcp          # Claude Code, this project
 ```
 
-Ask the agent to study the original site and recreate its template on top of
-the migrated content — the content model is already in place, so the agent
+Claude Desktop takes the same thing as JSON in `claude_desktop_config.json`:
+
+```json
+{"mcpServers": {"ssg": {"command": "ssg", "args": ["mcp"], "cwd": "/path/to/project"}}}
+```
+
+Add `--http` (`... -- ssg mcp --http`) to get a live preview on
+`http://127.0.0.1:8888` that refreshes after every change the agent makes.
+
+Then ask the agent to study the original site and recreate its template on top
+of the migrated content — the content model is already in place, so the agent
 only designs.
 
 ## Options
