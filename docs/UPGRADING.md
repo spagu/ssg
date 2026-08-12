@@ -57,7 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
-      <option value="1.8.27">1.8.27 — unreleased</option>
+      <option value="1.8.27">1.8.27 — 2026-08-12</option>
       <option value="1.8.26">1.8.26 — 2026-08-11</option>
       <option value="1.8.25">1.8.25 — 2026-08-11</option>
       <option value="1.8.24">1.8.24 — 2026-08-09</option>

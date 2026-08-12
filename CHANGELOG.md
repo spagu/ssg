@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.27] - 2026-08-12
+
 ### Added
 - 🗃️ **Unified build cache** (GO-091) — one engine (`internal/cache`) under every
   disk cache, one root (`.ssg-cache/`), and a new CLI: **`ssg cache stats`**
