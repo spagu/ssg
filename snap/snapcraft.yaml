@@ -81,3 +81,12 @@ parts:
       craftctl set version="$VERSION"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/bin"
       go build -ldflags "-s -w -X main.Version=$VERSION" -o "$SNAPCRAFT_PART_INSTALL/bin/ssg" ./cmd/ssg
+      # Bundle the WordPress migration engine for the same reason as cwebp
+      # above (#114): `ssg migrate wordpress` execs wpexporter, and a strictly
+      # confined snap sees only its own rootfs. The host's copy is invisible —
+      # and installing the wpexporter SNAP does not help either, because a snap
+      # cannot execute another snap ("cannot join mount namespace of pid 1").
+      # `go install pkg@latest` is module-aware and ignores this repo's go.mod,
+      # so it always picks up wpexporter's newest tagged release.
+      GOBIN="$SNAPCRAFT_PART_INSTALL/bin" go install -ldflags "-s -w" \
+        github.com/tradik/wpexporter/cmd/wpexporter@latest

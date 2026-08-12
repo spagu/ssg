@@ -125,13 +125,13 @@ func TestWordpressFetch(t *testing.T) {
 	p, _ := Lookup("wordpress")
 
 	// Missing binary → install instructions, never a bare exec error.
+	t.Setenv("SNAP", "") // plain install: the tool is the user's to install
 	_, err := p.Fetch("https://e.com", Options{
 		Dest:     dest,
 		LookPath: func(string) (string, error) { return "", errors.New("nope") },
 	})
-	if err == nil || !strings.Contains(err.Error(), "snap install wpexporter") ||
-		!strings.Contains(err.Error(), "go install") {
-		t.Fatalf("missing binary must explain installation, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "cmd/wpexporter@latest") {
+		t.Fatalf("missing binary must give the correct install path, got %v", err)
 	}
 
 	// Engine failure is wrapped with context.
@@ -197,6 +197,21 @@ func TestWordpressFetch(t *testing.T) {
 	}
 	if len(report.Warnings) != 1 || !strings.Contains(report.Warnings[0], "comments") {
 		t.Fatalf("comments warning missing: %v", report.Warnings)
+	}
+}
+
+// TestMissingEngineMessage: the advice must match how ssg was installed. A
+// snap cannot use the host's wpexporter (confinement forbids running another
+// snap), so telling a snap user to "go install" it would be a lie — the snap
+// bundles the engine and a missing one means the snap is stale (#114).
+func TestMissingEngineMessage(t *testing.T) {
+	snap := missingEngineMessage("/snap/static-site-generator/current")
+	if !strings.Contains(snap, "snap refresh") || strings.Contains(snap, "go install") {
+		t.Fatalf("snap advice wrong: %s", snap)
+	}
+	plain := missingEngineMessage("")
+	if !strings.Contains(plain, "go install github.com/tradik/wpexporter/cmd/wpexporter@latest") {
+		t.Fatalf("plain advice wrong: %s", plain)
 	}
 }
 
