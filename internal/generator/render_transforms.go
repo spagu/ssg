@@ -125,6 +125,11 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	if !strings.Contains(s, "hreflang") {
 		b.WriteString(string(g.hreflangTags(page)))
 	}
+	// The site's own identity, discovered when the content was migrated:
+	// icons, social defaults and verification tokens (GO-100 follow-up). Only
+	// what the theme has not already emitted.
+	b.WriteString(g.buildMarketingHead(s))
+	b.WriteString(g.analyticsSnippet(s))
 	// Fall back to the front-matter description when the theme emitted no usable
 	// one (#76). Nothing is invented here — the author already wrote it, it just
 	// never reached the output because the template interpolated a different

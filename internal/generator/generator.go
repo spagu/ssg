@@ -219,6 +219,10 @@ type Config struct {
 	TOC                  bool
 	TOCDepth             int
 	SEO                  bool // opt-in generator-level OG/Twitter/JSON-LD injection (v1.8.2)
+	// Analytics renders the tracking ids a migration recorded in metadata.json
+	// (`analytics` block). Separate from SEO on purpose: third-party JavaScript
+	// is the owner's call, not a migration side effect.
+	Analytics bool
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
 	Schema         map[string]interface{}
@@ -1784,6 +1788,19 @@ func (g *Generator) loadMetadata(path string) error {
 
 	for _, tag := range metadata.Tags {
 		g.siteData.Tags[tag.ID] = tag // numeric-tag-id resolution (issue #27)
+	}
+
+	// The site's own wiring, as found by the exporter's crawl: it belongs to
+	// the site, not to any page, so it lands on SiteData for templates and the
+	// SEO head. A metadata.json without these blocks simply leaves them empty.
+	if !metadata.Marketing.Empty() {
+		g.siteData.Marketing = metadata.Marketing
+	}
+	if len(metadata.Analytics) > 0 {
+		g.siteData.Analytics = metadata.Analytics
+	}
+	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
+		g.log("   🎯 Site metadata: " + s)
 	}
 
 	return nil

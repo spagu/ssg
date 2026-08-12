@@ -369,8 +369,15 @@ type Config struct {
 	// so ssg never rewrites your rendered <head> unless you ask (v1.8.2). The legacy
 	// `seo_off` key / `--seo-off` flag still force SEO off, with a deprecation
 	// warning at load time (GO-059).
-	SEO    bool `yaml:"seo" toml:"seo" json:"seo"`
-	SEOOff bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
+	SEO bool `yaml:"seo" toml:"seo" json:"seo"`
+
+	// Analytics renders the tracking snippets recorded in metadata.json's
+	// `analytics` block (GTM, GA4 — written by a migration's crawl). Default
+	// false and deliberately separate from `seo`: running third-party
+	// JavaScript on every page is the site owner's decision, not a side effect
+	// of migrating content. The ids stay readable at .Site.Analytics either way.
+	Analytics bool `yaml:"analytics" toml:"analytics" json:"analytics"`
+	SEOOff    bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
 
 	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
 	// (non-zero exit on a dead internal link) (SEO-005).

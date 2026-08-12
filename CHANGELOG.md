@@ -28,6 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fields are now entity-decoded at parse time. Body markup is untouched: there
   the entities are the author's.
 
+### Added
+- 🎯 **The site's marketing wiring now survives a migration** — `metadata.json`
+  may carry `marketing` (favicon, apple-touch-icon, theme colour, `og:site_name`,
+  default `og:image`, `twitter:site`, social profiles, search-console and
+  business-manager verification tokens) and `analytics` (GTM, GA4, …), written
+  by wpexporter's crawl. ssg loads both, exposes them to templates as
+  `.Site.Marketing` / `.Site.Analytics`, and — with `seo: true` — injects the
+  icons, social defaults and verification tags the theme did not already
+  provide. Tracking snippets need the new **`analytics: true`** key: running
+  third-party JavaScript on every page is the site owner's decision, not a side
+  effect of migrating content. The build prints one line naming what it
+  inherited.
+
 ### Changed
 - 🎯 **Migrations now ask wpexporter (≥ 1.8.1) for the SSG format** —
   `--ssg-sections` emits the `## Excerpt` / `## Content` markers this parser

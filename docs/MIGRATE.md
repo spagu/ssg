@@ -90,6 +90,25 @@ Live mode migrates in front of your eyes, in this order:
 Without the flags, the same migration runs as a plain batch: fetch
 everything, build once, report, exit.
 
+## What the site's own wiring becomes
+
+The crawl writes two blocks into `content/<source>/metadata.json`, and ssg
+picks both up:
+
+| Block | Contents | Where it goes |
+|---|---|---|
+| `marketing` | favicon, apple-touch-icon, theme colour, `og:site_name`, default `og:image`, `twitter:site`, social profile links, verification tokens | `.Site.Marketing` in templates; injected into `<head>` when `seo: true` (only what the theme did not already emit) |
+| `analytics` | GA4, GTM, Pixel, Hotjar, Clarity … ids | `.Site.Analytics` in templates; rendered only with **`analytics: true`** |
+
+Tracking is opt-in on purpose: loading third-party JavaScript on every page is
+your decision, not a side effect of moving content. Verification tokens and
+icons are plain metadata — they load nothing — so they ride with `seo`.
+
+```yaml
+seo: true
+analytics: true      # only when you want GTM/GA4 live again
+```
+
 ## After the migration
 
 The migrated site builds on the `simple` starter theme. To rebuild the

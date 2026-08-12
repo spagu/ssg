@@ -439,6 +439,37 @@ type Metadata struct {
 	// resolve numeric tag ids in frontmatter the same way users resolves
 	// author ids (issue #27). The Category shape fits tag terms as-is.
 	Tags []Category `json:"tags"`
+
+	// Marketing and Analytics carry the site's own wiring as discovered by an
+	// exporter's crawl (wpexporter >= 1.8.1): brand assets, social identity,
+	// search-console verification and tracking ids. A migration cannot
+	// reconstruct these afterwards — they live in the source theme, not in the
+	// content — so they travel with the content and reach the templates.
+	Marketing Marketing         `json:"marketing"`
+	Analytics map[string]string `json:"analytics"`
+}
+
+// Marketing is the site-level identity a migrated site would otherwise lose:
+// verification tokens, social defaults, profile links and brand assets. Every
+// field is best-effort — an absent one is empty, never invented.
+type Marketing struct {
+	Verification   map[string]string `json:"verification"`
+	SocialProfiles map[string]string `json:"social_profiles"`
+	OGSiteName     string            `json:"og_site_name"`
+	OGImage        string            `json:"og_image"`
+	TwitterSite    string            `json:"twitter_site"`
+	Favicon        string            `json:"favicon"`
+	AppleTouchIcon string            `json:"apple_touch_icon"`
+	Logo           string            `json:"logo"`
+	ThemeColor     string            `json:"theme_color"`
+}
+
+// Empty reports whether nothing was discovered, so callers can skip the whole
+// block rather than emit empty markup.
+func (m Marketing) Empty() bool {
+	return len(m.Verification) == 0 && len(m.SocialProfiles) == 0 &&
+		m.OGSiteName == "" && m.OGImage == "" && m.TwitterSite == "" &&
+		m.Favicon == "" && m.AppleTouchIcon == "" && m.Logo == "" && m.ThemeColor == ""
 }
 
 // SiteData holds all parsed content for template rendering
@@ -455,7 +486,13 @@ type SiteData struct {
 	// export's canonical slug. Only id-resolved tags get canonical slugs, so
 	// hand-written tag names keep their historical derived URLs (issue #27,
 	// backward compatible by construction).
-	TagSlugs        map[string]string
+	TagSlugs map[string]string
+	// Marketing and Analytics reach templates as .Site.Marketing /
+	// .Site.Analytics, so a theme can render the site's icons, social
+	// identity and tracking without the author retyping what the migration
+	// already found.
+	Marketing       Marketing
+	Analytics       map[string]string
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string
