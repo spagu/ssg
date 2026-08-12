@@ -54,6 +54,12 @@ func dispatchSingleVerb(args []string) (int, bool) {
 	if len(args) >= 1 && args[0] == "mcp" {
 		return runMCP(args[1:]), true
 	}
+	// `migrate` claims the verb fully: the old positional fallthrough
+	// (source="migrate", template="wordpress", ...) silently pretended to
+	// work. A source dir named "migrate" still builds via --source=migrate.
+	if len(args) >= 1 && args[0] == "migrate" {
+		return runMigrate(args[1:]), true
+	}
 	return 0, false
 }
 

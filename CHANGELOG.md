@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.28] - 2026-08-12
+
+### Added
+- 🚚 **`ssg migrate <provider> <url>`** (GO-100) — one command from a live site
+  to a working SSG project. The built-in `wordpress` provider orchestrates
+  [wpexporter](https://github.com/tradik/wpexporter) (discovered on `PATH`
+  like `cwebp`; a missing binary explains how to install it), scaffolds the
+  project when none exists (never overwriting files), pulls the selected
+  `--content` kinds (`pages,posts,media,tags,users,menus,products`) into the
+  native content model and builds. With **`--watch --http`** the migration
+  runs LIVE: the server starts first and prints its address, content lands
+  incrementally while auto-reload shows the site filling up in the browser,
+  and the final report points at `ssg mcp` for an AI-driven template rebuild.
+  Requested-but-unsupported kinds (`comments`) are reported as skipped, never
+  silently dropped. See [docs/MIGRATE.md](docs/MIGRATE.md).
+
+### Fixed
+- 🛡️ **`migrate` no longer falls through to positional arguments** — before,
+  `ssg migrate wordpress https://example.com` was silently parsed as
+  `<source> <template> <domain>`, pretended to build and started the server
+  on a nonexistent project. The verb is now fully claimed; a source directory
+  literally named `migrate` still builds via `--source=migrate`.
+
+### Tests
+- 📈 Project coverage raised from 76.8% to 79.9% (owner's orders: +2pp) —
+  branch-level tests across `cmd/ssg` (live-reload hub and SSE, server
+  access-control and TLS listener modes, form-endpoint delivery failures,
+  cache CLI error paths, archive error paths, bare `--check-*` flags),
+  `internal/generator`, `internal/fetch`, `internal/config`,
+  `internal/externalsource`, `internal/endpoints`, `internal/images` and
+  `internal/mcp`; new `internal/migrate` lands at 98.8%.
+
 ## [1.8.27] - 2026-08-12
 
 ### Added

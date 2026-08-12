@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.28">1.8.28 — 2026-08-12</option>
       <option value="1.8.27">1.8.27 — 2026-08-12</option>
       <option value="1.8.26">1.8.26 — 2026-08-11</option>
       <option value="1.8.25">1.8.25 — 2026-08-11</option>
@@ -161,6 +162,18 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.28">
+
+### 1.8.28 — `migrate` becomes a reserved subcommand
+
+`ssg migrate <provider> <url>` migrates a live site into an SSG project
+([docs/MIGRATE.md](MIGRATE.md)). **Do nothing** — unless a content source
+directory of yours is literally named `migrate`: the bare positional form
+`ssg migrate <template> <domain>` now runs the subcommand instead, so build
+that source with `--source=migrate`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.27">
 
