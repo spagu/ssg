@@ -414,7 +414,7 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # built on a model (persona + rules + skills). Keys always come from $ENV.
 # ai:
 #   default_agent: writer
-#   cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
+#   cache_dir: .ssg-cache/ai    # commit it for reproducible, key-free CI builds (pre-1.8.27 .ai-cache still read)
 #   timeout: 30s
 #   models:
 #     fast:

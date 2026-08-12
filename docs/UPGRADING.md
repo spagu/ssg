@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.27">1.8.27 — unreleased</option>
       <option value="1.8.26">1.8.26 — 2026-08-11</option>
       <option value="1.8.25">1.8.25 — 2026-08-11</option>
       <option value="1.8.24">1.8.24 — 2026-08-09</option>
@@ -160,6 +161,31 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.27">
+
+### 1.8.27 — the AI cache moved under .ssg-cache/
+
+All disk caches now live under one root: `.ssg-cache/images/`,
+`.ssg-cache/external-sources/` and — newly — `.ssg-cache/ai/` (previously
+`.ai-cache/`). **Do nothing**: existing AI answers are found in the old
+location and adopted by copy, so nothing is re-generated and no generated
+text changes. Image cache keys are unchanged (golden-tested) — no
+reconversion happens on upgrade.
+
+Two follow-ups, both optional:
+
+- If you **committed `.ai-cache/`** for reproducible CI builds, keep it —
+  it stays readable. New answers land in `.ssg-cache/ai/`; commit that path
+  going forward (or set `ai.cache_dir` explicitly to keep one location).
+- Once a build has run, `.ai-cache/` contents are duplicated and the old
+  directory can be deleted: `ssg cache stats` shows it as `ai (legacy)`
+  while it exists.
+
+New CLI for all of it: `ssg cache stats`, `ssg cache clean
+[--namespace=images|external-sources|ai]`, `ssg cache gc [--dry]`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.26">
 

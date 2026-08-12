@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/spagu/ssg/internal/cache"
 )
 
 // The shared disk cache (plan §Cache): every entry is a <hash>.body payload
@@ -103,26 +106,85 @@ func (c diskCache) get(key string) ([]byte, cacheMeta, bool) {
 	return body, meta, true
 }
 
-// put persists a payload and its descriptor.
+// put persists a payload and its descriptor. Writes are atomic (temp+rename,
+// GO-091): body first, meta last, so a crash mid-put leaves either no entry or
+// a body without meta — both read as a clean miss, never a torn payload.
 func (c diskCache) put(key string, body []byte, meta cacheMeta) error {
 	if c.dir == "" {
 		return nil
-	}
-	if err := os.MkdirAll(c.dir, 0o750); err != nil {
-		return fmt.Errorf("creating cache dir: %w", err)
 	}
 	meta.Checksum = sha256Hex(body)
 	metaRaw, err := json.Marshal(meta)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(c.dir, key+bodySuffix), body, 0o600); err != nil {
+	if err := cache.WriteAtomicBytes(c.dir, key+bodySuffix, 0o600, body); err != nil {
 		return fmt.Errorf("writing cache body: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(c.dir, key+metaSuffix), metaRaw, 0o600); err != nil {
+	if err := cache.WriteAtomicBytes(c.dir, key+metaSuffix, 0o600, metaRaw); err != nil {
 		return fmt.Errorf("writing cache metadata: %w", err)
 	}
 	return nil
+}
+
+// GCExpired removes entries whose freshness AND stale-serving windows have both
+// passed (`ssg cache gc`, GO-091). Entries without a readable meta are left to
+// get's corruption eviction. dryRun only counts. now is injected for tests.
+func GCExpired(dir string, now time.Time, dryRun bool) (files int, bytes int64, err error) {
+	if dir == "" {
+		dir = DefaultCacheDir
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, 0, nil
+		}
+		return 0, 0, err
+	}
+	c := diskCache{dir: dir}
+	for _, e := range entries {
+		key, ok := expiredEntryKey(dir, e.Name(), e.IsDir(), now)
+		if !ok {
+			continue
+		}
+		files++
+		bytes += entrySize(dir, key)
+		if !dryRun {
+			c.evict(key)
+		}
+	}
+	return files, bytes, nil
+}
+
+// expiredEntryKey returns the entry key when name is a meta descriptor whose
+// freshness and stale windows have both passed.
+func expiredEntryKey(dir, name string, isDir bool, now time.Time) (string, bool) {
+	if isDir || !strings.HasSuffix(name, metaSuffix) {
+		return "", false
+	}
+	metaRaw, err := os.ReadFile(filepath.Join(dir, name)) // #nosec G304 -- entry under our cache dir
+	if err != nil {
+		return "", false
+	}
+	var meta cacheMeta
+	if json.Unmarshal(metaRaw, &meta) != nil {
+		return "", false // unreadable meta is get()'s corruption-eviction job
+	}
+	if meta.ExpiresAt.After(now) || meta.StaleUntil.After(now) {
+		return "", false // still fresh or still usable as stale fallback
+	}
+	return strings.TrimSuffix(name, metaSuffix), true
+}
+
+// entrySize sums the body+meta sizes of one entry.
+func entrySize(dir, key string) int64 {
+	var size int64
+	for _, suffix := range []string{bodySuffix, metaSuffix} {
+		if info, err := os.Stat(filepath.Join(dir, key+suffix)); err == nil {
+			size += info.Size()
+		}
+	}
+	return size
 }
 
 // evict removes a (possibly corrupted) entry.

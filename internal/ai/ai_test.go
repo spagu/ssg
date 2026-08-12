@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -98,10 +99,12 @@ func TestResolveSingle(t *testing.T) {
 	}
 }
 
-// TestNewDefaults: empty cacheDir/timeout fall back to sane defaults.
+// TestNewDefaults: empty cacheDir/timeout fall back to sane defaults. The
+// default root moved to .ssg-cache/ai in GO-091 (with a read-fallback to the
+// legacy .ai-cache, tested separately).
 func TestNewDefaults(t *testing.T) {
 	c := New(map[string]Model{"m": {URL: "http://x", Model: "m1"}}, noAgents(), "", "", "", 0)
-	if c.cacheDir != ".ai-cache" || c.timeout != 30*time.Second {
+	if c.cacheDir != filepath.Join(".ssg-cache", "ai") || c.timeout != 30*time.Second {
 		t.Errorf("defaults = %q / %v", c.cacheDir, c.timeout)
 	}
 }

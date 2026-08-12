@@ -1263,13 +1263,13 @@ request/response shape is OpenAI-compatible chat completions.
 | `ai.agents.<name>.max_tokens` / `temperature` | Override the model when non-zero |
 | `ai.default_agent` | Agent used when a shortcode names neither |
 | `ai.default_model` | Model used when a shortcode names neither and no default agent |
-| `ai.cache_dir` | Content-addressed answer cache (default `.ai-cache`) |
+| `ai.cache_dir` | Content-addressed answer cache (default `.ssg-cache/ai`; the pre-1.8.27 `.ai-cache` is still read and migrated by copy) |
 | `ai.timeout` | Default per-query timeout (e.g. `30s`) |
 
 ```yaml
 ai:
   default_agent: writer
-  cache_dir: .ai-cache        # commit it for reproducible, key-free CI builds
+  cache_dir: .ssg-cache/ai    # commit it for reproducible, key-free CI builds
   models:                     # endpoints — the connection
     fast:
       url: https://api.openai.com/v1/chat/completions

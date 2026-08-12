@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🗃️ **Unified build cache** (GO-091) — one engine (`internal/cache`) under every
+  disk cache, one root (`.ssg-cache/`), and a new CLI: **`ssg cache stats`**
+  (entries/size per namespace), **`ssg cache clean [--namespace=X]`** and
+  **`ssg cache gc [--dry]`** (reclaims expired external-source entries; image GC
+  stays with `--images-gc`, which owns the build manifest). External-source
+  cache writes are now atomic (temp+rename), so a crash mid-write can no longer
+  leave a torn payload. The AI cache moved from `.ai-cache/` to
+  `.ssg-cache/ai/` with a read-fallback and **migrate-by-copy** — existing AI
+  results are preserved byte-for-byte, never regenerated. Image cache keys are
+  golden-tested and unchanged: no reconversion storm on upgrade.
+
 ## [1.8.26] - 2026-08-11
 
 ### Fixed
