@@ -20,17 +20,25 @@ const (
 )
 
 // wpContentKinds maps each selectable kind to the wpexporter flag that turns
-// it OFF. When --content is given, every kind absent from the selection is
-// disabled; an empty selection keeps wpexporter's full default export.
+// it OFF. When --content is given, every CONTENT kind absent from the
+// selection is disabled; an empty selection keeps wpexporter's full default
+// export.
 var wpContentKinds = map[string]string{
 	"pages":    "--no-pages",
 	"posts":    "--no-posts",
 	"media":    "--no-media",
+	"products": "--no-products",
 	"tags":     "--no-tags",
 	"users":    "--no-users",
 	"menus":    "--no-menus",
-	"products": "--no-products",
 }
+
+// wpMetadataKinds are NOT content: tags, authors and menus describe the site
+// around the content. Asking for "pages,posts,media" and silently losing the
+// navigation, the category names and the post authors is not what anyone
+// means — a migrated site would come up without a menu. They ship unless
+// explicitly excluded with --no-<kind>, in which case the report says so.
+var wpMetadataKinds = map[string]bool{"tags": true, "users": true, "menus": true}
 
 // wpUnsupportedKinds are kinds a user may reasonably ask for that the engine
 // cannot deliver yet. They are reported as skipped — never silently dropped.
@@ -83,7 +91,12 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		return nil, err
 	}
 	if runErr := opts.run(bin, args); runErr != nil {
-		return nil, fmt.Errorf("wpexporter failed: %w", runErr)
+		// The likeliest cause of an immediate failure is an engine older than
+		// 1.8.1, which rejects --ssg-sections as an unknown flag; say so
+		// instead of leaving the operator with a bare exit status.
+		return nil, fmt.Errorf("wpexporter failed: %w\n"+
+			"   If it is older than 1.8.1 it does not know --ssg-sections/--assisted-crawl —\n"+
+			"   upgrade it, or re-run with --no-crawl for the crawl half only", runErr)
 	}
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped}
@@ -98,7 +111,17 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 // Unknown kinds are a hard error (a typo must not silently export
 // everything); unsupported-but-known kinds come back as skipped.
 func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err error) {
-	args = []string{"export", "-u", rawURL, "-f", "markdown", "-o", opts.Dest, "--link-style", "root"}
+	// --ssg-sections (wpexporter 1.8.1) emits the "## Excerpt" / "## Content"
+	// markers this parser reads and drops the duplicate leading H1; without it
+	// every migrated page carried its title twice. --assisted-crawl fetches the
+	// pages once more for SEO metadata and fills metadata.json's `marketing`
+	// and `analytics` blocks (GTM/GA4 ids, social profiles, favicon, og:image),
+	// which a migration needs and cannot reconstruct later.
+	args = []string{"export", "-u", rawURL, "-f", "markdown", "-o", opts.Dest,
+		"--link-style", "root", "--ssg-sections"}
+	if !opts.NoCrawl {
+		args = append(args, "--assisted-crawl")
+	}
 	if opts.Quiet {
 		args = append(args, "-q")
 	}
@@ -106,29 +129,79 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 		return args, nil, nil
 	}
 
-	requested := map[string]bool{}
-	for _, kind := range opts.Content {
+	sel, err := parseContentSelection(opts.Content)
+	if err != nil {
+		return nil, nil, err
+	}
+	return append(args, disableFlags(sel)...), sel.skipped, nil
+}
+
+// contentSelection is a parsed --content list: content kinds opted IN,
+// metadata kinds opted OUT, and recognised-but-undeliverable kinds.
+type contentSelection struct {
+	requested map[string]bool
+	excluded  map[string]bool
+	skipped   []string
+}
+
+func parseContentSelection(list []string) (contentSelection, error) {
+	sel := contentSelection{requested: map[string]bool{}, excluded: map[string]bool{}}
+	for _, kind := range list {
 		kind = strings.ToLower(strings.TrimSpace(kind))
 		if kind == "" {
 			continue
 		}
+		// "--content pages,no-menus" opts a metadata kind OUT; content kinds
+		// are opted IN by listing them.
+		if off, isExclusion := strings.CutPrefix(kind, "no-"); isExclusion {
+			if !wpMetadataKinds[off] {
+				return sel, fmt.Errorf("no-%s cannot be excluded — only %s ship by default",
+					off, strings.Join(metadataKindNames(), ", "))
+			}
+			sel.excluded[off] = true
+			continue
+		}
 		if _, unsupported := wpUnsupportedKinds[kind]; unsupported {
-			skipped = append(skipped, kind)
+			sel.skipped = append(sel.skipped, kind)
 			continue
 		}
 		if _, ok := wpContentKinds[kind]; !ok {
-			return nil, nil, fmt.Errorf("unknown content kind %q — valid kinds: %s",
+			return sel, fmt.Errorf("unknown content kind %q — valid kinds: %s",
 				kind, strings.Join(wpKindNames(), ", "))
 		}
-		requested[kind] = true
+		sel.requested[kind] = true
 	}
-	// Deterministic flag order keeps runs reproducible (and tests golden).
+	return sel, nil
+}
+
+// disableFlags turns a selection into wpexporter's --no-* flags: content kinds
+// not asked for are off, metadata kinds are on unless explicitly excluded.
+// Sorted iteration keeps runs reproducible (and tests golden).
+func disableFlags(sel contentSelection) []string {
+	var flags []string
 	for _, kind := range wpKindNames() {
-		if flag, selectable := wpContentKinds[kind]; selectable && !requested[kind] {
-			args = append(args, flag)
+		flag, selectable := wpContentKinds[kind]
+		switch {
+		case !selectable:
+		case wpMetadataKinds[kind]:
+			if sel.excluded[kind] {
+				flags = append(flags, flag)
+			}
+		case !sel.requested[kind]:
+			flags = append(flags, flag)
 		}
 	}
-	return args, skipped, nil
+	return flags
+}
+
+// metadataKindNames lists the always-on kinds, sorted for stable messages.
+func metadataKindNames() []string {
+	names := make([]string, 0, len(wpMetadataKinds))
+	for k := range wpMetadataKinds {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // wpKindNames lists every kind --content accepts (supported + recognised),

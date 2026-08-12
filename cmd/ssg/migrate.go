@@ -40,6 +40,7 @@ type migrateFlags struct {
 	watch   bool
 	http    bool
 	quiet   bool
+	noCrawl bool
 	source  string
 }
 
@@ -115,6 +116,7 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 		Content: flags.content,
 		Dest:    filepath.Join(cfg.ContentDir, cfg.Source),
 		Quiet:   cfg.Quiet,
+		NoCrawl: flags.noCrawl,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -224,6 +226,8 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 			f.http = true
 		case arg == "--quiet" || arg == "-q":
 			f.quiet = true
+		case arg == "--no-crawl":
+			f.noCrawl = true
 		case strings.HasPrefix(arg, "--content="):
 			f.content = splitContentList(strings.TrimPrefix(arg, "--content="))
 		case arg == "--content" && i+1 < len(args):
@@ -271,8 +275,8 @@ func printMigrateReport(report *migrate.Report, rawURL string) {
 	for _, w := range report.Warnings {
 		fmt.Printf("   ⚠️  %s\n", w)
 	}
-	fmt.Println("\n➡️  Next step: run `ssg mcp` and ask an AI agent (designer_* tools) to")
-	fmt.Println("   rebuild the source site's template on top of the migrated content.")
+	fmt.Println("\n➡️  Next step — let an AI agent rebuild the template on top of this content:")
+	printMCPWiring()
 }
 
 func printMigrateUsage() {
@@ -283,9 +287,14 @@ func printMigrateUsage() {
    ssg migrate --list
 
 flags:
-   --content a,b,c   content kinds to fetch (default: everything the provider offers)
+   --content a,b,c   content kinds to fetch (default: everything the provider offers).
+                     Site metadata (tags, users, menus) always ships — a site
+                     without its navigation is not a migration; exclude it
+                     explicitly with no-menus / no-tags / no-users.
    --watch --http    LIVE mode: scaffold + server first, then watch the data load
    --source NAME     content source directory name (default: the site's host)
+   --no-crawl        skip the SEO/marketing crawl (faster; no tracking ids,
+                     social profiles or icons in metadata.json)
    --quiet, -q       suppress progress output
 `)
 }

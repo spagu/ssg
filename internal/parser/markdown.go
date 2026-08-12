@@ -233,7 +233,24 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 	// Copy extra fields (those not in the struct)
 	page.Extra = extractExtraFields(allFields)
 
+	decodeTextEntities(page)
+
 	return page, nil
+}
+
+// decodeTextEntities turns HTML entities in PLAIN-TEXT frontmatter fields into
+// the characters they stand for. A CMS export carries them legitimately —
+// WordPress serves `title.rendered` as HTML, so a title arrives as
+// "Kino &#8211; Warszawa" — but ssg puts these fields in <title>, meta
+// description, og:title, feeds and JSON-LD, where the raw entity shows through
+// (or double-escapes to &amp;#8211;). The body is NOT touched: there entities
+// are part of the markup and must survive verbatim.
+func decodeTextEntities(page *models.Page) {
+	for _, field := range []*string{&page.Title, &page.Excerpt, &page.Description} {
+		if strings.Contains(*field, "&") {
+			*field = stdhtml.UnescapeString(*field)
+		}
+	}
 }
 
 // knownFields lists all fields that are handled by PageFrontmatter struct

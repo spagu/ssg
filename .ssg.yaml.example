@@ -93,6 +93,11 @@ feed_full_content: false  # true = full rendered content, false = summary/excerp
 seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
                      # non-destructive — only fills pages that lack their own tags).
                      # Legacy seo_off / --seo-off are still accepted as no-ops.
+analytics: false     # Render the tracking snippets a migration recorded in
+                     # metadata.json (`analytics`: GTM, GA4). Separate from seo
+                     # on purpose — third-party JavaScript on every page is your
+                     # call. The ids stay readable at .Site.Analytics regardless;
+                     # icons/social/verification ride with `seo` (they load nothing).
 
 # Site-wide JSON-LD merged into every page (a publisher, for example).
 # schema:

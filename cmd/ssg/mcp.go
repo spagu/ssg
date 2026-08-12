@@ -81,17 +81,43 @@ func runMCP(args []string) int {
 			// leak into the JSON-RPC stdout channel and errors flow to the model.
 			q := *cfg
 			q.Quiet = true
-			return captureStdout(func() error { return build(genCfg, &q) })
+			out, err := captureStdout(func() error { return build(genCfg, &q) })
+			// Push the result to an open --http preview: a reload on success,
+			// the error overlay otherwise (GO-090). No-op without --http.
+			if err != nil {
+				notifyBuildError(err.Error())
+			} else {
+				notifyReload()
+			}
+			return out, err
 		},
 	}
 
 	logf("🔌 ssg mcp %s — designer/content development server (stdio)", Version)
 	logf("   roles: %s · watch: %v · git PR flow: %v", roleNames(opts.Roles), watch, opts.Git.Enabled())
+	// --http was parsed into cfg but nothing served it, so the agent edited a
+	// site nobody could look at. Serve it here: an assistant reworking a theme
+	// is exactly when a human wants the preview open. Live reload needs the
+	// rebuild signal, which MCP's Rebuild provides, so it is on with --http.
+	serveMCPPreview(cfg, logf)
 	if err := mcp.NewServer(opts).Serve(os.Stdin, os.Stdout); err != nil {
 		logf("❌ mcp server: %v", err)
 		return 1
 	}
 	return 0
+}
+
+// serveMCPPreview starts the preview server when `ssg mcp --http` was given,
+// announcing the address on stderr (stdout belongs to JSON-RPC). A no-op
+// without --http, so the plain stdio server is unchanged.
+func serveMCPPreview(cfg *config.Config, logf func(string, ...any)) {
+	if !cfg.HTTP {
+		return
+	}
+	reloadHub = newLiveReloadHub() // each MCP rebuild refreshes the open tab
+	_, url, _ := resolveListenAddr(cfg.Host, cfg.Port)
+	logf("   👁️  preview: %s (serving %s/)", url, cfg.OutputDir)
+	go startServer(cfg)
 }
 
 // captureStdout runs fn with os.Stdout redirected to a pipe and returns whatever
@@ -258,6 +284,28 @@ func openGitHubPR(token, repo, base, head, title, body string) (string, error) {
 	return pr.HTMLURL, nil
 }
 
+// printMCPWiring prints the copy-pasteable way to connect this project's MCP
+// server to an assistant. `ssg mcp` speaks stdio, so the CLIENT spawns it —
+// telling people to "run ssg mcp" leaves them with a server nobody talks to;
+// what they need is the registration line.
+func printMCPWiring() {
+	fmt.Println("   Claude Code (registers for this project):")
+	fmt.Println("      claude mcp add ssg -- ssg mcp")
+	fmt.Println("   Claude Desktop — add to claude_desktop_config.json:")
+	fmt.Println(`      {"mcpServers":{"ssg":{"command":"ssg","args":["mcp"],"cwd":"` + workingDirOrDot() + `"}}}`)
+	fmt.Println("   Then ask it to study the original site and rebuild the theme")
+	fmt.Println("   (designer_* tools). Add --http to `ssg mcp` for a live preview.")
+}
+
+// workingDirOrDot names the project directory for a config snippet the user
+// pastes elsewhere, where a relative path would be meaningless.
+func workingDirOrDot() string {
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return "."
+}
+
 func printMCPHelp() {
 	fmt.Println("ssg mcp — development MCP server (stdio) for AI-assisted editing")
 	fmt.Println()
@@ -274,6 +322,9 @@ func printMCPHelp() {
 	fmt.Println("assistant gets git_new_branch / git_commit / git_open_pr — edits land on a")
 	fmt.Println("working branch and a PR is opened only after explicit human approval.")
 	fmt.Println()
-	fmt.Println("Register in an MCP-capable assistant as a stdio server, e.g.:")
-	fmt.Println(`  {"command": "ssg", "args": ["mcp"]}`)
+	fmt.Println("  --http [--port=N]        - also serve the site so you can watch it change")
+	fmt.Println()
+	fmt.Println("Register it with your assistant (this server speaks stdio, so the client")
+	fmt.Println("launches it — you do not run it yourself):")
+	printMCPWiring()
 }

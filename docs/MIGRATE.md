@@ -20,7 +20,14 @@ ssg migrate --list
 
 | Provider | Engine | Content kinds |
 |---|---|---|
-| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.1** (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+
+The migration asks the engine for the SSG format (`--ssg-sections`) and for a
+metadata crawl (`--assisted-crawl`), so `content/<source>/metadata.json`
+arrives with `marketing` (verification tokens, social profiles, og:image,
+favicon, theme colour) and `analytics` (GA4, GTM, Pixel, …) alongside the
+content. Both flags arrived in wpexporter 1.8.1; an older engine rejects them
+as unknown, so upgrade it (the snap bundles a current one).
 
 Providers are built into the `ssg` binary — a new source type is a new
 provider behind the same interface. The `wordpress` provider delegates the
@@ -49,6 +56,15 @@ flag the provider's full default export runs.
 ssg migrate wordpress https://example.com --content pages,posts
 ```
 
+**Site metadata always ships.** Tags, users and menus describe the site around
+the content, so they are exported whether or not `--content` lists them — a
+migration that silently drops the navigation, the category names and the post
+authors is not a migration. Exclude them deliberately:
+
+```bash
+ssg migrate wordpress https://example.com --content pages,posts,no-menus
+```
+
 An unknown kind is a hard error (a typo must not silently export the whole
 site). A recognised-but-unsupported kind — `comments` today, which
 wpexporter's REST export does not deliver — is reported as skipped in the
@@ -74,18 +90,47 @@ Live mode migrates in front of your eyes, in this order:
 Without the flags, the same migration runs as a plain batch: fetch
 everything, build once, report, exit.
 
+## What the site's own wiring becomes
+
+The crawl writes two blocks into `content/<source>/metadata.json`, and ssg
+picks both up:
+
+| Block | Contents | Where it goes |
+|---|---|---|
+| `marketing` | favicon, apple-touch-icon, theme colour, `og:site_name`, default `og:image`, `twitter:site`, social profile links, verification tokens | `.Site.Marketing` in templates; injected into `<head>` when `seo: true` (only what the theme did not already emit) |
+| `analytics` | GA4, GTM, Pixel, Hotjar, Clarity … ids | `.Site.Analytics` in templates; rendered only with **`analytics: true`** |
+
+Tracking is opt-in on purpose: loading third-party JavaScript on every page is
+your decision, not a side effect of moving content. Verification tokens and
+icons are plain metadata — they load nothing — so they ride with `seo`.
+
+```yaml
+seo: true
+analytics: true      # only when you want GTM/GA4 live again
+```
+
 ## After the migration
 
 The migrated site builds on the `simple` starter theme. To rebuild the
-source site's look, run the [MCP server](MCP.md) and let an AI agent work
-with the `designer_*` tools:
+source site's look, hand the project to an AI agent over the
+[MCP server](MCP.md). The server speaks stdio, so **the assistant launches
+it** — you register it once:
 
 ```bash
-ssg mcp
+claude mcp add ssg -- ssg mcp          # Claude Code, this project
 ```
 
-Ask the agent to study the original site and recreate its template on top of
-the migrated content — the content model is already in place, so the agent
+Claude Desktop takes the same thing as JSON in `claude_desktop_config.json`:
+
+```json
+{"mcpServers": {"ssg": {"command": "ssg", "args": ["mcp"], "cwd": "/path/to/project"}}}
+```
+
+Add `--http` (`... -- ssg mcp --http`) to get a live preview on
+`http://127.0.0.1:8888` that refreshes after every change the agent makes.
+
+Then ask the agent to study the original site and recreate its template on top
+of the migrated content — the content model is already in place, so the agent
 only designs.
 
 ## Options
@@ -95,6 +140,7 @@ only designs.
 | `--content a,b,c` | Content kinds to fetch (default: everything the provider offers) |
 | `--watch --http` | Live mode: server first, then watch the data load |
 | `--source NAME` | Content source directory name (default: the site's host, `www.` stripped) |
+| `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |
 
