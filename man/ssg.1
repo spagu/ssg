@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.27" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.28" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -33,6 +33,12 @@ ssg \- fast static site generator written in Go
 .RB { stats | clean | gc }
 .RB [ \-\-namespace=\fINAME\fR ]
 .RB [ \-\-dry ]
+.br
+.B ssg migrate
+.I provider url
+.RB [ \-\-content\ \fIa,b,c\fR ]
+.RB [ \-\-watch ]
+.RB [ \-\-http ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -77,6 +83,17 @@ external-sources, ai). \fBstats\fR prints entries and size per namespace;
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
+.TP
+.B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-source\fR \fINAME\fR]
+Migrate a live site into a ready-to-build SSG project. The built-in
+\fBwordpress\fR provider orchestrates the optional \fBwpexporter\fR tool
+(discovered on PATH; a missing binary prints install instructions), scaffolds
+the project when none exists and builds after the pull. \fB\-\-content\fR
+selects kinds (\fBpages\fR, \fBposts\fR, \fBmedia\fR, \fBtags\fR, \fBusers\fR,
+\fBmenus\fR, \fBproducts\fR); with \fB\-\-watch \-\-http\fR the server starts
+first and the site fills up live in the browser. \fBssg migrate \-\-list\fR
+names the providers. The verb is reserved: a source directory called
+\fImigrate\fR builds via \fB\-\-source=migrate\fR.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content
