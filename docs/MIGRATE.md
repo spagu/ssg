@@ -29,10 +29,16 @@ it is an optional external tool, discovered on `PATH`. When it is missing,
 `ssg migrate` explains how to install it:
 
 ```bash
-snap install wpexporter
+go install github.com/tradik/wpexporter/cmd/wpexporter@latest
 # or
-go install github.com/tradik/wpexporter@latest
+snap install wpexporter
 ```
+
+**Snap users need none of this**: the `static-site-generator` snap bundles the
+engine (since 1.8.29), because a strictly confined snap sees only its own
+files — the host's `wpexporter` is invisible to it, and installing the
+`wpexporter` snap does not help either, since one snap cannot execute another.
+Same reason `cwebp` is bundled for WebP output.
 
 ## Selecting content
 

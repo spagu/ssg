@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.29] - 2026-08-12
+
+### Fixed
+- 📦 **`ssg migrate wordpress` in the snap** (#114) — the snap now bundles the
+  `wpexporter` engine, so migration works out of the box after
+  `snap refresh static-site-generator`. Previously it always failed with
+  "wpexporter not found in PATH" even when the tool was installed on the host:
+  strict confinement sees only the snap's own rootfs, and installing the
+  `wpexporter` snap cannot help either, because a snap may not execute another
+  snap (`cannot join mount namespace of pid 1`). Same treatment `cwebp` already
+  gets for WebP output.
+- 📝 **Wrong install command** — the missing-engine error and
+  [docs/MIGRATE.md](docs/MIGRATE.md) pointed at
+  `go install github.com/tradik/wpexporter@latest`, which cannot work: the
+  module root is not a main package. The correct path is
+  `github.com/tradik/wpexporter/cmd/wpexporter@latest`. Inside a snap the
+  message no longer suggests installing anything by hand — it says the engine
+  ships with the snap and the snap needs refreshing.
+
 ## [1.8.28] - 2026-08-12
 
 ### Added

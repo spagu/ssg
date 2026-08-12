@@ -9,6 +9,7 @@ package migrate
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -37,6 +38,27 @@ var wpUnsupportedKinds = map[string]string{
 	"comments": "wpexporter's REST export does not export comments yet",
 }
 
+// missingEngineMessage explains a missing engine truthfully for the way ssg was
+// installed. Inside a snap ($SNAP set) the host's wpexporter is unreachable by
+// design — strict confinement sees only the snap's own rootfs, and a snap
+// cannot execute another snap — so "go install it" would be a lie: the snap
+// ships its own copy, and a missing one means the snap is too old (#114).
+func missingEngineMessage(snapDir string) string {
+	if snapDir != "" {
+		return `wpexporter is missing from this snap — the wordpress migration engine ships
+inside it (since 1.8.29), because strict confinement cannot reach the host's
+copy, not even the wpexporter snap (a snap cannot execute another snap).
+   snap refresh static-site-generator
+If it is already current, install ssg outside the snap so it can use your own
+wpexporter: https://github.com/spagu/ssg/blob/main/docs/INSTALL.md`
+	}
+	return `wpexporter not found in PATH — the wordpress migration engine is a separate tool.
+Install it with one of:
+   go install github.com/tradik/wpexporter/cmd/wpexporter@latest
+   snap install wpexporter
+   https://github.com/tradik/wpexporter/releases`
+}
+
 type wordpressProvider struct{}
 
 func (wordpressProvider) Name() string    { return "wordpress" }
@@ -53,11 +75,7 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 	}
 	bin, err := opts.lookPath(wpexporterBinary)
 	if err != nil {
-		return nil, fmt.Errorf(`wpexporter not found in PATH — the wordpress migration engine is a separate tool.
-Install it with one of:
-   snap install wpexporter
-   go install github.com/tradik/wpexporter@latest
-   https://github.com/tradik/wpexporter/releases`)
+		return nil, fmt.Errorf("%s", missingEngineMessage(os.Getenv("SNAP")))
 	}
 
 	args, skipped, err := wpexporterArgs(rawURL, opts)
