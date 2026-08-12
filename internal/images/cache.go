@@ -1,8 +1,6 @@
 package images
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -10,27 +8,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spagu/ssg/internal/cache"
 )
 
 // cacheKey derives the deterministic content-addressed key: source bytes hash +
-// normalized operations JSON + processor version. Mtime is never used.
+// normalized operations JSON + processor version. Mtime is never used. The
+// formula is golden-tested (TestCacheKeyGolden) — changing it invalidates every
+// user's image cache.
 func (p *Processor) cacheKey(path string, ops []request) (string, error) {
-	f, err := os.Open(path) // #nosec G304 -- path validated by resolve()
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = f.Close() }()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	k := cache.NewKeyer(processorVersion, 10)
+	if err := k.WriteFileContents(path); err != nil {
 		return "", err
 	}
 	opsJSON, err := json.Marshal(ops)
 	if err != nil {
 		return "", err
 	}
-	h.Write(opsJSON)
-	h.Write([]byte("v" + processorVersion))
-	return hex.EncodeToString(h.Sum(nil))[:10], nil
+	k.Write(opsJSON)
+	return k.Sum(), nil
 }
 
 // outputName builds the deterministic published name: <base>.<hash>.<ext>.
@@ -114,26 +110,11 @@ func (p *Processor) publish(helper, source, path, key string, ops []request, img
 	name := outputName(source, key, format)
 	cachePath := filepath.Join(p.cfg.CacheDir, name)
 
-	// #nosec G301 -- cache/output directories hold public build artifacts
-	if err := os.MkdirAll(p.cfg.CacheDir, 0o755); err != nil {
-		return ImageResult{}, fmt.Errorf("%s: %w", helper, err)
-	}
-	tmp, err := os.CreateTemp(p.cfg.CacheDir, "tmp-*."+extFor(format))
-	if err != nil {
-		return ImageResult{}, fmt.Errorf("%s: %w", helper, err)
-	}
-	tmpName := tmp.Name()
-	if err := p.encode(tmp, img, format, finalQuality(ops)); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
-		return ImageResult{}, fmt.Errorf("%s: %w", helper, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return ImageResult{}, fmt.Errorf("%s: %w", helper, err)
-	}
-	if err := os.Rename(tmpName, cachePath); err != nil { // atomic publish
-		_ = os.Remove(tmpName)
+	// Atomic publish via the shared cache engine (GO-091); 0o600 matches the
+	// historical CreateTemp mode of cache entries.
+	if err := cache.WriteAtomic(p.cfg.CacheDir, name, 0o600, func(tmp *os.File) error {
+		return p.encode(tmp, img, format, finalQuality(ops))
+	}); err != nil {
 		return ImageResult{}, fmt.Errorf("%s: %w", helper, err)
 	}
 
@@ -170,35 +151,12 @@ func (p *Processor) markManifest(name string) {
 
 // GC removes cache entries not referenced by the current build (and stale temp
 // files), reporting the number of files and bytes reclaimed. dryRun only counts.
+// Delegates to the shared engine (GO-091); the manifest read is what needs the
+// processor lock.
 func (p *Processor) GC(dryRun bool) (files int, bytes int64, err error) {
-	entries, err := os.ReadDir(p.cfg.CacheDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0, 0, nil
-		}
-		return 0, 0, err
-	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if p.manifest[name] && !strings.HasPrefix(name, "tmp-") {
-			continue
-		}
-		info, ierr := e.Info()
-		if ierr != nil {
-			continue
-		}
-		files++
-		bytes += info.Size()
-		if !dryRun {
-			_ = os.Remove(filepath.Join(p.cfg.CacheDir, name))
-		}
-	}
-	return files, bytes, nil
+	return cache.GCKeep(p.cfg.CacheDir, func(name string) bool { return p.manifest[name] }, dryRun)
 }
 
 // copyFile copies src to dst, creating parent directories.

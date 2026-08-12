@@ -40,6 +40,27 @@ base filename:
 Multiple archive formats can be enabled in one build. Archives contain the
 output tree and can be uploaded manually to any static host.
 
+## Build cache in CI
+
+Every SSG disk cache lives under one root, `.ssg-cache/` — processed images,
+external-source payloads and AI answers. Persisting that directory between CI
+runs skips WebP/AVIF reconversion, re-fetching remote data inside its TTL and
+re-querying AI models. With GitHub Actions this is one step, no SSG
+configuration at all:
+
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: .ssg-cache
+    key: ssg-cache-${{ runner.os }}-${{ hashFiles('content/**', '.ssg.yaml') }}
+    restore-keys: ssg-cache-${{ runner.os }}-
+```
+
+Entries are content-addressed, so a stale restore is harmless — anything
+outdated is simply not referenced, and `ssg cache gc` (or a build with
+`--images-gc`) reclaims it. Inspect what the cache holds with
+`ssg cache stats`; start fresh with `ssg cache clean`.
+
 ## Native deployment model
 
 ```yaml

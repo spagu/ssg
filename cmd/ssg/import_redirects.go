@@ -28,8 +28,20 @@ func dispatchSubcommand(args []string) (int, bool) {
 		return runNewWorker(args[2:]), true
 	case args[0] == "new" && args[1] == "wrangler":
 		return runNewWrangler(args[2:]), true
+	case args[0] == "cache" && isCacheSubcommand(args[1]):
+		return runCache(args[1:]), true
 	}
 	return 0, false
+}
+
+// isCacheSubcommand keeps the verb+noun dispatch rule: `ssg cache stats` is a
+// subcommand, while a source directory literally named "cache" still builds.
+func isCacheSubcommand(noun string) bool {
+	switch noun {
+	case "stats", "clean", "gc":
+		return true
+	}
+	return false
 }
 
 // dispatchSingleVerb routes single-verb subcommands like `ssg init`. Kept

@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.26" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.27" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -28,6 +28,11 @@ ssg \- fast static site generator written in Go
 .B ssg init
 .RI [ source-name ]
 .RI [ \-\-domain\ example.com ]
+.br
+.B ssg cache
+.RB { stats | clean | gc }
+.RB [ \-\-namespace=\fINAME\fR ]
+.RB [ \-\-dry ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -64,6 +69,14 @@ paths, regex-constrained params) are reported on stderr, never dropped silently.
 Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
 and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
+.TP
+.B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
+Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
+external-sources, ai). \fBstats\fR prints entries and size per namespace;
+\fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
+external-source entries (image GC needs the build manifest — use
+\fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
+as \fBai (legacy)\fR while it exists.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content

@@ -677,7 +677,7 @@ type Endpoint struct {
 type AIConfig struct {
 	DefaultModel string             `yaml:"default_model" toml:"default_model" json:"default_model"`
 	DefaultAgent string             `yaml:"default_agent" toml:"default_agent" json:"default_agent"`
-	CacheDir     string             `yaml:"cache_dir" toml:"cache_dir" json:"cache_dir"` // default ".ai-cache"
+	CacheDir     string             `yaml:"cache_dir" toml:"cache_dir" json:"cache_dir"` // default ".ssg-cache/ai" (GO-091; legacy .ai-cache still read)
 	Timeout      string             `yaml:"timeout" toml:"timeout" json:"timeout"`       // default per-query, e.g. "30s"
 	Models       map[string]AIModel `yaml:"models" toml:"models" json:"models"`
 	Agents       map[string]AIAgent `yaml:"agents" toml:"agents" json:"agents"`

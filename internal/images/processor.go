@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/disintegration/imaging"
+	"github.com/spagu/ssg/internal/cache"
 )
 
 // processorVersion participates in every cache key so implementation changes
@@ -49,7 +50,7 @@ func New(cfg Config) *Processor {
 		cfg.URLPrefix = "processed_images"
 	}
 	if cfg.CacheDir == "" {
-		cfg.CacheDir = ".ssg-cache/images"
+		cfg.CacheDir = cache.Dir("", "images") // shared .ssg-cache root (GO-091)
 	}
 	if cfg.JPEGQuality <= 0 {
 		cfg.JPEGQuality = 82

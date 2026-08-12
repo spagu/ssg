@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spagu/ssg/internal/cache"
 )
 
 // Model is one named AI endpoint (OpenAI-compatible chat completions). It is the
@@ -103,11 +105,12 @@ type Client struct {
 	mem map[string]string // in-memory cache mirror, guards concurrent Query
 }
 
-// New builds a client. cacheDir defaults to ".ai-cache", timeout to 30s. Model and
+// New builds a client. cacheDir defaults to ".ssg-cache/ai" (GO-091; the legacy
+// ".ai-cache" is still read as a migration fallback), timeout to 30s. Model and
 // agent keys beginning with "$" are read from the environment.
 func New(models map[string]Model, agents map[string]Agent, defaultModel, defaultAgent, cacheDir string, timeout time.Duration) *Client {
 	if cacheDir == "" {
-		cacheDir = ".ai-cache"
+		cacheDir = cache.Dir("", "ai") // .ssg-cache/ai — shared root (GO-091)
 	}
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -191,11 +194,30 @@ func (c *Client) resolve(agentName, modelName string) (resolved, error) {
 	return resolved{}, fmt.Errorf("no ai agent or model specified (set agent= or model= on the shortcode, or ai.default_agent / ai.default_model)")
 }
 
-// cacheKey derives the deterministic cache key for an effective request.
+// aiCacheVersion participates in every NEW cache key, so implementation
+// changes can invalidate deliberately instead of silently (GO-091).
+const aiCacheVersion = "1"
+
+// cacheKey derives the deterministic cache key for an effective request. Same
+// material as the historical formula plus the implementation-version tag.
 func cacheKey(r resolved, question string) string {
-	h := sha256.Sum256([]byte(r.url + "\x00" + r.model + "\x00" + r.system + "\x00" +
-		fmt.Sprintf("%d\x00%g\x00", r.maxTokens, r.temperature) + question))
+	k := cache.NewKeyer(aiCacheVersion, 0)
+	k.WriteString(cacheKeyMaterial(r, question))
+	return k.Sum()
+}
+
+// cacheKeyLegacy is the pre-GO-091 formula (no version tag), kept ONLY to find
+// existing entries and migrate them by copy — AI output is non-deterministic,
+// so invalidation would silently rewrite generated summaries/tags site-wide.
+func cacheKeyLegacy(r resolved, question string) string {
+	h := sha256.Sum256([]byte(cacheKeyMaterial(r, question)))
 	return hex.EncodeToString(h[:])
+}
+
+// cacheKeyMaterial is the shared key input of both formulas.
+func cacheKeyMaterial(r resolved, question string) string {
+	return r.url + "\x00" + r.model + "\x00" + r.system + "\x00" +
+		fmt.Sprintf("%d\x00%g\x00", r.maxTokens, r.temperature) + question
 }
 
 // Query answers question via the named agent (preferred) or model, returning the
@@ -215,7 +237,7 @@ func (c *Client) Query(agentName, modelName, question string, timeout time.Durat
 		return v, nil
 	}
 	c.mu.Unlock()
-	if v, ok := c.readCache(key); ok {
+	if v, ok := c.readCacheMigrating(key, cacheKeyLegacy(r, question)); ok {
 		c.mu.Lock()
 		c.mem[key] = v
 		c.mu.Unlock()
@@ -288,6 +310,11 @@ func (c *Client) ask(r resolved, question string, timeout time.Duration) (string
 	return strings.TrimSpace(out.Choices[0].Message.Content), nil
 }
 
+// legacyCacheDir is the pre-GO-091 default root, read as a fallback so the
+// move to .ssg-cache/ai never regenerates (and thus never rewrites) existing
+// AI results. Remove the fallback two releases after 1.8.27.
+const legacyCacheDir = ".ai-cache"
+
 func (c *Client) cachePath(key string) string {
 	return filepath.Join(c.cacheDir, key+".txt")
 }
@@ -300,13 +327,33 @@ func (c *Client) readCache(key string) (string, bool) {
 	return string(b), true
 }
 
-func (c *Client) writeCache(key, answer string) {
-	// #nosec G301 -- cache dir is a build artifact directory
-	if err := os.MkdirAll(c.cacheDir, 0o755); err != nil {
-		return
+// readCacheMigrating looks the answer up under the current key, then under the
+// legacy (unversioned) key in both the configured dir and the old default root.
+// A legacy hit is copied under the current key (migrate-by-copy): AI output is
+// non-deterministic, so invalidation would silently rewrite generated content
+// site-wide — the copy preserves existing results byte-for-byte (GO-091).
+func (c *Client) readCacheMigrating(key, legacyKey string) (string, bool) {
+	if v, ok := c.readCache(key); ok {
+		return v, true
 	}
-	// #nosec G306 -- cache entries are non-sensitive build artifacts
-	_ = os.WriteFile(c.cachePath(key), []byte(answer), 0o644)
+	legacyPaths := []string{
+		filepath.Join(c.cacheDir, legacyKey+".txt"),     // custom-dir users' old entries
+		filepath.Join(legacyCacheDir, legacyKey+".txt"), // pre-move default root
+	}
+	for _, p := range legacyPaths {
+		b, err := os.ReadFile(p) // #nosec G304 -- key is a sha256 hex string under a cache dir
+		if err != nil {
+			continue
+		}
+		c.writeCache(key, string(b)) // adopt under the current key
+		return string(b), true
+	}
+	return "", false
+}
+
+func (c *Client) writeCache(key, answer string) {
+	// Atomic write via the shared cache engine (GO-091); 0o644 as before.
+	_ = cache.WriteAtomicBytes(c.cacheDir, key+".txt", 0o644, []byte(answer))
 }
 
 // expandEnv returns the value of $VAR, or the literal string otherwise.
