@@ -110,6 +110,7 @@ empty value.
 | `title` | empty | config only | Site name → `.Site.Title` (a migration fills it in) |
 | `description` | empty | config only | Site tagline → `.Site.Description` |
 | `colors` | empty | config only | Palette by role → `.Site.Colors.<role>` and `--ssg-color-<role>` |
+| `posts_page` | empty | config only | Where the post listing goes, e.g. `blog` → `/blog/` |
 | `content_dir` | `content` | `--content-dir` | Parent of local sources |
 | `content_sources` | empty | `--content-source` (repeatable) | Extra Markdown roots merged into the site; see [CONTENT.md](CONTENT.md#extra-sources-content_sources) |
 | `auto_excerpt` | `false` | `--auto-excerpt` | Derive a missing excerpt from the opening paragraph |
@@ -147,6 +148,33 @@ alphabetically; a theme that already declares `--ssg-color-*` itself wins.
 `ssg migrate` fills all three in from the source site (see
 [MIGRATE.md](MIGRATE.md#what-the-sites-own-wiring-becomes)) — but only where the
 config has nothing, so an edit here is never overwritten.
+
+### The front page (`posts_page`)
+
+By default `/` is the generated post listing. A **content page** takes it
+instead as soon as one resolves there — `link: "/"` in front matter, which is
+what a WordPress static front page exports as:
+
+```yaml
+posts_page: blog     # the listing moves to /blog/ and /blog/page/2/
+```
+
+```text
+🏠 Front page: home.md
+   Post listing: /blog/
+```
+
+Without `posts_page` the listing has nowhere to go, so it is not generated —
+reported, not silent:
+
+```text
+🏠 Front page: home.md
+   8 post(s) are not listed anywhere — set posts_page: "blog" to publish the listing
+```
+
+`posts_page` works on its own too: a site with no front-page document can still
+move its listing off the root. In multilingual builds the language prefix comes
+first (`/pl/blog/`), and each language has its own front page.
 
 ### Extra feeds (`feeds`)
 

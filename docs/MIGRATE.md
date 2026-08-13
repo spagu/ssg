@@ -143,6 +143,13 @@ analytics: true      # only when you want GTM/GA4 live again
 
 ## After the migration
 
+The site's WordPress front page (`link: "/"`) becomes the front page here too,
+so the generated post listing needs a home of its own:
+
+```yaml
+posts_page: blog     # /blog/ — otherwise the listing is not generated
+```
+
 Check the content renders as markup, not as text:
 
 ```bash

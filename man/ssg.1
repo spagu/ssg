@@ -387,6 +387,12 @@ Maximum items per feed (default: 20).
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
 .TP
+.B posts_page \fR(configuration file only)
+Where the generated post listing goes, e.g. \fBposts_page: blog\fR publishes it
+at \fB/blog/\fR. A content page whose URL resolves to \fB/\fR becomes the site's
+front page; without \fBposts_page\fR the listing then has nowhere to go and is
+not generated, which the build reports.
+.TP
 .BR \-\-check\-markup =\fIwarn|strict|off\fR ", " \-\-no\-check\-markup
 Report source Markdown whose markup is indented four columns or more, which
 renders as a literal code block instead of as markup. On by default
