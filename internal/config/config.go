@@ -76,6 +76,27 @@ type Config struct {
 	Template string `yaml:"template" toml:"template" json:"template"`
 	Domain   string `yaml:"domain" toml:"domain" json:"domain"`
 
+	// Site identity. Title and Description reach templates as .Site.Title /
+	// .Site.Description and back the default <title> and meta description.
+	// A migration fills them in from the source site's own settings; when they
+	// are absent the export's metadata.json still supplies them, so nothing has
+	// to be retyped (#128).
+	Title       string `yaml:"title" toml:"title" json:"title"`
+	Description string `yaml:"description" toml:"description" json:"description"`
+
+	// Colors is the site palette by role — primary, secondary, accent, text,
+	// background — reaching templates as .Site.Colors.primary and exported to
+	// CSS as --ssg-color-primary. A migration fills it in from the source
+	// theme's own custom properties; a hand-written value always wins.
+	Colors map[string]string `yaml:"colors" toml:"colors" json:"colors"`
+
+	// PostsPage moves the generated post listing off the site root, e.g. "blog"
+	// publishes it at /blog/ (and /blog/page/2/). This is the second half of
+	// WordPress's own arrangement: a content page at `/` is the front page, and
+	// the posts get a home of their own. When a page claims the root and this is
+	// empty, the listing is not generated at all (#129).
+	PostsPage string `yaml:"posts_page" toml:"posts_page" json:"posts_page"`
+
 	// Paths
 	ContentDir   string `yaml:"content_dir" toml:"content_dir" json:"content_dir"`
 	TemplatesDir string `yaml:"templates_dir" toml:"templates_dir" json:"templates_dir"`
@@ -389,6 +410,14 @@ type Config struct {
 	// silent unless "strict-decorative" asks for it. Nothing is ever generated:
 	// an invented description is worse than none (#75).
 	CheckImages string `yaml:"check_images" toml:"check_images" json:"check_images"`
+
+	// CheckMarkup reports source Markdown whose markup is indented four columns
+	// or more, which CommonMark renders as a literal code block: "warn"
+	// (default), "strict", or "" / "off" to disable. It is the one check that is
+	// ON by default — a page-builder export ships `</div>` as visible text on
+	// every page and the build otherwise says nothing (#127). `ssg repair --fix`
+	// is the fix.
+	CheckMarkup string `yaml:"check_markup" toml:"check_markup" json:"check_markup"`
 
 	// CheckMeta validates rendered page metadata after build: "" (off), "warn" or
 	// "strict". An indexable page must have a non-empty <title> and meta
@@ -809,6 +838,9 @@ func DefaultConfig() *Config {
 		FeedFullContent: false,
 		HighlightStyle:  "github",
 		TOCDepth:        3,
+		// On by default: markup that renders as literal text is broken content,
+		// not a style opinion, and it is invisible in a successful build (#127).
+		CheckMarkup: "warn",
 		Mddb: MddbConfig{
 			Timeout:       30,
 			BatchSize:     1000,

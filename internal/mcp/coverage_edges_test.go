@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 // failWriter always fails, to surface Serve's response-encoding error path.
@@ -171,13 +169,5 @@ func TestConfigSetReadOnlyFile(t *testing.T) {
 	if r := call(t, s, "designer_config_set", map[string]any{"key": "toc", "value": "true"}); !r.IsError ||
 		!strings.Contains(text(r), "could not write") {
 		t.Errorf("read-only config must fail the write: %s", text(r))
-	}
-}
-
-// TestDocumentMappingEmptyDocument: a document node without content unwraps to
-// no mapping at all.
-func TestDocumentMappingEmptyDocument(t *testing.T) {
-	if documentMapping(&yaml.Node{Kind: yaml.DocumentNode}) != nil {
-		t.Error("an empty document must yield no mapping")
 	}
 }

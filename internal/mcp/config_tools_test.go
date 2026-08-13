@@ -172,13 +172,3 @@ func TestConfigReadErrors(t *testing.T) {
 		t.Error("missing value must error")
 	}
 }
-
-// TestSetYAMLKeyNonMapping: a config file that is not a mapping is refused.
-func TestSetYAMLKeyNonMapping(t *testing.T) {
-	if _, err := setYAMLKey([]byte("- a\n- b\n"), "toc", true); err == nil {
-		t.Error("a non-mapping document must error")
-	}
-	if _, err := setYAMLKey([]byte("{{ not yaml\n"), "toc", true); err == nil {
-		t.Error("unparseable yaml must error")
-	}
-}

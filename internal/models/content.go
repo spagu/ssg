@@ -447,6 +447,23 @@ type Metadata struct {
 	// content — so they travel with the content and reach the templates.
 	Marketing Marketing         `json:"marketing"`
 	Analytics map[string]string `json:"analytics"`
+
+	// Site is what the source CMS calls itself: the name and tagline shown in
+	// its own settings, its canonical URL, its locale and timezone. A migration
+	// that drops these starts the new project as "example.com" with no title,
+	// which is exactly the data the export already had (#128).
+	Site SiteInfo `json:"site"`
+}
+
+// SiteInfo is the source site's self-description, straight from its settings.
+// Every field is best-effort: an export that did not report one leaves it empty.
+type SiteInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	URL         string `json:"url"`
+	HomeURL     string `json:"home_url"`
+	Timezone    string `json:"timezone"`
+	Language    string `json:"language"`
 }
 
 // Marketing is the site-level identity a migrated site would otherwise lose:
@@ -462,19 +479,32 @@ type Marketing struct {
 	AppleTouchIcon string            `json:"apple_touch_icon"`
 	Logo           string            `json:"logo"`
 	ThemeColor     string            `json:"theme_color"`
+	// Colors is the source theme's palette by role ("primary", "secondary",
+	// "accent", "text", "background", "link"), read by the exporter from the
+	// theme's own CSS custom properties (wpexporter >= 1.8.2). It is the one
+	// part of a site's look a migration can carry verbatim (#128).
+	Colors map[string]string `json:"colors"`
 }
 
 // Empty reports whether nothing was discovered, so callers can skip the whole
 // block rather than emit empty markup.
 func (m Marketing) Empty() bool {
-	return len(m.Verification) == 0 && len(m.SocialProfiles) == 0 &&
+	return len(m.Verification) == 0 && len(m.SocialProfiles) == 0 && len(m.Colors) == 0 &&
 		m.OGSiteName == "" && m.OGImage == "" && m.TwitterSite == "" &&
 		m.Favicon == "" && m.AppleTouchIcon == "" && m.Logo == "" && m.ThemeColor == ""
 }
 
 // SiteData holds all parsed content for template rendering
 type SiteData struct {
-	Domain     string
+	Domain string
+	// Title and Description are the site's own name and tagline, reaching
+	// templates as .Site.Title / .Site.Description. Configuration wins; a
+	// migrated site falls back to what its export recorded (#128).
+	Title       string
+	Description string
+	// Colors is the site palette by role, as .Site.Colors.primary and as CSS
+	// custom properties in the head.
+	Colors     map[string]string
 	Pages      []Page
 	Posts      []Page
 	Categories map[int]Category

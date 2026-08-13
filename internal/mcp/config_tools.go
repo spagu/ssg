@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/spagu/ssg/internal/config"
 )
 
 // configKey is one presentation setting the designer may change.
@@ -124,7 +126,7 @@ func (s *Server) configSet(args map[string]any) toolResult {
 	if err != nil {
 		return errResult("could not read " + path + ": " + err.Error())
 	}
-	updated, err := setYAMLKey(before, key, typed)
+	updated, err := config.SetYAMLKey(before, key, typed)
 	if err != nil {
 		return errResult("could not update " + path + ": " + err.Error())
 	}
@@ -183,64 +185,4 @@ func readConfigValues(path string) (map[string]string, error) {
 		}
 	}
 	return out, nil
-}
-
-// setYAMLKey sets a top-level scalar key, preserving the file's comments, key
-// order and formatting by editing the document node in place.
-func setYAMLKey(src []byte, key string, value interface{}) ([]byte, error) {
-	var doc yaml.Node
-	if err := yaml.Unmarshal(src, &doc); err != nil {
-		return nil, err
-	}
-	var valueNode yaml.Node
-	if err := valueNode.Encode(value); err != nil {
-		return nil, err
-	}
-	root := documentMapping(&doc)
-	if root == nil {
-		return nil, fmt.Errorf("the config file is not a YAML mapping")
-	}
-	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value == key {
-			// Replace the value, keeping any comment attached to the key.
-			valueNode.HeadComment = root.Content[i+1].HeadComment
-			valueNode.LineComment = root.Content[i+1].LineComment
-			valueNode.FootComment = root.Content[i+1].FootComment
-			*root.Content[i+1] = valueNode
-			return marshalYAML(&doc)
-		}
-	}
-	keyNode := yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-	root.Content = append(root.Content, &keyNode, &valueNode)
-	return marshalYAML(&doc)
-}
-
-// documentMapping unwraps a document node to its root mapping, or nil when the
-// file does not hold one.
-func documentMapping(doc *yaml.Node) *yaml.Node {
-	n := doc
-	if n.Kind == yaml.DocumentNode {
-		if len(n.Content) == 0 {
-			return nil
-		}
-		n = n.Content[0]
-	}
-	if n.Kind != yaml.MappingNode {
-		return nil
-	}
-	return n
-}
-
-// marshalYAML re-encodes the document with the project's usual two-space indent.
-func marshalYAML(doc *yaml.Node) ([]byte, error) {
-	var b strings.Builder
-	enc := yaml.NewEncoder(&b)
-	enc.SetIndent(2)
-	if err := enc.Encode(doc); err != nil {
-		return nil, err
-	}
-	if err := enc.Close(); err != nil {
-		return nil, err
-	}
-	return []byte(b.String()), nil
 }

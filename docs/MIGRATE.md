@@ -99,6 +99,38 @@ picks both up:
 |---|---|---|
 | `marketing` | favicon, apple-touch-icon, theme colour, `og:site_name`, default `og:image`, `twitter:site`, social profile links, verification tokens | `.Site.Marketing` in templates; injected into `<head>` when `seo: true` (only what the theme did not already emit) |
 | `analytics` | GA4, GTM, Pixel, Hotjar, Clarity … ids | `.Site.Analytics` in templates; rendered only with **`analytics: true`** |
+| `marketing.colors` | the theme's palette by role — primary, secondary, accent, text, background, link | `.Site.Colors.<role>` in templates, `--ssg-color-<role>` on `:root`, and written into `colors:` in the config |
+| `site` | the name, tagline and timezone the CMS holds in its own settings | written into `title:`, `description:` and `timezone:` in the config; `.Site.Title` / `.Site.Description` |
+
+### The config is completed from the export
+
+After the fetch, `migrate` reads `metadata.json` and fills in the configuration
+keys the source site already answered — `title`, `description`, `timezone` and
+`colors` — so the first build carries the site's own name and colours instead of
+an untitled site in the starter palette:
+
+```text
+🪪 Completed .ssg.yaml from the source site:
+   ✅ title: Magna Valor
+   ✅ description: Supply Chain Global Advisory
+   ✅ timezone: Europe/Warsaw
+   ✅ colors: 6 colour(s) from the source theme
+```
+
+Only keys the config **does not have** are written, so re-running a migration
+never undoes an edit of yours, and the file is edited as a YAML document — your
+comments and key order survive. A timezone WordPress reports as a bare offset
+(`UTC+2`) is skipped rather than written as something that will not load: it
+carries no DST rules.
+
+The palette arrives only when the engine collects it: that is wpexporter
+**1.8.2**, which is **not released yet**
+([tradik/wpexporter#27](https://github.com/tradik/wpexporter/issues/27)). With
+1.8.1 the migration completes `title`, `description` and `timezone` as
+described, and simply finds no colours. The same release will export **custom
+post types** — a theme's Services, Portfolio or Team entries, silently lost
+today ([#28](https://github.com/tradik/wpexporter/issues/28)) — which will land
+under `pages/<type-slug>/` and keep their original URLs.
 
 Tracking is opt-in on purpose: loading third-party JavaScript on every page is
 your decision, not a side effect of moving content. Verification tokens and
@@ -110,6 +142,25 @@ analytics: true      # only when you want GTM/GA4 live again
 ```
 
 ## After the migration
+
+The site's WordPress front page (`link: "/"`) becomes the front page here too,
+so the generated post listing needs a home of its own:
+
+```yaml
+posts_page: blog     # /blog/ — otherwise the listing is not generated
+```
+
+Check the content renders as markup, not as text:
+
+```bash
+ssg repair             # report anything a page builder left indented
+ssg repair --fix       # rewrite those files in place
+```
+
+Exports made with wpexporter before 1.8.2 indent their builder markup, which
+CommonMark reads as a code block — the page then shows `</div>` to the visitor.
+Every build also reports it (`check_markup`, on by default). See
+[CONFIGURATION.md](CONFIGURATION.md#validating-the-built-output).
 
 The migrated site builds on the `simple` starter theme. To rebuild the
 source site's look, hand the project to an AI agent over the

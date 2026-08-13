@@ -93,6 +93,13 @@ type Config struct {
 	ContentDir   string
 	TemplatesDir string
 	OutputDir    string
+	// Site identity: name, tagline and palette. Empty means "whatever the
+	// export recorded", which is where a migrated site gets them from (#128).
+	Title       string
+	Description string
+	Colors      map[string]string
+	// PostsPage relocates the post listing, e.g. "blog" → /blog/ (#129).
+	PostsPage string
 	// New options
 	SitemapOff        bool         // Disable sitemap generation
 	RobotsOff         bool         // Disable robots.txt generation
@@ -231,6 +238,7 @@ type Config struct {
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
 	CheckLinks   string
 	CheckImages  string
+	CheckMarkup  string
 	CheckMeta    string
 	CheckSchema  string // validate emitted JSON-LD: "" | warn | strict (#111)
 	CheckOrphans string
@@ -399,7 +407,7 @@ type Generator struct {
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
 	// renderContentFn is the safeHTML pipeline captured for reuse: it renders raw
-	// page Markdown to final HTML so root .Content is rendered, not raw (#118).
+	// page Markdown to final HTML so root .Content is rendered, not raw (#127).
 	// Set by buildTemplateFuncs, which owns the pageLinks/mdLinkMap it needs.
 	renderContentFn func(string) template.HTML
 
@@ -876,6 +884,11 @@ func (g *Generator) assetPhase() error {
 	// attributes (#75) and page metadata (#76). Each reports everything it finds
 	// before the first strict failure returns, so one build surfaces the whole
 	// list rather than one problem at a time.
+	// Source-level, and first of the checks: it explains a page that looks
+	// wrong in the browser, so it must not be buried under the output checks.
+	if err := g.checkMarkupIfRequested(); err != nil {
+		return err
+	}
 	if err := g.checkLinksIfRequested(); err != nil {
 		return err
 	}
@@ -1799,6 +1812,11 @@ func (g *Generator) loadMetadata(path string) error {
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
 	}
+	// The source site's own name, tagline and palette. Configuration always
+	// wins — the export is the fallback for a project whose config has not been
+	// filled in yet, which is every project the moment a migration finishes
+	// (#128).
+	applySiteIdentity(g.siteData, metadata, g.config)
 	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
 		g.log("   🎯 Site metadata: " + s)
 	}
@@ -2016,7 +2034,7 @@ func (g *Generator) prepAltData(data interface{}) interface{} {
 	}
 	out := make(map[string]interface{}, len(m))
 	for k, v := range m {
-		// Root .Content is already rendered upstream (#118); sanitize it
+		// Root .Content is already rendered upstream (#127); sanitize it
 		// defensively (idempotent, no re-conversion) so --sanitize-html still
 		// holds for pongo2/mustache/handlebars, whichever form it arrives in.
 		if k == "Content" {
@@ -2231,7 +2249,7 @@ func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[strin
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
 	// One render pipeline, reused for the safeHTML helper AND for pre-rendering
-	// root .Content (#118), so both paths agree byte-for-byte.
+	// root .Content (#127), so both paths agree byte-for-byte.
 	g.renderContentFn = g.tmplSafeHTML(pageLinks, mdLinkMap)
 	funcs := template.FuncMap{
 		"safeHTML": g.safeHTMLValue,
@@ -2423,7 +2441,7 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 // string through the content pipeline, and lets an already-rendered
 // template.HTML value pass through untouched — so both
 // {{ .Post.Content | safeHTML }} (a string) and {{ .Content | safeHTML }} (the
-// pre-rendered root value) work instead of the second raising a type error (#118).
+// pre-rendered root value) work instead of the second raising a type error (#127).
 func (g *Generator) safeHTMLValue(v interface{}) template.HTML {
 	switch s := v.(type) {
 	case template.HTML:
@@ -3198,13 +3216,30 @@ func (g *Generator) generateIndex() error {
 			g.siteData.LanguagePages = languagePages(g.siteData.Pages, lang.Code)
 			g.siteData.LanguagePosts = languagePages(g.siteData.Posts, lang.Code)
 			prefix := ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n)
+			prefix, generate := g.indexTarget(prefix, lang.Code)
+			if !generate {
+				continue
+			}
 			if err := g.generateLanguageIndex(g.siteData.LanguagePosts, prefix); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return g.generateLanguageIndex(g.siteData.Posts, "")
+	prefix, generate := g.indexTarget("", "")
+	if !generate {
+		return nil
+	}
+	return g.generateLanguageIndex(g.siteData.Posts, prefix)
+}
+
+// indexTarget resolves where one language's post listing is written, honouring
+// a content page that claims the site root (#129).
+func (g *Generator) indexTarget(langPrefix, lang string) (prefix string, generate bool) {
+	front := rootPage(g.siteData.Pages, lang)
+	prefix, ok := g.postsListingPrefix(langPrefix, front != nil)
+	g.reportFrontPage(front, prefix, ok)
+	return prefix, ok
 }
 
 func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) error {
@@ -3347,6 +3382,12 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 		return []string{filepath.Join(g.config.OutputDir, "404.html")}
 	}
 
+	// The front page is index.html at the root whatever page_format says: "flat"
+	// would otherwise write a file literally called ".html" (#129).
+	if isRootOutputPath(subPath) {
+		return []string{filepath.Join(g.config.OutputDir, indexHTMLName)}
+	}
+
 	// A frontmatter `link:` that already names a file is final — page_format has
 	// nothing left to decide. Suffixing it produced "validator.html.html" under
 	// flat, and a directory literally named "validator.html/" under directory (#81).
@@ -3369,14 +3410,10 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 
 // generatePage generates a single page
 func (g *Generator) generatePage(page models.Page) error {
-	// Skip pages that would overwrite the main index.html
-	// This happens when a page has link="https://domain/" pointing to root
+	// A page that resolves to the site root IS the front page (#129): it is
+	// written to index.html, and the post listing moved to posts_page (or was
+	// not generated) before this ran.
 	outputSubPath := page.GetOutputPath()
-	if outputSubPath == "" || outputSubPath == "." {
-		fmt.Printf("   ⚠️  Skipping page '%s' (slug: %s) - would overwrite main index.html\n", page.Title, page.Slug)
-		fmt.Printf("      Hint: Change the 'link' field in frontmatter or use a different slug\n")
-		return nil
-	}
 
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)
@@ -3818,7 +3855,7 @@ func (g *Generator) renderTemplate(templateName, outputPath string, data interfa
 // contentContextValue returns the template-context value for root .Content: the
 // page Markdown rendered to final HTML through the same pipeline as safeHTML, so
 // a theme printing {{ .Content }} gets rendered output rather than raw Markdown
-// (#118). The pipeline sanitizes when --sanitize-html is on, so the rendered
+// (#127). The pipeline sanitizes when --sanitize-html is on, so the rendered
 // value is safe to mark as HTML (SEC-014). Before the funcs are wired (or in a
 // bare Generator) it falls back to the raw cast.
 func (g *Generator) contentContextValue(content string) interface{} {
