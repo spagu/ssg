@@ -1,8 +1,10 @@
 module github.com/spagu/ssg
 
-// Requires go1.26.5+: earlier 1.26.x stdlib is affected by GO-2026-5856
-// (crypto/tls ECH privacy leak) and GO-2026-4970 (os), both fixed in go1.26.5.
-go 1.26.5
+// Requires go1.26.6+: earlier 1.26.x stdlib carries seven advisories
+// govulncheck finds reachable from this code — among them GO-2026-5972
+// (encoding/asn1, via ssh.ParsePrivateKey in the SFTP deploy) and GO-2026-5026
+// (net/http/idna, via every outbound request) — all fixed in go1.26.6.
+go 1.26.6
 
 require (
 	github.com/BurntSushi/toml v1.6.0

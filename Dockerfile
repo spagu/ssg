@@ -2,12 +2,12 @@
 # Multi-stage build for minimal image size
 
 # Stage 1: Build
-# Pinned to 1.26.5-alpine: go1.26.4 stdlib crypto/tls is affected by
-# GO-2026-5856 (Encrypted Client Hello privacy leak), fixed in go1.26.5.
+# Pinned to 1.26.6-alpine: earlier 1.26.x stdlib carries advisories this code
+# reaches (encoding/asn1 GO-2026-5972, net/http GO-2026-5026), fixed in go1.26.6.
 #
 # Cross-compile from the native BUILDPLATFORM to the requested TARGETPLATFORM so
 # ARM images build fast without QEMU emulation (supports amd64, arm64 and armv7).
-FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine AS builder
 
 # Provided automatically by buildx.
 ARG TARGETARCH

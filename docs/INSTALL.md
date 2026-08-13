@@ -270,7 +270,7 @@ scoop install ssg
 
 ### Requirements
 
-- Go 1.26.5 or later
+- Go 1.26.6 or later
 - Git
 
 ### Build and Install
