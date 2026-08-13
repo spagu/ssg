@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1.8.2+ for the palette; earlier exports simply have no colours to read.
 
 ### Fixed
+- 🔇 **A config that could not be completed said nothing** — when `ssg migrate`
+  found the site's title, description or palette but failed to write them back
+  (a read-only config, a full disk), it reported no keys applied and no reason,
+  leaving the operator to look for values the file never got. The failure is now
+  named on stderr; the migration itself still succeeds.
 - 📄 **Migrated pages that rendered their own markup as text.** The root cause is
   in the exporter (fixed in wpexporter 1.8.2), but existing content is repaired
   in place with `ssg repair --fix` rather than requiring a re-migration.

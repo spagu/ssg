@@ -123,10 +123,14 @@ comments and key order survive. A timezone WordPress reports as a bare offset
 (`UTC+2`) is skipped rather than written as something that will not load: it
 carries no DST rules.
 
-The palette needs wpexporter **1.8.2+**; earlier versions collected no colours.
-That release also exports **custom post types** — a theme's Services, Portfolio
-or Team entries — which land under `pages/<type-slug>/` and keep their original
-URLs.
+The palette arrives only when the engine collects it: that is wpexporter
+**1.8.2**, which is **not released yet**
+([tradik/wpexporter#27](https://github.com/tradik/wpexporter/issues/27)). With
+1.8.1 the migration completes `title`, `description` and `timezone` as
+described, and simply finds no colours. The same release will export **custom
+post types** — a theme's Services, Portfolio or Team entries, silently lost
+today ([#28](https://github.com/tradik/wpexporter/issues/28)) — which will land
+under `pages/<type-slug>/` and keep their original URLs.
 
 Tracking is opt-in on purpose: loading third-party JavaScript on every page is
 your decision, not a side effect of moving content. Verification tokens and

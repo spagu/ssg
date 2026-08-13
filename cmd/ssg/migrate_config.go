@@ -63,6 +63,10 @@ func applyMigratedIdentity(configPath, dest string) []string {
 	// #nosec G703 G306 -- configPath is this project's own config file, located by
 	// the loader; completing it is what the caller asked for.
 	if err := os.WriteFile(configPath, src, 0o644); err != nil {
+		// The migration itself succeeded, so this does not fail the run — but
+		// it is not a silent skip either: the operator would otherwise look for
+		// a title and colours the report never promised and the file never got.
+		fmt.Fprintf(os.Stderr, "⚠️  could not complete %s: %v\n", configPath, err)
 		return nil
 	}
 	return applied

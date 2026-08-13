@@ -57,6 +57,9 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.31">1.8.31 — 2026-08-13</option>
+      <option value="1.8.30">1.8.30 — 2026-08-12</option>
+      <option value="1.8.29">1.8.29 — 2026-08-12</option>
       <option value="1.8.28">1.8.28 — 2026-08-12</option>
       <option value="1.8.27">1.8.27 — 2026-08-12</option>
       <option value="1.8.26">1.8.26 — 2026-08-11</option>
@@ -162,6 +165,47 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.31">
+
+### 1.8.31 — builds now report unrenderable markup
+
+`check_markup` is on (`warn`) by default — the only check that is. It names
+source Markdown whose markup is indented four columns or more, which
+CommonMark renders as a literal code block, so the visitor reads `</div>`
+instead of the page. **You may see new warnings on content you have had for
+months**; they describe what your site already serves. Fix them with
+`ssg repair --fix`, or silence the check with `check_markup: ""` (or
+`--no-check-markup`). It never fails a build unless you set `strict`.
+
+Nothing else changes: `title`, `description` and `colors` are new optional
+config keys, and `ssg migrate` filling them in only ever writes keys your
+config does not already have.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.30">
+
+### 1.8.30 — migrated sites keep their menus, and tracking stays opt-in
+
+`ssg migrate --content …` no longer disables the site's metadata: tags, users
+and menus now always ship (exclude them with `no-menus` / `no-tags` /
+`no-users`). If a migration of yours came up without navigation, re-run it.
+
+The tracking ids a migration records are rendered only when you set
+`analytics: true` — they are never injected because content moved.
+
+</div>
+
+<div class="upgrade-step" data-since="1.8.29">
+
+### 1.8.29 — the snap carries the migration engine
+
+`ssg migrate wordpress` works in the snap out of the box: the engine
+(`wpexporter`) ships inside it, because strict confinement cannot reach the
+host's copy. **Do nothing** beyond `snap refresh static-site-generator`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.28">
 
