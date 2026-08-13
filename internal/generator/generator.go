@@ -93,6 +93,11 @@ type Config struct {
 	ContentDir   string
 	TemplatesDir string
 	OutputDir    string
+	// Site identity: name, tagline and palette. Empty means "whatever the
+	// export recorded", which is where a migrated site gets them from (#119).
+	Title       string
+	Description string
+	Colors      map[string]string
 	// New options
 	SitemapOff        bool         // Disable sitemap generation
 	RobotsOff         bool         // Disable robots.txt generation
@@ -231,6 +236,7 @@ type Config struct {
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
 	CheckLinks   string
 	CheckImages  string
+	CheckMarkup  string
 	CheckMeta    string
 	CheckSchema  string // validate emitted JSON-LD: "" | warn | strict (#111)
 	CheckOrphans string
@@ -876,6 +882,11 @@ func (g *Generator) assetPhase() error {
 	// attributes (#75) and page metadata (#76). Each reports everything it finds
 	// before the first strict failure returns, so one build surfaces the whole
 	// list rather than one problem at a time.
+	// Source-level, and first of the checks: it explains a page that looks
+	// wrong in the browser, so it must not be buried under the output checks.
+	if err := g.checkMarkupIfRequested(); err != nil {
+		return err
+	}
 	if err := g.checkLinksIfRequested(); err != nil {
 		return err
 	}
@@ -1799,6 +1810,11 @@ func (g *Generator) loadMetadata(path string) error {
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
 	}
+	// The source site's own name, tagline and palette. Configuration always
+	// wins — the export is the fallback for a project whose config has not been
+	// filled in yet, which is every project the moment a migration finishes
+	// (#119).
+	applySiteIdentity(g.siteData, metadata, g.config)
 	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
 		g.log("   🎯 Site metadata: " + s)
 	}

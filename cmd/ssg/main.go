@@ -647,7 +647,11 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		AI:                     buildAIClient(cfg.AI),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
+		Title:                  cfg.Title,
+		Description:            cfg.Description,
+		Colors:                 cfg.Colors,
 		CheckImages:            cfg.CheckImages,
+		CheckMarkup:            cfg.CheckMarkup,
 		CheckMeta:              cfg.CheckMeta,
 		CheckSchema:            cfg.CheckSchema,
 		CheckOrphans:           cfg.CheckOrphans,
@@ -804,6 +808,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	}
 	if arg == "--check-meta" { // same shape: bare form means warn (#76)
 		cfg.CheckMeta = "warn"
+		return true
+	}
+	if arg == "--no-check-markup" { // the one check that is on by default (#118)
+		cfg.CheckMarkup = ""
 		return true
 	}
 	if arg == "--check-schema" { // same shape: bare form means warn (#111)
@@ -1074,6 +1082,11 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		// strict-decorative additionally reports alt="" (#75).
 		if v := strings.TrimPrefix(arg, "--check-images="); v == "warn" || v == "strict" || v == "strict-decorative" {
 			cfg.CheckImages = v
+		}
+	case strings.HasPrefix(arg, "--check-markup="):
+		// "" / "off" disable the default warn; strict fails the build (#118).
+		if v := strings.TrimPrefix(arg, "--check-markup="); v == "warn" || v == "strict" || v == "off" || v == "" {
+			cfg.CheckMarkup = v
 		}
 	case strings.HasPrefix(arg, "--check-meta="):
 		if v := strings.TrimPrefix(arg, "--check-meta="); v == "warn" || v == "strict" {
@@ -1478,6 +1491,8 @@ func printUsage() {
 	fmt.Println("  ssg new worker <kind>  - Scaffold a Pages Functions worker")
 	fmt.Println("  ssg new wrangler       - Generate a starter wrangler.toml")
 	fmt.Println("  ssg import redirects   - Convert a Next.js redirects() rule set")
+	fmt.Println("  ssg migrate <src> <url> - Migrate a live site (see 'ssg migrate --help')")
+	fmt.Println("  ssg repair [--fix]     - Find (and fix) markup a migration left indented")
 	fmt.Println("  ssg mcp                - Development MCP server for AI-assisted editing")
 	fmt.Println("                           (designer + content manager; see 'ssg mcp --help')")
 	fmt.Println("")
@@ -1585,6 +1600,9 @@ func printUsage() {
 	fmt.Println("  --check-images=MODE    - warn | strict | strict-decorative (also reports alt=\"\")")
 	fmt.Println("  --check-meta           - Validate title/description on indexable pages (warn mode)")
 	fmt.Println("  --check-meta=MODE      - warn | strict (strict fails the build)")
+	fmt.Println("  --check-markup=MODE    - warn (default) | strict | off — report source markup")
+	fmt.Println("                           indented into a code block ('ssg repair --fix')")
+	fmt.Println("  --no-check-markup      - Turn that default check off")
 	fmt.Println("  --check-schema         - Validate emitted JSON-LD against required properties (warn)")
 	fmt.Println("  --check-schema=MODE    - warn | strict (strict fails the build)")
 	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")

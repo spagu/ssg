@@ -133,12 +133,46 @@ func migrateBatch(provider migrate.Provider, rawURL string, opts migrate.Options
 		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
 		return 1
 	}
+	// The config is completed BEFORE the build, so the first render already
+	// carries the site's own title, description and palette (#119).
+	applied := applyMigratedIdentity(config.FindConfigFile(), opts.Dest)
+	genCfg, cfg = reloadAfterIdentity(cfg, genCfg)
 	if err := build(genCfg, cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "❌ building migrated site: %v\n", err)
 		return 1
 	}
 	printMigrateReport(report, rawURL)
+	printMigratedIdentity(applied)
 	return 0
+}
+
+// reloadAfterIdentity re-reads the config so keys just written by
+// applyMigratedIdentity take effect in this same run. A config that no longer
+// loads is left alone — the build proceeds with what it already had.
+func reloadAfterIdentity(cfg *config.Config, genCfg generator.Config) (generator.Config, *config.Config) {
+	path := config.FindConfigFile()
+	if path == "" {
+		return genCfg, cfg
+	}
+	reloaded, err := loadConfigFile(path)
+	if err != nil || reloaded == nil {
+		return genCfg, cfg
+	}
+	genCfg.Title, genCfg.Description, genCfg.Colors = reloaded.Title, reloaded.Description, reloaded.Colors
+	cfg.Title, cfg.Description, cfg.Colors = reloaded.Title, reloaded.Description, reloaded.Colors
+	return genCfg, cfg
+}
+
+// printMigratedIdentity reports the config keys the export filled in, so the
+// operator sees that the file changed and what it now says.
+func printMigratedIdentity(applied []string) {
+	if len(applied) == 0 {
+		return
+	}
+	fmt.Printf("\n🪪 Completed %s from the source site:\n", config.FindConfigFile())
+	for _, line := range applied {
+		fmt.Printf("   ✅ %s\n", line)
+	}
 }
 
 // migrateLive is the owner-specified order: server FIRST with a visible
@@ -172,6 +206,8 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 		migrateBlock()
 		return 1
 	}
+	applied := applyMigratedIdentity(config.FindConfigFile(), opts.Dest)
+	genCfg, cfg = reloadAfterIdentity(cfg, genCfg)
 	if !cfg.Watch {
 		// --http without --watch: nothing rebuilds on its own, so build once
 		// now that all content is on disk.
@@ -180,6 +216,7 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 		}
 	}
 	printMigrateReport(report, rawURL)
+	printMigratedIdentity(applied)
 	if !cfg.Quiet {
 		fmt.Println("   The server keeps running — press Ctrl+C to stop.")
 	}

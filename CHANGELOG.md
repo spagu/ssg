@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.31] - 2026-08-13
+
+### Added
+- 🩹 **`ssg repair`** — finds source Markdown whose markup is indented four
+  columns or more, which CommonMark renders as a literal code block, and with
+  `--fix` rewrites it in place. This is what a WordPress page builder leaves
+  behind: Elementor indents its nested `<div>`s with tabs, the exporter turns
+  `</p>` into a blank line, the blank line ends the HTML block — and the visitor
+  reads `</div>` in monospace down the middle of the page while the build reports
+  success. Dry run by default (exit 1 on findings, so CI can gate on it); front
+  matter, fenced code blocks and list continuations are never touched.
+- 🔎 **`check_markup`** reports the same defect on every build, naming the source
+  file and line. It is the one check that is **on by default** (`warn`): the
+  others weigh a judgement call, while this one reports content that provably
+  does not render as written. Silent when there is nothing to report. Turn it off
+  with `check_markup: ""` or `--no-check-markup`; `strict` fails the build.
+- 🪪 **`title`, `description` and `colors` configuration keys**, reaching
+  templates as `.Site.Title`, `.Site.Description` and `.Site.Colors.<role>`. The
+  palette is also emitted as CSS custom properties (`--ssg-color-primary`, …) on
+  `:root`, and stands in for `<meta name="theme-color">` when neither the theme
+  nor the export declared one. Values crawled from another site are validated
+  before they reach the stylesheet.
+- 🚚 **`ssg migrate` completes the config from the export.** After the fetch it
+  reads `metadata.json` and fills in `title`, `description`, `timezone` and
+  `colors` — what the source site says about itself, which the migration already
+  collected and then dropped on the floor. It only ever fills in keys the config
+  does not have, so an author's decision is never overwritten, and the file is
+  edited as a YAML document, so comments and key order survive. The first build
+  of a migrated site now carries its own name and palette. Needs wpexporter
+  1.8.2+ for the palette; earlier exports simply have no colours to read.
+
+### Fixed
+- 📄 **Migrated pages that rendered their own markup as text.** The root cause is
+  in the exporter (fixed in wpexporter 1.8.2), but existing content is repaired
+  in place with `ssg repair --fix` rather than requiring a re-migration.
+
+
 ## [1.8.30] - 2026-08-12
 
 ### Fixed

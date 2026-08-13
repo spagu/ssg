@@ -60,6 +60,11 @@ func dispatchSingleVerb(args []string) (int, bool) {
 	if len(args) >= 1 && args[0] == "migrate" {
 		return runMigrate(args[1:]), true
 	}
+	// `repair` claims the verb the same way: it takes optional paths, and a
+	// content source directory named "repair" still builds via --source=repair.
+	if len(args) >= 1 && args[0] == "repair" {
+		return runRepair(args[1:]), true
+	}
 	return 0, false
 }
 

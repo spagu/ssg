@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.30" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.31" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -39,6 +39,10 @@ ssg \- fast static site generator written in Go
 .RB [ \-\-content\ \fIa,b,c\fR ]
 .RB [ \-\-watch ]
 .RB [ \-\-http ]
+.br
+.B ssg repair
+.RI [ path ...]
+.RB [ \-\-fix ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -94,6 +98,17 @@ selects kinds (\fBpages\fR, \fBposts\fR, \fBmedia\fR, \fBtags\fR, \fBusers\fR,
 first and the site fills up live in the browser. \fBssg migrate \-\-list\fR
 names the providers. The verb is reserved: a source directory called
 \fImigrate\fR builds via \fB\-\-source=migrate\fR.
+.TP
+.B ssg repair \fR[\fIpath\fR...] [\fB\-\-fix\fR] [\fB\-\-quiet\fR]
+Find source Markdown whose markup is indented four columns or more, which
+CommonMark renders as a literal code block — the shape a page-builder export
+(Elementor, WPBakery, Divi) leaves behind, where the visitor reads \fB</div>\fR
+in monospace and the build reports success. Without \fB\-\-fix\fR it is a dry
+run that reports file and line and exits 1 on findings, so CI can gate on it;
+\fB\-\-fix\fR rewrites the affected files in place. Front matter, fenced code
+blocks and list continuations are never touched. With no \fIpath\fR it scans the
+configured \fBcontent_dir\fR. The same defect is reported during every build by
+\fBcheck_markup\fR, which is on by default.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content
@@ -371,6 +386,13 @@ Maximum items per feed (default: 20).
 .TP
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.BR \-\-check\-markup =\fIwarn|strict|off\fR ", " \-\-no\-check\-markup
+Report source Markdown whose markup is indented four columns or more, which
+renders as a literal code block instead of as markup. On by default
+(\fBwarn\fR); \fBstrict\fR fails the build, \fBoff\fR (or
+\fB\-\-no\-check\-markup\fR) disables it. Fix the content with
+.BR "ssg repair \-\-fix" .
 .TP
 .BR \-\-content\-source =\fIDIR
 Merge an extra Markdown root into the site, in addition to (or instead of) the

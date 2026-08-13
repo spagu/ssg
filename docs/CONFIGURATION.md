@@ -107,6 +107,9 @@ empty value.
 | `source` | required | positional | Local content collection |
 | `template` | required | positional | Theme name |
 | `domain` | required | positional | Canonical host without scheme |
+| `title` | empty | config only | Site name → `.Site.Title` (a migration fills it in) |
+| `description` | empty | config only | Site tagline → `.Site.Description` |
+| `colors` | empty | config only | Palette by role → `.Site.Colors.<role>` and `--ssg-color-<role>` |
 | `content_dir` | `content` | `--content-dir` | Parent of local sources |
 | `content_sources` | empty | `--content-source` (repeatable) | Extra Markdown roots merged into the site; see [CONTENT.md](CONTENT.md#extra-sources-content_sources) |
 | `auto_excerpt` | `false` | `--auto-excerpt` | Derive a missing excerpt from the opening paragraph |
@@ -118,6 +121,32 @@ empty value.
 | `pages_path` | `pages` | config only | Pages directory inside a source |
 | `posts_path` | `posts` | config only | Posts directory inside a source |
 | `quiet` | `false` | `--quiet`, `-q` | Suppress normal output |
+
+### Site identity and palette (`title`, `description`, `colors`)
+
+```yaml
+title: "Magna Valor"
+description: "Supply Chain Global Advisory"
+colors:
+  primary: "#7b2ff7"
+  secondary: "#54595f"
+  accent: "#61ce70"
+  text: "#222733"
+  background: "#f6f6f6"
+  link: "#a4836d"
+```
+
+Templates read these as `.Site.Title`, `.Site.Description` and
+`.Site.Colors.primary`. The palette is also emitted on `:root` as
+`--ssg-color-primary`, `--ssg-color-secondary`, … so a theme can style against
+the site's own colours without the values being copied into its stylesheet, and
+the primary colour stands in for `<meta name="theme-color">` when nothing else
+declares one. Roles beyond the six above are allowed and follow them
+alphabetically; a theme that already declares `--ssg-color-*` itself wins.
+
+`ssg migrate` fills all three in from the source site (see
+[MIGRATE.md](MIGRATE.md#what-the-sites-own-wiring-becomes)) — but only where the
+config has nothing, so an edit here is never overwritten.
 
 ### Extra feeds (`feeds`)
 
@@ -748,6 +777,7 @@ implemented.
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
+| `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
@@ -881,7 +911,8 @@ even when `check_links` is unset.
 
 Three checks run over the generated HTML, in the same shape as `check_links`:
 empty (off), `warn`, or `strict` (a finding fails the build). `strict: true`
-escalates any enabled check.
+escalates any enabled check. A fourth, `check_markup`, reads the **source**
+instead — see below.
 
 **`check_images`** reports images with **no `alt` attribute at all**. It never
 generates alt text — an invented description reads as authoritative while being
@@ -921,6 +952,26 @@ meta_limits:
 counts: every page links to itself through `<link rel="canonical">`, so counting
 all references would make nothing an orphan and the check would pass on a site
 full of them. Self-links, `noindex` pages and the site root are ignored.
+
+**`check_markup`** reports source Markdown whose markup is indented four columns
+or more, which CommonMark renders as a literal code block. It is the **one check
+that is on by default** (`warn`), because it does not weigh a judgement call the
+way the others do: the page provably does not render as written, and the build
+otherwise says nothing. It is silent when there is nothing to report.
+
+This is what a page-builder export leaves behind — Elementor indents its nested
+`<div>`s with tabs, the exporter turns `</p>` into a blank line, the blank line
+ends the HTML block, and every following line is four columns deep. The visitor
+reads `</div>` in monospace down the middle of the page.
+
+```yaml
+check_markup: warn      # default; "strict" fails the build, "" or "off" disables
+```
+
+Fix the content in place with **`ssg repair --fix`** (dry run without `--fix`,
+which exits 1 on findings so CI can gate on it). Front matter, fenced code blocks
+and list continuations are never touched. Re-exporting with wpexporter 1.8.2+
+produces clean sources in the first place.
 
 `seo: true` also fills in a missing meta description from the front-matter
 `description:`. Nothing is invented — the author already wrote it, it just never
