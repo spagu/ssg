@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of a migrated site now carries its own name and palette. Needs wpexporter
   1.8.2+ for the palette; earlier exports simply have no colours to read.
 
+### Security
+- 🔐 **Go 1.26.6** (was 1.26.5) — govulncheck reports seven standard-library
+  advisories reachable from this code on 1.26.5, among them GO-2026-5972
+  (`encoding/asn1`, reached through `ssh.ParsePrivateKey` in the SFTP deploy)
+  and GO-2026-5026 (`net/http` punycode handling, reached by every outbound
+  request: MDDB, theme downloads, the proxy endpoint). All are fixed in 1.26.6.
+  Building from source now needs Go 1.26.6 or newer.
+
 ### Fixed
 - 🔇 **A config that could not be completed said nothing** — when `ssg migrate`
   found the site's title, description or palette but failed to write them back
