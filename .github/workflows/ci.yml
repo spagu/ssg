@@ -45,8 +45,9 @@ on:
         type: boolean
 
 env:
-  # Pinned to 1.26.5+: 1.26.4 stdlib crypto/tls is affected by GO-2026-5856
-  # (Encrypted Client Hello privacy leak), fixed in go1.26.5.
+  # Pinned to 1.26.6+: earlier 1.26.x stdlib carries advisories govulncheck
+  # finds reachable from this code (encoding/asn1 GO-2026-5972 via the SFTP
+  # deploy, net/http GO-2026-5026 via every outbound request), fixed in 1.26.6.
   GO_VERSION: "1.26.6"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

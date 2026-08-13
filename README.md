@@ -497,7 +497,7 @@ workflow examples are available in [examples/workflows](examples/workflows/).
 
 ## Development
 
-Building SSG itself requires Go 1.26.5 or newer. Earlier Go 1.26 releases contain
+Building SSG itself requires Go 1.26.6 or newer. Earlier Go 1.26 releases contain
 standard-library vulnerabilities relevant to this project.
 
 ```bash
