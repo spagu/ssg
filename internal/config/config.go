@@ -90,6 +90,13 @@ type Config struct {
 	// theme's own custom properties; a hand-written value always wins.
 	Colors map[string]string `yaml:"colors" toml:"colors" json:"colors"`
 
+	// PostsPage moves the generated post listing off the site root, e.g. "blog"
+	// publishes it at /blog/ (and /blog/page/2/). This is the second half of
+	// WordPress's own arrangement: a content page at `/` is the front page, and
+	// the posts get a home of their own. When a page claims the root and this is
+	// empty, the listing is not generated at all (#129).
+	PostsPage string `yaml:"posts_page" toml:"posts_page" json:"posts_page"`
+
 	// Paths
 	ContentDir   string `yaml:"content_dir" toml:"content_dir" json:"content_dir"`
 	TemplatesDir string `yaml:"templates_dir" toml:"templates_dir" json:"templates_dir"`

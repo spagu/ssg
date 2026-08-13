@@ -647,6 +647,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		AI:                     buildAIClient(cfg.AI),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
+		PostsPage:              cfg.PostsPage,
 		Title:                  cfg.Title,
 		Description:            cfg.Description,
 		Colors:                 cfg.Colors,

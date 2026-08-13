@@ -98,6 +98,8 @@ type Config struct {
 	Title       string
 	Description string
 	Colors      map[string]string
+	// PostsPage relocates the post listing, e.g. "blog" → /blog/ (#129).
+	PostsPage string
 	// New options
 	SitemapOff        bool         // Disable sitemap generation
 	RobotsOff         bool         // Disable robots.txt generation
@@ -3214,13 +3216,30 @@ func (g *Generator) generateIndex() error {
 			g.siteData.LanguagePages = languagePages(g.siteData.Pages, lang.Code)
 			g.siteData.LanguagePosts = languagePages(g.siteData.Posts, lang.Code)
 			prefix := ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n)
+			prefix, generate := g.indexTarget(prefix, lang.Code)
+			if !generate {
+				continue
+			}
 			if err := g.generateLanguageIndex(g.siteData.LanguagePosts, prefix); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return g.generateLanguageIndex(g.siteData.Posts, "")
+	prefix, generate := g.indexTarget("", "")
+	if !generate {
+		return nil
+	}
+	return g.generateLanguageIndex(g.siteData.Posts, prefix)
+}
+
+// indexTarget resolves where one language's post listing is written, honouring
+// a content page that claims the site root (#129).
+func (g *Generator) indexTarget(langPrefix, lang string) (prefix string, generate bool) {
+	front := rootPage(g.siteData.Pages, lang)
+	prefix, ok := g.postsListingPrefix(langPrefix, front != nil)
+	g.reportFrontPage(front, prefix, ok)
+	return prefix, ok
 }
 
 func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) error {
@@ -3363,6 +3382,12 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 		return []string{filepath.Join(g.config.OutputDir, "404.html")}
 	}
 
+	// The front page is index.html at the root whatever page_format says: "flat"
+	// would otherwise write a file literally called ".html" (#129).
+	if isRootOutputPath(subPath) {
+		return []string{filepath.Join(g.config.OutputDir, indexHTMLName)}
+	}
+
 	// A frontmatter `link:` that already names a file is final — page_format has
 	// nothing left to decide. Suffixing it produced "validator.html.html" under
 	// flat, and a directory literally named "validator.html/" under directory (#81).
@@ -3385,14 +3410,10 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 
 // generatePage generates a single page
 func (g *Generator) generatePage(page models.Page) error {
-	// Skip pages that would overwrite the main index.html
-	// This happens when a page has link="https://domain/" pointing to root
+	// A page that resolves to the site root IS the front page (#129): it is
+	// written to index.html, and the post listing moved to posts_page (or was
+	// not generated) before this ran.
 	outputSubPath := page.GetOutputPath()
-	if outputSubPath == "" || outputSubPath == "." {
-		fmt.Printf("   ⚠️  Skipping page '%s' (slug: %s) - would overwrite main index.html\n", page.Title, page.Slug)
-		fmt.Printf("      Hint: Change the 'link' field in frontmatter or use a different slug\n")
-		return nil
-	}
 
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)
