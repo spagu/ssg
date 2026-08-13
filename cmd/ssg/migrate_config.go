@@ -4,7 +4,7 @@ package main
 // what the site calls itself, what it says it is about, which timezone its
 // dates were written in, and what colours its theme used. Those landed in
 // metadata.json and stopped there, so every migrated project started as an
-// untitled site in the default palette (#119).
+// untitled site in the default palette (#128).
 //
 // This fills in ONLY the keys the config has not got. A value the author (or an
 // earlier migration) already wrote is never touched, so re-running a migration
@@ -60,7 +60,9 @@ func applyMigratedIdentity(configPath, dest string) []string {
 	if len(applied) == 0 {
 		return nil
 	}
-	if err := os.WriteFile(configPath, src, 0o644); err != nil { // #nosec G306 -- project config file
+	// #nosec G703 G306 -- configPath is this project's own config file, located by
+	// the loader; completing it is what the caller asked for.
+	if err := os.WriteFile(configPath, src, 0o644); err != nil {
 		return nil
 	}
 	return applied

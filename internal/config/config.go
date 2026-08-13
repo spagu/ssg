@@ -80,7 +80,7 @@ type Config struct {
 	// .Site.Description and back the default <title> and meta description.
 	// A migration fills them in from the source site's own settings; when they
 	// are absent the export's metadata.json still supplies them, so nothing has
-	// to be retyped (#119).
+	// to be retyped (#128).
 	Title       string `yaml:"title" toml:"title" json:"title"`
 	Description string `yaml:"description" toml:"description" json:"description"`
 
@@ -408,7 +408,7 @@ type Config struct {
 	// or more, which CommonMark renders as a literal code block: "warn"
 	// (default), "strict", or "" / "off" to disable. It is the one check that is
 	// ON by default — a page-builder export ships `</div>` as visible text on
-	// every page and the build otherwise says nothing (#118). `ssg repair --fix`
+	// every page and the build otherwise says nothing (#127). `ssg repair --fix`
 	// is the fix.
 	CheckMarkup string `yaml:"check_markup" toml:"check_markup" json:"check_markup"`
 
@@ -832,7 +832,7 @@ func DefaultConfig() *Config {
 		HighlightStyle:  "github",
 		TOCDepth:        3,
 		// On by default: markup that renders as literal text is broken content,
-		// not a style opinion, and it is invisible in a successful build (#118).
+		// not a style opinion, and it is invisible in a successful build (#127).
 		CheckMarkup: "warn",
 		Mddb: MddbConfig{
 			Timeout:       30,

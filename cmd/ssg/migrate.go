@@ -134,7 +134,7 @@ func migrateBatch(provider migrate.Provider, rawURL string, opts migrate.Options
 		return 1
 	}
 	// The config is completed BEFORE the build, so the first render already
-	// carries the site's own title, description and palette (#119).
+	// carries the site's own title, description and palette (#128).
 	applied := applyMigratedIdentity(config.FindConfigFile(), opts.Dest)
 	genCfg, cfg = reloadAfterIdentity(cfg, genCfg)
 	if err := build(genCfg, cfg); err != nil {

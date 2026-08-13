@@ -6,7 +6,7 @@ package main
 // The case it was built for: a migrated WordPress page whose builder markup is
 // tab-indented. CommonMark reads four columns of indentation as a code block, so
 // the visitor gets `</div>` in monospace down the middle of the page and the
-// build reports nothing wrong — it did exactly what the source said (#118).
+// build reports nothing wrong — it did exactly what the source said (#127).
 //
 // Dry run by default. A repair rewrites the author's files, so it never happens
 // as a side effect of asking what is wrong; the report exits non-zero so CI can
@@ -122,6 +122,8 @@ func repairFile(path string, fix bool) (repairResult, error) {
 	if fi, statErr := os.Stat(path); statErr == nil {
 		mode = fi.Mode().Perm()
 	}
+	// #nosec G703 G304 -- path comes from the operator's own content tree (a CLI
+	// argument or the configured content_dir), and the write is the point of --fix.
 	if err := os.WriteFile(path, []byte(repaired), mode); err != nil {
 		return res, fmt.Errorf("cannot write %s: %w", path, err)
 	}

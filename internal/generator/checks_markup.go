@@ -1,7 +1,7 @@
 package generator
 
 // Build-time detection of source Markdown whose markup is indented four columns
-// or more, which CommonMark renders as a literal code block (#118).
+// or more, which CommonMark renders as a literal code block (#127).
 //
 // Unlike the other checks this one reads the SOURCE, not the output: the fix is
 // an edit to the Markdown file, so the report has to name that file. It is also

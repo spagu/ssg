@@ -130,7 +130,7 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	// what the theme has not already emitted.
 	b.WriteString(g.buildMarketingHead(s))
 	// The site palette as CSS custom properties, so a theme can style against
-	// the source site's colours instead of the author copying hex codes (#119).
+	// the source site's colours instead of the author copying hex codes (#128).
 	b.WriteString(g.buildPaletteHead(s))
 	b.WriteString(g.analyticsSnippet(s))
 	// Fall back to the front-matter description when the theme emitted no usable

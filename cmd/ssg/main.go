@@ -810,7 +810,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.CheckMeta = "warn"
 		return true
 	}
-	if arg == "--no-check-markup" { // the one check that is on by default (#118)
+	if arg == "--no-check-markup" { // the one check that is on by default (#127)
 		cfg.CheckMarkup = ""
 		return true
 	}
@@ -1084,7 +1084,7 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 			cfg.CheckImages = v
 		}
 	case strings.HasPrefix(arg, "--check-markup="):
-		// "" / "off" disable the default warn; strict fails the build (#118).
+		// "" / "off" disable the default warn; strict fails the build (#127).
 		if v := strings.TrimPrefix(arg, "--check-markup="); v == "warn" || v == "strict" || v == "off" || v == "" {
 			cfg.CheckMarkup = v
 		}

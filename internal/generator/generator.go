@@ -94,7 +94,7 @@ type Config struct {
 	TemplatesDir string
 	OutputDir    string
 	// Site identity: name, tagline and palette. Empty means "whatever the
-	// export recorded", which is where a migrated site gets them from (#119).
+	// export recorded", which is where a migrated site gets them from (#128).
 	Title       string
 	Description string
 	Colors      map[string]string
@@ -405,7 +405,7 @@ type Generator struct {
 	mdConversions int
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
 	// renderContentFn is the safeHTML pipeline captured for reuse: it renders raw
-	// page Markdown to final HTML so root .Content is rendered, not raw (#118).
+	// page Markdown to final HTML so root .Content is rendered, not raw (#127).
 	// Set by buildTemplateFuncs, which owns the pageLinks/mdLinkMap it needs.
 	renderContentFn func(string) template.HTML
 
@@ -1813,7 +1813,7 @@ func (g *Generator) loadMetadata(path string) error {
 	// The source site's own name, tagline and palette. Configuration always
 	// wins — the export is the fallback for a project whose config has not been
 	// filled in yet, which is every project the moment a migration finishes
-	// (#119).
+	// (#128).
 	applySiteIdentity(g.siteData, metadata, g.config)
 	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
 		g.log("   🎯 Site metadata: " + s)
@@ -2032,7 +2032,7 @@ func (g *Generator) prepAltData(data interface{}) interface{} {
 	}
 	out := make(map[string]interface{}, len(m))
 	for k, v := range m {
-		// Root .Content is already rendered upstream (#118); sanitize it
+		// Root .Content is already rendered upstream (#127); sanitize it
 		// defensively (idempotent, no re-conversion) so --sanitize-html still
 		// holds for pongo2/mustache/handlebars, whichever form it arrives in.
 		if k == "Content" {
@@ -2247,7 +2247,7 @@ func (g *Generator) warnMdLink(base, lang string, mdLinkMap map[string]map[strin
 func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.FuncMap {
 	mdLinkMap := g.buildMdLinkMap()
 	// One render pipeline, reused for the safeHTML helper AND for pre-rendering
-	// root .Content (#118), so both paths agree byte-for-byte.
+	// root .Content (#127), so both paths agree byte-for-byte.
 	g.renderContentFn = g.tmplSafeHTML(pageLinks, mdLinkMap)
 	funcs := template.FuncMap{
 		"safeHTML": g.safeHTMLValue,
@@ -2439,7 +2439,7 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 // string through the content pipeline, and lets an already-rendered
 // template.HTML value pass through untouched — so both
 // {{ .Post.Content | safeHTML }} (a string) and {{ .Content | safeHTML }} (the
-// pre-rendered root value) work instead of the second raising a type error (#118).
+// pre-rendered root value) work instead of the second raising a type error (#127).
 func (g *Generator) safeHTMLValue(v interface{}) template.HTML {
 	switch s := v.(type) {
 	case template.HTML:
@@ -3834,7 +3834,7 @@ func (g *Generator) renderTemplate(templateName, outputPath string, data interfa
 // contentContextValue returns the template-context value for root .Content: the
 // page Markdown rendered to final HTML through the same pipeline as safeHTML, so
 // a theme printing {{ .Content }} gets rendered output rather than raw Markdown
-// (#118). The pipeline sanitizes when --sanitize-html is on, so the rendered
+// (#127). The pipeline sanitizes when --sanitize-html is on, so the rendered
 // value is safe to mark as HTML (SEC-014). Before the funcs are wired (or in a
 // bare Generator) it falls back to the raw cast.
 func (g *Generator) contentContextValue(content string) interface{} {

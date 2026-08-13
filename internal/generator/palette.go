@@ -1,7 +1,7 @@
 package generator
 
 // Site identity — name, tagline, palette — and the CSS custom properties a
-// theme can build on (#119).
+// theme can build on (#128).
 //
 // A migration already learns all three from the source site: WordPress knows
 // what it calls itself, and the theme's own stylesheet declares its colours.
