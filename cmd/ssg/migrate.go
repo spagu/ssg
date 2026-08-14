@@ -36,12 +36,13 @@ var migrateFetch = func(p migrate.Provider, rawURL string, opts migrate.Options)
 var migrateBlock = func() { select {} }
 
 type migrateFlags struct {
-	content []string
-	watch   bool
-	http    bool
-	quiet   bool
-	noCrawl bool
-	source  string
+	content  []string
+	watch    bool
+	http     bool
+	quiet    bool
+	noCrawl  bool
+	allMedia bool
+	source   string
 }
 
 func runMigrate(args []string) int {
@@ -113,10 +114,11 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 	downloadOnlineTheme(cfg)
 
 	opts := migrate.Options{
-		Content: flags.content,
-		Dest:    filepath.Join(cfg.ContentDir, cfg.Source),
-		Quiet:   cfg.Quiet,
-		NoCrawl: flags.noCrawl,
+		Content:  flags.content,
+		Dest:     filepath.Join(cfg.ContentDir, cfg.Source),
+		Quiet:    cfg.Quiet,
+		NoCrawl:  flags.noCrawl,
+		AllMedia: flags.allMedia,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -265,6 +267,8 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 			f.quiet = true
 		case arg == "--no-crawl":
 			f.noCrawl = true
+		case arg == "--all-media":
+			f.allMedia = true
 		case strings.HasPrefix(arg, "--content="):
 			f.content = splitContentList(strings.TrimPrefix(arg, "--content="))
 		case arg == "--content" && i+1 < len(args):
@@ -325,11 +329,17 @@ func printMigrateUsage() {
 
 flags:
    --content a,b,c   content kinds to fetch (default: everything the provider offers).
-                     Site metadata (tags, users, menus) always ships — a site
-                     without its navigation is not a migration; exclude it
+                     Kinds: pages, posts, media, custom (a theme's own post
+                     types: Services, Portfolio, ...), products, tags, users,
+                     menus. Site metadata (tags, users, menus) always ships — a
+                     site without its navigation is not a migration; exclude it
                      explicitly with no-menus / no-tags / no-users.
    --watch --http    LIVE mode: scaffold + server first, then watch the data load
    --source NAME     content source directory name (default: the site's host)
+   --all-media       download the whole media library, not just the files the
+                     content references (the default keeps a migration small:
+                     WordPress stores a dozen renditions of every upload and ssg
+                     generates its own)
    --no-crawl        skip the SEO/marketing crawl (faster; no tracking ids,
                      social profiles or icons in metadata.json)
    --quiet, -q       suppress progress output

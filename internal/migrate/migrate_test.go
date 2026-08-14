@@ -159,6 +159,59 @@ func TestWpexporterSSGFlags(t *testing.T) {
 	}
 }
 
+// TestWpexporterMediaScope: a migration takes only the media its content
+// references, because WordPress keeps a dozen renditions of every upload and
+// ssg generates its own — one real site exported 197 MB of which 2.8 MB was
+// referenced. --all-media asks for the whole library (#130).
+func TestWpexporterMediaScope(t *testing.T) {
+	args, _, err := wpexporterArgs("https://e.com", Options{Dest: "content/x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "--relevant-media-only") {
+		t.Fatalf("a migration should not pull the whole library by default: %q", args)
+	}
+
+	all, _, err := wpexporterArgs("https://e.com", Options{Dest: "content/x", AllMedia: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(all, " "), "--relevant-media-only") {
+		t.Fatalf("--all-media must ask for everything: %q", all)
+	}
+}
+
+// TestWpexporterCustomTypes: a theme's own post types are content, so they obey
+// --content like every other kind (#130).
+func TestWpexporterCustomTypes(t *testing.T) {
+	// Not named in the selection → switched off.
+	args, _, err := wpexporterArgs("https://e.com", Options{Dest: "content/x", Content: []string{"pages", "posts"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "--no-custom-types") {
+		t.Fatalf("an unlisted kind must be disabled: %q", args)
+	}
+
+	// Named → kept.
+	args, _, err = wpexporterArgs("https://e.com", Options{Dest: "content/x", Content: []string{"pages", "custom"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(args, " "), "--no-custom-types") {
+		t.Fatalf("custom was asked for and must ship: %q", args)
+	}
+
+	// No selection at all → the provider's full default, custom types included.
+	args, _, err = wpexporterArgs("https://e.com", Options{Dest: "content/x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(args, " "), "--no-custom-types") {
+		t.Fatalf("the default export includes everything: %q", args)
+	}
+}
+
 func TestWordpressFetch(t *testing.T) {
 	dest := t.TempDir()
 	writeFile := func(rel, body string) {

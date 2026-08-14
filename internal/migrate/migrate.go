@@ -33,6 +33,10 @@ type Options struct {
 	// the site's marketing/analytics wiring — faster, but the migrated site
 	// arrives without its tracking ids, social profiles and icons.
 	NoCrawl bool
+	// AllMedia downloads the source site's entire media library instead of only
+	// the files its content references. Off by default: the library is mostly
+	// renditions the generator recreates itself (#130).
+	AllMedia bool
 
 	LookPath func(file string) (string, error)
 	Run      func(name string, args []string, quiet bool) error

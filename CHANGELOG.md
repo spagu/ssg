@@ -38,6 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of a migrated site now carries its own name and palette. Needs wpexporter
   1.8.2+ for the palette; earlier exports simply have no colours to read.
 
+- 📦 **`ssg migrate` stopped hauling the whole media library (#130).** It now
+  passes `--relevant-media-only`, so a migration takes the files the content
+  actually references: on one real site 359 files / 12 MB instead of 5,255 /
+  197 MB, of which only 74 were ever referenced — and ssg generates its own
+  responsive variants anyway. `--all-media` opts back into everything.
+- 🧩 **`--content custom`** selects the post types a theme or plugin registered
+  (Services, Portfolio, Team — wpexporter 1.8.2+). They are content, so a
+  `--content` list that does not name them turns them off like any other kind
+  (#130).
+
 ### Security
 - 🔐 **Go 1.26.6** (was 1.26.5) — govulncheck reports seven standard-library
   advisories reachable from this code on 1.26.5, among them GO-2026-5972
