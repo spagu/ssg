@@ -8,6 +8,7 @@
 package migrate
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -77,6 +78,9 @@ type Report struct {
 	Pages    int
 	Posts    int
 	Media    int
+	// Comments is what the site's readers wrote, as counted in the export's
+	// comments.json (#134).
+	Comments int
 	Skipped  []string // requested kinds the engine cannot deliver
 	Warnings []string
 }
@@ -144,4 +148,27 @@ func countExport(dest string) (pages, posts, media int) {
 		return n
 	}
 	return count("pages", true), count("posts", true), count("media", false)
+}
+
+// countComments reads how many reader comments the export left behind.
+//
+// The count is stated by the export itself (comments.json's `total`) rather
+// than recomputed here: the file is one record per comment across every page,
+// and a migration report that walked it would be counting the same thing the
+// engine already counted. A missing or unreadable file counts zero — comments
+// are one kind among several, and their absence never fails a migration (#134).
+func countComments(dest string) int {
+	raw, err := os.ReadFile(filepath.Join(dest, "comments.json")) // #nosec G304 -- the tool's own export directory
+	if err != nil {
+		return 0
+	}
+
+	var file struct {
+		Total int `json:"total"`
+	}
+	if err := json.Unmarshal(raw, &file); err != nil {
+		return 0
+	}
+
+	return file.Total
 }

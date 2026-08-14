@@ -65,19 +65,59 @@ authors is not a migration. Exclude them deliberately:
 ssg migrate wordpress https://example.com --content pages,posts,no-menus
 ```
 
-Kinds: `pages`, `posts`, `media`, **`custom`**, `products`, `tags`, `users`,
-`menus`. `custom` is every post type a theme or plugin registered — Services,
-Portfolio, Team — which on a real site is often more documents than pages and
-posts together. Naming `--content` at all opts them out unless you list it:
+Kinds: `pages`, `posts`, `media`, **`custom`**, **`comments`**, `products`,
+`tags`, `users`, `menus`. `custom` is every post type a theme or plugin
+registered — Services, Portfolio, Team — which on a real site is often more
+documents than pages and posts together. **Naming `--content` at all opts every
+unlisted kind out**, so `--content pages,posts,media` leaves both the theme's
+own types and the readers' comments behind. List what you want:
 
 ```bash
-ssg migrate wordpress https://example.com --content pages,posts,media,custom
+ssg migrate wordpress https://example.com --content pages,posts,media,custom,comments
 ```
 
 An unknown kind is a hard error (a typo must not silently export the whole
-site). A recognised-but-unsupported kind — `comments` today, which
-wpexporter's REST export does not deliver — is reported as skipped in the
-final summary, never dropped silently.
+site). A recognised-but-undeliverable kind is reported as skipped in the final
+summary, never dropped silently — there are none today.
+
+Passing the engine's own flags (`--no-custom-types`, `--no-comments`) to
+`ssg migrate` is rejected with the `--content` equivalent, because they are one
+command apart and the mistake costs a whole content type.
+
+### Comments
+
+Reader comments are the one content a site owner did not write and cannot
+re-create. They come from `/wp/v2/comments`, which a public WordPress serves
+without authentication — and serves approved comments only, which is what a
+migration wants (pending and spam rows are moderation state, not content).
+
+They land in `content/<source>/comments.json` (wpexporter 1.8.5+), addressed by
+**page URL** rather than by WordPress's post ID, which means nothing after a
+migration:
+
+```json
+{
+  "total": 128,
+  "pages": 31,
+  "comments": [
+    {
+      "id": 4711, "post": 812, "parent": 0,
+      "post_url": "/blog/wms-implementation-pitfalls/",
+      "author": "Jan Kowalski",
+      "date": "2024-03-01T10:00:00Z",
+      "content": "<p>Świetny tekst — u nas WMS wszedł dokładnie tak.</p>",
+      "status": "approved"
+    }
+  ]
+}
+```
+
+Records are sorted by id, so a reply never precedes the comment it answers when
+they are replayed into a table with a parent reference — for example the D1
+schema of the [comments worker](WORKERS.md) (`ssg new worker comments`), whose
+`url` column is exactly this file's `post_url`. The migration report states how
+many arrived; a site whose REST route is disabled or gated migrates without
+them and says so.
 
 ### Media: only what the content uses
 
@@ -111,6 +151,16 @@ Live mode migrates in front of your eyes, in this order:
    and auto-reload refreshes the browser, so you watch the site fill up.
 3. **Report + next step** — the summary prints and the server keeps running
    until Ctrl+C.
+
+`--host` and `--port` address that server, exactly as they do for `ssg --http`:
+
+```bash
+ssg migrate wordpress https://example.com --watch --http --port 8889
+```
+
+A port already in use shifts forward (8889 → 8890 → …) and the address actually
+served is the one announced — a migration is too long to lose to someone else's
+dev server.
 
 Without the flags, the same migration runs as a plain batch: fetch
 everything, build once, report, exit.

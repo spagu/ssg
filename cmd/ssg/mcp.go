@@ -115,9 +115,12 @@ func serveMCPPreview(cfg *config.Config, logf func(string, ...any)) {
 		return
 	}
 	reloadHub = newLiveReloadHub() // each MCP rebuild refreshes the open tab
+	// The port is claimed before the address is logged, so a busy 8888 shifts
+	// the announcement too instead of pointing the agent at someone else's
+	// server (#135).
+	startServerAsync(cfg)
 	_, url, _ := resolveListenAddr(cfg.Host, cfg.Port)
 	logf("   👁️  preview: %s (serving %s/)", url, cfg.OutputDir)
-	go startServer(cfg)
 }
 
 // captureStdout runs fn with os.Stdout redirected to a pipe and returns whatever

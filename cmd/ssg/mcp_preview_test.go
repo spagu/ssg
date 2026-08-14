@@ -4,6 +4,7 @@ package main
 // but nothing served it, so an assistant reworked a theme nobody could look at.
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,9 +41,15 @@ func TestServeMCPPreviewServes(t *testing.T) {
 	old := reloadHub
 	t.Cleanup(func() { reloadHub = old })
 
-	cfg := &config.Config{HTTP: true, OutputDir: "out", Host: "127.0.0.1", Port: 8899, Quiet: true}
+	// Port 0: the preview takes whatever is free and records it, so the test
+	// asks the config where the server actually landed instead of assuming a
+	// number another process on the machine may already hold (#135).
+	cfg := &config.Config{HTTP: true, OutputDir: "out", Host: "127.0.0.1", Port: 0, Quiet: true}
 	var logged string
 	serveMCPPreview(cfg, func(f string, a ...any) { logged = f })
+	if cfg.Port == 0 {
+		t.Fatal("the preview must record the port it claimed")
+	}
 	if reloadHub == nil {
 		t.Fatal("--http must arm live reload for MCP rebuilds")
 	}
@@ -53,7 +60,7 @@ func TestServeMCPPreviewServes(t *testing.T) {
 	var resp *http.Response
 	var err error
 	for i := 0; i < 50; i++ { // the server starts in a goroutine
-		resp, err = http.Get("http://127.0.0.1:8899/")
+		resp, err = http.Get(fmt.Sprintf("http://127.0.0.1:%d/", cfg.Port))
 		if err == nil {
 			break
 		}

@@ -362,7 +362,7 @@ See [TEMPLATES.md](TEMPLATES.md).
 |---|---:|---|---|
 | `http` | `false` | `--http` | Start the built-in server after building |
 | `host` | `127.0.0.1` | `--host` | Bind address |
-| `port` | `8888` | `--port` | TCP port |
+| `port` | `8888` | `--port` | TCP port. Taken if free; otherwise the server walks forward (8889, 8890, …, up to 64 ports) and announces where it landed. `0` = any free port |
 | `watch` | `false` | `--watch` | Rebuild after local file changes (content, templates, data and the config file) |
 | `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |

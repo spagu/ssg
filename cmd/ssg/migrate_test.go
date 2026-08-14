@@ -203,3 +203,51 @@ func TestMigrateDispatch(t *testing.T) {
 		t.Fatalf("dispatch migrate --list = %d, %v", code, handled)
 	}
 }
+
+// TestEngineFlagHint: wpexporter's own --no-<kind> flags are an easy thing to
+// paste into `ssg migrate` — they sit one command apart — and a bare "unknown
+// flag" left the operator guessing why their custom types never arrived (#134).
+func TestEngineFlagHint(t *testing.T) {
+	for flag, kind := range map[string]string{
+		"--no-custom-types": "custom",
+		"--no-comments":     "comments",
+		"--no-media=true":   "media",
+	} {
+		hint := engineFlagHint(flag)
+		if hint == "" {
+			t.Fatalf("%s must be explained, not just rejected", flag)
+		}
+		if !strings.Contains(hint, "--content") || !strings.Contains(hint, kind) {
+			t.Fatalf("%s hint must name --content and %s, got %q", flag, kind, hint)
+		}
+	}
+
+	if hint := engineFlagHint("--nonsense"); hint != "" {
+		t.Fatalf("an unrelated flag needs no engine hint, got %q", hint)
+	}
+}
+
+// TestMigrateServerFlags: live mode is a server, so it accepts the server's
+// address flags. `--watch --http --port 8889` used to die on "unknown flag"
+// after the project had already been scaffolded (#135).
+func TestMigrateServerFlags(t *testing.T) {
+	f, code := parseMigrateFlags([]string{"--watch", "--http", "--port", "8889", "--host", "0.0.0.0"})
+	if code >= 0 {
+		t.Fatalf("server flags must be accepted, got exit %d", code)
+	}
+	if f.port != 8889 || f.host != "0.0.0.0" {
+		t.Fatalf("parsed = %d/%q", f.port, f.host)
+	}
+
+	if f, code = parseMigrateFlags([]string{"--port=9000"}); code >= 0 || f.port != 9000 {
+		t.Fatalf("--port=N form: %d, %d", f.port, code)
+	}
+
+	// A typo must be reported, never rounded down to the default port.
+	if _, code = parseMigrateFlags([]string{"--port", "eight"}); code != 2 {
+		t.Fatalf("invalid port = %d, want 2", code)
+	}
+	if _, code = parseMigrateFlags([]string{"--port", "70000"}); code != 2 {
+		t.Fatalf("out-of-range port = %d, want 2", code)
+	}
+}

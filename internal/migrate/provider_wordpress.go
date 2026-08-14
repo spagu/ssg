@@ -36,6 +36,10 @@ var wpContentKinds = map[string]string{
 	// selection that does not name them turns them off like any other kind
 	// (#130).
 	"custom": "--no-custom-types",
+	// "comments" is what the site's readers wrote (wpexporter 1.8.5+): the one
+	// part of a site its owner did not author and cannot rewrite. They land in
+	// content/<source>/comments.json, addressed by page URL (#134).
+	"comments": "--no-comments",
 }
 
 // wpMetadataKinds are NOT content: tags, authors and menus describe the site
@@ -47,9 +51,9 @@ var wpMetadataKinds = map[string]bool{"tags": true, "users": true, "menus": true
 
 // wpUnsupportedKinds are kinds a user may reasonably ask for that the engine
 // cannot deliver yet. They are reported as skipped — never silently dropped.
-var wpUnsupportedKinds = map[string]string{
-	"comments": "wpexporter's REST export does not export comments yet",
-}
+// (Empty since #134 gave comments a real export; the machinery stays because
+// the next recognised-but-undeliverable kind must degrade, not error.)
+var wpUnsupportedKinds = map[string]string{}
 
 // missingEngineMessage explains a missing engine truthfully for the way ssg was
 // installed. Inside a snap ($SNAP set) the host's wpexporter is unreachable by
@@ -100,12 +104,14 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		// 1.8.1, which rejects --ssg-sections as an unknown flag; say so
 		// instead of leaving the operator with a bare exit status.
 		return nil, fmt.Errorf("wpexporter failed: %w\n"+
-			"   If it is older than 1.8.1 it does not know --ssg-sections/--assisted-crawl —\n"+
+			"   If it is older than 1.8.1 it does not know --ssg-sections/--assisted-crawl,\n"+
+			"   and older than 1.8.5 it does not know --no-comments —\n"+
 			"   upgrade it, or re-run with --no-crawl for the crawl half only", runErr)
 	}
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped}
 	rep.Pages, rep.Posts, rep.Media = countExport(opts.Dest)
+	rep.Comments = countComments(opts.Dest)
 	for _, kind := range skipped {
 		rep.Warnings = append(rep.Warnings, kind+": "+wpUnsupportedKinds[kind])
 	}
