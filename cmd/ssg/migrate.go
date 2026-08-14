@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spagu/ssg/internal/config"
@@ -43,6 +44,12 @@ type migrateFlags struct {
 	noCrawl  bool
 	allMedia bool
 	source   string
+	// host and port address the live-mode server. `migrate` parses its own
+	// flags, so the server flags every other command accepts were rejected
+	// here — `--watch --http --port 8889` died on "unknown flag" after the
+	// project had already been scaffolded (#135). 0 / "" means "as configured".
+	host string
+	port int
 }
 
 func runMigrate(args []string) int {
@@ -105,6 +112,12 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 	cfg.HTTP = cfg.HTTP || flags.http
 	if flags.quiet {
 		cfg.Quiet = true
+	}
+	if flags.host != "" {
+		cfg.Host = flags.host
+	}
+	if flags.port > 0 {
+		cfg.Port = flags.port
 	}
 	if cfg.Source == "" {
 		cfg.Source = source
@@ -190,7 +203,9 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 		if autoReloadEnabled(cfg) {
 			reloadHub = newLiveReloadHub()
 		}
-		go startServer(cfg)
+		// Claimed in the foreground: the address printed below must be the one
+		// the server took, port walk included (#135).
+		startServerAsync(cfg)
 	}
 	if cfg.Watch {
 		go runWatchLoop(genCfg, cfg)
@@ -279,8 +294,26 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 		case arg == "--source" && i+1 < len(args):
 			f.source = args[i+1]
 			i++
+		case strings.HasPrefix(arg, "--host="):
+			f.host = strings.TrimPrefix(arg, "--host=")
+		case arg == "--host" && i+1 < len(args):
+			f.host = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--port="):
+			if code := f.setPort(strings.TrimPrefix(arg, "--port=")); code >= 0 {
+				return f, code
+			}
+		case arg == "--port" && i+1 < len(args):
+			if code := f.setPort(args[i+1]); code >= 0 {
+				return f, code
+			}
+			i++
 		default:
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n\n", arg)
+			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n", arg)
+			if hint := engineFlagHint(arg); hint != "" {
+				fmt.Fprintf(os.Stderr, "   %s\n", hint)
+			}
+			fmt.Fprintln(os.Stderr)
 			printMigrateUsage()
 			return f, 2
 		}
@@ -290,6 +323,45 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 		return f, 2
 	}
 	return f, -1
+}
+
+// setPort parses a --port value. A returned code >= 0 means stop with it: a
+// port that is not a number is a typo worth reporting, not a silent fallback
+// to 8888 in a command whose whole point was choosing the port.
+func (f *migrateFlags) setPort(value string) int {
+	port, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || port < 0 || port > 65535 {
+		fmt.Fprintf(os.Stderr, "❌ invalid --port %q — expected 0-65535\n", value)
+		return 2
+	}
+	f.port = port
+
+	return -1
+}
+
+// engineFlagKinds maps the engine's own --no-<kind> flags to the ssg way of
+// asking for the same thing. Passing wpexporter's flags to `ssg migrate` is an
+// easy mistake — they appear in the engine's help, and the two tools sit one
+// command apart — and the bare "unknown flag" left the operator guessing (#134).
+var engineFlagKinds = map[string]string{
+	"--no-custom-types": "custom",
+	"--no-comments":     "comments",
+	"--no-posts":        "posts",
+	"--no-pages":        "pages",
+	"--no-media":        "media",
+	"--no-products":     "products",
+}
+
+// engineFlagHint explains how to express an engine flag as a --content
+// selection, for the flags where that is what the operator meant.
+func engineFlagHint(arg string) string {
+	kind, ok := engineFlagKinds[strings.SplitN(arg, "=", 2)[0]]
+	if !ok {
+		return ""
+	}
+
+	return fmt.Sprintf("That is a wpexporter flag. ssg selects kinds instead: --content leaves %s out "+
+		"unless you list it (so --content pages,posts already excludes %s).", kind, kind)
 }
 
 func splitContentList(list string) []string {
@@ -313,6 +385,11 @@ func migrateProviderNames() []string {
 func printMigrateReport(report *migrate.Report, rawURL string) {
 	fmt.Printf("\n✅ Migration finished (%s): %d pages, %d posts, %d media files from %s\n",
 		report.Provider, report.Pages, report.Posts, report.Media, rawURL)
+	// Comments are reported only when there are some: a zero on every migration
+	// of a site that never had comments reads as a failure to fetch them (#134).
+	if report.Comments > 0 {
+		fmt.Printf("   💬 %d reader comments in comments.json, addressed by page URL\n", report.Comments)
+	}
 	for _, w := range report.Warnings {
 		fmt.Printf("   ⚠️  %s\n", w)
 	}
@@ -330,11 +407,17 @@ func printMigrateUsage() {
 flags:
    --content a,b,c   content kinds to fetch (default: everything the provider offers).
                      Kinds: pages, posts, media, custom (a theme's own post
-                     types: Services, Portfolio, ...), products, tags, users,
-                     menus. Site metadata (tags, users, menus) always ships — a
-                     site without its navigation is not a migration; exclude it
-                     explicitly with no-menus / no-tags / no-users.
+                     types: Services, Portfolio, ...), comments, products, tags,
+                     users, menus. Site metadata (tags, users, menus) always
+                     ships — a site without its navigation is not a migration;
+                     exclude it explicitly with no-menus / no-tags / no-users.
+                     Naming --content at all opts every unlisted kind OUT, so
+                     --content pages,posts leaves the theme's own types and the
+                     readers' comments behind: list them to keep them.
    --watch --http    LIVE mode: scaffold + server first, then watch the data load
+   --host ADDR       live-mode bind address (default: 127.0.0.1)
+   --port PORT       live-mode port (default: 8888; a busy port shifts forward
+                     and the address actually served is announced)
    --source NAME     content source directory name (default: the site's host)
    --all-media       download the whole media library, not just the files the
                      content references (the default keeps a migration small:

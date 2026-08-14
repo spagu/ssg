@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.33">1.8.33 — 2026-08-14</option>
       <option value="1.8.32">1.8.32 — 2026-08-14</option>
       <option value="1.8.31">1.8.31 — 2026-08-13</option>
       <option value="1.8.30">1.8.30 — 2026-08-12</option>
@@ -166,6 +167,32 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.33">
+
+### 1.8.33 — comments migrate, and the dev server takes the next free port
+
+`--content` now accepts **`comments`** for real: with **wpexporter 1.8.5 or
+newer** they land in `content/<source>/comments.json`, addressed by page URL.
+Older engines do not know `--no-comments`, so a `--content` selection that
+leaves comments out will fail against them — **upgrade wpexporter** alongside
+ssg (`snap refresh wpexporter`, or `go install
+github.com/tradik/wpexporter/cmd/wpexporter@latest`).
+
+While you are there: `--content` opts every **unlisted** kind out. If your
+migration command says `--content pages,posts,media`, it has been leaving the
+theme's own post types *and* the comments behind. The full list:
+
+```bash
+ssg migrate wordpress https://example.com --content pages,posts,media,custom,comments
+```
+
+`--http` no longer stops when the port is taken: it walks forward (8888 → 8889
+→ …) and prints where it landed. **Nothing to do** — but a script that assumed
+the exact port should read the announced address, or pin the port by freeing it
+first.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.32">
 

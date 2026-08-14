@@ -66,12 +66,27 @@ func TestWpexporterArgs(t *testing.T) {
 		t.Fatal("quiet must pass -q")
 	}
 
-	// comments: recognised but unsupported → skipped, not an error.
+	// comments: a real content kind since wpexporter 1.8.5 — asked for, so it
+	// must NOT be disabled, and nothing is skipped (#134).
 	com := base
 	com.Content = []string{"comments", "pages"}
-	_, skipped, err = wpexporterArgs("https://e.com", com)
-	if err != nil || len(skipped) != 1 || skipped[0] != "comments" {
+	args, skipped, err = wpexporterArgs("https://e.com", com)
+	if err != nil || len(skipped) != 0 {
 		t.Fatalf("comments: skipped=%v err=%v", skipped, err)
+	}
+	if strings.Contains(strings.Join(args, " "), "--no-comments") {
+		t.Fatalf("comments were asked for and must ship: %q", args)
+	}
+
+	// …and unlisted, they are switched off like any other content kind.
+	without := base
+	without.Content = []string{"pages", "posts"}
+	args, _, err = wpexporterArgs("https://e.com", without)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "--no-comments") {
+		t.Fatalf("an unlisted kind must be disabled: %q", args)
 	}
 
 	// Unknown kind: hard error naming the valid set (a typo must not export
@@ -265,8 +280,8 @@ func TestWordpressFetch(t *testing.T) {
 		t.Fatal("unknown kind must fail")
 	}
 
-	// Success: the stubbed engine "exports" files; the report counts them and
-	// carries the comments warning.
+	// Success: the stubbed engine "exports" files; the report counts them,
+	// comments included (#134).
 	var gotBin string
 	report, err := p.Fetch("https://e.com", Options{
 		Dest:    dest,
@@ -282,6 +297,7 @@ func TestWordpressFetch(t *testing.T) {
 			writeFile("posts/news/notes.txt", "not markdown") // must not count
 			writeFile("media/logo.png", "png")
 			writeFile("metadata.json", "{}")
+			writeFile("comments.json", `{"total":3,"pages":2,"comments":[]}`)
 			return nil
 		},
 	})
@@ -294,11 +310,41 @@ func TestWordpressFetch(t *testing.T) {
 	if report.Pages != 2 || report.Posts != 1 || report.Media != 1 {
 		t.Fatalf("counts = %d/%d/%d", report.Pages, report.Posts, report.Media)
 	}
+	if report.Comments != 3 {
+		t.Fatalf("comments = %d, want the count comments.json states", report.Comments)
+	}
 	if report.Provider != "wordpress@"+wordpressVersion {
 		t.Fatalf("provider stamp = %q", report.Provider)
 	}
-	if len(report.Warnings) != 1 || !strings.Contains(report.Warnings[0], "comments") {
-		t.Fatalf("comments warning missing: %v", report.Warnings)
+	if len(report.Warnings) != 0 {
+		t.Fatalf("nothing was undeliverable: %v", report.Warnings)
+	}
+}
+
+// TestCountComments: the count comes from the export's own header, and an
+// absent or unreadable comments.json counts zero rather than failing a
+// migration whose pages and posts already landed (#134).
+func TestCountComments(t *testing.T) {
+	dest := t.TempDir()
+
+	if n := countComments(dest); n != 0 {
+		t.Fatalf("no file → %d, want 0", n)
+	}
+
+	write := func(body string) {
+		if err := os.WriteFile(filepath.Join(dest, "comments.json"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write("{ not json")
+	if n := countComments(dest); n != 0 {
+		t.Fatalf("unreadable file → %d, want 0", n)
+	}
+
+	write(`{"total":128,"pages":31,"comments":[]}`)
+	if n := countComments(dest); n != 128 {
+		t.Fatalf("count = %d, want 128", n)
 	}
 }
 

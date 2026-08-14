@@ -68,7 +68,7 @@ func main() {
 		if autoReloadEnabled(cfg) {
 			reloadHub = newLiveReloadHub()
 		}
-		go startServer(cfg)
+		startServerAsync(cfg)
 	}
 
 	runWatchOrServe(genCfg, cfg)

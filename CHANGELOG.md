@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.33] - 2026-08-14
+
+What a migration was still leaving on the old site — the readers' comments —
+and the dev server giving up on a port instead of taking the next one.
+
+### Added
+- 💬 **Migrations carry the site's comments** (#134) — `--content …,comments`
+  was accepted and then reported as undeliverable, so every migration left the
+  one content a site owner did not write and cannot re-create behind. With
+  wpexporter 1.8.5+ the kind is real: comments land in
+  `content/<source>/comments.json`, addressed by **page URL** rather than by a
+  WordPress post ID that means nothing after a migration, sorted so a reply
+  never precedes the comment it answers — the shape the
+  [comments worker](docs/WORKERS.md)'s D1 table expects. The migration report
+  states how many arrived.
+- 🔌 **The dev server takes the next free port instead of giving up** (#135) —
+  `--port 8889` with something already on 8889 ended the run with `bind:
+  address already in use` *after* the site had been generated, which for
+  `ssg migrate --watch --http` meant migrating the whole site again. The port is
+  now a preference: the server walks forward (8889 → 8890 → …, up to 64 ports)
+  and announces where it landed. `--port=0` still means "any free port", and the
+  claim happens before the address is printed, so `ssg migrate` and `ssg mcp`
+  never announce a port they did not get. Failures a different port cannot fix —
+  an unusable `--host`, a privileged port — still stop immediately.
+- 🔧 **`ssg migrate` accepts `--host` and `--port`** (#135) — live mode *is* the
+  dev server, but `migrate` parses its own flags, so `--watch --http --port
+  8889` was rejected as an unknown flag after the project had already been
+  scaffolded. A port that is not a number is reported rather than quietly
+  falling back to 8888.
+
+### Changed
+- 🧭 **`--content` says what it costs** (#134) — the help and
+  [docs/MIGRATE.md](docs/MIGRATE.md) now state that naming `--content` at all
+  opts every *unlisted* kind out, which is how `--content pages,posts,media`
+  quietly left a theme's own post types and the readers' comments behind. And
+  passing wpexporter's own flags (`--no-custom-types`, `--no-comments`) to
+  `ssg migrate` is answered with the `--content` equivalent instead of a bare
+  "unknown flag".
+
+### Security
+- 🔐 **golang.org/x/image 0.45.0** (was 0.44.0) — GO-2026-6222; govulncheck
+  reports it reachable from this code, which decodes user images on every build
+  with `webp`/`avif` output or responsive variants. `golang.org/x/text` came
+  along to 0.41.0 as its dependency.
+
+### Tests
+- 🧪 `internal/migrate` back to **100%** — the port walk's fallbacks (a listener
+  whose address is not TCP, an unparseable one, an unchanged port) and the
+  "recognised but undeliverable kind" path, which went dormant when comments
+  gained a real export. It is exercised by declaring such a kind for the length
+  of a test, so the machinery that keeps the next one from being dropped in
+  silence stays honest instead of rotting until someone needs it.
+
 ## [1.8.32] - 2026-08-14
 
 ### Changed

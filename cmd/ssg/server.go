@@ -25,6 +25,30 @@ import (
 // Cache-Control and security headers, optional gzip, connection and soft-memory
 // limits, and optional TLS (manual cert/key or automatic Let's Encrypt) (v1.8.1).
 func startServer(cfg *config.Config) {
+	ln, err := claimPort(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		return
+	}
+
+	serveOnClaimedPort(cfg, ln)
+}
+
+// startServerAsync claims the port in the foreground and serves in the
+// background, so a caller that announces the address (migrate, mcp) prints the
+// port the server actually took rather than the one it hoped for (#135).
+func startServerAsync(cfg *config.Config) {
+	ln, err := claimPort(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		return
+	}
+
+	go serveOnClaimedPort(cfg, ln)
+}
+
+// serveOnClaimedPort runs the server on an already-bound listener.
+func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
 	applyMemLimit(cfg.MemLimit, cfg.Quiet)
 
 	addr, url, exposed := resolveListenAddr(cfg.Host, cfg.Port)
@@ -65,7 +89,7 @@ func startServer(cfg *config.Config) {
 
 	logServerStart(cfg, url, mode, exposed)
 
-	if err := listenAndServe(server, cfg, mode, acm); err != nil && err != http.ErrServerClosed {
+	if err := serveOnListener(server, ln, cfg, mode, acm); err != nil && err != http.ErrServerClosed {
 		fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
 	}
 }
@@ -163,16 +187,6 @@ func logServerStart(cfg *config.Config, url, mode string, exposed bool) {
 		fmt.Printf("   ⚠️  Exposed on ALL network interfaces\n")
 	}
 	fmt.Printf("   Serving %s/ (gzip:%v, max-conns:%d)\n", cfg.OutputDir, cfg.Gzip, cfg.MaxConns)
-}
-
-// listenAndServe binds the listener (with optional connection cap) and serves in
-// the selected TLS mode. For autocert it uses the shared manager acm.
-func listenAndServe(server *http.Server, cfg *config.Config, mode string, acm *autocert.Manager) error {
-	ln, err := newServerListener(server.Addr, cfg.MaxConns)
-	if err != nil {
-		return err
-	}
-	return serveOnListener(server, ln, cfg, mode, acm)
 }
 
 // newServerListener binds addr and applies the --max-conns cap. Shared by every

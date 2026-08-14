@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.32" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.33" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -88,13 +88,16 @@ external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
 .TP
-.B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-all\-media\fR] [\fB\-\-source\fR \fINAME\fR]
+.B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-source\fR \fINAME\fR]
 Migrate a live site into a ready-to-build SSG project. The built-in
 \fBwordpress\fR provider orchestrates the optional \fBwpexporter\fR tool
 (discovered on PATH; a missing binary prints install instructions), scaffolds
 the project when none exists and builds after the pull. \fB\-\-content\fR
 selects kinds (\fBpages\fR, \fBposts\fR, \fBmedia\fR, \fBcustom\fR — a theme's own
-post types — \fBtags\fR, \fBusers\fR, \fBmenus\fR, \fBproducts\fR); only the media the
+post types — \fBcomments\fR, \fBtags\fR, \fBusers\fR, \fBmenus\fR, \fBproducts\fR),
+and naming it at all opts every unlisted kind out; comments land in
+\fBcontent/<source>/comments.json\fR addressed by page URL (wpexporter 1.8.5+);
+only the media the
 content references is downloaded unless \fB\-\-all\-media\fR asks for the whole
 library; with \fB\-\-watch \-\-http\fR the server starts
 first and the site fills up live in the browser. \fBssg migrate \-\-list\fR
@@ -176,7 +179,11 @@ Dev server bind address (default: \fB127.0.0.1\fR). Use \fB0.0.0.0\fR to expose
 the server on all network interfaces.
 .TP
 .BR \-\-port =\fIPORT
-HTTP server port (default: 8888).
+HTTP server port (default: 8888). The port is a preference, not a requirement:
+when it is already in use the server walks forward (8889, 8890, ...) for up to
+64 ports and prints the one it took. \fB\-\-port=0\fR asks the kernel for any
+free port. A failure a different port cannot fix — an unusable \fB\-\-host\fR,
+a privileged port, exhausted descriptors — still stops the server immediately.
 .TP
 .B \-\-watch
 Watch content and template directories for file changes and rebuild
