@@ -17,12 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - 🧮 **An `analytics` block with unusual values no longer fails the build**
-  (#130) — an export may report a vendor's id as a list (the same container
-  found in the head and again in a plugin's footer) or as a number. The block is
-  now read leniently: the first usable id per vendor wins, a value that cannot
-  be read as an id is dropped, and only a malformed block — one that is not an
-  object — is an error. A tracking id the generator does not understand is not
-  worth a site that does not build.
+  (#131) — a migrated site did not build *at all*: wpexporter reports every id
+  it finds per vendor, so `"analytics": {"google_tag_manager": ["GTM-…"]}` met a
+  `map[string]string`, and since metadata.json is read before anything else the
+  whole build died — no pages, no posts, no menu — over an optional block that
+  renders only when `analytics: true`. An export may report a vendor's id as a
+  list (the same container found in the head and again in a plugin's footer) or
+  as a number, so the block is now read leniently: the first usable id per
+  vendor wins, a value that cannot be read as an id is dropped, and only a
+  malformed block — one that is not an object — is an error. A tracking id the
+  generator does not understand is not worth a site that does not build.
 
 
 ## [1.8.31] - 2026-08-13

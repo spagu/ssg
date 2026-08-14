@@ -127,6 +127,12 @@ picks both up:
 | `marketing.colors` | the theme's palette by role — primary, secondary, accent, text, background, link | `.Site.Colors.<role>` in templates, `--ssg-color-<role>` on `:root`, and written into `colors:` in the config |
 | `site` | the name, tagline and timezone the CMS holds in its own settings | written into `title:`, `description:` and `timezone:` in the config; `.Site.Title` / `.Site.Description` |
 
+An exporter may write an `analytics` id as a string, as a list (the same
+container found in the head and again in a plugin's footer) or as a bare
+number. All three are read; the first usable id per vendor is the one the
+generator emits, and a value it cannot read as an id is skipped rather than
+failing the build (#131).
+
 ### The config is completed from the export
 
 After the fetch, `migrate` reads `metadata.json` and fills in the configuration
