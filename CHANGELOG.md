@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 🖼️ **Migrations download only the media the content points at** (#130) — a
+  WordPress library keeps every crop of every image ever uploaded, plus whatever
+  a since-removed plugin left behind, so a migration that took all of it copied
+  gigabytes the new site never links to. Featured images and in-content media
+  still arrive (with their size variants); **`--all-media`** takes the whole
+  library, as before.
+
+### Fixed
+- 🧮 **An `analytics` block with unusual values no longer fails the build**
+  (#130) — an export may report a vendor's id as a list (the same container
+  found in the head and again in a plugin's footer) or as a number. The block is
+  now read leniently: the first usable id per vendor wins, a value that cannot
+  be read as an id is dropped, and only a malformed block — one that is not an
+  object — is an error. A tracking id the generator does not understand is not
+  worth a site that does not build.
+
+
 ## [1.8.31] - 2026-08-13
 
 ### Added
