@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cpt_services,cpt_team` picks them, `--no-custom-types` skips them.
 
 ### Fixed
+- 🗂️ **Nested categories render where the source site served them** (#138) —
+  WordPress nests categories and serves a child at
+  `/category/<parent>/<child>/`; ssg flattened it to `/category/<child>/`, so
+  every surviving link — a menu copied from the old theme, a bookmark, a search
+  result — hit a 404 while the content sat one path away. The nesting was
+  already in `metadata.json` and was being dropped at render time. Archives now
+  follow the parent chain, and **the old flat path becomes a 301** so nothing
+  that already points at it breaks. A taxonomy with no nesting is untouched: the
+  same URLs, no redirects.
+
 - 🚑 **`--content` no longer kills the migration on a current engine** (#137) —
   1.8.33 made `comments` a selectable kind, so any `--content` list that did not
   name it emitted `--no-comments`, a flag that arrives in **wpexporter 1.8.5**

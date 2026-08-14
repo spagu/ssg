@@ -270,3 +270,21 @@ func (g *Generator) generateRedirectsFile() error {
 	}
 	return nil
 }
+
+// addCategoryRedirect points a nested category's old flat path at the archive
+// it now renders at (#138). It rides the same collector as frontmatter
+// aliases, so it lands in _redirects as a 301 and is deduplicated against
+// explicit rules. Recorded under the render pool's mutex: category archives
+// are generated after the parallel page render, but the slice is shared.
+func (g *Generator) addCategoryRedirect(flatSlug, nestedPath string) {
+	if flatSlug == "" || nestedPath == "" || flatSlug == nestedPath {
+		return
+	}
+	g.aliasMu.Lock()
+	defer g.aliasMu.Unlock()
+	g.aliasRedirects = append(g.aliasRedirects, RedirectRule{
+		From:   "/category/" + flatSlug + "/",
+		To:     "/category/" + nestedPath + "/",
+		Status: 301,
+	})
+}

@@ -3778,7 +3778,14 @@ func (g *Generator) generateCategories() error {
 
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
-		catSlug := models.SanitizeRelPath(cat.Slug)
+		// A nested category renders where the source site served it —
+		// /category/<parent>/<child>/ — and the flat path it used to occupy
+		// becomes a redirect, so links that survived the migration still land
+		// on the archive (#138).
+		catSlug := models.CategoryPath(cat, g.siteData.Categories)
+		if models.CategoryIsNested(cat, g.siteData.Categories) {
+			g.addCategoryRedirect(models.SanitizeRelPath(cat.Slug), catSlug)
+		}
 		// Explicit content wins over the auto category archive (GO-050).
 		if owner, taken := g.archiveURLOwner("category", catSlug); taken {
 			fmt.Printf("   ⚠️  Skipping auto category archive /category/%s/: %s already owns that URL\n", catSlug, owner)
@@ -4559,7 +4566,7 @@ func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 			continue
 		}
 		if cat.ID != 1 { // Skip "Bez kategorii"
-			g.writeSitemapArchive(sb, "category", cat.Slug)
+			g.writeSitemapArchive(sb, "category", models.CategoryPath(cat, g.siteData.Categories))
 		}
 	}
 }

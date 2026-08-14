@@ -171,6 +171,15 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.34">
 
+### 1.8.34 — nested categories move to their real address
+
+A category with a `parent` now renders at `/category/<parent>/<child>/`, the
+address WordPress served, instead of a flat `/category/<child>/`. **If your
+`metadata.json` nests categories, those archive URLs change** — the flat path
+is emitted as a 301 in `_redirects`, so existing links keep working on hosts
+that honour it (Cloudflare Pages, Netlify). A site whose categories are all
+top-level is untouched.
+
 ### 1.8.34 — migrated sites can keep their navigation
 
 `ssg migrate` now accepts `--auth-user`/`--auth-pass` (or `--auth-token`) and
