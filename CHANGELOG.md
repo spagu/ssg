@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.32] - 2026-08-14
+
 ### Changed
 - 🖼️ **Migrations download only the media the content points at** (#130) — a
   WordPress library keeps every crop of every image ever uploaded, plus whatever
