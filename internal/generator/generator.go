@@ -1812,6 +1812,12 @@ func (g *Generator) loadMetadata(path string) error {
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
 	}
+	// Navigation as the source site arranged it: keyed by theme location and
+	// by slug, with each menu's items already nested and ordered (#132).
+	if len(metadata.Menus) > 0 {
+		g.siteData.Menus = models.MenusByLocation(metadata.Menus)
+		g.log(fmt.Sprintf("   🧭 Loaded %d navigation menu(s)", len(metadata.Menus)))
+	}
 	// The source site's own name, tagline and palette. Configuration always
 	// wins — the export is the fallback for a project whose config has not been
 	// filled in yet, which is every project the moment a migration finishes

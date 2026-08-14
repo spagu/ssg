@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.33" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.34" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -103,6 +103,15 @@ library; with \fB\-\-watch \-\-http\fR the server starts
 first and the site fills up live in the browser. \fBssg migrate \-\-list\fR
 names the providers. The verb is reserved: a source directory called
 \fImigrate\fR builds via \fB\-\-source=migrate\fR.
+.IP
+Menus and site settings are gated behind \fBedit_theme_options\fR, so an
+anonymous export arrives with no navigation: pass
+\fB\-\-auth\-user\fR/\fB\-\-auth\-pass\fR or \fB\-\-auth\-token\fR
+(an application password, never the account's own). Credentials go to the
+engine and are never written to the config. The theme's own post types are
+selected with \fB\-\-custom\-types\fR \fIslug,slug\fR or skipped with
+\fB\-\-no\-custom\-types\fR. Menus reach templates as
+\fB.Site.Menus.\fIlocation\fR.
 .TP
 .B ssg repair \fR[\fIpath\fR...] [\fB\-\-fix\fR] [\fB\-\-quiet\fR]
 Find source Markdown whose markup is indented four columns or more, which

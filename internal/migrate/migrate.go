@@ -14,7 +14,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -38,9 +40,29 @@ type Options struct {
 	// the files its content references. Off by default: the library is mostly
 	// renditions the generator recreates itself (#130).
 	AllMedia bool
+	// CustomTypes selects the theme's own post types by slug (Services,
+	// Portfolio, Team). Empty takes whatever the engine exports by default;
+	// NoCustomTypes skips them entirely (#130).
+	CustomTypes   []string
+	NoCustomTypes bool
+	// Auth carries credentials to the engine. WordPress gates menus and
+	// settings behind edit_theme_options, so a public export comes back
+	// without navigation (#132). These are forwarded to the engine and never
+	// written to the project's config — a password in a file that gets
+	// committed is a worse problem than a missing menu.
+	AuthUser  string
+	AuthPass  string
+	AuthToken string
 
 	LookPath func(file string) (string, error)
 	Run      func(name string, args []string, quiet bool) error
+	// Version returns the engine's version banner. A provider gates flags the
+	// installed engine may not know on it (#137).
+	Version func(bin string) string
+
+	// canExcludeComments is filled in from the engine's version banner before
+	// the arguments are built; it is not part of the caller's request.
+	canExcludeComments bool
 }
 
 func (o Options) lookPath(file string) (string, error) {
@@ -81,6 +103,8 @@ type Report struct {
 	// Comments is what the site's readers wrote, as counted in the export's
 	// comments.json (#134).
 	Comments int
+	// Menus counts the navigation menus the export brought back (#132).
+	Menus    int
 	Skipped  []string // requested kinds the engine cannot deliver
 	Warnings []string
 }
@@ -172,3 +196,62 @@ func countComments(dest string) int {
 
 	return file.Total
 }
+
+// countMenus reads how many navigation menus the export brought back. A
+// metadata.json without the key is the normal shape of an unauthenticated run,
+// not an error (#132).
+func countMenus(dest string) int {
+	raw, err := os.ReadFile(filepath.Join(dest, "metadata.json")) // #nosec G304 -- the tool's own export directory
+	if err != nil {
+		return 0
+	}
+	var file struct {
+		Menus []json.RawMessage `json:"menus"`
+	}
+	if err := json.Unmarshal(raw, &file); err != nil {
+		return 0
+	}
+	return len(file.Menus)
+}
+
+// versionOutput asks a tool for its version. Kept on Options so tests never
+// exec anything, and so a provider can gate a flag on the engine's age.
+func (o Options) versionOutput(bin string) string {
+	if o.Version != nil {
+		return o.Version(bin)
+	}
+	// #nosec G204 -- bin is the LookPath-resolved path of a fixed tool name
+	out, err := exec.Command(bin, "--version").Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// parseSemver pulls the first x.y.z out of a tool's version banner
+// ("wpexporter version v1.8.4 (8c1aacb, built …)"). An unreadable banner
+// yields zeros, which every capability check treats as "too old to assume".
+func parseSemver(s string) (major, minor, patch int) {
+	m := semverRe.FindStringSubmatch(s)
+	if m == nil {
+		return 0, 0, 0
+	}
+	major, _ = strconv.Atoi(m[1])
+	minor, _ = strconv.Atoi(m[2])
+	patch, _ = strconv.Atoi(m[3])
+	return major, minor, patch
+}
+
+// atLeast reports whether a version banner names a version >= the given one.
+func atLeast(banner string, major, minor, patch int) bool {
+	haveMajor, haveMinor, havePatch := parseSemver(banner)
+	if haveMajor != major {
+		return haveMajor > major
+	}
+	if haveMinor != minor {
+		return haveMinor > minor
+	}
+	return havePatch >= patch
+}
+
+var semverRe = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)`)

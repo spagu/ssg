@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.34">1.8.34 — 2026-08-14</option>
       <option value="1.8.33">1.8.33 — 2026-08-14</option>
       <option value="1.8.32">1.8.32 — 2026-08-14</option>
       <option value="1.8.31">1.8.31 — 2026-08-13</option>
@@ -167,6 +168,21 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.34">
+
+### 1.8.34 — migrated sites can keep their navigation
+
+`ssg migrate` now accepts `--auth-user`/`--auth-pass` (or `--auth-token`) and
+brings the source site's menus with the content — WordPress refuses them to an
+anonymous caller, which is why migrated sites came up with no navigation at
+all. **Nothing to do** for an existing site; to gain the navigation, re-run the
+migration with credentials (an application password).
+
+Themes read menus as `.Site.Menus.<location>`; the bundled `simple` theme uses
+`primary` when it exists and otherwise lists pages, as before.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.33">
 

@@ -453,6 +453,12 @@ type Metadata struct {
 	// that drops these starts the new project as "example.com" with no title,
 	// which is exactly the data the export already had (#128).
 	Site SiteInfo `json:"site"`
+
+	// Menus is the navigation an editor arranged in the CMS — the one part of
+	// a site that cannot be derived from its content (#132). Absent when the
+	// export ran without credentials: WordPress gates menus behind
+	// edit_theme_options.
+	Menus []Menu `json:"menus"`
 }
 
 // SiteInfo is the source site's self-description, straight from its settings.
@@ -521,8 +527,11 @@ type SiteData struct {
 	// .Site.Analytics, so a theme can render the site's icons, social
 	// identity and tracking without the author retyping what the migration
 	// already found.
-	Marketing       Marketing
-	Analytics       map[string]string
+	Marketing Marketing
+	Analytics map[string]string
+	// Menus reaches templates as .Site.Menus.<location> (or .<slug>), each with
+	// .Items already nested and ordered as the source site rendered them.
+	Menus           map[string]Menu
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string

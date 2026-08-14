@@ -44,6 +44,13 @@ type migrateFlags struct {
 	noCrawl  bool
 	allMedia bool
 	source   string
+	// Credentials for the source CMS. Held here and handed to the engine —
+	// never written into .ssg.yaml, which is a file people commit (#132).
+	authUser      string
+	authPass      string
+	authToken     string
+	customTypes   []string
+	noCustomTypes bool
 	// host and port address the live-mode server. `migrate` parses its own
 	// flags, so the server flags every other command accepts were rejected
 	// here — `--watch --http --port 8889` died on "unknown flag" after the
@@ -127,11 +134,16 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 	downloadOnlineTheme(cfg)
 
 	opts := migrate.Options{
-		Content:  flags.content,
-		Dest:     filepath.Join(cfg.ContentDir, cfg.Source),
-		Quiet:    cfg.Quiet,
-		NoCrawl:  flags.noCrawl,
-		AllMedia: flags.allMedia,
+		Content:       flags.content,
+		Dest:          filepath.Join(cfg.ContentDir, cfg.Source),
+		Quiet:         cfg.Quiet,
+		NoCrawl:       flags.noCrawl,
+		AuthUser:      flags.authUser,
+		AuthPass:      flags.authPass,
+		AuthToken:     flags.authToken,
+		CustomTypes:   flags.customTypes,
+		NoCustomTypes: flags.noCustomTypes,
+		AllMedia:      flags.allMedia,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -282,6 +294,28 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 			f.quiet = true
 		case arg == "--no-crawl":
 			f.noCrawl = true
+		case arg == "--no-custom-types":
+			f.noCustomTypes = true
+		case strings.HasPrefix(arg, "--auth-user="):
+			f.authUser = strings.TrimPrefix(arg, "--auth-user=")
+		case arg == "--auth-user" && i+1 < len(args):
+			f.authUser = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--auth-pass="):
+			f.authPass = strings.TrimPrefix(arg, "--auth-pass=")
+		case arg == "--auth-pass" && i+1 < len(args):
+			f.authPass = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--auth-token="):
+			f.authToken = strings.TrimPrefix(arg, "--auth-token=")
+		case arg == "--auth-token" && i+1 < len(args):
+			f.authToken = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--custom-types="):
+			f.customTypes = splitContentList(strings.TrimPrefix(arg, "--custom-types="))
+		case arg == "--custom-types" && i+1 < len(args):
+			f.customTypes = splitContentList(args[i+1])
+			i++
 		case arg == "--all-media":
 			f.allMedia = true
 		case strings.HasPrefix(arg, "--content="):
@@ -390,6 +424,11 @@ func printMigrateReport(report *migrate.Report, rawURL string) {
 	if report.Comments > 0 {
 		fmt.Printf("   💬 %d reader comments in comments.json, addressed by page URL\n", report.Comments)
 	}
+	// Navigation is an editorial arrangement the content cannot rebuild, so its
+	// arrival is worth stating; its absence is warned about separately (#132).
+	if report.Menus > 0 {
+		fmt.Printf("   🧭 %d navigation menu(s) — themes read them as .Site.Menus.<location>\n", report.Menus)
+	}
 	for _, w := range report.Warnings {
 		fmt.Printf("   ⚠️  %s\n", w)
 	}
@@ -425,6 +464,14 @@ flags:
                      generates its own)
    --no-crawl        skip the SEO/marketing crawl (faster; no tracking ids,
                      social profiles or icons in metadata.json)
+   --auth-user U --auth-pass P   credentials for the source CMS
+   --auth-token T    bearer token instead of the pair. WordPress gates menus
+                     and settings behind edit_theme_options, so without these
+                     a migrated site arrives with no navigation
+   --custom-types a,b  the theme's own post types (Services, Portfolio, Team)
+   --no-custom-types   skip them entirely
    --quiet, -q       suppress progress output
+
+Credentials are handed to the engine and never written to .ssg.yaml.
 `)
 }

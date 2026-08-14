@@ -222,6 +222,66 @@ seo: true
 analytics: true      # only when you want GTM/GA4 live again
 ```
 
+## Navigation needs credentials
+
+WordPress gates menus (and its own settings) behind `edit_theme_options`, so an
+anonymous export comes back with none — and the site builds, silently, with no
+navigation at all. Pass credentials and the menus travel with the content:
+
+```bash
+ssg migrate wordpress https://example.com --auth-user editor --auth-pass "$WP_APP_PASSWORD"
+ssg migrate wordpress https://example.com --auth-token "$WP_TOKEN"
+```
+
+Use a WordPress **application password**, not the account's own. Credentials are
+handed to the engine and **never written to `.ssg.yaml`** — that file gets
+committed.
+
+Menus reach templates as `.Site.Menus.<location>` (and `.<slug>` for a menu the
+theme never assigned), each with `.Tree` giving the entries nested and in the
+site's own order:
+
+```gotemplate
+{{with index .Site.Menus "primary"}}
+<nav>
+  {{range .Tree}}
+    <a href="{{.URL}}">{{.Title}}</a>
+    {{range .Children}}<a href="{{.URL}}">{{.Title}}</a>{{end}}
+  {{end}}
+</nav>
+{{end}}
+```
+
+The bundled `simple` theme renders the `primary` menu when there is one and
+falls back to listing pages. When no menus arrive, the report says why rather
+than leaving you to guess:
+
+```text
+⚠️  menus: not readable without authentication — WordPress gates them behind
+    edit_theme_options; re-run with --auth-user/--auth-pass or --auth-token
+```
+
+### Comments and the engine's age
+
+`comments` can be excluded from `--content` only by **wpexporter 1.8.5 or
+newer**. On an older engine they are exported regardless and the report says
+so, rather than failing a migration over a flag the engine does not know:
+
+```text
+⚠️  comments: exported anyway — this wpexporter cannot be asked to skip them
+    (needs 1.8.5); delete content/<source>/comments.json if you do not want them
+```
+
+## The theme's own post types
+
+Services, Portfolio, Team — a theme registers its own types, and they carry
+real pages. They are exported by default; select or skip them:
+
+```bash
+ssg migrate wordpress https://example.com --custom-types cpt_services,cpt_team
+ssg migrate wordpress https://example.com --no-custom-types
+```
+
 ## After the migration
 
 The site's WordPress front page (`link: "/"`) becomes the front page here too,
@@ -273,6 +333,10 @@ only designs.
 | `--all-media` | Download the whole media library instead of only the files the content references |
 | `--watch --http` | Live mode: server first, then watch the data load |
 | `--source NAME` | Content source directory name (default: the site's host, `www.` stripped) |
+| `--auth-user U --auth-pass P` | Credentials for the source CMS (menus and settings need them) |
+| `--auth-token T` | Bearer token instead of the user/password pair |
+| `--custom-types a,b` | The theme's own post types to export |
+| `--no-custom-types` | Skip the theme's own post types |
 | `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |
