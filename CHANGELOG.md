@@ -46,6 +46,14 @@ and the dev server giving up on a port instead of taking the next one.
   `ssg migrate` is answered with the `--content` equivalent instead of a bare
   "unknown flag".
 
+### Tests
+- 🧪 `internal/migrate` back to **100%** — the port walk's fallbacks (a listener
+  whose address is not TCP, an unparseable one, an unchanged port) and the
+  "recognised but undeliverable kind" path, which went dormant when comments
+  gained a real export. It is exercised by declaring such a kind for the length
+  of a test, so the machinery that keeps the next one from being dropped in
+  silence stays honest instead of rotting until someone needs it.
+
 ## [1.8.32] - 2026-08-14
 
 ### Changed
