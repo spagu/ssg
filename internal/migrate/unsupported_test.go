@@ -66,7 +66,9 @@ func TestUnsupportedKindReachesTheReport(t *testing.T) {
 	if len(rep.Skipped) != 1 || rep.Skipped[0] != "reactions" {
 		t.Fatalf("report skipped = %v", rep.Skipped)
 	}
-	if len(rep.Warnings) != 1 || !strings.Contains(rep.Warnings[0], "does not expose reactions") {
+	// Other warnings may travel alongside (an anonymous export also reports
+	// missing menus), so look for this reason rather than counting.
+	if !strings.Contains(strings.Join(rep.Warnings, " | "), "does not expose reactions") {
 		t.Fatalf("the reason must reach the operator: %v", rep.Warnings)
 	}
 }

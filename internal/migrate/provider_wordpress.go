@@ -95,6 +95,9 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		return nil, fmt.Errorf("%s", missingEngineMessage(os.Getenv("SNAP")))
 	}
 
+	// Record what this engine can be asked to do BEFORE anything reads opts:
+	// the argument builder and the report both depend on it (#137).
+	opts = withEngine(opts, opts.versionOutput(bin))
 	args, skipped, err := wpexporterArgs(rawURL, opts)
 	if err != nil {
 		return nil, err
@@ -112,8 +115,15 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped}
 	rep.Pages, rep.Posts, rep.Media = countExport(opts.Dest)
 	rep.Comments = countComments(opts.Dest)
+	rep.Menus = countMenus(opts.Dest)
 	for _, kind := range skipped {
 		rep.Warnings = append(rep.Warnings, kind+": "+wpUnsupportedKinds[kind])
+	}
+	if w := menusWarning(rep.Menus, opts); w != "" {
+		rep.Warnings = append(rep.Warnings, w)
+	}
+	if w := commentsExclusionWarning(opts); w != "" {
+		rep.Warnings = append(rep.Warnings, w)
 	}
 	return rep, nil
 }
@@ -144,6 +154,8 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 	if opts.Quiet {
 		args = append(args, "-q")
 	}
+	args = append(args, authArgs(opts)...)
+	args = append(args, customTypeArgs(opts)...)
 	if len(opts.Content) == 0 {
 		return args, nil, nil
 	}
@@ -152,7 +164,7 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 	if err != nil {
 		return nil, nil, err
 	}
-	return append(args, disableFlags(sel)...), sel.skipped, nil
+	return append(args, disableFlags(sel, opts.canExcludeComments)...), sel.skipped, nil
 }
 
 // contentSelection is a parsed --content list: content kinds opted IN,
@@ -196,7 +208,7 @@ func parseContentSelection(list []string) (contentSelection, error) {
 // disableFlags turns a selection into wpexporter's --no-* flags: content kinds
 // not asked for are off, metadata kinds are on unless explicitly excluded.
 // Sorted iteration keeps runs reproducible (and tests golden).
-func disableFlags(sel contentSelection) []string {
+func disableFlags(sel contentSelection, canExcludeComments bool) []string {
 	var flags []string
 	for _, kind := range wpKindNames() {
 		flag, selectable := wpContentKinds[kind]
@@ -206,6 +218,9 @@ func disableFlags(sel contentSelection) []string {
 			if sel.excluded[kind] {
 				flags = append(flags, flag)
 			}
+		case kind == "comments" && !sel.requested[kind] && !canExcludeComments:
+			// An engine that does not know the flag dies on it; the comments
+			// simply come along, which the report states (#137).
 		case !sel.requested[kind]:
 			flags = append(flags, flag)
 		}
@@ -235,4 +250,91 @@ func wpKindNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// authArgs forwards credentials to the engine. A token and a user/password
+// pair are both accepted because a site may offer either; the token wins, the
+// way an Authorization header would.
+func authArgs(opts Options) []string {
+	if opts.AuthToken != "" {
+		return []string{"--auth-token", opts.AuthToken}
+	}
+	var args []string
+	if opts.AuthUser != "" {
+		args = append(args, "--auth-user", opts.AuthUser)
+	}
+	if opts.AuthPass != "" {
+		args = append(args, "--auth-pass", opts.AuthPass)
+	}
+	return args
+}
+
+// customTypeArgs selects the theme's own post types (#130).
+func customTypeArgs(opts Options) []string {
+	if opts.NoCustomTypes {
+		return []string{"--no-custom-types"}
+	}
+	if len(opts.CustomTypes) > 0 {
+		return []string{"--custom-types", strings.Join(opts.CustomTypes, ",")}
+	}
+	return nil
+}
+
+// menusWarning explains an export that came back without navigation. Silence
+// here is how a migrated site goes live with no menu and nothing in the run
+// saying why: WordPress refuses /wp/v2/menus to an anonymous caller, and the
+// engine reports success regardless (#132).
+func menusWarning(menus int, opts Options) string {
+	if menus > 0 || excludedMenus(opts) {
+		return ""
+	}
+	if opts.AuthToken == "" && opts.AuthUser == "" {
+		return "menus: not readable without authentication — WordPress gates them behind " +
+			"edit_theme_options; re-run with --auth-user/--auth-pass or --auth-token"
+	}
+	return "menus: none came back even with credentials — the account may lack edit_theme_options, " +
+		"or the site may define no menus"
+}
+
+// excludedMenus reports whether the run asked for no menus, in which case
+// their absence is the answer, not a problem.
+func excludedMenus(opts Options) bool {
+	for _, kind := range opts.Content {
+		if strings.EqualFold(strings.TrimSpace(kind), "no-menus") {
+			return true
+		}
+	}
+	return false
+}
+
+// commentsExcludableSince is the wpexporter release that learned
+// --no-comments. Sending it to an older engine kills the run outright, after
+// the project has been scaffolded and, in live mode, after the server is up
+// (#137). The other version-gated flags are documented the same way:
+// --ssg-sections and --assisted-crawl need 1.8.1, --relevant-media-only 1.8.2.
+var commentsExcludableSince = [3]int{1, 8, 5}
+
+// withEngine records what the installed engine can be asked to do. An
+// unreadable version banner is treated as an old engine: skipping a flag costs
+// a line in the report, sending an unknown one costs the whole migration.
+func withEngine(opts Options, banner string) Options {
+	opts.canExcludeComments = atLeast(banner, commentsExcludableSince[0],
+		commentsExcludableSince[1], commentsExcludableSince[2])
+	return opts
+}
+
+// commentsExclusionWarning explains comments that arrived despite a --content
+// list that did not name them: the installed engine cannot be asked to leave
+// them out, and failing the whole migration over it would be worse (#137).
+func commentsExclusionWarning(opts Options) string {
+	if opts.canExcludeComments || len(opts.Content) == 0 {
+		return ""
+	}
+	for _, kind := range opts.Content {
+		if strings.EqualFold(strings.TrimSpace(kind), "comments") {
+			return "" // asked for; nothing to explain
+		}
+	}
+	return "comments: exported anyway — this wpexporter cannot be asked to skip them (needs 1.8.5); " +
+		"delete content/<source>/comments.json if you do not want them"
 }

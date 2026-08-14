@@ -1812,6 +1812,12 @@ func (g *Generator) loadMetadata(path string) error {
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
 	}
+	// Navigation as the source site arranged it: keyed by theme location and
+	// by slug, with each menu's items already nested and ordered (#132).
+	if len(metadata.Menus) > 0 {
+		g.siteData.Menus = models.MenusByLocation(metadata.Menus)
+		g.log(fmt.Sprintf("   🧭 Loaded %d navigation menu(s)", len(metadata.Menus)))
+	}
 	// The source site's own name, tagline and palette. Configuration always
 	// wins — the export is the fallback for a project whose config has not been
 	// filled in yet, which is every project the moment a migration finishes
@@ -3772,7 +3778,14 @@ func (g *Generator) generateCategories() error {
 
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
-		catSlug := models.SanitizeRelPath(cat.Slug)
+		// A nested category renders where the source site served it —
+		// /category/<parent>/<child>/ — and the flat path it used to occupy
+		// becomes a redirect, so links that survived the migration still land
+		// on the archive (#138).
+		catSlug := models.CategoryPath(cat, g.siteData.Categories)
+		if models.CategoryIsNested(cat, g.siteData.Categories) {
+			g.addCategoryRedirect(models.SanitizeRelPath(cat.Slug), catSlug)
+		}
 		// Explicit content wins over the auto category archive (GO-050).
 		if owner, taken := g.archiveURLOwner("category", catSlug); taken {
 			fmt.Printf("   ⚠️  Skipping auto category archive /category/%s/: %s already owns that URL\n", catSlug, owner)
@@ -4553,7 +4566,7 @@ func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 			continue
 		}
 		if cat.ID != 1 { // Skip "Bez kategorii"
-			g.writeSitemapArchive(sb, "category", cat.Slug)
+			g.writeSitemapArchive(sb, "category", models.CategoryPath(cat, g.siteData.Categories))
 		}
 	}
 }

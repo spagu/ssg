@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.34] - 2026-08-14
+
+### Added
+- 🧭 **A migrated site keeps its navigation** (#132) — menus are the one part of
+  a site that cannot be derived from its content: nothing in a page records
+  which menu it belonged to, in what order, or under what label. WordPress
+  gates them behind `edit_theme_options`, so `ssg migrate` now takes
+  **`--auth-user`/`--auth-pass`** or **`--auth-token`** and forwards them to the
+  engine — never writing them into `.ssg.yaml`, which is a file people commit.
+  Menus reach templates as **`.Site.Menus.<location>`** (or `.<slug>`), with
+  `.Tree` giving the entries nested and ordered as the source site rendered
+  them; an item whose parent is missing is promoted rather than dropped, and a
+  tangled parent chain cannot hide entries. The bundled themes will render the
+  `primary` menu from **1.8.35**: a theme file on disk is also read by an OLDER
+  binary — the GitHub Action downloads a released ssg — and a field that binary
+  does not know is a hard template error, not a blank nav, so the theme can only
+  use a field the previous release already had.
+- 🗂️ **The theme's own post types are selectable** (#130) — `--custom-types
+  cpt_services,cpt_team` picks them, `--no-custom-types` skips them.
+
+### Fixed
+- 🗂️ **Nested categories render where the source site served them** (#138) —
+  WordPress nests categories and serves a child at
+  `/category/<parent>/<child>/`; ssg flattened it to `/category/<child>/`, so
+  every surviving link — a menu copied from the old theme, a bookmark, a search
+  result — hit a 404 while the content sat one path away. The nesting was
+  already in `metadata.json` and was being dropped at render time. Archives now
+  follow the parent chain, and **the old flat path becomes a 301** so nothing
+  that already points at it breaks. A taxonomy with no nesting is untouched: the
+  same URLs, no redirects.
+
+- 🚑 **`--content` no longer kills the migration on a current engine** (#137) —
+  1.8.33 made `comments` a selectable kind, so any `--content` list that did not
+  name it emitted `--no-comments`, a flag that arrives in **wpexporter 1.8.5**
+  (unreleased; 1.8.4 is current, including the copy bundled in the snap). Every
+  selective migration died with `unknown flag: --no-comments` **after** the
+  project was scaffolded and, in live mode, after the server was up. The engine's
+  version is now read once and the flag sent only to an engine that knows it;
+  otherwise the comments come along and the report says so. An unreadable version
+  banner counts as old: skipping a flag costs a line, sending an unknown one costs
+  the run.
+
+### Changed
+- 🔎 **A site that arrives without navigation says why** (#132) — an export with
+  no menus used to end in a clean-looking summary, leaving the operator to
+  discover the missing nav in the browser. The report now names the cause and
+  the fix, and distinguishes an anonymous run from one whose credentials were
+  accepted but returned nothing.
+
+
 ## [1.8.33] - 2026-08-14
 
 What a migration was still leaving on the old site — the readers' comments —

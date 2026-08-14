@@ -78,8 +78,10 @@ func TestWpexporterArgs(t *testing.T) {
 		t.Fatalf("comments were asked for and must ship: %q", args)
 	}
 
-	// …and unlisted, they are switched off like any other content kind.
+	// …and unlisted, they are switched off like any other content kind —
+	// provided the installed engine knows the flag (#137).
 	without := base
+	without.canExcludeComments = true
 	without.Content = []string{"pages", "posts"}
 	args, _, err = wpexporterArgs("https://e.com", without)
 	if err != nil {
@@ -316,8 +318,12 @@ func TestWordpressFetch(t *testing.T) {
 	if report.Provider != "wordpress@"+wordpressVersion {
 		t.Fatalf("provider stamp = %q", report.Provider)
 	}
-	if len(report.Warnings) != 0 {
-		t.Fatalf("nothing was undeliverable: %v", report.Warnings)
+	// The only warning an anonymous export earns here is the missing
+	// navigation, which is its own contract (#132) — nothing was undeliverable.
+	for _, w := range report.Warnings {
+		if !strings.Contains(w, "menus:") {
+			t.Fatalf("unexpected warning: %q", w)
+		}
 	}
 }
 
