@@ -445,8 +445,8 @@ type Metadata struct {
 	// search-console verification and tracking ids. A migration cannot
 	// reconstruct these afterwards — they live in the source theme, not in the
 	// content — so they travel with the content and reach the templates.
-	Marketing Marketing         `json:"marketing"`
-	Analytics map[string]string `json:"analytics"`
+	Marketing Marketing    `json:"marketing"`
+	Analytics AnalyticsIDs `json:"analytics"`
 
 	// Site is what the source CMS calls itself: the name and tagline shown in
 	// its own settings, its canonical URL, its locale and timezone. A migration

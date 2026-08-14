@@ -47,6 +47,18 @@ func TestRunMigrateUsagePaths(t *testing.T) {
 	}
 }
 
+// TestParseMigrateFlags_AllMedia: the flag that opts back into the whole media
+// library (#130).
+func TestParseMigrateFlags_AllMedia(t *testing.T) {
+	f, code := parseMigrateFlags([]string{"--all-media"})
+	if code != -1 || !f.allMedia {
+		t.Errorf("--all-media not parsed: %+v code=%d", f, code)
+	}
+	if f, _ := parseMigrateFlags(nil); f.allMedia {
+		t.Error("the default must stay lean")
+	}
+}
+
 func TestParseMigrateFlags(t *testing.T) {
 	f, code := parseMigrateFlags([]string{
 		"--content", "pages,posts", "--watch", "--http", "--source=shop", "-q"})

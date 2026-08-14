@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.32] - 2026-08-14
+
+### Changed
+- 🖼️ **Migrations download only the media the content points at** (#130) — a
+  WordPress library keeps every crop of every image ever uploaded, plus whatever
+  a since-removed plugin left behind, so a migration that took all of it copied
+  gigabytes the new site never links to. Featured images and in-content media
+  still arrive (with their size variants); **`--all-media`** takes the whole
+  library, as before.
+
+### Fixed
+- 🧮 **An `analytics` block with unusual values no longer fails the build**
+  (#131) — a migrated site did not build *at all*: wpexporter reports every id
+  it finds per vendor, so `"analytics": {"google_tag_manager": ["GTM-…"]}` met a
+  `map[string]string`, and since metadata.json is read before anything else the
+  whole build died — no pages, no posts, no menu — over an optional block that
+  renders only when `analytics: true`. An export may report a vendor's id as a
+  list (the same container found in the head and again in a plugin's footer) or
+  as a number, so the block is now read leniently: the first usable id per
+  vendor wins, a value that cannot be read as an id is dropped, and only a
+  malformed block — one that is not an object — is an error. A tracking id the
+  generator does not understand is not worth a site that does not build.
+
+
 ## [1.8.31] - 2026-08-13
 
 ### Added
@@ -37,6 +61,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   edited as a YAML document, so comments and key order survive. The first build
   of a migrated site now carries its own name and palette. Needs wpexporter
   1.8.2+ for the palette; earlier exports simply have no colours to read.
+
+- 📦 **`ssg migrate` stopped hauling the whole media library (#130).** It now
+  passes `--relevant-media-only`, so a migration takes the files the content
+  actually references: on one real site 359 files / 12 MB instead of 5,255 /
+  197 MB, of which only 74 were ever referenced — and ssg generates its own
+  responsive variants anyway. `--all-media` opts back into everything.
+- 🧩 **`--content custom`** selects the post types a theme or plugin registered
+  (Services, Portfolio, Team — wpexporter 1.8.2+). They are content, so a
+  `--content` list that does not name them turns them off like any other kind
+  (#130).
 
 ### Security
 - 🔐 **Go 1.26.6** (was 1.26.5) — govulncheck reports seven standard-library

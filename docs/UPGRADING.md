@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.32">1.8.32 — 2026-08-14</option>
       <option value="1.8.31">1.8.31 — 2026-08-13</option>
       <option value="1.8.30">1.8.30 — 2026-08-12</option>
       <option value="1.8.29">1.8.29 — 2026-08-12</option>
@@ -165,6 +166,21 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.32">
+
+### 1.8.32 — a migration takes only the media the content uses
+
+`ssg migrate` now downloads the files your pages and posts actually reference
+(featured images and in-content media, with their size variants) instead of the
+source site's entire media library — which on a long-lived WordPress holds every
+crop of every upload plus the leftovers of removed plugins.
+
+**Nothing to do** for a site you have already migrated: this changes what a new
+migration fetches, not what is on disk. Re-running one will pull fewer files
+than before; pass **`--all-media`** to keep the old behaviour.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.31">
 

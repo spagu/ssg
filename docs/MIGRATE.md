@@ -65,10 +65,35 @@ authors is not a migration. Exclude them deliberately:
 ssg migrate wordpress https://example.com --content pages,posts,no-menus
 ```
 
+Kinds: `pages`, `posts`, `media`, **`custom`**, `products`, `tags`, `users`,
+`menus`. `custom` is every post type a theme or plugin registered — Services,
+Portfolio, Team — which on a real site is often more documents than pages and
+posts together. Naming `--content` at all opts them out unless you list it:
+
+```bash
+ssg migrate wordpress https://example.com --content pages,posts,media,custom
+```
+
 An unknown kind is a hard error (a typo must not silently export the whole
 site). A recognised-but-unsupported kind — `comments` today, which
 wpexporter's REST export does not deliver — is reported as skipped in the
 final summary, never dropped silently.
+
+### Media: only what the content uses
+
+A migration downloads the files the content references, not the whole library.
+WordPress keeps a dozen renditions of every upload and a theme demo leaves its
+own behind: one real site's library was 5,255 files and 197 MB, of which 74
+files (2.8 MB) were ever referenced — and ssg generates its own responsive
+variants regardless. `--all-media` takes everything:
+
+```bash
+ssg migrate wordpress https://example.com --all-media
+```
+
+Files the library does not list — a page builder's own crops, the favicon, the
+`og:image` — are downloaded and localised too (wpexporter 1.8.2+), so the
+migrated site does not keep fetching images from the host it was migrated off.
 
 ## Live mode: `--watch --http`
 
@@ -101,6 +126,12 @@ picks both up:
 | `analytics` | GA4, GTM, Pixel, Hotjar, Clarity … ids | `.Site.Analytics` in templates; rendered only with **`analytics: true`** |
 | `marketing.colors` | the theme's palette by role — primary, secondary, accent, text, background, link | `.Site.Colors.<role>` in templates, `--ssg-color-<role>` on `:root`, and written into `colors:` in the config |
 | `site` | the name, tagline and timezone the CMS holds in its own settings | written into `title:`, `description:` and `timezone:` in the config; `.Site.Title` / `.Site.Description` |
+
+An exporter may write an `analytics` id as a string, as a list (the same
+container found in the head and again in a plugin's footer) or as a bare
+number. All three are read; the first usable id per vendor is the one the
+generator emits, and a value it cannot read as an id is skipped rather than
+failing the build (#131).
 
 ### The config is completed from the export
 
@@ -188,7 +219,8 @@ only designs.
 
 | Flag | Meaning |
 |---|---|
-| `--content a,b,c` | Content kinds to fetch (default: everything the provider offers) |
+| `--content a,b,c` | Content kinds to fetch (default: everything the provider offers): `pages`, `posts`, `media`, `custom`, `products`, `tags`, `users`, `menus` |
+| `--all-media` | Download the whole media library instead of only the files the content references |
 | `--watch --http` | Live mode: server first, then watch the data load |
 | `--source NAME` | Content source directory name (default: the site's host, `www.` stripped) |
 | `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |

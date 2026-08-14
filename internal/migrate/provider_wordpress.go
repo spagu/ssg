@@ -31,6 +31,11 @@ var wpContentKinds = map[string]string{
 	"tags":     "--no-tags",
 	"users":    "--no-users",
 	"menus":    "--no-menus",
+	// "custom" is every post type a theme or plugin registered — Services,
+	// Portfolio, Team (wpexporter 1.8.2+). They are content, so a --content
+	// selection that does not name them turns them off like any other kind
+	// (#130).
+	"custom": "--no-custom-types",
 }
 
 // wpMetadataKinds are NOT content: tags, authors and menus describe the site
@@ -119,6 +124,14 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 	// which a migration needs and cannot reconstruct later.
 	args = []string{"export", "-u", rawURL, "-f", "markdown", "-o", opts.Dest,
 		"--link-style", "root", "--ssg-sections"}
+	// Only the media the content actually points at. WordPress keeps a dozen
+	// renditions of every upload and a theme demo's leftovers; one real site
+	// exported 5,255 files (197 MB) of which 74 were referenced. ssg generates
+	// its own responsive variants anyway, so the rest is weight in the
+	// repository forever. --all-media takes the whole library (#130).
+	if !opts.AllMedia {
+		args = append(args, "--relevant-media-only")
+	}
 	if !opts.NoCrawl {
 		args = append(args, "--assisted-crawl")
 	}
