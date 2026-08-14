@@ -46,6 +46,12 @@ and the dev server giving up on a port instead of taking the next one.
   `ssg migrate` is answered with the `--content` equivalent instead of a bare
   "unknown flag".
 
+### Security
+- 🔐 **golang.org/x/image 0.45.0** (was 0.44.0) — GO-2026-6222; govulncheck
+  reports it reachable from this code, which decodes user images on every build
+  with `webp`/`avif` output or responsive variants. `golang.org/x/text` came
+  along to 0.41.0 as its dependency.
+
 ### Tests
 - 🧪 `internal/migrate` back to **100%** — the port walk's fallbacks (a listener
   whose address is not TCP, an unparseable one, an unchanged port) and the
