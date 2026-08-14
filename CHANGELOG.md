@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Menus reach templates as **`.Site.Menus.<location>`** (or `.<slug>`), with
   `.Tree` giving the entries nested and ordered as the source site rendered
   them; an item whose parent is missing is promoted rather than dropped, and a
-  tangled parent chain cannot hide entries. The bundled `simple` theme renders
-  the `primary` menu and falls back to listing pages.
+  tangled parent chain cannot hide entries. The bundled themes will render the
+  `primary` menu from **1.8.35**: a theme file on disk is also read by an OLDER
+  binary — the GitHub Action downloads a released ssg — and a field that binary
+  does not know is a hard template error, not a blank nav, so the theme can only
+  use a field the previous release already had.
 - 🗂️ **The theme's own post types are selectable** (#130) — `--custom-types
   cpt_services,cpt_team` picks them, `--no-custom-types` skips them.
 

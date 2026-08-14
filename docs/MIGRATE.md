@@ -252,9 +252,10 @@ site's own order:
 {{end}}
 ```
 
-The bundled `simple` theme renders the `primary` menu when there is one and
-falls back to listing pages. When no menus arrive, the report says why rather
-than leaving you to guess:
+The bundled themes adopt this from 1.8.35 — a theme file is also read by
+whatever ssg the reader has pinned, so it can only use fields the previous
+release already knew. Paste the snippet above into your own theme today. When
+no menus arrive, the report says why rather than leaving you to guess:
 
 ```text
 ⚠️  menus: not readable without authentication — WordPress gates them behind

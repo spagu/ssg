@@ -32,23 +32,31 @@ func TestAddCategoryRedirect(t *testing.T) {
 	}
 }
 
+// categoryGen builds a generator whose only template is the category archive,
+// with one post filed under catID — the smallest site that renders an archive.
+func categoryGen(t *testing.T, cats map[int]models.Category, catID int) *Generator {
+	t.Helper()
+	g := newTestGen(t, `{{define "category.html"}}<html>{{.Name}}</html>{{end}}`)
+	g.siteData.Categories = cats
+	g.siteData.Posts = []models.Page{{
+		Title: "Post", Slug: "post", Status: "publish", Type: "post",
+		Categories: []int{catID}, Content: "Body.",
+	}}
+	if err := g.generateCategories(); err != nil {
+		t.Fatalf("generateCategories: %v", err)
+	}
+	return g
+}
+
 // TestNestedCategoryArchiveAndRedirect drives the generator: a child category
 // must render under its parent and leave a 301 behind at the flat address the
 // site used to serve, so links that survived the migration still work.
 func TestNestedCategoryArchiveAndRedirect(t *testing.T) {
-	g := newTestGen(t, `{{define "category.html"}}<html>{{.Name}}</html>{{end}}`)
-	g.siteData.Categories = map[int]models.Category{
+	g := categoryGen(t, map[int]models.Category{
 		1: {ID: 1, Name: "Blog", Slug: "blog"},
 		3: {ID: 3, Name: "Dzien Bociana", Slug: "dzien-bociana", Parent: 1},
-	}
-	g.siteData.Posts = []models.Page{{
-		Title: "Post", Slug: "post", Status: "publish", Type: "post",
-		Categories: []int{3}, Content: "Body.",
-	}}
+	}, 3)
 
-	if err := g.generateCategories(); err != nil {
-		t.Fatalf("generateCategories: %v", err)
-	}
 	if !fileExists(t, g, "category/blog/dzien-bociana/index.html") {
 		t.Fatal("the nested archive is missing — this is the 404 the issue reports")
 	}
@@ -66,17 +74,10 @@ func TestNestedCategoryArchiveAndRedirect(t *testing.T) {
 // TestTopLevelCategoryUnchanged: a site with no nesting keeps the URLs it has
 // always had, and earns no redirects.
 func TestTopLevelCategoryUnchanged(t *testing.T) {
-	g := newTestGen(t, `{{define "category.html"}}<html>{{.Name}}</html>{{end}}`)
-	g.siteData.Categories = map[int]models.Category{
+	g := categoryGen(t, map[int]models.Category{
 		1: {ID: 1, Name: "News", Slug: "news"},
-	}
-	g.siteData.Posts = []models.Page{{
-		Title: "Post", Slug: "post", Status: "publish", Type: "post",
-		Categories: []int{1}, Content: "Body.",
-	}}
-	if err := g.generateCategories(); err != nil {
-		t.Fatalf("generateCategories: %v", err)
-	}
+	}, 1)
+
 	if !fileExists(t, g, "category/news/index.html") {
 		t.Fatal("a flat category must keep its address")
 	}

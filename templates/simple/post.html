@@ -15,19 +15,13 @@
             <nav class="main-nav" id="main-nav">
                 <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
                 <div class="nav-links" id="nav-links">
-                    {{/* The migrated site's own navigation when it has one
-                         (#132): an editor arranged it, and its order and
-                         labels cannot be derived from the content. Falls back
-                         to listing every page, which is what a fresh project
-                         wants. */}}
-                    {{with index .Site.Menus "primary"}}
-                    {{range .Tree}}
-                    <a href="{{.URL}}" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                    {{else}}
+                    {{/* Menus (#132) reach templates as .Site.Menus.<location>.
+                         This theme will render them from 1.8.35: a theme file is
+                         also read by an OLDER binary — the GitHub Action
+                         downloads a released ssg — and a field that binary does
+                         not know is a hard template error, not a blank nav. */}}
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
                     {{end}}
                 </div>
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">

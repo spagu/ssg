@@ -188,8 +188,10 @@ anonymous caller, which is why migrated sites came up with no navigation at
 all. **Nothing to do** for an existing site; to gain the navigation, re-run the
 migration with credentials (an application password).
 
-Themes read menus as `.Site.Menus.<location>`; the bundled `simple` theme uses
-`primary` when it exists and otherwise lists pages, as before.
+Themes read menus as `.Site.Menus.<location>`. The bundled themes start
+rendering them in 1.8.35 — a theme file is read by whichever ssg you run, so it
+may only use fields the previous release already had; your own theme can use
+them now.
 
 </div>
 
