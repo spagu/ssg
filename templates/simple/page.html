@@ -15,11 +15,6 @@
             <nav class="main-nav" id="main-nav">
                 <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
                 <div class="nav-links" id="nav-links">
-                    {{/* Menus (#132) reach templates as .Site.Menus.<location>.
-                         This theme will render them from 1.8.35: a theme file is
-                         also read by an OLDER binary — the GitHub Action
-                         downloads a released ssg — and a field that binary does
-                         not know is a hard template error, not a blank nav. */}}
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
                     {{end}}
