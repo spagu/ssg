@@ -419,6 +419,11 @@ func migrateProviderNames() []string {
 func printMigrateReport(report *migrate.Report, rawURL string) {
 	fmt.Printf("\n✅ Migration finished (%s): %d pages, %d posts, %d media files from %s\n",
 		report.Provider, report.Pages, report.Posts, report.Media, rawURL)
+	// Name the engine that actually ran: the snap carries its own copy, so
+	// refreshing the host's wpexporter changes nothing and nothing said so (#140).
+	if report.Engine != "" {
+		fmt.Printf("   ⚙️  engine: %s\n", report.Engine)
+	}
 	// Comments are reported only when there are some: a zero on every migration
 	// of a site that never had comments reads as a failure to fetch them (#134).
 	if report.Comments > 0 {

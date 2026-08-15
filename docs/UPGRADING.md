@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.35">1.8.35 — 2026-08-15</option>
       <option value="1.8.34">1.8.34 — 2026-08-14</option>
       <option value="1.8.33">1.8.33 — 2026-08-14</option>
       <option value="1.8.32">1.8.32 — 2026-08-14</option>
@@ -168,6 +169,24 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.35">
+
+### 1.8.35 — category archives follow the source site's own address
+
+If your `metadata.json` records a `link` for a category (every WordPress
+migration does), its archive now renders at that address rather than under
+`/category/`. **This changes archive URLs for migrated sites** — which is the
+point: those are the addresses the content, the menu and the search results
+already point at. The built-in path is emitted as a 301, so nothing that
+pointed at the old form breaks. A site whose categories carry no `link` is
+untouched.
+
+The bundled themes now render `.Site.Menus.primary` when a migration brought
+navigation across, and the comment thread on posts. Your own theme is
+unaffected; both are opt-in by virtue of being in the theme you choose.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.34">
 

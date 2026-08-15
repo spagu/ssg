@@ -97,7 +97,8 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 
 	// Record what this engine can be asked to do BEFORE anything reads opts:
 	// the argument builder and the report both depend on it (#137).
-	opts = withEngine(opts, opts.versionOutput(bin))
+	banner := opts.versionOutput(bin)
+	opts = withEngine(opts, banner)
 	args, skipped, err := wpexporterArgs(rawURL, opts)
 	if err != nil {
 		return nil, err
@@ -112,7 +113,8 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 			"   upgrade it, or re-run with --no-crawl for the crawl half only", runErr)
 	}
 
-	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped}
+	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped,
+		Engine: engineLabel(bin, banner)}
 	rep.Pages, rep.Posts, rep.Media = countExport(opts.Dest)
 	rep.Comments = countComments(opts.Dest)
 	rep.Menus = countMenus(opts.Dest)
@@ -337,4 +339,19 @@ func commentsExclusionWarning(opts Options) string {
 	}
 	return "comments: exported anyway — this wpexporter cannot be asked to skip them (needs 1.8.5); " +
 		"delete content/<source>/comments.json if you do not want them"
+}
+
+// engineLabel names the engine that ran and where it came from. A snap carries
+// its own copy, so "wpexporter 1.8.4 (bundled with the snap)" is the only line
+// that explains why upgrading the host's binary changed nothing (#140).
+func engineLabel(bin, banner string) string {
+	major, minor, patch := parseSemver(banner)
+	version := "unknown version"
+	if major+minor+patch > 0 {
+		version = fmt.Sprintf("%d.%d.%d", major, minor, patch)
+	}
+	if snap := os.Getenv("SNAP"); snap != "" && strings.HasPrefix(bin, snap) {
+		return "wpexporter " + version + " (bundled with the snap)"
+	}
+	return "wpexporter " + version + " (" + bin + ")"
 }

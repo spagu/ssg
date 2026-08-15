@@ -104,7 +104,11 @@ type Report struct {
 	// comments.json (#134).
 	Comments int
 	// Menus counts the navigation menus the export brought back (#132).
-	Menus    int
+	Menus int
+	// Engine is the version banner of the tool that actually ran. The snap
+	// bundles its own copy, so a host upgrade changes nothing — and without
+	// this line nobody could tell which one produced the export (#140).
+	Engine   string
 	Skipped  []string // requested kinds the engine cannot deliver
 	Warnings []string
 }

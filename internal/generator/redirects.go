@@ -277,14 +277,23 @@ func (g *Generator) generateRedirectsFile() error {
 // explicit rules. Recorded under the render pool's mutex: category archives
 // are generated after the parallel page render, but the slice is shared.
 func (g *Generator) addCategoryRedirect(flatSlug, nestedPath string) {
-	if flatSlug == "" || nestedPath == "" || flatSlug == nestedPath {
+	if flatSlug == "" || nestedPath == "" {
+		return
+	}
+	g.addArchiveRedirect("category/"+flatSlug, "category/"+nestedPath)
+}
+
+// addArchiveRedirect points the path an archive used to occupy at the one it
+// renders at now, whether the move came from nesting (#138) or from the site's
+// own category base (#143).
+func (g *Generator) addArchiveRedirect(from, to string) {
+	from, to = strings.Trim(from, "/"), strings.Trim(to, "/")
+	if from == "" || to == "" || from == to {
 		return
 	}
 	g.aliasMu.Lock()
 	defer g.aliasMu.Unlock()
 	g.aliasRedirects = append(g.aliasRedirects, RedirectRule{
-		From:   "/category/" + flatSlug + "/",
-		To:     "/category/" + nestedPath + "/",
-		Status: 301,
+		From: "/" + from + "/", To: "/" + to + "/", Status: 301,
 	})
 }
