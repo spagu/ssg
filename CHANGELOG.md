@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.35] - 2026-08-15
+
+### Added
+- 💬 **Migrated comments are rendered** (#142) — `comments.json` reached the
+  project and stopped there: counted in the report, then ignored. The generator
+  now loads it and hands each page its own thread as **`.Comments`**, nested by
+  parent and in the order the comments were written. Matching is a lookup on the
+  URL the export recorded, not a heuristic. The bundled `simple` theme renders
+  the thread on posts. They are rendered statically because that is what they
+  are — historical and closed; accepting NEW comments stays the comments
+  worker's job.
+- 🏠 **`.IsFrontPage`** (#141) — a theme could not tell it was rendering the
+  front page, so the site's most-linked document came out titled "Home - Site"
+  while the source served the site's own name and tagline. The generator already
+  knew; now the template data says so, instead of a theme comparing `.Link`
+  against `"/"` and hoping no language prefix is in play.
+- 🧭 **The bundled themes render the site's navigation** — deferred from 1.8.34
+  on purpose: a theme file is read by whichever ssg the reader runs, so it may
+  only use fields the *previous* release already had. 1.8.34 shipped
+  `.Site.Menus`, so the themes can use it now.
+- ⚙️ **The migration report names the engine that ran** (#140) — including
+  `(bundled with the snap)`, the one line that explains why refreshing the
+  host's `wpexporter` changed nothing.
+
+### Fixed
+- 🗂️ **Category archives honour the address the source site serves them at**
+  (#143) — WordPress lets a site drop the `/category/` base, and many do. The
+  export records each term's real address in `link`; ssg ignored it and built
+  `/category/<term>/`, so every archive link in every post's meta line, in the
+  menu and in the breadcrumbs was a 404 on the migrated site. Archives now
+  render where the source serves them and **the built-in path becomes a 301**.
+  A site whose export carries no `link` keeps the layout it has always had.
+
+
 ## [1.8.34] - 2026-08-14
 
 ### Added

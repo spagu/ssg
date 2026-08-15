@@ -531,7 +531,11 @@ type SiteData struct {
 	Analytics map[string]string
 	// Menus reaches templates as .Site.Menus.<location> (or .<slug>), each with
 	// .Items already nested and ordered as the source site rendered them.
-	Menus           map[string]Menu
+	Menus map[string]Menu
+	// Comments are the readers' comments a migration carried across, keyed by
+	// the page URL they belong to. A page's own thread reaches its template as
+	// .Comments (#142).
+	Comments        map[string][]Comment
 	Language        i18n.LanguageConfig
 	Languages       []i18n.LanguageConfig
 	DefaultLanguage string

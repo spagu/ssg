@@ -14,11 +14,7 @@
         <div class="container">
             <nav class="main-nav" id="main-nav">
                 <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
+{{template "site-nav" .}}
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
                     <span></span>
                     <span></span>

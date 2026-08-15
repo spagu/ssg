@@ -1,0 +1,48 @@
+{{/* Shared blocks for the simple theme. This file defines only — it renders
+     nothing on its own and is never addressed as a page template. Keeping the
+     navigation and the comment thread in one place means a fix lands once
+     instead of in four near-identical copies. */}}
+
+{{define "site-nav"}}
+                <div class="nav-links" id="nav-links">
+                    {{/* The site's own navigation when a migration brought one
+                         across (#132): an editor arranged it, and neither its
+                         order nor its labels can be derived from the content.
+                         Falls back to listing pages, which is what a fresh
+                         project wants. */}}
+                    {{with index .Site.Menus "primary"}}
+                    {{range .Tree}}
+                    <a href="{{.URL}}" class="nav-link">{{.Title}}</a>
+                    {{end}}
+                    {{else}}
+                    {{range .Site.Pages}}
+                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
+                    {{end}}
+                    {{end}}
+                </div>
+{{end}}
+
+{{/* One comment, with its replies rendered by the same block — so the anchor
+     each comment carries is written once and cannot drift between levels, and
+     a thread of any depth renders without another copy of this markup. */}}
+{{define "comment"}}
+            <article class="comment" id="comment-{{.ID}}">
+                <p class="comment-meta"><b>{{.Author}}</b> <time datetime="{{.Date}}">{{.Date}}</time></p>
+                <div class="comment-body">{{.Content | safeHTML}}</div>
+                {{range .Replies}}
+                <div class="comment-replies">{{template "comment" .}}</div>
+                {{end}}
+            </article>
+{{end}}
+
+{{/* The readers' comments a migration carried across (#142) — the one content
+     a site owner did not write and cannot re-create. The thread is historical
+     and closed; new comments are the comments worker's job. */}}
+{{define "comment-thread"}}
+        {{with .Comments}}
+        <section class="comments" id="comments">
+            <h2 class="comments-title">Comments</h2>
+            {{range .}}{{template "comment" .}}{{end}}
+        </section>
+        {{end}}
+{{end}}

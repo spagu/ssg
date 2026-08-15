@@ -119,6 +119,14 @@ schema of the [comments worker](WORKERS.md) (`ssg new worker comments`), whose
 many arrived; a site whose REST route is disabled or gated migrates without
 them and says so.
 
+Comments reach each page's template as `.Comments`, threaded by parent and in
+the order they were written, and the bundled theme renders them on posts:
+
+```gotemplate
+{{with .Comments}}{{range .}}<b>{{.Author}}</b> {{.Content | safeHTML}}
+{{range .Replies}}<b>{{.Author}}</b> {{.Content | safeHTML}}{{end}}{{end}}{{end}}
+```
+
 ### Media: only what the content uses
 
 A migration downloads the files the content references, not the whole library.

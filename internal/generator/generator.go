@@ -1823,6 +1823,7 @@ func (g *Generator) loadMetadata(path string) error {
 	// filled in yet, which is every project the moment a migration finishes
 	// (#128).
 	applySiteIdentity(g.siteData, metadata, g.config)
+	g.loadComments(filepath.Join(filepath.Dir(path), "comments.json"))
 	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
 		g.log("   🎯 Site metadata: " + s)
 	}
@@ -3782,16 +3783,23 @@ func (g *Generator) generateCategories() error {
 		// /category/<parent>/<child>/ — and the flat path it used to occupy
 		// becomes a redirect, so links that survived the migration still land
 		// on the archive (#138).
-		catSlug := models.CategoryPath(cat, g.siteData.Categories)
-		if models.CategoryIsNested(cat, g.siteData.Categories) {
-			g.addCategoryRedirect(models.SanitizeRelPath(cat.Slug), catSlug)
+		// The address the source site serves this archive at, which the export
+		// records in `link` — a site that dropped WordPress's /category/ base
+		// serves /realizacje/<term>/, and building /category/realizacje/<term>/
+		// 404s every archive link the migrated content carries (#143). Falls
+		// back to the built-in category/<parent>/<child> layout (#138).
+		archivePath := models.CategoryArchivePath(cat, g.siteData.Categories, "category")
+		defaultPath := "category/" + models.SanitizeRelPath(cat.Slug)
+		if archivePath != defaultPath {
+			g.addArchiveRedirect(defaultPath, archivePath)
 		}
+		catSlug := strings.TrimPrefix(archivePath, "category/")
 		// Explicit content wins over the auto category archive (GO-050).
 		if owner, taken := g.archiveURLOwner("category", catSlug); taken {
 			fmt.Printf("   ⚠️  Skipping auto category archive /category/%s/: %s already owns that URL\n", catSlug, owner)
 			continue
 		}
-		outputPath := filepath.Join(g.config.OutputDir, "category", catSlug, indexHTMLName)
+		outputPath := filepath.Join(g.config.OutputDir, filepath.FromSlash(archivePath), indexHTMLName)
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
 			continue
@@ -3904,14 +3912,23 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Translations":    g.translationsFor(page),
 		"Hreflang":        g.hreflangTags(page),
 		// Standard Page fields
-		"ID":             page.ID,
-		"Title":          page.Title,
-		"Slug":           page.Slug,
-		"Date":           g.pageDate(page, page.Date),     // rendered in the configured zone (I18N-001)
-		"Modified":       g.pageDate(page, page.Modified), // rendered in the configured zone (I18N-001)
-		"Status":         page.Status,
-		"Type":           page.Type,
-		"Link":           page.Link,
+		"ID":       page.ID,
+		"Title":    page.Title,
+		"Slug":     page.Slug,
+		"Date":     g.pageDate(page, page.Date),     // rendered in the configured zone (I18N-001)
+		"Modified": g.pageDate(page, page.Modified), // rendered in the configured zone (I18N-001)
+		"Status":   page.Status,
+		"Type":     page.Type,
+		"Link":     page.Link,
+		// IsFrontPage lets a theme write the front page's own <title> — the
+		// site's name and tagline — instead of "Home - Site" on the most linked
+		// document it has. The generator already knows this; a template had to
+		// guess by comparing .Link against "/" and hope no language prefix or
+		// custom home slug was in play (#141).
+		"IsFrontPage": isRootOutputPath(page.GetOutputPath()),
+		// The readers' comments a migration brought across, threaded and in
+		// the order they were written (#142). Empty for a page that has none.
+		"Comments":       g.commentsFor(page),
 		"Author":         page.Author,
 		"Categories":     page.Categories,
 		"Excerpt":        page.Excerpt,
