@@ -14,22 +14,7 @@
         <div class="container">
             <nav class="main-nav" id="main-nav">
                 <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{/* The site's own navigation when a migration brought one
-                         across (#132): an editor arranged it, and neither its
-                         order nor its labels can be derived from the content.
-                         Falls back to listing pages, which is what a fresh
-                         project wants. */}}
-                    {{with index .Site.Menus "primary"}}
-                    {{range .Tree}}
-                    <a href="{{.URL}}" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                    {{else}}
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                    {{end}}
-                </div>
+{{template "site-nav" .}}
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
                     <span></span>
                     <span></span>
@@ -62,27 +47,7 @@
                 </div>
             </div>
         </article>
-        {{/* The readers' comments a migration carried across (#142) — the one
-             content a site owner did not write and cannot re-create. The
-             thread is historical and closed; new comments are the comments
-             worker's job. */}}
-        {{with .Comments}}
-        <section class="comments" id="comments">
-            <h2 class="comments-title">Comments</h2>
-            {{range .}}
-            <article class="comment" id="comment-{{.ID}}">
-                <p class="comment-meta"><b>{{.Author}}</b> <time datetime="{{.Date}}">{{.Date}}</time></p>
-                <div class="comment-body">{{.Content | safeHTML}}</div>
-                {{range .Replies}}
-                <article class="comment comment-reply" id="comment-{{.ID}}">
-                    <p class="comment-meta"><b>{{.Author}}</b> <time datetime="{{.Date}}">{{.Date}}</time></p>
-                    <div class="comment-body">{{.Content | safeHTML}}</div>
-                </article>
-                {{end}}
-            </article>
-            {{end}}
-        </section>
-        {{end}}
+        {{template "comment-thread" .}}
     </main>
 
     <footer class="site-footer" id="site-footer">

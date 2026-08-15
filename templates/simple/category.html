@@ -14,22 +14,7 @@
         <div class="container">
             <nav class="main-nav" id="main-nav">
                 <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{/* The site's own navigation when a migration brought one
-                         across (#132): an editor arranged it, and neither its
-                         order nor its labels can be derived from the content.
-                         Falls back to listing pages, which is what a fresh
-                         project wants. */}}
-                    {{with index .Site.Menus "primary"}}
-                    {{range .Tree}}
-                    <a href="{{.URL}}" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                    {{else}}
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                    {{end}}
-                </div>
+{{template "site-nav" .}}
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
                     <span></span>
                     <span></span>
