@@ -637,12 +637,18 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 	)
 }
 
-// headingIDTransformer fixes the auto ids of headings that CONTAIN a link or
-// image: goldmark derives ids from the raw source line, so
+// headingIDTransformer fixes the auto ids of headings that CONTAIN markup:
+// goldmark derives ids from the raw source line, so
 // "### [Ian Zane](/authors/ian-zane/) — Generalist" became
-// id="ian-zaneauthorsian-zane--generalist" (issue #26). Only such headings are
-// recomputed to slugify(visible text) — plain headings keep goldmark's ids
-// bit-for-bit, so anchors on pre-1.8.6 sites stay valid. De-duplication spans
+// id="ian-zaneauthorsian-zane--generalist" (issue #26), and a heading wrapped
+// in a coloured span became
+// id="span-stylecolor-ffff00strongwhy-baby-swimmingstrong" — the tag names and
+// attribute values of its own markup (#153). Headings wrapped in <strong>,
+// <em>, <a> or a styled <span> are ordinary in CMS content: 15 to 37 of them on
+// the front page alone of each of six migrated sites.
+//
+// Only such headings are recomputed to slugify(visible text) — plain headings
+// keep goldmark's ids bit-for-bit, so anchors on pre-1.8.6 sites stay valid. De-duplication spans
 // the whole document (kept goldmark ids included). The TOC (AX-002) reads the
 // same attribute, so intra-page anchors stay consistent.
 type headingIDTransformer struct{}
@@ -659,7 +665,7 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 		if !ok {
 			return ast.WalkContinue, nil
 		}
-		if headingHasLink(h) {
+		if headingHasMarkup(h) {
 			affected = append(affected, h)
 		} else if v, ok := h.AttributeString("id"); ok {
 			if idBytes, ok := v.([]byte); ok {
@@ -682,16 +688,18 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 	}
 }
 
-// headingHasLink reports whether a heading contains a link, autolink or image
-// node — the cases where goldmark's raw-source id leaks the destination URL.
-func headingHasLink(h ast.Node) bool {
+// headingHasMarkup reports whether a heading contains a node whose raw source
+// is not its visible text: a link or image (the id leaks the destination URL)
+// or inline HTML (the id leaks tag names and attribute values). Those are
+// exactly the headings whose goldmark id is unusable as an anchor.
+func headingHasMarkup(h ast.Node) bool {
 	found := false
 	_ = ast.Walk(h, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 		switch n.Kind() {
-		case ast.KindLink, ast.KindAutoLink, ast.KindImage:
+		case ast.KindLink, ast.KindAutoLink, ast.KindImage, ast.KindRawHTML:
 			found = true
 			return ast.WalkStop, nil
 		}

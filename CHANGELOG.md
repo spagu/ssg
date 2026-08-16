@@ -10,6 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.37] - 2026-08-16
 
 ### Fixed
+- ⚓ **Heading anchors come from the heading's text, not its markup** (#153) — a
+  heading wrapped in `<strong>` or a coloured `<span>` got
+  `id="span-stylecolor-ffff00strongwhy-baby-swimmingstrong"`, because goldmark
+  derives auto-ids from the raw source line. The anchor a reader, a table of
+  contents or an inbound link expects is `#why-baby-swimming`. Headings holding
+  markup are ordinary in CMS content — 15 to 37 on the front page alone of each
+  of six migrated sites. Plain headings keep their existing ids bit-for-bit, so
+  anchors on existing sites stay valid; the rule now covers inline HTML the way
+  it already covered links and images (#26).
+- 🚩 **An option ssg does not accept is named rather than ignored** (#152) —
+  `--output=public` reads like it should work (the config key is `output_dir`),
+  and the build wrote to `output/` and said nothing, which looks like the flag
+  was honoured and the site landed elsewhere. Unknown options now warn and, when
+  there is an obvious neighbour, suggest it: *Unknown option --output — ignored
+  (did you mean --output-dir?)*. It warns rather than fails, so a script passing
+  an option a future ssg will understand keeps working. The check reads the
+  parsers' own tables, so a new flag cannot drift out of it.
 - 🧱 **Structured frontmatter survives the MDDB content source** (#154,
   tradik/mddb#187) — MDDB stores meta as a flat `key → []string` by design, so a
   `faq:` list of objects or a `schema:` object can only travel as a string.
