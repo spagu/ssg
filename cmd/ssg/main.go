@@ -552,6 +552,12 @@ func buildNotifier(cfg *config.Config) *notify.Notifier {
 }
 
 func createGeneratorConfig(cfg *config.Config) generator.Config {
+	// Every build path meets here — a plain build, a watch reload and `migrate`
+	// — and it is the last point before the domain becomes every canonical URL
+	// the site publishes. Late enough that the positional argument has been
+	// applied, which the flag parser runs too early to see (#162).
+	normalizeDomain(cfg)
+
 	// Convert shortcodes from config to generator format
 	shortcodes := make([]generator.Shortcode, len(cfg.Shortcodes))
 	for i, sc := range cfg.Shortcodes {

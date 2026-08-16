@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.40" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.41" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -63,7 +63,10 @@ MDDB content source.
 Template name (inside templates-dir).
 .TP
 .I domain
-Target domain for the generated site (e.g., example.com).
+Target domain for the generated site — the host alone, e.g. \fBexample.com\fR.
+Canonical URLs, \fBog:url\fR, the sitemap and the JSON\-LD \fB@id\fR are built as
+\fBhttps://<domain>/\fR..., so a value carrying \fBhttps://\fR or a trailing slash
+is stripped and reported rather than published into all of them.
 .SH SUBCOMMANDS
 Dispatched only on a known verb+noun pair in the first two arguments, so a
 source directory named \fInew\fR or \fIimport\fR still builds normally.

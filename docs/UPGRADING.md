@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.40">1.8.40 — 2026-08-16</option>
       <option value="1.8.39">1.8.39 — 2026-08-16</option>
       <option value="1.8.38">1.8.38 — 2026-08-16</option>
       <option value="1.8.37">1.8.37 — 2026-08-16</option>
@@ -173,6 +174,35 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.41">
+
+### 1.8.41 — check your `domain` if the build now warns about it
+
+Nothing to change unless your `domain` carries a scheme or a trailing slash. If
+it does, the build now says so and corrects it:
+
+```
+⚠️  domain "https://example.com" is not a bare host — using "example.com".
+```
+
+**The URLs your site publishes will change** — from `https://https://example.com/…`
+to `https://example.com/…` in the canonical tag, `og:url`, the sitemap, the
+JSON-LD `@id` and the feed. That is the correction, not a regression: the old
+ones were never reachable addresses. Worth knowing anyway, because a sitemap
+already submitted to Search Console carried them.
+
+Fix the value in `.ssg.yaml` (or the positional argument) to silence the
+warning:
+
+```yaml
+domain: "example.com"   # not https://example.com
+```
+
+A port (`example.com:8080`) and a subdirectory deploy (`example.com/blog`) are
+left alone — the first is part of the host, the second is deliberate.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.40">
 

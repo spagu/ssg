@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.41] - 2026-08-16
+
+### Fixed
+- 🌐 **A `domain` carrying a scheme no longer publishes `https://https://…`**
+  (#162) — `domain` is the host alone and the canonical builder prepends
+  `https://` unconditionally, so `domain: "https://example.com"` reached the
+  canonical tag, `og:url`, the sitemap, the JSON-LD `@id` and the feed as
+  `https://https://example.com/…` — every address whose entire purpose is being
+  a correct absolute URL, and every one of them unread by a human after a build.
+  Nothing warned. It is an easy mistake: `ssg migrate wordpress
+  https://example.com` takes a full URL one line away in the same docs, and that
+  URL is the site being migrated. A scheme and trailing slashes are now stripped
+  and the correction is reported once, naming both values:
+
+  ```
+  ⚠️  domain "https://example.com" is not a bare host — using "example.com".
+  ```
+
+  Stripping rather than failing keeps every existing site building; `--quiet`
+  suppresses the message and never the fix. A port (`example.com:8080`) and a
+  subdirectory deploy (`example.com/blog`) are left exactly as configured — the
+  first is part of the host and the second is deliberate.
+
 ## [1.8.40] - 2026-08-16
 
 ### Added
