@@ -3,6 +3,7 @@ package mddb
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -246,11 +247,39 @@ func (d *Document) ToPage() (*models.Page, error) {
 	page.Extra = make(map[string]interface{})
 	for key, value := range d.Metadata {
 		if !knownFields[key] {
-			page.Extra[key] = value
+			// mddb's meta is flat by design, so a structured field can only
+			// travel as JSON in one string; decoding it here is what makes that
+			// arrangement work end to end (#154). A value that is not JSON is
+			// stored exactly as it arrived, so existing sites are untouched.
+			page.Extra[key] = decodeStructuredMeta(value)
 		}
 	}
 
 	return page, nil
+}
+
+// StructuredMetaWarnings names the meta fields of a document that arrived as
+// printed Go values rather than data — the shape a producer leaves behind when
+// it formats a map instead of encoding it. The value cannot be recovered, so
+// the document and the field are what a build can usefully report (#154).
+func (d *Document) StructuredMetaWarnings() []StructuredMetaWarning {
+	var out []StructuredMetaWarning
+	for _, key := range sortedMetaKeys(d.Metadata) {
+		if looksGoStringified(d.Metadata[key]) {
+			out = append(out, StructuredMetaWarning{Key: key, Value: d.Metadata[key].(string)})
+		}
+	}
+	return out
+}
+
+// sortedMetaKeys keeps the report stable between builds.
+func sortedMetaKeys(meta map[string]interface{}) []string {
+	keys := make([]string, 0, len(meta))
+	for k := range meta {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // ToPages converts multiple mddb Documents to models.Page slice

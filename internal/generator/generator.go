@@ -1642,6 +1642,7 @@ func (g *Generator) loadContentFromMddb() error {
 		return fmt.Errorf("loading pages from mddb: %w", err)
 	}
 
+	g.reportStructuredMeta(pageDocs)
 	pages, err := mddb.ToPages(pageDocs)
 	if err != nil {
 		return fmt.Errorf("converting pages: %w", err)
@@ -1657,6 +1658,7 @@ func (g *Generator) loadContentFromMddb() error {
 		return fmt.Errorf("loading posts from mddb: %w", err)
 	}
 
+	g.reportStructuredMeta(postDocs)
 	posts, err := mddb.ToPages(postDocs)
 	if err != nil {
 		return fmt.Errorf("converting posts: %w", err)
@@ -5307,4 +5309,20 @@ func injectKatexAssets(html string) string {
 		html += body
 	}
 	return html
+}
+
+// reportStructuredMeta names documents whose meta carries a printed Go value
+// instead of data (#154). The value was lost before it was stored, so nothing
+// here can recover it — but a build that says "post `x`: meta field `faq` looks
+// like a stringified Go value" costs one line, where the silence costs an
+// afternoon of reading a template that is not at fault.
+func (g *Generator) reportStructuredMeta(docs []mddb.Document) {
+	if g.config.Quiet {
+		return
+	}
+	for _, doc := range docs {
+		for _, w := range doc.StructuredMetaWarnings() {
+			fmt.Printf("   ⚠️  document %q: %s\n", doc.Key, w.Message())
+		}
+	}
 }

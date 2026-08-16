@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.37] - 2026-08-16
 
 ### Fixed
+- 🧱 **Structured frontmatter survives the MDDB content source** (#154,
+  tradik/mddb#187) — MDDB stores meta as a flat `key → []string` by design, so a
+  `faq:` list of objects or a `schema:` object can only travel as a string.
+  Neither end worked: a producer that JSON-encoded correctly still handed the
+  theme a JSON *string*, and one that stringified a Go map stored
+  `map[answer:… question:…]`, which made **every post** fail with
+  `can't evaluate field question in type interface {}` — an error pointing at
+  the theme rather than at the field. ssg now decodes JSON-shaped meta values
+  into the shape a template can range over, and names the document and field
+  when a value is a printed Go map, which cannot be recovered. A value that is
+  neither arrives exactly as before.
 - 📚 **`paginate` now applies to category archives** (#149) — it paginated the
   index and left every category whole, so a migrated site's `/category/blog/`
   shipped 205 articles in one file while `/category/blog/page/2/` did not exist.
