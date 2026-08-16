@@ -233,6 +233,10 @@ func (d *Document) ToPage() (*models.Page, error) {
 		page.Series = series
 	}
 
+	if sticky, ok := d.Metadata["sticky"].(bool); ok {
+		page.Sticky = sticky
+	}
+
 	// Copy ALL remaining metadata fields to Extra for dynamic template access
 	// This allows templates to use any custom field like {{.Extra.dupa}}
 	knownFields := map[string]bool{
@@ -241,7 +245,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"categories": true, "description": true, "keywords": true, "lang": true,
 		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
 		"category": true, "layout": true, "template": true, "aliases": true, "series": true,
-		"alias_stubs": true, "schema": true,
+		"alias_stubs": true, "schema": true, "sticky": true,
 	}
 
 	page.Extra = make(map[string]interface{})

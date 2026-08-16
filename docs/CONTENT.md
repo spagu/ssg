@@ -207,6 +207,7 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `category` | string | post | Single free-form category value exposed to templates |
 | `tags` | list | post | Creates tag listings at `/tag/<slug>/` |
 | `series` | string | post | Creates a series listing and previous/next navigation |
+| `sticky` | bool | Pin the post to the top of date-ordered listings (index, posts page, term archives). Pinned posts keep their own order among themselves; reaches templates as `.Sticky`. |
 | `excerpt` | string | both | Listing, feed and metadata summary |
 | `description` | string | both | SEO description; themes may fall back to `excerpt` |
 | `keywords` | string | both | SEO keywords |

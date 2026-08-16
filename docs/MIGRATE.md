@@ -20,14 +20,26 @@ ssg migrate --list
 
 | Provider | Engine | Content kinds |
 |---|---|---|
-| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.1** (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.11** (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
 
 The migration asks the engine for the SSG format (`--ssg-sections`) and for a
 metadata crawl (`--assisted-crawl`), so `content/<source>/metadata.json`
 arrives with `marketing` (verification tokens, social profiles, og:image,
 favicon, theme colour) and `analytics` (GA4, GTM, Pixel, …) alongside the
-content. Both flags arrived in wpexporter 1.8.1; an older engine rejects them
-as unknown, so upgrade it (the snap bundles a current one).
+content. **wpexporter 1.8.11 is the minimum.** Every export this asks for depends on it —
+the SSG section markers (1.8.1), the media scope (1.8.2), custom post types
+(1.8.4), comments (1.8.5), and the fixes to ordered lists, term slugs, post-loop
+pages and shortcode expansion that landed through 1.8.11. An older engine is
+**refused before anything is written**, rather than producing an export that
+looks complete and is not:
+
+```text
+❌ wpexporter 1.8.4 is too old — ssg migrate needs 1.8.11 or newer.
+```
+
+A banner ssg cannot read (a wrapper, a fork) is reported and the run continues:
+a formatting difference is not proof of an old engine. The snap bundles a
+current one, so `snap refresh static-site-generator` is the fix there.
 
 Providers are built into the `ssg` binary — a new source type is a new
 provider behind the same interface. The `wordpress` provider delegates the

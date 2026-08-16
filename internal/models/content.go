@@ -92,6 +92,12 @@ type Page struct {
 	Tags           []string          `yaml:"tags,omitempty"`
 	Category       string            `yaml:"category"`
 
+	// Sticky pins a post to the top of the listings that sort by date — the
+	// index, the posts page and term archives — the way an editor pinned it in
+	// the source CMS (#155). Pinned posts keep their own order among
+	// themselves; everything else follows by date.
+	Sticky bool `yaml:"sticky,omitempty"`
+
 	// Aliases are old paths that should redirect here. Each generates a
 	// meta-refresh + canonical redirect stub excluded from the sitemap (SEO-002).
 	Aliases []string `yaml:"aliases,omitempty"`

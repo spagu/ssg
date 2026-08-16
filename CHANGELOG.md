@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.38] - 2026-08-16
+
+### Added
+- 🔢 **`.Pager.Pages` — numbered pagination** (#156) — a pager carried only its
+  neighbours, which draws "← →" and not the control most themes have: a reader
+  on page six reached page two by stepping back four times. Every page now
+  arrives with its number, address and whether it is current, so a theme renders
+  the source site's own `.page-numbers` markup. **`.Pager.Window N`** returns the
+  windowed form — first, last, N either side of the current page, with an
+  ellipsis entry per gap — which is what WordPress draws. A template could not
+  build these itself: `PrevURL`/`NextURL` are opaque, and deriving `/page/4/`
+  from them means guessing a URL shape that `posts_page` and language prefixes
+  already change. `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL` are
+  untouched.
+
+### Changed
+- ⚙️ **`ssg migrate` requires wpexporter 1.8.11 or newer** — every export it asks
+  for depends on that engine: the SSG section markers, the media scope, custom
+  post types, comments, and the fixes to ordered lists, term slugs, post-loop
+  pages and shortcode expansion released through 1.8.11. An older one is refused
+  **before anything is written** — not after the project is scaffolded and, in
+  live mode, the server is up — naming the version found and the two ways
+  forward. A version banner ssg cannot parse is reported and the run continues:
+  a wrapper or a fork printing something else is not proof of an old engine, and
+  blocking a working setup over a formatting difference would be worse than the
+  risk. The per-flag gate that this replaces (comments, 1.8.5) is gone with it.
+
+### Fixed
+- 🔍 **A `<title>` inside a `<script>` block is named** (#152) — Go's
+  html/template escapes by *context*: a `<script …>` start tag opens a
+  JavaScript context that runs to its end tag, and every value interpolated
+  inside it is escaped as a JS value, which for text means a `"quoted"` string.
+  A scraped theme whose inline analytics block lost its end tag therefore
+  rendered `<title>"Artisans of Taste" - "…"</title>` while the same expression
+  in the body came out clean — with byte-clean config, byte-clean metadata and a
+  template that looks right in isolation. Finding that cost a full day. The build
+  now says it, with the lines: *`<title>` on line 3 is inside a `<script>` block
+  (opened line 2, closed line 4) — html/template escapes values there as
+  JavaScript, so they render quoted.* The escaping itself is correct and
+  unchanged: in a real script context those quotes are what keep a value from
+  breaking out of its string.
+- 📌 **A pinned post leads the listing** (#155) — WordPress lets an editor pin a
+  post to the top of the blog and the export carries `sticky: true`, but the
+  generator never read the field, so listings sorted by date alone and the
+  pinned post landed wherever its date put it: sixth of ten on the site that
+  reported it, while the source showed it first. Pinned posts now come first —
+  in their own date order among themselves — on the index, the posts page and
+  term archives, which is what the source CMS does. The flag also reaches
+  templates as **`.Sticky`**, so a theme can mark that post the way WordPress
+  marks it with a `sticky` class. A site that pins nothing keeps the order it
+  has always had.
+
+
 ## [1.8.37] - 2026-08-16
 
 ### Fixed

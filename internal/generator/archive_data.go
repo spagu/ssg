@@ -53,5 +53,8 @@ func (g *Generator) archiveData(kind, name string, cat models.Category,
 // reading .Pager finds a truthful one-page pager instead of a zero value that
 // renders as "page 0 of 0".
 func singlePagePager(count int) Pager {
-	return Pager{Current: 1, Total: 1, PerPage: count}
+	p := Pager{Current: 1, Total: 1, PerPage: count}
+	// One page, still a page: a numbered control renders "1" rather than
+	// nothing, and .Pages is never nil for a template that ranges over it.
+	return p.withPages(func(int) string { return "" })
 }

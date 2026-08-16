@@ -78,10 +78,9 @@ func TestWpexporterArgs(t *testing.T) {
 		t.Fatalf("comments were asked for and must ship: %q", args)
 	}
 
-	// …and unlisted, they are switched off like any other content kind —
-	// provided the installed engine knows the flag (#137).
+	// …and unlisted, they are switched off like any other content kind. Every
+	// engine ssg runs against knows the flag: 1.8.11 is the minimum.
 	without := base
-	without.canExcludeComments = true
 	without.Content = []string{"pages", "posts"}
 	args, _, err = wpexporterArgs("https://e.com", without)
 	if err != nil {

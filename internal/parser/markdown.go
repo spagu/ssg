@@ -262,7 +262,7 @@ var knownFields = map[string]bool{
 	"translation_key": true,
 	"robots":          true, "featured_image": true, "tags": true, "category": true,
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
-	"taxonomies": true,
+	"taxonomies": true, "sticky": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -307,6 +307,7 @@ type PageFrontmatter struct {
 	Sitemap        string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
 	Aliases        []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
 	Series         string   `yaml:"series,omitempty"`  // series grouping (AX-005)
+	Sticky         bool     `yaml:"sticky,omitempty"`  // pinned to the top of date-ordered listings (#155)
 
 	// AliasStubs overrides the site-wide alias_stubs default per page: false =
 	// 301 only (no duplicate copy), true = force a stub (#65).
@@ -439,6 +440,7 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Aliases:        pf.Aliases,
 		AliasStubs:     pf.AliasStubs,
 		Series:         pf.Series,
+		Sticky:         pf.Sticky,
 		Schema:         pf.Schema,
 		TaxonomiesFM:   pf.Taxonomies,
 		// Template selection

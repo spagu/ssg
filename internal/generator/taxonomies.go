@@ -366,7 +366,8 @@ type termChunk struct {
 // termURL. paginate <= 0 (or few posts) yields a single un-paginated chunk.
 func paginateTerm(posts []models.Page, per int, termURL string) []termChunk {
 	if per <= 0 || len(posts) <= per {
-		return []termChunk{{Posts: posts, Pager: Pager{Current: 1, Total: 1, PerPage: per}}}
+		single := Pager{Current: 1, Total: 1, PerPage: per}
+		return []termChunk{{Posts: posts, Pager: single.withPages(func(n int) string { return termPageURL(termURL, n) })}}
 	}
 	total := (len(posts) + per - 1) / per
 	chunks := make([]termChunk, 0, total)
@@ -382,6 +383,7 @@ func paginateTerm(posts []models.Page, per int, termURL string) []termChunk {
 		if page < total {
 			pager.NextURL = termPageURL(termURL, page+1)
 		}
+		pager = pager.withPages(func(n int) string { return termPageURL(termURL, n) })
 		chunks = append(chunks, termChunk{Posts: posts[start:end], Pager: pager})
 	}
 	return chunks

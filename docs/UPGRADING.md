@@ -172,6 +172,23 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.38">
+
+### 1.8.38 — `ssg migrate` needs wpexporter 1.8.11
+
+An older engine is now refused before the migration starts, instead of producing
+an export that looks complete and is not. **Snap users: nothing to do** —
+`snap refresh static-site-generator` carries a current engine. Otherwise:
+
+```bash
+go install github.com/tradik/wpexporter/cmd/wpexporter@latest
+```
+
+Nothing else in this release requires action: pinned posts, the numbered pager
+and the `<title>`-in-`<script>` warning are all additive.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.37">
 
 ### 1.8.37 — paginated category archives, and posts_page takes its address
