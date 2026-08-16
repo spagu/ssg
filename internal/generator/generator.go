@@ -1315,7 +1315,10 @@ func (g *Generator) computeSeriesLinks() {
 }
 
 // sortPostsByDate returns a copy of posts sorted newest-first — the single sort
-// used by every collection/archive renderer (BLOG-001).
+// used by every listing, from the loaded post set down to each archive
+// (BLOG-001). Calling it once at load time is what keeps the front page and the
+// archives in one order: they used to reach the list by different paths, and a
+// pinned post led the archives while standing sixth on the front page (#155).
 func sortPostsByDate(posts []models.Page) []models.Page {
 	out := append([]models.Page(nil), posts...)
 	// Pinned posts first, then everything by date (#155). WordPress lets an
@@ -1329,6 +1332,17 @@ func sortPostsByDate(posts []models.Page) []models.Page {
 		}
 		return out[a].Date.After(out[b].Date)
 	})
+	return out
+}
+
+// sortPostsChronologically returns a copy sorted newest-first by date alone,
+// ignoring pinning. A feed is a record of what was published when: WordPress
+// applies stickiness to the blog query and not to /feed/, and a pinned older
+// post at the top of an Atom feed resurfaces in subscribers' readers as though
+// it were new (#155).
+func sortPostsChronologically(posts []models.Page) []models.Page {
+	out := append([]models.Page(nil), posts...)
+	sort.SliceStable(out, func(a, b int) bool { return out[a].Date.After(out[b].Date) })
 	return out
 }
 
@@ -1616,12 +1630,9 @@ func (g *Generator) loadContentFromFiles() error {
 		posts[i].PageFormat = g.config.PageFormat
 	}
 
-	g.siteData.Posts = posts
-
-	// Sort posts by date (newest first)
-	sort.Slice(g.siteData.Posts, func(i, j int) bool {
-		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
-	})
+	// One sort for the whole site: the front page and .Site.Posts read this
+	// order directly, so it has to be the same one the archives use (#155).
+	g.siteData.Posts = sortPostsByDate(posts)
 
 	// Resolve flexible author/category fields (string → ID lookup)
 	g.siteData.ResolveFlexibleFields()
@@ -1688,12 +1699,8 @@ func (g *Generator) loadContentFromMddb() error {
 		posts[i].PageFormat = g.config.PageFormat
 	}
 
-	g.siteData.Posts = posts
-
-	// Sort posts by date (newest first)
-	sort.Slice(g.siteData.Posts, func(i, j int) bool {
-		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
-	})
+	// The same one sort a file-backed site gets (#155).
+	g.siteData.Posts = sortPostsByDate(posts)
 
 	// Load metadata (categories, media, users) from mddb
 	if err := g.loadMetadataFromMddb(client); err != nil {
@@ -3202,6 +3209,13 @@ func (g *Generator) generateSite() error {
 	// author) and custom taxonomies — from one registry-driven entry point.
 	if err := g.generateTaxonomies(); err != nil {
 		return fmt.Errorf("generating taxonomies: %w", err)
+	}
+
+	// Date archives (/YYYY/, /YYYY/MM/, /YYYY/MM/DD/) run after the taxonomies,
+	// so a listing that yields to real content sees the whole output tree. Opt-in
+	// via date_archives; until #159 the key was accepted and nothing ran.
+	if err := g.generateDateArchives(); err != nil {
+		return fmt.Errorf("generating date archives: %w", err)
 	}
 
 	// Alias stubs are written last, once every real page exists. Writing them
@@ -4756,8 +4770,9 @@ func (g *Generator) generateFeeds() error {
 
 // writeFeed renders an Atom 1.0 feed for up to limit newest posts and writes it to
 // relPath under the output directory (BLOG-002). All text is XML-escaped.
+// Chronological, not pinned: a feed says what was published when (#155).
 func (g *Generator) writeFeed(relPath, title, altURL string, posts []models.Page, limit int) error {
-	ordered := sortPostsByDate(posts)
+	ordered := sortPostsChronologically(posts)
 	if len(ordered) > limit {
 		ordered = ordered[:limit]
 	}

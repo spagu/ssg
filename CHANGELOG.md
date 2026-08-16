@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.39] - 2026-08-16
+
+### Fixed
+- 📌 **A pinned post now leads the front page too** (#155, reopened) — 1.8.38 put
+  the fix in `sortPostsByDate`, whose own comment calls it "the single sort used
+  by every collection/archive renderer". It was not: the front page renders
+  `g.siteData.Posts` directly, and that slice was ordered once at load time by a
+  separate date-only comparator. So a pinned post led every archive and stood
+  **sixth of ten** on the front page of the same site. The load-time sort is now
+  that one sort, which fixes the front page, `.Site.Posts` — the slice a theme's
+  "recent posts" block ranges over, and which had the same bug — and every
+  listing built from either. A site that pins nothing is byte-identical.
+- 📅 **`date_archives: true` actually generates the archives** (#159) — the key
+  was accepted, documented and covered by tests, and nothing in the build called
+  the function that writes them: `generateDateArchives` had no caller outside the
+  test files, so `/YYYY/` and `/YYYY/MM/` were never written in any released
+  build. The key being recognised meant there was no "unknown configuration key"
+  warning either, so the build looked like it had honoured the setting. Opt-in
+  and unchanged for everyone else; a page that already owns such a URL still
+  keeps it.
+
+### Changed
+- 🔧 **`ssg migrate` runs the newest wpexporter it can reach** (#160) — it used
+  to take the first one on `PATH`, which inside the snap is always the bundled
+  copy, so an engine the operator installed was never used and every engine fix
+  waited for the next snap rebuild. Now: **`--engine PATH`** (or
+  `SSG_WPEXPORTER`) chooses one outright — and a named binary that cannot be run
+  is an error naming it, never a silent fall back to a different engine —
+  otherwise ssg takes the highest version among `PATH` and, inside the snap, the
+  bundled copy together with `~/go/bin`, `~/.local/bin` and `~/bin`. Strict
+  confinement turns out to permit executing a real binary under the user's home
+  directory, so `go install …/cmd/wpexporter@latest` is picked up immediately;
+  the *wpexporter snap* still cannot be run from a snap-installed ssg (a snap
+  cannot execute another snap) and is now reported as skipped instead of
+  silently ignored. The bundled engine remains a floor: an older host copy never
+  displaces it.
+- 🔎 **A foreign `$SNAP` is no longer mistaken for ours** — `$SNAP` is set for
+  every snap process, including the Go snap that builds ssg, so a non-snap ssg
+  launched from such a shell believed it was confined. Confinement is now decided
+  by whether the running executable actually lives under `$SNAP`.
+- 📰 **Feeds are chronological again** — pinning reaching `/feed/` was an
+  unintended side effect of 1.8.38. WordPress applies stickiness to the blog
+  query and not to feeds, and a pinned older post at the top of an Atom feed
+  resurfaces in subscribers' readers as though it were new. Listings pin; feeds
+  report what was published when.
+
 ## [1.8.38] - 2026-08-16
 
 ### Added

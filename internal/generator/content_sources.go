@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spagu/ssg/internal/models"
@@ -52,10 +51,9 @@ func (g *Generator) loadExtraContentSources() error {
 			return err
 		}
 	}
-	// Extra posts arrive after the primary source's own sort.
-	sort.Slice(g.siteData.Posts, func(i, j int) bool {
-		return g.siteData.Posts[i].Date.After(g.siteData.Posts[j].Date)
-	})
+	// Extra posts arrive after the primary source's own sort, and go through the
+	// same one every listing uses so a pinned post from either source leads (#155).
+	g.siteData.Posts = sortPostsByDate(g.siteData.Posts)
 	// Re-resolve so category/author names from the new entries map to IDs. The
 	// resolvers skip anything already resolved, so this is idempotent.
 	g.siteData.ResolveFlexibleFields()

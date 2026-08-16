@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.38">1.8.38 — 2026-08-16</option>
       <option value="1.8.37">1.8.37 — 2026-08-16</option>
       <option value="1.8.36">1.8.36 — 2026-08-16</option>
       <option value="1.8.35">1.8.35 — 2026-08-15</option>
@@ -171,6 +172,39 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.39">
+
+### 1.8.39 — the front page honours pinned posts, and date archives exist
+
+Two things that were supposed to work in earlier releases now do, so output can
+change **for sites that asked for them**:
+
+- **A pinned post moves to the top of the front page** and of `.Site.Posts`. In
+  1.8.38 it already led every category and tag archive; it stood wherever its
+  date fell on the front page. If your theme marks the pinned entry with
+  `{{if .Sticky}}`, it will now appear first there too. A site with no
+  `sticky: true` in any post is byte-identical.
+- **`date_archives: true` starts writing `/YYYY/` and `/YYYY/MM/`.** The key was
+  accepted and nothing was generated, so a site that set it has been building
+  without those pages. They appear on the next build. A page of your own that
+  already owns such a URL keeps it, and the build says so. If you do not want
+  them, remove the key — the default is `false`.
+- **Feeds go back to chronological order.** Pinning reached `/feed/` in 1.8.38,
+  which WordPress does not do. Nothing to change; a pinned older post simply
+  stops appearing at the top of the feed.
+
+Nothing to do for the engine change: `ssg migrate` now runs the newest wpexporter
+it can reach. Snap users who want an engine ahead of the snap's rebuild cadence
+can install one into their home directory and it will be used:
+
+```bash
+go install github.com/tradik/wpexporter/cmd/wpexporter@latest
+```
+
+`--engine /path/to/wpexporter` (or `SSG_WPEXPORTER`) picks one explicitly.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.38">
 

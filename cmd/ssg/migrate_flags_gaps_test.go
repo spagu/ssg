@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -96,5 +97,32 @@ func TestTarAddEntryKinds(t *testing.T) {
 	}
 	if kinds["link.txt"] != tar.TypeSymlink {
 		t.Errorf("symlink entry = %v", kinds["link.txt"])
+	}
+}
+
+// TestEngineFlagSelectsTheBinary: --engine names the wpexporter to run, in both
+// spellings, so an operator whose snap bundles an older engine can reach the one
+// they installed (#160).
+func TestEngineFlagSelectsTheBinary(t *testing.T) {
+	f, code := parseMigrateFlags([]string{"--engine", "/opt/wpexporter"})
+	if code >= 0 || f.engine != "/opt/wpexporter" {
+		t.Fatalf("--engine <path> = %q, code %d", f.engine, code)
+	}
+	if f, code := parseMigrateFlags([]string{"--engine=/opt/x"}); code >= 0 || f.engine != "/opt/x" {
+		t.Fatalf("--engine=<path> = %q, code %d", f.engine, code)
+	}
+}
+
+// TestValueFlagWithNothingAfterItIsRejected: `ssg migrate wordpress URL --engine`
+// is a typo, not a request to use the next flag as the value. Swallowing the
+// following argument is how a flag ends up silently eating another one.
+func TestValueFlagWithNothingAfterItIsRejected(t *testing.T) {
+	out := captureStderr(t, func() {
+		if _, code := parseMigrateFlags([]string{"--engine"}); code != 2 {
+			t.Errorf("a value-less --engine must stop the run, got %d", code)
+		}
+	})
+	if !strings.Contains(out, "--engine") {
+		t.Errorf("the message must name the flag: %q", out)
 	}
 }
