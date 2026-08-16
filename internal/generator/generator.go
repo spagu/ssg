@@ -3076,7 +3076,15 @@ func (g *Generator) renderContent() {
 	g.imageProcessor()
 	for _, lang := range distinctLangs(g.siteData.Pages, g.siteData.Posts) {
 		g.setLanguageContext(lang)
-		g.parallelRender(languagePages(g.siteData.Pages, lang), workers, func(p models.Page) {
+		// The page whose address posts_page names is not written: the listing
+		// takes that URL, the way the source CMS renders its loop in place of
+		// the assigned page's content (#150). Reported once, not silently.
+		pages := languagePages(g.siteData.Pages, lang)
+		if owner := g.postsPageOwner(pages, lang); owner != nil {
+			g.reportPostsPageCollision(owner)
+			pages = withoutPage(pages, *owner)
+		}
+		g.parallelRender(pages, workers, func(p models.Page) {
 			if err := g.generatePage(p); err != nil {
 				fmt.Printf("   ⚠️  Warning: failed to generate page %s: %v\n", p.Slug, err)
 			}
@@ -3739,8 +3747,6 @@ func (g *Generator) generateCategories() error {
 		}
 
 		sorted := sortPostsByDate(posts)
-		data := g.archiveData("category", cat.Name, cat, sorted,
-			singlePagePager(len(sorted)), g.currentLang)
 
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
@@ -3769,17 +3775,40 @@ func (g *Generator) generateCategories() error {
 			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
 			continue
 		}
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return err
-		}
-
-		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
+		// A category archive is paginated exactly like every other term archive
+		// (#149): `paginate` used to apply to the index only, so a migrated
+		// site's /category/blog/ shipped 205 articles in one file while
+		// /category/blog/page/2/ did not exist. One chunk per page, each
+		// carrying its own pager.
+		for _, chunk := range paginateTerm(sorted, g.archivePerPage(), "/"+archivePath+"/") {
+			pagePath := outputPath
+			if chunk.Pager.Current > 1 {
+				pagePath = filepath.Join(g.config.OutputDir, filepath.FromSlash(archivePath),
+					"page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
+			}
+			// #nosec G301 -- Web content directories need to be world-traversable
+			if err := os.MkdirAll(filepath.Dir(pagePath), 0755); err != nil {
+				return err
+			}
+			data := g.archiveData("category", cat.Name, cat, chunk.Posts, chunk.Pager, g.currentLang)
+			if err := g.renderTemplate(categoryHTMLName, pagePath, data); err != nil {
+				fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
+				break
+			}
 		}
 	}
 
 	return nil
+}
+
+// archivePerPage is how many posts an archive page holds. `paginate` is the
+// site-wide setting; 0 means "one page", which is what an unpaginated site has
+// always produced.
+func (g *Generator) archivePerPage() int {
+	if g.config.Paginate > 0 {
+		return g.config.Paginate
+	}
+	return 0
 }
 
 // executedByFileName lists the template names ssg executes directly by file

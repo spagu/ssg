@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.37] - 2026-08-16
+
+### Fixed
+- 📚 **`paginate` now applies to category archives** (#149) — it paginated the
+  index and left every category whole, so a migrated site's `/category/blog/`
+  shipped 205 articles in one file while `/category/blog/page/2/` did not exist.
+  Category archives are chunked exactly like every other term archive, each page
+  carrying its own pager. A site without `paginate` still gets one file per
+  archive, unchanged.
+- 📰 **`posts_page` wins over a page of the same address, and says so** (#150) —
+  WordPress's "Posts page" *is* a page: the admin assigns an existing one and
+  WordPress renders the loop in its place. An export carries both faithfully, and
+  ssg wrote the page at `/blog/` while writing the listing's *second* page to
+  `/blog/page/2/` — so page one of a listing served an empty document and page
+  two served the listing. Two of six sites in one batch hit it. The setting now
+  wins, matching the source CMS and what the operator asked for, and the build
+  names both documents instead of silently choosing.
+- 📦 **The snap's bundled exporter can no longer go stale unnoticed** (#148) —
+  it is built from the exporter's latest release *at build time*, so a fix
+  released downstream reached nobody until ssg was rebuilt. The Snap workflow now
+  also runs weekly, which puts a ceiling on how far behind the bundled engine can
+  drift; the migration report already names the engine and where it came from.
+
+
 ## [1.8.36] - 2026-08-16
 
 ### Fixed
