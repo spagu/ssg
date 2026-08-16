@@ -230,6 +230,10 @@ type Config struct {
 	// (`analytics` block). Separate from SEO on purpose: third-party JavaScript
 	// is the owner's call, not a migration side effect.
 	Analytics bool
+	// DateArchives renders /YYYY/ and /YYYY/MM/ listings from the posts' own
+	// dates (#146). Opt-in: a site that never had these URLs should not grow
+	// them because it upgraded.
+	DateArchives bool
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
 	Schema         map[string]interface{}
@@ -1332,29 +1336,8 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 			ordered[i], ordered[j] = ordered[j], ordered[i]
 		}
 	}
-	data := struct {
-		Site         *models.SiteData
-		Category     models.Category
-		Kind         string
-		Name         string
-		Series       string // back-compat for series.html
-		Posts        []models.Page
-		Domain       string
-		Vars         map[string]interface{}
-		Data         map[string]interface{}
-		ExternalData map[string]interface{}
-	}{
-		Site:         g.siteData,
-		Category:     models.Category{Name: name, Slug: slug},
-		Kind:         kind,
-		Name:         name,
-		Series:       name,
-		Posts:        ordered,
-		Domain:       g.config.Domain,
-		Vars:         g.config.Variables,
-		Data:         g.data,
-		ExternalData: g.externalData,
-	}
+	data := g.archiveData(kind, name, models.Category{Name: name, Slug: slug},
+		ordered, singlePagePager(len(ordered)), g.currentLang)
 	outputPath := filepath.Join(g.config.OutputDir, kind, slug, indexHTMLName)
 	if err := g.ensureWithinOutput(outputPath); err != nil {
 		fmt.Printf("   ⚠️  Skipping %s %q with unsafe slug: %v\n", kind, name, err)
@@ -3755,27 +3738,9 @@ func (g *Generator) generateCategories() error {
 			continue
 		}
 
-		data := struct {
-			Site         *models.SiteData
-			Category     models.Category
-			Kind         string
-			Name         string
-			Posts        []models.Page
-			Domain       string
-			Vars         map[string]interface{}
-			Data         map[string]interface{}
-			ExternalData map[string]interface{}
-		}{
-			Site:         g.siteData,
-			Category:     cat,
-			Kind:         "category",
-			Name:         cat.Name,
-			Posts:        sortPostsByDate(posts),
-			Domain:       g.config.Domain,
-			Vars:         g.config.Variables,
-			Data:         g.data,
-			ExternalData: g.externalData,
-		}
+		sorted := sortPostsByDate(posts)
+		data := g.archiveData("category", cat.Name, cat, sorted,
+			singlePagePager(len(sorted)), g.currentLang)
 
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).

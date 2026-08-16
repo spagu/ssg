@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.36] - 2026-08-16
+
+### Fixed
+- 🧩 **An archive no longer vanishes over one missing field** (#145) — every
+  archive view (category, tag, author, series, custom taxonomy) now arrives with
+  the same set of keys, passed as a map. A template reading a field this kind
+  does not fill gets nil instead of a hard error, so `{{if .Pager}}` is
+  expressible and one theme file can legitimately render four kinds of archive.
+  Six migrated sites had lost **every** category, tag and author archive to a
+  single `.Pager` reference, with only a warning per term in a long log.
+- 📄 **Archives carry their `Pager`** (#145) — it was computed per chunk and
+  simply never handed to the template, so a paginated archive could only ever
+  show its first page. Unpaginated archives get a truthful one-page pager rather
+  than a zero value that renders as "page 0 of 0".
+- 🕳️ **A missing page looks missing in the dev server** (#146) — a directory
+  with no `index.html` used to answer **200** with a `<pre>` list of file names;
+  posts with dated permalinks live in `/2014/05/`, so a missing date archive
+  looked like a working page serving 776 bytes of filenames. It now answers
+  **404**, the way every host this project deploys to does.
+
+### Added
+- 📅 **Date archives** (#146) — `date_archives: true` generates `/YYYY/`,
+  `/YYYY/MM/` (and `/YYYY/MM/DD/` where the permalink structure carries the day)
+  from the posts already loaded, rendered by `category.html` with `Kind: "date"`
+  and a label a theme can title the page with ("May 2014"). WordPress publishes
+  these and links to them from every byline, widget and sitemap — on one migrated
+  site they were 60 of 477 sitemap URLs. **Opt-in**: a site that never had these
+  URLs does not grow them because it upgraded, and real content that already owns
+  such a path keeps it. `ssg migrate` turns the key on, because a migrated site's
+  own content links to them.
+
+
 ## [1.8.35] - 2026-08-15
 
 ### Added

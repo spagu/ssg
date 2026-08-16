@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.36">1.8.36 — 2026-08-16</option>
       <option value="1.8.35">1.8.35 — 2026-08-15</option>
       <option value="1.8.34">1.8.34 — 2026-08-14</option>
       <option value="1.8.33">1.8.33 — 2026-08-14</option>
@@ -169,6 +170,21 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.36">
+
+### 1.8.36 — the dev server stops inventing directory indexes
+
+A directory with no `index.html` now answers **404** instead of listing its file
+names. That matches every host this project deploys to; the listing only ever
+appeared locally, and it made a missing page look like a working one. Nothing to
+do — unless you relied on browsing `output/` through the dev server, in which
+case use a file manager or `ls`.
+
+Date archives (`/YYYY/`, `/YYYY/MM/`) are **opt-in**: set `date_archives: true`
+to publish them. Existing sites are untouched.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.35">
 

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
@@ -246,7 +247,7 @@ func autocertCacheDir() string {
 // (optional) gzip and (optional) access-control middleware. Access control is
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
-	h := http.Handler(http.FileServer(http.Dir(cfg.OutputDir)))
+	h := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
 	// Vendor-neutral endpoints intercept their paths before the file server;
 	// everything else is still served statically (#63).
 	h = endpointHandler(cfg, h)
@@ -406,4 +407,36 @@ func parseByteSize(s string) (int64, error) {
 		}
 	}
 	return strconv.ParseInt(s, 10, 64)
+}
+
+// noDirListing serves files but refuses to invent a directory index (#146).
+//
+// A directory with no index.html used to answer 200 with a <pre> list of file
+// names — posts with dated permalinks live in /2014/05/, so a missing date
+// archive looked like a working page serving 776 bytes of filenames instead of
+// the archive the source served. Every host this project deploys to (Cloudflare
+// Pages, Netlify, GitHub Pages) answers 404 there, so the dev server was also
+// the one place where a hole in the output did not look like a hole.
+type noDirListing struct{ fs http.FileSystem }
+
+func (n noDirListing) Open(name string) (http.File, error) {
+	f, err := n.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if info.IsDir() {
+		// http.FileServer asks for the directory's index.html itself; reaching
+		// here with a directory means there is none, and the listing would be
+		// the only thing to show.
+		if _, indexErr := n.fs.Open(path.Join(name, "index.html")); indexErr != nil {
+			_ = f.Close()
+			return nil, os.ErrNotExist
+		}
+	}
+	return f, nil
 }

@@ -396,23 +396,12 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 		if chunk.Pager.Current > 1 {
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
-		data := struct {
-			Site         *models.SiteData
-			Taxonomy     TaxonomyInfo
-			Term         TaxonomyTerm
-			Category     models.Category
-			Kind         string
-			Name         string
-			Series       string
-			Posts        []models.Page
-			Pager        Pager
-			Lang         string
-			Domain       string
-			Vars         map[string]interface{}
-			Data         map[string]interface{}
-			ExternalData map[string]interface{}
-		}{g.siteData, info, term, models.Category{Name: term.Name, Slug: slug}, def.Name,
-			term.Name, term.Name, chunk.Posts, chunk.Pager, lang, g.config.Domain, g.config.Variables, g.data, g.externalData}
+		data := g.archiveData(def.Name, term.Name,
+			models.Category{Name: term.Name, Slug: slug}, chunk.Posts, chunk.Pager, lang)
+		// A custom taxonomy also names the term's own definition and info, which
+		// only this view has.
+		data["Taxonomy"] = info
+		data["Term"] = term
 		if err := g.renderTaxonomyPage(chain, outPath, data); err != nil {
 			return err
 		}

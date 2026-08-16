@@ -730,6 +730,7 @@ shortcode_errors: strict
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
+| `date_archives` | `false` | — | Publish `/YYYY/`, `/YYYY/MM/` (and `/YYYY/MM/DD/` for dated permalinks) listings of your posts. Rendered by `category.html` with `Kind: "date"` and a label like "May 2014". Opt-in: WordPress has these URLs and links to them from every byline, a hand-authored site usually does not — `ssg migrate` turns it on. Real content that already owns such a path keeps it. |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
