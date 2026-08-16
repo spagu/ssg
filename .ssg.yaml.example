@@ -4,7 +4,8 @@
 # Required: Content source, template, and domain
 source: "my-content"
 template: "krowy"
-domain: "example.com"
+domain: "example.com" # The host alone — no https://, no trailing slash. Canonical
+# URLs, og:url, the sitemap and the JSON-LD @id are built as https://<domain>/…
 
 # Paths (optional, these are defaults)
 content_dir: "content"

@@ -106,7 +106,7 @@ empty value.
 |---|---:|---|---|
 | `source` | required | positional | Local content collection |
 | `template` | required | positional | Theme name |
-| `domain` | required | positional | Canonical host without scheme |
+| `domain` | required | positional | Canonical host, **without a scheme** — `example.com`, not `https://example.com`. A scheme or trailing slash is stripped and reported, since it would otherwise reach every absolute URL the site publishes |
 | `title` | empty | config only | Site name → `.Site.Title` (a migration fills it in) |
 | `description` | empty | config only | Site tagline → `.Site.Description` |
 | `colors` | empty | config only | Palette by role → `.Site.Colors.<role>` and `--ssg-color-<role>` |
