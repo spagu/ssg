@@ -233,6 +233,18 @@ func (g *Generator) archiveURLOwner(kind, slug string) (string, bool) {
 	return owner, taken
 }
 
+// archivePathOwner answers the same question for an archive addressed by a
+// whole path rather than kind+slug — a date archive lives at /2014/05/, which
+// has no "kind" segment, and joining an empty one produced "//2014/05/": a URL
+// nothing ever owns, so the collision check silently passed (#146).
+func (g *Generator) archivePathOwner(path string) (string, bool) {
+	if g.ownedURLs == nil {
+		g.ownedURLs = g.takenContentURLs()
+	}
+	owner, taken := g.ownedURLs["/"+strings.Trim(path, "/")+"/"]
+	return owner, taken
+}
+
 // checkTaxonomyURLs verifies one taxonomy's index and term URLs against taken output URLs.
 func (g *Generator) checkTaxonomyURLs(def taxonomy.Definition, taken map[string]string) error {
 	for _, lang := range g.taxonomyLangs() {

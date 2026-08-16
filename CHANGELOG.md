@@ -27,6 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   looked like a working page serving 776 bytes of filenames. It now answers
   **404**, the way every host this project deploys to does.
 
+### Tests
+- 🧪 **The approve-then-PR flow is tested end to end** — `openGitHubPR` had no
+  coverage at all: it hardcoded the API host, so the request, the auth header
+  and every failure path could only be exercised by opening a real pull request.
+  A base-URL seam makes all of it testable against a local server. Also covered:
+  the date-archive guards, `loadMetadata`'s failure paths, `ssg migrate`'s own
+  flag forms and the tar writer's entry kinds.
+- 📊 **Coverage now measures the code this project writes** — `codecov.yml`
+  excludes `internal/mddb/proto`, 2,760 statements of protoc output that nobody
+  maintains and nobody should test. Counting it put the reported number ~16
+  points below the truth and made the metric move when the schema changed rather
+  than when the code did. Hand-written code sits at **96.4%**.
+
 ### Added
 - 📅 **Date archives** (#146) — `date_archives: true` generates `/YYYY/`,
   `/YYYY/MM/` (and `/YYYY/MM/DD/` where the permalink structure carries the day)

@@ -125,7 +125,7 @@ func collectDateArchives(posts []models.Page, depth dateArchiveDepth) []dateArch
 // writeDateArchive renders one archive, unless real content already owns that
 // URL — an author's own /2014/ page outranks a generated listing.
 func (g *Generator) writeDateArchive(a dateArchive) (bool, error) {
-	if owner, taken := g.archiveURLOwner("", a.Path); taken {
+	if owner, taken := g.archivePathOwner(a.Path); taken {
 		if !g.config.Quiet {
 			fmt.Printf("   ⚠️  Skipping date archive /%s/: %s already owns that URL\n", a.Path, owner)
 		}
