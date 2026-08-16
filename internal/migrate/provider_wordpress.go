@@ -98,7 +98,9 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 	// Record what this engine can be asked to do BEFORE anything reads opts:
 	// the argument builder and the report both depend on it (#137).
 	banner := opts.versionOutput(bin)
-	opts = withEngine(opts, banner)
+	if err := checkEngineVersion(banner, opts.Quiet); err != nil {
+		return nil, err
+	}
 	args, skipped, err := wpexporterArgs(rawURL, opts)
 	if err != nil {
 		return nil, err
@@ -108,9 +110,10 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		// 1.8.1, which rejects --ssg-sections as an unknown flag; say so
 		// instead of leaving the operator with a bare exit status.
 		return nil, fmt.Errorf("wpexporter failed: %w\n"+
-			"   If it is older than 1.8.1 it does not know --ssg-sections/--assisted-crawl,\n"+
-			"   and older than 1.8.5 it does not know --no-comments —\n"+
-			"   upgrade it, or re-run with --no-crawl for the crawl half only", runErr)
+			"   The engine reported %s; ssg migrate is built against %s or newer.\n"+
+			"   If the failure names an unknown flag, upgrade it: snap refresh\n"+
+			"   static-site-generator, or go install .../cmd/wpexporter@latest",
+			runErr, engineLabel(bin, banner), engineVersionString(minimumEngine))
 	}
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped,
@@ -122,9 +125,6 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		rep.Warnings = append(rep.Warnings, kind+": "+wpUnsupportedKinds[kind])
 	}
 	if w := menusWarning(rep.Menus, opts); w != "" {
-		rep.Warnings = append(rep.Warnings, w)
-	}
-	if w := commentsExclusionWarning(opts); w != "" {
 		rep.Warnings = append(rep.Warnings, w)
 	}
 	return rep, nil
@@ -166,7 +166,7 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 	if err != nil {
 		return nil, nil, err
 	}
-	return append(args, disableFlags(sel, opts.canExcludeComments)...), sel.skipped, nil
+	return append(args, disableFlags(sel)...), sel.skipped, nil
 }
 
 // contentSelection is a parsed --content list: content kinds opted IN,
@@ -210,7 +210,7 @@ func parseContentSelection(list []string) (contentSelection, error) {
 // disableFlags turns a selection into wpexporter's --no-* flags: content kinds
 // not asked for are off, metadata kinds are on unless explicitly excluded.
 // Sorted iteration keeps runs reproducible (and tests golden).
-func disableFlags(sel contentSelection, canExcludeComments bool) []string {
+func disableFlags(sel contentSelection) []string {
 	var flags []string
 	for _, kind := range wpKindNames() {
 		flag, selectable := wpContentKinds[kind]
@@ -220,9 +220,6 @@ func disableFlags(sel contentSelection, canExcludeComments bool) []string {
 			if sel.excluded[kind] {
 				flags = append(flags, flag)
 			}
-		case kind == "comments" && !sel.requested[kind] && !canExcludeComments:
-			// An engine that does not know the flag dies on it; the comments
-			// simply come along, which the report states (#137).
 		case !sel.requested[kind]:
 			flags = append(flags, flag)
 		}
@@ -309,36 +306,48 @@ func excludedMenus(opts Options) bool {
 	return false
 }
 
-// commentsExcludableSince is the wpexporter release that learned
-// --no-comments. Sending it to an older engine kills the run outright, after
-// the project has been scaffolded and, in live mode, after the server is up
-// (#137). The other version-gated flags are documented the same way:
-// --ssg-sections and --assisted-crawl need 1.8.1, --relevant-media-only 1.8.2.
-var commentsExcludableSince = [3]int{1, 8, 5}
+// minimumEngine is the oldest wpexporter a migration runs against.
+//
+// Every export this provider asks for depends on it: --ssg-sections and
+// --assisted-crawl (1.8.1), --relevant-media-only (1.8.2), --no-comments
+// (1.8.5), --custom-types (1.8.4), and the fixes to ordered lists, term slugs,
+// post-loop pages and shortcode expansion that landed through 1.8.11. Running
+// an older one produces an export that looks complete and is not, which is the
+// expensive kind of wrong — so it is refused before anything is written rather
+// than after the project is scaffolded and, in live mode, the server is up.
+var minimumEngine = [3]int{1, 8, 11}
 
 // withEngine records what the installed engine can be asked to do. An
 // unreadable version banner is treated as an old engine: skipping a flag costs
 // a line in the report, sending an unknown one costs the whole migration.
-func withEngine(opts Options, banner string) Options {
-	opts.canExcludeComments = atLeast(banner, commentsExcludableSince[0],
-		commentsExcludableSince[1], commentsExcludableSince[2])
-	return opts
+// checkEngineVersion refuses an engine older than the minimum, naming what was
+// found and how to move past it. An unreadable banner is NOT refused: a
+// wrapper or a fork that prints something else is not proof of an old engine,
+// and blocking a working setup over a formatting difference would be worse
+// than the risk. It is reported instead.
+func checkEngineVersion(banner string, quiet bool) error {
+	major, minor, patch := parseSemver(banner)
+	if major+minor+patch == 0 {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "⚠️  could not read the wpexporter version (%s needs %s or newer)\n",
+				"ssg migrate", engineVersionString(minimumEngine))
+		}
+		return nil
+	}
+	if atLeast(banner, minimumEngine[0], minimumEngine[1], minimumEngine[2]) {
+		return nil
+	}
+	return fmt.Errorf(`wpexporter %d.%d.%d is too old — ssg migrate needs %s or newer.
+Every export it asks for depends on fixes released up to that version, so an
+older engine produces an export that looks complete and is not. Upgrade with:
+   snap refresh static-site-generator   (the snap bundles the engine)
+   go install github.com/tradik/wpexporter/cmd/wpexporter@latest`,
+		major, minor, patch, engineVersionString(minimumEngine))
 }
 
-// commentsExclusionWarning explains comments that arrived despite a --content
-// list that did not name them: the installed engine cannot be asked to leave
-// them out, and failing the whole migration over it would be worse (#137).
-func commentsExclusionWarning(opts Options) string {
-	if opts.canExcludeComments || len(opts.Content) == 0 {
-		return ""
-	}
-	for _, kind := range opts.Content {
-		if strings.EqualFold(strings.TrimSpace(kind), "comments") {
-			return "" // asked for; nothing to explain
-		}
-	}
-	return "comments: exported anyway — this wpexporter cannot be asked to skip them (needs 1.8.5); " +
-		"delete content/<source>/comments.json if you do not want them"
+// engineVersionString renders a version triple for a message.
+func engineVersionString(v [3]int) string {
+	return fmt.Sprintf("%d.%d.%d", v[0], v[1], v[2])
 }
 
 // engineLabel names the engine that ran and where it came from. A snap carries

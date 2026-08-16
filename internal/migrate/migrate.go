@@ -59,10 +59,6 @@ type Options struct {
 	// Version returns the engine's version banner. A provider gates flags the
 	// installed engine may not know on it (#137).
 	Version func(bin string) string
-
-	// canExcludeComments is filled in from the engine's version banner before
-	// the arguments are built; it is not part of the caller's request.
-	canExcludeComments bool
 }
 
 func (o Options) lookPath(file string) (string, error) {

@@ -43,71 +43,73 @@ func TestParseSemverAndAtLeast(t *testing.T) {
 	}
 }
 
-// TestCommentsFlagGatedOnEngineVersion: the exact failure #137 reports — a
-// --content list without comments used to emit a flag the installed engine
-// rejects.
-func TestCommentsFlagGatedOnEngineVersion(t *testing.T) {
-	p, _ := Lookup("wordpress")
-	dest := t.TempDir()
-
-	run := func(banner string) (args []string, rep *Report) {
-		var got []string
-		r, err := p.Fetch("https://e.com", Options{
-			Dest:     dest,
-			Content:  []string{"pages", "media"},
-			LookPath: func(string) (string, error) { return "/bin/wpexporter", nil },
-			Version:  func(string) string { return banner },
-			Run: func(_ string, a []string, _ bool) error {
-				got = a
-				return nil
-			},
-		})
-		if err != nil {
-			t.Fatalf("fetch on %q: %v", banner, err)
+// TestEngineMinimumRefusesOldEngines: ssg migrate is built against the flags
+// and fixes of 1.8.11; an older engine produces an export that looks complete
+// and is not, so it is refused BEFORE anything is written — not after the
+// project is scaffolded and, in live mode, the server is up (#137's lesson).
+func TestEngineMinimumRefusesOldEngines(t *testing.T) {
+	for _, banner := range []string{
+		"wpexporter version v1.8.4 (8c1aacb)",
+		"wpexporter version v1.8.10",
+		"1.7.99",
+		"0.9.0",
+	} {
+		err := checkEngineVersion(banner, true)
+		if err == nil {
+			t.Errorf("%q must be refused", banner)
+			continue
 		}
-		return got, r
-	}
-
-	// An engine too old for the flag: it is not sent, and the report says the
-	// comments came along anyway.
-	args, rep := run("wpexporter version v1.8.4 (8c1aacb)")
-	if strings.Contains(strings.Join(args, " "), "--no-comments") {
-		t.Fatalf("an old engine must not be sent the flag: %v", args)
-	}
-	if !strings.Contains(strings.Join(rep.Warnings, " | "), "cannot be asked to skip them") {
-		t.Fatalf("the operator must be told: %v", rep.Warnings)
-	}
-
-	// A current engine: the exclusion is honoured and nothing is explained.
-	args, rep = run("wpexporter version v1.8.5")
-	if !strings.Contains(strings.Join(args, " "), "--no-comments") {
-		t.Fatalf("a current engine must honour the exclusion: %v", args)
-	}
-	for _, w := range rep.Warnings {
-		if strings.Contains(w, "cannot be asked to skip") {
-			t.Fatalf("nothing to explain when the flag was sent: %v", rep.Warnings)
+		if !strings.Contains(err.Error(), "1.8.11") || !strings.Contains(err.Error(), "snap refresh") {
+			t.Errorf("the refusal must name the minimum and a way out: %v", err)
 		}
-	}
-
-	// An unreadable banner is treated as old — skipping a flag is recoverable,
-	// sending an unknown one is not.
-	args, _ = run("")
-	if strings.Contains(strings.Join(args, " "), "--no-comments") {
-		t.Fatalf("an unknown engine version must be treated as old: %v", args)
 	}
 }
 
-// TestCommentsAskedForNeedsNoExplanation: a run that wants comments has
-// nothing to report about them, whatever the engine's age.
-func TestCommentsAskedForNeedsNoExplanation(t *testing.T) {
-	if w := commentsExclusionWarning(Options{Content: []string{"pages", " Comments "}}); w != "" {
-		t.Fatalf("comments were requested: %q", w)
+func TestEngineMinimumAcceptsCurrent(t *testing.T) {
+	for _, banner := range []string{
+		"wpexporter version v1.8.11",
+		"wpexporter version v1.8.12 (abc, built …)",
+		"1.9.0",
+		"2.0.0",
+	} {
+		if err := checkEngineVersion(banner, true); err != nil {
+			t.Errorf("%q must be accepted: %v", banner, err)
+		}
 	}
-	if w := commentsExclusionWarning(Options{}); w != "" {
-		t.Fatalf("no --content list means no exclusion: %q", w)
+}
+
+// TestEngineMinimumToleratesAnUnreadableBanner: a wrapper or a fork that
+// prints something else is not proof of an old engine, and blocking a working
+// setup over a formatting difference would be worse than the risk. It is
+// reported, not refused.
+func TestEngineMinimumToleratesAnUnreadableBanner(t *testing.T) {
+	if err := checkEngineVersion("", true); err != nil {
+		t.Fatalf("an unreadable banner must not block the run: %v", err)
 	}
-	if w := commentsExclusionWarning(Options{Content: []string{"pages"}}); w == "" {
-		t.Fatal("an unlisted kind on an old engine must be explained")
+	if err := checkEngineVersion("no version here", true); err != nil {
+		t.Fatalf("an unreadable banner must not block the run: %v", err)
+	}
+}
+
+// TestFetchRefusesOldEngineBeforeWriting: the refusal happens before the
+// engine is ever run, which is what keeps a half-scaffolded project off disk.
+func TestFetchRefusesOldEngineBeforeWriting(t *testing.T) {
+	p, _ := Lookup("wordpress")
+	ran := false
+	_, err := p.Fetch("https://e.com", Options{
+		Dest:     t.TempDir(),
+		LookPath: func(string) (string, error) { return "/bin/wpexporter", nil },
+		Version:  func(string) string { return "wpexporter version v1.8.4" },
+		Run: func(string, []string, bool) error {
+			ran = true
+			return nil
+		},
+	})
+	if err == nil {
+		t.Fatal("an old engine must fail the fetch")
+	}
+	if ran {
+		t.Fatal("the engine must not be run at all")
 	}
 }
 

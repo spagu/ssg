@@ -22,6 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already change. `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL` are
   untouched.
 
+### Changed
+- ⚙️ **`ssg migrate` requires wpexporter 1.8.11 or newer** — every export it asks
+  for depends on that engine: the SSG section markers, the media scope, custom
+  post types, comments, and the fixes to ordered lists, term slugs, post-loop
+  pages and shortcode expansion released through 1.8.11. An older one is refused
+  **before anything is written** — not after the project is scaffolded and, in
+  live mode, the server is up — naming the version found and the two ways
+  forward. A version banner ssg cannot parse is reported and the run continues:
+  a wrapper or a fork printing something else is not proof of an old engine, and
+  blocking a working setup over a formatting difference would be worse than the
+  risk. The per-flag gate that this replaces (comments, 1.8.5) is gone with it.
+
 ### Fixed
 - 🔍 **A `<title>` inside a `<script>` block is named** (#152) — Go's
   html/template escapes by *context*: a `<script …>` start tag opens a

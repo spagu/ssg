@@ -11,8 +11,8 @@ import (
 
 func TestEngineLabel(t *testing.T) {
 	t.Setenv("SNAP", "")
-	got := engineLabel("/usr/local/bin/wpexporter", "wpexporter version v1.8.6 (abc)")
-	if !strings.Contains(got, "1.8.6") || !strings.Contains(got, "/usr/local/bin/wpexporter") {
+	got := engineLabel("/usr/local/bin/wpexporter", "wpexporter version v1.8.11 (abc)")
+	if !strings.Contains(got, "1.8.11") || !strings.Contains(got, "/usr/local/bin/wpexporter") {
 		t.Fatalf("a host binary names its version and path: %q", got)
 	}
 
@@ -43,13 +43,13 @@ func TestFetchReportsEngine(t *testing.T) {
 	rep, err := p.Fetch("https://e.com", Options{
 		Dest:     t.TempDir(),
 		LookPath: func(string) (string, error) { return "/opt/wpexporter", nil },
-		Version:  func(string) string { return "wpexporter version v1.8.6" },
+		Version:  func(string) string { return "wpexporter version v1.8.11" },
 		Run:      func(string, []string, bool) error { return nil },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(rep.Engine, "1.8.6") {
+	if !strings.Contains(rep.Engine, "1.8.11") {
 		t.Fatalf("the report must name the engine that ran: %q", rep.Engine)
 	}
 }
