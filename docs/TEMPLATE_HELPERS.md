@@ -497,3 +497,32 @@ theme actually needs (column splits, "page N of M", index offsets).
 - `sort`/`filter` ordering requires comparable field types (see above).
 - `groupBy`/`indexBy`/`uniq` keys must be scalar.
 - `uniq` across mixed numeric types dedupes by rendered value (`1` ≡ `uint8(1)`).
+
+
+## Numbered pagination
+
+`.Pager` carries the neighbouring pages (`PrevURL`, `NextURL`) and, since
+1.8.38, every page with its address — so a theme can draw the numbered control
+its source site shows instead of only "← →".
+
+```gotemplate
+{{range .Pager.Pages}}
+  {{if .Current}}<span class="page-numbers current">{{.Number}}</span>
+  {{else}}<a class="page-numbers" href="{{.URL}}">{{.Number}}</a>{{end}}
+{{end}}
+```
+
+A long archive is better drawn windowed — first, last, and a few either side of
+the current page, with `…` for each gap, which is what WordPress renders:
+
+```gotemplate
+{{range .Pager.Window 2}}
+  {{if .Ellipsis}}<span class="page-numbers dots">…</span>
+  {{else if .Current}}<span class="page-numbers current">{{.Number}}</span>
+  {{else}}<a class="page-numbers" href="{{.URL}}">{{.Number}}</a>{{end}}
+{{end}}
+```
+
+The addresses come from the generator, so they follow `posts_page`, a language
+prefix and the archive's own base without a theme guessing the URL shape.
+`Current`, `Total`, `PerPage`, `PrevURL` and `NextURL` are unchanged.

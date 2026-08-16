@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.38] - 2026-08-16
 
+### Added
+- 🔢 **`.Pager.Pages` — numbered pagination** (#156) — a pager carried only its
+  neighbours, which draws "← →" and not the control most themes have: a reader
+  on page six reached page two by stepping back four times. Every page now
+  arrives with its number, address and whether it is current, so a theme renders
+  the source site's own `.page-numbers` markup. **`.Pager.Window N`** returns the
+  windowed form — first, last, N either side of the current page, with an
+  ellipsis entry per gap — which is what WordPress draws. A template could not
+  build these itself: `PrevURL`/`NextURL` are opaque, and deriving `/page/4/`
+  from them means guessing a URL shape that `posts_page` and language prefixes
+  already change. `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL` are
+  untouched.
+
 ### Fixed
 - 📌 **A pinned post leads the listing** (#155) — WordPress lets an editor pin a
   post to the top of the blog and the export carries `sticky: true`, but the

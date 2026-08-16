@@ -3221,6 +3221,59 @@ type Pager struct {
 	PerPage int    // posts per page
 	PrevURL string // "" on the first page
 	NextURL string // "" on the last page
+	// Pages is every page with its address, in order (#156). Prev/next is
+	// enough for "← →" and not enough for the control most themes draw: a
+	// reader on page six reaches page two by clicking 2, not by stepping back
+	// four times. A template cannot build these itself — PrevURL and NextURL
+	// are opaque, and deriving /page/4/ from them means guessing a URL shape
+	// that language prefixes and posts_page already change.
+	Pages []PagerPage
+}
+
+// PagerPage is one entry of a numbered pagination control.
+type PagerPage struct {
+	Number   int
+	URL      string
+	Current  bool
+	Ellipsis bool // a gap in a windowed control, drawn as "…"
+}
+
+// Window returns the pages a long control shows: the first, the last, and
+// radius pages either side of the current one, with an Ellipsis entry standing
+// in for each gap — the shape WordPress draws, so a migrated theme's
+// .page-numbers markup keeps working. A run short enough to show whole comes
+// back whole.
+//
+// It is a method so a theme chooses: {{range .Pager.Pages}} for every page,
+// {{range .Pager.Window 2}} for the windowed form.
+func (p Pager) Window(radius int) []PagerPage {
+	if radius < 0 {
+		radius = 0
+	}
+	var out []PagerPage
+	for _, page := range p.Pages {
+		near := page.Number <= 1 || page.Number >= p.Total ||
+			(page.Number >= p.Current-radius && page.Number <= p.Current+radius)
+		if near {
+			out = append(out, page)
+			continue
+		}
+		// One ellipsis per gap, not one per hidden page.
+		if len(out) > 0 && !out[len(out)-1].Ellipsis {
+			out = append(out, PagerPage{Ellipsis: true})
+		}
+	}
+	return out
+}
+
+// withPages fills Pages using the caller's own URL builder, so every pager
+// spells addresses the way the listing that owns it does.
+func (p Pager) withPages(url func(n int) string) Pager {
+	p.Pages = make([]PagerPage, 0, p.Total)
+	for n := 1; n <= p.Total; n++ {
+		p.Pages = append(p.Pages, PagerPage{Number: n, URL: url(n), Current: n == p.Current})
+	}
+	return p
 }
 
 // generateIndex generates the main index.html, paginated into /page/N/ when
@@ -3287,6 +3340,7 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 		if page < total {
 			pager.NextURL = pageURLWithPrefix(prefix, page+1)
 		}
+		pager = pager.withPages(func(n int) string { return pageURLWithPrefix(prefix, n) })
 
 		outPath := filepath.Join(root, indexHTMLName)
 		if page > 1 {
