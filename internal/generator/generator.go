@@ -4009,6 +4009,14 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// guess by comparing .Link against "/" and hope no language prefix or
 		// custom home slug was in play (#141).
 		"IsFrontPage": isRootOutputPath(page.GetOutputPath()),
+		// The structured data ssg would inject, already merged in precedence
+		// order (site-wide < derived < schema_defaults < frontmatter). A theme
+		// that writes any JSON-LD of its own turns auto-injection off for the
+		// whole page, which used to mean a hand-written FAQPage block silently
+		// took the section's Recipe down with it (#158). Emitting it beside the
+		// hand-written one — `{{ toJSON .Schema }}` — is the supported way to
+		// have both, without reimplementing the merge in the theme.
+		"Schema": g.mergedSchema(page, isPost),
 		// The readers' comments a migration brought across, threaded and in
 		// the order they were written (#142). Empty for a page that has none.
 		"Comments":       g.commentsFor(page),

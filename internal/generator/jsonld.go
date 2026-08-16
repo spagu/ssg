@@ -19,17 +19,7 @@ import (
 // schema: overrides everything. json.Marshal HTML-escapes </script>, so
 // untrusted titles cannot break out of the script element.
 func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
-	canonical := g.servedCanonical(page)
-	// Precedence: site-wide < derived < section defaults < per-page schema (#110).
-	// Section defaults outrank the derived data on purpose — overriding the
-	// derived @type is what they exist for — while a page's own schema still
-	// wins over its section.
-	merged := deepMergeLD(cloneLD(g.config.Schema), g.derivedLD(page, isPost, canonical))
-	merged = deepMergeLD(merged, g.sectionSchema(page))
-	merged = deepMergeLD(merged, page.Schema)
-	if _, ok := merged["@context"]; !ok {
-		merged["@context"] = "https://schema.org"
-	}
+	merged := g.mergedSchema(page, isPost)
 
 	var b strings.Builder
 	writeLDScript(&b, merged)
@@ -37,6 +27,25 @@ func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
 		writeLDScript(&b, bc)
 	}
 	return b.String()
+}
+
+// mergedSchema returns the structured data ssg would emit for a page, already
+// resolved in precedence order: site-wide < derived < section defaults <
+// per-page schema (#110). Section defaults outrank the derived data on purpose —
+// overriding the derived @type is what they exist for — while a page's own
+// schema still wins over its section.
+//
+// It is also what templates receive as `.Schema` (#158), so a theme that has to
+// write a JSON-LD block of its own can emit this one beside it rather than
+// reimplementing the merge and losing the section's type.
+func (g *Generator) mergedSchema(page models.Page, isPost bool) map[string]interface{} {
+	merged := deepMergeLD(cloneLD(g.config.Schema), g.derivedLD(page, isPost, g.servedCanonical(page)))
+	merged = deepMergeLD(merged, g.sectionSchema(page))
+	merged = deepMergeLD(merged, page.Schema)
+	if _, ok := merged["@context"]; !ok {
+		merged["@context"] = "https://schema.org"
+	}
+	return merged
 }
 
 // derivedLD builds the main entity from a page's frontmatter with zero extra

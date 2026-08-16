@@ -50,12 +50,20 @@ func (g *Generator) checkSchemaIfRequested() error {
 	}
 	g.log("🧩 Checking structured data...")
 
+	// What each section declared, so a type that never shipped is reported as
+	// loudly as one that shipped incomplete (#158).
+	promised := g.promisedSchemaTypes()
+
 	var findings []finding
 	err := g.walkOutputHTML(func(rel string, doc *html.Node) {
-		for _, raw := range jsonLDBlocks(doc) {
+		blocks := jsonLDBlocks(doc)
+		for _, raw := range blocks {
 			for _, miss := range missingSchemaProps(raw) {
 				findings = append(findings, finding{rel, miss})
 			}
+		}
+		if want := promised[rel]; missingPromisedType(blocks, want) {
+			findings = append(findings, promisedTypeFinding(rel, want, len(blocks)))
 		}
 	})
 	if err != nil {

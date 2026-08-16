@@ -861,6 +861,51 @@ nothing in the rendered page shows it.
 Only the *required* properties are checked, not the recommended ones. Warning
 about every optional field would train people to ignore the warning.
 
+#### A type a section promised but never emitted
+
+Missing entirely is a louder failure than present-but-incomplete, and it used to
+be the one nothing reported. When `schema_defaults` declares an `@type` for a
+section, every page in that section must carry it — and if none of the page's
+JSON-LD does, the build says so:
+
+```
+⚠️  structured data in recipes/soup/index.html → schema_defaults promises @type "Recipe"
+    and no JSON-LD on the page carries it — the theme emits 1 block(s) of its own, which
+    turns auto-injection off for this page (emit the derived data yourself with
+    {{ toJSON .Schema }}, or move the hand-written block into an @graph)
+```
+
+The usual cause is the SEO injection rule above: **a theme that emits any
+`application/ld+json` block of its own opts the whole page out of
+auto-injection.** So a theme with a hand-written `FAQPage` partial silently takes
+the section's `Recipe` down with it — the page ships with complete FAQPage
+markup, the check reports every required property present, and the Recipe rich
+result never appears.
+
+Two ways to have both, and the check accepts either:
+
+```html
+<!-- 1. emit the derived data beside your own block -->
+<script type="application/ld+json">{{ toJSON .Schema }}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage", …}</script>
+```
+
+```html
+<!-- 2. or put both in one @graph -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{{ toJSON .Schema }}, {"@type":"FAQPage", …}]}
+</script>
+```
+
+`.Schema` is the structured data SSG would have injected, already merged in
+precedence order — see [Template helpers](TEMPLATE_HELPERS.md#structured-data).
+Sibling blocks are what Google's own guidance asks for when a Recipe and an
+FAQPage describe the same page, so the first form is usually the right one.
+
+A section whose `@type` is a *list* (`["Recipe", "Product"]`) promises nothing
+specific and is not checked: which of them a given page must carry is the
+author's business, and guessing would produce a warning nobody could act on.
+
 ### Structured data per section
 
 `schema:` in frontmatter is arbitrary JSON-LD, so any schema.org type works
