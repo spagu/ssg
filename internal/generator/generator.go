@@ -1318,7 +1318,17 @@ func (g *Generator) computeSeriesLinks() {
 // used by every collection/archive renderer (BLOG-001).
 func sortPostsByDate(posts []models.Page) []models.Page {
 	out := append([]models.Page(nil), posts...)
-	sort.SliceStable(out, func(a, b int) bool { return out[a].Date.After(out[b].Date) })
+	// Pinned posts first, then everything by date (#155). WordPress lets an
+	// editor pin a post to the top of the blog and the export carries the flag;
+	// sorting by date alone put it wherever its date fell — sixth of ten on the
+	// site that reported it, while the source showed it first. A stable sort
+	// keeps the pinned ones in their own date order among themselves.
+	sort.SliceStable(out, func(a, b int) bool {
+		if out[a].Sticky != out[b].Sticky {
+			return out[a].Sticky
+		}
+		return out[a].Date.After(out[b].Date)
+	})
 	return out
 }
 
@@ -3959,7 +3969,11 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"HasMath":     page.HasMath,
 		"TOC":         g.tocContext(page.Content),
 		// Series navigation (AX-005)
-		"Series":          page.Series,
+		"Series": page.Series,
+		// .Sticky lets a theme mark the pinned post the way the source CMS did
+		// (WordPress writes a `sticky` post class), so a migrated listing looks
+		// right rather than merely being ordered right (#155).
+		"Sticky":          page.Sticky,
 		"SeriesPrevURL":   page.SeriesPrevURL,
 		"SeriesPrevTitle": page.SeriesPrevTitle,
 		"SeriesNextURL":   page.SeriesNextURL,

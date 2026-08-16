@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.38] - 2026-08-16
+
+### Fixed
+- 📌 **A pinned post leads the listing** (#155) — WordPress lets an editor pin a
+  post to the top of the blog and the export carries `sticky: true`, but the
+  generator never read the field, so listings sorted by date alone and the
+  pinned post landed wherever its date put it: sixth of ten on the site that
+  reported it, while the source showed it first. Pinned posts now come first —
+  in their own date order among themselves — on the index, the posts page and
+  term archives, which is what the source CMS does. The flag also reaches
+  templates as **`.Sticky`**, so a theme can mark that post the way WordPress
+  marks it with a `sticky` class. A site that pins nothing keeps the order it
+  has always had.
+
+
 ## [1.8.37] - 2026-08-16
 
 ### Fixed
