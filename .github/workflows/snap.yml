@@ -6,6 +6,14 @@ on:
         tags:
             - "v*"
     workflow_dispatch:
+    # The snap bundles wpexporter, built from @latest AT BUILD TIME, so the
+    # engine a user gets is frozen at the moment the snap was published and a
+    # fix released downstream reaches nobody until ssg is rebuilt (#148). ssg
+    # releases every few days, but the exporter released three times in one day
+    # more than once. A weekly rebuild puts a ceiling on how stale the bundled
+    # engine can get without anyone noticing.
+    schedule:
+        - cron: "17 5 * * 1"
 
 env:
     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

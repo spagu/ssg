@@ -89,3 +89,56 @@ func frontPageLabel(page models.Page) string {
 	}
 	return page.Title
 }
+
+// postsPageOwner reports whether a page document occupies the address
+// posts_page names (#150).
+//
+// WordPress's "Posts page" IS a page: the admin assigns an existing page to it,
+// WordPress ignores that page's content and renders the loop in its place. An
+// export carries both faithfully — a "Blog" page with empty content, and
+// posts_page: blog — and ssg used to write the page there and the listing's
+// SECOND page under it, so /blog/ served an empty document while /blog/page/2/
+// served the listing. Two of six sites in one batch hit it.
+//
+// The setting wins, matching the source CMS and what the operator asked for by
+// setting the key, and the build says so rather than silently choosing.
+func (g *Generator) postsPageOwner(pages []models.Page, lang string) *models.Page {
+	listing := strings.Trim(strings.TrimSpace(g.config.PostsPage), "/")
+	if listing == "" {
+		return nil
+	}
+	for i := range pages {
+		if lang != "" && pages[i].Lang != lang {
+			continue
+		}
+		if strings.Trim(pages[i].GetOutputPath(), "/") == listing {
+			return &pages[i]
+		}
+	}
+	return nil
+}
+
+// reportPostsPageCollision names both documents once per build, so the operator
+// can see which one is being served without diffing the output tree.
+func (g *Generator) reportPostsPageCollision(page *models.Page) {
+	if page == nil || g.config.Quiet {
+		return
+	}
+	fmt.Printf("   📰 /%s/: the post listing replaces the page of the same address (posts_page)\n",
+		strings.Trim(g.config.PostsPage, "/"))
+	fmt.Printf("      the page %s is not written; rename it or change posts_page to keep both\n",
+		frontPageLabel(*page))
+}
+
+// withoutPage returns the pages except the one given, compared by output path
+// so a page is removed regardless of which copy of the value is held.
+func withoutPage(pages []models.Page, drop models.Page) []models.Page {
+	out := make([]models.Page, 0, len(pages))
+	for _, p := range pages {
+		if p.GetOutputPath() == drop.GetOutputPath() {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}

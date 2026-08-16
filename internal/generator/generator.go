@@ -637,12 +637,18 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 	)
 }
 
-// headingIDTransformer fixes the auto ids of headings that CONTAIN a link or
-// image: goldmark derives ids from the raw source line, so
+// headingIDTransformer fixes the auto ids of headings that CONTAIN markup:
+// goldmark derives ids from the raw source line, so
 // "### [Ian Zane](/authors/ian-zane/) — Generalist" became
-// id="ian-zaneauthorsian-zane--generalist" (issue #26). Only such headings are
-// recomputed to slugify(visible text) — plain headings keep goldmark's ids
-// bit-for-bit, so anchors on pre-1.8.6 sites stay valid. De-duplication spans
+// id="ian-zaneauthorsian-zane--generalist" (issue #26), and a heading wrapped
+// in a coloured span became
+// id="span-stylecolor-ffff00strongwhy-baby-swimmingstrong" — the tag names and
+// attribute values of its own markup (#153). Headings wrapped in <strong>,
+// <em>, <a> or a styled <span> are ordinary in CMS content: 15 to 37 of them on
+// the front page alone of each of six migrated sites.
+//
+// Only such headings are recomputed to slugify(visible text) — plain headings
+// keep goldmark's ids bit-for-bit, so anchors on pre-1.8.6 sites stay valid. De-duplication spans
 // the whole document (kept goldmark ids included). The TOC (AX-002) reads the
 // same attribute, so intra-page anchors stay consistent.
 type headingIDTransformer struct{}
@@ -659,7 +665,7 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 		if !ok {
 			return ast.WalkContinue, nil
 		}
-		if headingHasLink(h) {
+		if headingHasMarkup(h) {
 			affected = append(affected, h)
 		} else if v, ok := h.AttributeString("id"); ok {
 			if idBytes, ok := v.([]byte); ok {
@@ -682,16 +688,18 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 	}
 }
 
-// headingHasLink reports whether a heading contains a link, autolink or image
-// node — the cases where goldmark's raw-source id leaks the destination URL.
-func headingHasLink(h ast.Node) bool {
+// headingHasMarkup reports whether a heading contains a node whose raw source
+// is not its visible text: a link or image (the id leaks the destination URL)
+// or inline HTML (the id leaks tag names and attribute values). Those are
+// exactly the headings whose goldmark id is unusable as an anchor.
+func headingHasMarkup(h ast.Node) bool {
 	found := false
 	_ = ast.Walk(h, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 		switch n.Kind() {
-		case ast.KindLink, ast.KindAutoLink, ast.KindImage:
+		case ast.KindLink, ast.KindAutoLink, ast.KindImage, ast.KindRawHTML:
 			found = true
 			return ast.WalkStop, nil
 		}
@@ -1642,6 +1650,7 @@ func (g *Generator) loadContentFromMddb() error {
 		return fmt.Errorf("loading pages from mddb: %w", err)
 	}
 
+	g.reportStructuredMeta(pageDocs)
 	pages, err := mddb.ToPages(pageDocs)
 	if err != nil {
 		return fmt.Errorf("converting pages: %w", err)
@@ -1657,6 +1666,7 @@ func (g *Generator) loadContentFromMddb() error {
 		return fmt.Errorf("loading posts from mddb: %w", err)
 	}
 
+	g.reportStructuredMeta(postDocs)
 	posts, err := mddb.ToPages(postDocs)
 	if err != nil {
 		return fmt.Errorf("converting posts: %w", err)
@@ -3076,7 +3086,15 @@ func (g *Generator) renderContent() {
 	g.imageProcessor()
 	for _, lang := range distinctLangs(g.siteData.Pages, g.siteData.Posts) {
 		g.setLanguageContext(lang)
-		g.parallelRender(languagePages(g.siteData.Pages, lang), workers, func(p models.Page) {
+		// The page whose address posts_page names is not written: the listing
+		// takes that URL, the way the source CMS renders its loop in place of
+		// the assigned page's content (#150). Reported once, not silently.
+		pages := languagePages(g.siteData.Pages, lang)
+		if owner := g.postsPageOwner(pages, lang); owner != nil {
+			g.reportPostsPageCollision(owner)
+			pages = withoutPage(pages, *owner)
+		}
+		g.parallelRender(pages, workers, func(p models.Page) {
 			if err := g.generatePage(p); err != nil {
 				fmt.Printf("   ⚠️  Warning: failed to generate page %s: %v\n", p.Slug, err)
 			}
@@ -3739,8 +3757,6 @@ func (g *Generator) generateCategories() error {
 		}
 
 		sorted := sortPostsByDate(posts)
-		data := g.archiveData("category", cat.Name, cat, sorted,
-			singlePagePager(len(sorted)), g.currentLang)
 
 		// Sanitize the category slug so a malicious value cannot escape the
 		// output directory, then verify the final path (SEC-001).
@@ -3769,17 +3785,40 @@ func (g *Generator) generateCategories() error {
 			fmt.Printf("   ⚠️  Warning: skipping category %q with unsafe slug: %v\n", cat.Slug, err)
 			continue
 		}
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-			return err
-		}
-
-		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
+		// A category archive is paginated exactly like every other term archive
+		// (#149): `paginate` used to apply to the index only, so a migrated
+		// site's /category/blog/ shipped 205 articles in one file while
+		// /category/blog/page/2/ did not exist. One chunk per page, each
+		// carrying its own pager.
+		for _, chunk := range paginateTerm(sorted, g.archivePerPage(), "/"+archivePath+"/") {
+			pagePath := outputPath
+			if chunk.Pager.Current > 1 {
+				pagePath = filepath.Join(g.config.OutputDir, filepath.FromSlash(archivePath),
+					"page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
+			}
+			// #nosec G301 -- Web content directories need to be world-traversable
+			if err := os.MkdirAll(filepath.Dir(pagePath), 0755); err != nil {
+				return err
+			}
+			data := g.archiveData("category", cat.Name, cat, chunk.Posts, chunk.Pager, g.currentLang)
+			if err := g.renderTemplate(categoryHTMLName, pagePath, data); err != nil {
+				fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
+				break
+			}
 		}
 	}
 
 	return nil
+}
+
+// archivePerPage is how many posts an archive page holds. `paginate` is the
+// site-wide setting; 0 means "one page", which is what an unpaginated site has
+// always produced.
+func (g *Generator) archivePerPage() int {
+	if g.config.Paginate > 0 {
+		return g.config.Paginate
+	}
+	return 0
 }
 
 // executedByFileName lists the template names ssg executes directly by file
@@ -5278,4 +5317,20 @@ func injectKatexAssets(html string) string {
 		html += body
 	}
 	return html
+}
+
+// reportStructuredMeta names documents whose meta carries a printed Go value
+// instead of data (#154). The value was lost before it was stored, so nothing
+// here can recover it — but a build that says "post `x`: meta field `faq` looks
+// like a stringified Go value" costs one line, where the silence costs an
+// afternoon of reading a template that is not at fault.
+func (g *Generator) reportStructuredMeta(docs []mddb.Document) {
+	if g.config.Quiet {
+		return
+	}
+	for _, doc := range docs {
+		for _, w := range doc.StructuredMetaWarnings() {
+			fmt.Printf("   ⚠️  document %q: %s\n", doc.Key, w.Message())
+		}
+	}
 }

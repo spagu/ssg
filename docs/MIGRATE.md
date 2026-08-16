@@ -41,11 +41,20 @@ go install github.com/tradik/wpexporter/cmd/wpexporter@latest
 snap install wpexporter
 ```
 
+The migration report names the engine that ran, including where it came from:
+
+```text
+⚙️  engine: wpexporter 1.8.7 (bundled with the snap)
+```
+
 **Snap users need none of this**: the `static-site-generator` snap bundles the
 engine (since 1.8.29), because a strictly confined snap sees only its own
 files — the host's `wpexporter` is invisible to it, and installing the
 `wpexporter` snap does not help either, since one snap cannot execute another.
-Same reason `cwebp` is bundled for WebP output.
+Same reason `cwebp` is bundled for WebP output. The bundled copy is built from
+the exporter's latest release **at the moment the snap is built**, so it is
+refreshed by every ssg release and by a weekly rebuild — if the report names an
+older engine than you expect, that is why, and `snap refresh` is the fix.
 
 ## Selecting content
 

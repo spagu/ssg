@@ -782,6 +782,7 @@ func parseFlags(args []string, cfg *config.Config) {
 	if cfg.WatchRunner != "" {
 		cfg.Watch = true
 	}
+	warnUnknownFlags(args, cfg)
 }
 
 // parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
@@ -832,40 +833,7 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.SEO = false
 		return true
 	}
-	toggles := map[string]*bool{
-		"--zip": &cfg.Zip, "-zip": &cfg.Zip,
-		"--targz": &cfg.TarGz, "--tarxz": &cfg.TarXz,
-		"--tls-auto": &cfg.TLSAuto, "--gzip": &cfg.Gzip, "--http3": &cfg.HTTP3,
-		"--sanitize-html": &cfg.SanitizeHTML,
-		"--auto-excerpt":  &cfg.AutoExcerpt,
-		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
-		"--webp-keep-original": &cfg.WebPKeepOriginal,
-		"--reconvert-images":   &cfg.ReconvertImages,
-		"--images-gc":          &cfg.ImagesGC, "--images-gc-dry": &cfg.ImagesGCDry,
-		"--watch": &cfg.Watch, "-watch": &cfg.Watch,
-		"--http": &cfg.HTTP, "-http": &cfg.HTTP,
-		"--sitemap-off": &cfg.SitemapOff, "--robots-off": &cfg.RobotsOff,
-		"--not-found-off": &cfg.NotFoundOff,
-		"--pretty-html":   &cfg.PrettyHTML, "--pretty": &cfg.PrettyHTML,
-		"--relative-links": &cfg.RelativeLinks,
-		"--minify-all":     &cfg.MinifyAll,
-		"--minify-html":    &cfg.MinifyHTML, "--minify-css": &cfg.MinifyCSS, "--minify-js": &cfg.MinifyJS,
-		"--sourcemap": &cfg.SourceMap, "--fingerprint": &cfg.Fingerprint,
-		"--scss":             &cfg.SCSS,
-		"--lastmod-from-git": &cfg.LastmodFromGit,
-		"--math":             &cfg.Math, "--feed": &cfg.Feed,
-		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
-		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
-		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
-		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
-		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
-		"--clean":      &cfg.Clean,
-		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
-		// External sources (docs/EXTERNAL_SOURCES.md)
-		"--offline":                  &cfg.ExternalSources.Offline,
-		"--refresh-external-sources": &cfg.ExternalSources.Refresh,
-		"--clear-external-cache":     &cfg.ExternalSources.ClearCache,
-	}
+	toggles := boolFlagTargets(cfg)
 	if target, ok := toggles[arg]; ok {
 		*target = true
 		return true
@@ -1808,4 +1776,155 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 	}()
 
 	return cmd
+}
+
+// warnUnknownFlags names an option ssg does not accept instead of ignoring it
+// (#152). `--output=public` reads like it should work — the config key is
+// `output_dir` and the flag is `--output-dir` — and the build then wrote to
+// output/ and said nothing, which looks like the flag was honoured and the
+// site was built somewhere else.
+//
+// It warns rather than fails: a script that passes an option a future ssg will
+// understand keeps working, and the operator still sees the line.
+func warnUnknownFlags(args []string, cfg *config.Config) {
+	known := knownFlagNames(cfg)
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "-") || arg == "-" || arg == "--" {
+			continue
+		}
+		name := arg
+		if i := strings.Index(name, "="); i >= 0 {
+			name = name[:i]
+		}
+		if known[name] {
+			continue
+		}
+		msg := fmt.Sprintf("⚠️  Unknown option %s — ignored", name)
+		if near := nearestFlag(name, known); near != "" {
+			msg += fmt.Sprintf(" (did you mean %s?)", near)
+		}
+		fmt.Fprintln(os.Stderr, msg+"; run `ssg --help` for the list")
+	}
+}
+
+// knownFlagNames is every option the parsers accept, gathered from the same
+// tables they read, so a new flag cannot be added without this knowing it.
+func knownFlagNames(cfg *config.Config) map[string]bool {
+	names := map[string]bool{}
+	for name := range valueFlags() {
+		names[name] = true
+	}
+	for prefix := range stringEqualFlags(cfg) {
+		names[strings.TrimSuffix(prefix, "=")] = true
+	}
+	for _, name := range boolFlagNames(cfg) {
+		names[name] = true
+	}
+	for _, name := range standaloneFlagNames {
+		names[name] = true
+	}
+	return names
+}
+
+// standaloneFlagNames are the options handled outside the tables: the ones with
+// their own branch in parseBoolFlags/parseSpecialFlags.
+var standaloneFlagNames = []string{
+	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
+	"--check-links", "--check-images", "--check-meta", "--check-schema",
+	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",
+}
+
+// nearestFlag returns the known option closest to what was typed, so a
+// near-miss points at the right one instead of at the whole help text. Only a
+// clear neighbour qualifies: a prefix match, or one edit away.
+func nearestFlag(typed string, known map[string]bool) string {
+	best, bestScore := "", 0
+	for name := range known {
+		score := 0
+		switch {
+		case strings.HasPrefix(name, typed):
+			score = 3
+		case strings.HasPrefix(typed, name):
+			score = 2
+		case editDistanceAtMostOne(typed, name):
+			score = 1
+		}
+		if score > bestScore || (score == bestScore && score > 0 && name < best) {
+			best, bestScore = name, score
+		}
+	}
+	return best
+}
+
+// editDistanceAtMostOne reports whether two options differ by a single
+// character — one typo, the case worth guessing about.
+func editDistanceAtMostOne(a, b string) bool {
+	if a == b {
+		return true
+	}
+	if len(a) > len(b) {
+		a, b = b, a
+	}
+	if len(b)-len(a) > 1 {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] == b[i] {
+			continue
+		}
+		if len(a) == len(b) {
+			return a[i+1:] == b[i+1:]
+		}
+		return a[i:] == b[i+1:]
+	}
+	return true
+}
+
+// boolFlagTargets maps every on/off option to the field it sets. Extracted from
+// parseBoolFlags so the unknown-option check reads the same table the parser
+// does, rather than a hand-kept copy that would drift (#152).
+func boolFlagTargets(cfg *config.Config) map[string]*bool {
+	return map[string]*bool{
+		"--zip": &cfg.Zip, "-zip": &cfg.Zip,
+		"--targz": &cfg.TarGz, "--tarxz": &cfg.TarXz,
+		"--tls-auto": &cfg.TLSAuto, "--gzip": &cfg.Gzip, "--http3": &cfg.HTTP3,
+		"--sanitize-html": &cfg.SanitizeHTML,
+		"--auto-excerpt":  &cfg.AutoExcerpt,
+		"--webp":          &cfg.WebP, "-webp": &cfg.WebP,
+		"--webp-keep-original": &cfg.WebPKeepOriginal,
+		"--reconvert-images":   &cfg.ReconvertImages,
+		"--images-gc":          &cfg.ImagesGC, "--images-gc-dry": &cfg.ImagesGCDry,
+		"--watch": &cfg.Watch, "-watch": &cfg.Watch,
+		"--http": &cfg.HTTP, "-http": &cfg.HTTP,
+		"--sitemap-off": &cfg.SitemapOff, "--robots-off": &cfg.RobotsOff,
+		"--not-found-off": &cfg.NotFoundOff,
+		"--pretty-html":   &cfg.PrettyHTML, "--pretty": &cfg.PrettyHTML,
+		"--relative-links": &cfg.RelativeLinks,
+		"--minify-all":     &cfg.MinifyAll,
+		"--minify-html":    &cfg.MinifyHTML, "--minify-css": &cfg.MinifyCSS, "--minify-js": &cfg.MinifyJS,
+		"--sourcemap": &cfg.SourceMap, "--fingerprint": &cfg.Fingerprint,
+		"--scss":             &cfg.SCSS,
+		"--lastmod-from-git": &cfg.LastmodFromGit,
+		"--math":             &cfg.Math, "--feed": &cfg.Feed,
+		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
+		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
+		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
+		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
+		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
+		"--clean":      &cfg.Clean,
+		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
+		// External sources (docs/EXTERNAL_SOURCES.md)
+		"--offline":                  &cfg.ExternalSources.Offline,
+		"--refresh-external-sources": &cfg.ExternalSources.Refresh,
+		"--clear-external-cache":     &cfg.ExternalSources.ClearCache,
+	}
+}
+
+// boolFlagNames lists the toggles by name.
+func boolFlagNames(cfg *config.Config) []string {
+	names := make([]string, 0, 64)
+	for name := range boolFlagTargets(cfg) {
+		names = append(names, name)
+	}
+	return names
 }

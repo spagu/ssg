@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.37">1.8.37 — 2026-08-16</option>
       <option value="1.8.36">1.8.36 — 2026-08-16</option>
       <option value="1.8.35">1.8.35 — 2026-08-15</option>
       <option value="1.8.34">1.8.34 — 2026-08-14</option>
@@ -170,6 +171,22 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.37">
+
+### 1.8.37 — paginated category archives, and posts_page takes its address
+
+If you set `paginate`, category archives are now paginated too: an archive with
+more posts than the page size grows `/category/<slug>/page/2/` and so on, where
+before it was one long file. **Nothing to do** — the archive's first page keeps
+its address; a site without `paginate` is untouched.
+
+If you set `posts_page` **and** have a page document at that same address, the
+listing now takes the URL and the page is not written. That is what WordPress
+does with its assigned "Posts page", and the build names both documents so you
+can rename the page or change the key if you wanted the page instead.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.36">
 

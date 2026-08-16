@@ -1260,6 +1260,33 @@ arbitrary configuration fields. In CI, pass an MDDB secret at runtime, for
 example `--mddb-key="$MDDB_API_KEY"`. Use `sanitize_html` when remote content is
 not fully trusted.
 
+### Structured frontmatter through MDDB's flat meta
+
+MDDB stores metadata as a flat `key → list of strings` map, by design. A field
+that is not flat — a `faq:` list of `{question, answer}` objects, a `schema:`
+object — therefore has exactly one way through: **the producer JSON-encodes it
+into a single meta string**, and ssg decodes it back when the document becomes a
+page. Round-tripping is lossless and the theme ranges over the value as it would
+with local frontmatter.
+
+```json
+{ "faq": "[{\"question\":\"How long?\",\"answer\":\"20 minutes\"}]" }
+```
+
+What does **not** work is stringifying the value. A loader that formats a Go map
+stores `map[answer:20 minutes question:How long?]`, which cannot be recovered by
+anyone. The build names the document and the field rather than letting the theme
+fail on it:
+
+```text
+⚠️  document "chicken-soup": meta field faq looks like a stringified Go value
+    (map[answer:20 minutes question:How long?]) — mddb stores meta as flat
+    strings, so structured fields must be JSON-encoded by the producer
+```
+
+A value that is neither JSON nor a printed Go map reaches the template exactly
+as it always has.
+
 ## Archives and deployment
 
 | Key | Default | CLI |

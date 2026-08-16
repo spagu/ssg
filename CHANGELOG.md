@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.37] - 2026-08-16
+
+### Fixed
+- ⚓ **Heading anchors come from the heading's text, not its markup** (#153) — a
+  heading wrapped in `<strong>` or a coloured `<span>` got
+  `id="span-stylecolor-ffff00strongwhy-baby-swimmingstrong"`, because goldmark
+  derives auto-ids from the raw source line. The anchor a reader, a table of
+  contents or an inbound link expects is `#why-baby-swimming`. Headings holding
+  markup are ordinary in CMS content — 15 to 37 on the front page alone of each
+  of six migrated sites. Plain headings keep their existing ids bit-for-bit, so
+  anchors on existing sites stay valid; the rule now covers inline HTML the way
+  it already covered links and images (#26).
+- 🚩 **An option ssg does not accept is named rather than ignored** (#152) —
+  `--output=public` reads like it should work (the config key is `output_dir`),
+  and the build wrote to `output/` and said nothing, which looks like the flag
+  was honoured and the site landed elsewhere. Unknown options now warn and, when
+  there is an obvious neighbour, suggest it: *Unknown option --output — ignored
+  (did you mean --output-dir?)*. It warns rather than fails, so a script passing
+  an option a future ssg will understand keeps working. The check reads the
+  parsers' own tables, so a new flag cannot drift out of it.
+- 🧱 **Structured frontmatter survives the MDDB content source** (#154,
+  tradik/mddb#187) — MDDB stores meta as a flat `key → []string` by design, so a
+  `faq:` list of objects or a `schema:` object can only travel as a string.
+  Neither end worked: a producer that JSON-encoded correctly still handed the
+  theme a JSON *string*, and one that stringified a Go map stored
+  `map[answer:… question:…]`, which made **every post** fail with
+  `can't evaluate field question in type interface {}` — an error pointing at
+  the theme rather than at the field. ssg now decodes JSON-shaped meta values
+  into the shape a template can range over, and names the document and field
+  when a value is a printed Go map, which cannot be recovered. A value that is
+  neither arrives exactly as before.
+- 📚 **`paginate` now applies to category archives** (#149) — it paginated the
+  index and left every category whole, so a migrated site's `/category/blog/`
+  shipped 205 articles in one file while `/category/blog/page/2/` did not exist.
+  Category archives are chunked exactly like every other term archive, each page
+  carrying its own pager. A site without `paginate` still gets one file per
+  archive, unchanged.
+- 📰 **`posts_page` wins over a page of the same address, and says so** (#150) —
+  WordPress's "Posts page" *is* a page: the admin assigns an existing one and
+  WordPress renders the loop in its place. An export carries both faithfully, and
+  ssg wrote the page at `/blog/` while writing the listing's *second* page to
+  `/blog/page/2/` — so page one of a listing served an empty document and page
+  two served the listing. Two of six sites in one batch hit it. The setting now
+  wins, matching the source CMS and what the operator asked for, and the build
+  names both documents instead of silently choosing.
+- 📦 **The snap's bundled exporter can no longer go stale unnoticed** (#148) —
+  it is built from the exporter's latest release *at build time*, so a fix
+  released downstream reached nobody until ssg was rebuilt. The Snap workflow now
+  also runs weekly, which puts a ceiling on how far behind the bundled engine can
+  drift; the migration report already names the engine and where it came from.
+
+
 ## [1.8.36] - 2026-08-16
 
 ### Fixed
