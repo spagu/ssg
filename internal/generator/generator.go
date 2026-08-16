@@ -1960,6 +1960,7 @@ func (g *Generator) loadTemplates() error {
 		return fmt.Errorf("parsing templates: %w", err)
 	}
 	warnShellTemplates(tmpl, g.config.Quiet)
+	g.warnTemplateScriptContext(templatePath)
 
 	// Also load templates from the layouts/ and partials/ subdirectories when
 	// they exist. partials/ is part of the documented theme structure and holds
@@ -5399,6 +5400,28 @@ func (g *Generator) reportStructuredMeta(docs []mddb.Document) {
 	for _, doc := range docs {
 		for _, w := range doc.StructuredMetaWarnings() {
 			fmt.Printf("   ⚠️  document %q: %s\n", doc.Key, w.Message())
+		}
+	}
+}
+
+// warnTemplateScriptContext names a theme file whose <title> sits inside a
+// script block, where html/template escapes values as JavaScript and they
+// render quoted (#152). Read from the theme's own files rather than the parsed
+// tree, because the defect is about where the tags are, which parsing discards.
+func (g *Generator) warnTemplateScriptContext(templatePath string) {
+	if g.config.Quiet {
+		return
+	}
+	for _, sub := range []string{"", "layouts", "partials"} {
+		files, _ := filepath.Glob(filepath.Join(templatePath, sub, htmlGlobPattern))
+		for _, file := range files {
+			src, err := os.ReadFile(file) // #nosec G304 -- the theme this build was pointed at
+			if err != nil {
+				continue
+			}
+			for _, f := range checkTemplateScriptContext(filepath.Base(file), string(src)) {
+				fmt.Printf("   ⚠️  %s\n", f.Message())
+			}
 		}
 	}
 }

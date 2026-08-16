@@ -23,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   untouched.
 
 ### Fixed
+- 🔍 **A `<title>` inside a `<script>` block is named** (#152) — Go's
+  html/template escapes by *context*: a `<script …>` start tag opens a
+  JavaScript context that runs to its end tag, and every value interpolated
+  inside it is escaped as a JS value, which for text means a `"quoted"` string.
+  A scraped theme whose inline analytics block lost its end tag therefore
+  rendered `<title>"Artisans of Taste" - "…"</title>` while the same expression
+  in the body came out clean — with byte-clean config, byte-clean metadata and a
+  template that looks right in isolation. Finding that cost a full day. The build
+  now says it, with the lines: *`<title>` on line 3 is inside a `<script>` block
+  (opened line 2, closed line 4) — html/template escapes values there as
+  JavaScript, so they render quoted.* The escaping itself is correct and
+  unchanged: in a real script context those quotes are what keep a value from
+  breaking out of its string.
 - 📌 **A pinned post leads the listing** (#155) — WordPress lets an editor pin a
   post to the top of the blog and the export carries `sticky: true`, but the
   generator never read the field, so listings sorted by date alone and the
