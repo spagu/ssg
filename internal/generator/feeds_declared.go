@@ -156,7 +156,8 @@ func (g *Generator) feedItemsFor(spec models.FeedSpec, full bool) []externalsour
 	if len(spec.Aggregate) > 0 {
 		return g.aggregateItems(spec)
 	}
-	posts := sortPostsByDate(g.selectFeedPosts(spec))
+	// A declared feed is a feed: chronological, pinning left to the listings (#155).
+	posts := sortPostsChronologically(g.selectFeedPosts(spec))
 	out := make([]externalsource.FeedItem, 0, len(posts))
 	for _, p := range posts {
 		htmlBody, summary := g.feedBody(p, full)

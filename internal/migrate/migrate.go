@@ -54,6 +54,12 @@ type Options struct {
 	AuthPass  string
 	AuthToken string
 
+	// EnginePath names the engine binary explicitly, overriding every search.
+	// Set from --engine or SSG_WPEXPORTER: the snap bundles its own copy, and
+	// without a way to say "use this one" an operator who installed a newer
+	// engine had no way to reach it (#160).
+	EnginePath string
+
 	LookPath func(file string) (string, error)
 	Run      func(name string, args []string, quiet bool) error
 	// Version returns the engine's version banner. A provider gates flags the

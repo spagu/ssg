@@ -90,14 +90,16 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 	if _, err := ValidateURL(rawURL); err != nil {
 		return nil, err
 	}
-	bin, err := opts.lookPath(wpexporterBinary)
+	// The newest engine that can actually be executed, not merely the first on
+	// PATH — inside a snap that was always the bundled copy (#160).
+	choice, err := selectEngine(opts)
 	if err != nil {
-		return nil, fmt.Errorf("%s", missingEngineMessage(os.Getenv("SNAP")))
+		return nil, err
 	}
+	bin, banner := choice.Path, choice.Banner
 
 	// Record what this engine can be asked to do BEFORE anything reads opts:
 	// the argument builder and the report both depend on it (#137).
-	banner := opts.versionOutput(bin)
 	if err := checkEngineVersion(banner, opts.Quiet); err != nil {
 		return nil, err
 	}
@@ -118,6 +120,9 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped,
 		Engine: engineLabel(bin, banner)}
+	// An engine that was found and could not be run is worth a line: it is the
+	// answer to "I installed a newer wpexporter and nothing changed" (#160).
+	rep.Warnings = append(rep.Warnings, engineSelectionNotes(choice)...)
 	rep.Pages, rep.Posts, rep.Media = countExport(opts.Dest)
 	rep.Comments = countComments(opts.Dest)
 	rep.Menus = countMenus(opts.Dest)

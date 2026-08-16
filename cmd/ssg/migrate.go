@@ -51,6 +51,10 @@ type migrateFlags struct {
 	authToken     string
 	customTypes   []string
 	noCustomTypes bool
+	// engine names the wpexporter binary to run, overriding the search. The
+	// snap bundles its own copy, so without this an operator who installed a
+	// newer engine had no way to reach it (#160).
+	engine string
 	// host and port address the live-mode server. `migrate` parses its own
 	// flags, so the server flags every other command accepts were rejected
 	// here — `--watch --http --port 8889` died on "unknown flag" after the
@@ -144,6 +148,7 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 		CustomTypes:   flags.customTypes,
 		NoCustomTypes: flags.noCustomTypes,
 		AllMedia:      flags.allMedia,
+		EnginePath:    flags.engine,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -279,77 +284,62 @@ func reportScaffold(created, skipped []string) {
 	}
 }
 
+// migrateBoolFlags maps each switch to the field it sets. A table rather than a
+// case per flag: the parser grew a branch every release and the flags it accepts
+// should be readable as a list.
+func migrateBoolFlags(f *migrateFlags) map[string]*bool {
+	return map[string]*bool{
+		"--watch": &f.watch, "--http": &f.http, "--quiet": &f.quiet, "-q": &f.quiet,
+		"--no-crawl": &f.noCrawl, "--no-custom-types": &f.noCustomTypes,
+		"--all-media": &f.allMedia,
+	}
+}
+
+// migrateValueFlags maps each value-taking flag to what it does with the value,
+// so `--flag=value` and `--flag value` are handled once for all of them.
+func migrateValueFlags(f *migrateFlags) map[string]func(string) int {
+	set := func(dst *string) func(string) int {
+		return func(v string) int { *dst = v; return -1 }
+	}
+	list := func(dst *[]string) func(string) int {
+		return func(v string) int { *dst = splitContentList(v); return -1 }
+	}
+	return map[string]func(string) int{
+		"--auth-user": set(&f.authUser), "--auth-pass": set(&f.authPass),
+		"--auth-token": set(&f.authToken), "--engine": set(&f.engine),
+		"--source": set(&f.source), "--host": set(&f.host),
+		"--custom-types": list(&f.customTypes), "--content": list(&f.content),
+		"--port": f.setPort,
+	}
+}
+
 // parseMigrateFlags parses everything after `ssg migrate <provider> <url>`.
 // A returned code >= 0 means stop with that exit code.
 func parseMigrateFlags(args []string) (migrateFlags, int) {
 	var f migrateFlags
+	bools, values := migrateBoolFlags(&f), migrateValueFlags(&f)
+
 	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "--watch":
-			f.watch = true
-		case arg == "--http":
-			f.http = true
-		case arg == "--quiet" || arg == "-q":
-			f.quiet = true
-		case arg == "--no-crawl":
-			f.noCrawl = true
-		case arg == "--no-custom-types":
-			f.noCustomTypes = true
-		case strings.HasPrefix(arg, "--auth-user="):
-			f.authUser = strings.TrimPrefix(arg, "--auth-user=")
-		case arg == "--auth-user" && i+1 < len(args):
-			f.authUser = args[i+1]
-			i++
-		case strings.HasPrefix(arg, "--auth-pass="):
-			f.authPass = strings.TrimPrefix(arg, "--auth-pass=")
-		case arg == "--auth-pass" && i+1 < len(args):
-			f.authPass = args[i+1]
-			i++
-		case strings.HasPrefix(arg, "--auth-token="):
-			f.authToken = strings.TrimPrefix(arg, "--auth-token=")
-		case arg == "--auth-token" && i+1 < len(args):
-			f.authToken = args[i+1]
-			i++
-		case strings.HasPrefix(arg, "--custom-types="):
-			f.customTypes = splitContentList(strings.TrimPrefix(arg, "--custom-types="))
-		case arg == "--custom-types" && i+1 < len(args):
-			f.customTypes = splitContentList(args[i+1])
-			i++
-		case arg == "--all-media":
-			f.allMedia = true
-		case strings.HasPrefix(arg, "--content="):
-			f.content = splitContentList(strings.TrimPrefix(arg, "--content="))
-		case arg == "--content" && i+1 < len(args):
-			f.content = splitContentList(args[i+1])
-			i++
-		case strings.HasPrefix(arg, "--source="):
-			f.source = strings.TrimPrefix(arg, "--source=")
-		case arg == "--source" && i+1 < len(args):
-			f.source = args[i+1]
-			i++
-		case strings.HasPrefix(arg, "--host="):
-			f.host = strings.TrimPrefix(arg, "--host=")
-		case arg == "--host" && i+1 < len(args):
-			f.host = args[i+1]
-			i++
-		case strings.HasPrefix(arg, "--port="):
-			if code := f.setPort(strings.TrimPrefix(arg, "--port=")); code >= 0 {
-				return f, code
+		name, value, joined := strings.Cut(args[i], "=")
+		if target, ok := bools[name]; ok && !joined {
+			*target = true
+			continue
+		}
+		apply, ok := values[name]
+		if !ok {
+			return f, reportUnknownMigrateFlag(args[i])
+		}
+		if !joined {
+			// A value-taking flag with nothing after it is a typo, not a request
+			// to use the next flag as its value.
+			if i+1 >= len(args) {
+				return f, reportUnknownMigrateFlag(args[i])
 			}
-		case arg == "--port" && i+1 < len(args):
-			if code := f.setPort(args[i+1]); code >= 0 {
-				return f, code
-			}
+			value = args[i+1]
 			i++
-		default:
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n", arg)
-			if hint := engineFlagHint(arg); hint != "" {
-				fmt.Fprintf(os.Stderr, "   %s\n", hint)
-			}
-			fmt.Fprintln(os.Stderr)
-			printMigrateUsage()
-			return f, 2
+		}
+		if code := apply(value); code >= 0 {
+			return f, code
 		}
 	}
 	if strings.ContainsAny(f.source, "/\\") || strings.Contains(f.source, "..") {
@@ -357,6 +347,18 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 		return f, 2
 	}
 	return f, -1
+}
+
+// reportUnknownMigrateFlag names the option ssg does not accept and returns the
+// exit code, so the parser reads as one line per outcome.
+func reportUnknownMigrateFlag(arg string) int {
+	fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n", arg)
+	if hint := engineFlagHint(arg); hint != "" {
+		fmt.Fprintf(os.Stderr, "   %s\n", hint)
+	}
+	fmt.Fprintln(os.Stderr)
+	printMigrateUsage()
+	return 2
 }
 
 // setPort parses a --port value. A returned code >= 0 means stop with it: a
@@ -475,6 +477,11 @@ flags:
                      a migrated site arrives with no navigation
    --custom-types a,b  the theme's own post types (Services, Portfolio, Team)
    --no-custom-types   skip them entirely
+   --engine PATH     the wpexporter binary to run. Without it ssg runs the
+                     newest one it can reach: PATH, and inside the snap the
+                     bundled copy plus ~/go/bin, ~/.local/bin and ~/bin — so an
+                     engine you installed yourself is used instead of waiting
+                     for the next snap rebuild. SSG_WPEXPORTER does the same.
    --quiet, -q       suppress progress output
 
 Credentials are handed to the engine and never written to .ssg.yaml.

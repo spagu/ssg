@@ -302,6 +302,57 @@ so, rather than failing a migration over a flag the engine does not know:
     (needs 1.8.5); delete content/<source>/comments.json if you do not want them
 ```
 
+## Which engine runs
+
+`ssg migrate` runs **the newest wpexporter it can reach**, and says which one it
+used:
+
+```text
+   🔧 engine: wpexporter 1.8.12 (/home/you/go/bin/wpexporter)
+```
+
+The order is:
+
+1. **`--engine PATH`**, or the `SSG_WPEXPORTER` environment variable. An explicit
+   choice always wins, and a binary that cannot be run is an error naming it —
+   never a silent fall back to a different engine.
+2. Otherwise the newest of everything reachable: `PATH`, and — inside the snap —
+   the bundled copy plus `~/go/bin`, `~/.local/bin` and `~/bin`.
+
+### Why the snap searches your home directory
+
+The snap ships its own wpexporter, so `snap refresh wpexporter` used to change
+nothing: the bundled copy was the only one on the snap's `PATH`, and every engine
+fix waited for the next ssg rebuild.
+
+Strict confinement is narrower than it looks. Measured from inside the snap:
+
+| candidate | result |
+|---|---|
+| the bundled `$SNAP/bin/wpexporter` | runs |
+| `/snap/bin/wpexporter` — the **wpexporter snap** | **cannot run**: it is a snapd wrapper, and a snap cannot execute another snap |
+| an absolute path under your real `$HOME` | **runs** — the `home` interface grants read *and* execute |
+
+So the way to stay ahead of the snap's rebuild cadence is a real binary in your
+home directory:
+
+```bash
+go install github.com/tradik/wpexporter/cmd/wpexporter@latest   # → ~/go/bin
+ssg migrate wordpress https://example.com                       # picks it up, if newer
+```
+
+Installing the **wpexporter snap** does not help a snap-installed ssg — nothing
+can, from inside confinement. The migration report says so rather than leaving
+you guessing:
+
+```text
+   ⚠️  skipped /snap/bin/wpexporter (it is the wpexporter snap, and a snap
+       cannot execute another snap)
+```
+
+The bundled engine is a floor, not a ceiling: it runs whenever nothing newer is
+reachable, and an older copy in your home directory never displaces it.
+
 ## The theme's own post types
 
 Services, Portfolio, Team — a theme registers its own types, and they carry
@@ -367,6 +418,7 @@ only designs.
 | `--auth-token T` | Bearer token instead of the user/password pair |
 | `--custom-types a,b` | The theme's own post types to export |
 | `--no-custom-types` | Skip the theme's own post types |
+| `--engine PATH` | The wpexporter binary to run (also `SSG_WPEXPORTER`). See [Which engine runs](#which-engine-runs) |
 | `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |

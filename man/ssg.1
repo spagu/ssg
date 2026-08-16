@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.38" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.39" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -88,10 +88,10 @@ external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
 .TP
-.B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-source\fR \fINAME\fR]
+.B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-engine\fR \fIPATH\fR] [\fB\-\-source\fR \fINAME\fR]
 Migrate a live site into a ready-to-build SSG project. The built-in
 \fBwordpress\fR provider orchestrates the optional \fBwpexporter\fR tool
-(discovered on PATH; a missing binary prints install instructions), scaffolds
+(a missing binary prints install instructions), scaffolds
 the project when none exists and builds after the pull. \fB\-\-content\fR
 selects kinds (\fBpages\fR, \fBposts\fR, \fBmedia\fR, \fBcustom\fR — a theme's own
 post types — \fBcomments\fR, \fBtags\fR, \fBusers\fR, \fBmenus\fR, \fBproducts\fR),
@@ -112,6 +112,16 @@ engine and are never written to the config. The theme's own post types are
 selected with \fB\-\-custom\-types\fR \fIslug,slug\fR or skipped with
 \fB\-\-no\-custom\-types\fR. Menus reach templates as
 \fB.Site.Menus.\fIlocation\fR.
+.IP
+The engine that runs is the newest one ssg can reach, and the report names it.
+\fB\-\-engine\fR \fIPATH\fR (or \fBSSG_WPEXPORTER\fR) chooses one outright; a
+named binary that cannot be run is an error, never a silent fall back. Otherwise
+ssg takes the highest version among \fBPATH\fR and, inside the snap, the bundled
+copy together with \fB~/go/bin\fR, \fB~/.local/bin\fR and \fB~/bin\fR — strict
+confinement can execute a real binary under your home directory, so
+\fBgo install .../cmd/wpexporter@latest\fR is picked up without waiting for the
+next snap rebuild. The \fBwpexporter snap\fR is not usable from a snap-installed
+ssg (a snap cannot execute another snap) and is reported as skipped.
 .TP
 .B ssg repair \fR[\fIpath\fR...] [\fB\-\-fix\fR] [\fB\-\-quiet\fR]
 Find source Markdown whose markup is indented four columns or more, which
