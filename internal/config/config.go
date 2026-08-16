@@ -167,8 +167,14 @@ type Config struct {
 	// NotFoundOff suppresses the generated 404.html (#102). Without a 404.html,
 	// Cloudflare Pages answers every unknown path with index.html and a 200, so
 	// each dead URL reads to a crawler as a live copy of the home page.
-	NotFoundOff   bool   `yaml:"not_found_off" toml:"not_found_off" json:"not_found_off"`
-	PrettyHTML    bool   `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
+	NotFoundOff bool `yaml:"not_found_off" toml:"not_found_off" json:"not_found_off"`
+	PrettyHTML  bool `yaml:"pretty_html" toml:"pretty_html" json:"pretty_html"`
+	// DateArchives generates /YYYY/, /YYYY/MM/ (and /YYYY/MM/DD/ for dated
+	// permalinks) listings from the posts already loaded — the archives
+	// WordPress publishes and links to from every byline (#146). Opt-in: a
+	// site that never had these URLs should not grow them because it upgraded.
+	DateArchives bool `yaml:"date_archives" toml:"date_archives" json:"date_archives"`
+
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"
 	RelativeLinks bool   `yaml:"relative_links" toml:"relative_links" json:"relative_links"`    // Convert absolute URLs to relative

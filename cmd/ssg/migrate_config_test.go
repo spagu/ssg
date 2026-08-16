@@ -43,12 +43,15 @@ func TestApplyMigratedIdentity_FillsEmptyKeys(t *testing.T) {
 
 	applied := applyMigratedIdentity(cfgPath, dest)
 
-	if len(applied) != 4 {
-		t.Fatalf("expected 4 keys filled in, got %v", applied)
+	// title, description, timezone, colors — and date_archives, which a
+	// migrated site needs because WordPress links to /YYYY/MM/ everywhere (#146).
+	if len(applied) != 5 {
+		t.Fatalf("expected 5 keys filled in, got %v", applied)
 	}
 	out, _ := os.ReadFile(cfgPath)
 	for _, want := range []string{
 		"title: Magna Valor",
+		"date_archives: true",
 		"description: Supply Chain Global Advisory",
 		"timezone: Europe/Warsaw",
 		"primary: '#7b2ff7'",

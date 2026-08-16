@@ -91,6 +91,10 @@ func migratedIdentityKeys(meta models.Metadata) []migratedConfigKey {
 		add("timezone", tz, true)
 	}
 	add("colors", meta.Marketing.Colors, len(meta.Marketing.Colors) > 0)
+	// WordPress publishes /YYYY/ and /YYYY/MM/ archives and links to them from
+	// every byline, widget and sitemap, so a migrated site needs them; a
+	// hand-authored project does not grow them by default (#146).
+	add("date_archives", true, len(meta.Site.Name)+len(meta.Menus)+len(meta.Categories) > 0)
 	return keys
 }
 

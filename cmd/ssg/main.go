@@ -638,6 +638,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TOCDepth:               cfg.TOCDepth,
 		SEO:                    cfg.SEO,
 		Analytics:              cfg.Analytics,
+		DateArchives:           cfg.DateArchives,
 		Schema:                 cfg.Schema,
 		SchemaDefaults:         cfg.SchemaDefaults,
 		ContentSchemas:         cfg.ContentSchemas,

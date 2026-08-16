@@ -233,6 +233,18 @@ func (g *Generator) archiveURLOwner(kind, slug string) (string, bool) {
 	return owner, taken
 }
 
+// archivePathOwner answers the same question for an archive addressed by a
+// whole path rather than kind+slug — a date archive lives at /2014/05/, which
+// has no "kind" segment, and joining an empty one produced "//2014/05/": a URL
+// nothing ever owns, so the collision check silently passed (#146).
+func (g *Generator) archivePathOwner(path string) (string, bool) {
+	if g.ownedURLs == nil {
+		g.ownedURLs = g.takenContentURLs()
+	}
+	owner, taken := g.ownedURLs["/"+strings.Trim(path, "/")+"/"]
+	return owner, taken
+}
+
 // checkTaxonomyURLs verifies one taxonomy's index and term URLs against taken output URLs.
 func (g *Generator) checkTaxonomyURLs(def taxonomy.Definition, taken map[string]string) error {
 	for _, lang := range g.taxonomyLangs() {
@@ -396,23 +408,12 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 		if chunk.Pager.Current > 1 {
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
-		data := struct {
-			Site         *models.SiteData
-			Taxonomy     TaxonomyInfo
-			Term         TaxonomyTerm
-			Category     models.Category
-			Kind         string
-			Name         string
-			Series       string
-			Posts        []models.Page
-			Pager        Pager
-			Lang         string
-			Domain       string
-			Vars         map[string]interface{}
-			Data         map[string]interface{}
-			ExternalData map[string]interface{}
-		}{g.siteData, info, term, models.Category{Name: term.Name, Slug: slug}, def.Name,
-			term.Name, term.Name, chunk.Posts, chunk.Pager, lang, g.config.Domain, g.config.Variables, g.data, g.externalData}
+		data := g.archiveData(def.Name, term.Name,
+			models.Category{Name: term.Name, Slug: slug}, chunk.Posts, chunk.Pager, lang)
+		// A custom taxonomy also names the term's own definition and info, which
+		// only this view has.
+		data["Taxonomy"] = info
+		data["Term"] = term
 		if err := g.renderTaxonomyPage(chain, outPath, data); err != nil {
 			return err
 		}

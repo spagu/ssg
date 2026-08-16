@@ -253,6 +253,12 @@ func parseRepoURL(url string) string {
 	return ""
 }
 
+// githubAPIBase is where the PR is opened. A variable rather than a literal so
+// the request, the auth header and every failure path can be exercised against
+// a local server — the alternative is shipping this code untested and finding
+// out during someone's approve-then-PR flow.
+var githubAPIBase = "https://api.github.com"
+
 // openGitHubPR opens a pull request via the REST API and returns its html_url.
 func openGitHubPR(token, repo, base, head, title, body string) (string, error) {
 	if repo == "" {
@@ -262,7 +268,7 @@ func openGitHubPR(token, repo, base, head, title, body string) (string, error) {
 		base = "main"
 	}
 	payload, _ := json.Marshal(map[string]string{"title": title, "body": body, "head": head, "base": base})
-	req, err := http.NewRequest(http.MethodPost, "https://api.github.com/repos/"+repo+"/pulls", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, githubAPIBase+"/repos/"+repo+"/pulls", bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
