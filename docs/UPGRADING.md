@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.39">1.8.39 — 2026-08-16</option>
       <option value="1.8.38">1.8.38 — 2026-08-16</option>
       <option value="1.8.37">1.8.37 — 2026-08-16</option>
       <option value="1.8.36">1.8.36 — 2026-08-16</option>
@@ -172,6 +173,33 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.40">
+
+### 1.8.40 — `check_schema` may report pages it used to pass
+
+Nothing to change unless you use `schema_defaults` **and** your theme writes
+JSON-LD of its own. If it does, `check_schema` will now name every page in a
+section whose declared `@type` reached the output nowhere — which is most likely
+a real gap that has been shipping, not a new false positive: a theme that emits
+any `application/ld+json` block turns auto-injection off for the whole page.
+
+Emit the derived data beside your own block:
+
+```gotemplate
+<script type="application/ld+json">{{ toJSON .Schema }}</script>
+{{ partial "schema-faq" . }}
+```
+
+`.Schema` is new in this release: the merged structured data SSG would have
+injected, in precedence order, so the theme does not have to rebuild it.
+
+On `check_schema: strict` this turns a previously passing build into a failing
+one. If you need the build green before you can fix the theme, drop to
+`check_schema: warn` for the interim — the finding is the same, it just does not
+stop the build.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.39">
 

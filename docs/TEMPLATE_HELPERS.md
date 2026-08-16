@@ -526,3 +526,38 @@ the current page, with `…` for each gap, which is what WordPress renders:
 The addresses come from the generator, so they follow `posts_page`, a language
 prefix and the archive's own base without a theme guessing the URL shape.
 `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL` are unchanged.
+
+## Structured data
+
+`.Schema` is the JSON-LD SSG would inject for the page, already merged in
+precedence order — site-wide `schema:` < derived from frontmatter <
+`schema_defaults` for the section < the page's own `schema:`. Render it with
+`toJSON`:
+
+```gotemplate
+<script type="application/ld+json">{{ toJSON .Schema }}</script>
+```
+
+You need it when your theme writes JSON-LD of its own. **Auto-injection is
+gated on the theme having emitted none**: one hand-written
+`application/ld+json` block turns it off for the whole page, so a theme with,
+say, an `FAQPage` partial silently loses whatever `schema_defaults` declared for
+that section. Emitting `.Schema` beside your own block restores it without
+reimplementing the merge in the theme:
+
+```gotemplate
+<script type="application/ld+json">{{ toJSON .Schema }}</script>
+{{ partial "schema-faq" . }}
+```
+
+Two sibling blocks are what Google asks for when a `Recipe` and an `FAQPage`
+describe the same page. If you would rather ship one block, put both in a graph:
+
+```gotemplate
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{{ toJSON .Schema }}, {{ toJSON .FAQ }}]}
+</script>
+```
+
+`check_schema` accepts either shape, and reports a section's `@type` that
+reached neither (see [Validating structured data](CONFIGURATION.md#validating-structured-data)).

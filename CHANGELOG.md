@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.40] - 2026-08-16
+
+### Added
+- 🧩 **`.Schema` — the structured data SSG would inject, available to templates**
+  (#158) — SEO injection is gated on what the theme emitted: **one hand-written
+  `application/ld+json` block turns auto-injection off for the whole page**. A
+  theme with an `FAQPage` partial therefore lost whatever `schema_defaults`
+  declared for that section, and the only way to keep both was to reimplement
+  the precedence merge (site-wide < derived < section < frontmatter) in the
+  theme. `.Schema` is that merged object; `{{ toJSON .Schema }}` emits it beside
+  a hand-written block, or inside an `@graph` with it.
+
+### Fixed
+- 🔎 **`check_schema` reports a type a section promised and never emitted**
+  (#158) — it validated the JSON-LD a page emitted and said nothing about the
+  JSON-LD a page failed to emit. A recipe site shipped **zero** `Recipe` markup
+  for three days while `check_schema: warn` reported "structured data carries
+  every required property" — truthfully, because the theme's own complete
+  `FAQPage` block was all it could see, and that block was what suppressed the
+  Recipe in the first place. The check now asks the question one level up: when
+  `schema_defaults` declares an `@type` for a section, a page in that section
+  that carries it nowhere is reported, with the cause and both ways out named.
+  Sibling blocks, a top-level array and an `@graph` all satisfy it — the shapes
+  Google's own guidance produces. A section whose `@type` is a list promises
+  nothing specific and is not checked; a site without `schema_defaults` sees no
+  change.
+
 ## [1.8.39] - 2026-08-16
 
 ### Fixed
