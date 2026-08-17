@@ -1642,6 +1642,9 @@ func (g *Generator) loadContentFromFiles() error {
 	g.siteData.ResolveFlexibleFields()
 
 	g.logContentStats()
+	// Markdown the build read nothing of. A count of pages and posts beside a
+	// directory of documents that produced none is a silence worth ending (#168).
+	g.reportUnreadContent(sourcePath)
 
 	return nil
 }

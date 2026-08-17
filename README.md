@@ -345,7 +345,8 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Site migration | `ssg migrate wordpress <url>` — scaffold + content pull (wpexporter) + build in one command; completes `title`/`description`/`timezone`/`colors` from the source site; pages, posts, media, a theme's own post types and reader comments; `--watch --http` migrates live in the browser ([docs/MIGRATE.md](docs/MIGRATE.md)) |
 | Front page | A content page at `/` (what a WordPress static front page exports as) becomes the site's front page; `posts_page:` gives the generated listing a home of its own |
-| Content repair | `ssg repair --fix` rewrites source Markdown a page-builder export left indented into a code block; `check_markup` reports it on every build ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#validating-the-built-output)) |
+| Content repair | `ssg repair --fix` rewrites source Markdown a page-builder export left indented **or fenced** into a code block; `check_markup` reports both on every build ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#validating-the-built-output)) |
+| Several projects at once | `ssg daemon` watches every project in `.ssg_projects` from one process; editing the file reloads the fleet in place, leaving untouched projects running ([docs/DAEMON.md](docs/DAEMON.md)) |
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
@@ -542,6 +543,7 @@ Development workflow and review requirements are in
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |
+| [docs/DAEMON.md](docs/DAEMON.md) | `ssg daemon`: several projects watched by one process, reloaded in place |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
 | [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |

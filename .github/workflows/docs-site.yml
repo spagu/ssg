@@ -60,6 +60,13 @@ concurrency:
   group: docs-site-${{ github.event.pull_request.number || 'main' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
+  # Every workflow carries this, not only the ones that build a release: an
+  # action left on the old runtime stops working when Node 20 is removed, and a
+  # scheduled security scan failing quietly is the worst place to find out.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
 
@@ -78,10 +85,10 @@ jobs:
       CF_API: https://api.cloudflare.com/client/v4
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true

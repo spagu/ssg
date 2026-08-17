@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.42" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.43" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -43,6 +43,10 @@ ssg \- fast static site generator written in Go
 .B ssg repair
 .RI [ path ...]
 .RB [ \-\-fix ]
+.br
+.B ssg daemon
+.RB [ \-\-config\ \fIFILE\fR ]
+.RB [ \-\-once ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -144,6 +148,23 @@ which nothing renders correctly, whatever it holds — and a fence with \fBno
 language\fR holding markup in a document that carries raw markup outside it as
 well. A deliberate sample is written as \fB```html\fR and does not sit in a page
 otherwise made of divs. Front matter and list continuations are never touched.
+.TP
+.B ssg daemon \fR[\fB\-\-config\fR \fIFILE\fR] [\fB\-\-once\fR] [\fB\-\-quiet\fR]
+Watch several projects from one process. Reads \fB.ssg_projects\fR (YAML,
+override with \fB\-\-config\fR), which lists each project's directory and
+optionally its own config file, port, host and extra flags; a port implies a
+server, and \fBdisabled: true\fR keeps a project in the file without running it.
+Each project runs an ordinary \fBssg \-\-watch\fR in its own directory, with its
+output tagged by project name.
+.IP
+Editing the projects file reloads the fleet in place: a project whose settings
+did not change keeps running and keeps its port, and only what changed is
+restarted. \fBSIGHUP\fR reloads on demand; \fBSIGINT\fR and \fBSIGTERM\fR stop
+everything. A projects file that no longer parses leaves the running projects
+alone rather than stopping them over a typo. A project that exits by itself is
+restarted; one that will not start is named and skipped so the rest come up.
+\fB\-\-once\fR prints what would run and exits, which checks a projects file in
+CI. See \fBdocs/DAEMON.md\fR.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content

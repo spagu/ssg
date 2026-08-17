@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.43] - 2026-08-17
+
+### Added
+- 🛠️ **`ssg daemon` — several projects watched by one process** (#169) —
+  `ssg --watch` serves one project, so four sites meant four terminals, four
+  scrollbacks and four things to remember to restart. `.ssg_projects` declares
+  them once, each with its own directory, config, port and flags, and
+  `ssg daemon` keeps them all running.
+
+  **Editing the projects file reloads the fleet in place.** A project whose
+  settings did not change keeps running and keeps its port; only what actually
+  changed is restarted, and a newly added project does not interrupt the others
+  — otherwise "reload" would be a restart wearing a different word. `SIGHUP`
+  reloads on demand; a projects file that no longer parses leaves everything
+  running rather than stopping four sites over a typo. A project that exits by
+  itself is restarted, one that will not start is named and skipped so the rest
+  come up, and stopping signals a project's whole process group so a
+  `watch_runner` child releases the port too. `--once` prints what would run and
+  exits, which checks a projects file in CI. Each project is an ordinary
+  `ssg --watch` in its own directory — the daemon adds supervision, not a second
+  way to build a site. See [docs/DAEMON.md](docs/DAEMON.md).
+
+### Fixed
+- 🗂️ **Markdown the build never read is now reported** (#168) — a build reads
+  `pages/` and `posts/` and nothing else, so a `products/` directory an export
+  left behind was not skipped so much as never looked at. A shop reported 282
+  product documents on disk against a log reading "Loaded 71 pages, 4 posts",
+  with no output and no word. The build now names each unread directory, its file
+  count, and the `content_sources:` block that loads it — which builds each
+  document at the address its `link:` names. Worth saying plainly: **the `type:`
+  front matter was not the cause**, as the report reasonably assumed. A document
+  with any unknown type inside `pages/` builds normally; the directory was the
+  whole story, and acting on the wrong cause means editing 282 files for nothing.
+
+### Changed
+- ⚙️ **Every workflow forces Node 24, and every pinned action is current** —
+  `actions/checkout` and `actions/upload-artifact` were still on the v4 line,
+  which targets the deprecated Node 20 runtime, and four of the seven workflows
+  carried no `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`. Both are fixed: all pins move
+  to their current releases (checkout v7.0.1, upload-artifact v7.0.1, setup-go
+  v7.0.0, codecov v7.0.0, scorecard v2.4.4, gh-release v3.0.2 — itself the Node
+  24 move — login-action v4.6.0, codeql-bundle v2.26.3), and every workflow now
+  carries the env, not only the ones that build a release: a scheduled security
+  scan failing quietly when Node 20 is removed is the worst place to find out.
+
 ## [1.8.42] - 2026-08-17
 
 ### Added

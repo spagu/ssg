@@ -48,6 +48,12 @@ func isCacheSubcommand(noun string) bool {
 // separate from dispatchSubcommand (which needs a verb+noun pair) because
 // `init` takes an optional source-name argument, not a fixed noun.
 func dispatchSingleVerb(args []string) (int, bool) {
+	// `ssg daemon` watches several projects at once (#169). Like `init`, it
+	// takes flags rather than a fixed noun; a source directory named "daemon"
+	// still builds via --source=daemon.
+	if len(args) >= 1 && args[0] == "daemon" {
+		return runDaemon(args[1:]), true
+	}
 	if len(args) >= 1 && args[0] == "init" {
 		return runInit(args[1:]), true
 	}
