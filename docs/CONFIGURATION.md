@@ -857,7 +857,8 @@ register one type whose section exists and another whose section 404s on the
 **source** as well. Building an index for every folder would publish pages the
 original never had.
 
-An export that records `has_archive` answers for itself: when
+An export that records `has_archive` answers for itself — **wpexporter 1.8.15+
+writes both fields**, so a migrated project needs no configuration at all. When
 `content/<source>/metadata.json` carries
 
 ```json
@@ -871,12 +872,12 @@ the archive is built with no configuration at all, and a type marked
 `"has_archive": false` is skipped. A `false` in `type_archives` overrules the
 export — the operator has looked at the source and the export has not.
 
-`archive_slug` moves the listing when the source did not serve it at the type's
+`archive_link` moves the listing when the source did not serve it at the type's
 own slug. WordPress lets `has_archive` **be** a slug, so a type called
 `realizacje` can publish its archive at `/nasze-prace/`:
 
 ```json
-{"slug": "realizacje", "has_archive": true, "archive_slug": "nasze-prace"}
+{"slug": "realizacje", "has_archive": true, "archive_link": "/nasze-prace/"}
 ```
 
 `.ContentType` stays the type either way, so a theme styles the section by what

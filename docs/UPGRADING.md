@@ -196,10 +196,10 @@ report has been shipping:
 
 **`type_archives` is new and off**, so a custom post type's section is not built
 unless you ask — with one exception worth knowing: if your
-`content/<source>/metadata.json` carries `custom_types[].has_archive` (from a
-future exporter), the archives it declares are built automatically. Today no
-exporter writes that field, so nothing changes until you either upgrade the
-exporter or set the key yourself:
+`content/<source>/metadata.json` carries `custom_types[].has_archive`, the
+archives it declares are built automatically. **wpexporter 1.8.15 writes it**, so
+re-exporting a migrated site gives you those sections without touching the
+config. On an older export, declare them yourself:
 
 ```yaml
 type_archives:

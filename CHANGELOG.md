@@ -24,11 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the other**, so a folder of documents is evidence of nothing. An export that
   records `has_archive` in `metadata.json` therefore answers for itself and needs
   no configuration — `custom_types[].has_archive` is read, `false` is honoured,
-  and a `false` in `type_archives` overrules the export. `custom_types[].archive_slug`
+  and a `false` in `type_archives` overrules the export. `custom_types[].archive_link`
   moves the listing when the source did not serve it at the type's own slug:
   WordPress lets `has_archive` **be** a slug, so a type called `realizacje` can
   publish its archive at `/nasze-prace/`, and building it at `/realizacje/` would
-  put the section where nothing links while the real address stayed a 404. Empty
+  put the section where nothing links while the real address stayed a 404.
+  **wpexporter 1.8.15 writes both fields** (tradik/wpexporter#64), so a migrated
+  project gets its sections with no configuration at all. Empty
   (the default) builds nothing, so no existing site changes. A hand-written page
   that owns the URL keeps it.
 

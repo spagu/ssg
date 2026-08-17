@@ -20,12 +20,14 @@ package generator
 //	  realizacje: true
 //	  reviews: false
 //
-// A future export can answer for itself: when metadata.json says a type has an
-// archive, that counts as a declaration and no config is needed. Until an
-// exporter ships the field, the map is the whole story.
+// An export answers for itself: metadata.json's custom_types[] carries
+// has_archive and archive_link since wpexporter 1.8.15, so a migrated project
+// needs no configuration at all. The map stays for older exports, and for
+// overruling one.
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -104,19 +106,34 @@ func (g *Generator) collectTypeArchives() []typeArchive {
 	return out
 }
 
-// typeArchivePath returns where a type's listing is published: the slug the
+// typeArchivePath returns where a type's listing is published: the address the
 // export recorded for it, or the type's own slug when it recorded none.
 func (g *Generator) typeArchivePath(typeSlug string) string {
 	for _, t := range g.siteData.CustomTypes {
 		if !strings.EqualFold(strings.TrimSpace(t.Slug), typeSlug) {
 			continue
 		}
-		if s := strings.Trim(strings.TrimSpace(t.ArchiveSlug), "/"); s != "" {
-			return s
+		if p := archiveLinkPath(t.ArchiveLink); p != "" {
+			return p
 		}
 		break
 	}
 	return typeSlug
+}
+
+// archiveLinkPath reduces a recorded archive address to the output path it
+// names. wpexporter writes it root-relative ("/nasze-prace/"), but a hand-edited
+// metadata.json may hold a full URL, and neither should end up as a directory
+// called "https:".
+func archiveLinkPath(link string) string {
+	s := strings.TrimSpace(link)
+	if s == "" {
+		return ""
+	}
+	if u, err := url.Parse(s); err == nil && u.Path != "" {
+		s = u.Path
+	}
+	return strings.Trim(s, "/")
 }
 
 // archivedTypes returns the types that should get an archive, mapped to the name

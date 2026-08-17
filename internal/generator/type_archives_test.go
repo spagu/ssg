@@ -241,7 +241,7 @@ func TestUnsafeSlugIsRefused(t *testing.T) {
 func TestArchiveSlugMovesTheSection(t *testing.T) {
 	g := cptGen(t)
 	g.siteData.CustomTypes = []models.CustomType{
-		{Slug: "realizacje", Name: "Realizacje", HasArchive: true, ArchiveSlug: "nasze-prace"},
+		{Slug: "realizacje", Name: "Realizacje", HasArchive: true, ArchiveLink: "/nasze-prace/"},
 	}
 	if err := g.generateTypeArchives(); err != nil {
 		t.Fatal(err)
@@ -265,13 +265,34 @@ func TestArchiveSlugDefaultsToTheType(t *testing.T) {
 	for _, slug := range []string{"", "   ", "/realizacje/"} {
 		g := cptGen(t)
 		g.siteData.CustomTypes = []models.CustomType{
-			{Slug: "realizacje", HasArchive: true, ArchiveSlug: slug},
+			{Slug: "realizacje", HasArchive: true, ArchiveLink: slug},
 		}
 		if err := g.generateTypeArchives(); err != nil {
 			t.Fatal(err)
 		}
 		if !fileExists(t, g, "realizacje/index.html") {
 			t.Errorf("archive_slug %q must land at /realizacje/", slug)
+		}
+	}
+}
+
+// TestArchiveLinkPath reduces a recorded address to the section it names.
+// wpexporter writes it root-relative; a hand-edited metadata.json may not.
+func TestArchiveLinkPath(t *testing.T) {
+	cases := map[string]string{
+		"/nasze-prace/":                    "nasze-prace",
+		"nasze-prace":                      "nasze-prace",
+		"/realizacje/":                     "realizacje",
+		"  /spaced/  ":                     "spaced",
+		"https://example.com/nasze-prace/": "nasze-prace",
+		"/deep/section/":                   "deep/section",
+		"":                                 "",
+		"   ":                              "",
+		"/":                                "",
+	}
+	for in, want := range cases {
+		if got := archiveLinkPath(in); got != want {
+			t.Errorf("archiveLinkPath(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
