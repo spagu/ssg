@@ -465,6 +465,32 @@ type Metadata struct {
 	// export ran without credentials: WordPress gates menus behind
 	// edit_theme_options.
 	Menus []Menu `json:"menus"`
+
+	// CustomTypes is what the source CMS registered beyond pages and posts —
+	// Services, Portfolio, Realizacje. The field that matters here is
+	// HasArchive: a type's archive is a listing the CMS renders, not a document,
+	// so it cannot travel with the content and the generator has to be told
+	// whether the source served one (#165). Absent from exports that predate the
+	// field, in which case `type_archives` in the config is the only answer.
+	CustomTypes []CustomType `json:"custom_types"`
+}
+
+// CustomType describes one content type the source CMS registered.
+type CustomType struct {
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	// HasArchive is whether the source served a listing at the type's own
+	// section. It is not derivable from the content: a site can register a type
+	// whose entries are addressable while its section 404s, and the reported
+	// case had one of each.
+	HasArchive bool `json:"has_archive"`
+	// ArchiveLink is the address the source published that listing at, as a
+	// root-relative path — "/realizacje/", or "/nasze-prace/" when the type's
+	// archive does not sit at its own slug. WordPress lets `has_archive` BE a
+	// slug, so assuming the type slug would build the section at an address
+	// nothing links to while the real one stayed a 404. Empty means the type's
+	// own slug (wpexporter 1.8.15+ always fills it when HasArchive is true).
+	ArchiveLink string `json:"archive_link"`
 }
 
 // SiteInfo is the source site's self-description, straight from its settings.
@@ -538,6 +564,10 @@ type SiteData struct {
 	// Menus reaches templates as .Site.Menus.<location> (or .<slug>), each with
 	// .Items already nested and ordered as the source site rendered them.
 	Menus map[string]Menu
+	// CustomTypes is what the source CMS registered beyond pages and posts, as
+	// recorded by the export. HasArchive decides whether /<type>/ is built (#165);
+	// a theme can also read the list to render its own section index.
+	CustomTypes []CustomType
 	// Comments are the readers' comments a migration carried across, keyed by
 	// the page URL they belong to. A page's own thread reaches its template as
 	// .Comments (#142).

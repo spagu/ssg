@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.41" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.42" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -127,15 +127,23 @@ next snap rebuild. The \fBwpexporter snap\fR is not usable from a snap-installed
 ssg (a snap cannot execute another snap) and is reported as skipped.
 .TP
 .B ssg repair \fR[\fIpath\fR...] [\fB\-\-fix\fR] [\fB\-\-quiet\fR]
-Find source Markdown whose markup is indented four columns or more, which
-CommonMark renders as a literal code block — the shape a page-builder export
-(Elementor, WPBakery, Divi) leaves behind, where the visitor reads \fB</div>\fR
-in monospace and the build reports success. Without \fB\-\-fix\fR it is a dry
-run that reports file and line and exits 1 on findings, so CI can gate on it;
-\fB\-\-fix\fR rewrites the affected files in place. Front matter, fenced code
-blocks and list continuations are never touched. With no \fIpath\fR it scans the
-configured \fBcontent_dir\fR. The same defect is reported during every build by
+Find source Markdown that renders as literal text instead of as the markup it
+is — the shape a page-builder export (Elementor, WPBakery, Divi) leaves behind,
+where the visitor reads \fB</div>\fR in monospace and the build reports success.
+Two ways Markdown swallows markup are found: it is \fBindented\fR four columns or
+more, which CommonMark reads as a code block, or it is \fBfenced\fR. Without
+\fB\-\-fix\fR it is a dry run that reports file, line and cause and exits 1 on
+findings, so CI can gate on it; \fB\-\-fix\fR dedents the indented blocks and
+removes the swallowing fence markers, in place. With no \fIpath\fR it scans the
+configured \fBcontent_dir\fR. The same defects are reported during every build by
 \fBcheck_markup\fR, which is on by default.
+.IP
+A fence an author meant is never touched. Only two shapes are reported: one that
+never closes before the end of the document, whose content carries markup — after
+which nothing renders correctly, whatever it holds — and a fence with \fBno
+language\fR holding markup in a document that carries raw markup outside it as
+well. A deliberate sample is written as \fB```html\fR and does not sit in a page
+otherwise made of divs. Front matter and list continuations are never touched.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content

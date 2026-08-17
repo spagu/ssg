@@ -96,6 +96,16 @@ date_archives: false # Publish /YYYY/ and /YYYY/MM/ listings of your posts (and
                      # them and links to them from every byline; a hand-authored
                      # site usually does not, so this is opt-in. `ssg migrate`
                      # turns it on for a migrated project.
+
+# type_archives declares which content types get a listing at /<type>/ — the
+# section a custom post type serves, which the CMS renders from has_archive and
+# which therefore appears in no export. It cannot be inferred: a site can have
+# one custom type whose section exists and another whose section 404s.
+# An export that records has_archive answers for itself; `false` here overrules
+# it. Empty (the default) builds nothing.
+# type_archives:
+#   realizacje: true
+#   reviews: false
 seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
                      # non-destructive — only fills pages that lack their own tags).
                      # Legacy seo_off / --seo-off are still accepted as no-ops.

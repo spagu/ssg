@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.42] - 2026-08-17
+
+### Added
+- 🗂️ **`type_archives` — a custom post type's own section** (#165) — a migration
+  brings a WordPress custom post type across as a folder of documents, each at
+  the address the source served. What it cannot bring across is the type's
+  archive: `/realizacje/` is not a document anywhere, it is a listing WordPress
+  renders from `has_archive`. So the entries built, the site's own menu linked to
+  the section, and the section answered 404. `type_archives: {realizacje: true}`
+  builds it with `category.html`, `Kind: "type"` and `.ContentType`, paginated by
+  `paginate` like a category archive.
+
+  It cannot be inferred from the content, and that is not caution: on the site
+  that reported this, one custom type serves its section and **the source 404s at
+  the other**, so a folder of documents is evidence of nothing. An export that
+  records `has_archive` in `metadata.json` therefore answers for itself and needs
+  no configuration — `custom_types[].has_archive` is read, `false` is honoured,
+  and a `false` in `type_archives` overrules the export. `custom_types[].archive_link`
+  moves the listing when the source did not serve it at the type's own slug:
+  WordPress lets `has_archive` **be** a slug, so a type called `realizacje` can
+  publish its archive at `/nasze-prace/`, and building it at `/realizacje/` would
+  put the section where nothing links while the real address stayed a 404.
+  **wpexporter 1.8.15 writes both fields** (tradik/wpexporter#64), so a migrated
+  project gets its sections with no configuration at all. Empty
+  (the default) builds nothing, so no existing site changes. A hand-written page
+  that owns the URL keeps it.
+
+### Fixed
+- 🧱 **`ssg repair` finds fenced markup, not only indented markup** (#166) —
+  `repair` reported a site clean while its front page carried a grey code box a
+  screen and a half tall, full of `</div>` and `<section class="elementor-section
+  …">`. The cause is the other way Markdown swallows markup: one code fence the
+  exporter emitted around a plugin's `<template>`, mid-`<div>`, after which the
+  document renders as source. `repair` looked only for four-column indentation
+  and walked past it. Both are now found and both are fixed — the indented blocks
+  dedented, the swallowing fence markers removed — and `check_markup` names which
+  of the two it saw on every build.
+
+  A fence an author meant is never touched. Only two shapes are reported: one
+  that never closes before the end of the document whose content carries markup,
+  and a fence with **no language** holding markup in a document that carries raw
+  markup outside it as well. A deliberate ```` ```html ```` sample, and a bare
+  fence in a prose document, both come back byte-identical.
+
 ## [1.8.41] - 2026-08-16
 
 ### Fixed

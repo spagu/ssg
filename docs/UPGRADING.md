@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.41">1.8.41 — 2026-08-16</option>
       <option value="1.8.40">1.8.40 — 2026-08-16</option>
       <option value="1.8.39">1.8.39 — 2026-08-16</option>
       <option value="1.8.38">1.8.38 — 2026-08-16</option>
@@ -174,6 +175,38 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.42">
+
+### 1.8.42 — `repair` and `check_markup` may report pages they used to pass
+
+Nothing to configure. Two things can newly speak up, and in both cases what they
+report has been shipping:
+
+- **`ssg repair` now finds fenced markup**, not only indented markup. A page
+  whose exported body carries a stray code fence renders as source from that line
+  on, and `repair` used to walk past it. `ssg repair` (dry run) tells you which
+  pages; `ssg repair --fix` removes the fence markers and leaves the markup, the
+  same shape as the existing dedent. A fence you wrote on purpose — ```` ```html ````,
+  or any fence in a prose document — is never touched.
+- **`check_markup` names the cause**, "indented as code" or "fenced as code". On
+  `check_markup: strict` a page with a swallowing fence now fails the build where
+  it previously passed. Drop to `warn` if you need the build green while you fix
+  the sources.
+
+**`type_archives` is new and off**, so a custom post type's section is not built
+unless you ask — with one exception worth knowing: if your
+`content/<source>/metadata.json` carries `custom_types[].has_archive`, the
+archives it declares are built automatically. **wpexporter 1.8.15 writes it**, so
+re-exporting a migrated site gives you those sections without touching the
+config. On an older export, declare them yourself:
+
+```yaml
+type_archives:
+  realizacje: true
+```
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.41">
 

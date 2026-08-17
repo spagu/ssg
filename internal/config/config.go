@@ -174,6 +174,16 @@ type Config struct {
 	// WordPress publishes and links to from every byline (#146). Opt-in: a
 	// site that never had these URLs should not grow them because it upgraded.
 	DateArchives bool `yaml:"date_archives" toml:"date_archives" json:"date_archives"`
+	// TypeArchives declares which content types get a listing at /<type>/ — the
+	// archive WordPress renders from has_archive and links to from its own menu,
+	// which is not a document anywhere and so cannot be exported (#165).
+	//
+	// Keyed by type slug: `realizacje: true` builds it, `reviews: false` refuses
+	// it even when the export says the source had one. It cannot be inferred
+	// from the content: on the site that reported this, one custom type serves an
+	// archive and another 404s at its own section, so a folder of documents is
+	// not evidence either way. Empty means nothing is built.
+	TypeArchives map[string]bool `yaml:"type_archives" toml:"type_archives" json:"type_archives"`
 
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"
