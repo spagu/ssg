@@ -233,3 +233,45 @@ func TestUnsafeSlugIsRefused(t *testing.T) {
 		t.Error("a traversing slug must not be written")
 	}
 }
+
+// TestArchiveSlugMovesTheSection: WordPress lets `has_archive` BE a slug, so a
+// type called `realizacje` can serve its archive at /nasze-prace/ (wpexporter
+// 1.8.11 already decodes that form). Building it at the type's own slug would
+// publish a section nothing links to and leave the real address a 404.
+func TestArchiveSlugMovesTheSection(t *testing.T) {
+	g := cptGen(t)
+	g.siteData.CustomTypes = []models.CustomType{
+		{Slug: "realizacje", Name: "Realizacje", HasArchive: true, ArchiveSlug: "nasze-prace"},
+	}
+	if err := g.generateTypeArchives(); err != nil {
+		t.Fatal(err)
+	}
+	if !fileExists(t, g, "nasze-prace/index.html") {
+		t.Fatal("the archive must be published where the source served it")
+	}
+	if fileExists(t, g, "realizacje/index.html") {
+		t.Error("and not at the type's own slug, which nothing links to")
+	}
+	// The type is still what a theme reads, so styling keys off the type and
+	// not off the address.
+	if body := mustReadOutput(t, g, "nasze-prace/index.html"); !strings.Contains(body, "type=realizacje") {
+		t.Errorf(".ContentType must stay the type: %s", body)
+	}
+}
+
+// TestArchiveSlugDefaultsToTheType: the ordinary case, and every spelling of
+// "not set" behaves the same.
+func TestArchiveSlugDefaultsToTheType(t *testing.T) {
+	for _, slug := range []string{"", "   ", "/realizacje/"} {
+		g := cptGen(t)
+		g.siteData.CustomTypes = []models.CustomType{
+			{Slug: "realizacje", HasArchive: true, ArchiveSlug: slug},
+		}
+		if err := g.generateTypeArchives(); err != nil {
+			t.Fatal(err)
+		}
+		if !fileExists(t, g, "realizacje/index.html") {
+			t.Errorf("archive_slug %q must land at /realizacje/", slug)
+		}
+	}
+}

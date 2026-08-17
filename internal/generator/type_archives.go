@@ -37,7 +37,13 @@ import (
 // typeArchive is one custom post type's listing: the address it takes, the name
 // a template titles it with, and the documents it lists.
 type typeArchive struct {
-	Slug  string
+	// Type is the content type's slug, as written in each document's `type:`.
+	Type string
+	// Path is where the listing is published. Usually the type's own slug, but
+	// WordPress lets `has_archive` BE a slug — a type called `realizacje` can
+	// serve its archive at /nasze-prace/ — and building it anywhere else would
+	// publish a section nothing links to.
+	Path  string
 	Name  string
 	Pages []models.Page
 }
@@ -86,15 +92,31 @@ func (g *Generator) collectTypeArchives() []typeArchive {
 	out := make([]typeArchive, 0, len(byType))
 	for slug, pages := range byType {
 		out = append(out, typeArchive{
-			Slug:  slug,
+			Type:  slug,
+			Path:  g.typeArchivePath(slug),
 			Name:  wanted[slug],
 			Pages: sortPostsByDate(pages),
 		})
 	}
 	// Deterministic order so a build is reproducible and the log reads the same
 	// way twice.
-	sort.Slice(out, func(i, j int) bool { return out[i].Slug < out[j].Slug })
+	sort.Slice(out, func(i, j int) bool { return out[i].Type < out[j].Type })
 	return out
+}
+
+// typeArchivePath returns where a type's listing is published: the slug the
+// export recorded for it, or the type's own slug when it recorded none.
+func (g *Generator) typeArchivePath(typeSlug string) string {
+	for _, t := range g.siteData.CustomTypes {
+		if !strings.EqualFold(strings.TrimSpace(t.Slug), typeSlug) {
+			continue
+		}
+		if s := strings.Trim(strings.TrimSpace(t.ArchiveSlug), "/"); s != "" {
+			return s
+		}
+		break
+	}
+	return typeSlug
 }
 
 // archivedTypes returns the types that should get an archive, mapped to the name
@@ -142,13 +164,13 @@ func typeArchiveName(name, slug string) string {
 // owns that URL — a hand-written section page outranks a generated listing, the
 // same rule every other archive follows.
 func (g *Generator) writeTypeArchive(a typeArchive) (bool, error) {
-	slug := models.SanitizeRelPath(a.Slug)
+	slug := models.SanitizeRelPath(a.Path)
 	if slug == "" {
 		return false, nil
 	}
 	if owner, taken := g.archivePathOwner(slug); taken {
 		if !g.config.Quiet {
-			fmt.Printf("   ⚠️  Skipping %s archive /%s/: %s already owns that URL\n", a.Slug, slug, owner)
+			fmt.Printf("   ⚠️  Skipping %s archive /%s/: %s already owns that URL\n", a.Type, slug, owner)
 		}
 		return false, nil
 	}
@@ -161,7 +183,7 @@ func (g *Generator) writeTypeArchive(a typeArchive) (bool, error) {
 			outputPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
 		if err := g.ensureWithinOutput(outputPath); err != nil {
-			fmt.Printf("   ⚠️  Skipping %s archive with unsafe slug: %v\n", a.Slug, err)
+			fmt.Printf("   ⚠️  Skipping %s archive with unsafe slug: %v\n", a.Type, err)
 			return false, nil
 		}
 		// #nosec G301 -- web content directories need to be world-traversable
@@ -171,9 +193,9 @@ func (g *Generator) writeTypeArchive(a typeArchive) (bool, error) {
 		data := g.archiveData("type", a.Name, term, chunk.Posts, chunk.Pager, g.currentLang)
 		// The type slug lets a theme tell one content-type archive from another
 		// without parsing the URL.
-		data["ContentType"] = a.Slug
+		data["ContentType"] = a.Type
 		if err := g.renderTemplate(categoryHTMLName, outputPath, data); err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to generate %s archive: %v\n", a.Slug, err)
+			fmt.Printf("   ⚠️  Warning: failed to generate %s archive: %v\n", a.Type, err)
 			return false, nil
 		}
 	}

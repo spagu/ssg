@@ -861,12 +861,26 @@ An export that records `has_archive` answers for itself: when
 `content/<source>/metadata.json` carries
 
 ```json
-{"custom_types": [{"slug": "realizacje", "name": "Realizacje", "has_archive": true}]}
+{"custom_types": [
+  {"slug": "realizacje", "name": "Realizacje", "has_archive": true},
+  {"slug": "reviews",    "name": "Reviews",    "has_archive": false}
+]}
 ```
 
 the archive is built with no configuration at all, and a type marked
 `"has_archive": false` is skipped. A `false` in `type_archives` overrules the
 export — the operator has looked at the source and the export has not.
+
+`archive_slug` moves the listing when the source did not serve it at the type's
+own slug. WordPress lets `has_archive` **be** a slug, so a type called
+`realizacje` can publish its archive at `/nasze-prace/`:
+
+```json
+{"slug": "realizacje", "has_archive": true, "archive_slug": "nasze-prace"}
+```
+
+`.ContentType` stays the type either way, so a theme styles the section by what
+it is rather than by where it lives.
 
 The listing is rendered by `category.html`, with the same context every other
 archive gets plus two fields of its own:

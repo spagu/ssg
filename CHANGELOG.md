@@ -24,9 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the other**, so a folder of documents is evidence of nothing. An export that
   records `has_archive` in `metadata.json` therefore answers for itself and needs
   no configuration — `custom_types[].has_archive` is read, `false` is honoured,
-  and a `false` in `type_archives` overrules the export. Empty (the default)
-  builds nothing, so no existing site changes. A hand-written page that owns the
-  URL keeps it.
+  and a `false` in `type_archives` overrules the export. `custom_types[].archive_slug`
+  moves the listing when the source did not serve it at the type's own slug:
+  WordPress lets `has_archive` **be** a slug, so a type called `realizacje` can
+  publish its archive at `/nasze-prace/`, and building it at `/realizacje/` would
+  put the section where nothing links while the real address stayed a 404. Empty
+  (the default) builds nothing, so no existing site changes. A hand-written page
+  that owns the URL keeps it.
 
 ### Fixed
 - 🧱 **`ssg repair` finds fenced markup, not only indented markup** (#166) —

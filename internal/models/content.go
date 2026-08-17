@@ -484,9 +484,12 @@ type CustomType struct {
 	// whose entries are addressable while its section 404s, and the reported
 	// case had one of each.
 	HasArchive bool `json:"has_archive"`
-	// ArchiveLink is the address the source served that listing at, when the
-	// export recorded it. Empty means the type's own slug.
-	ArchiveLink string `json:"archive_link"`
+	// ArchiveSlug is where the listing lives when it is not at the type's own
+	// slug. WordPress lets `has_archive` BE a slug — `has_archive: "nasze-prace"`
+	// on a type called `realizacje` serves the archive at /nasze-prace/ — so
+	// assuming the type slug would build the section at an address nothing links
+	// to. Empty means the type's own slug, which is the ordinary case.
+	ArchiveSlug string `json:"archive_slug"`
 }
 
 // SiteInfo is the source site's self-description, straight from its settings.
