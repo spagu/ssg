@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.42">1.8.42 — 2026-08-17</option>
       <option value="1.8.41">1.8.41 — 2026-08-16</option>
       <option value="1.8.40">1.8.40 — 2026-08-16</option>
       <option value="1.8.39">1.8.39 — 2026-08-16</option>
@@ -175,6 +176,18 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.43">
+
+### 1.8.43 — nothing to do
+
+`ssg daemon` is new and runs nothing unless you write a `.ssg_projects` file, and
+the build may now report Markdown it never read — a directory under your source
+that is neither `pages/` nor `posts/`. That report names the `content_sources:`
+block that loads it. Nothing that was building stops building, and nothing that
+was silent starts failing.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.42">
 
