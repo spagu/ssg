@@ -137,7 +137,7 @@ func repairFile(path string, fix bool) (repairResult, error) {
 func reportRepair(results []repairResult, flags repairFlags) int {
 	if len(results) == 0 {
 		if !flags.quiet {
-			fmt.Println("✅ No indented markup found — every page renders as markup.")
+			fmt.Println("✅ No swallowed markup found — every page renders as markup.")
 		}
 		return 0
 	}
@@ -151,20 +151,20 @@ func reportRepair(results []repairResult, flags repairFlags) int {
 		}
 		fmt.Printf("\n📄 %s\n", r.path)
 		for _, f := range r.findings {
-			fmt.Printf("   line %d: %d line(s) of markup indented as code → %s\n", f.Line, f.Lines, f.Sample)
+			fmt.Printf("   line %d: %d line(s) of markup %s → %s\n", f.Line, f.Lines, f.Kind, f.Sample)
 		}
 	}
 
 	if flags.fix {
-		fmt.Printf("\n🔧 Repaired %d block(s) across %d file(s) (%d lines dedented).\n",
+		fmt.Printf("\n🔧 Repaired %d block(s) across %d file(s) (%d lines changed).\n",
 			blocks, len(results), lines)
 		fmt.Println("   Rebuild to see it: ssg --config .ssg.yaml")
 		return 0
 	}
 	fmt.Printf("\n⚠️  %d block(s) of markup across %d file(s) render as literal text.\n", blocks, len(results))
 	fmt.Println("   Fix them in place with: ssg repair --fix")
-	fmt.Println("   The usual cause is an export that indented its markup (page builders do);")
-	fmt.Println("   re-exporting with wpexporter 1.8.2+ produces clean sources.")
+	fmt.Println("   The usual cause is an export of a page-builder body: it either indented")
+	fmt.Println("   its markup or fenced it, and both render as source.")
 	return 1
 }
 

@@ -731,6 +731,7 @@ shortcode_errors: strict
 |---|---:|---|---|
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
 | `date_archives` | `false` | — | Publish `/YYYY/`, `/YYYY/MM/` (and `/YYYY/MM/DD/` for dated permalinks) listings of your posts. Rendered by `category.html` with `Kind: "date"` and a label like "May 2014". Opt-in: WordPress has these URLs and links to them from every byline, a hand-authored site usually does not — `ssg migrate` turns it on. Real content that already owns such a path keeps it. |
+| `type_archives` | empty | — | Which content types get a listing at `/<type>/` — the archive the source CMS renders and links to from its own menu, which is not a document and so is in no export. Keyed by type slug: `realizacje: true` builds it, `reviews: false` refuses it even when the export says the source had one. Rendered by `category.html` with `Kind: "type"`. See [Custom post type archives](#custom-post-type-archives) |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
@@ -834,6 +835,51 @@ frontmatter `description:`.
 
 The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
 selects warning mode; strict mode fails the build.
+
+### Custom post type archives
+
+A migration brings a WordPress custom post type across as a folder of documents,
+each at the address the source served. What it cannot bring across is the type's
+**archive**: `/realizacje/` is not a document anywhere — it is a listing
+WordPress renders from `has_archive`. So the entries build, the site's own menu
+links to the section, and the section is a 404.
+
+`type_archives` says which types deserve one:
+
+```yaml
+type_archives:
+  realizacje: true
+  reviews: false
+```
+
+It cannot be inferred from the content, and that is not caution — a site can
+register one type whose section exists and another whose section 404s on the
+**source** as well. Building an index for every folder would publish pages the
+original never had.
+
+An export that records `has_archive` answers for itself: when
+`content/<source>/metadata.json` carries
+
+```json
+{"custom_types": [{"slug": "realizacje", "name": "Realizacje", "has_archive": true}]}
+```
+
+the archive is built with no configuration at all, and a type marked
+`"has_archive": false` is skipped. A `false` in `type_archives` overrules the
+export — the operator has looked at the source and the export has not.
+
+The listing is rendered by `category.html`, with the same context every other
+archive gets plus two fields of its own:
+
+| Field | Value |
+|---|---|
+| `.Kind` | `"type"` |
+| `.ContentType` | the type slug, so a theme can style one section differently from another |
+| `.Name` | the type's name from the export, or its slug made readable |
+| `.Posts`, `.Pager` | as on a category archive — `paginate` applies, giving `/realizacje/page/2/` |
+
+Real content wins: a hand-written page that already owns `/realizacje/` keeps it
+and the build says so. Nothing is built for a declared type with no entries.
 
 ### Validating structured data
 

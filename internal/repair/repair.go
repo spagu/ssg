@@ -42,29 +42,64 @@ type Finding struct {
 	// Sample is the block's first line, trimmed and truncated, so a report
 	// shows what was found without printing the whole div soup.
 	Sample string
+	// Kind says how the markup was swallowed — indented or fenced (#166). The
+	// zero value is the indented case, so a Finding built before fences were
+	// understood still means what it always did.
+	Kind Kind
 }
 
 // sampleWidth keeps a finding's sample to one terminal line.
 const sampleWidth = 60
 
-// Scan reports every indented block of raw markup in a Markdown source.
-// Front matter and fenced code blocks are never reported: YAML indentation is
-// structural, and a fence means the author asked for verbatim text.
+// Scan reports every block of raw markup a Markdown source renders as literal
+// text: indented four columns or more, or wrapped in a code fence (#166).
+// Front matter is never reported — YAML indentation is structural — and a fence
+// an author meant is left alone; see scanFences for what separates the two.
 func Scan(content string) []Finding {
 	var findings []Finding
+	lines := strings.Split(content, "\n")
+
 	scanBlocks(content, func(start, count int, lines []string) {
 		findings = append(findings, Finding{
 			Line:   start + 1,
 			Lines:  count,
 			Sample: truncate(strings.TrimSpace(lines[start]), sampleWidth),
+			Kind:   KindIndented,
+		})
+	})
+	scanFences(content, func(f fence) {
+		findings = append(findings, Finding{
+			Line:   f.Open + 1,
+			Lines:  fenceSpan(f, len(lines)),
+			Sample: truncate(fenceSample(f, lines), sampleWidth),
+			Kind:   KindFenced,
 		})
 	})
 	return findings
 }
 
-// Apply repairs the content, returning it with every indented markup block
-// dedented, plus the number of lines it changed. Content with nothing to repair
-// comes back byte-identical, so a caller can skip the write.
+// fenceSpan is how many lines the fenced region covers, markers included.
+func fenceSpan(f fence, total int) int {
+	end := f.Close
+	if end < 0 {
+		end = total - 1
+	}
+	return end - f.Open + 1
+}
+
+// fenceSample shows the markup inside the fence rather than the marker line,
+// which carries no information about what was swallowed.
+func fenceSample(f fence, lines []string) string {
+	if f.First >= 0 && f.First < len(lines) {
+		return strings.TrimSpace(lines[f.First])
+	}
+	return strings.TrimSpace(lines[f.Open])
+}
+
+// Apply repairs the content: every indented markup block is dedented and every
+// swallowing fence loses its markers. It returns the new content and the number
+// of lines it changed. Content with nothing to repair comes back byte-identical,
+// so a caller can skip the write.
 func Apply(content string) (string, int) {
 	lines := strings.Split(content, "\n")
 	changed := 0
@@ -77,6 +112,29 @@ func Apply(content string) (string, int) {
 			}
 		}
 	})
+
+	// Fence markers are removed, not blanked: a leftover empty line would end
+	// the surrounding HTML block per CommonMark and reopen the very failure the
+	// indented case exists for.
+	drop := map[int]bool{}
+	scanFences(content, func(f fence) {
+		drop[f.Open] = true
+		if f.Close >= 0 {
+			drop[f.Close] = true
+		}
+	})
+	if len(drop) > 0 {
+		kept := make([]string, 0, len(lines))
+		for i, line := range lines {
+			if drop[i] {
+				changed++
+				continue
+			}
+			kept = append(kept, line)
+		}
+		lines = kept
+	}
+
 	if changed == 0 {
 		return content, 0
 	}

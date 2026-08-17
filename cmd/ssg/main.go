@@ -645,6 +645,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		SEO:                    cfg.SEO,
 		Analytics:              cfg.Analytics,
 		DateArchives:           cfg.DateArchives,
+		TypeArchives:           cfg.TypeArchives,
 		Schema:                 cfg.Schema,
 		SchemaDefaults:         cfg.SchemaDefaults,
 		ContentSchemas:         cfg.ContentSchemas,

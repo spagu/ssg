@@ -32,10 +32,10 @@ func (g *Generator) checkMarkupIfRequested() error {
 	}
 	sortFindings(findings)
 	for _, f := range findings {
-		fmt.Printf("   ⚠️  markup indented as code in %s → %s\n", f.file, f.detail)
+		fmt.Printf("   ⚠️  markup renders as code in %s → %s\n", f.file, f.detail)
 	}
 	fmt.Println("   💡 The source renders as literal text, not markup — usually a page-builder")
-	fmt.Println("      export that indented its HTML. Fix it with: ssg repair --fix")
+	fmt.Println("      export that indented or fenced its HTML. Fix it with: ssg repair --fix")
 
 	if mode == "strict" {
 		return fmt.Errorf("%d block(s) of markup render as literal text", len(findings))
@@ -55,7 +55,7 @@ func (g *Generator) markupFindings() []finding {
 			for _, f := range repair.Scan(p.Content) {
 				findings = append(findings, finding{
 					file:   markupSourceLabel(p),
-					detail: fmt.Sprintf("line %d of the body: %s", f.Line, f.Sample),
+					detail: fmt.Sprintf("line %d of the body, %s: %s", f.Line, f.Kind, f.Sample),
 				})
 			}
 		}

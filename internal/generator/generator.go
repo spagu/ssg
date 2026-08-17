@@ -234,6 +234,10 @@ type Config struct {
 	// dates (#146). Opt-in: a site that never had these URLs should not grow
 	// them because it upgraded.
 	DateArchives bool
+	// TypeArchives declares which content types get a listing at /<type>/ (#165),
+	// keyed by type slug. Empty means none — a custom type's archive cannot be
+	// inferred from its documents, since a type may legitimately have none.
+	TypeArchives map[string]bool
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
 	Schema         map[string]interface{}
@@ -1828,6 +1832,12 @@ func (g *Generator) loadMetadata(path string) error {
 		g.siteData.Menus = models.MenusByLocation(metadata.Menus)
 		g.log(fmt.Sprintf("   🧭 Loaded %d navigation menu(s)", len(metadata.Menus)))
 	}
+	// The content types the source registered, and — the part no export can
+	// derive from the documents — whether each served an archive at its own
+	// section (#165).
+	if len(metadata.CustomTypes) > 0 {
+		g.siteData.CustomTypes = metadata.CustomTypes
+	}
 	// The source site's own name, tagline and palette. Configuration always
 	// wins — the export is the fallback for a project whose config has not been
 	// filled in yet, which is every project the moment a migration finishes
@@ -3216,6 +3226,12 @@ func (g *Generator) generateSite() error {
 	// via date_archives; until #159 the key was accepted and nothing ran.
 	if err := g.generateDateArchives(); err != nil {
 		return fmt.Errorf("generating date archives: %w", err)
+	}
+
+	// A custom post type's own section — /realizacje/ — which the source CMS
+	// renders from has_archive and which is therefore in no export (#165).
+	if err := g.generateTypeArchives(); err != nil {
+		return fmt.Errorf("generating content-type archives: %w", err)
 	}
 
 	// Alias stubs are written last, once every real page exists. Writing them
