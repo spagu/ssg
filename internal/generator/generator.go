@@ -3096,6 +3096,11 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 			return fmt.Errorf("creating template %s: %w", name, err)
 		}
 	}
+	// The templates link a stylesheet and a script; write them, or the scaffold
+	// ships a site that renders unstyled with two 404s in the console (#172).
+	if err := writeScaffoldAssets(templatePath); err != nil {
+		return err
+	}
 
 	fmt.Printf("   📝 Created default templates in %s\n", templatePath)
 	return nil

@@ -55,6 +55,14 @@ type migrateFlags struct {
 	// snap bundles its own copy, so without this an operator who installed a
 	// newer engine had no way to reach it (#160).
 	engine string
+	// userAgent, rateLimit and engineArgs reach the engine (#171). Bot
+	// protection in front of WordPress is ordinary, and the engine's own
+	// diagnosis names the first two — advice that was unusable from here.
+	// engineArgs is the general form, so the next engine flag does not need a
+	// release of ssg to become reachable.
+	userAgent  string
+	rateLimit  int
+	engineArgs []string
 	// host and port address the live-mode server. `migrate` parses its own
 	// flags, so the server flags every other command accepts were rejected
 	// here — `--watch --http --port 8889` died on "unknown flag" after the
@@ -149,6 +157,9 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 		NoCustomTypes: flags.noCustomTypes,
 		AllMedia:      flags.allMedia,
 		EnginePath:    flags.engine,
+		UserAgent:     flags.userAgent,
+		RateLimit:     flags.rateLimit,
+		EngineArgs:    flags.engineArgs,
 	}
 	genCfg := createGeneratorConfig(cfg)
 	if !cfg.Watch && !cfg.HTTP {
@@ -309,7 +320,10 @@ func migrateValueFlags(f *migrateFlags) map[string]func(string) int {
 		"--auth-token": set(&f.authToken), "--engine": set(&f.engine),
 		"--source": set(&f.source), "--host": set(&f.host),
 		"--custom-types": list(&f.customTypes), "--content": list(&f.content),
-		"--port": f.setPort,
+		"--user-agent": set(&f.userAgent),
+		"--rate-limit": f.setRateLimit,
+		"--engine-arg": f.addEngineArg,
+		"--port":       f.setPort,
 	}
 }
 
@@ -359,6 +373,28 @@ func reportUnknownMigrateFlag(arg string) int {
 	fmt.Fprintln(os.Stderr)
 	printMigrateUsage()
 	return 2
+}
+
+// setRateLimit parses a --rate-limit value: milliseconds between the engine's
+// requests, which is the engine's own unit. A value that is not a number is a
+// typo worth reporting rather than a crawl that silently runs at full speed
+// against a site that blocked it for exactly that (#171).
+func (f *migrateFlags) setRateLimit(value string) int {
+	ms, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || ms < 0 {
+		fmt.Fprintf(os.Stderr, "❌ --rate-limit %q is not a number of milliseconds\n", value)
+		return 2
+	}
+	f.rateLimit = ms
+	return -1
+}
+
+// addEngineArg appends one verbatim engine argument. Repeatable, because a flag
+// and its value are two arguments and pairing them here would guess at a syntax
+// the engine owns.
+func (f *migrateFlags) addEngineArg(value string) int {
+	f.engineArgs = append(f.engineArgs, value)
+	return -1
 }
 
 // setPort parses a --port value. A returned code >= 0 means stop with it: a
@@ -477,6 +513,15 @@ flags:
                      a migrated site arrives with no navigation
    --custom-types a,b  the theme's own post types (Services, Portfolio, Team)
    --no-custom-types   skip them entirely
+   --user-agent S    identify the engine as S. Bot protection commonly matches
+                     the engine's default agent and answers every request with
+                     a 500, which looks exactly like a broken REST API
+   --rate-limit MS   milliseconds between the engine's requests, to slow a crawl
+                     a site is rejecting for its pace
+   --engine-arg A    hand A to the engine verbatim; repeatable, and each flag and
+                     its value are separate arguments:
+                        --engine-arg --some-flag --engine-arg value
+                     Everything ssg derives comes first, so this can override it.
    --engine PATH     the wpexporter binary to run. Without it ssg runs the
                      newest one it can reach: PATH, and inside the snap the
                      bundled copy plus ~/go/bin, ~/.local/bin and ~/bin — so an

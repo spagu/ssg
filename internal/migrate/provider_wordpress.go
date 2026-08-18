@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -163,15 +164,37 @@ func wpexporterArgs(rawURL string, opts Options) (args, skipped []string, err er
 	}
 	args = append(args, authArgs(opts)...)
 	args = append(args, customTypeArgs(opts)...)
+	args = append(args, engineTuningArgs(opts)...)
 	if len(opts.Content) == 0 {
-		return args, nil, nil
+		return append(args, opts.EngineArgs...), nil, nil
 	}
 
 	sel, err := parseContentSelection(opts.Content)
 	if err != nil {
 		return nil, nil, err
 	}
-	return append(args, disableFlags(sel)...), sel.skipped, nil
+	args = append(args, disableFlags(sel)...)
+	// Verbatim last, so an operator can override anything ssg derived.
+	return append(args, opts.EngineArgs...), sel.skipped, nil
+}
+
+// engineTuningArgs carries the two flags bot protection actually needs (#171).
+//
+// The engine already diagnoses a Cloudflare block precisely and names these two
+// by name — but it printed that advice inside a run started by `ssg migrate`,
+// which had no way to act on it. The operator was told to try a flag by a tool
+// they were not running, and the tool they were running could not pass it on.
+func engineTuningArgs(opts Options) []string {
+	var args []string
+	if ua := strings.TrimSpace(opts.UserAgent); ua != "" {
+		args = append(args, "--user-agent", ua)
+	}
+	// Milliseconds between requests, which is the engine's own unit. Zero means
+	// "not set" there too, so it is passed only when asked for.
+	if opts.RateLimit > 0 {
+		args = append(args, "--rate-limit", strconv.Itoa(opts.RateLimit))
+	}
+	return args
 }
 
 // contentSelection is a parsed --content list: content kinds opted IN,

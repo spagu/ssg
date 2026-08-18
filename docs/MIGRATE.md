@@ -302,6 +302,42 @@ so, rather than failing a migration over a flag the engine does not know:
     (needs 1.8.5); delete content/<source>/comments.json if you do not want them
 ```
 
+## A site that blocks the crawl
+
+Bot protection in front of WordPress is ordinary, and the sites most worth
+migrating are the ones with enough traffic to have been attacked. It looks like
+a broken REST API: every collection empty, every request answered `500`.
+
+```text
+Incomplete: posts: stopped at page 1 after 0 records: API returned status 500 — Cloudflare
+refused the request — this is the site's bot protection, not its REST API.
+```
+
+The engine's diagnosis is exact, and two flags answer it:
+
+```bash
+ssg migrate wordpress https://example.com \
+  --user-agent "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/latest Safari/537.36" \
+  --rate-limit 400
+```
+
+`--user-agent` matters because the block commonly matches the engine's default
+agent; `--rate-limit` is milliseconds between requests, for a site rejecting the
+pace rather than the caller. Credentials do **not** help here —
+`--auth-user`/`--auth-pass` answer WordPress's own gate, not the CDN in front of
+it.
+
+Anything else the engine accepts goes through verbatim, so a flag newer than
+this release of ssg is still reachable:
+
+```bash
+ssg migrate wordpress https://example.com --engine-arg --some-new-flag --engine-arg value
+```
+
+Each flag and its value are separate `--engine-arg` arguments — pairing them
+here would guess at a syntax the engine owns. They are appended after everything
+ssg derives, so they can override it.
+
 ## Which engine runs
 
 `ssg migrate` runs **the newest wpexporter it can reach**, and says which one it
@@ -419,6 +455,9 @@ only designs.
 | `--custom-types a,b` | The theme's own post types to export |
 | `--no-custom-types` | Skip the theme's own post types |
 | `--engine PATH` | The wpexporter binary to run (also `SSG_WPEXPORTER`). See [Which engine runs](#which-engine-runs) |
+| `--user-agent S` | Identify the engine as S. See [A site that blocks the crawl](#a-site-that-blocks-the-crawl) |
+| `--rate-limit MS` | Milliseconds between the engine's requests |
+| `--engine-arg A` | Hand A to the engine verbatim; repeatable |
 | `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |
