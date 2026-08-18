@@ -54,6 +54,20 @@ type Options struct {
 	AuthPass  string
 	AuthToken string
 
+	// UserAgent and RateLimit reach the engine's own flags of the same names
+	// (#171). Bot protection in front of WordPress is ordinary, and the engine
+	// already diagnoses it precisely — "try --user-agent with a browser's
+	// string, --rate-limit to slow the crawl" — but that advice was printed
+	// inside a run `ssg migrate` had no way to act on. RateLimit is the engine's
+	// unit: milliseconds between requests.
+	UserAgent string
+	RateLimit int
+	// EngineArgs are handed to the engine verbatim, after everything ssg
+	// derives. The engine will grow flags this list cannot predict, and without
+	// a pass-through every one of them is unreachable from `ssg migrate` until
+	// ssg ships a release naming it.
+	EngineArgs []string
+
 	// EnginePath names the engine binary explicitly, overriding every search.
 	// Set from --engine or SSG_WPEXPORTER: the snap bundles its own copy, and
 	// without a way to say "use this one" an operator who installed a newer

@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.43">1.8.43 — 2026-08-17</option>
       <option value="1.8.42">1.8.42 — 2026-08-17</option>
       <option value="1.8.41">1.8.41 — 2026-08-16</option>
       <option value="1.8.40">1.8.40 — 2026-08-16</option>
@@ -176,6 +177,22 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.44">
+
+### 1.8.44 — nothing to do
+
+`ssg mcp` still speaks stdio by default and still declares the version a client
+asks for; the network transport runs only with `--listen`. The migrate flags are
+additive. The one visible change is that a **newly scaffolded** theme now
+contains `css/style.css` and `js/main.js` — files its templates always linked and
+nothing wrote. An existing theme is untouched: an asset already on disk is never
+overwritten, so a theme you have edited keeps its own stylesheet.
+
+If you have been living with an unstyled scaffolded site, delete the theme
+directory and rebuild to get the new one, or copy the two files across.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.43">
 

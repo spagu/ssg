@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.43" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.44" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -148,6 +148,20 @@ which nothing renders correctly, whatever it holds — and a fence with \fBno
 language\fR holding markup in a document that carries raw markup outside it as
 well. A deliberate sample is written as \fB```html\fR and does not sit in a page
 otherwise made of divs. Front matter and list continuations are never touched.
+.TP
+.B ssg mcp \fR[\fB\-\-role\fR=\fIROLE\fR] [\fB\-\-listen\fR=\fIADDR\fR] [\fB\-\-token\fR=\fISECRET\fR] [\fB\-\-no\-stdio\fR]
+Model Context Protocol development server for AI-assisted editing. Speaks
+\fBstdio\fR by default, so an assistant launches it. \fB\-\-listen\fR additionally
+serves the MCP endpoint at \fBhttp://\fIADDR\fB/mcp\fR over Streamable HTTP, the
+current network transport; both bindings carry identical protocol semantics and
+may run at once. A bare port means localhost.
+.IP
+The server writes files and runs git, so an endpoint a web page can reach is a
+remote code execution path. The \fBOrigin\fR header is validated (\fB403\fR unless
+listed with \fB\-\-allow\-origin\fR; a request with none is a non-browser client and
+is allowed), binding is loopback unless told otherwise, and a bearer token is
+minted and printed whenever the listener is not on loopback. \fBGET\fR and
+\fBDELETE\fR answer \fB405\fR. See \fBdocs/MCP_TRANSPORTS.md\fR.
 .TP
 .B ssg daemon \fR[\fB\-\-config\fR \fIFILE\fR] [\fB\-\-once\fR] [\fB\-\-quiet\fR]
 Watch several projects from one process. Reads \fB.ssg_projects\fR (YAML,

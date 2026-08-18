@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -33,9 +34,18 @@ import (
 func runMCP(args []string) int {
 	roles := map[string]bool{}
 	watch := true
+	net := mcpNetFlags{}
 	rest := []string{}
 	for _, a := range args {
 		switch {
+		case strings.HasPrefix(a, "--listen="):
+			net.listen = strings.TrimPrefix(a, "--listen=")
+		case strings.HasPrefix(a, "--token="):
+			net.token = strings.TrimPrefix(a, "--token=")
+		case strings.HasPrefix(a, "--allow-origin="):
+			net.origins = append(net.origins, strings.TrimPrefix(a, "--allow-origin="))
+		case a == "--no-stdio":
+			net.noStdio = true
 		case strings.HasPrefix(a, "--role="):
 			r := strings.TrimPrefix(a, "--role=")
 			if r != "designer" && r != "content" {
@@ -100,11 +110,98 @@ func runMCP(args []string) int {
 	// is exactly when a human wants the preview open. Live reload needs the
 	// rebuild signal, which MCP's Rebuild provides, so it is on with --http.
 	serveMCPPreview(cfg, logf)
-	if err := mcp.NewServer(opts).Serve(os.Stdin, os.Stdout); err != nil {
+
+	server := mcp.NewServer(opts)
+	// The network transport, when asked for. It runs alongside stdio rather
+	// than instead of it: the two are bindings of one protocol, and a client
+	// that spawns the process and one that dials it can both be served by the
+	// same running server (#173).
+	if code := serveMCPEndpoint(server, net, logf); code >= 0 {
+		return code
+	}
+	if net.noStdio {
+		select {} // the HTTP endpoint is the only transport; park here
+	}
+	if err := server.Serve(os.Stdin, os.Stdout); err != nil {
 		logf("❌ mcp server: %v", err)
 		return 1
 	}
 	return 0
+}
+
+// mcpNetFlags configures the network transport.
+type mcpNetFlags struct {
+	listen  string
+	token   string
+	origins []string
+	noStdio bool
+}
+
+// serveMCPEndpoint starts the Streamable HTTP transport when --listen was
+// given. It returns an exit code on failure, or -1 to carry on.
+//
+// A listener that is not on loopback gets a bearer token whether or not one was
+// asked for: this server writes files and runs git, so an open endpoint on a
+// routable address is a remote code execution path, and refusing to start
+// without a token would only push the operator to a worse workaround.
+func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, ...any)) int {
+	if strings.TrimSpace(flags.listen) == "" {
+		if flags.noStdio {
+			fmt.Fprintln(os.Stderr, "❌ --no-stdio needs --listen — otherwise there is no transport at all")
+			return 2
+		}
+		return -1
+	}
+	addr := flags.listen
+	if !strings.Contains(addr, ":") {
+		addr = "127.0.0.1:" + addr // a bare port means localhost, not the world
+	}
+
+	token := flags.token
+	loopback := mcp.IsLoopback(addr)
+	if token == "" && !loopback {
+		generated, err := mcp.NewToken()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+			return 1
+		}
+		token = generated
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", mcp.HTTPHandler(server, mcp.HTTPOptions{
+		Token: token, AllowedOrigins: flags.origins, Logf: logf,
+	}))
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ cannot listen on %s: %v\n", addr, err)
+		return 1
+	}
+
+	logf("🌐 MCP endpoint: http://%s/mcp (Streamable HTTP)", ln.Addr())
+	if token != "" {
+		logf("   Authorization: Bearer %s", token)
+	} else {
+		logf("   No token — loopback only. Add --token=… before exposing this address.")
+	}
+	if !loopback {
+		logf("   ⚠️  Listening beyond localhost. This server writes files and runs git:")
+		logf("      put it behind TLS and keep the token secret.")
+	}
+	if len(flags.origins) == 0 {
+		logf("   Browser origins are refused; add --allow-origin=https://… for one.")
+	}
+	go func() {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			logf("❌ MCP endpoint: %v", err)
+		}
+	}()
+	return -1
 }
 
 // serveMCPPreview starts the preview server when `ssg mcp --http` was given,
@@ -332,6 +429,14 @@ func printMCPHelp() {
 	fmt.Println("working branch and a PR is opened only after explicit human approval.")
 	fmt.Println()
 	fmt.Println("  --http [--port=N]        - also serve the site so you can watch it change")
+	fmt.Println("  --listen=ADDR            - also serve the MCP endpoint over Streamable HTTP")
+	fmt.Println("                             at http://ADDR/mcp. A bare port means localhost.")
+	fmt.Println("  --token=SECRET           - require `Authorization: Bearer SECRET`. Minted")
+	fmt.Println("                             automatically when --listen is not on loopback.")
+	fmt.Println("  --allow-origin=URL       - accept this browser origin (repeatable). Without")
+	fmt.Println("                             one, browser origins are refused: a page that can")
+	fmt.Println("                             reach this server can write files and run git.")
+	fmt.Println("  --no-stdio               - serve only the MCP endpoint (needs --listen)")
 	fmt.Println()
 	fmt.Println("Register it with your assistant (this server speaks stdio, so the client")
 	fmt.Println("launches it — you do not run it yourself):")

@@ -8,9 +8,20 @@ package mcp
 
 import "encoding/json"
 
-// protocolVersion is the MCP revision this server implements. The client's
-// requested version is echoed back when present; this is the fallback.
-const protocolVersion = "2024-11-05"
+// protocolVersion is the MCP revision this server implements: the newest one
+// whose SEMANTICS it actually speaks. The client's requested version is echoed
+// back when present; this is the fallback for a client that names none.
+//
+// It is deliberately not the newest revision that exists. 2026-07-28 removed the
+// initialize handshake entirely — every request carries its own version and
+// capabilities in _meta, `server/discover` is mandatory, and every result needs
+// a `resultType` — and this server is initialize-based. Declaring a version
+// whose shape we do not implement would be a lie a client acts on.
+//
+// 2025-06-18 is the honest maximum: initialize-era, and the revision that
+// introduced the MCP-Protocol-Version header the HTTP transport carries.
+// Adopting 2026-07-28 is real work, tracked separately (#174).
+const protocolVersion = "2025-06-18"
 
 // rpcRequest is an incoming JSON-RPC 2.0 request or notification. A notification
 // has no id and receives no response.

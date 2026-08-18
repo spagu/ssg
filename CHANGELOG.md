@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.44] - 2026-08-18
+
+### Added
+- 🌐 **`ssg mcp --listen` — the MCP server over Streamable HTTP** (#173) —
+  `ssg mcp` spoke stdio only, which is a local contract: the client launches the
+  process and owns its standard streams. It could not serve an assistant running
+  anywhere else. The endpoint is `/mcp`, one POST per JSON-RPC message, and it
+  runs **alongside** stdio — protocol semantics are identical on either, because
+  a transport is a binding rather than a dialect. Streamable HTTP is the current
+  network transport; the HTTP+SSE transport of `2024-11-05` is deprecated in the
+  specification and is not implemented.
+
+  The specification's security rules are enforced rather than offered, because
+  this server writes files and runs git: **`Origin` is validated** (`403`
+  otherwise — without it any page the operator visits can drive a local MCP
+  server by DNS rebinding, while a request with no `Origin` is a non-browser
+  client and is allowed), **binding is localhost by default** (a bare
+  `--listen=7823` means `127.0.0.1`), and **a bearer token is minted and printed
+  automatically** whenever the listener is not on loopback. `--no-stdio` serves
+  the endpoint alone; `GET` and `DELETE` answer `405`, being the session and
+  standalone-stream mechanics of earlier revisions. See
+  [docs/MCP_TRANSPORTS.md](docs/MCP_TRANSPORTS.md).
+- 🔧 **`--user-agent`, `--rate-limit` and `--engine-arg` on `ssg migrate`**
+  (#171) — a site behind bot protection came back empty, and the engine
+  diagnosed it exactly, naming `--user-agent` and `--rate-limit`. That advice was
+  printed inside a run `ssg migrate` had no way to act on: the operator was told
+  to try a flag by a tool they were not running, and the tool they were running
+  could not pass it on. Both flags now reach the engine, and **`--engine-arg`**
+  is the general form — repeatable, verbatim, applied after everything ssg
+  derives, so the next engine flag does not need a release of ssg to become
+  reachable.
+
+### Fixed
+- 🎨 **The scaffolded theme ships the stylesheet and script it links** (#172) —
+  every scaffolded template carried `/css/style.css` and `/js/main.js`, and
+  nothing wrote either. The site built, the pages were right, the links worked,
+  and a browser rendered unstyled HTML with two 404s in its console while the
+  build reported success — nothing caught it, because the link checker walks
+  internal links and a missing stylesheet is not one. This is the ordinary
+  outcome whenever a migration's theme step is skipped or fails, so the operator's
+  first thought was that the migration lost the site's design rather than that the
+  scaffold never had one. Both files are now written beside the templates that
+  ask for them: self-contained, system fonts only, WCAG-AA contrast in light and
+  dark, and a nav toggle that reports its state. An asset already on disk is
+  never overwritten. (The reporter named the stylesheet; the script had the same
+  defect.)
+
+### Changed
+- 🔌 **`ssg mcp` declares protocol version `2025-06-18`** instead of
+  `2024-11-05` — the newest revision whose semantics it actually speaks, and the
+  one that introduced the `MCP-Protocol-Version` header the HTTP transport
+  carries. It deliberately does not claim `2026-07-28`, the current revision:
+  that one removed the `initialize` handshake outright, made `server/discover`
+  mandatory and requires a `resultType` on every result, and declaring a shape a
+  server does not implement is a lie a client acts on. Adopting it is tracked in
+  #174. A client's requested version is still echoed back.
+
 ## [1.8.43] - 2026-08-17
 
 ### Added

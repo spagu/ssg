@@ -544,6 +544,7 @@ Development workflow and review requirements are in
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |
 | [docs/DAEMON.md](docs/DAEMON.md) | `ssg daemon`: several projects watched by one process, reloaded in place |
+| [docs/MCP_TRANSPORTS.md](docs/MCP_TRANSPORTS.md) | `ssg mcp` over stdio and Streamable HTTP, and how to expose it safely |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
 | [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |
