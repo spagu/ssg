@@ -85,11 +85,22 @@ func (s *Server) Serve(in io.Reader, out io.Writer) error {
 // handle dispatches one request. The second return is false for notifications
 // (no response is written).
 func (s *Server) handle(req rpcRequest) (rpcResponse, bool) {
+	// A request that declares its protocol version in _meta is speaking the
+	// stateless shape of 2026-07-28 and is answered in it (#174). One that does
+	// not is answered exactly as it always was — the two eras coexist, and the
+	// wire tells them apart without the server holding any state.
+	if meta := metaOf(req.Params); meta.isModern() {
+		return s.handleModern(req, meta)
+	}
 	if req.isNotification() {
 		return rpcResponse{}, false
 	}
 	base := rpcResponse{JSONRPC: "2.0", ID: req.ID}
 	switch req.Method {
+	case "server/discover":
+		// Mandatory in the modern shape, and on stdio it is how a client probes
+		// which era a server implements — so it answers regardless.
+		base.Result = s.discover()
 	case "initialize":
 		base.Result = s.initialize(req.Params)
 	case "ping":

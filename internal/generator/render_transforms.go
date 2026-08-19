@@ -197,6 +197,10 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	if g.config.MinifyHTML {
 		s = minifyHTMLString(s)
 	}
+	// Last, so it sees the finished document: characters arrive from content,
+	// from a template and from an injected block alike, and a pass that ran
+	// earlier would miss whatever a later step added (#176).
+	s = g.sanitizeHTMLString(s)
 	return s
 }
 

@@ -646,6 +646,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Analytics:              cfg.Analytics,
 		DateArchives:           cfg.DateArchives,
 		TypeArchives:           cfg.TypeArchives,
+		SanitizeOutput:         cfg.SanitizeOutput,
+		ImageMetadata:          cfg.ImageMetadata,
 		Schema:                 cfg.Schema,
 		SchemaDefaults:         cfg.SchemaDefaults,
 		ContentSchemas:         cfg.ContentSchemas,

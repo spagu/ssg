@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.44">1.8.44 — 2026-08-18</option>
       <option value="1.8.43">1.8.43 — 2026-08-17</option>
       <option value="1.8.42">1.8.42 — 2026-08-17</option>
       <option value="1.8.41">1.8.41 — 2026-08-16</option>
@@ -177,6 +178,31 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.45">
+
+### 1.8.45 — two defaults changed, and both change output
+
+Nothing to configure, but **two things are now on by default** and both alter
+what is published. Neither touches a site that was already clean — the golden
+baseline is byte-identical across every corpus — but a site carrying either
+problem will see its output change:
+
+- **Invisible characters are removed from generated HTML.** Zero-width spaces,
+  bidi overrides, tag characters, soft hyphens and exotic-width spaces. If your
+  content deliberately publishes one *outside* a code block, it will now be
+  taken out; put it in a code span, or set `sanitize_output: off`. Run a build
+  first — it reports exactly what it would remove, and `sanitize_output: warn`
+  reports without changing anything.
+- **EXIF, IPTC and XMP are stripped from published JPEGs.** If you publish
+  photographs and want their camera settings visible, set
+  `image_metadata: keep`. Otherwise this removes GPS coordinates and serial
+  numbers you probably did not mean to publish.
+
+`ssg mcp` also speaks the 2026-07-28 protocol shape now, **alongside** the older
+one. A client that has not moved is answered exactly as before; nothing to do.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.44">
 

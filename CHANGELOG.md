@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.45] - 2026-08-19
+
+### Added
+- 🧹 **`sanitize_output` — invisible characters no longer reach published HTML**
+  (#176), **on by default**. Content arrives from a CMS export, a word
+  processor, a chat window or a clipboard carrying characters that render as
+  nothing and break things: a zero-width space splits a word for `Ctrl+F`, for
+  the site's own search index and for a screen reader, so a visitor searching a
+  page for a word plainly on it finds nothing; a bidi override makes text render
+  in a different order than it is stored, which can make a link's visible text
+  disagree with where it goes. None of it is authored on purpose and all of it
+  survives a migration. The build removes it and says what it took.
+
+  Default on because the failure is invisible in every sense — nothing renders,
+  nothing warns, and the symptom is never traced back to the cause. **The
+  restraint is the design**: never inside `<pre>`, `<code>`, `<script>`,
+  `<style>` or `<textarea>`, because a page documenting these characters is
+  exactly the one a careless pass would ruin; a *leading* BOM is a BOM; and a
+  single non-breaking space is typography between a number and its unit, so only
+  a run of them is collapsed. `warn` reports without changing; `off` does
+  neither.
+- 🧼 **`image_metadata` — EXIF, IPTC and XMP are stripped from published
+  images** (#176), **on by default**. A photo straight from a phone carries GPS
+  coordinates, a serial number and often the owner's name; a migration copies a
+  whole media library across, so a site could publish an author's home address
+  without anyone choosing to. Derivatives never carried it — the encoders write
+  only pixels — but originals were published byte for byte. The colour profile
+  and JFIF density are kept (dropping the first shifts every colour), and a file
+  that cannot be parsed is published exactly as it arrived, because a corrupted
+  image is worse than one carrying a location. `image_metadata: keep` for a
+  portfolio that shows camera settings on purpose.
+- 🔌 **MCP speaks the 2026-07-28 shape as well as the initialize-based one**
+  (#174) — `server/discover` advertising the supported revisions, per-request
+  `_meta` carrying the protocol version and client identity, `resultType` on
+  every result, `ttlMs`/`cacheScope` on `tools/list` so a client can cache
+  instead of poll, and `UnsupportedProtocolVersionError` (`-32022`) listing what
+  is supported. Over HTTP, the mirrored `Mcp-Method`/`Mcp-Name` headers are
+  validated against the body — an intermediary routing on the header while the
+  server executes on the body is how a request ends up somewhere it was not
+  authorised for — rejected with `HeaderMismatch` (`-32020`), with the
+  `=?base64?…?=` sentinel decoded first so a non-ASCII tool name does not look
+  like an attack.
+
+  **Both eras run side by side.** That revision changed the protocol rather than
+  extending it, and a server that adopts it by abandoning the older shape
+  strands every client that has not moved: a request declaring a version in
+  `_meta` is answered in the new shape, one that does not is answered exactly as
+  before — verified by a test asserting the older result grows no new fields.
+
 ## [1.8.44] - 2026-08-18
 
 ### Added

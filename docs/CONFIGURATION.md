@@ -732,6 +732,8 @@ shortcode_errors: strict
 | `paginate` | `0` | `--paginate` | Posts per index page; `0` disables |
 | `date_archives` | `false` | — | Publish `/YYYY/`, `/YYYY/MM/` (and `/YYYY/MM/DD/` for dated permalinks) listings of your posts. Rendered by `category.html` with `Kind: "date"` and a label like "May 2014". Opt-in: WordPress has these URLs and links to them from every byline, a hand-authored site usually does not — `ssg migrate` turns it on. Real content that already owns such a path keeps it. |
 | `type_archives` | empty | — | Which content types get a listing at `/<type>/` — the archive the source CMS renders and links to from its own menu, which is not a document and so is in no export. Keyed by type slug: `realizacje: true` builds it, `reviews: false` refuses it even when the export says the source had one. Rendered by `category.html` with `Kind: "type"`. See [Custom post type archives](#custom-post-type-archives) |
+| `sanitize_output` | `on` | — | Remove invisible characters from generated HTML — zero-width spaces, bidi overrides, tag characters. `warn` reports without changing, `off` does neither. Never touches `<pre>`/`<code>`. See [Invisible characters](#invisible-characters) |
+| `image_metadata` | `strip` | — | Remove EXIF/IPTC/XMP from published images. `keep` publishes it |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
@@ -835,6 +837,68 @@ frontmatter `description:`.
 
 The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
 selects warning mode; strict mode fails the build.
+
+### Invisible characters
+
+Content arrives from a CMS export, a word processor, a chat window or a
+clipboard, and it carries characters that render as nothing and break things:
+
+| Character | What it does to a published page |
+|---|---|
+| Zero-width space, joiner, word joiner | Splits a word for `Ctrl+F`, for the site's own search index and for a screen reader. A visitor searching for a word plainly on the page finds nothing |
+| Bidi overrides and isolates | **Text renders in a different order than it is stored** — a link's visible text can disagree with where it goes |
+| Unicode tag characters | Invisible everywhere, and a way to carry text only a machine reads |
+| Soft hyphen mid-word | Breaks copy-paste and search for a hyphen nothing asked for |
+| Exotic-width spaces | Break line wrapping and make copied text fail to match its source |
+
+None of it is authored on purpose; all of it survives a migration. `sanitize_output`
+removes it and reports what it took:
+
+```
+   🧹 Removed 412 invisible character(s) in 37 page(s)
+      zero-width space 380 · bidi override 24 · tag characters 8
+```
+
+On by default, because the failure is invisible in every sense: nothing renders,
+nothing warns, and the symptom — a search box that cannot find its own words — is
+never traced back to the cause. `warn` reports without changing anything; `off`
+does neither.
+
+**What it never touches**, because a page documenting these characters is exactly
+the one a careless pass would ruin:
+
+- anything inside `<pre>`, `<code>`, `<script>`, `<style>` or `<textarea>`;
+- a **leading** byte order mark, which is a BOM rather than residue;
+- a single non-breaking space — that is typography between a number and its unit.
+  Only a **run** of them is a word processor holding a line together.
+
+One thing it cannot do, stated rather than implied: an author who writes
+`&#8203;` cannot be told apart from residue, because the Markdown renderer
+decodes the entity into the raw character long before this runs. A code span is
+how to publish one on purpose.
+
+### Image metadata
+
+A photo straight from a camera or a phone carries **GPS coordinates, the camera's
+serial number and often the owner's name**. A migration copies a whole media
+library across, so a site can publish an author's home address without anyone
+choosing to.
+
+Generated derivatives never carried it — the encoders write only pixels — but
+originals are published byte for byte. `image_metadata: strip` (the default)
+removes EXIF, IPTC, XMP and editor comments from published JPEGs:
+
+```
+   🧼 Removed EXIF/IPTC metadata from 84 published image(s)
+```
+
+The colour profile and the JFIF density are kept: dropping the first shifts every
+colour on the page, and orientation is normalised into the pixels before the tag
+goes, so photos do not rotate. A file that cannot be parsed is published exactly
+as it arrived — a corrupted image is worse than one carrying a location.
+
+`image_metadata: keep` for a photography portfolio that shows camera settings on
+purpose.
 
 ### Custom post type archives
 

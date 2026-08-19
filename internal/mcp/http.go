@@ -88,6 +88,19 @@ func (h *httpTransport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// From 2026-07-28 the mirrored headers are required and must agree with the
+	// body: an intermediary routing on the header while the server executes on
+	// the body is how a request ends up somewhere it was not authorised for
+	// (#174). Only a modern request is held to it — demanding these of an older
+	// client would reject everything it has ever sent.
+	if meta := metaOf(req.Params); meta.isModern() {
+		if bad := validateHeaders(req, r.Header.Get("Mcp-Method"), r.Header.Get("Mcp-Name")); bad != nil {
+			h.opts.Logf("   ⚠️  MCP header mismatch: %s", bad.reason)
+			writeRPCError(w, http.StatusBadRequest, req.ID, codeHeaderMismatch, "header mismatch: "+bad.reason)
+			return
+		}
+	}
+
 	// A notification has no reply to give, and the specification is explicit
 	// about what an accepted one returns.
 	if req.isNotification() {
