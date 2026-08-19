@@ -213,8 +213,23 @@ runs:
       shell: bash
       run: |
         echo "📦 Installing WebP tools..."
+        # Bounded, because an unreachable distro mirror used to hang here until
+        # the job's own 20-minute budget ran out — reported as a timeout with no
+        # cause, on a step whose only job is installing one package. Failing in
+        # five minutes and naming the reason is worth more than the extra tries.
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          sudo apt-get update && sudo apt-get install -y webp
+          if ! sudo timeout 300 apt-get update \
+                 -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
+            echo "::error::apt-get update failed or timed out — the distribution mirror is unreachable."
+            echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
+            exit 1
+          fi
+          if ! sudo timeout 300 apt-get install -y --no-install-recommends webp \
+                 -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
+            echo "::error::Installing webp failed or timed out — the distribution mirror is unreachable."
+            echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
+            exit 1
+          fi
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
           brew install webp
         else
