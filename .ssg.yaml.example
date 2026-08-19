@@ -106,6 +106,21 @@ date_archives: false # Publish /YYYY/ and /YYYY/MM/ listings of your posts (and
 # type_archives:
 #   realizacje: true
 #   reviews: false
+
+# Invisible characters that render as nothing and break things: a zero-width
+# space splits a word for Ctrl+F and for a screen reader, a bidi override makes
+# text render in a different order than it is stored. None of it is authored on
+# purpose and all of it survives a migration, so this is on by default.
+# Never touches <pre>/<code>: a page documenting these needs them literally.
+#   on (default) · warn (report only) · off
+sanitize_output: on
+
+# What survives into a published image. "strip" (the default) removes EXIF,
+# IPTC and XMP — a photo straight from a phone carries GPS coordinates and a
+# serial number, and a migration copies a whole media library across. Colour
+# profile and orientation always survive. "keep" for a portfolio that shows
+# camera settings on purpose.
+image_metadata: strip
 seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
                      # non-destructive — only fills pages that lack their own tags).
                      # Legacy seo_off / --seo-off are still accepted as no-ops.

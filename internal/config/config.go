@@ -184,6 +184,24 @@ type Config struct {
 	// archive and another 404s at its own section, so a folder of documents is
 	// not evidence either way. Empty means nothing is built.
 	TypeArchives map[string]bool `yaml:"type_archives" toml:"type_archives" json:"type_archives"`
+	// SanitizeOutput removes invisible characters from generated HTML (#176):
+	// zero-width spaces that split a word for Ctrl+F and for a screen reader,
+	// bidi overrides that make text render in a different order than it is
+	// stored, tag characters that carry text only a machine reads.
+	//
+	// "" and "on" remove them, "warn" only reports, "off" does neither. On by
+	// default because the failure is invisible in every sense: nothing renders,
+	// nothing warns, and the symptom — a search box that cannot find its own
+	// words — is never traced back to the cause.
+	SanitizeOutput string `yaml:"sanitize_output" toml:"sanitize_output" json:"sanitize_output"`
+	// ImageMetadata decides what survives into a generated image derivative.
+	// "strip" (the default) drops EXIF, IPTC and XMP — a photo straight from a
+	// phone carries GPS coordinates and a serial number, and a migration copies
+	// a whole media library across without anyone choosing to publish an
+	// author's home address. "keep" is for a portfolio that shows camera
+	// settings on purpose. Orientation and colour profile always survive:
+	// dropping the first rotates photos, dropping the second shifts colour.
+	ImageMetadata string `yaml:"image_metadata" toml:"image_metadata" json:"image_metadata"`
 
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"

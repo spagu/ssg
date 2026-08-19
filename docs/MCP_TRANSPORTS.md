@@ -89,15 +89,52 @@ not implement.
 
 ## Protocol version
 
-`ssg mcp` implements **`2025-06-18`** and echoes back whatever version a client
-asks for during `initialize`.
+`ssg mcp` speaks **both eras**, and says so:
 
-It deliberately does not claim `2026-07-28`, the current revision. That one
-removed the `initialize` handshake entirely — every request carries its own
-version and capabilities, `server/discover` is mandatory, and every result needs
-a `resultType` — and declaring a shape a server does not implement is a lie a
-client acts on. Adopting it is tracked in
-[#174](https://github.com/spagu/ssg/issues/174).
+```bash
+curl -sX POST http://127.0.0.1:7823/mcp -H 'Mcp-Method: server/discover' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}'
+# {"resultType":"complete","protocolVersions":["2026-07-28","2025-06-18"], …}
+```
+
+**`2026-07-28`** is the stateless shape: no `initialize`, every request carrying
+its own protocol version and client identity in `_meta`, `server/discover`
+mandatory, a `resultType` on every result, and `ttlMs`/`cacheScope` on list
+results so a client caches instead of polling.
+
+```bash
+curl -sX POST http://127.0.0.1:7823/mcp \
+  -H 'MCP-Protocol-Version: 2026-07-28' -H 'Mcp-Method: tools/list' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list",
+       "params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}'
+```
+
+**`2025-06-18`** — the `initialize` handshake — is answered exactly as it always
+was. A request that declares no version in `_meta` is an older client, and it
+gets the older shape unchanged: that revision changed the protocol rather than
+extending it, and adopting it by abandoning the older era would strand every
+client that has not moved.
+
+A version this server does not implement is refused with
+`UnsupportedProtocolVersionError` (`-32022`) **listing what it does**, so a
+client can retry rather than guess.
+
+### Header validation
+
+From `2026-07-28`, a POST mirrors `Mcp-Method` and `Mcp-Name` into headers so
+gateways can route without parsing the body — and the server checks they agree
+with it. An intermediary routing on the header while the server executes on the
+body is how a request ends up somewhere it was not authorised for, so a mismatch
+is `HeaderMismatch` (`-32020`):
+
+```
+{"code":-32020,"message":"header mismatch: Mcp-Name header value 'wrong' does not match body value 'help'"}
+```
+
+A name that cannot be written as plain ASCII travels as `=?base64?…?=` and is
+decoded before the comparison, so a non-ASCII tool name is not mistaken for an
+attack. Only modern requests are held to this: demanding the headers of an older
+client would reject everything it has ever sent.
 
 The HTTP+SSE transport from `2024-11-05` is deprecated in the specification and
 is not implemented here; Streamable HTTP replaced it.

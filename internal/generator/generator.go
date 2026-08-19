@@ -238,6 +238,11 @@ type Config struct {
 	// keyed by type slug. Empty means none — a custom type's archive cannot be
 	// inferred from its documents, since a type may legitimately have none.
 	TypeArchives map[string]bool
+	// SanitizeOutput removes invisible characters from generated HTML (#176).
+	// "" / "on" remove, "warn" reports, "off" does neither.
+	SanitizeOutput string
+	// ImageMetadata is "strip" (default) or "keep" for generated derivatives.
+	ImageMetadata string
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
 	Schema         map[string]interface{}
@@ -471,6 +476,15 @@ type Generator struct {
 	// computed on first call; the mutex is because helpers run on the render pool.
 	feedItemsCache map[string][]externalsource.FeedItem
 	feedItemsMu    sync.Mutex
+
+	// sanitized accumulates the invisible characters removed across the build,
+	// so one line reports the whole site rather than one per page (#176).
+	// Rendering is concurrent, hence the mutex.
+	sanitized      sanitizeCounts
+	sanitizedPages int
+	// strippedImages counts published images that lost metadata (#176).
+	strippedImages int
+	sanitizeMu     sync.Mutex
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -900,6 +914,10 @@ func (g *Generator) assetPhase() error {
 	// attributes (#75) and page metadata (#76). Each reports everything it finds
 	// before the first strict failure returns, so one build surfaces the whole
 	// list rather than one problem at a time.
+	// What the render pass took out of the finished pages, as one line for the
+	// whole build (#176).
+	g.reportSanitized()
+	g.reportStrippedImages()
 	// Source-level, and first of the checks: it explains a page that looks
 	// wrong in the browser, so it must not be buried under the output checks.
 	if err := g.checkMarkupIfRequested(); err != nil {
@@ -4274,8 +4292,17 @@ func (g *Generator) copyDir(src, dst string) error {
 	return nil
 }
 
-// copyFile copies a single file
+// copyFile copies a single file, stripping image metadata on the way (#176).
+//
+// Derivatives lose EXIF for free — the encoders write only pixels — but an
+// ORIGINAL is published byte for byte, and a migration copies a whole media
+// library across. A photo straight from a phone carries GPS coordinates and a
+// serial number, so a site can publish the author's home address without anyone
+// choosing to.
 func (g *Generator) copyFile(src, dst string) error {
+	if g.stripImageMetadata() && isJPEGPath(src) {
+		return g.copyStrippedJPEG(src, dst)
+	}
 	srcFile, err := os.Open(src) // #nosec G304 -- CLI tool reads user's content files
 	if err != nil {
 		return err
@@ -4290,6 +4317,52 @@ func (g *Generator) copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err
+}
+
+// stripImageMetadata reports whether published images should lose their
+// metadata. On unless a site asks to keep it — a photography portfolio showing
+// camera settings is a real case, and it is the one that has thought about it.
+func (g *Generator) stripImageMetadata() bool {
+	switch strings.ToLower(strings.TrimSpace(g.config.ImageMetadata)) {
+	case "keep", "preserve":
+		return false
+	default:
+		return true
+	}
+}
+
+// isJPEGPath reports whether a file is one this can strip. JPEG only: it is a
+// marker-segment format, so the removal is exact rather than a re-encode that
+// would cost quality.
+func isJPEGPath(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".jpg", ".jpeg":
+		return true
+	}
+	return false
+}
+
+// copyStrippedJPEG publishes a JPEG without its metadata segments. A file that
+// cannot be parsed is copied exactly as it arrived: a corrupted image is worse
+// than one carrying a location.
+func (g *Generator) copyStrippedJPEG(src, dst string) error {
+	data, err := os.ReadFile(src) // #nosec G304 -- CLI tool reads user's content files
+	if err != nil {
+		return err
+	}
+	cleaned := images.StripJPEGMetadata(data)
+	if len(cleaned) != len(data) {
+		g.recordStrippedImage()
+	}
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(dst, cleaned, 0644)
+}
+
+// recordStrippedImage counts one cleaned image for the build's report.
+func (g *Generator) recordStrippedImage() {
+	g.sanitizeMu.Lock()
+	defer g.sanitizeMu.Unlock()
+	g.strippedImages++
 }
 
 // isContentAsset returns true if the file is a non-markdown content asset (image, etc.)
