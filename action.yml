@@ -146,7 +146,12 @@ runs:
 
         # Get latest version if not specified
         if [[ "$VERSION" == "latest" ]]; then
-          VERSION=$(curl --proto '=https' --proto-redir =https -sL https://api.github.com/repos/spagu/ssg/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          # --max-time/--retry rather than a bare fetch: a stalled connection used to
+          # consume the whole 20-minute job budget and be reported as a timeout with
+          # no cause, instead of failing in seconds and trying again.
+          VERSION=$(curl --proto '=https' --proto-redir =https -sL \
+            --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 2 --retry-all-errors \
+            https://api.github.com/repos/spagu/ssg/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
           if [[ -z "$VERSION" ]]; then
             echo "::error::Failed to get latest version"
             exit 1
@@ -171,7 +176,9 @@ runs:
 
         # Download
         echo "🔗 URL: $URL"
-        HTTP_CODE=$(curl --proto '=https' --proto-redir =https -sL -w "%{http_code}" "$URL" -o "/tmp/$ARCHIVE")
+        HTTP_CODE=$(curl --proto '=https' --proto-redir =https -sL -w "%{http_code}" \
+          --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 2 --retry-all-errors \
+          "$URL" -o "/tmp/$ARCHIVE")
 
         if [[ "$HTTP_CODE" != "200" ]]; then
           echo "::error::Failed to download SSG $VERSION. HTTP code: $HTTP_CODE"

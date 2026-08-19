@@ -10,6 +10,7 @@ package generator
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -136,9 +137,9 @@ func TestCleanDocumentIsByteIdentical(t *testing.T) {
 	}
 }
 
-// TestMultibyteOffsetsSurvive: verbatim regions are located by rune index, so a
-// page with non-ASCII text before a <pre> must still protect the right span —
-// a byte offset would land mid-character.
+// TestMultibyteOffsetsSurvive: the walk yields byte offsets and the spans are
+// byte offsets, so the two agree — but only if nothing in between converts. A
+// page with non-ASCII text before a <pre> is what catches a mismatch.
 func TestMultibyteOffsetsSurvive(t *testing.T) {
 	in := "<p>Zażółć gęślą jaźń" + zwsp + "</p><pre>kept" + zwsp + "</pre>"
 	out, _ := sanitizeHTML(in)
@@ -222,5 +223,79 @@ func TestSanitizeEmptyDocuments(t *testing.T) {
 	for _, in := range []string{"", "<p></p>", "<pre>", "</pre>", zwsp, bomChar} {
 		out, _ := sanitizeHTML(in)
 		_ = out
+	}
+}
+
+// TestLargeDocumentWithManyCodeSpans is a regression on cost, not on
+// correctness. The first version asked "is this offset inside any protected
+// span?" per character, which is quadratic in the number of spans: a
+// documentation page with a few thousand inline <code> elements took twenty
+// minutes and timed out a CI job. Linear now, so this finishes instantly.
+func TestLargeDocumentWithManyCodeSpans(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < 4000; i++ {
+		b.WriteString("<p>Some prose with a <code>span" + zwsp + "</code> inside it, and more text.</p>\n")
+	}
+	doc := b.String()
+
+	done := make(chan struct{})
+	var out string
+	var counts sanitizeCounts
+	go func() {
+		out, counts = sanitizeHTML(doc)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("sanitizeHTML did not finish — the span lookup is superlinear again")
+	}
+
+	// Every one of them is inside <code> and must survive.
+	if strings.Count(out, zwsp) != 4000 {
+		t.Errorf("protected characters removed: %d of 4000 left", strings.Count(out, zwsp))
+	}
+	if counts.total() != 0 {
+		t.Errorf("nothing outside a code span to remove, got %v", counts)
+	}
+}
+
+// TestOverlappingVerbatimRegions: <pre><code> nests, which produces two spans
+// that overlap. A walk that assumed them disjoint would leave the cursor behind
+// and start cleaning protected text.
+func TestOverlappingVerbatimRegions(t *testing.T) {
+	in := "<p>gone" + zwsp + "</p><pre><code>kept" + zwsp + rlo + "</code></pre><p>gone" + zwsp + "</p>"
+	out, counts := sanitizeHTML(in)
+
+	if !strings.Contains(out, "kept"+zwsp+rlo) {
+		t.Errorf("nested verbatim content was modified: %q", out)
+	}
+	if counts["zero-width space"] != 2 {
+		t.Errorf("both unprotected characters must be removed: %v", counts)
+	}
+	// And the text after the block is cleaned, so the cursor did not stick.
+	if strings.Count(out, zwsp) != 1 {
+		t.Errorf("exactly the protected one survives: %q", out)
+	}
+}
+
+// TestMergeSpans coalesces what nesting produces.
+func TestMergeSpans(t *testing.T) {
+	got := mergeSpans([]span{{10, 20}, {0, 5}, {12, 30}, {40, 50}})
+	want := []span{{0, 5}, {10, 30}, {40, 50}}
+	if len(got) != len(want) {
+		t.Fatalf("merged = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("merged = %v, want %v", got, want)
+		}
+	}
+	if got := mergeSpans(nil); got != nil {
+		t.Errorf("nothing to merge = %v", got)
+	}
+	one := []span{{1, 2}}
+	if got := mergeSpans(one); len(got) != 1 {
+		t.Errorf("a single span = %v", got)
 	}
 }

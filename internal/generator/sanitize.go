@@ -130,18 +130,28 @@ func classOf(r rune) string {
 //
 // Verbatim regions are skipped entirely: a page about these characters, or a
 // code sample containing one, must survive unchanged.
+//
+// The walk is linear. An earlier version asked "is this offset inside any
+// protected span?" per character, which is quadratic in the number of spans and
+// hung a real build for twenty minutes on a documentation page with a few
+// thousand inline <code> elements. The spans are sorted and the document is
+// walked in order, so one cursor over them is enough.
 func sanitizeHTML(s string) (string, sanitizeCounts) {
 	counts := sanitizeCounts{}
+	protected := verbatimSpans(s)
+
 	var b strings.Builder
 	b.Grow(len(s))
+	next := 0     // the first span that may still cover the cursor
+	spaceRun := 0 // consecutive non-breaking spaces
 
-	runes := []rune(s)
-	verbatim := verbatimSpans(s)
-	spaceRun := 0
-
-	for i := 0; i < len(runes); i++ {
-		r := runes[i]
-		if verbatim.covers(i) {
+	for i, r := range s {
+		// Advance past spans the cursor has already left. Both the document and
+		// the span list are in order, so this pointer only moves forward.
+		for next < len(protected) && protected[next].to <= i {
+			next++
+		}
+		if next < len(protected) && i >= protected[next].from {
 			b.WriteRune(r)
 			spaceRun = 0
 			continue
@@ -191,41 +201,28 @@ func isExoticSpace(r rune) bool {
 	return false
 }
 
-// span is a half-open rune range that must not be touched.
+// span is a half-open BYTE range that must not be touched. Byte offsets rather
+// than rune indices: the walk ranges over the string, which yields byte offsets,
+// and converting between the two cost an allocation per document for nothing.
 type span struct{ from, to int }
-
-// spans is an ordered set of verbatim regions.
-type spans []span
-
-// covers reports whether rune index i falls inside a verbatim region.
-func (s spans) covers(i int) bool {
-	for _, sp := range s {
-		if i >= sp.from && i < sp.to {
-			return true
-		}
-	}
-	return false
-}
 
 // verbatimTags are the elements whose content is shown or executed as written.
 var verbatimTags = []string{"pre", "code", "script", "style", "textarea"}
 
-// verbatimSpans locates every region that must survive unchanged, in RUNE
-// indices — the caller walks runes, and a byte offset would land mid-character
-// on any page with non-ASCII text.
-func verbatimSpans(s string) spans {
+// verbatimSpans locates every region that must survive unchanged, sorted and
+// merged so the caller can walk them with a single forward cursor.
+func verbatimSpans(s string) []span {
 	lower := strings.ToLower(s)
-	byteToRune := runeIndex(s)
-	var out spans
+	var out []span
 
 	for _, tag := range verbatimTags {
 		open, closing := "<"+tag, "</"+tag+">"
 		for at := 0; ; {
-			start := strings.Index(lower[at:], open)
-			if start < 0 {
+			rel := strings.Index(lower[at:], open)
+			if rel < 0 {
 				break
 			}
-			start += at
+			start := at + rel
 			// "<code" must not match "<codex": the next character has to end
 			// the tag name.
 			after := start + len(open)
@@ -236,13 +233,34 @@ func verbatimSpans(s string) spans {
 			end := strings.Index(lower[start:], closing)
 			if end < 0 {
 				// Unclosed: protect the remainder rather than guess where it ends.
-				out = append(out, span{byteToRune[start], len(byteToRune)})
+				out = append(out, span{start, len(s)})
 				break
 			}
 			stop := start + end + len(closing)
-			out = append(out, span{byteToRune[start], byteToRune[stop]})
+			out = append(out, span{start, stop})
 			at = stop
 		}
+	}
+	return mergeSpans(out)
+}
+
+// mergeSpans sorts and coalesces overlapping regions — <pre><code> produces two
+// that overlap, and a merged list is what makes the single-cursor walk correct.
+func mergeSpans(in []span) []span {
+	if len(in) < 2 {
+		return in
+	}
+	sort.Slice(in, func(a, b int) bool { return in[a].from < in[b].from })
+	out := in[:1]
+	for _, sp := range in[1:] {
+		last := &out[len(out)-1]
+		if sp.from <= last.to {
+			if sp.to > last.to {
+				last.to = sp.to
+			}
+			continue
+		}
+		out = append(out, sp)
 	}
 	return out
 }
@@ -250,19 +268,6 @@ func verbatimSpans(s string) spans {
 // isTagBoundary reports whether c ends an HTML tag name.
 func isTagBoundary(c rune) bool {
 	return c == '>' || c == '/' || c == ' ' || c == '\t' || c == '\n' || c == '\r'
-}
-
-// runeIndex maps each byte offset in s to its rune index, with a final entry
-// for the end of the string.
-func runeIndex(s string) map[int]int {
-	m := make(map[int]int, len(s)+1)
-	n := 0
-	for i := range s {
-		m[i] = n
-		n++
-	}
-	m[len(s)] = n
-	return m
 }
 
 // sanitizeMode resolves the configured behaviour. Unset means on: the failure
