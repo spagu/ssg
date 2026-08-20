@@ -248,12 +248,19 @@ func autocertCacheDir() string {
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	static := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
+	// The `_redirects` and `_headers` this build wrote are served too, so a
+	// redirect can be checked before it is published (#181). Order mirrors
+	// Cloudflare Pages: redirect rules are evaluated before static assets, and
+	// the header blocks decorate whatever is served after them. Both tables are
+	// re-read after every rebuild, not only on a config reload.
+	republishOutputRules(cfg)
+	files := liveRedirectHandler(liveHeadersHandler(static))
 	// Vendor-neutral endpoints intercept their paths before the file server;
 	// everything else is still served statically (#63). The routing table is
 	// published rather than captured, so a watch reload can replace it without
 	// touching the listener (#180).
-	publishEndpoints(cfg, static)
-	h := liveEndpointHandler(static)
+	publishEndpoints(cfg, files)
+	h := liveEndpointHandler(files)
 	h = cacheControlMiddleware(h)
 	h = securityHeadersMiddleware(h, tlsOn)
 	if cfg.Gzip {

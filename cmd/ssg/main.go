@@ -334,6 +334,10 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 			fmt.Println("⚠️  Fix the issue and save to retry...")
 		}
 	} else {
+		// The generated _redirects/_headers changed with everything else, so
+		// the running server re-reads them here rather than waiting for a
+		// config edit or a restart (#181).
+		republishOutputRules(cfg)
 		notifyReload() // refresh connected browsers (no-op unless --auto-reload)
 		if !cfg.Quiet {
 			fmt.Printf("✅ Rebuilt successfully\n")

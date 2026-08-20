@@ -173,6 +173,11 @@ func (w *htmlInjectWriter) finish() {
 		}
 		body = []byte(s)
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		// A page carrying the reload script must not be cached: the generated
+		// _headers the preview now honours caches HTML for an hour on the
+		// deployed site (#181), and a reload served from the cache is a reload
+		// that shows the previous build.
+		w.Header().Set(cacheControlHeader, "no-cache")
 	}
 	if w.status == 0 {
 		w.status = http.StatusOK

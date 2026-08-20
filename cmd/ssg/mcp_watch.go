@@ -79,6 +79,9 @@ func (r *mcpRebuilder) rebuild() (string, error) {
 	if err != nil {
 		notifyBuildError(err.Error())
 	} else {
+		// The generated _redirects/_headers moved with the build; the preview
+		// re-reads them so it keeps serving what the platform would (#181).
+		republishOutputRules(cfg)
 		notifyReload()
 	}
 	return out, err

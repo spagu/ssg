@@ -10,6 +10,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.47] - 2026-08-20
 
 ### Added
+- 🔀 **The built-in server serves the `_redirects` and `_headers` it generates**
+  (#181). `ssg` writes both files on every build and the documentation is clear
+  that Cloudflare Pages and Netlify serve them as they stand — the preview read
+  neither. So a site carrying fifty redirects from an old CMS, which is the
+  normal case after a migration since every one of them is a URL somebody else
+  published, served all fifty as 404s locally, and the first anyone knew about
+  whether the rules were right was production. Redirects are the part of a
+  migration whose absence is invisible from the inside: the new site looks
+  perfect and everybody arriving from the old one gets a 404.
+
+  It also split the preview from the deployment in a way nothing else here does.
+  `endpoints:` went deliberately the other way — the built-in server runs the
+  same declaration the platform compiles — and that is exactly what makes them
+  testable. Nothing new is declared to close this; serving the file is reading
+  what is there.
+
+  **Cloudflare Pages semantics, named rather than averaged**: redirect rules are
+  evaluated before static assets, so a rule shadows a file at the same path;
+  order is honoured and the first match wins. Exact paths, `/old/*` splats with
+  `:splat`, `:placeholder` segments, `301`/`302`/`303`/`307`/`308`, and `410`
+  answered with no `Location`. A `!` force marker parses and is inert here. A
+  malformed line is skipped with one warning naming it and the rest of the file
+  stays live — a file the build wrote must never be one the server refuses to
+  start over.
+
+  `_headers` had the same gap and is fixed with it: a matching pattern's headers
+  are applied, first matching value winning per name, and **the file wins over
+  the server's own security headers** because that is what the deployed site
+  serves. One consequence stated plainly: the default `_headers` caches `/` and
+  `/*.html` for an hour, so the preview now does too — pages carrying the
+  live-reload script are exempted, since a reload served from the cache would
+  show the previous build.
+
+  Both tables are re-read after every rebuild, not only on a config reload, and
+  swapped whole on the same atomic-pointer pattern as the endpoint routes
+  (#180): a request sees the rules from before the rebuild or the ones from
+  after it, never a half-parsed file.
 - 🔁 **One process for preview, MCP and the filesystem** (#184) —
   `ssg mcp --http --watch --listen=7823` now serves the preview, serves the MCP
   endpoint, and rebuilds on both kinds of change: a mutation arriving through
