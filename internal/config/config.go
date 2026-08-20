@@ -363,6 +363,24 @@ type Config struct {
 	// public `languages` key.
 	LanguageConfigs []ssgi18n.LanguageConfig `yaml:"-" toml:"-" json:"-"`
 	I18n            ssgi18n.Config           `yaml:"i18n" toml:"i18n" json:"i18n"`
+	// LanguageSections assigns a language to a whole content section, keyed by
+	// the page's directory relative to the source — the same longest-prefix rule
+	// as output_encoding_sections and schema_defaults, with "home" for the site
+	// root. A page's own `lang:` still wins; a section not listed falls back to
+	// DefaultLanguage (#182).
+	//
+	// This is the shape a migrated bilingual site arrives in. WordPress kept its
+	// languages in /de/ and /fr/ and said so nowhere a page carried — the
+	// language was a plugin's property of the section, not a field on the post —
+	// so the export produces hundreds of documents with no lang at all. Writing
+	// it into every file makes the next migration overwrite it, and a migration
+	// is not a one-off: it is run again whenever the source changes.
+	//
+	//	language_sections:
+	//	  de: de
+	//	  fr/blog: fr
+	//	  home: en
+	LanguageSections map[string]string `yaml:"language_sections" toml:"language_sections" json:"language_sections"`
 
 	// Taxonomies declares custom dynamic taxonomies and/or overrides the built-in
 	// category/tag/series definitions (taxonomies-feature.md).

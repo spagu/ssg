@@ -307,6 +307,13 @@ data_dir: "data"
 #     pl: [en]
 # languages: ["pl", "en"]
 # default_language: "pl"     # default is NOT prefixed; other languages get /<lang>/…
+# language_sections:         # a language for a whole section, not per page (#182)
+#   de: de                   # everything under content/<source>/de is German
+#   fr/blog: fr              # longest prefix wins
+#   home: en                 # "home" is the site root
+# Precedence: a page's own `lang:` > its section > default_language. The shape a
+# migrated site arrives in: WordPress kept languages in /de/ and /fr/ and said so
+# nowhere a page carried, so three lines here survive the next re-migration.
 
 # Dynamic taxonomies (docs/TAXONOMIES.md) — category/tag/series are built in;
 # declare custom ones here. Frontmatter priority: taxonomies: map > direct

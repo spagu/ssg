@@ -10,6 +10,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.47] - 2026-08-20
 
 ### Added
+- 🌍 **`language_sections` — a language for a content section, not for every
+  page** (#182). A page could declare its own `lang:` and `languages:` /
+  `default_language:` said what the site had; there was no way to say
+  "everything under this directory is German" in one place.
+
+  Migrated sites are where that bites. A bilingual WordPress site keeps its
+  languages in `/de/` and `/fr/` and says so nowhere a page carries — the
+  language was a plugin's property of the *section*, not a field on the post — so
+  an export produces a few hundred documents with no `lang` at all. The
+  alternatives were writing it into every file, which the next export overwrites,
+  or hand-editing after every build. A migration is not a one-off: it is run
+  again whenever the source changes.
+
+  ```yaml
+  language_sections:
+    de: de
+    fr/blog: fr
+    home: en
+  ```
+
+  The spelling is the one the configuration already uses for
+  `output_encoding_sections` and `schema_defaults`: keyed by content directory,
+  longest prefix wins, `home` for the site root — one prefix convention in the
+  project rather than three, and the resolver is now literally shared between all
+  three rather than copied a third time. Precedence is a page's own `lang:`, then
+  its section, then `default_language`. A section naming a language `languages:`
+  does not declare warns **once for the section**, not once per file beneath it.
+
+  The assignment happens before translation grouping, `LangPrefix` and hreflang,
+  so everything downstream sees it — and a page that already carries an explicit
+  `link:` keeps that URL whole, so an export that wrote `link: /de/impressum/`
+  does not become `/de/de/impressum/`.
 - 🔀 **The built-in server serves the `_redirects` and `_headers` it generates**
   (#181). `ssg` writes both files on every build and the documentation is clear
   that Cloudflare Pages and Netlify serve them as they stand — the preview read

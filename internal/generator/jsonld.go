@@ -240,22 +240,13 @@ func (g *Generator) sectionSchema(page models.Page) map[string]interface{} {
 		return nil
 	}
 	if strings.Trim(page.GetURL(), "/") == "" {
-		return g.config.SchemaDefaults["home"]
+		return g.config.SchemaDefaults[homeSectionKey]
 	}
 	section := g.contentSection(page)
 	if section == "" {
 		return nil
 	}
-	best, bestLen := map[string]interface{}(nil), -1
-	for prefix, ld := range g.config.SchemaDefaults {
-		if prefix == "home" {
-			continue
-		}
-		p := strings.Trim(prefix, "/")
-		if p != "" && (section == p || strings.HasPrefix(section, p+"/")) && len(p) > bestLen {
-			best, bestLen = ld, len(p)
-		}
-	}
+	best, _ := sectionValue(g.config.SchemaDefaults, section)
 	return best
 }
 

@@ -1422,15 +1422,65 @@ language_timezones:
 |---|---:|---|---|
 | `languages` | empty | `--languages=pl,en` | Enable multilingual output |
 | `default_language` | empty | `--default-language` | Language kept at the root |
-
-For the opt-in expanded multilingual system, translation dictionaries and
-prefix/fallback policies, see [I18N.md](I18N.md).
+| `language_sections` | empty | config only | Assign a language to a whole content section, keyed by content directory (longest prefix wins; `home` = root) |
 | `timezone` | empty | `--timezone` | IANA zone for content dates |
 | `language_timezones` | empty | config only | Per-language zone override |
 
 Non-default languages are written below `/<lang>/`. Templates receive `.Lang`,
 `.Languages`, `.DefaultLanguage`, `.Translations` and `.Hreflang`. Timezones
 affect permalink calendar tokens and template dates; feeds and sitemap remain UTC.
+
+For the opt-in expanded multilingual system, translation dictionaries and
+prefix/fallback policies, see [I18N.md](I18N.md).
+
+### A language for a whole section (`language_sections`)
+
+```yaml
+languages: [en, de, fr]
+default_language: en
+language_sections:
+  de: de
+  fr/blog: fr
+  home: en
+```
+
+A page can declare its own `lang:`, and `languages:`/`default_language:` say
+what the site has. `language_sections` says **"everything under this directory is
+German"** in one place.
+
+That is the shape a migrated site arrives in, and it is the case this exists for.
+A bilingual WordPress site keeps its languages in `/de/` and `/fr/` and says so
+nowhere a page carries — the language was a plugin's property of the *section*,
+not a field on the post. An export therefore produces a few hundred documents
+with no `lang` at all, and the alternatives were to write it into every file,
+which the next export overwrites, or to hand-edit after every build. A migration
+is not a one-off: it is run again whenever the source changes, so the assignment
+has to live where re-running it does not touch.
+
+Keys are read exactly as `output_encoding_sections` and `schema_defaults` read
+theirs — the page's directory relative to the source, longest prefix wins,
+`home` for the site root — so there is one prefix convention in the project
+rather than three. Content loaded through `content_sources` resolves against the
+content root instead, so a section under an extra source can be keyed too.
+
+Precedence, most specific first:
+
+1. the page's own `lang:` in frontmatter;
+2. the longest `language_sections` prefix that contains it;
+3. `default_language`.
+
+A section naming a language `languages:` does not declare is reported **once for
+the section**, not once per file beneath it:
+
+```
+   ⚠️  language_sections "es" uses unconfigured language "es"
+```
+
+The assignment happens before translation grouping, `LangPrefix` and hreflang,
+so a section-assigned language reaches all of them. A page that already carries
+an explicit `link:` keeps it whole — `link:` is the highest-precedence URL
+source — so an export that already wrote `link: /de/impressum/` does not become
+`/de/de/impressum/` once the section assigns German.
 
 ## Build hooks
 

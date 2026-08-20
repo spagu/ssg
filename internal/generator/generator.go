@@ -198,7 +198,10 @@ type Config struct {
 	Languages       []string
 	DefaultLanguage string
 	LanguageConfigs []ssgi18n.LanguageConfig
-	I18n            ssgi18n.Config
+	// LanguageSections assigns a language per content section, longest prefix
+	// wins, "home" for the site root (#182).
+	LanguageSections map[string]string
+	I18n             ssgi18n.Config
 
 	// Taxonomies declares custom dynamic taxonomies / overrides the built-in
 	// category, tag and series definitions (taxonomies-feature.md).
@@ -1111,8 +1114,19 @@ func (g *Generator) finalizeLoadedContent() error {
 	languages := ssgi18n.Normalize(g.config.Languages, g.config.LanguageConfigs, g.config.LanguageTimezones)
 	g.siteData.Languages = languages
 	g.siteData.DefaultLanguage = g.config.DefaultLanguage
+	// A section-assigned language that names something `languages:` does not
+	// declare is reported once here, not once per file under it (#182).
+	g.warnUnconfiguredSectionLanguages(languages)
 	finalize := func(pages []models.Page, defaultType string) {
 		for i := range pages {
+			// Precedence: the page's own `lang:` first, then the section it sits
+			// in, then default_language. A per-file declaration is the most
+			// specific statement anyone made and must win (#182). This runs
+			// before translation grouping, LangPrefix and hreflang, so a
+			// section-assigned language reaches all of them.
+			if pages[i].Lang == "" {
+				pages[i].Lang = g.sectionLanguage(pages[i])
+			}
 			if g.config.I18n.Enabled && pages[i].Lang == "" {
 				pages[i].Lang = g.config.DefaultLanguage
 			}

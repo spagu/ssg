@@ -640,6 +640,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Languages:              cfg.Languages,
 		DefaultLanguage:        cfg.DefaultLanguage,
 		LanguageConfigs:        cfg.LanguageConfigs,
+		LanguageSections:       cfg.LanguageSections,
 		I18n:                   cfg.I18n,
 		Taxonomies:             cfg.Taxonomies,
 		ExternalSources:        cfg.ExternalSources,
