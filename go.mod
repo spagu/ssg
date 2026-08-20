@@ -1,9 +1,10 @@
 module github.com/spagu/ssg
 
-// Requires go1.26.6+: earlier 1.26.x stdlib carries seven advisories
-// govulncheck finds reachable from this code — among them GO-2026-5972
-// (encoding/asn1, via ssh.ParsePrivateKey in the SFTP deploy) and GO-2026-5026
-// (net/http/idna, via every outbound request) — all fixed in go1.26.6.
+// Requires go1.27.0+, which is what the language directive below asks for.
+// The floor was go1.26.6 before that, and for a reason worth keeping: earlier
+// 1.26.x stdlib carries seven advisories govulncheck finds reachable from this
+// code — among them GO-2026-5972 (encoding/asn1, via ssh.ParsePrivateKey in the
+// SFTP deploy) and GO-2026-5026 (net/http/idna, via every outbound request).
 go 1.27.0
 
 require (
