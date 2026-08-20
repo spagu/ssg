@@ -28,7 +28,6 @@ package generator
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -203,8 +202,7 @@ func (g *Generator) writeTypeArchive(a typeArchive) (bool, error) {
 			fmt.Printf("   ⚠️  Skipping %s archive with unsafe slug: %v\n", a.Type, err)
 			return false, nil
 		}
-		// #nosec G301 -- web content directories need to be world-traversable
-		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		if err := g.ensureParent(outputPath); err != nil {
 			return false, err
 		}
 		data := g.archiveData("type", a.Name, term, chunk.Posts, chunk.Pager, g.currentLang)

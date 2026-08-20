@@ -251,8 +251,7 @@ func (g *Generator) writeBundle(name string, sources []string) error {
 		buf.Write(data)
 		buf.WriteString("\n")
 	}
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+	if err := g.ensureParent(outPath); err != nil {
 		return err
 	}
 	// #nosec G306 -- Web content files need to be world-readable
@@ -360,8 +359,7 @@ func (g *Generator) generateSearchIndex() error {
 			return err
 		}
 		dir := filepath.Join(g.config.OutputDir, ssgi18n.Prefix(lang.Code, g.config.DefaultLanguage, g.config.I18n))
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := g.ensureDir(dir); err != nil {
 			return err
 		}
 		if err := os.WriteFile(filepath.Join(dir, "search-index.json"), data, 0644); err != nil {

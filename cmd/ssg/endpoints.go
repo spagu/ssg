@@ -265,11 +265,15 @@ func proxyEndpoint(ep config.Endpoint) (http.Handler, error) {
 	allowed := methodSet(ep.Methods)
 	rp := &httputil.ReverseProxy{
 		Transport: externalsource.SecureTransport(ep.AllowPrivate),
-		Director: func(req *http.Request) {
-			req.URL.Scheme = target.Scheme
-			req.URL.Host = target.Host
-			req.URL.Path = target.Path // exact upstream path; client query is kept
-			req.Host = target.Host
+		// Rewrite rather than Director, which Go deprecated: Director sees only
+		// the outbound request, so a proxy built on it forwards whatever
+		// X-Forwarded-* headers the client sent. Rewrite has both requests and
+		// strips them, which is the reason the replacement exists.
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.Out.URL.Scheme = target.Scheme
+			pr.Out.URL.Host = target.Host
+			pr.Out.URL.Path = target.Path // exact upstream path; client query is kept
+			pr.Out.Host = target.Host
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			http.Error(w, "upstream unavailable", http.StatusBadGateway)

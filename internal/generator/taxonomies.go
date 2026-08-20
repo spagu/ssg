@@ -2,7 +2,6 @@ package generator
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -439,8 +438,7 @@ func (g *Generator) renderTaxonomyPage(chain []string, outPath string, data inte
 		fmt.Printf("   ⚠️  Skipping taxonomy page with unsafe path: %v\n", err)
 		return nil
 	}
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+	if err := g.ensureParent(outPath); err != nil {
 		return err
 	}
 	for _, name := range chain {

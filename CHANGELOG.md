@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.46] - 2026-08-19
+
+### Changed
+- 🐹 **Built with and targeting Go 1.27.0** (from 1.26.6), with golangci-lint
+  pinned to v2.13.1 — the first release built on 1.27, and the reason the
+  language directive could move at all: the linter refuses to analyse a target
+  newer than the Go it was built with.
+
+  **Measured rather than assumed**: on a 2,000-post corpus the median and
+  minimum build times are identical between 1.26.7 and 1.27.0. Go 1.27's headline
+  gains — up to 30% on sub-80-byte allocations, faster `compress/flate`, faster
+  JSON unmarshal — are real, but a profile of that build is **68% syscalls**, so
+  a ~1% CPU improvement is below the measurement noise here. The bump is taken
+  for the security and stdlib currency it brings, not for a speedup this
+  workload can show.
+- 🔀 **The endpoint proxy uses `ReverseProxy.Rewrite`** instead of the
+  `Director` field Go deprecated. Not cosmetic: `Director` sees only the
+  outbound request, so a proxy built on it forwards whatever `X-Forwarded-*`
+  headers the client sent; `Rewrite` receives both requests and strips them,
+  which is the reason the replacement exists. Surfaced by targeting 1.27.
+
+### Fixed
+- ⚡ **Output directories are created once per build, not once per page**
+  — every page called `os.MkdirAll` on its parent, and `MkdirAll` walks
+  the path statting each component whether or not it exists. A site with 2,000
+  posts under one tree repeated that for every one of them. The generator now
+  remembers what it created, including ancestors, so a sibling written next
+  costs nothing. Worth about 2.5% of the median build; the remaining `mkdirat`
+  cost is inherent — the default `page_format: directory` genuinely needs one
+  directory per page, and that is a layout choice rather than a defect.
+
 ## [1.8.45] - 2026-08-19
 
 ### Added

@@ -45,10 +45,15 @@ on:
         type: boolean
 
 env:
-  # Pinned to 1.26.6+: earlier 1.26.x stdlib carries advisories govulncheck
+  # Kept in step with go.mod's directive and with the pinned golangci-lint,
+  # which refuses to analyse a target newer than the Go it was built with —
+  # v2.13.1 is the first release built on 1.27, which is what allowed the
+  # directive to move here at all.
+  #
+  # Never below 1.26.7: earlier 1.26.x stdlib carries advisories govulncheck
   # finds reachable from this code (encoding/asn1 GO-2026-5972 via the SFTP
-  # deploy, net/http GO-2026-5026 via every outbound request), fixed in 1.26.6.
-  GO_VERSION: "1.26.6"
+  # deploy, net/http GO-2026-5026 via every outbound request).
+  GO_VERSION: "1.27.0"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -128,7 +133,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.12.2 # pinned for reproducible CI (OPS-013)
+          version: v2.13.1 # pinned for reproducible CI (OPS-013); first build on go1.27
 
   security:
     name: Security Scan

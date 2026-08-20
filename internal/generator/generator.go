@@ -480,6 +480,10 @@ type Generator struct {
 	// sanitized accumulates the invisible characters removed across the build,
 	// so one line reports the whole site rather than one per page (#176).
 	// Rendering is concurrent, hence the mutex.
+	// dirs remembers output directories already created, so a 2,000-page build
+	// does not call MkdirAll 2,000 times on the same tree.
+	dirs dirCache
+
 	sanitized      sanitizeCounts
 	sanitizedPages int
 	// strippedImages counts published images that lost metadata (#176).
@@ -1397,8 +1401,7 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 		fmt.Printf("   ⚠️  Skipping %s %q with unsafe slug: %v\n", kind, name, err)
 		return nil
 	}
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := g.ensureParent(outputPath); err != nil {
 		return err
 	}
 	// A define-shell template (file present, body empty — GO-051) would render
@@ -3071,8 +3074,7 @@ func (g *Generator) tmplRecentPosts(n int) []models.Page {
 
 // ensureTemplates creates default templates if they don't exist
 func (g *Generator) ensureTemplates(templatePath string) error {
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(templatePath, 0755); err != nil {
+	if err := g.ensureDir(templatePath); err != nil {
 		return err
 	}
 
@@ -3215,8 +3217,7 @@ func distinctLangs(pages, posts []models.Page) []string {
 
 func (g *Generator) generateSite() error {
 	outputPath := g.config.OutputDir
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(outputPath, 0755); err != nil {
+	if err := g.ensureDir(outputPath); err != nil {
 		return err
 	}
 
@@ -3373,8 +3374,7 @@ func (g *Generator) indexTarget(langPrefix, lang string) (prefix string, generat
 func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) error {
 	per := g.config.Paginate
 	root := filepath.Join(g.config.OutputDir, prefix)
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(root, 0755); err != nil {
+	if err := g.ensureDir(root); err != nil {
 		return err
 	}
 
@@ -3402,8 +3402,7 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 		outPath := filepath.Join(root, indexHTMLName)
 		if page > 1 {
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", page), indexHTMLName)
-			// #nosec G301 -- Web content directories need to be world-traversable
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+			if err := g.ensureParent(outPath); err != nil {
 				return err
 			}
 		}
@@ -3554,8 +3553,7 @@ func (g *Generator) generatePage(page models.Page) error {
 			return err
 		}
 		outputDir := filepath.Dir(outputPath)
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := g.ensureDir(outputDir); err != nil {
 			return err
 		}
 
@@ -3627,8 +3625,7 @@ func (g *Generator) generatePost(post models.Page) error {
 			return err
 		}
 		outputDir := filepath.Dir(outputPath)
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := g.ensureDir(outputDir); err != nil {
 			return err
 		}
 
@@ -3740,8 +3737,7 @@ func (g *Generator) writeAliasStub(alias, rel, target string) {
 		fmt.Printf("   ⚠️  Alias %q collides with an existing page; skipping\n", alias)
 		return
 	}
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+	if err := g.ensureParent(outPath); err != nil {
 		fmt.Printf("   ⚠️  Alias %q: %v\n", alias, err)
 		return
 	}
@@ -3917,8 +3913,7 @@ func (g *Generator) generateCategories() error {
 				pagePath = filepath.Join(g.config.OutputDir, filepath.FromSlash(archivePath),
 					"page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 			}
-			// #nosec G301 -- Web content directories need to be world-traversable
-			if err := os.MkdirAll(filepath.Dir(pagePath), 0755); err != nil {
+			if err := g.ensureParent(pagePath); err != nil {
 				return err
 			}
 			data := g.archiveData("category", cat.Name, cat, chunk.Posts, chunk.Pager, g.currentLang)
@@ -4247,8 +4242,7 @@ func (g *Generator) copyStaticSources() error {
 				return err
 			}
 		} else {
-			// #nosec G301 -- Web content directories need to be world-traversable
-			if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			if err := g.ensureParent(dest); err != nil {
 				return err
 			}
 			if err := g.copyFile(path, dest); err != nil {
@@ -4264,8 +4258,7 @@ func (g *Generator) copyStaticSources() error {
 
 // copyDir copies a directory recursively
 func (g *Generator) copyDir(src, dst string) error {
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(dst, 0755); err != nil {
+	if err := g.ensureDir(dst); err != nil {
 		return err
 	}
 
@@ -4404,8 +4397,7 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 		srcPath := filepath.Join(sourceDir, entry.Name())
 		dstPath := filepath.Join(outputDir, entry.Name())
 
-		// #nosec G301 -- Web content directories need to be world-traversable
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := g.ensureDir(outputDir); err != nil {
 			return err
 		}
 
@@ -4911,8 +4903,7 @@ func (g *Generator) writeFeed(relPath, title, altURL string, posts []models.Page
 	if err := g.ensureWithinOutput(outPath); err != nil {
 		return err
 	}
-	// #nosec G301 -- Web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+	if err := g.ensureParent(outPath); err != nil {
 		return err
 	}
 	// #nosec G306 -- Web content files need to be world-readable
