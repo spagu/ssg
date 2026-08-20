@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -89,5 +91,84 @@ func TestRoleNames(t *testing.T) {
 	}
 	if roleNames(map[string]bool{"content": true}) != "content" {
 		t.Error("single role name")
+	}
+}
+
+// TestParseMCPArgsSplitsItsOwnFlagsFromTheBuildFlags: everything `ssg mcp` owns
+// is consumed here, and everything else reaches the ordinary build parser — a
+// directory named like a flag is the case that used to be easy to break.
+func TestParseMCPArgsSplitsItsOwnFlagsFromTheBuildFlags(t *testing.T) {
+	p := parseMCPArgs([]string{
+		"--listen=127.0.0.1:7823", "--token=s3cret", "--allow-origin=https://example.com",
+		"--allow-origin=https://cms.example.com", "--no-stdio", "--no-watch",
+		"--role=designer", "--role=content", "site", "--http",
+	})
+	if p.done {
+		t.Fatalf("a well-formed command line must run, code = %d", p.code)
+	}
+	if p.netCfg.listen != "127.0.0.1:7823" || p.netCfg.token != "s3cret" || !p.netCfg.noStdio {
+		t.Errorf("network flags = %+v", p.netCfg)
+	}
+	if len(p.netCfg.origins) != 2 {
+		t.Errorf("--allow-origin must be repeatable, got %v", p.netCfg.origins)
+	}
+	if p.watch {
+		t.Error("--no-watch must turn rebuilds off")
+	}
+	if !p.roles["designer"] || !p.roles["content"] {
+		t.Errorf("roles = %v", p.roles)
+	}
+	if len(p.rest) != 2 || p.rest[0] != "site" || p.rest[1] != "--http" {
+		t.Errorf("unrecognised arguments must pass through, got %v", p.rest)
+	}
+}
+
+// TestParseMCPArgsStopsOnHelpAndOnABadRole: both end the command rather than
+// starting a server nobody asked for.
+func TestParseMCPArgsStopsOnHelpAndOnABadRole(t *testing.T) {
+	if _, err := captureStdout(func() error {
+		if p := parseMCPArgs([]string{"--help"}); !p.done || p.code != 0 {
+			t.Errorf("--help: done = %v code = %d", p.done, p.code)
+		}
+		if p := parseMCPArgs([]string{"-h"}); !p.done || p.code != 0 {
+			t.Errorf("-h: done = %v code = %d", p.done, p.code)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if p := parseMCPArgs([]string{"--role=editor"}); !p.done || p.code != 2 {
+		t.Errorf("an unknown role: done = %v code = %d", p.done, p.code)
+	}
+	// Defaults, for the plain `ssg mcp` everybody actually types.
+	p := parseMCPArgs(nil)
+	if !p.watch || len(p.roles) != 0 || p.netCfg.listen != "" {
+		t.Errorf("defaults = %+v", p)
+	}
+}
+
+// TestGitRunnerRefusesARelativeBinary: a git resolved from a relative PATH entry
+// can be swapped between calls, so the runner refuses rather than executing it.
+func TestGitRunnerRefusesARelativeBinary(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "git"), []byte("#!/bin/sh\n"), 0o755); err != nil { // #nosec G306 -- test fixture must be executable
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	t.Setenv("PATH", ".")
+	if _, err := gitRunner()("status"); err == nil {
+		t.Fatal("a relative git must not be executed")
+	}
+}
+
+// TestBuildMCPGitDerivesTheRepoFromTheRemote: with a token but no configured
+// repo, the remote is the only place the answer can come from.
+func TestBuildMCPGitDerivesTheRepoFromTheRemote(t *testing.T) {
+	t.Setenv("MCP_GH_REMOTE", "tok")
+	cfg := &config.Config{}
+	cfg.MCP.Git.Token = "$MCP_GH_REMOTE"
+	g := buildMCPGit(cfg) // repo unset: derived from `git remote get-url`
+	if !g.Enabled() || g.CreatePR == nil {
+		t.Fatalf("git flow must be enabled by a token alone: %+v", g)
 	}
 }

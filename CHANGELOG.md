@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.47] - 2026-08-20
+
+### Security
+- 🔑 **Every `ssg mcp --listen` endpoint gets a bearer token, and the token can
+  come from the environment** (#183). Two gaps that met in the worst place: the
+  deployment the documentation itself recommends.
+
+  Minting used to be conditional on the listener being **off** loopback — but
+  `docs/MCP_TRANSPORTS.md` tells you to bind loopback and let a reverse proxy own
+  the public address, with `--token="$SSG_MCP_TOKEN"`. An unset variable expands
+  to an empty argument; the address is loopback; nothing was minted; and the
+  startup line read *"No token — loopback only"* about a server that writes files
+  and runs git and was, at that moment, reachable from the internet. Nothing
+  failed, and the reassuring message was the wrong one. A token now costs nothing
+  on a listener nobody proxies — the client is being configured anyway — so there
+  is no longer a configuration without one.
+
+  The token also resolves from **`$SSG_MCP_TOKEN`** when `--token` is absent, the
+  flag winning when both are set. A command line is in `ps`, in the shell
+  history, in every container inspection and in the supervisor's own log; `ssg`
+  already takes that position for `mcp.git.token`, whose documentation says to
+  always use `$ENV`. The variable name is the one the docs were already using.
+
+  A minted token now says so — *"Minted for this run — set SSG_MCP_TOKEN to keep
+  it stable across restarts"* — which is the line to alert on in a supervised
+  deployment: it means the secret you thought you passed did not arrive. A
+  machine that cannot mint refuses to serve rather than serving openly.
+
 ## [1.8.46] - 2026-08-19
 
 ### Changed

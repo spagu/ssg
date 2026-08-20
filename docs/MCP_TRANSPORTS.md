@@ -44,7 +44,7 @@ curl -X POST http://127.0.0.1:7823/mcp \
 | Flag | Meaning |
 |---|---|
 | `--listen=ADDR` | Serve the MCP endpoint. **A bare port means localhost** — `--listen=7823` binds `127.0.0.1:7823`, not every interface |
-| `--token=SECRET` | Require `Authorization: Bearer SECRET`. Minted and printed automatically when the listener is not on loopback |
+| `--token=SECRET` | Require `Authorization: Bearer SECRET`. Falls back to **`$SSG_MCP_TOKEN`** when the flag is absent, and is minted and printed when neither is set |
 | `--allow-origin=URL` | Accept one browser origin; repeatable |
 | `--no-stdio` | Serve only the endpoint, for a server a supervisor starts rather than a client |
 
@@ -60,7 +60,7 @@ rules rather than offering them:
   allowed: that is a non-browser client, which cannot be a rebinding victim.
 - **Localhost by default**, so exposing the server is a decision rather than an
   accident.
-- **A bearer token off loopback**, generated if you did not supply one:
+- **A bearer token on every endpoint**, generated if you did not supply one:
 
   ```
   🌐 MCP endpoint: http://[::]:7824/mcp (Streamable HTTP)
@@ -72,16 +72,58 @@ rules rather than offering them:
 Put a real deployment behind TLS. The token is a shared secret, and plain HTTP
 carries it in the clear on every request.
 
+#### Where the token comes from
+
+Three sources, in order: `--token=…`, then `$SSG_MCP_TOKEN`, then a freshly
+minted one printed at startup. **Every `--listen` endpoint ends up with a token**
+— loopback included.
+
+That last part changed in 1.8.47. Minting used to be conditional on the listener
+being off loopback, which made the deployment recommended immediately below —
+loopback listener, reverse proxy owning the public address — the only shape that
+could end up with no authentication at all. `--token="$SSG_MCP_TOKEN"` with the
+variable unset expands to an empty argument; the address is loopback; nothing was
+minted; and the startup line said *"No token — loopback only"* about a server
+that writes files and runs git and was, at that moment, reachable from the
+internet. A token on a loopback listener nobody proxies costs nothing — the
+client is being configured anyway — so there is no longer a case without one.
+
+Prefer the variable to the flag. A command line is visible in `ps`, in the shell
+history, in every `docker inspect`, and in the supervisor's own log when it
+echoes what it started; `ssg` already takes this position for `mcp.git.token`,
+whose documentation says to always use `$ENV`.
+
+```
+   Authorization: Bearer 6f1c…            # supplied: yours, unchanged
+   Minted for this run — set SSG_MCP_TOKEN to keep it stable across restarts.
+```
+
+A minted token is new on every start, so a client configured with one stops
+working when the server restarts. Set `SSG_MCP_TOKEN` for anything long-lived.
+
 ### Serving a CMS over a network
 
 ```bash
-ssg mcp --listen=127.0.0.1:7823 --token="$SSG_MCP_TOKEN" --no-stdio
+SSG_MCP_TOKEN=… ssg mcp --listen=127.0.0.1:7823 --no-stdio
 ```
 
 Bind to loopback and let a reverse proxy own TLS and the public address, rather
 than binding the server to a routable interface directly. Then the proxy holds
 the certificate, the rate limiting and the access log, and the MCP server keeps
 one job.
+
+The token travels in the environment, not on the command line — and if the
+variable is missing, the endpoint still comes up authenticated with a minted
+token rather than open. Read the startup line to find out which happened:
+
+```
+🌐 MCP endpoint: http://127.0.0.1:7823/mcp (Streamable HTTP)
+   Authorization: Bearer …
+   Minted for this run — set SSG_MCP_TOKEN to keep it stable across restarts.
+```
+
+That second line is the one to alert on in a supervised deployment: it means the
+secret you thought you passed did not arrive.
 
 `GET` and `DELETE` answer `405` by design: they belonged to the standalone-stream
 and session mechanics of earlier protocol revisions, which this transport does
