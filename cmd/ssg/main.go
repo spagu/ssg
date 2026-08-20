@@ -164,7 +164,7 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		// from the configuration it started with (#70).
 		if sig := fileSignature(configPath); sig != configSig {
 			configSig = sig
-			if newGen, newCfg, ok := reloadWatchConfig(configPath, cfg); ok {
+			if newGen, newCfg, ok := reloadWatchConfig(os.Args[1:], configPath, cfg); ok {
 				genCfg, cfg = newGen, newCfg
 				dirs = watchDirs(cfg)
 				sigCache = newFileSigCache()
@@ -197,8 +197,13 @@ func watchedInputs(cfg *config.Config, configPath string) []string {
 // file changed, returning the refreshed pair. On a config that no longer loads it
 // reports the error and returns ok=false, so the watcher keeps the last good
 // settings instead of dying on a half-saved edit.
-func reloadWatchConfig(configPath string, old *config.Config) (generator.Config, *config.Config, bool) {
-	args := os.Args[1:]
+//
+// args are the command-line arguments the flags are re-applied from. They are a
+// parameter rather than os.Args[1:] because `ssg mcp --watch` reloads through
+// here too (#184), and its argument list still carries the `mcp` verb and the
+// mcp-only flags — replaying those through parseFlags would read the subcommand
+// name as a source directory.
+func reloadWatchConfig(args []string, configPath string, old *config.Config) (generator.Config, *config.Config, bool) {
 	cfg, err := loadConfigFile(configPath)
 	if err != nil {
 		if !old.Quiet {

@@ -26,6 +26,7 @@ ssg mcp --config=.ssg.yaml
 | `--role=designer` | Expose the designer tools only |
 | `--role=content` | Expose the content tools only |
 | `--no-watch` | Do not rebuild after each change |
+| `--watch` | Also watch the filesystem, so edits made outside MCP rebuild too |
 | `--config=FILE` | Site config (default `.ssg.yaml`) |
 
 Both roles are exposed by default. Narrow with `--role` when an agent should not
@@ -86,6 +87,45 @@ it before doing anything else.
 
 This is the part worth relying on: an agent editing a static site otherwise has
 no way to tell whether its change was valid until someone looks at the output.
+
+## One process for preview, MCP and watch
+
+```bash
+ssg mcp --http --watch --listen=7823
+```
+
+That one command serves the site preview, serves the MCP endpoint, and rebuilds
+on **both** kinds of change: a mutation arriving through MCP, and a file edited
+by anything else — a human editor open beside the agent, an `rsync`, a CMS export
+refreshing content. Live reload fires either way.
+
+The distinction between the two watch flags is worth stating once:
+
+| Flag | What it governs |
+|---|---|
+| *(default on)* | Rebuild after every **MCP mutation**. Turn it off with `--no-watch` |
+| `--watch` | Also poll the **filesystem** — content, templates, data, `content_sources`, and the config file |
+
+Before 1.8.47 `--watch` was accepted here and read by nothing, so an edit that
+did not arrive through MCP left the preview stale indefinitely. The workaround —
+`--watch-runner="ssg mcp --listen=…"` — is one command line but still two
+processes, and worse: two independent builders over one output directory with
+nothing serialising them, which is a preview that intermittently serves half a
+site.
+
+**Every rebuild goes through one lock**, whatever triggered it. That also closes
+a race that needed no watcher at all: the Streamable HTTP transport gives each
+request its own goroutine, so two concurrent `tools/call` were already able to
+rebuild the same output tree at the same time.
+
+An edited config file is picked up here as it is under `ssg --watch`: the file is
+reloaded, `endpoints:` are republished onto the running preview without dropping
+the port, and the site rebuilds from the new settings. One boundary is fixed at
+startup and worth knowing: the **MCP server's own surface** — which roles are
+exposed, which directories its tools may write to, whether the git PR flow is
+armed — is read once when the process starts. Moving `content_dir` in a live
+config changes what is built, not what the assistant is allowed to edit; that
+needs a restart.
 
 ## Git write-back
 

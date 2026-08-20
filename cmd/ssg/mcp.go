@@ -92,6 +92,11 @@ func runMCP(args []string) int {
 	downloadOnlineTheme(cfg)
 	genCfg := createGeneratorConfig(cfg)
 	logf := func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }
+	// One builder for the whole process, and one mutex inside it. MCP mutations
+	// and — with --watch — the filesystem loop both rebuild the same output
+	// tree, and over the HTTP transport two tools/call already arrive on two
+	// goroutines (#184).
+	rebuilder := newMCPRebuilder(genCfg, cfg)
 
 	opts := mcp.Options{
 		Root:         ".",
@@ -108,21 +113,7 @@ func runMCP(args []string) int {
 			_, err := loadConfigFile(path)
 			return err
 		},
-		Rebuild: func() (string, error) {
-			// Rebuild quietly, capturing anything printed so build noise cannot
-			// leak into the JSON-RPC stdout channel and errors flow to the model.
-			q := *cfg
-			q.Quiet = true
-			out, err := captureStdout(func() error { return build(genCfg, &q) })
-			// Push the result to an open --http preview: a reload on success,
-			// the error overlay otherwise (GO-090). No-op without --http.
-			if err != nil {
-				notifyBuildError(err.Error())
-			} else {
-				notifyReload()
-			}
-			return out, err
-		},
+		Rebuild: rebuilder.rebuild,
 	}
 
 	logf("🔌 ssg mcp %s — designer/content development server (stdio)", Version)
@@ -132,6 +123,11 @@ func runMCP(args []string) int {
 	// is exactly when a human wants the preview open. Live reload needs the
 	// rebuild signal, which MCP's Rebuild provides, so it is on with --http.
 	serveMCPPreview(cfg, logf)
+	// --watch was parsed into cfg by parseFlags and read by nothing in this
+	// path, so a file changed outside MCP never rebuilt and never reloaded the
+	// preview. It now drives the same polling loop the serve path runs, through
+	// the same serialised rebuilder (#184).
+	startMCPWatch(rebuilder, rest, configPathOf(rest), logf)
 
 	server := mcp.NewServer(opts)
 	// The network transport, when asked for. It runs alongside stdio rather
@@ -483,6 +479,10 @@ func printMCPHelp() {
 	fmt.Println("Options:")
 	fmt.Println("  --role=designer|content  - expose one role only (default: both)")
 	fmt.Println("  --no-watch               - do not rebuild the site after each change")
+	fmt.Println("  --watch                  - also watch the filesystem, so edits made outside")
+	fmt.Println("                             MCP rebuild and reload the preview as well. One")
+	fmt.Println("                             process for preview + MCP + watch; every rebuild,")
+	fmt.Println("                             whatever triggered it, is serialised.")
 	fmt.Println("  --config=FILE            - site config (default: .ssg.yaml)")
 	fmt.Println()
 	fmt.Println("Git write-back (optional, config `mcp.git`): with an account + $ENV token the")

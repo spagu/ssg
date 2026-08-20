@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.47] - 2026-08-20
 
+### Added
+- 🔁 **One process for preview, MCP and the filesystem** (#184) —
+  `ssg mcp --http --watch --listen=7823` now serves the preview, serves the MCP
+  endpoint, and rebuilds on both kinds of change: a mutation arriving through
+  MCP, and a file edited by anything else. `--watch` was already accepted here
+  and read by nothing: parseFlags put it in the config and the mcp path never
+  looked, so an edit from a human editor open beside the agent, an `rsync` or a
+  CMS export left the preview stale indefinitely.
+
+  It is the same watch, not a second one: the same polling loop, the same
+  per-file signature cache, the same content-signature gate that skips
+  touch-only events. An edited config file is reloaded and its `endpoints:`
+  republished onto the running preview (#180) without dropping the port.
+
+  The workaround it replaces — `--watch-runner="ssg mcp --listen=…"` — is one
+  command line but still two processes, and two independent builders over one
+  output directory with nothing serialising them.
+
+### Fixed
+- 🔒 **Two rebuilds can no longer run at once**, which was true before any
+  watcher existed. The Streamable HTTP transport gives every request its own
+  goroutine, so two concurrent `tools/call` already rebuilt the same output tree
+  at the same time — and the stdout capture that keeps build noise out of the
+  JSON-RPC channel swaps a process-wide `os.Stdout` while doing it. Every
+  rebuild in `ssg mcp` now passes through one mutex, whichever source triggered
+  it. Asserted under `-race` with eight goroutines and a high-water counter that
+  must never read 2.
+
 ### Security
 - 🔑 **Every `ssg mcp --listen` endpoint gets a bearer token, and the token can
   come from the environment** (#183). Two gaps that met in the worst place: the

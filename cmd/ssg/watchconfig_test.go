@@ -111,7 +111,7 @@ func TestReloadWatchConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := &config.Config{Quiet: true, ContentDir: "content"}
-	_, cfg, ok := reloadWatchConfig(p, old)
+	_, cfg, ok := reloadWatchConfig(nil, p, old)
 	if !ok || cfg.ContentDir != "docs" {
 		t.Fatalf("reload = %v, ok=%v", cfg, ok)
 	}
@@ -119,7 +119,7 @@ func TestReloadWatchConfig(t *testing.T) {
 	if err := os.WriteFile(p, []byte("content_dir: [broken\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok := reloadWatchConfig(p, old); ok {
+	if _, _, ok := reloadWatchConfig(nil, p, old); ok {
 		t.Error("a broken config must not be adopted")
 	}
 }
