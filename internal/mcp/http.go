@@ -188,12 +188,21 @@ func writeRPCError(w http.ResponseWriter, status int, id json.RawMessage, code i
 	})
 }
 
+// randRead is a seam so the failure path below can be exercised. crypto/rand
+// does not fail in practice on any supported platform, which is exactly why the
+// branch would otherwise go untested — and an untested error path on a security
+// boundary is the one you find out about the hard way.
+var randRead = rand.Read
+
 // NewToken returns a random bearer token. A server reachable off localhost
 // without one is an open remote-code-execution endpoint, so the CLI mints this
 // rather than defaulting to nothing.
+//
+// A failure here must NOT fall back to a weaker source: a predictable token on
+// a routable address is worse than refusing to start.
 func NewToken() (string, error) {
 	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randRead(b); err != nil {
 		return "", fmt.Errorf("generating a token: %w", err)
 	}
 	return hex.EncodeToString(b), nil

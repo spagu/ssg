@@ -4,7 +4,7 @@ module github.com/spagu/ssg
 // govulncheck finds reachable from this code — among them GO-2026-5972
 // (encoding/asn1, via ssh.ParsePrivateKey in the SFTP deploy) and GO-2026-5026
 // (net/http/idna, via every outbound request) — all fixed in go1.26.6.
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0

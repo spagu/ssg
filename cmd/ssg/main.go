@@ -210,6 +210,10 @@ func reloadWatchConfig(configPath string, old *config.Config) (generator.Config,
 	parseFlags(args, cfg) // command-line flags still win over the file
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
+	// Endpoints are served by the running server, which was wired at startup;
+	// republish them or a route added to the config answers 404 until the
+	// process restarts (#180).
+	republishEndpoints(cfg)
 	if !cfg.Quiet {
 		fmt.Printf("♻️  Configuration reloaded from %s\n", configPath)
 	}
@@ -1007,6 +1011,7 @@ func parseEqualFlags(arg string, cfg *config.Config) {
 // parseIntEqualFlags handles numeric --flag=N options; returns true when recognised.
 func parseIntEqualFlags(arg string, cfg *config.Config) bool {
 	switch {
+	case setIntEqual(arg, "--avif-quality=", 1, 100, func(n int) { cfg.AVIFQuality = n }):
 	case setIntEqual(arg, "--webp-quality=", 1, 100, func(n int) { cfg.WebPQuality = n }):
 	case setIntEqual(arg, "--max-conns=", 0, 0, func(n int) { cfg.MaxConns = n }):
 	case setIntEqual(arg, "--workers=", 0, 0, func(n int) { cfg.BuildWorkers = &n }):
@@ -1049,6 +1054,9 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	switch {
 	case strings.HasPrefix(arg, "--image-sizes="):
 		cfg.ImageSizes = parseIntList(strings.TrimPrefix(arg, "--image-sizes="))
+	case strings.HasPrefix(arg, "--image-formats="):
+		// Preference order, so --image-formats=avif,webp offers AVIF first.
+		cfg.ImageFormats = splitContentList(strings.TrimPrefix(arg, "--image-formats="))
 	case strings.HasPrefix(arg, "--permalink-post="):
 		setPermalink(cfg, "post", strings.TrimPrefix(arg, "--permalink-post="))
 	case strings.HasPrefix(arg, "--permalink-page="):
@@ -1121,7 +1129,8 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 // flags (GO-053). --check-links is absent by design: its bare form is a
 // boolean toggle, so only the "=" spelling can carry a mode.
 var extraEqualValueFlags = []string{
-	"--webp-quality", "--max-conns", "--workers", "--paginate", "--feed-items", "--toc-depth",
+	"--webp-quality", "--avif-quality", "--image-formats",
+	"--max-conns", "--workers", "--paginate", "--feed-items", "--toc-depth",
 	"--port", "--mddb-timeout", "--mddb-batch-size", "--mddb-watch-interval",
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
@@ -1243,8 +1252,13 @@ func resolveBuildWorkers(n *int) int {
 
 // runWebP converts output images to WebP and rewrites references when --webp is set.
 func runWebP(cfg *config.Config) error {
-	if !cfg.WebP {
+	if !cfg.WebP && !wantsFormat(cfg, "webp") && !wantsFormat(cfg, "avif") {
 		return nil
+	}
+	// AVIF first: it encodes from the originals, and the WebP pass below
+	// replaces them in place unless webp_keep_original is set (#178).
+	if err := runAVIF(cfg); err != nil {
+		return err
 	}
 	opts := webp.ConvertOptions{
 		Quality:      cfg.WebPQuality,
@@ -1267,6 +1281,57 @@ func runWebP(cfg *config.Config) error {
 	}
 	if !cfg.Quiet && converted > 0 {
 		fmt.Printf("   📊 Converted %d images, saved %.1f MB\n", converted, float64(saved)/(1024*1024))
+	}
+	// The <picture> wrap comes last: it needs the <img src=".webp"> that
+	// UpdateReferences and EmitSrcset have just produced.
+	if wantsFormat(cfg, "avif") && webp.AVIFAvailable() {
+		if err := webp.EmitPicture(cfg.OutputDir); err != nil {
+			return fmt.Errorf("offering AVIF via <picture>: %w", err)
+		}
+	}
+	return nil
+}
+
+// wantsFormat reports whether image_formats names a format.
+func wantsFormat(cfg *config.Config, name string) bool {
+	for _, f := range cfg.ImageFormats {
+		if strings.EqualFold(strings.TrimSpace(f), name) {
+			return true
+		}
+	}
+	return false
+}
+
+// runAVIF emits the site-level AVIF derivatives and offers them via <picture>
+// (#178). A no-op unless image_formats asks for avif.
+//
+// A missing encoder is a warning rather than a failure: the site still has its
+// WebP and its originals, and stopping a build over an optional tool would make
+// the format unusable on exactly the machines most likely to lack it.
+func runAVIF(cfg *config.Config) error {
+	if !wantsFormat(cfg, "avif") {
+		return nil
+	}
+	if !webp.AVIFAvailable() {
+		if !cfg.Quiet {
+			fmt.Println("   ⚠️  image_formats lists avif but avifenc is not installed — skipping it.")
+			fmt.Println("      Debian/Ubuntu: apt install libavif-bin · Alpine: apk add libavif-apps · macOS: brew install libavif")
+			fmt.Println("      The site still publishes WebP and the originals.")
+		}
+		return nil
+	}
+	made, err := webp.ConvertDirectoryAVIF(cfg.OutputDir, webp.AVIFOptions{
+		Quality: cfg.AVIFQuality,
+		Sizes:   cfg.ImageSizes,
+		Force:   cfg.ReconvertImages,
+		Quiet:   cfg.Quiet,
+		Workers: resolveBuildWorkers(cfg.BuildWorkers),
+	})
+	if err != nil {
+		return fmt.Errorf("converting to AVIF: %w", err)
+	}
+	if !cfg.Quiet && made > 0 {
+		fmt.Println(webp.AVIFSummary(made))
 	}
 	return nil
 }
@@ -1603,6 +1668,10 @@ func printUsage() {
 	fmt.Println("Image Processing:")
 	fmt.Println("  --webp                 - Convert images to WebP format (requires cwebp)")
 	fmt.Println("  --webp-quality=N       - WebP compression quality 1-100 (default: 60)")
+	fmt.Println("  --image-formats=a,b    - Publish images in these formats, best first")
+	fmt.Println("                           (e.g. avif,webp). AVIF needs the optional avifenc;")
+	fmt.Println("                           a missing encoder is skipped with a warning.")
+	fmt.Println("  --avif-quality=N       - AVIF quality 1-100 (default: 45)")
 	fmt.Println("  --webp-keep-original   - Keep originals next to .webp files (safe for themes")
 	fmt.Println("                           with hardcoded .png/.jpg refs); default replaces them")
 	fmt.Println("  --reconvert-images     - Force reconvert even if WebP already exists")

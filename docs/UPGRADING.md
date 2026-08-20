@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.45">1.8.45 — 2026-08-19</option>
       <option value="1.8.44">1.8.44 — 2026-08-18</option>
       <option value="1.8.43">1.8.43 — 2026-08-17</option>
       <option value="1.8.42">1.8.42 — 2026-08-17</option>
@@ -178,6 +179,15 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.46">
+
+### 1.8.46 — nothing to do
+
+Built with Go 1.27 and a little less work per page. No configuration, no output
+change: the golden baseline is byte-identical.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.45">
 

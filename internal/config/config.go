@@ -323,6 +323,22 @@ type Config struct {
 	// pipeline emits a variant per width (no upscaling) and rewrites <img> with
 	// srcset/sizes (ASSET-004). Empty = single-size behaviour (unchanged).
 	ImageSizes []int `yaml:"image_sizes" toml:"image_sizes" json:"image_sizes"`
+	// ImageFormats lists the formats a site wants its images published in, in
+	// preference order — `[avif, webp]` offers AVIF first and falls back to
+	// WebP, with the original always the last resort (#178).
+	//
+	// AVIF was reachable only from a template helper, per call, which meant a
+	// site could not simply ask for it and a hosted builder exposing ssg's
+	// settings had no key to write. Empty keeps the historical behaviour:
+	// `webp: true` alone means WebP.
+	//
+	// A format whose encoder is not installed is skipped with one warning and
+	// the build carries on — the optional-binary rule the AVIF helper already
+	// follows. A site is never broken by a tool the machine does not have.
+	ImageFormats []string `yaml:"image_formats" toml:"image_formats" json:"image_formats"`
+	// AVIFQuality is avifenc's -q (0..100), default 45. Lower than the WebP
+	// default on purpose: AVIF holds detail at settings where WebP softens.
+	AVIFQuality int `yaml:"avif_quality" toml:"avif_quality" json:"avif_quality"`
 	// ImageSizesAttr is the value of the generated sizes attribute (default "100vw").
 	ImageSizesAttr string `yaml:"image_sizes_attr" toml:"image_sizes_attr" json:"image_sizes_attr"`
 	// ImagesGC prunes image-cache entries not referenced by the current build

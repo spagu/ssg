@@ -107,3 +107,57 @@ func TestScaffoldScriptTargetsWhatTheTemplatesShip(t *testing.T) {
 		t.Error("the toggle must report its state")
 	}
 }
+
+// TestWriteScaffoldAssetsReportsRealFailures: a scaffold that silently fails to
+// write its stylesheet leaves exactly the defect this feature exists to fix.
+func TestWriteScaffoldAssetsReportsRealFailures(t *testing.T) {
+	root := t.TempDir()
+	// A file where the css/ directory needs to be.
+	if err := os.WriteFile(filepath.Join(root, "css"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := writeScaffoldAssets(root)
+	if err == nil {
+		t.Fatal("a blocked directory must be reported")
+	}
+	if !strings.Contains(err.Error(), "css") {
+		t.Errorf("the error must name what it could not create: %v", err)
+	}
+}
+
+// TestScaffoldAssetsCreateTheirDirectories, since a fresh theme has neither.
+func TestScaffoldAssetsCreateTheirDirectories(t *testing.T) {
+	root := t.TempDir()
+	if err := writeScaffoldAssets(root); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{"css", "js"} {
+		info, err := os.Stat(filepath.Join(root, dir))
+		if err != nil || !info.IsDir() {
+			t.Errorf("%s/ must be created: %v", dir, err)
+		}
+	}
+}
+
+// TestScaffoldAssetWriteFailureIsReported: a directory that exists but cannot
+// be written into. The scaffold must say so rather than leave the site linking
+// a file it never wrote — which is the whole defect this closes.
+func TestScaffoldAssetWriteFailureIsReported(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores the permission bits this test relies on")
+	}
+	root := t.TempDir()
+	css := filepath.Join(root, "css")
+	if err := os.MkdirAll(css, 0o555); err != nil { // read-only
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(css, 0o755) })
+
+	err := writeScaffoldAssets(root)
+	if err == nil {
+		t.Fatal("an unwritable asset directory must be reported")
+	}
+	if !strings.Contains(err.Error(), "style.css") {
+		t.Errorf("the error must name the file: %v", err)
+	}
+}

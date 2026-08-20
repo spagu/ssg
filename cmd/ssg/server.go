@@ -247,10 +247,13 @@ func autocertCacheDir() string {
 // (optional) gzip and (optional) access-control middleware. Access control is
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
-	h := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
+	static := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
 	// Vendor-neutral endpoints intercept their paths before the file server;
-	// everything else is still served statically (#63).
-	h = endpointHandler(cfg, h)
+	// everything else is still served statically (#63). The routing table is
+	// published rather than captured, so a watch reload can replace it without
+	// touching the listener (#180).
+	publishEndpoints(cfg, static)
+	h := liveEndpointHandler(static)
 	h = cacheControlMiddleware(h)
 	h = securityHeadersMiddleware(h, tlsOn)
 	if cfg.Gzip {

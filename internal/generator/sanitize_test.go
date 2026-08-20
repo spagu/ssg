@@ -299,3 +299,99 @@ func TestMergeSpans(t *testing.T) {
 		t.Errorf("a single span = %v", got)
 	}
 }
+
+// TestFormatCharactersBeyondTheNamedList: the catch-all. Unicode keeps adding
+// invisible format characters, and a list written today would silently stop
+// covering the next one — so anything in the Cf category is removed and
+// reported under its own name.
+func TestFormatCharactersBeyondTheNamedList(t *testing.T) {
+	// U+2061 FUNCTION APPLICATION: invisible, in Cf, and not on the named list.
+	// Written as an escape for the same reason this feature exists — a source
+	// file carrying one literally is a source file nobody can review.
+	const funcApp = "\u2061"
+	out, counts := sanitizeHTML("<p>a" + funcApp + "b</p>")
+	if strings.Contains(out, funcApp) {
+		t.Errorf("an unnamed format character must go: %q", out)
+	}
+	if counts["format character"] != 1 {
+		t.Errorf("it must be counted under the catch-all: %v", counts)
+	}
+	// And an ordinary letter in no such category is untouched.
+	if got, c := sanitizeHTML("<p>ą</p>"); got != "<p>ą</p>" || c.total() != 0 {
+		t.Errorf("a letter must survive: %q %v", got, c)
+	}
+}
+
+// TestReportInWarnModeSaysItChangedNothing, or an operator reads a removal
+// report and looks for changes that were never made.
+func TestReportInWarnModeSaysItChangedNothing(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.SanitizeOutput = "warn"
+	g.sanitizeHTMLString("<p>a" + zwsp + "b</p>")
+
+	out := captureBuildOutput(t, g.reportSanitized)
+	if !strings.Contains(out, "Found") {
+		t.Errorf("warn mode must say it found rather than removed: %s", out)
+	}
+	if !strings.Contains(out, "reporting only") {
+		t.Errorf("it must say nothing was changed: %s", out)
+	}
+}
+
+// TestStrippedImageReportNamesWhatTravelsInEXIF: the number alone does not tell
+// an operator why they should care.
+func TestStrippedImageReport(t *testing.T) {
+	g := newTestGen(t, "")
+	if out := captureBuildOutput(t, g.reportStrippedImages); out != "" {
+		t.Errorf("nothing stripped, nothing said: %q", out)
+	}
+
+	g.recordStrippedImage()
+	g.recordStrippedImage()
+	out := captureBuildOutput(t, g.reportStrippedImages)
+	for _, want := range []string{"2", "GPS", "image_metadata: keep"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report must mention %q: %s", want, out)
+		}
+	}
+
+	// A quiet build stays quiet.
+	g.config.Quiet = true
+	if out := captureBuildOutput(t, g.reportStrippedImages); out != "" {
+		t.Errorf("quiet build printed %q", out)
+	}
+}
+
+// TestStripImageMetadataDefaultsToStripping, because a photo published with GPS
+// is the failure this exists to prevent.
+func TestStripImageMetadataMode(t *testing.T) {
+	g := newTestGen(t, "")
+	if !g.stripImageMetadata() {
+		t.Error("unset must strip")
+	}
+	for _, keep := range []string{"keep", "KEEP", "preserve"} {
+		g.config.ImageMetadata = keep
+		if g.stripImageMetadata() {
+			t.Errorf("%q must publish the metadata", keep)
+		}
+	}
+	g.config.ImageMetadata = "strip"
+	if !g.stripImageMetadata() {
+		t.Error("an explicit strip must strip")
+	}
+}
+
+// TestIsJPEGPath: only JPEG is rewritten, because it is the marker-segment
+// format where the removal is exact rather than a lossy re-encode.
+func TestIsJPEGPath(t *testing.T) {
+	for _, p := range []string{"a.jpg", "b.JPEG", "dir/c.Jpg"} {
+		if !isJPEGPath(p) {
+			t.Errorf("%q is a JPEG", p)
+		}
+	}
+	for _, p := range []string{"a.png", "b.webp", "c.avif", "d.gif", "e"} {
+		if isJPEGPath(p) {
+			t.Errorf("%q is not a JPEG", p)
+		}
+	}
+}

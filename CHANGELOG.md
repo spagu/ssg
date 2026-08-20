@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.46] - 2026-08-19
+
+### Changed
+- 🐹 **Built with and targeting Go 1.27.0** (from 1.26.6), with golangci-lint
+  pinned to v2.13.1 — the first release built on 1.27, and the reason the
+  language directive could move at all: the linter refuses to analyse a target
+  newer than the Go it was built with.
+
+  **Measured rather than assumed**: on a 2,000-post corpus the median and
+  minimum build times are identical between 1.26.7 and 1.27.0. Go 1.27's headline
+  gains — up to 30% on sub-80-byte allocations, faster `compress/flate`, faster
+  JSON unmarshal — are real, but a profile of that build is **68% syscalls**, so
+  a ~1% CPU improvement is below the measurement noise here. The bump is taken
+  for the security and stdlib currency it brings, not for a speedup this
+  workload can show.
+- 🔀 **The endpoint proxy uses `ReverseProxy.Rewrite`** instead of the
+  `Director` field Go deprecated. Not cosmetic: `Director` sees only the
+  outbound request, so a proxy built on it forwards whatever `X-Forwarded-*`
+  headers the client sent; `Rewrite` receives both requests and strips them,
+  which is the reason the replacement exists. Surfaced by targeting 1.27.
+
+### Added
+- 🖼️ **`image_formats` — a site-level way to ask for AVIF** (#178). AVIF has been
+  reachable since #43, but only from a template helper, per call: a site could
+  not simply ask for it, so a hosted builder exposing ssg's settings had no key
+  to write, and a migrated WordPress site full of camera JPEGs kept paying for
+  them. `image_formats: [avif, webp]` publishes a derivative per format at every
+  `image_sizes` width and wraps the `<img>` in a `<picture>` offering AVIF
+  first — the `<img>` itself is never modified, so a browser that understands
+  neither source gets exactly what it always got.
+
+  Measured on this pipeline with a 1600×1000 photograph: **271 KB WebP → 123 KB
+  AVIF, 55% smaller**, matching what the report saw on its own image. The cost
+  is real too and is stated rather than glossed: encoding is roughly **four
+  times** slower (0.27 s → 1.03 s for one image and its two responsive widths),
+  which is exactly why WebP stays the default and this is opt-in. `avif_quality`
+  (45) sits below `webp_quality` because AVIF holds detail where WebP softens.
+
+  Also `--image-formats` / `--avif-quality` on the CLI, and an `image-formats`
+  input on the GitHub Action which **installs the AVIF encoder only when asked
+  for it** — `libavif-bin` pulls a set of codecs, and a workflow that did not
+  request AVIF should not pay for either the download or the encode time.
+
+  **A format whose encoder is missing is skipped with a warning and the build
+  carries on** — the rule the AVIF helper already followed. A build that failed
+  here would make the format unusable on exactly the machines least likely to
+  have the tool.
+
+### Fixed
+- 🔌 **A running server follows its config file** (#180) — `--watch` reloaded
+  `.ssg.yaml` and rebuilt the site, but the HTTP server was wired once at
+  startup and kept the endpoint list it read then. Adding an `endpoints:` route
+  to a running preview rebuilt the site and still answered 404, and the only
+  ways out were restarting the process or, under `ssg daemon`, restarting a
+  project whose entry had not changed — which takes its port down with it.
+
+  The report came from the daemon, but the defect was the server's: a plain
+  `ssg --watch --http` had it too, so the fix is where the routes are wired and
+  both are cured at once. The swap is a pointer store, not a restart: the
+  listener, the connections and the port are untouched, and a request sees the
+  old routing table or the new one, never a half-built one.
+- ⚡ **Output directories are created once per build, not once per page**
+  — every page called `os.MkdirAll` on its parent, and `MkdirAll` walks
+  the path statting each component whether or not it exists. A site with 2,000
+  posts under one tree repeated that for every one of them. The generator now
+  remembers what it created, including ancestors, so a sibling written next
+  costs nothing. Worth about 2.5% of the median build; the remaining `mkdirat`
+  cost is inherent — the default `page_format: directory` genuinely needs one
+  directory per page, and that is a layout choice rather than a defect.
+
 ## [1.8.45] - 2026-08-19
 
 ### Added

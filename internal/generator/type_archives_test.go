@@ -8,6 +8,8 @@ package generator
 // these tests are therefore about NOT building one.
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -294,5 +296,96 @@ func TestArchiveLinkPath(t *testing.T) {
 		if got := archiveLinkPath(in); got != want {
 			t.Errorf("archiveLinkPath(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestTypeArchiveReportsWhatItWrote, and stays silent on a quiet build.
+func TestTypeArchiveReporting(t *testing.T) {
+	g := cptGenWithEntries(t)
+	out := captureBuildOutput(t, func() {
+		if err := g.generateTypeArchives(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(out, "content-type archive") {
+		t.Errorf("the build must say what it made: %s", out)
+	}
+
+	g2 := cptGenWithEntries(t)
+	g2.config.Quiet = true
+	if out := captureBuildOutput(t, func() { _ = g2.generateTypeArchives() }); out != "" {
+		t.Errorf("a quiet build printed %q", out)
+	}
+}
+
+// cptGenWithEntries is cptGen with the export hint already set, which is the
+// arrangement most of these assertions need.
+func cptGenWithEntries(t *testing.T) *Generator {
+	t.Helper()
+	g := cptGen(t)
+	g.siteData.CustomTypes = []models.CustomType{{Slug: "realizacje", Name: "Realizacje", HasArchive: true}}
+	return g
+}
+
+// TestTypeArchivePathFallsBackToTheType when the export recorded no address,
+// and tolerates every spelling of "not set".
+func TestTypeArchivePathFallback(t *testing.T) {
+	g := cptGen(t)
+	// No custom types at all.
+	if got := g.typeArchivePath("realizacje"); got != "realizacje" {
+		t.Errorf("with no export hint = %q", got)
+	}
+	// A type that is not the one asked about.
+	g.siteData.CustomTypes = []models.CustomType{{Slug: "other", ArchiveLink: "/elsewhere/"}}
+	if got := g.typeArchivePath("realizacje"); got != "realizacje" {
+		t.Errorf("another type's link must not be used: %q", got)
+	}
+}
+
+// TestTypeArchiveTemplateFailureIsNotFatal: a theme without category.html must
+// not stop a build that was otherwise fine.
+func TestTypeArchiveTemplateFailureIsNotFatal(t *testing.T) {
+	g := newTestGen(t, `{{define "other.html"}}x{{end}}`) // no category.html
+	root := t.TempDir()
+	g.config.ContentDir = filepath.Join(root, "content")
+	g.config.Source = "site"
+	g.config.TypeArchives = map[string]bool{"realizacje": true}
+	g.siteData.Pages = []models.Page{{
+		Title: "One", Slug: "one", Type: "realizacje", Status: "publish",
+		SourceDir: filepath.Join(g.config.ContentDir, "site", "posts"),
+	}}
+
+	out := captureBuildOutput(t, func() {
+		if err := g.generateTypeArchives(); err != nil {
+			t.Fatalf("a missing template must not fail the build: %v", err)
+		}
+	})
+	if !strings.Contains(out, "realizacje") {
+		t.Errorf("the failure must be named: %s", out)
+	}
+}
+
+// TestArchiveRootFailureIsReportedNotFatal: a path that cannot be created — a
+// file already sitting where the directory belongs — must be named, and the
+// rest of the build must continue.
+func TestArchiveRootFailureIsNotFatal(t *testing.T) {
+	g := cptGen(t)
+	g.siteData.CustomTypes = []models.CustomType{{Slug: "realizacje", HasArchive: true}}
+	// A file where the archive directory needs to be.
+	blocker := filepath.Join(g.config.OutputDir, "realizacje")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.generateTypeArchives(); err == nil {
+		t.Error("a directory that cannot be created must be reported")
+	}
+}
+
+// TestEmptyPathIsRefused: a type whose slug sanitises to nothing writes
+// nowhere rather than at the output root.
+func TestEmptyTypeSlugIsRefused(t *testing.T) {
+	g := cptGen(t)
+	if ok, err := g.writeTypeArchive(typeArchive{Type: "x", Path: "///", Name: "X"}); ok || err != nil {
+		t.Errorf("ok=%v err=%v — an empty path must be skipped quietly", ok, err)
 	}
 }

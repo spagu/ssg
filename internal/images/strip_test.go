@@ -144,3 +144,41 @@ func TestHasJPEGMetadataMatchesWhatStripWouldDo(t *testing.T) {
 		t.Error("an image without it must not")
 	}
 }
+
+// TestPayloadOnASegmentTooShortToHaveOne: the ICC check reads a segment's
+// bytes, and a truncated one must answer "no profile" rather than panic.
+func TestPayloadEdges(t *testing.T) {
+	if got := payload([]byte{0xFF, markerAPP2}); got != nil {
+		t.Errorf("a segment with no length has no payload: %v", got)
+	}
+	if got := payload([]byte{0xFF, markerAPP2, 0x00, 0x02}); len(got) != 0 {
+		t.Errorf("an empty payload = %v", got)
+	}
+	full := segment(markerAPP2, []byte("abc"))
+	if got := payload(full); string(got) != "abc" {
+		t.Errorf("payload = %q", got)
+	}
+}
+
+// TestMarkersWithoutSegmentsArePassedThrough: the standalone markers (RSTn) and
+// a segment with no data must survive a strip untouched.
+func TestStandaloneMarkersSurvive(t *testing.T) {
+	src := []byte{markerPrefix, markerSOI}
+	src = append(src, segment(0xDB, []byte{0x01, 0x02})...) // quantisation table
+	src = append(src, segment(0xC4, []byte{0x03})...)       // Huffman table
+	src = append(src, segment(markerSOS, []byte{0x01})...)
+	src = append(src, 0xAA, 0xBB, markerPrefix, markerEOI)
+
+	out := StripJPEGMetadata(src)
+	if !bytes.Equal(out, src) {
+		t.Errorf("a file of nothing but structural segments must be unchanged:\n%x\n%x", src, out)
+	}
+}
+
+// TestEOIBeforeAnySegment is a degenerate but legal file.
+func TestEOIImmediately(t *testing.T) {
+	src := []byte{markerPrefix, markerSOI, markerPrefix, markerEOI}
+	if out := StripJPEGMetadata(src); !bytes.Equal(out, src) {
+		t.Errorf("out = %x", out)
+	}
+}

@@ -18,7 +18,6 @@ package generator
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -135,8 +134,7 @@ func (g *Generator) writeDateArchive(a dateArchive) (bool, error) {
 	if err := g.ensureWithinOutput(outputPath); err != nil {
 		return false, nil // a date cannot escape the output dir, but the guard stays
 	}
-	// #nosec G301 -- web content directories need to be world-traversable
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := g.ensureParent(outputPath); err != nil {
 		return false, err
 	}
 

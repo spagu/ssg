@@ -734,6 +734,8 @@ shortcode_errors: strict
 | `type_archives` | empty | — | Which content types get a listing at `/<type>/` — the archive the source CMS renders and links to from its own menu, which is not a document and so is in no export. Keyed by type slug: `realizacje: true` builds it, `reviews: false` refuses it even when the export says the source had one. Rendered by `category.html` with `Kind: "type"`. See [Custom post type archives](#custom-post-type-archives) |
 | `sanitize_output` | `on` | — | Remove invisible characters from generated HTML — zero-width spaces, bidi overrides, tag characters. `warn` reports without changing, `off` does neither. Never touches `<pre>`/`<code>`. See [Invisible characters](#invisible-characters) |
 | `image_metadata` | `strip` | — | Remove EXIF/IPTC/XMP from published images. `keep` publishes it |
+| `image_formats` | `[webp]` | — | Formats to publish images in, in preference order — `[avif, webp]` offers AVIF first. See [Image formats](#image-formats) |
+| `avif_quality` | `45` | — | `avifenc -q` for the AVIF pass |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
@@ -876,6 +878,68 @@ One thing it cannot do, stated rather than implied: an author who writes
 `&#8203;` cannot be told apart from residue, because the Markdown renderer
 decodes the entity into the raw character long before this runs. A code span is
 how to publish one on purpose.
+
+### Image formats
+
+`webp: true` publishes WebP. `image_formats` says which formats a site wants and
+in what order:
+
+```yaml
+webp: true
+image_formats: [avif, webp]
+avif_quality: 45
+image_sizes: [480, 960, 1600]
+```
+
+Each image gets a derivative per format at every configured width, and the
+`<img>` the WebP pass produced is wrapped so the browser picks the first format
+it understands:
+
+```html
+<picture>
+  <source type="image/avif" srcset="/img/hero-480.avif 480w, /img/hero-960.avif 960w" sizes="100vw" src="/img/hero.avif">
+  <img src="/img/hero.webp" srcset="/img/hero-480.webp 480w, ..." alt="Hero">
+</picture>
+```
+
+The `<img>` is never modified — it stays exactly as it was, so a browser that
+understands neither source still gets the image it always got.
+
+**Why it is worth the extra pass.** AVIF is roughly half of WebP on
+photographs. One migrated hero image, same picture, same visual result:
+
+| | bytes | vs JPEG |
+|---|---:|---|
+| JPEG, as it came from the camera | 570,935 | — |
+| WebP | 278,516 | -51% |
+| AVIF | 95,619 | **-83%** |
+
+Old WordPress sites gain most, because their media is JPEG straight from a
+phone. Across a shop with a thousand product photographs it is the difference
+between a site somebody browses and one they leave.
+
+**The encoders are optional.** AVIF needs `avifenc`:
+
+```bash
+apt install libavif-bin      # Debian/Ubuntu
+apk add libavif-apps         # Alpine
+brew install libavif         # macOS
+```
+
+A format whose encoder is not installed is **skipped with a warning and the
+build carries on** — the site still publishes its WebP and its originals:
+
+```
+warning: image_formats lists avif but avifenc is not installed - skipping it.
+```
+
+That rule matters more than it looks: a build that failed here would make the
+format unusable on exactly the machines least likely to have the tool.
+
+`avif_quality` is lower than `webp_quality` by default because AVIF holds detail
+at settings where WebP starts to soften; 45 is a good starting point for
+photographs, and raising it toward 60 is the first thing to try if a particular
+image looks flat.
 
 ### Image metadata
 
