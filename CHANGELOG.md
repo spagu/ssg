@@ -153,6 +153,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it stable across restarts"* — which is the line to alert on in a supervised
   deployment: it means the secret you thought you passed did not arrive. A
   machine that cannot mint refuses to serve rather than serving openly.
+- 🧪 **The stderr capture used by 19 tests no longer truncates or hangs.** It
+  read once into a 4096-byte buffer *after* the code under test had returned:
+  a longer message came back silently truncated, so an assertion on its tail
+  passed or failed for the wrong reason — and a message past a pipe's ~64 KB
+  blocked the writer on something nobody was draining, hanging the test rather
+  than failing it. It now drains on a goroutine, which is what `captureStdout`
+  in the MCP path already did. The remaining hazard — swapping a process-global
+  while other goroutines write to it — needs injected writers and is tracked in
+  #188.
+- 🧹 **The golden and determinism scripts say what they actually run.** The
+  corpus build read `--source/--template/--domain`, which ssg does not accept:
+  it warned three times per run, declined to consume the values, and the three
+  orphans landed as positionals in exactly the right order. It worked by
+  accident and described an interface that does not exist. The invocation is
+  unchanged — only its spelling — and the corpora stay byte-identical.
+
 
 ## [1.8.46] - 2026-08-19
 
