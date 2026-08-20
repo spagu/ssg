@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/quic-go/quic-go/http3"
@@ -91,8 +92,40 @@ func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
 	logServerStart(cfg, url, mode, exposed)
 
 	if err := serveOnListener(server, ln, cfg, mode, acm); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
+		reportServerErr("❌ Server error: %v\n", err)
 	}
+}
+
+// serverErrf reports a server failure. A variable rather than a direct
+// fmt.Fprintf so the paths that only ever run once the server is up — the
+// HTTP/3 listener reporting from its own goroutine, a listener that dies under
+// the server — can be exercised instead of shipped untested, the same reason
+// githubAPIBase is one. Swapping os.Stderr from a test cannot do it here:
+// these report from goroutines the test does not own, and the swap races them.
+//
+// Read under a lock because that is the whole point: the readers are background
+// goroutines, so a seam that can only be set safely before any of them start is
+// not a seam at all.
+var (
+	serverErrMu sync.RWMutex
+	serverErrf  = func(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
+)
+
+// reportServerErr sends one failure to the current reporter.
+func reportServerErr(format string, a ...any) {
+	serverErrMu.RLock()
+	report := serverErrf
+	serverErrMu.RUnlock()
+	report(format, a...)
+}
+
+// setServerErrf swaps the reporter and returns the previous one.
+func setServerErrf(report func(string, ...any)) func(string, ...any) {
+	serverErrMu.Lock()
+	defer serverErrMu.Unlock()
+	previous := serverErrf
+	serverErrf = report
+	return previous
 }
 
 // startHTTP3 launches the QUIC/HTTP-3 listener in the background (v1.8.1).
@@ -105,7 +138,7 @@ func startHTTP3(h3 *http3.Server, cfg *config.Config, mode string) {
 			err = h3.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  HTTP/3 server error: %v\n", err)
+			reportServerErr("⚠️  HTTP/3 server error: %v\n", err)
 		}
 	}()
 }

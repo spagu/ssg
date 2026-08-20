@@ -123,3 +123,23 @@ func TestReloadWatchConfig(t *testing.T) {
 		t.Error("a broken config must not be adopted")
 	}
 }
+
+// TestABrokenConfigEditIsReportedToAWatcherThatIsNotQuiet: the watcher keeps
+// the last good settings either way, but a half-saved file that changes nothing
+// and says nothing is a watcher the author will assume is broken (#70).
+func TestABrokenConfigEditIsReportedToAWatcherThatIsNotQuiet(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.yaml")
+	if err := os.WriteFile(p, []byte("content_dir: [broken\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loud := &config.Config{ContentDir: "content"} // Quiet is false
+	out := captureStderr(t, func() {
+		if _, _, ok := reloadWatchConfig(nil, p, loud); ok {
+			t.Error("a broken config must not be adopted")
+		}
+	})
+	if !strings.Contains(out, "Config error") {
+		t.Errorf("stderr = %q", out)
+	}
+}

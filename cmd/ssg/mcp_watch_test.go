@@ -127,6 +127,24 @@ func watchedSite(t *testing.T) (*config.Config, string) {
 	return cfg, configPath
 }
 
+// writeEdit writes content and stamps the file plainly in the future.
+//
+// Not a convenience: Linux stamps file times from the coarse kernel clock while
+// time.Now() reads the fine one, so a file written microseconds after the
+// watcher recorded its start can carry an mtime a millisecond *before* it. The
+// real loop sleeps a second between polls and never notices; a test that writes
+// and polls immediately notices about one run in three.
+func writeEdit(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(path, future, future); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestAnEditMadeOutsideMCPRebuildsTheSite is the reported gap: a human editor
 // beside the agent, an rsync, a CMS export. None of them went through MCP, and
 // none of them used to rebuild anything.
@@ -138,9 +156,7 @@ func TestAnEditMadeOutsideMCPRebuildsTheSite(t *testing.T) {
 	if w.poll() {
 		t.Fatal("a quiet tree must not rebuild")
 	}
-	if err := os.WriteFile(filepath.Join("content", "page.md"), []byte("# Two\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeEdit(t, filepath.Join("content", "page.md"), "# Two\n")
 	if !w.poll() {
 		t.Fatal("an edit from outside MCP must rebuild")
 	}
@@ -260,9 +276,7 @@ func TestTheLoopKeepsPolling(t *testing.T) {
 	t.Cleanup(w.stopWatching)
 	go w.run()
 
-	if err := os.WriteFile(filepath.Join("content", "page.md"), []byte("# Three\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeEdit(t, filepath.Join("content", "page.md"), "# Three\n")
 	deadline := time.Now().Add(5 * time.Second)
 	for builds.Load() == 0 && time.Now().Before(deadline) {
 		time.Sleep(2 * time.Millisecond)
