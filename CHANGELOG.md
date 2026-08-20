@@ -97,6 +97,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output directory with nothing serialising them.
 
 ### Fixed
+- 🔁 **The live-reload hub is installed atomically.** It was a plain package
+  variable: whichever command is starting up writes it — a build, `ssg migrate`,
+  `ssg mcp` — while `buildServerHandler` reads it on another goroutine. A data
+  race the `-race` suite caught intermittently, and one no amount of ordering
+  inside a single command could fix, because the goroutine doing the reading
+  belongs to a different one.
 - 🔒 **Two rebuilds can no longer run at once**, which was true before any
   watcher existed. The Streamable HTTP transport gives every request its own
   goroutine, so two concurrent `tools/call` already rebuilt the same output tree

@@ -268,7 +268,7 @@ func serveMCPPreview(cfg *config.Config, logf func(string, ...any)) {
 	if !cfg.HTTP {
 		return
 	}
-	reloadHub = newLiveReloadHub() // each MCP rebuild refreshes the open tab
+	setReloadHub(newLiveReloadHub()) // each MCP rebuild refreshes the open tab
 	// The port is claimed before the address is logged, so a busy 8888 shifts
 	// the announcement too instead of pointing the agent at someone else's
 	// server (#135).

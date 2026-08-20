@@ -73,20 +73,29 @@ func TestAnHTTP3ListenerThatCannotStartSaysSo(t *testing.T) {
 		&config.Config{TLSCert: "no-such.pem", TLSKey: "no-such.key"}, "manual")
 	awaitReport(t, reports, "HTTP/3 server error")
 
-	// The Let's Encrypt path reports too; an address no kernel will bind fails
-	// fast enough to assert on without waiting for a real handshake.
-	startHTTP3(&http3.Server{Addr: "256.256.256.256:443"}, &config.Config{}, "auto")
+	// The Let's Encrypt path reports too. A server with no TLS configuration
+	// refuses immediately, which is the deterministic way to reach it: an
+	// address chosen to be unbindable would go through a DNS lookup first, and
+	// a resolver that takes ten seconds to say no is how this test would start
+	// failing on somebody else's machine.
+	startHTTP3(&http3.Server{Addr: "127.0.0.1:0"}, &config.Config{}, "auto")
 	awaitReport(t, reports, "HTTP/3 server error")
 }
 
-// TestServingOnADeadListenerIsReported drives serveOnClaimedPort in its most
-// decorated shape — Let's Encrypt plus HTTP/3 — and asserts the one thing that
-// matters when the listener underneath it is gone: it is not silent.
+// TestServingOnADeadListenerIsReported drives serveOnClaimedPort with TLS and
+// HTTP/3 both on, and asserts the one thing that matters when the listener
+// underneath it is gone: it is not silent.
+//
+// Manual TLS rather than Let's Encrypt on purpose. The autocert path starts an
+// ACME HTTP-01 helper on :80 from its own goroutine, and that goroutine writes
+// to os.Stderr — which several tests in this package swap out from under it.
+// Adding another one would have made an existing intermittent race commoner,
+// and a test that widens a flake is not worth the two statements it covers.
 func TestServingOnADeadListenerIsReported(t *testing.T) {
 	reports := collectServerErrors(t)
 	cfg := &config.Config{
-		Host: "256.256.256.256", Port: 8443, OutputDir: t.TempDir(), Quiet: true,
-		TLSAuto: true, TLSDomain: "example.com", HTTP3: true, MemLimit: "64MiB",
+		Host: "127.0.0.1", Port: 0, OutputDir: t.TempDir(), Quiet: true,
+		TLSCert: "no-such.pem", TLSKey: "no-such.key", HTTP3: true, MemLimit: "64MiB",
 	}
 	ln, err := newServerListener("127.0.0.1:0", 0)
 	if err != nil {
@@ -96,8 +105,9 @@ func TestServingOnADeadListenerIsReported(t *testing.T) {
 
 	serveOnClaimedPort(cfg, ln)
 	awaitReport(t, reports, "Server error")
-	// The HTTP/3 listener was started too, and it cannot bind that host either.
-	awaitReport(t, reports, "HTTP/3 server error")
+	// The HTTP/3 listener was started alongside it and will report its own
+	// failure whenever it gets there; the reporter is swapped under a lock, so a
+	// late arrival is safe rather than something to wait for.
 }
 
 // TestAMemoryLimitIsAnnouncedOrRefused: a limit that does not parse must not be

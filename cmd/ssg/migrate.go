@@ -229,7 +229,7 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 	runInitialBuild(genCfg, cfg)
 	if cfg.HTTP {
 		if autoReloadEnabled(cfg) {
-			reloadHub = newLiveReloadHub()
+			setReloadHub(newLiveReloadHub())
 		}
 		// Claimed in the foreground: the address printed below must be the one
 		// the server took, port walk included (#135).

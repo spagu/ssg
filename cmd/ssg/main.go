@@ -66,7 +66,7 @@ func main() {
 
 	if cfg.HTTP {
 		if autoReloadEnabled(cfg) {
-			reloadHub = newLiveReloadHub()
+			setReloadHub(newLiveReloadHub())
 		}
 		startServerAsync(cfg)
 	}

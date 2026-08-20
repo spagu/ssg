@@ -75,15 +75,15 @@ func TestHub_BroadcastReachesSubscriber(t *testing.T) {
 }
 
 func TestNotifyHelpers_NilHubAreNoops(t *testing.T) {
-	reloadHub = nil
+	setReloadHub(nil)
 	notifyReload()           // must not panic
 	notifyBuildError("boom") // must not panic
 }
 
 func TestNotifyBuildError_Broadcasts(t *testing.T) {
-	reloadHub = newLiveReloadHub()
-	defer func() { reloadHub = nil }()
-	ch := reloadHub.subscribe()
+	setReloadHub(newLiveReloadHub())
+	defer func() { setReloadHub(nil) }()
+	ch := currentReloadHub().subscribe()
 	notifyBuildError("template: index.html:13: unterminated quoted string")
 	msg := <-ch
 	if !strings.Contains(msg, "event: builderror") || !strings.Contains(msg, "unterminated quoted string") {
@@ -92,8 +92,8 @@ func TestNotifyBuildError_Broadcasts(t *testing.T) {
 }
 
 func TestLiveReloadMiddleware_ServesSSEAndInjects(t *testing.T) {
-	reloadHub = newLiveReloadHub()
-	defer func() { reloadHub = nil }()
+	setReloadHub(newLiveReloadHub())
+	defer func() { setReloadHub(nil) }()
 	h := liveReloadMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = w.Write([]byte("<body></body>"))
