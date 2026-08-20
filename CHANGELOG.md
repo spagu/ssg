@@ -28,6 +28,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   headers the client sent; `Rewrite` receives both requests and strips them,
   which is the reason the replacement exists. Surfaced by targeting 1.27.
 
+### Added
+- 🖼️ **`image_formats` — a site-level way to ask for AVIF** (#178). AVIF has been
+  reachable since #43, but only from a template helper, per call: a site could
+  not simply ask for it, so a hosted builder exposing ssg's settings had no key
+  to write, and a migrated WordPress site full of camera JPEGs kept paying for
+  them. `image_formats: [avif, webp]` publishes a derivative per format at every
+  `image_sizes` width and wraps the `<img>` in a `<picture>` offering AVIF
+  first — the `<img>` itself is never modified, so a browser that understands
+  neither source gets exactly what it always got.
+
+  Measured on this pipeline with a 1600×1000 photograph: **271 KB WebP → 123 KB
+  AVIF, 55% smaller**, matching what the report saw on its own image. The cost
+  is real too and is stated rather than glossed: encoding is roughly **four
+  times** slower (0.27 s → 1.03 s for one image and its two responsive widths),
+  which is exactly why WebP stays the default and this is opt-in. `avif_quality`
+  (45) sits below `webp_quality` because AVIF holds detail where WebP softens.
+
+  Also `--image-formats` / `--avif-quality` on the CLI, and an `image-formats`
+  input on the GitHub Action which **installs the AVIF encoder only when asked
+  for it** — `libavif-bin` pulls a set of codecs, and a workflow that did not
+  request AVIF should not pay for either the download or the encode time.
+
+  **A format whose encoder is missing is skipped with a warning and the build
+  carries on** — the rule the AVIF helper already followed. A build that failed
+  here would make the format unusable on exactly the machines least likely to
+  have the tool.
+
 ### Fixed
 - ⚡ **Output directories are created once per build, not once per page**
   — every page called `os.MkdirAll` on its parent, and `MkdirAll` walks

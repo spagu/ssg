@@ -121,6 +121,18 @@ sanitize_output: on
 # profile and orientation always survive. "keep" for a portfolio that shows
 # camera settings on purpose.
 image_metadata: strip
+
+# Which formats a site publishes its images in, in preference order. AVIF is
+# typically half the size of WebP on photographs — one migrated hero image went
+# 571 KB JPEG -> 279 KB WebP -> 96 KB AVIF — and the browser picks the first it
+# understands, with the original always the last resort.
+#
+# Needs the optional avifenc (apt install libavif-bin / apk add libavif-apps /
+# brew install libavif). A format whose encoder is missing is skipped with a
+# warning and the build carries on; WebP remains the default.
+# image_formats: [avif, webp]
+# avif_quality: 45    # avifenc -q; lower than webp_quality on purpose — AVIF
+#                     # holds detail where WebP starts to soften
 seo: false           # Opt in to OpenGraph/Twitter/JSON-LD injection (off by default since v1.8.2;
                      # non-destructive — only fills pages that lack their own tags).
                      # Legacy seo_off / --seo-off are still accepted as no-ops.

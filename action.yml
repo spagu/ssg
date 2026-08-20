@@ -57,6 +57,15 @@ inputs:
     description: "WebP compression quality 1-100 (default: 60)"
     required: false
     default: "60"
+  image-formats:
+    description: >-
+      Comma-separated image formats in preference order, e.g. "avif,webp".
+      Listing avif installs the AVIF encoder; leaving it out installs nothing
+      extra, because avifenc pulls a set of codecs and roughly quadruples image
+      conversion time — a cost no workflow should pay for a format it did not
+      ask for.
+    required: false
+    default: ""
   webp-keep-original:
     description: "Keep original images next to the .webp files instead of replacing them (true/false); safe for themes with hardcoded .png/.jpg references"
     required: false
@@ -209,10 +218,18 @@ runs:
         echo "✅ SSG $VERSION installed successfully"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Install WebP tools
+    - name: Install image tools
       shell: bash
+      env:
+        IN_IMAGE_FORMATS: ${{ inputs.image-formats }}
       run: |
-        echo "📦 Installing WebP tools..."
+        echo "📦 Installing image tools..."
+        # Only what the build will actually use. avifenc pulls a set of codecs
+        # and roughly quadruples conversion time (measured: 0.27s -> 1.03s for
+        # one photograph, three derivatives), so a workflow that did not ask for
+        # AVIF must not pay for it.
+        WANT_AVIF=0
+        case ",$IN_IMAGE_FORMATS," in *,avif,*) WANT_AVIF=1 ;; esac
         # Bounded, because an unreachable distro mirror used to hang here until
         # the job's own 20-minute budget ran out — reported as a timeout with no
         # cause, on a step whose only job is installing one package. Failing in
@@ -224,18 +241,25 @@ runs:
             echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
             exit 1
           fi
-          if ! sudo timeout 300 apt-get install -y --no-install-recommends webp \
+          PKGS="webp"
+          if [[ "$WANT_AVIF" == "1" ]]; then PKGS="$PKGS libavif-bin"; fi
+          if ! sudo timeout 300 apt-get install -y --no-install-recommends $PKGS \
                  -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
-            echo "::error::Installing webp failed or timed out — the distribution mirror is unreachable."
+            echo "::error::Installing $PKGS failed or timed out — the distribution mirror is unreachable."
             echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
             exit 1
           fi
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
           brew install webp
+          if [[ "$WANT_AVIF" == "1" ]]; then brew install libavif; fi
         else
           echo "::warning::WebP tools not available on Windows. If you need WebP conversion, use Linux/macOS runner."
         fi
-        echo "✅ WebP tools installed"
+        if [[ "$WANT_AVIF" == "1" ]]; then
+          echo "✅ Image tools installed (webp + avif)"
+        else
+          echo "✅ Image tools installed (webp)"
+        fi
 
     - name: Generate site
       id: generate
@@ -253,6 +277,7 @@ runs:
         IN_OUTPUT_DIR: ${{ inputs.output-dir }}
         IN_WEBP: ${{ inputs.webp }}
         IN_WEBP_QUALITY: ${{ inputs.webp-quality }}
+        IN_IMAGE_FORMATS: ${{ inputs.image-formats }}
         IN_WEBP_KEEP: ${{ inputs.webp-keep-original }}
         IN_ZIP: ${{ inputs.zip }}
         IN_MINIFY: ${{ inputs.minify }}
@@ -285,6 +310,9 @@ runs:
         FLAGS=()
         if [[ "$IN_WEBP" == "true" ]]; then
           FLAGS+=(--webp --webp-quality="$IN_WEBP_QUALITY")
+          if [[ -n "$IN_IMAGE_FORMATS" ]]; then
+            FLAGS+=(--image-formats="$IN_IMAGE_FORMATS")
+          fi
           if [[ "$IN_WEBP_KEEP" == "true" ]]; then
             FLAGS+=(--webp-keep-original)
           fi
