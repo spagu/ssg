@@ -106,6 +106,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it. Asserted under `-race` with eight goroutines and a high-water counter that
   must never read 2.
 
+### Changed
+- 📦 **Dependencies upgraded**: pongo2/v6 v6.0.0 → v6.1.0, jlaffaye/ftp v0.2.1 →
+  v0.2.2, pkg/sftp v1.13.10 → v1.13.11, quic-go v0.60.0 → v0.61.0, ulikunitz/xz
+  v0.5.15 → v0.5.16, goldmark v1.8.2 → v1.8.5, golang.org/x/crypto v0.54.0 →
+  v0.55.0, golang.org/x/net v0.57.0 → v0.58.0, grpc v1.82.1 → v1.83.1, protobuf
+  v1.36.11 → v1.36.12, modernc.org/sqlite v1.53.0 → v1.57.0 (four minors, with
+  modernc.org/libc v1.73.4 → v1.74.4 behind it).
+
+  **goldmark renders the site's Markdown, so its bump is the one that had to be
+  proved rather than assumed**: all four golden corpora — 67 files across the
+  taxonomy, dynamic, multilingual and external fixtures — are byte-identical
+  after it, as is the 917-file determinism stress corpus. `govulncheck` reports
+  no vulnerability this code calls; the single module-level finding is
+  GO-2026-5932 (`golang.org/x/crypto/openpgp` is unmaintained), which has no fix
+  and which nothing here imports.
+
 ### Security
 - 🔑 **Every `ssg mcp --listen` endpoint gets a bearer token, and the token can
   come from the environment** (#183). Two gaps that met in the worst place: the
