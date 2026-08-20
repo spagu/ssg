@@ -7,6 +7,7 @@ package webp
 // WebP sees exactly the tag it always saw.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,4 +172,80 @@ func TestAVIFTargetPathKeepsCase(t *testing.T) {
 	if got := avifVariantPath("a/x.avif", 480); got != "a/x-480.avif" {
 		t.Errorf("avifVariantPath = %q", got)
 	}
+}
+
+// TestEmitPictureWalksTheOutputTree: the filesystem half of the wrap. Only HTML
+// is touched, only pages whose AVIF exists are changed, and a file with nothing
+// to do keeps its mtime because it is not rewritten at all.
+func TestEmitPictureWalksTheOutputTree(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) string {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	upgraded := write("post/index.html", `<body><img src="/img/a.webp"></body>`)
+	untouched := write("other/index.html", `<body><img src="/img/missing.webp"></body>`)
+	notHTML := write("style.css", `body{background:url(/img/a.webp)}`)
+	write("img/a.avif", "avif")
+
+	before, err := os.ReadFile(untouched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := EmitPicture(root); err != nil {
+		t.Fatal(err)
+	}
+
+	got := mustReadFile(t, upgraded)
+	if !strings.Contains(got, `<source type="image/avif"`) {
+		t.Errorf("the page with an AVIF must be wrapped: %s", got)
+	}
+	if after := mustReadFile(t, untouched); after != string(before) {
+		t.Errorf("a page whose AVIF is absent must be left alone: %s", after)
+	}
+	if css := mustReadFile(t, notHTML); !strings.Contains(css, "url(/img/a.webp)") {
+		t.Errorf("only HTML is rewritten: %s", css)
+	}
+}
+
+// TestEmitPictureOnAnEmptyTreeIsFine, and a missing directory is an error the
+// caller can report rather than a panic.
+func TestEmitPictureEdgeCases(t *testing.T) {
+	if err := EmitPicture(t.TempDir()); err != nil {
+		t.Errorf("an empty tree = %v", err)
+	}
+	if err := EmitPicture(filepath.Join(t.TempDir(), "nope")); err == nil {
+		t.Error("a missing directory must be reported")
+	}
+}
+
+// TestReplaceAllIndexedGivesTheOffset, which is what tells an <img> already
+// inside a <picture> from one that is not.
+func TestReplaceAllIndexed(t *testing.T) {
+	got := replaceAllIndexed("a<img>b<img>c", imgTagRe, func(at int, m string) string {
+		return fmt.Sprintf("[%d]", at)
+	})
+	if got != "a[1]b[7]c" {
+		t.Errorf("got %q", got)
+	}
+	// No match leaves the input alone, and the same string is returned.
+	if got := replaceAllIndexed("nothing here", imgTagRe, func(int, string) string { return "X" }); got != "nothing here" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// mustReadFile is the read every assertion here needs.
+func mustReadFile(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

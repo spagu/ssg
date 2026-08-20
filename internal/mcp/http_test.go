@@ -6,6 +6,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -205,5 +206,129 @@ func TestOversizedBodyIsRefusedRatherThanRead(t *testing.T) {
 		strings.Repeat("a", 64) + `"}}`
 	if rec := post(testEndpoint(t, HTTPOptions{}), huge, nil); rec.Code != http.StatusOK {
 		t.Errorf("an ordinary payload must pass: %d", rec.Code)
+	}
+}
+
+// TestUnreadableBodyIsReported: a client that announces a body and then hangs
+// up must get an error, not a panic.
+func TestUnreadableBodyIsReported(t *testing.T) {
+	h := testEndpoint(t, HTTPOptions{})
+	req := httptest.NewRequest(http.MethodPost, "/mcp", errorReader{})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "body") {
+		t.Errorf("body = %s", rec.Body)
+	}
+}
+
+// errorReader fails on the first read, the way a dropped connection does.
+type errorReader struct{}
+
+func (errorReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+// TestMalformedOriginIsRefused: an Origin that is not a URL cannot be compared,
+// and anything that cannot be proved safe must be refused.
+func TestMalformedOriginIsRefused(t *testing.T) {
+	h := testEndpoint(t, HTTPOptions{AllowedOrigins: []string{"https://ok.example"}})
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+
+	for _, origin := range []string{"://nonsense", "ht tp://x"} {
+		if rec := post(h, body, map[string]string{"Origin": origin}); rec.Code != http.StatusForbidden {
+			t.Errorf("origin %q = %d, want 403", origin, rec.Code)
+		}
+	}
+	// An unparseable entry in the allow-list is skipped rather than matching
+	// everything.
+	h2 := testEndpoint(t, HTTPOptions{AllowedOrigins: []string{"://broken", "https://ok.example"}})
+	if rec := post(h2, body, map[string]string{"Origin": "https://ok.example"}); rec.Code != http.StatusOK {
+		t.Errorf("a valid entry beside a broken one must still match: %d", rec.Code)
+	}
+}
+
+// TestLogfRecordsRefusals, so a client that cannot connect is diagnosable from
+// the server's side.
+func TestLogfRecordsRefusals(t *testing.T) {
+	var lines []string
+	h := HTTPHandler(NewServer(Options{Root: t.TempDir()}), HTTPOptions{
+		Token: "s3cret",
+		Logf:  func(f string, a ...any) { lines = append(lines, f) },
+	})
+	post(h, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`, nil)
+	if len(lines) == 0 {
+		t.Error("a refusal must be logged")
+	}
+}
+
+// TestOversizedBodyIsTruncatedNotRead: the limit exists so a client cannot make
+// the server allocate without bound; past it the JSON no longer parses, which
+// is a parse error rather than a hang.
+func TestOversizedBodyIsRefused(t *testing.T) {
+	huge := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` +
+		strings.Repeat("a", maxRequestBytes+16) + `"}}`
+	rec := post(testEndpoint(t, HTTPOptions{}), huge, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 — the body was truncated at the limit", rec.Code)
+	}
+}
+
+// TestTokenGenerationFailureIsReported: a weak token on a routable address is
+// worse than refusing to start, so this must surface rather than fall back.
+func TestTokenGenerationFailureIsReported(t *testing.T) {
+	saved := randRead
+	randRead = func([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+	t.Cleanup(func() { randRead = saved })
+
+	got, err := NewToken()
+	if err == nil {
+		t.Fatal("a failing entropy source must be an error")
+	}
+	if got != "" {
+		t.Errorf("no token must be returned on failure, got %q", got)
+	}
+}
+
+// TestHeaderMismatchIsRejectedOverHTTP: the validation has its own tests, but
+// this is the path that matters — an intermediary routing on a header while the
+// server executes on the body is how a request reaches something it was not
+// authorised for, and the rejection has to happen before the body is acted on.
+func TestHeaderMismatchIsRejectedOverHTTP(t *testing.T) {
+	h := testEndpoint(t, HTTPOptions{})
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{` +
+		`"name":"help","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`
+
+	rec := post(h, body, map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "tools/call",
+		"Mcp-Name":             "something-else",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "-32020") {
+		t.Errorf("the body must carry HeaderMismatch: %s", rec.Body)
+	}
+	// The id is echoed, so a client can match the error to its request.
+	if !strings.Contains(rec.Body.String(), `"id":1`) {
+		t.Errorf("the request id must be echoed: %s", rec.Body)
+	}
+
+	// Matching headers pass through to the tool.
+	ok := post(h, body, map[string]string{
+		"MCP-Protocol-Version": "2026-07-28",
+		"Mcp-Method":           "tools/call",
+		"Mcp-Name":             "help",
+	})
+	if ok.Code != http.StatusOK {
+		t.Errorf("matching headers = %d, want 200: %s", ok.Code, ok.Body)
+	}
+
+	// An older client sends none of these and must not be held to them.
+	legacy := post(h, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`, nil)
+	if legacy.Code != http.StatusOK {
+		t.Errorf("an initialize-era client = %d, want 200", legacy.Code)
 	}
 }

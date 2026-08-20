@@ -210,6 +210,10 @@ func reloadWatchConfig(configPath string, old *config.Config) (generator.Config,
 	parseFlags(args, cfg) // command-line flags still win over the file
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
+	// Endpoints are served by the running server, which was wired at startup;
+	// republish them or a route added to the config answers 404 until the
+	// process restarts (#180).
+	republishEndpoints(cfg)
 	if !cfg.Quiet {
 		fmt.Printf("♻️  Configuration reloaded from %s\n", configPath)
 	}

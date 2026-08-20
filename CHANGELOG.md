@@ -56,6 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   have the tool.
 
 ### Fixed
+- 🔌 **A running server follows its config file** (#180) — `--watch` reloaded
+  `.ssg.yaml` and rebuilt the site, but the HTTP server was wired once at
+  startup and kept the endpoint list it read then. Adding an `endpoints:` route
+  to a running preview rebuilt the site and still answered 404, and the only
+  ways out were restarting the process or, under `ssg daemon`, restarting a
+  project whose entry had not changed — which takes its port down with it.
+
+  The report came from the daemon, but the defect was the server's: a plain
+  `ssg --watch --http` had it too, so the fix is where the routes are wired and
+  both are cured at once. The swap is a pointer store, not a restart: the
+  listener, the connections and the port are untouched, and a request sees the
+  old routing table or the new one, never a half-built one.
 - ⚡ **Output directories are created once per build, not once per page**
   — every page called `os.MkdirAll` on its parent, and `MkdirAll` walks
   the path statting each component whether or not it exists. A site with 2,000
