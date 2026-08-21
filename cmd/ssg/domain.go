@@ -8,9 +8,6 @@ package main
 // once, names both values, and leaves the build running.
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spagu/ssg/internal/config"
 )
 
@@ -29,7 +26,7 @@ func normalizeDomain(cfg *config.Config) {
 	}
 	if w := config.DomainSchemeWarning(original); w != "" && !cfg.Quiet && !warnedDomains[original] {
 		warnedDomains[original] = true
-		fmt.Fprintf(os.Stderr, "⚠️  %s\n", w)
+		errf("⚠️  %s\n", w)
 	}
 	cfg.Domain = fixed
 }

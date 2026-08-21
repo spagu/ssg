@@ -137,6 +137,14 @@ edited in place keeps its name and can be served from a browser cache for a
 year** — enable `fingerprint: true` for any site that deploys more than once,
 or override the policy with `headers:` (below).
 
+None of this applies while a preview is running. `--watch --http` and
+`ssg mcp --http` serve **every** response `Cache-Control: no-cache` and drop the
+browser's `If-None-Match` / `If-Modified-Since`, so a rebuilt stylesheet is on
+screen after a reload instead of an hour (or a year) later (#185). It is the one
+mode where a cache only costs: the file is regenerated seconds after it is
+fetched. `no-cache` still permits storing and revalidating — the preview answers
+`304` for anything genuinely unchanged.
+
 `_redirects` is generated from two sources (GO-063):
 
 - the `redirects:` config section — explicit rules; and
@@ -166,6 +174,50 @@ redirects:
 Netlify uses the identical `_redirects` format, so the same file works there
 unchanged. Vercel needs a `vercel.json` you provide yourself; SSG does not
 generate one.
+
+#### The built-in server serves both files
+
+Since 1.8.47, `ssg --http` and `ssg serve` read `<output>/_redirects` and
+`<output>/_headers` and answer with them, re-reading both after every rebuild.
+So a redirect can be checked before it is published — which matters most where
+it is easiest to get wrong: after a migration, where every rule is a URL
+somebody else published, and where a site whose redirects are all broken looks
+perfect from the inside.
+
+Nothing new is declared for this. The files are already written on every build;
+the server simply reads what is there, the same way `endpoints:` are served from
+the same declaration the platform compiles.
+
+**The semantics are Cloudflare Pages'**, because that is what generation targets
+first:
+
+- **Redirect rules are evaluated before static assets**, so a rule shadows a
+  file sitting at the same path.
+- Within the file, **order is honoured and the first match wins** — also
+  Netlify's rule. The generator already emits exact rules before wildcard ones
+  so a wildcard cannot swallow the specific rules beneath it.
+- Exact paths, `/old/*` splats with `:splat`, `:placeholder` segments,
+  and `301` / `302` / `303` / `307` / `308` / `410`. A `410` answers `410` with
+  no `Location`.
+- A `!` force marker parses and is accepted. Under these semantics everything
+  shadows already, so it changes nothing locally.
+- **A malformed line is skipped with one warning naming it** and the rest of the
+  file stays live. A file the build wrote must never be a file the server
+  refuses to start over.
+
+For `_headers`, a response whose path matches a pattern gets that block's
+headers, first matching value winning per header name — Cloudflare's rule, which
+is why the block order in the generated file is deliberate. **The file wins over
+the server's own security headers**: that is what the deployed site would serve,
+and a preview whose headers differ from production is the gap this closes.
+
+One consequence worth stating: the default `_headers` caches `/` and `/*.html`
+for an hour, so the preview now says so too. Pages carrying the live-reload
+script are exempted — a reload served from the cache would show the previous
+build.
+
+Request order in the built-in server is: `endpoints:` → `_redirects` →
+`_headers` → the static tree.
 
 **Importing an existing rule set.** `ssg import redirects` turns a JS
 `redirects()` array (as some frameworks export in their config) into the

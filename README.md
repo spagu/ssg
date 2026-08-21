@@ -1,6 +1,6 @@
 # SSG — Static Site Generator
 
-[![Go Version](https://img.shields.io/badge/Go-1.26.6+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27.0+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![CI](https://github.com/spagu/ssg/actions/workflows/ci.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
 [![codecov](https://codecov.io/gh/spagu/ssg/branch/main/graph/badge.svg)](https://codecov.io/gh/spagu/ssg)
@@ -347,17 +347,17 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Front page | A content page at `/` (what a WordPress static front page exports as) becomes the site's front page; `posts_page:` gives the generated listing a home of its own |
 | Content repair | `ssg repair --fix` rewrites source Markdown a page-builder export left indented **or fenced** into a code block; `check_markup` reports both on every build ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#validating-the-built-output)) |
 | Several projects at once | `ssg daemon` watches every project in `.ssg_projects` from one process; editing the file reloads the fleet in place, leaving untouched projects running ([docs/DAEMON.md](docs/DAEMON.md)) |
-| Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), **served by the built-in preview** so a rule can be checked before it ships, `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |
-| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default`, per-language feeds and search ([docs/I18N.md](docs/I18N.md)) |
+| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default`, per-language feeds and search, `language_sections:` to assign a language to a whole directory ([docs/I18N.md](docs/I18N.md)) |
 | Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
-| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles and an approve-then-PR git flow ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)) |
+| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles, find-then-edit tools that cost the size of the change rather than the file, an optional MDDB-backed search, and an approve-then-PR git flow ([docs/MCP.md](docs/MCP.md)) |
 
 ## Templates
 
@@ -498,8 +498,10 @@ workflow examples are available in [examples/workflows](examples/workflows/).
 
 ## Development
 
-Building SSG itself requires Go 1.26.6 or newer. Earlier Go 1.26 releases contain
-standard-library vulnerabilities relevant to this project.
+Building SSG itself requires Go 1.27.0 or newer — the version the `go` directive
+in [go.mod](go.mod) asks for. The floor was 1.26.6 before that, because earlier
+Go 1.26 releases contain standard-library vulnerabilities relevant to this
+project.
 
 ```bash
 git clone https://github.com/spagu/ssg.git
@@ -539,7 +541,7 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
-| [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, git write-back |
+| [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |

@@ -38,10 +38,10 @@ func TestParseCheckFlagBareForms(t *testing.T) {
 // TestNotifyHelpers: with a hub running, a successful rebuild broadcasts
 // "reload" and a failed one "builderror" — the browser-side contract of GO-090.
 func TestNotifyHelpers(t *testing.T) {
-	old := reloadHub
-	reloadHub = newLiveReloadHub()
-	t.Cleanup(func() { reloadHub = old })
-	ch := reloadHub.subscribe()
+	old := currentReloadHub()
+	setReloadHub(newLiveReloadHub())
+	t.Cleanup(func() { setReloadHub(old) })
+	ch := currentReloadHub().subscribe()
 	notifyReload()
 	if got := <-ch; !strings.Contains(got, "event: reload") {
 		t.Fatalf("reload event = %q", got)
@@ -50,8 +50,8 @@ func TestNotifyHelpers(t *testing.T) {
 	if got := <-ch; !strings.Contains(got, "event: builderror") || !strings.Contains(got, "data: line2") {
 		t.Fatalf("builderror event = %q", got)
 	}
-	reloadHub.unsubscribe(ch)
-	reloadHub.unsubscribe(ch) // double unsubscribe must be a safe no-op
+	currentReloadHub().unsubscribe(ch)
+	currentReloadHub().unsubscribe(ch) // double unsubscribe must be a safe no-op
 }
 
 // TestHubSlowClientDrop: a client that stops reading must never block a build —
@@ -108,9 +108,9 @@ func TestServeSSEBranches(t *testing.T) {
 // TestHTMLInjectStatusAndNoBody: an explicit handler status survives the
 // buffering writer, and HTML without </body> still gets the script appended.
 func TestHTMLInjectStatusAndNoBody(t *testing.T) {
-	old := reloadHub
-	reloadHub = newLiveReloadHub()
-	t.Cleanup(func() { reloadHub = old })
+	old := currentReloadHub()
+	setReloadHub(newLiveReloadHub())
+	t.Cleanup(func() { setReloadHub(old) })
 	handler := liveReloadMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusNotFound)

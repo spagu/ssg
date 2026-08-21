@@ -7,6 +7,286 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.47] - 2026-08-21
+
+### Added
+- 🔎 **`designer_find` / `content_find` — where something lives, without reading
+  the files** (#190). The MCP toolset was list / read / write, so answering
+  "where is the page background set?" meant listing the theme and reading files
+  until the line turned up. Measured on a migrated site that was ~10k tokens for
+  a one-line CSS change, most of it spent locating the line.
+
+  ```jsonc
+  designer_find { "query": "background" }
+  → static/css/style.css:4-8
+      body {
+        background: #ffffff;
+        color: var(--ink);
+      }
+  ```
+
+  The returned range is the anchor `designer_edit` needs, so find → edit is two
+  calls with no read between them. The query is a case-insensitive regular
+  expression when it is valid syntax and a literal otherwise, so pasting a CSS
+  fragment with an unbalanced bracket returns an answer rather than a syntax
+  error. Overlapping context windows merge; files over 512 KB are skipped,
+  because a minified bundle matches everything and helps nobody. Each section
+  searches only its own directories — the find tools are not a way around the
+  confinement the read and write tools enforce.
+
+- 🗂️ **`ssg mddb push-theme`, and an MDDB-backed search behind the find tools**
+  (#190). A local scan matches text; it cannot answer a question phrased as a
+  sentence, because that is a search problem. `mcp.search.mddb_*` points the
+  find tools at an MDDB collection's full-text search, and `ssg mddb push-theme`
+  is what fills it: every template and asset upserted under its project-relative
+  path, with `kind`, `size` and a SHA-256 checksum as metadata, and any document
+  whose file has vanished deleted. It reconciles rather than appends, so running
+  it twice changes nothing the second time.
+
+  The index is consulted **first and never required**: on an error or an empty
+  answer the local scan still runs. A search backend that is down degrades the
+  answer, it does not take the ability to edit the site down with it. The client
+  gained `Add`, `Delete` and `FTS` for this — it could only read before, which
+  is why nothing could keep a collection in step with a theme.
+
+- ✂️ **`designer_edit` / `content_edit` — anchored partial edits** (#187). The
+  write contract was full-file replacement. Safe, but it priced an edit by the
+  size of the *file*: changing one CSS value on a real migrated site meant
+  reading 4 812 bytes, writing 4 812 back, and reading them again to check —
+  ~4 300 tokens of file traffic for one line.
+
+  ```jsonc
+  designer_edit { "path": "static/css/style.css",
+                  "old": "  background: #fff;", "new": "  background: #0b1220;" }
+  ```
+
+  `old` is matched byte for byte, indentation included, and must appear
+  **exactly once**: zero matches or several is a refusal that names the count,
+  so nothing fuzzy lands and nothing half-applies. The reply carries the changed
+  lines with their neighbours and line numbers, which **is** the verification —
+  there is no re-read. An empty `new` deletes. Arguments are no longer trimmed
+  on this path, or an indented anchor could not match the text it names. The
+  full writes remain for new files and real rewrites.
+
+- 🕰️ **`.BuildTime` in templates** (#186). There was no way to render the build
+  date — most visibly the current year — so `© 2007-2026` went stale the night
+  the year turned, on every site at once. The alternatives were a hand-edit each
+  January or a client-side script for one number on an otherwise static page.
+
+  ```gotemplate
+  © 2007-{{ .BuildTime.Year }} {{ .Domain }}
+  ```
+
+  It is a value read **once per build**, not a function that reads the clock on
+  every call: two pages of one build can never straddle midnight and disagree.
+  It honours **`SOURCE_DATE_EPOCH`**, so a CI job or a distribution package that
+  pins it still gets a build that is a pure function of its input, while a plain
+  build gets the real clock. A malformed value is ignored rather than fatal —
+  the variable is usually set by a surrounding toolchain the site owner does not
+  control, and someone else's typo should not break their deploy.
+- 🌍 **`language_sections` — a language for a content section, not for every
+  page** (#182). A page could declare its own `lang:` and `languages:` /
+  `default_language:` said what the site had; there was no way to say
+  "everything under this directory is German" in one place.
+
+  Migrated sites are where that bites. A bilingual WordPress site keeps its
+  languages in `/de/` and `/fr/` and says so nowhere a page carries — the
+  language was a plugin's property of the *section*, not a field on the post — so
+  an export produces a few hundred documents with no `lang` at all. The
+  alternatives were writing it into every file, which the next export overwrites,
+  or hand-editing after every build. A migration is not a one-off: it is run
+  again whenever the source changes.
+
+  ```yaml
+  language_sections:
+    de: de
+    fr/blog: fr
+    home: en
+  ```
+
+  The spelling is the one the configuration already uses for
+  `output_encoding_sections` and `schema_defaults`: keyed by content directory,
+  longest prefix wins, `home` for the site root — one prefix convention in the
+  project rather than three, and the resolver is now literally shared between all
+  three rather than copied a third time. Precedence is a page's own `lang:`, then
+  its section, then `default_language`. A section naming a language `languages:`
+  does not declare warns **once for the section**, not once per file beneath it.
+
+  The assignment happens before translation grouping, `LangPrefix` and hreflang,
+  so everything downstream sees it — and a page that already carries an explicit
+  `link:` keeps that URL whole, so an export that wrote `link: /de/impressum/`
+  does not become `/de/de/impressum/`.
+- 🔀 **The built-in server serves the `_redirects` and `_headers` it generates**
+  (#181). `ssg` writes both files on every build and the documentation is clear
+  that Cloudflare Pages and Netlify serve them as they stand — the preview read
+  neither. So a site carrying fifty redirects from an old CMS, which is the
+  normal case after a migration since every one of them is a URL somebody else
+  published, served all fifty as 404s locally, and the first anyone knew about
+  whether the rules were right was production. Redirects are the part of a
+  migration whose absence is invisible from the inside: the new site looks
+  perfect and everybody arriving from the old one gets a 404.
+
+  It also split the preview from the deployment in a way nothing else here does.
+  `endpoints:` went deliberately the other way — the built-in server runs the
+  same declaration the platform compiles — and that is exactly what makes them
+  testable. Nothing new is declared to close this; serving the file is reading
+  what is there.
+
+  **Cloudflare Pages semantics, named rather than averaged**: redirect rules are
+  evaluated before static assets, so a rule shadows a file at the same path;
+  order is honoured and the first match wins. Exact paths, `/old/*` splats with
+  `:splat`, `:placeholder` segments, `301`/`302`/`303`/`307`/`308`, and `410`
+  answered with no `Location`. A `!` force marker parses and is inert here. A
+  malformed line is skipped with one warning naming it and the rest of the file
+  stays live — a file the build wrote must never be one the server refuses to
+  start over.
+
+  `_headers` had the same gap and is fixed with it: a matching pattern's headers
+  are applied, first matching value winning per name, and **the file wins over
+  the server's own security headers** because that is what the deployed site
+  serves. One consequence stated plainly: the default `_headers` caches `/` and
+  `/*.html` for an hour, so the preview now does too — pages carrying the
+  live-reload script are exempted, since a reload served from the cache would
+  show the previous build.
+
+  Both tables are re-read after every rebuild, not only on a config reload, and
+  swapped whole on the same atomic-pointer pattern as the endpoint routes
+  (#180): a request sees the rules from before the rebuild or the ones from
+  after it, never a half-parsed file.
+- 🔁 **One process for preview, MCP and the filesystem** (#184) —
+  `ssg mcp --http --watch --listen=7823` now serves the preview, serves the MCP
+  endpoint, and rebuilds on both kinds of change: a mutation arriving through
+  MCP, and a file edited by anything else. `--watch` was already accepted here
+  and read by nothing: parseFlags put it in the config and the mcp path never
+  looked, so an edit from a human editor open beside the agent, an `rsync` or a
+  CMS export left the preview stale indefinitely.
+
+  It is the same watch, not a second one: the same polling loop, the same
+  per-file signature cache, the same content-signature gate that skips
+  touch-only events. An edited config file is reloaded and its `endpoints:`
+  republished onto the running preview (#180) without dropping the port.
+
+  The workaround it replaces — `--watch-runner="ssg mcp --listen=…"` — is one
+  command line but still two processes, and two independent builders over one
+  output directory with nothing serialising them.
+
+### Fixed
+- 🧹 **A watcher no longer outlives the command that started it** (#191).
+  `ssg migrate --watch` started the watch loop with `go runWatchLoop(…)` and
+  never stopped it. In normal use the process parks until Ctrl+C so nothing
+  showed; under test the caller returns, and the goroutine kept rebuilding for
+  the rest of the process — into whatever working directory the process had by
+  then. Under `go test -shuffle=on` that was the repository itself: a full
+  generated site appearing in `cmd/ssg/`, roughly one run in sixteen.
+
+  The watcher's lifetime is now its owner's lifetime. The deeper problem was a
+  test whose isolation came from *another* test's `t.Chdir`; that passes for a
+  reason unrelated to what it asserts, so CI now also runs `go test -shuffle=on`
+  and an ordering dependency cannot come back quietly.
+- 🏁 **The command has one diagnostic sink, and the tests stop assigning
+  `os.Stderr`** (#188). Every warning went to `fmt.Fprintf(os.Stderr, …)`, and
+  the tests asserting on those messages captured them by assigning `os.Stderr` —
+  a standard-library package variable that the goroutines this command leaves
+  running (the HTTP/3 listener, the autocert helper, the watch loop, a server
+  reporting a dead listener) read to write diagnostics of their own. A data
+  race, and `-race` caught it about one CI run in ten, always in whichever test
+  happened to be running when an earlier test's goroutine finally spoke. It
+  failed this release's own PR.
+
+  The 90-odd writers now go through `errf`/`errln`, reading a sink under a lock
+  — the seam `serverErrf` already established for server errors, applied to the
+  command as a whole — and the capture helper swaps that sink instead. Nobody
+  writes `os.Stderr` any more, so the race has no subject. Twenty shuffled
+  `-race` rounds, which failed twice before, now pass. `cmd.Stderr = os.Stderr`
+  still hands a child process the real file. No message changed.
+- 🧊 **A preview no longer caches anything** (#185). `--watch` refreshed the page
+  and kept the previous build's stylesheet: HTML was served `no-cache`, but
+  everything else got `public, max-age=3600` — and since the preview began
+  honouring the generated `_headers` earlier in this release, `/css/*` and
+  `/js/*` were served `public, max-age=31536000, immutable`, which a browser
+  will not revalidate at all. Content edits appeared, style edits did not.
+
+  `--watch --http` and `ssg mcp --http` now stamp every response `no-cache` and
+  strip the browser's `If-None-Match` / `If-Modified-Since`, so a rebuilt asset
+  is on screen after a reload. The rewrite happens as the response is committed
+  rather than before it, because the file server and the `_headers` rules both
+  write `Cache-Control` after any outer middleware has run — the last word is
+  the only one that counts. `Expires` and `Pragma` go with it, since either
+  outranks `Cache-Control` in an HTTP/1.0 cache. Endpoints keep their stricter
+  `no-store`, and a server for published output is untouched.
+- 🔁 **The live-reload hub is installed atomically.** It was a plain package
+  variable: whichever command is starting up writes it — a build, `ssg migrate`,
+  `ssg mcp` — while `buildServerHandler` reads it on another goroutine. A data
+  race the `-race` suite caught intermittently, and one no amount of ordering
+  inside a single command could fix, because the goroutine doing the reading
+  belongs to a different one.
+- 🔒 **Two rebuilds can no longer run at once**, which was true before any
+  watcher existed. The Streamable HTTP transport gives every request its own
+  goroutine, so two concurrent `tools/call` already rebuilt the same output tree
+  at the same time — and the stdout capture that keeps build noise out of the
+  JSON-RPC channel swaps a process-wide `os.Stdout` while doing it. Every
+  rebuild in `ssg mcp` now passes through one mutex, whichever source triggered
+  it. Asserted under `-race` with eight goroutines and a high-water counter that
+  must never read 2.
+
+### Changed
+- 📦 **Dependencies upgraded**: pongo2/v6 v6.0.0 → v6.1.0, jlaffaye/ftp v0.2.1 →
+  v0.2.2, pkg/sftp v1.13.10 → v1.13.11, quic-go v0.60.0 → v0.61.0, ulikunitz/xz
+  v0.5.15 → v0.5.16, goldmark v1.8.2 → v1.8.5, golang.org/x/crypto v0.54.0 →
+  v0.55.0, golang.org/x/net v0.57.0 → v0.58.0, grpc v1.82.1 → v1.83.1, protobuf
+  v1.36.11 → v1.36.12, modernc.org/sqlite v1.53.0 → v1.57.0 (four minors, with
+  modernc.org/libc v1.73.4 → v1.74.4 behind it).
+
+  **goldmark renders the site's Markdown, so its bump is the one that had to be
+  proved rather than assumed**: all four golden corpora — 67 files across the
+  taxonomy, dynamic, multilingual and external fixtures — are byte-identical
+  after it, as is the 917-file determinism stress corpus. `govulncheck` reports
+  no vulnerability this code calls; the single module-level finding is
+  GO-2026-5932 (`golang.org/x/crypto/openpgp` is unmaintained), which has no fix
+  and which nothing here imports.
+
+### Security
+- 🔑 **Every `ssg mcp --listen` endpoint gets a bearer token, and the token can
+  come from the environment** (#183). Two gaps that met in the worst place: the
+  deployment the documentation itself recommends.
+
+  Minting used to be conditional on the listener being **off** loopback — but
+  `docs/MCP_TRANSPORTS.md` tells you to bind loopback and let a reverse proxy own
+  the public address, with `--token="$SSG_MCP_TOKEN"`. An unset variable expands
+  to an empty argument; the address is loopback; nothing was minted; and the
+  startup line read *"No token — loopback only"* about a server that writes files
+  and runs git and was, at that moment, reachable from the internet. Nothing
+  failed, and the reassuring message was the wrong one. A token now costs nothing
+  on a listener nobody proxies — the client is being configured anyway — so there
+  is no longer a configuration without one.
+
+  The token also resolves from **`$SSG_MCP_TOKEN`** when `--token` is absent, the
+  flag winning when both are set. A command line is in `ps`, in the shell
+  history, in every container inspection and in the supervisor's own log; `ssg`
+  already takes that position for `mcp.git.token`, whose documentation says to
+  always use `$ENV`. The variable name is the one the docs were already using.
+
+  A minted token now says so — *"Minted for this run — set SSG_MCP_TOKEN to keep
+  it stable across restarts"* — which is the line to alert on in a supervised
+  deployment: it means the secret you thought you passed did not arrive. A
+  machine that cannot mint refuses to serve rather than serving openly.
+- 🧪 **The stderr capture used by 19 tests no longer truncates or hangs.** It
+  read once into a 4096-byte buffer *after* the code under test had returned:
+  a longer message came back silently truncated, so an assertion on its tail
+  passed or failed for the wrong reason — and a message past a pipe's ~64 KB
+  blocked the writer on something nobody was draining, hanging the test rather
+  than failing it. It now drains on a goroutine, which is what `captureStdout`
+  in the MCP path already did. The remaining hazard — swapping a process-global
+  while other goroutines write to it — needs injected writers and is tracked in
+  #188.
+- 🧹 **The golden and determinism scripts say what they actually run.** The
+  corpus build read `--source/--template/--domain`, which ssg does not accept:
+  it warned three times per run, declined to consume the values, and the three
+  orphans landed as positionals in exactly the right order. It worked by
+  accident and described an interface that does not exist. The invocation is
+  unchanged — only its spelling — and the corpora stay byte-identical.
+
+
 ## [1.8.46] - 2026-08-19
 
 ### Changed

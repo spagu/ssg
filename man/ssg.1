@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.46" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.47" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -33,6 +33,10 @@ ssg \- fast static site generator written in Go
 .RB { stats | clean | gc }
 .RB [ \-\-namespace=\fINAME\fR ]
 .RB [ \-\-dry ]
+.br
+.B ssg mddb push-theme
+.RB [ \-\-dry ]
+.RB [ \-\-lang=\fICODE\fR ]
 .br
 .B ssg migrate
 .I provider url
@@ -86,6 +90,13 @@ paths, regex-constrained params) are reported on stderr, never dropped silently.
 Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
 and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
+.TP
+.B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR]
+Upsert every template and static asset into the MDDB collection named by
+\fBmcp.search.mddb_collection\fR, keyed by project-relative path, and delete
+documents whose file no longer exists. This is what lets \fBdesigner_find\fR
+answer a question phrased as a sentence; without it the find tools scan the
+project locally, which needs no setup. \fB\-\-dry\fR reports without writing.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
@@ -149,7 +160,7 @@ language\fR holding markup in a document that carries raw markup outside it as
 well. A deliberate sample is written as \fB```html\fR and does not sit in a page
 otherwise made of divs. Front matter and list continuations are never touched.
 .TP
-.B ssg mcp \fR[\fB\-\-role\fR=\fIROLE\fR] [\fB\-\-listen\fR=\fIADDR\fR] [\fB\-\-token\fR=\fISECRET\fR] [\fB\-\-no\-stdio\fR]
+.B ssg mcp \fR[\fB\-\-role\fR=\fIROLE\fR] [\fB\-\-listen\fR=\fIADDR\fR] [\fB\-\-token\fR=\fISECRET\fR] [\fB\-\-no\-stdio\fR] [\fB\-\-watch\fR]
 Model Context Protocol development server for AI-assisted editing. Speaks
 \fBstdio\fR by default, so an assistant launches it. \fB\-\-listen\fR additionally
 serves the MCP endpoint at \fBhttp://\fIADDR\fB/mcp\fR over Streamable HTTP, the
@@ -159,9 +170,16 @@ may run at once. A bare port means localhost.
 The server writes files and runs git, so an endpoint a web page can reach is a
 remote code execution path. The \fBOrigin\fR header is validated (\fB403\fR unless
 listed with \fB\-\-allow\-origin\fR; a request with none is a non-browser client and
-is allowed), binding is loopback unless told otherwise, and a bearer token is
-minted and printed whenever the listener is not on loopback. \fBGET\fR and
-\fBDELETE\fR answer \fB405\fR. See \fBdocs/MCP_TRANSPORTS.md\fR.
+is allowed), binding is loopback unless told otherwise, and \fBevery\fR endpoint
+carries a bearer token \(em supplied with \fB\-\-token\fR, read from
+\fB$SSG_MCP_TOKEN\fR when the flag is absent, or minted and printed when neither
+is set. Prefer the variable: a command line is visible in \fBps\fR and in shell
+history. \fBGET\fR and \fBDELETE\fR answer \fB405\fR.
+.IP
+\fB\-\-watch\fR additionally polls the filesystem, so edits made outside MCP rebuild
+and reload the \fB\-\-http\fR preview as well; one process then serves the preview,
+serves the MCP endpoint and watches the tree, with every rebuild serialised. See
+\fBdocs/MCP.md\fR and \fBdocs/MCP_TRANSPORTS.md\fR.
 .TP
 .B ssg daemon \fR[\fB\-\-config\fR \fIFILE\fR] [\fB\-\-once\fR] [\fB\-\-quiet\fR]
 Watch several projects from one process. Reads \fB.ssg_projects\fR (YAML,
@@ -521,6 +539,12 @@ Comma-separated languages (e.g. \fBpl,en\fR); non-default languages are emitted 
 .TP
 .BR \-\-default\-language =\fILANG
 The default language, which is not prefixed in URLs.
+.IP
+Config-only \fBlanguage_sections:\fR assigns a language to a whole content
+section \(em keyed by content directory, longest prefix wins, \fBhome\fR for the
+site root. A page's own \fBlang:\fR still wins, and a section falls back to
+\fBdefault_language\fR. Written for migrated sites, where the language was a
+property of the directory and nothing a page carried.
 .SS Image Processing
 .TP
 .B \-\-webp

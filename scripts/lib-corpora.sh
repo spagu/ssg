@@ -39,7 +39,13 @@ manifest() {
 # alias/_redirects path); the others are the shipped examples. Every function
 # takes the output dir first and passes any further arguments straight to ssg,
 # which is how the determinism check varies --workers.
-build_corpus()       { out="$1"; shift; "$BIN" --source corpus --content-dir test/golden --template simple --templates-dir templates --domain ex.com --output-dir "$out" --feed "$@" >/dev/null; }
+# Positional <source> <template> <domain>, which is what ssg actually accepts.
+# This read as --source/--template/--domain for a long time and still worked, by
+# accident: ssg warned that each was unknown, declined to consume its value, and
+# the three orphaned values landed as positionals in exactly the right order.
+# Three warnings on every run, and a script describing an interface that does
+# not exist. The invocation is unchanged — only its spelling.
+build_corpus()       { out="$1"; shift; "$BIN" corpus simple ex.com --content-dir test/golden --templates-dir templates --output-dir "$out" --feed "$@" >/dev/null; }
 build_dynamic()      { out="$1"; shift; "$BIN" --config examples/dynamic-taxonomies/ssg.yaml --output-dir "$out" "$@" >/dev/null; }
 build_multilingual() { out="$1"; shift; "$BIN" --config examples/multilingual-site/ssg.yaml --output-dir "$out" "$@" >/dev/null; }
 build_external()     { out="$1"; shift; "$BIN" --config examples/external-sources/ssg.yaml --output-dir "$out" "$@" >/dev/null; }

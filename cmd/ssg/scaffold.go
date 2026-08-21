@@ -18,9 +18,9 @@ import (
 // runNewWorker scaffolds the named worker template. Returns a process exit code.
 func runNewWorker(args []string) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		fmt.Fprintf(os.Stderr, "usage: ssg new worker <template>\n\navailable templates:\n")
+		errf("usage: ssg new worker <template>\n\navailable templates:\n")
 		for _, name := range availableWorkerTemplates() {
-			fmt.Fprintf(os.Stderr, "  %s\n", name)
+			errf("  %s\n", name)
 		}
 		return 2
 	}
@@ -28,22 +28,22 @@ func runNewWorker(args []string) int {
 	// The name indexes an embedded template and becomes a path segment, so it
 	// must be a plain identifier — never a path fragment that could escape ./workers.
 	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
-		fmt.Fprintf(os.Stderr, "❌ invalid template name %q\n", name)
+		errf("❌ invalid template name %q\n", name)
 		return 1
 	}
 	root := "workers/" + name
 	if entries, err := ssgroot.EmbeddedWorkers.ReadDir(root); err != nil || len(entries) == 0 {
-		fmt.Fprintf(os.Stderr, "❌ unknown worker template %q. Available: %s\n", name, strings.Join(availableWorkerTemplates(), ", "))
+		errf("❌ unknown worker template %q. Available: %s\n", name, strings.Join(availableWorkerTemplates(), ", "))
 		return 1
 	}
 	dest := filepath.Join("workers", name)
 	// #nosec G703 -- name is validated above to a plain identifier under ./workers
 	if _, err := os.Stat(dest); err == nil {
-		fmt.Fprintf(os.Stderr, "❌ %s already exists — refusing to overwrite\n", dest)
+		errf("❌ %s already exists — refusing to overwrite\n", dest)
 		return 1
 	}
 	if err := extractWorkerTemplate(root, dest); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	fmt.Printf("✅ Scaffolded worker %q into %s/\n\n", name, dest)

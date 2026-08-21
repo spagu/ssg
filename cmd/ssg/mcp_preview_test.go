@@ -16,12 +16,12 @@ import (
 )
 
 func TestServeMCPPreviewOffByDefault(t *testing.T) {
-	old := reloadHub
-	t.Cleanup(func() { reloadHub = old })
-	reloadHub = nil
+	old := currentReloadHub()
+	t.Cleanup(func() { setReloadHub(old) })
+	setReloadHub(nil)
 	var logged []string
 	serveMCPPreview(&config.Config{}, func(f string, a ...any) { logged = append(logged, f) })
-	if reloadHub != nil || len(logged) != 0 {
+	if currentReloadHub() != nil || len(logged) != 0 {
 		t.Fatal("without --http nothing may start and nothing may be announced")
 	}
 }
@@ -38,8 +38,8 @@ func TestServeMCPPreviewServes(t *testing.T) {
 		[]byte("<html><body>preview</body></html>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	old := reloadHub
-	t.Cleanup(func() { reloadHub = old })
+	old := currentReloadHub()
+	t.Cleanup(func() { setReloadHub(old) })
 
 	// Port 0: the preview takes whatever is free and records it, so the test
 	// asks the config where the server actually landed instead of assuming a
@@ -50,7 +50,7 @@ func TestServeMCPPreviewServes(t *testing.T) {
 	if cfg.Port == 0 {
 		t.Fatal("the preview must record the port it claimed")
 	}
-	if reloadHub == nil {
+	if currentReloadHub() == nil {
 		t.Fatal("--http must arm live reload for MCP rebuilds")
 	}
 	if !strings.Contains(logged, "preview") {

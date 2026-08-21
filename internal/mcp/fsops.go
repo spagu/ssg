@@ -19,6 +19,19 @@ func strArg(args map[string]any, key string) (string, bool) {
 	return strings.TrimSpace(s), ok
 }
 
+// rawArg returns a string argument exactly as sent, with no trimming. Anchored
+// edits match byte for byte, so trimming `old` would make an anchor that begins
+// or ends in whitespace — the common case in indented CSS and HTML — fail to
+// find text that is plainly there (#187).
+func rawArg(args map[string]any, key string) (string, bool) {
+	v, present := args[key]
+	if !present {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
+}
+
 // resolveIn resolves a user-supplied relative path against one of the allowed base
 // directories (each relative to root) and refuses anything that escapes them. It
 // returns the cleaned absolute path and the matched base. This is the single choke
@@ -94,4 +107,11 @@ func writeFile(path, content string) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(content), 0o644) // #nosec G306 -- editable project source
+}
+
+// joinProject resolves a project-relative path that already came from listFiles,
+// so it is trusted by construction — unlike resolveIn, which validates input a
+// model supplied.
+func joinProject(root, rel string) string {
+	return filepath.Join(root, filepath.FromSlash(rel))
 }

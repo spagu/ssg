@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const liveReloadPath = "/__livereload"
@@ -37,8 +38,22 @@ type liveReloadHub struct {
 	subs map[chan string]struct{}
 }
 
-// reloadHub is non-nil only while --auto-reload is active.
-var reloadHub *liveReloadHub
+// reloadHub holds the live-reload hub while --auto-reload is active, and nil
+// otherwise.
+//
+// An atomic pointer rather than a plain one because the readers are servers:
+// the hub is installed by whichever command is starting up — a build, `ssg
+// migrate`, `ssg mcp` — while handlers built on other goroutines read it. A
+// plain variable made that a data race, which the -race suite caught
+// intermittently and which no amount of ordering in one command could fix,
+// because the goroutine reading it belongs to a different one.
+var reloadHub atomic.Pointer[liveReloadHub]
+
+// currentReloadHub returns the running hub, or nil when there is none.
+func currentReloadHub() *liveReloadHub { return reloadHub.Load() }
+
+// setReloadHub installs a hub (or clears it with nil).
+func setReloadHub(h *liveReloadHub) { reloadHub.Store(h) }
 
 func newLiveReloadHub() *liveReloadHub {
 	return &liveReloadHub{subs: make(map[chan string]struct{})}
@@ -86,16 +101,16 @@ func sseEvent(event, data string) string {
 
 // notifyReload signals a successful rebuild (no-op unless the hub is running).
 func notifyReload() {
-	if reloadHub != nil {
-		reloadHub.broadcast(sseEvent("reload", "1"))
+	if hub := currentReloadHub(); hub != nil {
+		hub.broadcast(sseEvent("reload", "1"))
 	}
 }
 
 // notifyBuildError pushes a failed build's message to the overlay (no-op unless
 // the hub is running).
 func notifyBuildError(msg string) {
-	if reloadHub != nil {
-		reloadHub.broadcast(sseEvent("builderror", msg))
+	if hub := currentReloadHub(); hub != nil {
+		hub.broadcast(sseEvent("builderror", msg))
 	}
 }
 
@@ -130,12 +145,13 @@ func (h *liveReloadHub) serveSSE(w http.ResponseWriter, r *http.Request) {
 // liveReloadMiddleware serves the SSE endpoint and injects the client script
 // into HTML responses. A no-op wrapper unless --auto-reload created the hub.
 func liveReloadMiddleware(next http.Handler) http.Handler {
-	if reloadHub == nil {
+	hub := currentReloadHub()
+	if hub == nil {
 		return next
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == liveReloadPath {
-			reloadHub.serveSSE(w, r)
+			hub.serveSSE(w, r)
 			return
 		}
 		// Always serve fresh HTML so the injected script is never cached away.
@@ -173,6 +189,11 @@ func (w *htmlInjectWriter) finish() {
 		}
 		body = []byte(s)
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		// A page carrying the reload script must not be cached: the generated
+		// _headers the preview now honours caches HTML for an hour on the
+		// deployed site (#181), and a reload served from the cache is a reload
+		// that shows the previous build.
+		w.Header().Set(cacheControlHeader, "no-cache")
 	}
 	if w.status == 0 {
 		w.status = http.StatusOK

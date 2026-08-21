@@ -32,21 +32,21 @@ func runInit(args []string) int {
 		case strings.HasPrefix(args[i], "--domain="):
 			domain = strings.TrimPrefix(args[i], "--domain=")
 		case strings.HasPrefix(args[i], "-"):
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n\nusage: ssg init [source-name] [--domain example.com]\n", args[i])
+			errf("❌ unknown flag %q\n\nusage: ssg init [source-name] [--domain example.com]\n", args[i])
 			return 2
 		default:
 			source = args[i]
 		}
 	}
 	if strings.ContainsAny(source, "/\\") || strings.Contains(source, "..") {
-		fmt.Fprintf(os.Stderr, "❌ invalid source name %q\n", source)
+		errf("❌ invalid source name %q\n", source)
 		return 1
 	}
 
 	files := initScaffold(source, domain)
 	created, skipped, err := writeScaffold(files)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	for _, f := range created {

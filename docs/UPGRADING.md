@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.46">1.8.46 — 2026-08-19</option>
       <option value="1.8.45">1.8.45 — 2026-08-19</option>
       <option value="1.8.44">1.8.44 — 2026-08-18</option>
       <option value="1.8.43">1.8.43 — 2026-08-17</option>
@@ -179,6 +180,42 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.47">
+
+### 1.8.47 — check one thing if you run `ssg mcp --listen`
+
+**Nothing to configure**, and the golden baseline is byte-identical. Two changes
+are worth a minute of attention, though.
+
+**The MCP endpoint is now always authenticated.** `ssg mcp --listen=…` mints a
+bearer token when neither `--token` nor `$SSG_MCP_TOKEN` supplies one —
+including on a loopback listener, which used to be the one case that got none.
+If you were relying on an unauthenticated loopback endpoint, your client now
+needs the token; read it from the startup line, or better, set it yourself:
+
+```sh
+SSG_MCP_TOKEN=… ssg mcp --listen=127.0.0.1:7823 --no-stdio
+```
+
+A minted token is new on every start, so a long-running deployment should set
+the variable rather than copy a printed value. The startup line says which
+happened — *"Minted for this run"* means the secret you thought you passed did
+not arrive, and in a supervised deployment that is the line to alert on.
+
+**The preview now serves your `_redirects` and `_headers`.** `ssg --http` reads
+both files out of the output directory, so a redirect finally answers locally
+the way it will in production. Two consequences on a site that has rules:
+
+- a path covered by a redirect rule now redirects in the preview instead of
+  serving the file that sits there, matching Cloudflare Pages;
+- the default `_headers` caches `/` and `/*.html` for an hour, so the preview
+  reports that too. Pages carrying the live-reload script are exempt.
+
+If you would rather the preview not honour a rule, the rule is the thing to
+change — the preview is now telling you what the deployment will do.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.46">
 

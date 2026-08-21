@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -88,19 +87,19 @@ func runMigrate(args []string) int {
 
 	provider, ok := migrate.Lookup(args[0])
 	if !ok {
-		fmt.Fprintf(os.Stderr, "❌ unknown migration provider %q — available: %s\n",
+		errf("❌ unknown migration provider %q — available: %s\n",
 			args[0], strings.Join(migrateProviderNames(), ", "))
 		return 2
 	}
 	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "❌ missing site URL\n\n")
+		errf("❌ missing site URL\n\n")
 		printMigrateUsage()
 		return 2
 	}
 	rawURL := args[1]
 	u, err := migrate.ValidateURL(rawURL)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 2
 	}
 	flags, code := parseMigrateFlags(args[2:])
@@ -120,7 +119,7 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 	if config.FindConfigFile() == "" {
 		created, skipped, err := writeScaffold(migrateScaffold(source, host))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ scaffolding project: %v\n", err)
+			errf("❌ scaffolding project: %v\n", err)
 			return 1
 		}
 		reportScaffold(created, skipped)
@@ -173,7 +172,7 @@ func migrateBatch(provider migrate.Provider, rawURL string, opts migrate.Options
 	genCfg generator.Config, cfg *config.Config) int {
 	report, err := migrateFetch(provider, rawURL, opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	// The config is completed BEFORE the build, so the first render already
@@ -181,7 +180,7 @@ func migrateBatch(provider migrate.Provider, rawURL string, opts migrate.Options
 	applied := applyMigratedIdentity(config.FindConfigFile(), opts.Dest)
 	genCfg, cfg = reloadAfterIdentity(cfg, genCfg)
 	if err := build(genCfg, cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ building migrated site: %v\n", err)
+		errf("❌ building migrated site: %v\n", err)
 		return 1
 	}
 	printMigrateReport(report, rawURL)
@@ -229,14 +228,20 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 	runInitialBuild(genCfg, cfg)
 	if cfg.HTTP {
 		if autoReloadEnabled(cfg) {
-			reloadHub = newLiveReloadHub()
+			setReloadHub(newLiveReloadHub())
 		}
 		// Claimed in the foreground: the address printed below must be the one
 		// the server took, port walk included (#135).
 		startServerAsync(cfg)
 	}
 	if cfg.Watch {
-		go runWatchLoop(genCfg, cfg)
+		// The watcher's life is this function's life. In normal use migrateBlock
+		// never returns, so it runs until Ctrl+C; when a caller does return, the
+		// goroutine stops with it instead of rebuilding on its own for the rest
+		// of the process (#191).
+		stop := make(chan struct{})
+		defer close(stop)
+		go runWatchLoop(genCfg, cfg, stop)
 	}
 	if cfg.HTTP && !cfg.Quiet {
 		_, url, _ := resolveListenAddr(cfg.Host, cfg.Port)
@@ -247,7 +252,7 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 	if err != nil {
 		// Keep serving whatever already landed; the user sees the partial
 		// site plus the error instead of a dead terminal.
-		fmt.Fprintf(os.Stderr, "❌ %v\n   The server keeps running — press Ctrl+C to stop.\n", err)
+		errf("❌ %v\n   The server keeps running — press Ctrl+C to stop.\n", err)
 		migrateBlock()
 		return 1
 	}
@@ -257,7 +262,7 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 		// --http without --watch: nothing rebuilds on its own, so build once
 		// now that all content is on disk.
 		if buildErr := build(genCfg, cfg); buildErr != nil {
-			fmt.Fprintf(os.Stderr, "❌ building migrated site: %v\n", buildErr)
+			errf("❌ building migrated site: %v\n", buildErr)
 		}
 	}
 	printMigrateReport(report, rawURL)
@@ -357,7 +362,7 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 		}
 	}
 	if strings.ContainsAny(f.source, "/\\") || strings.Contains(f.source, "..") {
-		fmt.Fprintf(os.Stderr, "❌ invalid source name %q\n", f.source)
+		errf("❌ invalid source name %q\n", f.source)
 		return f, 2
 	}
 	return f, -1
@@ -366,11 +371,11 @@ func parseMigrateFlags(args []string) (migrateFlags, int) {
 // reportUnknownMigrateFlag names the option ssg does not accept and returns the
 // exit code, so the parser reads as one line per outcome.
 func reportUnknownMigrateFlag(arg string) int {
-	fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n", arg)
+	errf("❌ unknown flag %q\n", arg)
 	if hint := engineFlagHint(arg); hint != "" {
-		fmt.Fprintf(os.Stderr, "   %s\n", hint)
+		errf("   %s\n", hint)
 	}
-	fmt.Fprintln(os.Stderr)
+	errln()
 	printMigrateUsage()
 	return 2
 }
@@ -382,7 +387,7 @@ func reportUnknownMigrateFlag(arg string) int {
 func (f *migrateFlags) setRateLimit(value string) int {
 	ms, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil || ms < 0 {
-		fmt.Fprintf(os.Stderr, "❌ --rate-limit %q is not a number of milliseconds\n", value)
+		errf("❌ --rate-limit %q is not a number of milliseconds\n", value)
 		return 2
 	}
 	f.rateLimit = ms
@@ -403,7 +408,7 @@ func (f *migrateFlags) addEngineArg(value string) int {
 func (f *migrateFlags) setPort(value string) int {
 	port, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil || port < 0 || port > 65535 {
-		fmt.Fprintf(os.Stderr, "❌ invalid --port %q — expected 0-65535\n", value)
+		errf("❌ invalid --port %q — expected 0-65535\n", value)
 		return 2
 	}
 	f.port = port

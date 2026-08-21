@@ -66,7 +66,7 @@ func main() {
 
 	if cfg.HTTP {
 		if autoReloadEnabled(cfg) {
-			reloadHub = newLiveReloadHub()
+			setReloadHub(newLiveReloadHub())
 		}
 		startServerAsync(cfg)
 	}
@@ -96,7 +96,7 @@ func applyMinifyAll(cfg *config.Config) {
 func runInitialBuild(genCfg generator.Config, cfg *config.Config) bool {
 	if err := build(genCfg, cfg); err != nil {
 		if !cfg.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+			errf("❌ Error: %v\n", err)
 		}
 		return false
 	}
@@ -111,7 +111,7 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 	if cfg.Mddb.Watch && cfg.Mddb.Enabled {
 		runMddbWatchLoop(genCfg, cfg)
 	} else if cfg.Watch {
-		runWatchLoop(genCfg, cfg)
+		runWatchLoop(genCfg, cfg, nil) // the process's own loop: it ends with the process
 	} else if cfg.HTTP {
 		select {}
 	}
@@ -122,7 +122,7 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 // unchanged) do not trigger redundant work — a conservative first increment of
 // incremental builds where any real change still triggers a full, correct rebuild
 // (PLAT-006).
-func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
+func runWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struct{}) {
 	configPath := configPathOf(os.Args[1:])
 	if !cfg.Quiet {
 		fmt.Printf("👀 Watching for changes in %s...\n", strings.Join(watchedInputs(cfg, configPath), ", "))
@@ -158,13 +158,22 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	configSig := fileSignature(configPath)
 
 	for {
-		time.Sleep(1 * time.Second)
+		select {
+		case <-stop:
+			// The owner is done with this watcher. A nil channel never fires,
+			// which is the main command's case: its watch loop ends with the
+			// process. `ssg migrate --watch` does have an owner, and a watcher
+			// outliving it kept rebuilding into whatever directory the process
+			// had wandered to by then (#191).
+			return
+		case <-time.After(1 * time.Second):
+		}
 		// The config file is watched as an input of its own: an edit reloads it
 		// and rebuilds with the new settings, so the watcher never keeps building
 		// from the configuration it started with (#70).
 		if sig := fileSignature(configPath); sig != configSig {
 			configSig = sig
-			if newGen, newCfg, ok := reloadWatchConfig(configPath, cfg); ok {
+			if newGen, newCfg, ok := reloadWatchConfig(os.Args[1:], configPath, cfg); ok {
 				genCfg, cfg = newGen, newCfg
 				dirs = watchDirs(cfg)
 				sigCache = newFileSigCache()
@@ -197,12 +206,17 @@ func watchedInputs(cfg *config.Config, configPath string) []string {
 // file changed, returning the refreshed pair. On a config that no longer loads it
 // reports the error and returns ok=false, so the watcher keeps the last good
 // settings instead of dying on a half-saved edit.
-func reloadWatchConfig(configPath string, old *config.Config) (generator.Config, *config.Config, bool) {
-	args := os.Args[1:]
+//
+// args are the command-line arguments the flags are re-applied from. They are a
+// parameter rather than os.Args[1:] because `ssg mcp --watch` reloads through
+// here too (#184), and its argument list still carries the `mcp` verb and the
+// mcp-only flags — replaying those through parseFlags would read the subcommand
+// name as a source directory.
+func reloadWatchConfig(args []string, configPath string, old *config.Config) (generator.Config, *config.Config, bool) {
 	cfg, err := loadConfigFile(configPath)
 	if err != nil {
 		if !old.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Config error: %v\n", err)
+			errf("❌ Config error: %v\n", err)
 			fmt.Println("⚠️  Keeping the previous configuration — fix the file and save to retry...")
 		}
 		return generator.Config{}, nil, false
@@ -265,7 +279,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		BatchSize: cfg.Mddb.BatchSize,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error creating MDDB client: %v\n", err)
+		errf("❌ Error creating MDDB client: %v\n", err)
 		return
 	}
 
@@ -284,7 +298,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	// Get initial checksum
 	checksumResp, err := client.Checksum(cfg.Mddb.Collection)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Could not get initial checksum: %v\n", err)
+		errf("⚠️  Could not get initial checksum: %v\n", err)
 	} else {
 		lastChecksum = checksumResp.Checksum
 		if !cfg.Quiet {
@@ -299,7 +313,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		checksumResp, err := client.Checksum(cfg.Mddb.Collection)
 		if err != nil {
 			if !cfg.Quiet {
-				fmt.Fprintf(os.Stderr, "⚠️  Checksum check failed: %v\n", err)
+				errf("⚠️  Checksum check failed: %v\n", err)
 			}
 			continue
 		}
@@ -325,10 +339,14 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 	if err := build(genCfg, cfg); err != nil {
 		notifyBuildError(err.Error()) // show the error overlay in connected browsers
 		if !cfg.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
+			errf("❌ Build error: %v\n", err)
 			fmt.Println("⚠️  Fix the issue and save to retry...")
 		}
 	} else {
+		// The generated _redirects/_headers changed with everything else, so
+		// the running server re-reads them here rather than waiting for a
+		// config edit or a restart (#181).
+		republishOutputRules(cfg)
 		notifyReload() // refresh connected browsers (no-op unless --auto-reload)
 		if !cfg.Quiet {
 			fmt.Printf("✅ Rebuilt successfully\n")
@@ -347,7 +365,7 @@ const configFlag = "--config"
 func loadConfig(args []string) *config.Config {
 	cfg, err := loadConfigFile(configPathOf(args))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
+		errf("❌ Error loading config: %v\n", err)
 		os.Exit(1)
 	}
 	return cfg
@@ -382,7 +400,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	// GO-053: never swallow extra positionals silently — they are almost always
 	// a mistyped flag form (e.g. "--paginate 10" works, but a typo would not).
 	if len(positionalArgs) > 3 {
-		fmt.Fprintf(os.Stderr, "⚠️  Ignoring unexpected positional arguments: %s\n",
+		errf("⚠️  Ignoring unexpected positional arguments: %s\n",
 			strings.Join(positionalArgs[3:], " "))
 	}
 	// content_sources can supply the whole site, in which case there is no
@@ -403,7 +421,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	} else if (cfg.Source == "" && !sourceOptional) || cfg.Template == "" || cfg.Domain == "" {
 		reportMissingSettings(cfg, sourceOptional)
 		// Point at --help rather than dumping the whole thing after the error.
-		fmt.Fprintln(os.Stderr, "   Run `ssg --help` for options, `ssg --version` for the version.")
+		errln("   Run `ssg --help` for options, `ssg --version` for the version.")
 		os.Exit(1)
 	}
 }
@@ -424,20 +442,20 @@ func reportMissingSettings(cfg *config.Config, sourceOptional bool) {
 	if cfg.Domain == "" {
 		missing = append(missing, "domain")
 	}
-	fmt.Fprintf(os.Stderr, "❌ Missing required setting(s): %s\n", strings.Join(missing, ", "))
+	errf("❌ Missing required setting(s): %s\n", strings.Join(missing, ", "))
 
 	if path := config.FindConfigFile(); path != "" {
-		fmt.Fprintf(os.Stderr, "   Config file in use: %s\n", path)
-		fmt.Fprintf(os.Stderr, "   Values it provided: source=%q template=%q domain=%q\n",
+		errf("   Config file in use: %s\n", path)
+		errf("   Values it provided: source=%q template=%q domain=%q\n",
 			cfg.Source, cfg.Template, cfg.Domain)
 		if cfg.Source == "" && !sourceOptional {
-			fmt.Fprintln(os.Stderr, "   A site with no `source:` needs `content_sources:` (ssg 1.8.10+)"+
+			errln("   A site with no `source:` needs `content_sources:` (ssg 1.8.10+)" +
 				" — an older ssg ignores that key, which looks exactly like this.")
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "   No .ssg.yaml/.ssg.toml/.ssg.json found in the current directory.")
+		errln("   No .ssg.yaml/.ssg.toml/.ssg.json found in the current directory.")
 	}
-	fmt.Fprintf(os.Stderr, "   Pass them positionally (ssg %s) or set them in the config file.\n\n",
+	errf("   Pass them positionally (ssg %s) or set them in the config file.\n\n",
 		strings.Join(missing, " "))
 }
 
@@ -463,11 +481,11 @@ func positionalArgsOf(args []string) []string {
 // setupTemplateEngine validates the template engine and deploy target, exiting on error.
 func setupTemplateEngine(cfg *config.Config) {
 	if err := validateTemplateEngine(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		errf("❌ Error: %v\n", err)
 		os.Exit(1)
 	}
 	if cfg.Deploy != "" && !deploy.Supported(cfg.Deploy) {
-		fmt.Fprintf(os.Stderr, "❌ Error: unknown --deploy provider %q (supported: %s)\n",
+		errf("❌ Error: unknown --deploy provider %q (supported: %s)\n",
 			cfg.Deploy, strings.Join(deploy.SupportedProviders(), ", "))
 		os.Exit(1)
 	}
@@ -508,7 +526,7 @@ func downloadOnlineTheme(cfg *config.Config) {
 	}
 
 	if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error downloading theme: %v\n", err)
+		errf("❌ Error downloading theme: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -631,6 +649,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Languages:              cfg.Languages,
 		DefaultLanguage:        cfg.DefaultLanguage,
 		LanguageConfigs:        cfg.LanguageConfigs,
+		LanguageSections:       cfg.LanguageSections,
 		I18n:                   cfg.I18n,
 		Taxonomies:             cfg.Taxonomies,
 		ExternalSources:        cfg.ExternalSources,
@@ -1164,7 +1183,7 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 		return 0
 	}
 	if i+1 >= len(args) {
-		fmt.Fprintf(os.Stderr, "⚠️  Flag %s expects a value (%s=<value> or %s <value>)\n", arg, arg, arg)
+		errf("⚠️  Flag %s expects a value (%s=<value> or %s <value>)\n", arg, arg, arg)
 		return 0
 	}
 	if arg == configFlag {
@@ -1224,7 +1243,7 @@ func runImagesGC(gen *generator.Generator, cfg *config.Config) {
 	dry := cfg.ImagesGCDry
 	files, bytes, err := gen.ImagesGC(dry)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Image cache GC: %v\n", err)
+		errf("⚠️  Image cache GC: %v\n", err)
 		return
 	}
 	if cfg.Quiet {
@@ -1801,7 +1820,7 @@ func resolveRunnerConfig(spec watchRunnerSpec) string {
 		}
 	}
 	if _, err := os.Stat(path); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Watch-runner config %q not found: %v\n", path, err)
+		errf("⚠️  Watch-runner config %q not found: %v\n", path, err)
 	}
 	return path
 }
@@ -1817,7 +1836,7 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 	}
 	if spec.Dir != "" {
 		if _, err := os.Stat(spec.Dir); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
+			errf("⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
 			return nil
 		}
 	}
@@ -1838,7 +1857,7 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Failed to start watch runner %q: %v\n", spec.Runner, err)
+		errf("⚠️  Failed to start watch runner %q: %v\n", spec.Runner, err)
 		return nil
 	}
 
@@ -1881,7 +1900,7 @@ func warnUnknownFlags(args []string, cfg *config.Config) {
 		if near := nearestFlag(name, known); near != "" {
 			msg += fmt.Sprintf(" (did you mean %s?)", near)
 		}
-		fmt.Fprintln(os.Stderr, msg+"; run `ssg --help` for the list")
+		errln(msg + "; run `ssg --help` for the list")
 	}
 }
 

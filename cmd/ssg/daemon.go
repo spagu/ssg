@@ -51,11 +51,11 @@ func runDaemon(args []string) int {
 
 	cfg, err := daemon.Load(flags.config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	if len(cfg.Active()) == 0 {
-		fmt.Fprintf(os.Stderr, "❌ %s lists no project to run\n", flags.config)
+		errf("❌ %s lists no project to run\n", flags.config)
 		return 1
 	}
 	if flags.once {
@@ -75,7 +75,7 @@ func superviseProjects(cfg *daemon.Config, flags daemonFlags) int {
 		fmt.Printf("🛠️  Watching %d project(s) from %s\n", len(cfg.Active()), flags.config)
 	}
 	if err := sup.Apply(cfg.Active()); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
+		errf("⚠️  %v\n", err)
 	}
 
 	reload, quit := daemonSignals()
@@ -100,7 +100,7 @@ func superviseProjects(cfg *daemon.Config, flags daemonFlags) int {
 			// on a bad config must not silently leave a site unserved.
 			if name := sup.Exited(); name != "" {
 				if err := sup.Restart(name); err != nil {
-					fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
+					errf("⚠️  %v\n", err)
 				}
 			}
 		}
@@ -113,14 +113,14 @@ func superviseProjects(cfg *daemon.Config, flags daemonFlags) int {
 func reloadProjects(sup *daemon.Supervisor, flags daemonFlags, why string) {
 	next, err := daemon.Load(flags.config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  %s: %v\n   Keeping the running projects — fix the file and save to retry.\n", why, err)
+		errf("⚠️  %s: %v\n   Keeping the running projects — fix the file and save to retry.\n", why, err)
 		return
 	}
 	if !flags.quiet {
 		fmt.Printf("♻️  Reloading (%s)\n", why)
 	}
 	if err := sup.Apply(next.Active()); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  %v\n", err)
+		errf("⚠️  %v\n", err)
 	}
 	if !flags.quiet {
 		fmt.Printf("   ✅ %d project(s) running: %v\n", len(sup.Names()), sup.Names())
@@ -185,7 +185,7 @@ func parseDaemonFlags(args []string) (daemonFlags, int) {
 			f.config = args[i+1]
 			i++
 		default:
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n\n", arg)
+			errf("❌ unknown flag %q\n\n", arg)
 			printDaemonUsage()
 			return f, 2
 		}

@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/generator"
 )
 
 // TestConfigPathOf: an explicit --config wins in both forms; otherwise the
@@ -111,7 +113,7 @@ func TestReloadWatchConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := &config.Config{Quiet: true, ContentDir: "content"}
-	_, cfg, ok := reloadWatchConfig(p, old)
+	_, cfg, ok := reloadWatchConfig(nil, p, old)
 	if !ok || cfg.ContentDir != "docs" {
 		t.Fatalf("reload = %v, ok=%v", cfg, ok)
 	}
@@ -119,7 +121,66 @@ func TestReloadWatchConfig(t *testing.T) {
 	if err := os.WriteFile(p, []byte("content_dir: [broken\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, ok := reloadWatchConfig(p, old); ok {
+	if _, _, ok := reloadWatchConfig(nil, p, old); ok {
 		t.Error("a broken config must not be adopted")
+	}
+}
+
+// TestABrokenConfigEditIsReportedToAWatcherThatIsNotQuiet: the watcher keeps
+// the last good settings either way, but a half-saved file that changes nothing
+// and says nothing is a watcher the author will assume is broken (#70).
+func TestABrokenConfigEditIsReportedToAWatcherThatIsNotQuiet(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "c.yaml")
+	if err := os.WriteFile(p, []byte("content_dir: [broken\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loud := &config.Config{ContentDir: "content"} // Quiet is false
+	out := captureStderr(t, func() {
+		if _, _, ok := reloadWatchConfig(nil, p, loud); ok {
+			t.Error("a broken config must not be adopted")
+		}
+	})
+	if !strings.Contains(out, "Config error") {
+		t.Errorf("stderr = %q", out)
+	}
+}
+
+// TestTheWatchLoopStopsWhenItsOwnerDoes: `ssg migrate --watch` starts the
+// watcher on a goroutine and returns when its caller is done. Without a stop
+// signal that goroutine kept rebuilding for the rest of the process — into
+// whatever working directory the process had by then, which under a shuffled
+// test run was the repository itself (#191).
+func TestTheWatchLoopStopsWhenItsOwnerDoes(t *testing.T) {
+	t.Chdir(t.TempDir())
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		runWatchLoop(generator.Config{}, &config.Config{Quiet: true}, stop)
+	}()
+
+	close(stop)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the watch loop ignored its stop signal")
+	}
+}
+
+// TestANilStopChannelRunsOn is the main command's case: its watcher ends with
+// the process, so it must not treat "no owner" as "stop immediately".
+func TestANilStopChannelRunsOn(t *testing.T) {
+	t.Chdir(t.TempDir())
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		runWatchLoop(generator.Config{}, &config.Config{Quiet: true}, nil)
+	}()
+
+	select {
+	case <-returned:
+		t.Fatal("a nil stop channel must never fire")
+	case <-time.After(1500 * time.Millisecond): // past one loop tick
 	}
 }

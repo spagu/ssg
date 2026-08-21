@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/generator"
@@ -17,12 +16,12 @@ func runNewWrangler(args []string) int {
 	cfg := loadConfig(args)
 	dirs := workerDirsOf(cfg)
 	if len(dirs) == 0 {
-		fmt.Fprintln(os.Stderr, "❌ no workers configured — add a worker: or workers: block first (see docs/WORKERS.md)")
+		errln("❌ no workers configured — add a worker: or workers: block first (see docs/WORKERS.md)")
 		return 1
 	}
 	path, created, err := generator.EnsureWranglerConfig(".", cfg.Domain, cfg.OutputDir, dirs, explicitWranglerConfig(cfg))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	if created {
@@ -56,7 +55,7 @@ func ensureWranglerForWorkers(cfg *config.Config) {
 	}
 	path, created, err := generator.EnsureWranglerConfig(".", cfg.Domain, cfg.OutputDir, dirs, explicitWranglerConfig(cfg))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  could not generate wrangler.toml: %v\n", err)
+		errf("⚠️  could not generate wrangler.toml: %v\n", err)
 		return
 	}
 	if created && !cfg.Quiet {

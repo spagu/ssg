@@ -30,38 +30,60 @@ import (
 	"github.com/spagu/ssg/internal/mcp"
 )
 
-// runMCP implements `ssg mcp [flags] [dir]`.
-func runMCP(args []string) int {
-	roles := map[string]bool{}
-	watch := true
-	net := mcpNetFlags{}
-	rest := []string{}
+// mcpArgs is what `ssg mcp`'s own flags parse into; everything it does not
+// recognise is passed on to the ordinary build flag parser as rest.
+type mcpArgs struct {
+	roles  map[string]bool
+	watch  bool
+	netCfg mcpNetFlags
+	rest   []string
+	code   int  // exit code when done is set
+	done   bool // --help or a bad --role: nothing left to run
+}
+
+// parseMCPArgs splits `ssg mcp`'s arguments. It is separate from runMCP because
+// argument handling is a decision the tests can make assertions about, while
+// runMCP itself starts servers and blocks.
+func parseMCPArgs(args []string) mcpArgs {
+	p := mcpArgs{roles: map[string]bool{}, watch: true, rest: []string{}}
 	for _, a := range args {
 		switch {
 		case strings.HasPrefix(a, "--listen="):
-			net.listen = strings.TrimPrefix(a, "--listen=")
+			p.netCfg.listen = strings.TrimPrefix(a, "--listen=")
 		case strings.HasPrefix(a, "--token="):
-			net.token = strings.TrimPrefix(a, "--token=")
+			p.netCfg.token = strings.TrimPrefix(a, "--token=")
 		case strings.HasPrefix(a, "--allow-origin="):
-			net.origins = append(net.origins, strings.TrimPrefix(a, "--allow-origin="))
+			p.netCfg.origins = append(p.netCfg.origins, strings.TrimPrefix(a, "--allow-origin="))
 		case a == "--no-stdio":
-			net.noStdio = true
+			p.netCfg.noStdio = true
 		case strings.HasPrefix(a, "--role="):
 			r := strings.TrimPrefix(a, "--role=")
 			if r != "designer" && r != "content" {
-				fmt.Fprintf(os.Stderr, "❌ unknown --role=%s (designer | content). See 'ssg --help'.\n", r)
-				return 2
+				errf("❌ unknown --role=%s (designer | content). See 'ssg --help'.\n", r)
+				p.code, p.done = 2, true
+				return p
 			}
-			roles[r] = true
+			p.roles[r] = true
 		case a == "--no-watch":
-			watch = false
+			p.watch = false
 		case a == "--help" || a == "-h":
 			printMCPHelp()
-			return 0
+			p.code, p.done = 0, true
+			return p
 		default:
-			rest = append(rest, a)
+			p.rest = append(p.rest, a)
 		}
 	}
+	return p
+}
+
+// runMCP implements `ssg mcp [flags] [dir]`.
+func runMCP(args []string) int {
+	parsed := parseMCPArgs(args)
+	if parsed.done {
+		return parsed.code
+	}
+	roles, watch, netCfg, rest := parsed.roles, parsed.watch, parsed.netCfg, parsed.rest
 
 	cfg := loadConfig(rest)
 	parseFlags(rest, cfg)
@@ -69,7 +91,12 @@ func runMCP(args []string) int {
 	setupTemplateEngine(cfg)
 	downloadOnlineTheme(cfg)
 	genCfg := createGeneratorConfig(cfg)
-	logf := func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }
+	logf := func(format string, a ...any) { errf(format+"\n", a...) }
+	// One builder for the whole process, and one mutex inside it. MCP mutations
+	// and — with --watch — the filesystem loop both rebuild the same output
+	// tree, and over the HTTP transport two tools/call already arrive on two
+	// goroutines (#184).
+	rebuilder := newMCPRebuilder(genCfg, cfg)
 
 	opts := mcp.Options{
 		Root:         ".",
@@ -86,21 +113,10 @@ func runMCP(args []string) int {
 			_, err := loadConfigFile(path)
 			return err
 		},
-		Rebuild: func() (string, error) {
-			// Rebuild quietly, capturing anything printed so build noise cannot
-			// leak into the JSON-RPC stdout channel and errors flow to the model.
-			q := *cfg
-			q.Quiet = true
-			out, err := captureStdout(func() error { return build(genCfg, &q) })
-			// Push the result to an open --http preview: a reload on success,
-			// the error overlay otherwise (GO-090). No-op without --http.
-			if err != nil {
-				notifyBuildError(err.Error())
-			} else {
-				notifyReload()
-			}
-			return out, err
-		},
+		Rebuild: rebuilder.rebuild,
+		// nil unless mcp.search.mddb_* is configured, which is the documented
+		// "scan the project locally" case rather than a missing feature (#190).
+		Search: buildMCPSearch(cfg, logf),
 	}
 
 	logf("🔌 ssg mcp %s — designer/content development server (stdio)", Version)
@@ -110,16 +126,21 @@ func runMCP(args []string) int {
 	// is exactly when a human wants the preview open. Live reload needs the
 	// rebuild signal, which MCP's Rebuild provides, so it is on with --http.
 	serveMCPPreview(cfg, logf)
+	// --watch was parsed into cfg by parseFlags and read by nothing in this
+	// path, so a file changed outside MCP never rebuilt and never reloaded the
+	// preview. It now drives the same polling loop the serve path runs, through
+	// the same serialised rebuilder (#184).
+	startMCPWatch(rebuilder, rest, configPathOf(rest), logf)
 
 	server := mcp.NewServer(opts)
 	// The network transport, when asked for. It runs alongside stdio rather
 	// than instead of it: the two are bindings of one protocol, and a client
 	// that spawns the process and one that dials it can both be served by the
 	// same running server (#173).
-	if code := serveMCPEndpoint(server, net, logf); code >= 0 {
+	if code := serveMCPEndpoint(server, netCfg, logf); code >= 0 {
 		return code
 	}
-	if net.noStdio {
+	if netCfg.noStdio {
 		select {} // the HTTP endpoint is the only transport; park here
 	}
 	if err := server.Serve(os.Stdin, os.Stdout); err != nil {
@@ -137,17 +158,62 @@ type mcpNetFlags struct {
 	noStdio bool
 }
 
+// mcpTokenEnv is where the bearer token is read from when --token is absent.
+// The name is not a new invention: docs/MCP_TRANSPORTS.md has always spelled the
+// network deployment `--token="$SSG_MCP_TOKEN"`, so operators are already
+// training the variable — it just was never read by anything (#183).
+const mcpTokenEnv = "SSG_MCP_TOKEN"
+
+// newMCPToken mints a bearer token. A variable rather than a direct call so the
+// failure path — a machine whose entropy source will not read — can be exercised
+// instead of shipped untested, the same reason githubAPIBase below is one.
+var newMCPToken = mcp.NewToken
+
+// resolveMCPToken decides the bearer token for a --listen endpoint: the flag
+// first, then $SSG_MCP_TOKEN, and a freshly minted one when neither carries a
+// value. minted reports the last case so the caller can say where the token
+// came from.
+//
+// A secret on a command line is in `ps`, in the shell history and in every
+// supervisor log that echoes what it started, so the environment is the better
+// place for it; the flag still wins when both are set, because an explicit
+// argument is the more deliberate of the two.
+//
+// Nothing here consults the listen address any more (#183). Minting used to be
+// conditional on the listener being off loopback, which made the deployment the
+// documentation recommends — loopback listener, reverse proxy owning the public
+// address — the one configuration that could end up with no authentication at
+// all: an unset or misspelled $SSG_MCP_TOKEN expands to the empty string, the
+// flag arrives empty, the address is loopback, nothing is minted, and a server
+// that writes files and runs git sits behind a public hostname while the log
+// line reassures the operator it is "loopback only". A token on a loopback
+// listener nobody proxies costs nothing — the client is being configured
+// anyway — so it is now always there.
+func resolveMCPToken(flagToken string) (token string, minted bool, err error) {
+	if t := strings.TrimSpace(flagToken); t != "" {
+		return t, false, nil
+	}
+	if t := strings.TrimSpace(os.Getenv(mcpTokenEnv)); t != "" {
+		return t, false, nil
+	}
+	generated, genErr := newMCPToken()
+	if genErr != nil {
+		return "", false, genErr
+	}
+	return generated, true, nil
+}
+
 // serveMCPEndpoint starts the Streamable HTTP transport when --listen was
 // given. It returns an exit code on failure, or -1 to carry on.
 //
-// A listener that is not on loopback gets a bearer token whether or not one was
-// asked for: this server writes files and runs git, so an open endpoint on a
-// routable address is a remote code execution path, and refusing to start
-// without a token would only push the operator to a worse workaround.
+// Every endpoint gets a bearer token, supplied or minted: this server writes
+// files and runs git, so an unauthenticated endpoint is a remote code execution
+// path, and refusing to start without a token would only push the operator to a
+// worse workaround.
 func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, ...any)) int {
 	if strings.TrimSpace(flags.listen) == "" {
 		if flags.noStdio {
-			fmt.Fprintln(os.Stderr, "❌ --no-stdio needs --listen — otherwise there is no transport at all")
+			errln("❌ --no-stdio needs --listen — otherwise there is no transport at all")
 			return 2
 		}
 		return -1
@@ -157,15 +223,10 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 		addr = "127.0.0.1:" + addr // a bare port means localhost, not the world
 	}
 
-	token := flags.token
-	loopback := mcp.IsLoopback(addr)
-	if token == "" && !loopback {
-		generated, err := mcp.NewToken()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ %v\n", err)
-			return 1
-		}
-		token = generated
+	token, minted, err := resolveMCPToken(flags.token)
+	if err != nil {
+		errf("❌ %v\n", err)
+		return 1
 	}
 
 	mux := http.NewServeMux()
@@ -177,19 +238,18 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ cannot listen on %s: %v\n", addr, err)
+	ln, lnErr := net.Listen("tcp", addr)
+	if lnErr != nil {
+		errf("❌ cannot listen on %s: %v\n", addr, lnErr)
 		return 1
 	}
 
 	logf("🌐 MCP endpoint: http://%s/mcp (Streamable HTTP)", ln.Addr())
-	if token != "" {
-		logf("   Authorization: Bearer %s", token)
-	} else {
-		logf("   No token — loopback only. Add --token=… before exposing this address.")
+	logf("   Authorization: Bearer %s", token)
+	if minted {
+		logf("   Minted for this run — set %s to keep it stable across restarts.", mcpTokenEnv)
 	}
-	if !loopback {
+	if !mcp.IsLoopback(addr) {
 		logf("   ⚠️  Listening beyond localhost. This server writes files and runs git:")
 		logf("      put it behind TLS and keep the token secret.")
 	}
@@ -211,7 +271,7 @@ func serveMCPPreview(cfg *config.Config, logf func(string, ...any)) {
 	if !cfg.HTTP {
 		return
 	}
-	reloadHub = newLiveReloadHub() // each MCP rebuild refreshes the open tab
+	setReloadHub(newLiveReloadHub()) // each MCP rebuild refreshes the open tab
 	// The port is claimed before the address is logged, so a busy 8888 shifts
 	// the announcement too instead of pointing the agent at someone else's
 	// server (#135).
@@ -422,6 +482,10 @@ func printMCPHelp() {
 	fmt.Println("Options:")
 	fmt.Println("  --role=designer|content  - expose one role only (default: both)")
 	fmt.Println("  --no-watch               - do not rebuild the site after each change")
+	fmt.Println("  --watch                  - also watch the filesystem, so edits made outside")
+	fmt.Println("                             MCP rebuild and reload the preview as well. One")
+	fmt.Println("                             process for preview + MCP + watch; every rebuild,")
+	fmt.Println("                             whatever triggered it, is serialised.")
 	fmt.Println("  --config=FILE            - site config (default: .ssg.yaml)")
 	fmt.Println()
 	fmt.Println("Git write-back (optional, config `mcp.git`): with an account + $ENV token the")
@@ -431,8 +495,10 @@ func printMCPHelp() {
 	fmt.Println("  --http [--port=N]        - also serve the site so you can watch it change")
 	fmt.Println("  --listen=ADDR            - also serve the MCP endpoint over Streamable HTTP")
 	fmt.Println("                             at http://ADDR/mcp. A bare port means localhost.")
-	fmt.Println("  --token=SECRET           - require `Authorization: Bearer SECRET`. Minted")
-	fmt.Println("                             automatically when --listen is not on loopback.")
+	fmt.Println("  --token=SECRET           - require `Authorization: Bearer SECRET`. Read from")
+	fmt.Println("                             $SSG_MCP_TOKEN when the flag is absent; minted and")
+	fmt.Println("                             printed when neither is set. Prefer the variable:")
+	fmt.Println("                             a command line is visible in `ps` and in history.")
 	fmt.Println("  --allow-origin=URL       - accept this browser origin (repeatable). Without")
 	fmt.Println("                             one, browser origins are refused: a page that can")
 	fmt.Println("                             reach this server can write files and run git.")

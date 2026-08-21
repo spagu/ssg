@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/quic-go/quic-go/http3"
@@ -28,7 +29,7 @@ import (
 func startServer(cfg *config.Config) {
 	ln, err := claimPort(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return
 	}
 
@@ -41,7 +42,7 @@ func startServer(cfg *config.Config) {
 func startServerAsync(cfg *config.Config) {
 	ln, err := claimPort(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return
 	}
 
@@ -91,8 +92,40 @@ func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
 	logServerStart(cfg, url, mode, exposed)
 
 	if err := serveOnListener(server, ln, cfg, mode, acm); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintf(os.Stderr, "❌ Server error: %v\n", err)
+		reportServerErr("❌ Server error: %v\n", err)
 	}
+}
+
+// serverErrf reports a server failure. A variable rather than a direct
+// fmt.Fprintf so the paths that only ever run once the server is up — the
+// HTTP/3 listener reporting from its own goroutine, a listener that dies under
+// the server — can be exercised instead of shipped untested, the same reason
+// githubAPIBase is one. Swapping os.Stderr from a test cannot do it here:
+// these report from goroutines the test does not own, and the swap races them.
+//
+// Read under a lock because that is the whole point: the readers are background
+// goroutines, so a seam that can only be set safely before any of them start is
+// not a seam at all.
+var (
+	serverErrMu sync.RWMutex
+	serverErrf  = func(format string, a ...any) { errf(format, a...) }
+)
+
+// reportServerErr sends one failure to the current reporter.
+func reportServerErr(format string, a ...any) {
+	serverErrMu.RLock()
+	report := serverErrf
+	serverErrMu.RUnlock()
+	report(format, a...)
+}
+
+// setServerErrf swaps the reporter and returns the previous one.
+func setServerErrf(report func(string, ...any)) func(string, ...any) {
+	serverErrMu.Lock()
+	defer serverErrMu.Unlock()
+	previous := serverErrf
+	serverErrf = report
+	return previous
 }
 
 // startHTTP3 launches the QUIC/HTTP-3 listener in the background (v1.8.1).
@@ -105,7 +138,7 @@ func startHTTP3(h3 *http3.Server, cfg *config.Config, mode string) {
 			err = h3.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  HTTP/3 server error: %v\n", err)
+			reportServerErr("⚠️  HTTP/3 server error: %v\n", err)
 		}
 	}()
 }
@@ -158,15 +191,15 @@ func warnTLSMisconfig(cfg *config.Config, mode string) {
 	if mode == "" {
 		switch {
 		case cfg.TLSAuto && cfg.TLSDomain == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-auto needs --tls-domain=<domain>; serving plain HTTP")
+			errln("⚠️  --tls-auto needs --tls-domain=<domain>; serving plain HTTP")
 		case cfg.TLSCert != "" && cfg.TLSKey == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-cert given without --tls-key; serving plain HTTP")
+			errln("⚠️  --tls-cert given without --tls-key; serving plain HTTP")
 		case cfg.TLSKey != "" && cfg.TLSCert == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-key given without --tls-cert; serving plain HTTP")
+			errln("⚠️  --tls-key given without --tls-cert; serving plain HTTP")
 		}
 	}
 	if cfg.HTTP3 && mode == "" {
-		fmt.Fprintln(os.Stderr, "⚠️  --http3 requires TLS (--tls-auto or --tls-cert/--tls-key); HTTP/3 disabled")
+		errln("⚠️  --http3 requires TLS (--tls-auto or --tls-cert/--tls-key); HTTP/3 disabled")
 	}
 }
 
@@ -214,7 +247,7 @@ func serveOnListener(server *http.Server, ln net.Listener, cfg *config.Config, m
 		// privileges) must be visible, not silently swallowed (GO-034).
 		go func() {
 			if err := http.ListenAndServe(":80", acm.HTTPHandler(nil)); err != nil { // #nosec G114 -- ACME HTTP-01 + redirect only
-				fmt.Fprintf(os.Stderr, "⚠️  autocert HTTP-01 helper (:80): %v\n", err)
+				errf("⚠️  autocert HTTP-01 helper (:80): %v\n", err)
 			}
 		}()
 		return server.Serve(tls.NewListener(ln, server.TLSConfig))
@@ -248,13 +281,27 @@ func autocertCacheDir() string {
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	static := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
+	// The `_redirects` and `_headers` this build wrote are served too, so a
+	// redirect can be checked before it is published (#181). Order mirrors
+	// Cloudflare Pages: redirect rules are evaluated before static assets, and
+	// the header blocks decorate whatever is served after them. Both tables are
+	// re-read after every rebuild, not only on a config reload.
+	republishOutputRules(cfg)
+	files := liveRedirectHandler(liveHeadersHandler(static))
 	// Vendor-neutral endpoints intercept their paths before the file server;
 	// everything else is still served statically (#63). The routing table is
 	// published rather than captured, so a watch reload can replace it without
 	// touching the listener (#180).
-	publishEndpoints(cfg, static)
-	h := liveEndpointHandler(static)
+	publishEndpoints(cfg, files)
+	h := liveEndpointHandler(files)
 	h = cacheControlMiddleware(h)
+	// A preview must never cache: the policy above and the `_headers` rules
+	// below it are both written for a published site, and either one will serve
+	// the previous build's stylesheet after a reload (#185). Applied inside the
+	// live-reload wrapper so the SSE stream keeps its http.Flusher.
+	if previewMode(cfg) {
+		h = previewNoCacheMiddleware(h)
+	}
 	h = securityHeadersMiddleware(h, tlsOn)
 	if cfg.Gzip {
 		h = gzipMiddleware(h)
@@ -265,7 +312,7 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	if authCfg.Enabled() {
 		wrapped, err := serverauth.Middleware(h, authCfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Server access-control config: %v\n", err)
+			errf("❌ Server access-control config: %v\n", err)
 			os.Exit(1)
 		}
 		h = wrapped
@@ -380,7 +427,7 @@ func applyMemLimit(s string, quiet bool) {
 	bytes, err := parseByteSize(s)
 	if err != nil || bytes <= 0 {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "⚠️  invalid --mem-limit %q: %v\n", s, err)
+			errf("⚠️  invalid --mem-limit %q: %v\n", s, err)
 		}
 		return
 	}

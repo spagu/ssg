@@ -101,22 +101,12 @@ func (g *Generator) encodingFor(page *models.Page) string {
 		return enc
 	}
 	if strings.Trim(page.GetURL(), "/") == "" {
-		if v, ok := g.config.OutputEncodingSections["home"]; ok {
+		if v, ok := g.config.OutputEncodingSections[homeSectionKey]; ok {
 			return normalizeEncoding(v)
 		}
 	}
 	section := g.contentSection(*page)
-	best, bestLen := "", -1
-	for prefix, v := range g.config.OutputEncodingSections {
-		if prefix == "home" {
-			continue
-		}
-		p := strings.Trim(prefix, "/")
-		if p != "" && (section == p || strings.HasPrefix(section, p+"/")) && len(p) > bestLen {
-			best, bestLen = v, len(p)
-		}
-	}
-	if best != "" {
+	if best, _ := sectionValue(g.config.OutputEncodingSections, section); best != "" {
 		return normalizeEncoding(best)
 	}
 	return enc
