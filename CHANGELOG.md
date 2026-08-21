@@ -7,9 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.47] - 2026-08-20
+## [1.8.47] - 2026-08-21
 
 ### Added
+- 🔎 **`designer_find` / `content_find` — where something lives, without reading
+  the files** (#190). The MCP toolset was list / read / write, so answering
+  "where is the page background set?" meant listing the theme and reading files
+  until the line turned up. Measured on a migrated site that was ~10k tokens for
+  a one-line CSS change, most of it spent locating the line.
+
+  ```jsonc
+  designer_find { "query": "background" }
+  → static/css/style.css:4-8
+      body {
+        background: #ffffff;
+        color: var(--ink);
+      }
+  ```
+
+  The returned range is the anchor `designer_edit` needs, so find → edit is two
+  calls with no read between them. The query is a case-insensitive regular
+  expression when it is valid syntax and a literal otherwise, so pasting a CSS
+  fragment with an unbalanced bracket returns an answer rather than a syntax
+  error. Overlapping context windows merge; files over 512 KB are skipped,
+  because a minified bundle matches everything and helps nobody. Each section
+  searches only its own directories — the find tools are not a way around the
+  confinement the read and write tools enforce.
+
+- 🗂️ **`ssg mddb push-theme`, and an MDDB-backed search behind the find tools**
+  (#190). A local scan matches text; it cannot answer a question phrased as a
+  sentence, because that is a search problem. `mcp.search.mddb_*` points the
+  find tools at an MDDB collection's full-text search, and `ssg mddb push-theme`
+  is what fills it: every template and asset upserted under its project-relative
+  path, with `kind`, `size` and a SHA-256 checksum as metadata, and any document
+  whose file has vanished deleted. It reconciles rather than appends, so running
+  it twice changes nothing the second time.
+
+  The index is consulted **first and never required**: on an error or an empty
+  answer the local scan still runs. A search backend that is down degrades the
+  answer, it does not take the ability to edit the site down with it. The client
+  gained `Add`, `Delete` and `FTS` for this — it could only read before, which
+  is why nothing could keep a collection in step with a theme.
+
+- ✂️ **`designer_edit` / `content_edit` — anchored partial edits** (#187). The
+  write contract was full-file replacement. Safe, but it priced an edit by the
+  size of the *file*: changing one CSS value on a real migrated site meant
+  reading 4 812 bytes, writing 4 812 back, and reading them again to check —
+  ~4 300 tokens of file traffic for one line.
+
+  ```jsonc
+  designer_edit { "path": "static/css/style.css",
+                  "old": "  background: #fff;", "new": "  background: #0b1220;" }
+  ```
+
+  `old` is matched byte for byte, indentation included, and must appear
+  **exactly once**: zero matches or several is a refusal that names the count,
+  so nothing fuzzy lands and nothing half-applies. The reply carries the changed
+  lines with their neighbours and line numbers, which **is** the verification —
+  there is no re-read. An empty `new` deletes. Arguments are no longer trimmed
+  on this path, or an indented anchor could not match the text it names. The
+  full writes remain for new files and real rewrites.
+
+- 🕰️ **`.BuildTime` in templates** (#186). There was no way to render the build
+  date — most visibly the current year — so `© 2007-2026` went stale the night
+  the year turned, on every site at once. The alternatives were a hand-edit each
+  January or a client-side script for one number on an otherwise static page.
+
+  ```gotemplate
+  © 2007-{{ .BuildTime.Year }} {{ .Domain }}
+  ```
+
+  It is a value read **once per build**, not a function that reads the clock on
+  every call: two pages of one build can never straddle midnight and disagree.
+  It honours **`SOURCE_DATE_EPOCH`**, so a CI job or a distribution package that
+  pins it still gets a build that is a pure function of its input, while a plain
+  build gets the real clock. A malformed value is ignored rather than fatal —
+  the variable is usually set by a surrounding toolchain the site owner does not
+  control, and someone else's typo should not break their deploy.
 - 🌍 **`language_sections` — a language for a content section, not for every
   page** (#182). A page could declare its own `lang:` and `languages:` /
   `default_language:` said what the site had; there was no way to say
@@ -97,6 +171,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output directory with nothing serialising them.
 
 ### Fixed
+- 🧹 **A watcher no longer outlives the command that started it** (#191).
+  `ssg migrate --watch` started the watch loop with `go runWatchLoop(…)` and
+  never stopped it. In normal use the process parks until Ctrl+C so nothing
+  showed; under test the caller returns, and the goroutine kept rebuilding for
+  the rest of the process — into whatever working directory the process had by
+  then. Under `go test -shuffle=on` that was the repository itself: a full
+  generated site appearing in `cmd/ssg/`, roughly one run in sixteen.
+
+  The watcher's lifetime is now its owner's lifetime. The deeper problem was a
+  test whose isolation came from *another* test's `t.Chdir`; that passes for a
+  reason unrelated to what it asserts, so CI now also runs `go test -shuffle=on`
+  and an ordering dependency cannot come back quietly.
 - 🏁 **The command has one diagnostic sink, and the tests stop assigning
   `os.Stderr`** (#188). Every warning went to `fmt.Fprintf(os.Stderr, …)`, and
   the tests asserting on those messages captured them by assigning `os.Stderr` —

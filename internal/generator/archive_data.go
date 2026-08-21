@@ -46,6 +46,9 @@ func (g *Generator) archiveData(kind, name string, cat models.Category,
 		"Vars":         g.config.Variables,
 		"Data":         g.data,
 		"ExternalData": g.externalData,
+		// The same build timestamp a page gets: a footer rendered in a base
+		// template must not say one year on a post and another on an archive.
+		"BuildTime": g.buildTime,
 	}
 }
 

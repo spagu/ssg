@@ -30,6 +30,8 @@ func dispatchSubcommand(args []string) (int, bool) {
 		return runNewWrangler(args[2:]), true
 	case args[0] == "cache" && isCacheSubcommand(args[1]):
 		return runCache(args[1:]), true
+	case args[0] == "mddb" && args[1] == "push-theme":
+		return runMddbPushTheme(args[2:]), true
 	}
 	return 0, false
 }

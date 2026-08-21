@@ -492,6 +492,11 @@ type Generator struct {
 	// strippedImages counts published images that lost metadata (#176).
 	strippedImages int
 	sanitizeMu     sync.Mutex
+
+	// buildTime is read once, when the generator is constructed, and handed to
+	// every template as .BuildTime. Rendering never reads a clock, so two pages
+	// of one build cannot disagree about when they were built (#186).
+	buildTime time.Time
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -620,6 +625,7 @@ func New(cfg Config) (*Generator, error) {
 		langLocs:       langLocs,
 		catalog:        catalog,
 		currentLang:    cfg.DefaultLanguage,
+		buildTime:      resolveBuildTime(time.Now),
 	}, nil
 }
 
@@ -3458,6 +3464,10 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		Pager            Pager
 		HomePagesLimit   int
 		HomePostsLimit   int
+		// The front page renders from its own struct rather than the page map,
+		// so every field a theme may read has to be named here too — a footer
+		// in a shared partial is on the front page as much as anywhere (#186).
+		BuildTime time.Time
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -3470,6 +3480,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		Pager:            pager,
 		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
+		BuildTime:        g.buildTime,
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
@@ -4068,6 +4079,10 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// hand-written one — `{{ toJSON .Schema }}` — is the supported way to
 		// have both, without reimplementing the merge in the theme.
 		"Schema": g.mergedSchema(page, isPost),
+		// When this build ran — one value for the whole build, honouring
+		// SOURCE_DATE_EPOCH. `© 2007-{{.BuildTime.Year}}` is the case that
+		// hits every site at once, on the same night (#186).
+		"BuildTime": g.buildTime,
 		// The readers' comments a migration brought across, threaded and in
 		// the order they were written (#142). Empty for a page that has none.
 		"Comments":       g.commentsFor(page),

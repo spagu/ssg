@@ -100,6 +100,13 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      # Shuffled, so a test whose isolation comes from another test's t.Chdir
+      # cannot pass quietly. That ordering dependency let a leaked watcher build
+      # a site into the repository itself, and it was invisible in the default
+      # order (#191). No coverage profile here — this run is about ordering.
+      - name: Run tests in a shuffled order
+        run: go test -race -shuffle=on ./...
+
       # The generated site must not depend on the recorded baseline drifting, nor
       # on how many workers built it. Neither check ran in CI before, which is how
       # four parallel-render bugs shipped: each lived on a path the unit tests

@@ -51,6 +51,8 @@ no business rewriting a layout.
 | `designer_list` | Every template and theme asset that may be edited |
 | `designer_read` | Read one before changing it |
 | `designer_write` | Create or replace one, full content (not a patch) |
+| `designer_edit` | Change one piece in place: exact `old` → `new`, matched once |
+| `designer_find` | Where something lives — file and line range, without reading |
 | `designer_config_read` | The presentation settings that may be changed, with current values |
 | `designer_config_set` | Change one of them |
 
@@ -72,11 +74,95 @@ names, the current values and what each one does.
 | `content_create` | A new file — full document, including frontmatter |
 | `content_update` | Replace an existing file; fails if it does not exist |
 | `content_delete` | Remove a file |
+| `content_edit` | Change one passage in place: exact `old` → `new`, matched once |
+| `content_find` | Which files mention something, and where |
 
 `content_create` and `content_update` are separate on purpose: creating over an
 existing file and updating a missing one are both mistakes, and splitting them
 turns each into an error instead of silent data loss. `content_delete` is
 destructive and should follow an explicit request, never an inference.
+
+## Find, then edit — the cheap path
+
+The tool list above has two shapes for changing a file, and the difference is
+measured in tokens rather than taste.
+
+A full write (`designer_write`, `content_update`) costs the size of the **file**.
+Changing one CSS value on a real migrated site meant reading 4 812 bytes,
+writing 4 812 back and reading them again to check: about 4 300 tokens of file
+traffic to move one line — and that is before finding the right file at all.
+
+An anchored edit costs the size of the **change**:
+
+```jsonc
+designer_edit {
+  "path": "static/css/style.css",
+  "old":  "  background: #fff;",
+  "new":  "  background: #0b1220;"
+}
+```
+
+- `old` is matched **byte for byte**, indentation included, and must appear
+  **exactly once**. Zero matches or several is a refusal naming the count, so
+  nothing fuzzy ever lands and nothing is half-applied.
+- The reply carries the changed lines with their neighbours and line numbers.
+  That **is** the verification — there is no re-read.
+- An empty `new` deletes the anchored text.
+
+`designer_find` / `content_find` supply the anchor without reading anything:
+
+```jsonc
+designer_find { "query": "background" }
+→ static/css/style.css:4-8
+    body {
+      background: #ffffff;
+      color: var(--ink);
+    }
+```
+
+The query is treated as a case-insensitive regular expression when it is valid
+syntax and literally when it is not, so pasting a CSS fragment with an
+unbalanced bracket returns an answer rather than a syntax error. Matches whose
+context windows overlap are reported as one region; files over 512 KB are
+skipped, because a minified bundle matches everything and helps nobody.
+
+So the whole flow is **find → edit**, and the 10k-token background change
+becomes a few hundred. Reserve the full writes for new files and real rewrites.
+
+### An MDDB-backed search (optional)
+
+A local scan matches text. It cannot answer a question phrased as a sentence —
+"where is the page background set?" — because that is a search problem. Point
+the find tools at an MDDB collection and it becomes answerable:
+
+```yaml
+mcp:
+  search:
+    mddb_url: http://localhost:11023
+    mddb_collection: theme
+    mddb_api_key: $MDDB_TOKEN   # optional; always $ENV, never a literal
+    mddb_lang: en               # query tokenisation
+    mddb_fuzzy: 1               # typo tolerance: 0 off, 1 or 2 edits
+```
+
+Fill the collection with `ssg mddb push-theme`:
+
+```bash
+ssg mddb push-theme            # upsert every template and asset, prune what vanished
+ssg mddb push-theme --dry      # show what it would do
+ssg mddb push-theme --lang=pl
+```
+
+Each file becomes one document keyed by its **project-relative path**, with
+`kind` (style / script / template / data / asset), `size` and a SHA-256
+`checksum` in its metadata — so a search hit names the file to open, which is
+what makes it actionable rather than merely relevant. The sync reconciles:
+documents whose file no longer exists are deleted, and running it twice changes
+nothing the second time.
+
+The index is consulted **first and never required**. When it errors or finds
+nothing, the local scan still runs and answers. A search backend that is down
+degrades the answer; it does not take the ability to edit the site down with it.
 
 ## Watch mode is the feedback loop
 

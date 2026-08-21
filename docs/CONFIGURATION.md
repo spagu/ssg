@@ -1834,6 +1834,35 @@ mcp:
 Without `mcp.git.token`, the `git_*` tools are simply not exposed — the assistant
 edits files in place and version control stays fully manual.
 
+### `mcp.search` — an MDDB-backed find (optional)
+
+`designer_find` / `content_find` scan the project directories, which needs
+nothing installed and answers most queries — identifiers, colours, class names.
+What a scan cannot do is answer a question phrased as a sentence. Point it at an
+MDDB collection and it can:
+
+| Key | Notes |
+|---|---|
+| `mcp.search.mddb_url` | MDDB base URL; empty ⇒ local scan only |
+| `mcp.search.mddb_collection` | Collection holding the theme; empty ⇒ local scan only |
+| `mcp.search.mddb_api_key` | Optional API key — use `$ENV_VAR`, never a literal |
+| `mcp.search.mddb_lang` | Language used to tokenise the query, e.g. `en` |
+| `mcp.search.mddb_fuzzy` | Typo tolerance: `0` off, `1` or `2` edit distance |
+
+```yaml
+mcp:
+  search:
+    mddb_url: http://localhost:11023
+    mddb_collection: theme
+    mddb_api_key: $MDDB_TOKEN
+    mddb_lang: en
+```
+
+Fill the collection with `ssg mddb push-theme`. The index is consulted first and
+is never required: on an error or an empty answer the local scan still runs, so a
+search backend that is down cannot take the ability to edit the site down with
+it. See [MCP.md](MCP.md#an-mddb-backed-search-optional).
+
 ## Server endpoints (portable, no vendor lock-in)
 
 Some sites need a little server behind the static output — a redirect that

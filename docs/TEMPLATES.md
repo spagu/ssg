@@ -334,6 +334,7 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.Vars` | map | Custom configuration variables |
 | `.Data` | map | YAML/JSON data files |
 | `.Pager` | pager | Pagination state |
+| `.BuildTime` | time | When this build ran — one value for the whole build |
 
 `.Pager` contains `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL`:
 
@@ -352,6 +353,7 @@ Individual content fields are flattened at the root:
 | Value | Meaning |
 |---|---|
 | `.Site`, `.Domain`, `.Vars`, `.Data` | Global site/configuration data |
+| `.BuildTime` | When this build ran (see below) |
 | `.ID`, `.Title`, `.Slug`, `.Status`, `.Type` | Identity fields |
 | `.Date`, `.Modified` | Dates converted to the configured content timezone |
 | `.Content`, `.Excerpt`, `.Description`, `.Keywords` | Body and metadata text |
@@ -361,6 +363,32 @@ Individual content fields are flattened at the root:
 | `.Categories` | `[]int` — metadata IDs. Resolve each with `getCategoryName` / `getCategorySlug` |
 | `.Category` | `string` — the primary category name |
 | `.Tags` | `[]string` — names already |
+
+### `.BuildTime` — the copyright year that stays current
+
+```gotemplate
+© 2007-{{ .BuildTime.Year }} {{ .Domain }}
+```
+
+`.BuildTime` is a `time.Time` set **once per build** and handed to every page
+and archive, so two documents of one build can never straddle midnight and
+disagree. It is a value, not a function: rendering never reads a clock, which is
+what keeps a rebuild of unchanged sources byte-identical.
+
+It honours **`SOURCE_DATE_EPOCH`**, the reproducible-builds convention. Pin it
+and the build is a pure function of its input:
+
+```bash
+SOURCE_DATE_EPOCH=1700000000 ssg content simple example.com   # always 2023
+ssg content simple example.com                                # the real clock
+```
+
+A malformed value is ignored rather than fatal — the variable is often set by a
+surrounding toolchain the site owner does not control, and someone else's typo
+should not break a deploy. The build stays internally consistent either way.
+
+A site that rebuilds on a schedule, or on a `republish-trigger` webhook, then
+never shows last year's footer without anyone editing anything.
 
 > ⚠️ The four do not behave alike. An exporter writes **names** in frontmatter
 > (`author: "Zonqor"`, `categories: ["Marsaskala"]`), but `.Author` and

@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/generator"
 )
 
 // TestConfigPathOf: an explicit --config wins in both forms; otherwise the
@@ -141,5 +143,44 @@ func TestABrokenConfigEditIsReportedToAWatcherThatIsNotQuiet(t *testing.T) {
 	})
 	if !strings.Contains(out, "Config error") {
 		t.Errorf("stderr = %q", out)
+	}
+}
+
+// TestTheWatchLoopStopsWhenItsOwnerDoes: `ssg migrate --watch` starts the
+// watcher on a goroutine and returns when its caller is done. Without a stop
+// signal that goroutine kept rebuilding for the rest of the process — into
+// whatever working directory the process had by then, which under a shuffled
+// test run was the repository itself (#191).
+func TestTheWatchLoopStopsWhenItsOwnerDoes(t *testing.T) {
+	t.Chdir(t.TempDir())
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		runWatchLoop(generator.Config{}, &config.Config{Quiet: true}, stop)
+	}()
+
+	close(stop)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the watch loop ignored its stop signal")
+	}
+}
+
+// TestANilStopChannelRunsOn is the main command's case: its watcher ends with
+// the process, so it must not treat "no owner" as "stop immediately".
+func TestANilStopChannelRunsOn(t *testing.T) {
+	t.Chdir(t.TempDir())
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		runWatchLoop(generator.Config{}, &config.Config{Quiet: true}, nil)
+	}()
+
+	select {
+	case <-returned:
+		t.Fatal("a nil stop channel must never fire")
+	case <-time.After(1500 * time.Millisecond): // past one loop tick
 	}
 }

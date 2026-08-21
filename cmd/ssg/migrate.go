@@ -235,7 +235,13 @@ func migrateLive(provider migrate.Provider, rawURL string, opts migrate.Options,
 		startServerAsync(cfg)
 	}
 	if cfg.Watch {
-		go runWatchLoop(genCfg, cfg)
+		// The watcher's life is this function's life. In normal use migrateBlock
+		// never returns, so it runs until Ctrl+C; when a caller does return, the
+		// goroutine stops with it instead of rebuilding on its own for the rest
+		// of the process (#191).
+		stop := make(chan struct{})
+		defer close(stop)
+		go runWatchLoop(genCfg, cfg, stop)
 	}
 	if cfg.HTTP && !cfg.Quiet {
 		_, url, _ := resolveListenAddr(cfg.Host, cfg.Port)

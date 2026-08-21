@@ -46,6 +46,18 @@ func (s *Server) designerTools() []tool {
 			}, "path", "content"),
 			handler: s.designerWrite,
 		},
+		{
+			name: "designer_edit",
+			description: "DESIGNER · Change ONE piece of a template or asset in place — PREFER THIS over " +
+				"designer_write for anything smaller than a rewrite. Give the exact existing text as " +
+				"`old` and its replacement as `new`; `old` must appear exactly once in the file. " +
+				"Costs a fraction of a full write and returns the changed lines in context, so no " +
+				"verifying re-read is needed. Refuses (naming the count) when `old` matches zero or " +
+				"several times, so nothing fuzzy ever lands.",
+			schema:  editSchema("Project-relative path under a template/asset directory"),
+			handler: s.designerEdit,
+		},
+		s.designerFindTool(),
 	}
 	// Presentation lives partly in configuration (theme, highlight style,
 	// diagrams), so the designer owns those keys too — narrowly (#1.8.16).
@@ -103,4 +115,11 @@ func (s *Server) designerWrite(args map[string]any) toolResult {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func (s *Server) designerEdit(args map[string]any) toolResult {
+	return s.runEdit(args, func(rel string) (string, error) {
+		abs, _, err := resolveIn(s.opts.Root, s.designerBases(), rel)
+		return abs, err
+	}, "designer")
 }

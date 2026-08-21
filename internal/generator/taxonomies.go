@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/models"
@@ -341,7 +342,12 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		Vars         map[string]interface{}
 		Data         map[string]interface{}
 		ExternalData map[string]interface{}
-	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data, g.externalData}
+		// Named here for the same reason as the front page: a taxonomy index
+		// renders from its own struct, and a shared footer reads .BuildTime on
+		// every view or on none (#186).
+		BuildTime time.Time
+	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
+		g.externalData, g.buildTime}
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}

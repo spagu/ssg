@@ -60,7 +60,31 @@ func (s *Server) contentTools() []tool {
 			schema:  objectSchema(map[string]any{"path": stringProp("Project-relative path to the Markdown file to delete")}, "path"),
 			handler: s.contentDelete,
 		},
+		{
+			name: "content_edit",
+			description: "CONTENT · Change ONE passage of a Markdown file in place — PREFER THIS over " +
+				"content_update for a typo, a sentence, or one frontmatter value. Give the exact " +
+				"existing text as `old` and its replacement as `new`; `old` must appear exactly once. " +
+				"Returns the changed lines in context, so no verifying re-read is needed. Refuses " +
+				"(naming the count) when `old` matches zero or several times.",
+			schema:  editSchema("Project-relative path to the existing Markdown file"),
+			handler: s.contentEdit,
+		},
+		s.contentFindTool(),
 	}
+}
+
+func (s *Server) contentEdit(args map[string]any) toolResult {
+	return s.runEdit(args, func(rel string) (string, error) {
+		abs, _, err := resolveContent(s, rel)
+		if err != nil {
+			return "", err
+		}
+		if !fileExists(abs) {
+			return "", fmt.Errorf("%q does not exist — use content_create for new files", rel)
+		}
+		return abs, nil
+	}, "content")
 }
 
 func (s *Server) contentList(map[string]any) toolResult {

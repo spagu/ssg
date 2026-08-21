@@ -34,6 +34,10 @@ ssg \- fast static site generator written in Go
 .RB [ \-\-namespace=\fINAME\fR ]
 .RB [ \-\-dry ]
 .br
+.B ssg mddb push-theme
+.RB [ \-\-dry ]
+.RB [ \-\-lang=\fICODE\fR ]
+.br
 .B ssg migrate
 .I provider url
 .RB [ \-\-content\ \fIa,b,c\fR ]
@@ -86,6 +90,13 @@ paths, regex-constrained params) are reported on stderr, never dropped silently.
 Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
 and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
+.TP
+.B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR]
+Upsert every template and static asset into the MDDB collection named by
+\fBmcp.search.mddb_collection\fR, keyed by project-relative path, and delete
+documents whose file no longer exists. This is what lets \fBdesigner_find\fR
+answer a question phrased as a sentence; without it the find tools scan the
+project locally, which needs no setup. \fB\-\-dry\fR reports without writing.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,

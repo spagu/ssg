@@ -30,6 +30,13 @@ type Options struct {
 	// edit so an invalid change can be rolled back.
 	ConfigPath     string
 	ValidateConfig func(path string) error
+
+	// Search, when set, answers a find query from an index instead of a local
+	// walk — an MDDB collection's full-text search, which understands a phrase
+	// where a regular expression cannot (#190). It is consulted first and is
+	// never required: an error or an empty answer falls back to the local scan,
+	// so a search backend that is down cannot take editing down with it.
+	Search func(query string, limit int) ([]FindHit, error)
 }
 
 // Server is a running MCP stdio server.

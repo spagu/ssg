@@ -500,6 +500,12 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #     token: $GITHUB_TOKEN      # never a literal; unset = git tools hidden
 #     default_branch: main
 #     branch_prefix: mcp/
+#   search:                     # optional: designer_find/content_find via MDDB
+#     mddb_url: http://localhost:11023
+#     mddb_collection: theme    # fill it with `ssg mddb push-theme`
+#     mddb_api_key: $MDDB_TOKEN # never a literal
+#     mddb_lang: en
+#     mddb_fuzzy: 1             # typo tolerance: 0 off, 1 or 2 edits
 
 # Other
 quiet: false         # Suppress output (only exit codes)

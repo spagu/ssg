@@ -114,6 +114,9 @@ func runMCP(args []string) int {
 			return err
 		},
 		Rebuild: rebuilder.rebuild,
+		// nil unless mcp.search.mddb_* is configured, which is the documented
+		// "scan the project locally" case rather than a missing feature (#190).
+		Search: buildMCPSearch(cfg, logf),
 	}
 
 	logf("🔌 ssg mcp %s — designer/content development server (stdio)", Version)

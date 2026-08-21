@@ -357,7 +357,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
-| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles and an approve-then-PR git flow ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)) |
+| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles, find-then-edit tools that cost the size of the change rather than the file, an optional MDDB-backed search, and an approve-then-PR git flow ([docs/MCP.md](docs/MCP.md)) |
 
 ## Templates
 
@@ -541,7 +541,7 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
-| [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, git write-back |
+| [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |

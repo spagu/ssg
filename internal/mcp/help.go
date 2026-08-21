@@ -31,8 +31,14 @@ func (s *Server) instructions() string {
 		b.WriteString("  Flow: git_new_branch → edit → git_commit → human reviews → git_open_pr.\n")
 		b.WriteString("  Never commit to the base branch; git_open_pr is the explicit, human-approved final step.\n\n")
 	}
-	b.WriteString("Workflow: list first, read before you write, make the smallest change that satisfies " +
-		"the request, and always send FULL file contents (writes are replacements, not patches).")
+	b.WriteString("Workflow: to change something, FIND it first — designer_find / content_find return the " +
+		"file and line range without reading whole files, and that range is the anchor an edit needs. " +
+		"Fall back to listing and reading only when a search finds nothing. Make the smallest change " +
+		"that satisfies the request. For a small change use designer_edit / content_edit: give the exact existing " +
+		"text as `old` and its replacement as `new`, and the reply shows the changed lines in context " +
+		"— no verifying re-read. `old` must match exactly once, or the edit is refused with the count. " +
+		"Reserve the whole-file writes (designer_write, content_create, content_update) for new files " +
+		"and real rewrites; those take FULL file contents, never a patch.")
 	if s.opts.Watch {
 		b.WriteString(" The site rebuilds after every change — if a rebuild error comes back, fix it before anything else.")
 	}

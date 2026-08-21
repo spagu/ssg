@@ -722,8 +722,29 @@ type Config struct {
 // mutations land on a working branch and a PR is opened only on an explicit,
 // human-approved step.
 type MCPConfig struct {
-	Git MCPGit `yaml:"git" toml:"git" json:"git"`
+	Git    MCPGit    `yaml:"git" toml:"git" json:"git"`
+	Search MCPSearch `yaml:"search" toml:"search" json:"search"`
 }
+
+// MCPSearch points designer_find / content_find at an MDDB collection so a
+// question phrased as a sentence can be answered, where a local scan can only
+// match text (#190). Every field is optional: with none of them the find tools
+// scan the project directories, which needs nothing installed and answers most
+// queries — identifiers, colours, class names — on its own.
+//
+// The index is consulted first and never required. When it errors or finds
+// nothing the local scan still runs, so a search backend that is down cannot
+// take the ability to edit the site down with it.
+type MCPSearch struct {
+	MddbURL        string `yaml:"mddb_url" toml:"mddb_url" json:"mddb_url"`                      // MDDB base URL; empty ⇒ local scan only
+	MddbAPIKey     string `yaml:"mddb_api_key" toml:"mddb_api_key" json:"mddb_api_key"`          // optional API key — use $ENV
+	MddbCollection string `yaml:"mddb_collection" toml:"mddb_collection" json:"mddb_collection"` // collection holding the theme
+	MddbLang       string `yaml:"mddb_lang" toml:"mddb_lang" json:"mddb_lang"`                   // query tokenisation language, e.g. "en"
+	MddbFuzzy      int    `yaml:"mddb_fuzzy" toml:"mddb_fuzzy" json:"mddb_fuzzy"`                // typo tolerance: 0 off, 1 or 2 edits
+}
+
+// Enabled reports whether an MDDB search backend is configured.
+func (m MCPSearch) Enabled() bool { return m.MddbURL != "" && m.MddbCollection != "" }
 
 // MCPGit enables the git write-back flow. When Token (and a resolvable repo) is
 // set, the git_* tools are exposed: create a branch, commit changes to it, and

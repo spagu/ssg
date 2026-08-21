@@ -111,7 +111,7 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 	if cfg.Mddb.Watch && cfg.Mddb.Enabled {
 		runMddbWatchLoop(genCfg, cfg)
 	} else if cfg.Watch {
-		runWatchLoop(genCfg, cfg)
+		runWatchLoop(genCfg, cfg, nil) // the process's own loop: it ends with the process
 	} else if cfg.HTTP {
 		select {}
 	}
@@ -122,7 +122,7 @@ func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 // unchanged) do not trigger redundant work — a conservative first increment of
 // incremental builds where any real change still triggers a full, correct rebuild
 // (PLAT-006).
-func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
+func runWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struct{}) {
 	configPath := configPathOf(os.Args[1:])
 	if !cfg.Quiet {
 		fmt.Printf("👀 Watching for changes in %s...\n", strings.Join(watchedInputs(cfg, configPath), ", "))
@@ -158,7 +158,16 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	configSig := fileSignature(configPath)
 
 	for {
-		time.Sleep(1 * time.Second)
+		select {
+		case <-stop:
+			// The owner is done with this watcher. A nil channel never fires,
+			// which is the main command's case: its watch loop ends with the
+			// process. `ssg migrate --watch` does have an owner, and a watcher
+			// outliving it kept rebuilding into whatever directory the process
+			// had wandered to by then (#191).
+			return
+		case <-time.After(1 * time.Second):
+		}
 		// The config file is watched as an input of its own: an edit reloads it
 		// and rebuilds with the new settings, so the watcher never keeps building
 		// from the configuration it started with (#70).
