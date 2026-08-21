@@ -137,6 +137,14 @@ edited in place keeps its name and can be served from a browser cache for a
 year** — enable `fingerprint: true` for any site that deploys more than once,
 or override the policy with `headers:` (below).
 
+None of this applies while a preview is running. `--watch --http` and
+`ssg mcp --http` serve **every** response `Cache-Control: no-cache` and drop the
+browser's `If-None-Match` / `If-Modified-Since`, so a rebuilt stylesheet is on
+screen after a reload instead of an hour (or a year) later (#185). It is the one
+mode where a cache only costs: the file is regenerated seconds after it is
+fetched. `no-cache` still permits storing and revalidating — the preview answers
+`304` for anything genuinely unchanged.
+
 `_redirects` is generated from two sources (GO-063):
 
 - the `redirects:` config section — explicit rules; and

@@ -295,6 +295,13 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	publishEndpoints(cfg, files)
 	h := liveEndpointHandler(files)
 	h = cacheControlMiddleware(h)
+	// A preview must never cache: the policy above and the `_headers` rules
+	// below it are both written for a published site, and either one will serve
+	// the previous build's stylesheet after a reload (#185). Applied inside the
+	// live-reload wrapper so the SSE stream keeps its http.Flusher.
+	if previewMode(cfg) {
+		h = previewNoCacheMiddleware(h)
+	}
 	h = securityHeadersMiddleware(h, tlsOn)
 	if cfg.Gzip {
 		h = gzipMiddleware(h)

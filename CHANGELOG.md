@@ -97,6 +97,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output directory with nothing serialising them.
 
 ### Fixed
+- 🧊 **A preview no longer caches anything** (#185). `--watch` refreshed the page
+  and kept the previous build's stylesheet: HTML was served `no-cache`, but
+  everything else got `public, max-age=3600` — and since the preview began
+  honouring the generated `_headers` earlier in this release, `/css/*` and
+  `/js/*` were served `public, max-age=31536000, immutable`, which a browser
+  will not revalidate at all. Content edits appeared, style edits did not.
+
+  `--watch --http` and `ssg mcp --http` now stamp every response `no-cache` and
+  strip the browser's `If-None-Match` / `If-Modified-Since`, so a rebuilt asset
+  is on screen after a reload. The rewrite happens as the response is committed
+  rather than before it, because the file server and the `_headers` rules both
+  write `Cache-Control` after any outer middleware has run — the last word is
+  the only one that counts. `Expires` and `Pragma` go with it, since either
+  outranks `Cache-Control` in an HTTP/1.0 cache. Endpoints keep their stricter
+  `no-store`, and a server for published output is untouched.
 - 🔁 **The live-reload hub is installed atomically.** It was a plain package
   variable: whichever command is starting up writes it — a build, `ssg migrate`,
   `ssg mcp` — while `buildServerHandler` reads it on another goroutine. A data
