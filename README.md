@@ -561,6 +561,12 @@ Development workflow and review requirements are in
 | [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting policy |
 
+The project blog also covers the reasoning behind recent MCP work, including
+[smaller context for targeted edits](blog/ai-agent-should-not-read-5000-tokens-for-one-css-value.md)
+[authentication for HTTP MCP](blog/who-is-allowed-to-talk-to-your-mcp-server.md),
+[preserving URLs during WordPress migration](blog/migrating-from-wordpress-keeping-urls.md)
+and [deployment-aware local preview](blog/local-preview-should-not-lie.md).
+
 ## License
 
 SSG is distributed under the [BSD 3-Clause License](LICENSE).

@@ -77,7 +77,7 @@ permalinks:
 
 post_url_format: slug
 
-# Atom feed at /feed.xml for the 13 posts under /blog/. seo: true injects the
+# Atom feed at /feed.xml for the 19 posts under /blog/. seo: true injects the
 # <link rel="alternate"> into every page, so readers and feed autodiscovery find
 # it without the theme having to know about it. Summaries rather than full
 # content: the posts carry mermaid diagrams and code blocks that feed readers

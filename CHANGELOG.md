@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Edited four MCP, migration and preview articles for direct, natural prose;
+  checked their technical claims against the implementation, tests and platform
+  documentation; and aligned their filenames with the existing lowercase
+  kebab-case blog convention. Their published slugs remain unchanged.
+
 ## [1.8.47] - 2026-08-21
 
 ### Added
