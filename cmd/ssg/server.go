@@ -29,7 +29,7 @@ import (
 func startServer(cfg *config.Config) {
 	ln, err := claimPort(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return
 	}
 
@@ -42,7 +42,7 @@ func startServer(cfg *config.Config) {
 func startServerAsync(cfg *config.Config) {
 	ln, err := claimPort(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
 // not a seam at all.
 var (
 	serverErrMu sync.RWMutex
-	serverErrf  = func(format string, a ...any) { fmt.Fprintf(os.Stderr, format, a...) }
+	serverErrf  = func(format string, a ...any) { errf(format, a...) }
 )
 
 // reportServerErr sends one failure to the current reporter.
@@ -191,15 +191,15 @@ func warnTLSMisconfig(cfg *config.Config, mode string) {
 	if mode == "" {
 		switch {
 		case cfg.TLSAuto && cfg.TLSDomain == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-auto needs --tls-domain=<domain>; serving plain HTTP")
+			errln("⚠️  --tls-auto needs --tls-domain=<domain>; serving plain HTTP")
 		case cfg.TLSCert != "" && cfg.TLSKey == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-cert given without --tls-key; serving plain HTTP")
+			errln("⚠️  --tls-cert given without --tls-key; serving plain HTTP")
 		case cfg.TLSKey != "" && cfg.TLSCert == "":
-			fmt.Fprintln(os.Stderr, "⚠️  --tls-key given without --tls-cert; serving plain HTTP")
+			errln("⚠️  --tls-key given without --tls-cert; serving plain HTTP")
 		}
 	}
 	if cfg.HTTP3 && mode == "" {
-		fmt.Fprintln(os.Stderr, "⚠️  --http3 requires TLS (--tls-auto or --tls-cert/--tls-key); HTTP/3 disabled")
+		errln("⚠️  --http3 requires TLS (--tls-auto or --tls-cert/--tls-key); HTTP/3 disabled")
 	}
 }
 
@@ -247,7 +247,7 @@ func serveOnListener(server *http.Server, ln net.Listener, cfg *config.Config, m
 		// privileges) must be visible, not silently swallowed (GO-034).
 		go func() {
 			if err := http.ListenAndServe(":80", acm.HTTPHandler(nil)); err != nil { // #nosec G114 -- ACME HTTP-01 + redirect only
-				fmt.Fprintf(os.Stderr, "⚠️  autocert HTTP-01 helper (:80): %v\n", err)
+				errf("⚠️  autocert HTTP-01 helper (:80): %v\n", err)
 			}
 		}()
 		return server.Serve(tls.NewListener(ln, server.TLSConfig))
@@ -312,7 +312,7 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	if authCfg.Enabled() {
 		wrapped, err := serverauth.Middleware(h, authCfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Server access-control config: %v\n", err)
+			errf("❌ Server access-control config: %v\n", err)
 			os.Exit(1)
 		}
 		h = wrapped
@@ -427,7 +427,7 @@ func applyMemLimit(s string, quiet bool) {
 	bytes, err := parseByteSize(s)
 	if err != nil || bytes <= 0 {
 		if !quiet {
-			fmt.Fprintf(os.Stderr, "⚠️  invalid --mem-limit %q: %v\n", s, err)
+			errf("⚠️  invalid --mem-limit %q: %v\n", s, err)
 		}
 		return
 	}

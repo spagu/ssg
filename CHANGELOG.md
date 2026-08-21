@@ -97,6 +97,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output directory with nothing serialising them.
 
 ### Fixed
+- 🏁 **The command has one diagnostic sink, and the tests stop assigning
+  `os.Stderr`** (#188). Every warning went to `fmt.Fprintf(os.Stderr, …)`, and
+  the tests asserting on those messages captured them by assigning `os.Stderr` —
+  a standard-library package variable that the goroutines this command leaves
+  running (the HTTP/3 listener, the autocert helper, the watch loop, a server
+  reporting a dead listener) read to write diagnostics of their own. A data
+  race, and `-race` caught it about one CI run in ten, always in whichever test
+  happened to be running when an earlier test's goroutine finally spoke. It
+  failed this release's own PR.
+
+  The 90-odd writers now go through `errf`/`errln`, reading a sink under a lock
+  — the seam `serverErrf` already established for server errors, applied to the
+  command as a whole — and the capture helper swaps that sink instead. Nobody
+  writes `os.Stderr` any more, so the race has no subject. Twenty shuffled
+  `-race` rounds, which failed twice before, now pass. `cmd.Stderr = os.Stderr`
+  still hands a child process the real file. No message changed.
 - 🧊 **A preview no longer caches anything** (#185). `--watch` refreshed the page
   and kept the previous build's stylesheet: HTML was served `no-cache`, but
   everything else got `public, max-age=3600` — and since the preview began

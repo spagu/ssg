@@ -50,7 +50,7 @@ func runRepair(args []string) int {
 	for _, root := range roots {
 		found, err := repairScanRoot(root, flags.fix)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+			errf("❌ %v\n", err)
 			return 1
 		}
 		results = append(results, found...)
@@ -180,7 +180,7 @@ func parseRepairFlags(args []string) (repairFlags, int) {
 			printRepairUsage()
 			return f, 0
 		case strings.HasPrefix(arg, "-"):
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n\n", arg)
+			errf("❌ unknown flag %q\n\n", arg)
 			printRepairUsage()
 			return f, 2
 		default:

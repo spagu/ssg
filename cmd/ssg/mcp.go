@@ -59,7 +59,7 @@ func parseMCPArgs(args []string) mcpArgs {
 		case strings.HasPrefix(a, "--role="):
 			r := strings.TrimPrefix(a, "--role=")
 			if r != "designer" && r != "content" {
-				fmt.Fprintf(os.Stderr, "❌ unknown --role=%s (designer | content). See 'ssg --help'.\n", r)
+				errf("❌ unknown --role=%s (designer | content). See 'ssg --help'.\n", r)
 				p.code, p.done = 2, true
 				return p
 			}
@@ -91,7 +91,7 @@ func runMCP(args []string) int {
 	setupTemplateEngine(cfg)
 	downloadOnlineTheme(cfg)
 	genCfg := createGeneratorConfig(cfg)
-	logf := func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }
+	logf := func(format string, a ...any) { errf(format+"\n", a...) }
 	// One builder for the whole process, and one mutex inside it. MCP mutations
 	// and — with --watch — the filesystem loop both rebuild the same output
 	// tree, and over the HTTP transport two tools/call already arrive on two
@@ -210,7 +210,7 @@ func resolveMCPToken(flagToken string) (token string, minted bool, err error) {
 func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, ...any)) int {
 	if strings.TrimSpace(flags.listen) == "" {
 		if flags.noStdio {
-			fmt.Fprintln(os.Stderr, "❌ --no-stdio needs --listen — otherwise there is no transport at all")
+			errln("❌ --no-stdio needs --listen — otherwise there is no transport at all")
 			return 2
 		}
 		return -1
@@ -222,7 +222,7 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 
 	token, minted, err := resolveMCPToken(flags.token)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 
@@ -237,7 +237,7 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 	}
 	ln, lnErr := net.Listen("tcp", addr)
 	if lnErr != nil {
-		fmt.Fprintf(os.Stderr, "❌ cannot listen on %s: %v\n", addr, lnErr)
+		errf("❌ cannot listen on %s: %v\n", addr, lnErr)
 		return 1
 	}
 

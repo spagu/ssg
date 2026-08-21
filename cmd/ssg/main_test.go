@@ -1092,31 +1092,24 @@ func TestRunInitialBuildFailure(t *testing.T) {
 }
 
 func TestRunInitialBuildFailureVerbose(t *testing.T) {
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-
 	genCfg := generator.Config{
 		Source:       "nope",
 		Template:     "nope",
 		Domain:       "d.com",
 		ContentDir:   "/nonexistent",
 		TemplatesDir: "/nonexistent",
-		OutputDir:    "/tmp/ssg-fail-output",
+		OutputDir:    filepath.Join(t.TempDir(), "out"),
 	}
 	cfg := &config.Config{Quiet: false}
 
-	result := runInitialBuild(genCfg, cfg)
-
-	_ = w.Close()
-	os.Stderr = oldStderr
-	out, _ := io.ReadAll(r)
+	var result bool
+	out := captureStderr(t, func() { result = runInitialBuild(genCfg, cfg) })
 
 	if result {
 		t.Error("expected failure")
 	}
-	if !strings.Contains(string(out), "Error") {
-		t.Error("expected error message on stderr")
+	if !strings.Contains(out, "Error") {
+		t.Errorf("stderr = %q, want an error message", out)
 	}
 }
 
@@ -1214,22 +1207,18 @@ func TestRebuildOnChange(t *testing.T) {
 }
 
 func TestRebuildOnChangeFailure(t *testing.T) {
-	oldStderr := os.Stderr
-	_, w, _ := os.Pipe()
-	os.Stderr = w
-
 	genCfg := generator.Config{
 		Source:       "nope",
 		ContentDir:   "/nonexistent",
 		TemplatesDir: "/nonexistent",
-		OutputDir:    "/tmp/ssg-fail",
+		OutputDir:    filepath.Join(t.TempDir(), "out"),
 	}
 	cfg := &config.Config{Quiet: false}
 
-	rebuildOnChange(genCfg, cfg) // must not panic or exit on build failure
-
-	_ = w.Close()
-	os.Stderr = oldStderr
+	// Must not panic or exit on a build failure; it reports and carries on.
+	if out := captureStderr(t, func() { rebuildOnChange(genCfg, cfg) }); out == "" {
+		t.Error("a failed rebuild must say so")
+	}
 }
 
 func TestRunWatchOrServeNoAction(t *testing.T) {
@@ -1965,19 +1954,9 @@ func TestBuildWithWebPAndImages(t *testing.T) {
 		Quiet:           false,
 	}
 
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	_, w1, _ := os.Pipe()
-	_, w2, _ := os.Pipe()
-	os.Stdout = w1
-	os.Stderr = w2
-
-	_ = build(genCfg, cfg)
-
-	_ = w1.Close()
-	_ = w2.Close()
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
+	captureStderr(t, func() {
+		_, _ = captureStdout(func() error { return build(genCfg, cfg) })
+	})
 }
 
 func TestParseFlagsIgnoresPositional(t *testing.T) {

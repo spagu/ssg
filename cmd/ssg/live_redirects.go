@@ -229,7 +229,7 @@ func readOutputRules(outputDir, name string) string {
 func republishOutputRules(cfg *config.Config) {
 	warn := func(format string, a ...any) {
 		if !cfg.Quiet {
-			fmt.Fprintf(os.Stderr, format+"\n", a...)
+			errf(format+"\n", a...)
 		}
 	}
 	publishRedirects(cfg.OutputDir, warn)

@@ -1,45 +1,55 @@
 package main
 
 import (
-	"io"
+	"bytes"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/spagu/ssg/internal/config"
 )
 
-// captureStderr runs fn and returns everything it wrote to os.Stderr.
 // captureStderr collects what fn wrote to stderr.
 //
-// The reader runs concurrently, which is not a refinement — it is the only
-// correct shape. Reading after fn() returns caps the capture at one 4096-byte
-// read, so a longer message came back silently truncated and an assertion on
-// its tail passed or failed for the wrong reason. Worse, a pipe holds about
-// 64 KB: anything past that and fn() blocks on a write nobody is draining, and
-// the test hangs forever rather than failing. captureStdout in mcp.go already
-// does it this way; this now matches it.
+// It swaps the command's diagnostic sink rather than os.Stderr (#188). The old
+// shape assigned os.Stderr, a standard-library package variable that every
+// background goroutine this command leaves running reads to write its own
+// diagnostics — a data race -race caught roughly one CI run in ten, in
+// whichever test happened to be running when an earlier test's goroutine
+// finally spoke. Swapping a sink of our own under a lock has no such subject.
+//
+// It also retires the pipe the old shape needed. A pipe holds about 64 KB, so a
+// capture that outgrew it blocked fn() on a write nobody was draining and hung
+// the test rather than failing it; a buffer cannot.
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	saved := os.Stderr
-	os.Stderr = w
-
-	done := make(chan string, 1)
-	go func() {
-		b, _ := io.ReadAll(r)
-		done <- string(b)
-	}()
-
+	var buf syncBuffer
+	saved := setStderrSink(&buf)
+	defer setStderrSink(saved)
 	fn()
-	os.Stderr = saved
-	_ = w.Close()
-	out := <-done
-	_ = r.Close()
-	return out
+	return buf.String()
+}
+
+// syncBuffer collects diagnostics under a lock. The command leaves background
+// goroutines running — an HTTP/3 listener, a watch loop, a server reporting a
+// dead listener — and any of them may write to the sink while the test that
+// installed it is still reading (#188).
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // GO-056: incomplete TLS/HTTP3 configurations must be loud, never silent.
@@ -76,20 +86,41 @@ func TestWarnTLSMisconfig(t *testing.T) {
 // TestCaptureStderrSurvivesALongMessage: the helper used to read once into a
 // 4096-byte buffer after fn() had already returned. Anything longer came back
 // truncated, and anything past a pipe's ~64 KB blocked fn() on a write nobody
-// was draining — a hung test rather than a failing one. 19 tests lean on this.
+// was draining — a hung test rather than a failing one. 19 tests lean on this,
+// and a buffered sink has neither limit.
 func TestCaptureStderrSurvivesALongMessage(t *testing.T) {
 	long := strings.Repeat("x", 200_000) // comfortably past a pipe buffer
-	got := captureStderr(t, func() {
-		if _, err := os.Stderr.WriteString(long); err != nil {
-			t.Errorf("write: %v", err)
-		}
-	})
+	got := captureStderr(t, func() { errf("%s", long) })
 	if len(got) != len(long) {
-		t.Fatalf("captured %d bytes of %d — the reader is not draining concurrently", len(got), len(long))
+		t.Fatalf("captured %d bytes of %d", len(got), len(long))
 	}
-	// And it still restores the real stderr afterwards, or every later test
-	// writes into a closed pipe.
-	if os.Stderr == nil {
-		t.Fatal("stderr was not restored")
+	// And it restores the previous sink, or every later test writes into a
+	// buffer nobody reads.
+	if stderrWriter() != os.Stderr {
+		t.Fatal("the sink was not restored")
+	}
+}
+
+// TestCaptureStderrCollectsABackgroundGoroutine: the reason the sink exists.
+// The command leaves goroutines running that report through the same path, and
+// the old helper assigned os.Stderr — a variable those goroutines read (#188).
+func TestCaptureStderrCollectsABackgroundGoroutine(t *testing.T) {
+	got := captureStderr(t, func() {
+		done := make(chan struct{})
+		go func() { defer close(done); errf("from a goroutine\n") }()
+		<-done
+	})
+	if !strings.Contains(got, "from a goroutine") {
+		t.Errorf("stderr = %q", got)
+	}
+}
+
+// TestErrlnGoesThroughTheSink, the other half of the drop-in pair.
+func TestErrlnGoesThroughTheSink(t *testing.T) {
+	if got := captureStderr(t, func() { errln("a", "b") }); got != "a b\n" {
+		t.Errorf("errln wrote %q", got)
+	}
+	if got := captureStderr(t, func() { errln() }); got != "\n" {
+		t.Errorf("bare errln wrote %q", got)
 	}
 }

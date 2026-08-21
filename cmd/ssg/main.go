@@ -96,7 +96,7 @@ func applyMinifyAll(cfg *config.Config) {
 func runInitialBuild(genCfg generator.Config, cfg *config.Config) bool {
 	if err := build(genCfg, cfg); err != nil {
 		if !cfg.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+			errf("❌ Error: %v\n", err)
 		}
 		return false
 	}
@@ -207,7 +207,7 @@ func reloadWatchConfig(args []string, configPath string, old *config.Config) (ge
 	cfg, err := loadConfigFile(configPath)
 	if err != nil {
 		if !old.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Config error: %v\n", err)
+			errf("❌ Config error: %v\n", err)
 			fmt.Println("⚠️  Keeping the previous configuration — fix the file and save to retry...")
 		}
 		return generator.Config{}, nil, false
@@ -270,7 +270,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		BatchSize: cfg.Mddb.BatchSize,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error creating MDDB client: %v\n", err)
+		errf("❌ Error creating MDDB client: %v\n", err)
 		return
 	}
 
@@ -289,7 +289,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	// Get initial checksum
 	checksumResp, err := client.Checksum(cfg.Mddb.Collection)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Could not get initial checksum: %v\n", err)
+		errf("⚠️  Could not get initial checksum: %v\n", err)
 	} else {
 		lastChecksum = checksumResp.Checksum
 		if !cfg.Quiet {
@@ -304,7 +304,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		checksumResp, err := client.Checksum(cfg.Mddb.Collection)
 		if err != nil {
 			if !cfg.Quiet {
-				fmt.Fprintf(os.Stderr, "⚠️  Checksum check failed: %v\n", err)
+				errf("⚠️  Checksum check failed: %v\n", err)
 			}
 			continue
 		}
@@ -330,7 +330,7 @@ func rebuildOnChange(genCfg generator.Config, cfg *config.Config) {
 	if err := build(genCfg, cfg); err != nil {
 		notifyBuildError(err.Error()) // show the error overlay in connected browsers
 		if !cfg.Quiet {
-			fmt.Fprintf(os.Stderr, "❌ Build error: %v\n", err)
+			errf("❌ Build error: %v\n", err)
 			fmt.Println("⚠️  Fix the issue and save to retry...")
 		}
 	} else {
@@ -356,7 +356,7 @@ const configFlag = "--config"
 func loadConfig(args []string) *config.Config {
 	cfg, err := loadConfigFile(configPathOf(args))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error loading config: %v\n", err)
+		errf("❌ Error loading config: %v\n", err)
 		os.Exit(1)
 	}
 	return cfg
@@ -391,7 +391,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	// GO-053: never swallow extra positionals silently — they are almost always
 	// a mistyped flag form (e.g. "--paginate 10" works, but a typo would not).
 	if len(positionalArgs) > 3 {
-		fmt.Fprintf(os.Stderr, "⚠️  Ignoring unexpected positional arguments: %s\n",
+		errf("⚠️  Ignoring unexpected positional arguments: %s\n",
 			strings.Join(positionalArgs[3:], " "))
 	}
 	// content_sources can supply the whole site, in which case there is no
@@ -412,7 +412,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 	} else if (cfg.Source == "" && !sourceOptional) || cfg.Template == "" || cfg.Domain == "" {
 		reportMissingSettings(cfg, sourceOptional)
 		// Point at --help rather than dumping the whole thing after the error.
-		fmt.Fprintln(os.Stderr, "   Run `ssg --help` for options, `ssg --version` for the version.")
+		errln("   Run `ssg --help` for options, `ssg --version` for the version.")
 		os.Exit(1)
 	}
 }
@@ -433,20 +433,20 @@ func reportMissingSettings(cfg *config.Config, sourceOptional bool) {
 	if cfg.Domain == "" {
 		missing = append(missing, "domain")
 	}
-	fmt.Fprintf(os.Stderr, "❌ Missing required setting(s): %s\n", strings.Join(missing, ", "))
+	errf("❌ Missing required setting(s): %s\n", strings.Join(missing, ", "))
 
 	if path := config.FindConfigFile(); path != "" {
-		fmt.Fprintf(os.Stderr, "   Config file in use: %s\n", path)
-		fmt.Fprintf(os.Stderr, "   Values it provided: source=%q template=%q domain=%q\n",
+		errf("   Config file in use: %s\n", path)
+		errf("   Values it provided: source=%q template=%q domain=%q\n",
 			cfg.Source, cfg.Template, cfg.Domain)
 		if cfg.Source == "" && !sourceOptional {
-			fmt.Fprintln(os.Stderr, "   A site with no `source:` needs `content_sources:` (ssg 1.8.10+)"+
+			errln("   A site with no `source:` needs `content_sources:` (ssg 1.8.10+)" +
 				" — an older ssg ignores that key, which looks exactly like this.")
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "   No .ssg.yaml/.ssg.toml/.ssg.json found in the current directory.")
+		errln("   No .ssg.yaml/.ssg.toml/.ssg.json found in the current directory.")
 	}
-	fmt.Fprintf(os.Stderr, "   Pass them positionally (ssg %s) or set them in the config file.\n\n",
+	errf("   Pass them positionally (ssg %s) or set them in the config file.\n\n",
 		strings.Join(missing, " "))
 }
 
@@ -472,11 +472,11 @@ func positionalArgsOf(args []string) []string {
 // setupTemplateEngine validates the template engine and deploy target, exiting on error.
 func setupTemplateEngine(cfg *config.Config) {
 	if err := validateTemplateEngine(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		errf("❌ Error: %v\n", err)
 		os.Exit(1)
 	}
 	if cfg.Deploy != "" && !deploy.Supported(cfg.Deploy) {
-		fmt.Fprintf(os.Stderr, "❌ Error: unknown --deploy provider %q (supported: %s)\n",
+		errf("❌ Error: unknown --deploy provider %q (supported: %s)\n",
 			cfg.Deploy, strings.Join(deploy.SupportedProviders(), ", "))
 		os.Exit(1)
 	}
@@ -517,7 +517,7 @@ func downloadOnlineTheme(cfg *config.Config) {
 	}
 
 	if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error downloading theme: %v\n", err)
+		errf("❌ Error downloading theme: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -1174,7 +1174,7 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 		return 0
 	}
 	if i+1 >= len(args) {
-		fmt.Fprintf(os.Stderr, "⚠️  Flag %s expects a value (%s=<value> or %s <value>)\n", arg, arg, arg)
+		errf("⚠️  Flag %s expects a value (%s=<value> or %s <value>)\n", arg, arg, arg)
 		return 0
 	}
 	if arg == configFlag {
@@ -1234,7 +1234,7 @@ func runImagesGC(gen *generator.Generator, cfg *config.Config) {
 	dry := cfg.ImagesGCDry
 	files, bytes, err := gen.ImagesGC(dry)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Image cache GC: %v\n", err)
+		errf("⚠️  Image cache GC: %v\n", err)
 		return
 	}
 	if cfg.Quiet {
@@ -1811,7 +1811,7 @@ func resolveRunnerConfig(spec watchRunnerSpec) string {
 		}
 	}
 	if _, err := os.Stat(path); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Watch-runner config %q not found: %v\n", path, err)
+		errf("⚠️  Watch-runner config %q not found: %v\n", path, err)
 	}
 	return path
 }
@@ -1827,7 +1827,7 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 	}
 	if spec.Dir != "" {
 		if _, err := os.Stat(spec.Dir); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
+			errf("⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
 			return nil
 		}
 	}
@@ -1848,7 +1848,7 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Failed to start watch runner %q: %v\n", spec.Runner, err)
+		errf("⚠️  Failed to start watch runner %q: %v\n", spec.Runner, err)
 		return nil
 	}
 
@@ -1891,7 +1891,7 @@ func warnUnknownFlags(args []string, cfg *config.Config) {
 		if near := nearestFlag(name, known); near != "" {
 			msg += fmt.Sprintf(" (did you mean %s?)", near)
 		}
-		fmt.Fprintln(os.Stderr, msg+"; run `ssg --help` for the list")
+		errln(msg + "; run `ssg --help` for the list")
 	}
 }
 

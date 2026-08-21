@@ -50,7 +50,7 @@ func endpointHandler(cfg *config.Config, next http.Handler) http.Handler {
 		if ep.Type == "auth" {
 			g, err := buildAuthGuard(ep)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
+				errf("⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
 				continue
 			}
 			guards = append(guards, g)
@@ -58,7 +58,7 @@ func endpointHandler(cfg *config.Config, next http.Handler) http.Handler {
 		}
 		h, err := buildEndpoint(ep)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
+			errf("⚠️  endpoint %q: %v (skipped)\n", ep.Path, err)
 			continue
 		}
 		routes[ep.Path] = h

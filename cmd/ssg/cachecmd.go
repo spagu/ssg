@@ -59,7 +59,7 @@ func loadCacheConfig() *config.Config {
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  config %s: %v (using default cache locations)\n", path, err)
+		errf("⚠️  config %s: %v (using default cache locations)\n", path, err)
 		return nil
 	}
 	return cfg
@@ -68,7 +68,7 @@ func loadCacheConfig() *config.Config {
 // runCache dispatches `ssg cache <stats|clean|gc>`.
 func runCache(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: ssg cache <stats|clean|gc> [--namespace=NAME] [--dry]")
+		errln("usage: ssg cache <stats|clean|gc> [--namespace=NAME] [--dry]")
 		return 2
 	}
 	namespaces := cacheNamespaces(loadCacheConfig())
@@ -81,7 +81,7 @@ func runCache(args []string) int {
 	case "gc":
 		return runCacheGC(namespaces, rest)
 	default:
-		fmt.Fprintf(os.Stderr, "❌ unknown cache subcommand %q (use stats, clean or gc)\n", sub)
+		errf("❌ unknown cache subcommand %q (use stats, clean or gc)\n", sub)
 		return 2
 	}
 }
@@ -93,7 +93,7 @@ func runCacheStats(namespaces []cacheNamespace) int {
 	for _, ns := range namespaces {
 		st, err := cache.DirStats(ns.name, ns.dir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  %s: %v\n", ns.name, err)
+			errf("⚠️  %s: %v\n", ns.name, err)
 			continue
 		}
 		fmt.Printf("%-18s %10d %12s   %s\n", ns.name, st.Entries, cache.HumanBytes(st.Bytes), ns.dir)
@@ -127,7 +127,7 @@ func parseCacheFlags(args []string) (namespace string, dry bool, ok bool) {
 		case a == "--dry":
 			dry = true
 		default:
-			fmt.Fprintf(os.Stderr, "❌ unknown flag %q\n", a)
+			errf("❌ unknown flag %q\n", a)
 			return "", false, false
 		}
 	}
@@ -141,13 +141,13 @@ func runCacheClean(namespaces []cacheNamespace, args []string) int {
 	}
 	selected := filterNamespaces(namespaces, selector)
 	if len(selected) == 0 {
-		fmt.Fprintf(os.Stderr, "❌ no cache namespace matches %q\n", selector)
+		errf("❌ no cache namespace matches %q\n", selector)
 		return 1
 	}
 	for _, ns := range selected {
 		st, _ := cache.DirStats(ns.name, ns.dir)
 		if err := cache.Clean(ns.dir); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ %s: %v\n", ns.name, err)
+			errf("❌ %s: %v\n", ns.name, err)
 			return 1
 		}
 		fmt.Printf("🧹 %s: removed %d entries (%s)\n", ns.name, st.Entries, cache.HumanBytes(st.Bytes))
@@ -169,7 +169,7 @@ func runCacheGC(namespaces []cacheNamespace, args []string) int {
 		case "external-sources":
 			files, bytes, err := externalsource.GCExpired(ns.dir, time.Now(), dry)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "❌ %s: %v\n", ns.name, err)
+				errf("❌ %s: %v\n", ns.name, err)
 				return 1
 			}
 			fmt.Printf("♻️  %s: %s %d expired entries (%s)\n", ns.name, verb, files, cache.HumanBytes(bytes))

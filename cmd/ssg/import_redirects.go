@@ -101,7 +101,7 @@ func runImportRedirects(args []string) int {
 		}
 	}
 	if jsonPath == "" && configPath == "" {
-		fmt.Fprintln(os.Stderr, "usage: ssg import redirects <next.config.ts> | --from-json <redirects.json>")
+		errln("usage: ssg import redirects <next.config.ts> | --from-json <redirects.json>")
 		return 2
 	}
 
@@ -114,11 +114,11 @@ func runImportRedirects(args []string) int {
 		rules, warnings, err = importRedirectsFromConfig(configPath)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ %v\n", err)
+		errf("❌ %v\n", err)
 		return 1
 	}
 	for _, w := range warnings {
-		fmt.Fprintf(os.Stderr, "⚠️  %s\n", w)
+		errf("⚠️  %s\n", w)
 	}
 	fmt.Print(renderRedirectsYAML(rules))
 	return 0

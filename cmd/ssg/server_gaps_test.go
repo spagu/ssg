@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -50,17 +51,45 @@ func collectServerErrors(t *testing.T) <-chan string {
 // it.
 func awaitReport(t *testing.T, reports <-chan string, want string) {
 	t.Helper()
+	awaitReports(t, reports, want)
+}
+
+// awaitReports waits until every wanted substring has been reported, in any
+// order. A test that starts more than one background listener has to drain all
+// of them before it returns: the reporter it restores on the way out is the
+// default one, and that closure reads os.Stderr at call time. A goroutine still
+// holding it races the next test's captureStderr, which writes os.Stderr — a
+// race the swap under serverErrMu cannot cover, because the contended variable
+// is os.Stderr itself (#188).
+func awaitReports(t *testing.T, reports <-chan string, want ...string) {
+	t.Helper()
+	pending := make(map[string]bool, len(want))
+	for _, w := range want {
+		pending[w] = true
+	}
 	deadline := time.After(10 * time.Second)
-	for {
+	for len(pending) > 0 {
 		select {
 		case got := <-reports:
-			if strings.Contains(got, want) {
-				return
+			for w := range pending {
+				if strings.Contains(got, w) {
+					delete(pending, w)
+				}
 			}
 		case <-deadline:
-			t.Fatalf("no report containing %q arrived", want)
+			t.Fatalf("these reports never arrived: %v", keysOf(pending))
 		}
 	}
+}
+
+// keysOf names what a timed-out wait was still missing.
+func keysOf(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // TestAnHTTP3ListenerThatCannotStartSaysSo: HTTP/3 runs in the background, so
@@ -104,10 +133,11 @@ func TestServingOnADeadListenerIsReported(t *testing.T) {
 	_ = ln.Close() // serving on it must fail immediately
 
 	serveOnClaimedPort(cfg, ln)
-	awaitReport(t, reports, "Server error")
-	// The HTTP/3 listener was started alongside it and will report its own
-	// failure whenever it gets there; the reporter is swapped under a lock, so a
-	// late arrival is safe rather than something to wait for.
+	// Both listeners must be drained, not just the one under test: the HTTP/3
+	// goroutine started alongside it reports from its own goroutine, and one
+	// still running after this test restores the default reporter races the
+	// next test's os.Stderr swap.
+	awaitReports(t, reports, "Server error", "HTTP/3 server error")
 }
 
 // TestAMemoryLimitIsAnnouncedOrRefused: a limit that does not parse must not be
