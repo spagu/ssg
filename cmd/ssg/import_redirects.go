@@ -59,6 +59,11 @@ func dispatchSingleVerb(args []string) (int, bool) {
 	if len(args) >= 1 && args[0] == "init" {
 		return runInit(args[1:]), true
 	}
+	// A hyphenated verb cannot collide with a source directory the way a bare
+	// noun can, so this needs no extra guard (#193).
+	if len(args) >= 1 && args[0] == "self-update-check" {
+		return runSelfUpdateCheck(args[1:]), true
+	}
 	if len(args) >= 1 && args[0] == "mcp" {
 		return runMCP(args[1:]), true
 	}

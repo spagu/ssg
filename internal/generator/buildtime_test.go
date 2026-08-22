@@ -3,6 +3,7 @@ package generator
 // One timestamp per build, pinnable for reproducibility (#186).
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,4 +175,48 @@ func TestBuildTimeReachesEveryTemplateContext(t *testing.T) {
 	if checked < 3 {
 		t.Fatalf("only %d document(s) rendered .BuildTime — the fixture proves too little", checked)
 	}
+}
+
+// TestQuietMeansQuiet: `--help` promises "only exit codes", and these four
+// lines were the one place a build ignored it — which made the flag unusable
+// for what it exists for: a build inside a script, a cron job whose output
+// becomes an email, a daemon project whose logs are aggregated (#194).
+func TestQuietMeansQuiet(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", DefaultLanguage: "en", Quiet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out := captureGeneratorStdout(t, g.logContentStats); out != "" {
+		t.Errorf("a quiet build printed %q", out)
+	}
+
+	loud, err := New(Config{Domain: "example.com", DefaultLanguage: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out := captureGeneratorStdout(t, loud.logContentStats); !strings.Contains(out, "Loaded") {
+		t.Errorf("a normal build must still report what it loaded, got %q", out)
+	}
+}
+
+// captureGeneratorStdout collects what fn writes to stdout.
+func captureGeneratorStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stdout
+	os.Stdout = w
+	done := make(chan string, 1)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+	fn()
+	os.Stdout = saved
+	_ = w.Close()
+	out := <-done
+	_ = r.Close()
+	return out
 }

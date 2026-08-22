@@ -60,6 +60,11 @@ func main() {
 
 	genCfg := createGeneratorConfig(cfg)
 
+	// Which binary produced this output, on the first line of it (#193). A build
+	// log read a month later — in CI, or on someone else's machine — otherwise
+	// gives no way to tell whether the tool changed or the site did.
+	logRunningVersion(cfg)
+
 	if !runInitialBuild(genCfg, cfg) && !cfg.Watch && !cfg.HTTP {
 		os.Exit(1)
 	}
@@ -2024,4 +2029,13 @@ func boolFlagNames(cfg *config.Config) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// logRunningVersion announces the build's own version. Silent under --quiet,
+// which exists so a build emits nothing but its exit code.
+func logRunningVersion(cfg *config.Config) {
+	if cfg.Quiet {
+		return
+	}
+	fmt.Printf("🧱 ssg %s\n", Version)
 }

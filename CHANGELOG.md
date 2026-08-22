@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🔔 **`ssg self-update-check`, and a build that says what built it** (#193).
+
+  Two gaps that compounded. A build's first line was `🔄 Loading content...` and
+  nothing in the output named the version, so a CI log from last month gave no
+  way to tell whether the binary changed or the site did. And there was no way
+  to learn a newer release existed short of visiting the releases page — across
+  six install methods, so "am I current?" had six different answers and you had
+  to know which one was yours.
+
+  Every build now opens with `🧱 ssg 1.8.48` (silent under `--quiet`), and:
+
+  ```
+  $ ssg self-update-check
+  🧱 ssg 1.8.30 (installed via snap)
+  🆕 A newer release is out: 1.8.48 (you have 1.8.30)
+     https://github.com/spagu/ssg/releases/tag/v1.8.48
+
+     Upgrade with:
+       sudo snap refresh static-site-generator
+  ```
+
+  The command is the one for *your* install, worked out from where the running
+  executable actually sits rather than from the operating system: a Homebrew ssg
+  on Linux is still Homebrew's, a snap is detected by the executable living under
+  `$SNAP` (the variable alone proves nothing — it is exported to every process a
+  snap starts), and a binary copied into `/usr/bin` by hand is nobody's to
+  upgrade, so that one is sent to the releases page rather than handed an `apt`
+  command that would not move it.
+
+  What it deliberately does not do: **it never updates anything** — rewriting
+  your own binary asks for more trust than a static site generator should — and
+  **it never runs on its own**. A build makes no network request; a generator
+  that phones home on every run is slow, breaks air-gapped and CI environments,
+  and reports on something nobody asked about. Exit 0 whether or not an update
+  exists, so it is safe in a script; exit 1 only when the check could not be made.
+
+  A version that does not parse — `dev`, a source build — compares as older than
+  any release, so such a build is told what the newest release is rather than
+  being declared current. A version *ahead* of the newest release is told so and
+  left alone.
+
+### Fixed
+- 🔇 **`--quiet` is quiet** (#194). `--help` promised "only exit codes" and a
+  quiet build still printed four lines to stdout — the content-loading counts,
+  the one function in the build that had no `Quiet` guard while all its siblings
+  did. It made the flag unusable for what it exists for: a build inside a script
+  that captures stdout, a cron job whose output becomes an email, a `ssg daemon`
+  project whose logs are aggregated. Found while adding the startup version line
+  above, which obeys `--quiet` and made the four sitting under it obvious.
+
 ### Changed
 - Edited four MCP, migration and preview articles for direct, natural prose;
   checked their technical claims against the implementation, tests and platform
