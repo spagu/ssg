@@ -38,6 +38,8 @@ ssg \- fast static site generator written in Go
 .RB [ \-\-dry ]
 .RB [ \-\-lang=\fICODE\fR ]
 .br
+.B ssg self-update-check
+.br
 .B ssg migrate
 .I provider url
 .RB [ \-\-content\ \fIa,b,c\fR ]
@@ -90,6 +92,15 @@ paths, regex-constrained params) are reported on stderr, never dropped silently.
 Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
 and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
+.TP
+.B ssg self-update-check
+Report whether a newer release exists. Prints the running version and how this
+binary was installed, and — when a newer release is out — the upgrade command
+for that install: \fBsnap refresh\fR, \fBbrew upgrade\fR, \fBdocker pull\fR,
+\fBapt\fR, \fBdnf\fR, or the releases page for a downloaded binary. It never
+updates anything itself, and it runs only when invoked \(em a build never
+contacts the network. Exits 0 whether or not an update exists; exits 1 only when
+the check could not be made.
 .TP
 .B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR]
 Upsert every template and static asset into the MDDB collection named by
