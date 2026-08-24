@@ -105,8 +105,13 @@ designer_edit {
 - `old` is matched **byte for byte**, indentation included, and must appear
   **exactly once**. Zero matches or several is a refusal naming the count, so
   nothing fuzzy ever lands and nothing is half-applied.
-- The reply carries the changed lines with their neighbours and line numbers.
-  That **is** the verification — there is no re-read.
+- The reply carries the change with its neighbours and line numbers. That **is**
+  the verification — there is no re-read.
+- On a line too long to print — a minified stylesheet is one line — the window
+  is measured in **characters** around the change instead, and reported as
+  `line:fromCol-toCol`. Whatever is left out is stated rather than silently
+  dropped. Line-based context is right for source that has lines; the reply
+  should not grow to the file because the file has one.
 - An empty `new` deletes the anchored text.
 
 `designer_find` / `content_find` supply the anchor without reading anything:
@@ -125,6 +130,11 @@ syntax and literally when it is not, so pasting a CSS fragment with an
 unbalanced bracket returns an answer rather than a syntax error. Matches whose
 context windows overlap are reported as one region; files over 512 KB are
 skipped, because a minified bundle matches everything and helps nobody.
+
+A match on a very long line comes back as a character window with a column
+range — `static/css/site.css:1:9834-9859` — so a minified file gives a locus an
+edit can anchor to rather than the whole line, which in that file is the whole
+thing.
 
 So the whole flow is **find → edit**, and the 10k-token background change
 becomes a few hundred. Reserve the full writes for new files and real rewrites.

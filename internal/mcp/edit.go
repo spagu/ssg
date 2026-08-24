@@ -11,7 +11,7 @@ package mcp
 // The anchor keeps the safety and drops the cost. `old` must appear exactly
 // once: zero matches or several is a refusal that names the count, so a model
 // never guesses which occurrence was meant and nothing lands partially applied.
-// The reply carries the changed lines in context, which is also the
+// The reply carries the change in context, which is also the
 // verification — there is no second read.
 
 import (
@@ -30,27 +30,43 @@ type anchoredEdit struct {
 	old, new string
 }
 
-// apply performs the replacement, returning the new content and the 1-based line
-// the change starts on. It refuses anything it cannot place unambiguously.
-func (e anchoredEdit) apply(content string) (string, int, error) {
+// apply performs the replacement, returning the new content, the 1-based line
+// the change starts on and its byte offset within that line. It refuses
+// anything it cannot place unambiguously.
+//
+// The offset is what lets the report window a long line: on a minified
+// stylesheet the changed line is the whole file, and "the changed line in
+// context" was 7k tokens to move one hex value (#204).
+func (e anchoredEdit) apply(content string) (string, int, int, error) {
 	if e.old == "" {
-		return "", 0, fmt.Errorf("`old` is required — the exact text to replace (use designer_write/content_update to replace a whole file)")
+		return "", 0, 0, fmt.Errorf("`old` is required — the exact text to replace (use designer_write/content_update to replace a whole file)")
 	}
 	switch n := strings.Count(content, e.old); {
 	case n == 0:
-		return "", 0, fmt.Errorf("`old` does not appear in the file — read it and copy the exact text, whitespace included")
+		return "", 0, 0, fmt.Errorf("`old` does not appear in the file — read it and copy the exact text, whitespace included")
 	case n > 1:
-		return "", 0, fmt.Errorf("`old` appears %d times — include enough surrounding text to make it unique, "+
+		return "", 0, 0, fmt.Errorf("`old` appears %d times — include enough surrounding text to make it unique, "+
 			"or use a whole-file write if every occurrence should change", n)
 	}
 	at := strings.Index(content, e.old)
-	return content[:at] + e.new + content[at+len(e.old):], 1 + strings.Count(content[:at], "\n"), nil
+	lineStart := strings.LastIndexByte(content[:at], '\n') + 1
+	return content[:at] + e.new + content[at+len(e.old):],
+		1 + strings.Count(content[:at], "\n"), at - lineStart, nil
 }
 
-// editReport renders the changed region with line numbers, so the reply proves
-// what landed instead of requiring a second read to find out.
-func editReport(content string, startLine, newLines int) string {
+// editReport renders the changed region so the reply proves what landed instead
+// of requiring a second read to find out.
+//
+// By line where lines are a sensible size, and by character where they are not:
+// a minified file has one line, so printing "the changed line" printed the file
+// (#204).
+func editReport(content string, startLine, col, newLines, newLen int) string {
 	lines := strings.Split(content, "\n")
+	if startLine <= len(lines) && isLongLine(lines[startLine-1]) {
+		frag, fromCol, toCol, _ := charWindow(lines[startLine-1], col, col+newLen)
+		return capFragment(fmt.Sprintf("→ %4d:%d-%d | %s", startLine, fromCol, toCol, frag))
+	}
+
 	from := max(1, startLine-editContextLines)
 	to := min(len(lines), startLine+newLines-1+editContextLines)
 
@@ -60,9 +76,9 @@ func editReport(content string, startLine, newLines int) string {
 		if i >= startLine && i < startLine+newLines {
 			marker = "→ "
 		}
-		fmt.Fprintf(&b, "%s%4d | %s\n", marker, i, lines[i-1])
+		fmt.Fprintf(&b, "%s%4d | %s\n", marker, i, trimLine(lines[i-1]))
 	}
-	return strings.TrimRight(b.String(), "\n")
+	return capFragment(strings.TrimRight(b.String(), "\n"))
 }
 
 // lineSpan is how many lines a replacement occupies once written.
@@ -88,7 +104,7 @@ func (s *Server) runEdit(args map[string]any, resolve func(string) (string, erro
 	if err != nil {
 		return errResult("read failed: " + err.Error())
 	}
-	after, line, err := anchoredEdit{old: oldText, new: newText}.apply(before)
+	after, line, col, err := anchoredEdit{old: oldText, new: newText}.apply(before)
 	if err != nil {
 		return errResult(fmt.Sprintf("%s: %v", rel, err))
 	}
@@ -96,7 +112,7 @@ func (s *Server) runEdit(args map[string]any, resolve func(string) (string, erro
 		return errResult("write failed: " + err.Error())
 	}
 	summary := fmt.Sprintf("%s edited %s at line %d\n\n%s",
-		what, rel, line, editReport(after, line, lineSpan(newText)))
+		what, rel, line, editReport(after, line, col, lineSpan(newText), len(newText)))
 	return s.afterMutate(summary)
 }
 

@@ -35,7 +35,7 @@ func (s *Server) instructions() string {
 		"file and line range without reading whole files, and that range is the anchor an edit needs. " +
 		"Fall back to listing and reading only when a search finds nothing. Make the smallest change " +
 		"that satisfies the request. For a small change use designer_edit / content_edit: give the exact existing " +
-		"text as `old` and its replacement as `new`, and the reply shows the changed lines in context " +
+		"text as `old` and its replacement as `new`, and the reply shows the change in context " +
 		"— no verifying re-read. `old` must match exactly once, or the edit is refused with the count. " +
 		"Reserve the whole-file writes (designer_write, content_create, content_update) for new files " +
 		"and real rewrites; those take FULL file contents, never a patch.")

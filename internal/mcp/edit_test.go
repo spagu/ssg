@@ -327,11 +327,11 @@ func TestTheEditToolsAreAdvertised(t *testing.T) {
 // TestTheReportClampsToTheFile: a change on the first or last line must not
 // index outside the slice.
 func TestTheReportClampsToTheFile(t *testing.T) {
-	got := editReport("only line", 1, 1)
+	got := editReport("only line", 1, 0, 1, 4)
 	if got != "→    1 | only line" {
 		t.Errorf("single-line report = %q", got)
 	}
-	if r := editReport("a\nb\nc", 3, 1); !strings.Contains(r, "c") || strings.Contains(r, "   4 |") {
+	if r := editReport("a\nb\nc", 3, 0, 1, 1); !strings.Contains(r, "c") || strings.Contains(r, "   4 |") {
 		t.Errorf("last-line report = %q", r)
 	}
 }

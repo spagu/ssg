@@ -65,7 +65,8 @@ func (s *Server) contentTools() []tool {
 			description: "CONTENT · Change ONE passage of a Markdown file in place — PREFER THIS over " +
 				"content_update for a typo, a sentence, or one frontmatter value. Give the exact " +
 				"existing text as `old` and its replacement as `new`; `old` must appear exactly once. " +
-				"Returns the changed lines in context, so no verifying re-read is needed. Refuses " +
+				"Returns the change in context, so no verifying re-read is needed \u2014 bounded by " +
+				"characters in a very long paragraph, so the reply never grows to the file. Refuses " +
 				"(naming the count) when `old` matches zero or several times.",
 			schema:  editSchema("Project-relative path to the existing Markdown file"),
 			handler: s.contentEdit,

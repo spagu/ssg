@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- ✂️ **A line is no longer treated as a unit of size** (#204, #205). `designer_find`
+  and `designer_edit` reported context by line — the matched lines, the changed
+  line, a few either side. On a minified stylesheet a line *is* the file, so
+  three colour changes across two minified files cost 40–50k tokens: the exact
+  cost the anchored edit was built to remove, back through a side door. Migrated
+  themes are where this lands, since many WordPress sites ship their CSS and JS
+  already minified and a migration keeps what it fetched.
+
+  A match on a line longer than 400 characters now comes back as a window of
+  ±160 characters with a column range — `static/css/site.css:1:9834-9859` — so a
+  one-line file yields a one-line answer of a few hundred bytes and an anchored
+  edit still has an exact target. Whatever is omitted is stated, and every
+  fragment is capped whatever produced it. Lines stay the right unit for source
+  that has lines: the switch keys on the length of the line in hand, not on the
+  file's name, so a hand-written stylesheet with one enormous selector list is
+  treated the same and a minified file with short lines is not punished for what
+  it is called.
+
+  The window snaps to rune boundaries in both directions. Slicing UTF-8 at an
+  offset that is not a boundary is how a tool corrupts text instead of trimming
+  it — the same mistake as #199, one week apart, in unrelated code.
 - 🔑 **The MDDB API key goes in the header MDDB reads it from** (#202). ssg sent
   it as `Authorization: Bearer`, and MDDB's HTTP middleware takes whatever
   follows `Bearer ` and validates it as a JWT — the `X-API-Key` path is reached
