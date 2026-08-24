@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.47" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.48" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -37,6 +37,9 @@ ssg \- fast static site generator written in Go
 .B ssg mddb push-theme
 .RB [ \-\-dry ]
 .RB [ \-\-lang=\fICODE\fR ]
+.RB [ \-\-no\-validate ]
+.br
+.B ssg self-update-check
 .br
 .B ssg migrate
 .I provider url
@@ -91,12 +94,26 @@ Scaffold a Cloudflare Pages Functions template into \fB./workers/\fItemplate\fR
 and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBstripe-checkout\fR, \fBdynamic-price\fR, \fBconversions-proxy\fR.
 .TP
-.B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR]
+.B ssg self-update-check
+Report whether a newer release exists. Prints the running version and how this
+binary was installed, and — when a newer release is out — the upgrade command
+for that install: \fBsnap refresh\fR, \fBbrew upgrade\fR, \fBdocker pull\fR,
+\fBapt\fR, \fBdnf\fR, or the releases page for a downloaded binary. It never
+updates anything itself, and it runs only when invoked \(em a build never
+contacts the network. Exits 0 whether or not an update exists; exits 1 only when
+the check could not be made.
+.TP
+.B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR] [\fB\-\-no\-validate\fR]
 Upsert every template and static asset into the MDDB collection named by
 \fBmcp.search.mddb_collection\fR, keyed by project-relative path, and delete
 documents whose file no longer exists. This is what lets \fBdesigner_find\fR
 answer a question phrased as a sentence; without it the find tools scan the
-project locally, which needs no setup. \fB\-\-dry\fR reports without writing.
+project locally, which needs no setup. \fB\-\-dry\fR reports without writing. Each document is checked against the
+collection before it is stored (MDDB 2.12.0+), so lost structured frontmatter is
+reported while the source is still in hand rather than at the next render;
+warnings never fail the push. \fB\-\-no\-validate\fR (or \fBmcp.search.mddb_validate:
+false\fR) skips that round trip for a large batch, and a server without the
+endpoint is detected once and skipped silently.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,

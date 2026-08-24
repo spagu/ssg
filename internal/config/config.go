@@ -741,7 +741,20 @@ type MCPSearch struct {
 	MddbCollection string `yaml:"mddb_collection" toml:"mddb_collection" json:"mddb_collection"` // collection holding the theme
 	MddbLang       string `yaml:"mddb_lang" toml:"mddb_lang" json:"mddb_lang"`                   // query tokenisation language, e.g. "en"
 	MddbFuzzy      int    `yaml:"mddb_fuzzy" toml:"mddb_fuzzy" json:"mddb_fuzzy"`                // typo tolerance: 0 off, 1 or 2 edits
+	// MddbValidate checks each document against the collection before storing
+	// it, so a producer hears about lost structured frontmatter at write time
+	// rather than at the next render (#192). Pointer: on by default, and
+	// `mddb_validate: false` opts a large batch out of the extra round trip —
+	// /v1/validate is per document, so a 10k-document sync doubles its request
+	// count. A server without the endpoint (before MDDB 2.12.0) is skipped
+	// either way. It lives here rather than under `mddb:` because this is where
+	// `ssg mddb push-theme` takes its connection from; that command never reads
+	// the `mddb:` block.
+	MddbValidate *bool `yaml:"mddb_validate" toml:"mddb_validate" json:"mddb_validate"`
 }
+
+// ValidateEnabled reports whether writes should be validated first.
+func (m MCPSearch) ValidateEnabled() bool { return m.MddbValidate == nil || *m.MddbValidate }
 
 // Enabled reports whether an MDDB search backend is configured.
 func (m MCPSearch) Enabled() bool { return m.MddbURL != "" && m.MddbCollection != "" }

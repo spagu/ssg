@@ -1824,8 +1824,13 @@ func extractAuthorFromDoc(doc mddb.Document) models.Author {
 	return mddb.ExtractAuthor(doc)
 }
 
-// logContentStats prints content loading statistics
+// logContentStats prints content loading statistics. Silent under Quiet, like
+// every other line of a build — these four were the only ones that were not,
+// which made "only exit codes" untrue for anyone capturing stdout (#194).
 func (g *Generator) logContentStats() {
+	if g.config.Quiet {
+		return
+	}
 	fmt.Printf("   📄 Loaded %d pages\n", len(g.siteData.Pages))
 	fmt.Printf("   📝 Loaded %d posts\n", len(g.siteData.Posts))
 	fmt.Printf("   📁 Loaded %d categories\n", len(g.siteData.Categories))

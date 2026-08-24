@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // invisibleClass names a group of characters for the report, so an operator
@@ -151,6 +152,24 @@ func sanitizeHTML(s string) (string, sanitizeCounts) {
 		for next < len(protected) && protected[next].to <= i {
 			next++
 		}
+		// A byte that is not valid UTF-8 is not ours to reinterpret. Ranging a
+		// string yields RuneError for each one, and writing that rune back
+		// substitutes U+FFFD — silently, and while reporting zero removals,
+		// because nothing invisible was found. A Latin-1 export would come out
+		// of a build peppered with replacement characters and the log would
+		// deny it (#199).
+		//
+		// Before the protected-span branch, not after: that branch writes the
+		// rune too, so a truncated sequence inside a <code> block was corrupted
+		// by the same substitution. The first version of this fix guarded only
+		// the other path and the fuzz target found the gap immediately.
+		if r == utf8.RuneError {
+			if _, size := utf8.DecodeRuneInString(s[i:]); size == 1 {
+				b.WriteByte(s[i])
+				spaceRun = 0
+				continue
+			}
+		}
 		if next < len(protected) && i >= protected[next].from {
 			b.WriteRune(r)
 			spaceRun = 0
@@ -212,7 +231,7 @@ var verbatimTags = []string{"pre", "code", "script", "style", "textarea"}
 // verbatimSpans locates every region that must survive unchanged, sorted and
 // merged so the caller can walk them with a single forward cursor.
 func verbatimSpans(s string) []span {
-	lower := strings.ToLower(s)
+	lower := asciiLower(s)
 	var out []span
 
 	for _, tag := range verbatimTags {
@@ -242,6 +261,27 @@ func verbatimSpans(s string) []span {
 		}
 	}
 	return mergeSpans(out)
+}
+
+// asciiLower lowercases A-Z and nothing else, byte for byte.
+//
+// strings.ToLower cannot be used here, and the reason is not style: it replaces
+// every byte that is not valid UTF-8 with U+FFFD, which is three bytes where
+// there was one. Every offset then found in the lowercased copy is applied to
+// the original, and the two strings no longer line up — a span running past the
+// end of the document, or starting mid-rune. The fuzz target produced
+// "<pre \x88</pre>", 12 bytes, and got back a span of [0,14) (#199).
+//
+// Tag names are ASCII, so folding only ASCII loses nothing and keeps the two
+// strings the same length by construction.
+func asciiLower(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+	return string(b)
 }
 
 // mergeSpans sorts and coalesces overlapping regions — <pre><code> produces two

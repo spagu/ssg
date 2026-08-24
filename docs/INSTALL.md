@@ -20,6 +20,7 @@ accounts for most of that size; no external libraries or runtimes are needed.
 - [Windows](#windows)
 - [From Source](#from-source)
 - [Verify Installation](#verify-installation)
+- [Staying up to date](#staying-up-to-date)
 
 ---
 
@@ -58,7 +59,7 @@ sudo apt install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.47
+VERSION=1.8.48
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -104,7 +105,7 @@ sudo dnf install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.47
+VERSION=1.8.48
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm
@@ -299,12 +300,61 @@ After installation, verify SSG is working:
 
 ```bash
 # Check version
-ssg --help
+ssg --version
 
 # Quick test
 mkdir -p test-site/{content/my-site,templates/simple}
 ssg my-site simple example.com --http --port=3000
 ```
+
+Every build now names the binary that produced it on its first line, so a log
+read later answers "which ssg was this?" without anyone being asked to run
+`--version` separately:
+
+```
+🧱 ssg 1.8.48
+🔄 Loading content...
+```
+
+`--quiet` suppresses it with everything else.
+
+---
+
+## Staying up to date
+
+```bash
+ssg self-update-check
+```
+
+It prints the running version, how this binary was installed, and whether a
+newer release exists:
+
+```
+🧱 ssg 1.8.30 (installed via snap)
+🆕 A newer release is out: 1.8.48 (you have 1.8.30)
+   https://github.com/spagu/ssg/releases/tag/v1.8.48
+
+   Upgrade with:
+     sudo snap refresh static-site-generator
+```
+
+The upgrade command is the one for **your** install — snap, Homebrew, apt, dnf,
+Docker, or the releases page for a downloaded binary — worked out from where the
+running executable actually sits, not from the operating system. A Homebrew ssg
+on Linux is still Homebrew's, and a binary you copied into `/usr/bin` yourself is
+nobody's to upgrade, so that one is sent to the releases page.
+
+Two things it deliberately does not do:
+
+- **It never updates anything.** It reports; you decide. A tool that rewrites
+  its own binary asks for more trust than a static site generator has any
+  business asking for.
+- **It never runs on its own.** A build does not contact the network — that
+  would be slow, would fail in air-gapped and CI environments, and nobody asked
+  for it. The check happens only when you run it.
+
+It exits 0 whether or not an update exists, so it is safe in a script; exit 1
+means the check itself could not be made.
 
 ---
 

@@ -7,11 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.48] - 2026-08-24
+
+### Added
+- 🔔 **`ssg self-update-check`, and a build that says what built it** (#193).
+
+  Two gaps that compounded. A build's first line was `🔄 Loading content...` and
+  nothing in the output named the version, so a CI log from last month gave no
+  way to tell whether the binary changed or the site did. And there was no way
+  to learn a newer release existed short of visiting the releases page — across
+  six install methods, so "am I current?" had six different answers and you had
+  to know which one was yours.
+
+  Every build now opens with `🧱 ssg 1.8.48` (silent under `--quiet`), and:
+
+  ```
+  $ ssg self-update-check
+  🧱 ssg 1.8.30 (installed via snap)
+  🆕 A newer release is out: 1.8.48 (you have 1.8.30)
+     https://github.com/spagu/ssg/releases/tag/v1.8.48
+
+     Upgrade with:
+       sudo snap refresh static-site-generator
+  ```
+
+  The command is the one for *your* install, worked out from where the running
+  executable actually sits rather than from the operating system: a Homebrew ssg
+  on Linux is still Homebrew's, a snap is detected by the executable living under
+  `$SNAP` (the variable alone proves nothing — it is exported to every process a
+  snap starts), and a binary copied into `/usr/bin` by hand is nobody's to
+  upgrade, so that one is sent to the releases page rather than handed an `apt`
+  command that would not move it.
+
+  What it deliberately does not do: **it never updates anything** — rewriting
+  your own binary asks for more trust than a static site generator should — and
+  **it never runs on its own**. A build makes no network request; a generator
+  that phones home on every run is slow, breaks air-gapped and CI environments,
+  and reports on something nobody asked about. Exit 0 whether or not an update
+  exists, so it is safe in a script; exit 1 only when the check could not be made.
+
+  A version that does not parse — `dev`, a source build — compares as older than
+  any release, so such a build is told what the newest release is rather than
+  being declared current. A version *ahead* of the newest release is told so and
+  left alone.
+- 🧪 **Fuzz targets for the parsers that read bytes ssg did not write** —
+  `orientationFromTIFF`, `stripJPEG`, `sanitizeHTML` and `verbatimSpans`. All
+  four run over content a migration pulled from someone else's server, so
+  malformed input is the normal case rather than a hypothetical, and a panic in
+  a build is a build that stops on a file the operator cannot easily remove from
+  somebody else's export. The image parsers survived ~105 million executions
+  between them without a finding; the sanitiser did not — see below. CI runs a
+  short fuzz pass on every push so the corpus keeps growing.
+- ✅ **`ssg mddb push-theme` validates before it writes** (#192). The render side
+  already recognises a Go-stringified structure and names the document and the
+  field; the producer side was silent, so a bad value was stored successfully and
+  surfaced at the *next* render — another machine, possibly weeks later, naming a
+  document whose author had moved on. MDDB 2.12.0 added the same lint to
+  `/v1/validate`, and ssg now asks before storing. A warning is reported, never
+  fatal — MDDB does not fail validation on one either, because
+  `map[answer:… question:…]` is a valid string. `mcp.search.mddb_validate: false` or
+  `--no-validate` opts a large batch out of the extra round trip, and a server
+  older than 2.12.0 is detected once and skipped silently rather than complained
+  about per document.
+
+### Security
+- 🔤 **The sanitiser no longer rewrites bytes it has no opinion about** (#199),
+  found by its own new fuzz target in under a second. A file that is not valid
+  UTF-8 — a Latin-1 export, a truncated sequence, a byte a scraper mangled — came
+  out with every offending byte replaced by U+FFFD, **while reporting zero
+  removals**: `caf\xe9` became `caf` plus a replacement character, and the build
+  said it had cleaned nothing. Ranging a string yields `RuneError` for each
+  invalid byte, and writing that rune back substitutes three bytes for one.
+  Encoding belongs to `output_encoding`; this function removes invisible
+  characters and nothing else, so an invalid byte now passes through untouched.
+
+  The same root caused a worse defect in `verbatimSpans`, which lowercased the
+  document with `strings.ToLower` to find tags — also substituting U+FFFD, so
+  every offset it found was computed in a string of a different length from the
+  one those offsets are used against. `<pre \x88</pre>` (12 bytes) produced a
+  protected span of `[0,14)`, past the end of the document. Folding ASCII only is
+  length-preserving by construction and loses nothing, since tag names are ASCII.
+
+  Worth recording that the first fix was incomplete — it guarded one path and not
+  the protected-`<code>` branch beside it — and the fuzz target found the gap
+  immediately, on the fixed code. That is the argument for keeping these in CI
+  rather than running them once.
+- 🖼️ **The AVIF pass no longer trusts a file extension** (#198). ssg closed this
+  hole deliberately once: `image.Decode` dispatches on magic bytes, not on the
+  name, and importing `github.com/disintegration/imaging` registers the BMP and
+  TIFF decoders too — so a crafted TIFF called `photo.png` decodes, and then
+  panics in imaging's scanner (CVE-2023-36308, **no fixed release upstream**).
+  `internal/images` therefore checks the *decoded* format against an allowlist
+  before any transform touches the pixels (SEC-013).
+
+  The AVIF pass added in 1.8.46 selected its sources by extension and handed
+  them straight to `imaging.Open`, so it skipped that check entirely. The
+  allowlist is now exported and used by both packages — a second copy of the
+  list is a second thing to forget — and a source whose real format is outside
+  it is refused before imaging sees it. The regression test writes a real TIFF
+  named `.png` and fails without the guard.
+
+  Impact was a crashed build rather than anything worse, but `ssg migrate` pulls
+  media from a site the operator does not control, which is the case the
+  original mitigation was written for.
+
 ### Changed
+- 📌 **Docker base images pinned by digest, with Dependabot to keep them
+  current.** A tag is a moving target — `golang:1.27.0-alpine` is not the same
+  bytes this week as last — so a digest is what makes the build reproducible.
+  A digest nobody updates is worse than a tag, though: the image stops receiving
+  security patches and nothing says so. The pin and the new
+  `.github/dependabot.yml` (docker, gomod, github-actions) are one decision, not
+  two. Digests verified against the registry, not copied from a suggestion.
 - Edited four MCP, migration and preview articles for direct, natural prose;
   checked their technical claims against the implementation, tests and platform
   documentation; and aligned their filenames with the existing lowercase
   kebab-case blog convention. Their published slugs remain unchanged.
+
+### Fixed
+- 🔇 **`--quiet` is quiet** (#194). `--help` promised "only exit codes" and a
+  quiet build still printed four lines to stdout — the content-loading counts,
+  the one function in the build that had no `Quiet` guard while all its siblings
+  did. It made the flag unusable for what it exists for: a build inside a script
+  that captures stdout, a cron job whose output becomes an email, a `ssg daemon`
+  project whose logs are aggregated. Found while adding the startup version line
+  above, which obeys `--quiet` and made the four sitting under it obvious.
+
 
 ## [1.8.47] - 2026-08-21
 

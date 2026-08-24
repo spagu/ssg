@@ -25,13 +25,45 @@ type fakeMddb struct {
 	existing []string
 	failAdd  bool
 	failList bool
+	// validation (#192)
+	validated           int
+	warnings            string
+	validationErrors    string
+	validateUnsupported bool
+}
+
+// validOrNot and errsOrNone let one fake answer both shapes: a document the
+// schema accepts, and one it does not.
+func (f *fakeMddb) validOrNot() string {
+	if f.validationErrors != "" {
+		return "false"
+	}
+	return "true"
+}
+
+func (f *fakeMddb) errsOrNone() string {
+	if f.validationErrors != "" {
+		return f.validationErrors
+	}
+	return "[]"
 }
 
 func (f *fakeMddb) handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		if f.warnings == "" {
+			f.warnings = "[]"
+		}
 		switch r.URL.Path {
+		case "/v1/validate":
+			f.validated++
+			if f.validateUnsupported {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write([]byte(`{"valid":` + f.validOrNot() + `,"errors":` + f.errsOrNone() +
+				`,"warnings":` + f.warnings + `}`))
 		case "/v1/add":
 			if f.failAdd {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -499,5 +531,124 @@ func TestTheBackendRespectsTheLimit(t *testing.T) {
 	empty := docsToFindHits([]mddb.FTSHit{{Document: mddb.Document{Key: "a"}}}, 5)
 	if empty[0].To != 1 {
 		t.Errorf("an empty document must still span one line: %+v", empty[0])
+	}
+}
+
+// TestAWarningReachesTheProducerAtWriteTime is the reported case: the render
+// path already recognises a stringified structure, but it does so at the next
+// render — another machine, possibly weeks later, naming a document whose
+// author has moved on (#192).
+func TestAWarningReachesTheProducerAtWriteTime(t *testing.T) {
+	f := &fakeMddb{warnings: `["meta.faq: looks like a Go-stringified list of objects"]`}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	themeProject(t, srv.URL)
+
+	out := captureStderr(t, func() {
+		if code := runMddbPushTheme(nil); code != 0 {
+			t.Errorf("code = %d — a warning must never fail the push", code)
+		}
+	})
+	if !strings.Contains(out, "meta.faq") {
+		t.Errorf("the warning must reach the operator: %q", out)
+	}
+	if f.validated == 0 {
+		t.Error("nothing was validated")
+	}
+	// The documents still landed: a warning is advisory on both sides.
+	if len(f.added) != 3 {
+		t.Errorf("pushed %d, want 3", len(f.added))
+	}
+}
+
+// TestAnOlderMddbIsAskedOnce, not once per document — a per-file complaint
+// about the server would drown the output it is trying to help.
+func TestAnOlderMddbIsAskedOnce(t *testing.T) {
+	f := &fakeMddb{validateUnsupported: true}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	themeProject(t, srv.URL)
+
+	if code := runMddbPushTheme(nil); code != 0 {
+		t.Fatalf("an older server must not fail the push: %d", code)
+	}
+	if f.validated != 1 {
+		t.Errorf("validated %d time(s), want exactly 1", f.validated)
+	}
+	if len(f.added) != 3 {
+		t.Errorf("pushed %d, want 3", len(f.added))
+	}
+}
+
+// TestValidationCanBeTurnedOff for a batch that does not want the extra round
+// trip: /v1/validate is per document, so a large sync doubles its requests.
+func TestValidationCanBeTurnedOff(t *testing.T) {
+	f := &fakeMddb{warnings: `["meta.faq: stringified"]`}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	themeProject(t, srv.URL)
+
+	if code := runMddbPushTheme([]string{"--no-validate"}); code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if f.validated != 0 {
+		t.Errorf("--no-validate still validated %d document(s)", f.validated)
+	}
+	if len(f.added) != 3 {
+		t.Errorf("pushed %d, want 3", len(f.added))
+	}
+}
+
+// TestAValidationThatCannotRunDoesNotStopTheWrite: the document is fine as far
+// as anyone knows, and refusing to store it because a diagnostic failed would
+// turn a convenience into an outage (#192).
+func TestAValidationThatCannotRunDoesNotStopTheWrite(t *testing.T) {
+	var mu sync.Mutex
+	var added int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.URL.Path {
+		case "/v1/validate":
+			_, _ = w.Write([]byte(`not json at all`))
+		case "/v1/add":
+			added++
+		case "/v1/search":
+			_, _ = w.Write([]byte(`[]`))
+		}
+	}))
+	defer srv.Close()
+	themeProject(t, srv.URL)
+
+	out := captureStderr(t, func() {
+		if code := runMddbPushTheme(nil); code != 0 {
+			t.Errorf("code = %d — a broken validator must not fail the push", code)
+		}
+	})
+	if !strings.Contains(out, "could not validate") {
+		t.Errorf("the failure must be reported: %q", out)
+	}
+	if added != 3 {
+		t.Errorf("added %d document(s), want 3", added)
+	}
+}
+
+// TestASchemaErrorIsReportedBesideTheWarning: the two are independent on the
+// MDDB side, and a producer fixing one still needs to see the other (#192).
+func TestASchemaErrorIsReportedBesideTheWarning(t *testing.T) {
+	f := &fakeMddb{
+		warnings:         `["meta.faq: stringified"]`,
+		validationErrors: `["meta.kind: required"]`,
+	}
+	srv := httptest.NewServer(f.handler())
+	defer srv.Close()
+	themeProject(t, srv.URL)
+
+	out := captureStderr(t, func() { runMddbPushTheme(nil) })
+	if !strings.Contains(out, "meta.kind: required") {
+		t.Errorf("the schema error must be reported: %q", out)
+	}
+	if !strings.Contains(out, "meta.faq: stringified") {
+		t.Errorf("the warning must be reported alongside it: %q", out)
 	}
 }
