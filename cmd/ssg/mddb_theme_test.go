@@ -333,7 +333,8 @@ func TestTheSearchBackendMapsHitsToPaths(t *testing.T) {
 			t.Errorf("path = %q", r.URL.Path)
 		}
 		_, _ = w.Write([]byte(`{"results":[{"document":{"key":"static/css/style.css",` +
-			`"contentMd":"a\nb\nc\nd\ne\nf\ng\nh","meta":{"path":["static/css/style.css"]}},"score":0.9}]}`))
+			`"contentMd":"a\nb\nc\nd\ne\nf\ng\nh","meta":{"path":["static/css/style.css"]}},` +
+			`"score":0.9,"highlights":[{"fragment":"body { background: #fff; }","startLine":39,"endLine":43}]}]}`))
 	}))
 	defer srv.Close()
 
@@ -354,9 +355,12 @@ func TestTheSearchBackendMapsHitsToPaths(t *testing.T) {
 	if !strings.Contains(hits[0].Note, "0.9") {
 		t.Errorf("the score must be shown: %q", hits[0].Note)
 	}
-	// The fragment is clipped, or one document swamps the reply.
-	if got := strings.Count(hits[0].Fragment, "\n") + 1; got != 5 {
-		t.Errorf("fragment is %d lines, want %d", got, 5)
+	// The locus is the highlight's own range, not the head of the file (#203).
+	if hits[0].From != 39 || hits[0].To != 43 {
+		t.Errorf("range = %d-%d, want 39-43", hits[0].From, hits[0].To)
+	}
+	if !strings.Contains(hits[0].Fragment, "background") {
+		t.Errorf("fragment = %q, want the matching text", hits[0].Fragment)
 	}
 }
 
@@ -650,5 +654,81 @@ func TestASchemaErrorIsReportedBesideTheWarning(t *testing.T) {
 	}
 	if !strings.Contains(out, "meta.faq: stringified") {
 		t.Errorf("the warning must be reported alongside it: %q", out)
+	}
+}
+
+// TestEachHighlightIsItsOwnLocus: a document that matched in two places is two
+// answers, because the agent's next step anchors an edit in one of them (#203).
+func TestEachHighlightIsItsOwnLocus(t *testing.T) {
+	hits := []mddb.FTSHit{{
+		Document: mddb.Document{Key: "templates/site/base.html", Content: "irrelevant"},
+		Score:    0.34,
+		Highlights: []mddb.Highlight{
+			{Fragment: "© 2007 example.com", StartLine: 39, EndLine: 43},
+			{Fragment: "footer nav", StartLine: 58, EndLine: 64},
+		},
+	}}
+	got := docsToFindHits(hits, 10)
+	if len(got) != 2 {
+		t.Fatalf("got %d loci, want 2: %+v", len(got), got)
+	}
+	if got[0].From != 39 || got[0].To != 43 || got[1].From != 58 || got[1].To != 64 {
+		t.Errorf("ranges = %d-%d and %d-%d", got[0].From, got[0].To, got[1].From, got[1].To)
+	}
+	for _, h := range got {
+		if h.Path != "templates/site/base.html" {
+			t.Errorf("path = %q", h.Path)
+		}
+	}
+}
+
+// TestAServerWithoutLineRangesSaysSoRatherThanInventOne. Printing lines 1-N as
+// though the match were there is what made the old answer worse than the local
+// scan: a real file beside a made-up location.
+func TestAServerWithoutLineRangesSaysSoRatherThanInventOne(t *testing.T) {
+	hits := []mddb.FTSHit{{
+		Document:   mddb.Document{Key: "css/style.css", Content: "first line\nsecond\nthird"},
+		Score:      0.47,
+		Highlights: []mddb.Highlight{{Fragment: "no line numbers here"}}, // pre-2.12.0
+	}}
+	got := docsToFindHits(hits, 10)
+	if len(got) != 1 {
+		t.Fatalf("got %d loci", len(got))
+	}
+	if !strings.Contains(got[0].Note, "line unknown") {
+		t.Errorf("the reply must admit it has no location: %q", got[0].Note)
+	}
+	if got[0].Fragment != "first line" {
+		t.Errorf("fragment = %q, want the document's opening line as a label", got[0].Fragment)
+	}
+}
+
+// TestAMalformedRangeIsDiscarded rather than reported as a location.
+func TestAMalformedRangeIsDiscarded(t *testing.T) {
+	hits := []mddb.FTSHit{{
+		Document: mddb.Document{Key: "a.css", Content: "x"},
+		Highlights: []mddb.Highlight{
+			{Fragment: "zero", StartLine: 0, EndLine: 5},
+			{Fragment: "backwards", StartLine: 9, EndLine: 4},
+			{Fragment: "good", StartLine: 3, EndLine: 7},
+		},
+	}}
+	got := docsToFindHits(hits, 10)
+	if len(got) != 1 || got[0].From != 3 || got[0].To != 7 {
+		t.Fatalf("got %+v, want only the well-formed range", got)
+	}
+}
+
+// TestTheLimitCountsLoci, not documents: three matches in one file is three
+// answers, and a limit of two must stop at two.
+func TestTheLimitCountsLoci(t *testing.T) {
+	hits := []mddb.FTSHit{{
+		Document: mddb.Document{Key: "a.css"},
+		Highlights: []mddb.Highlight{
+			{StartLine: 1, EndLine: 2}, {StartLine: 5, EndLine: 6}, {StartLine: 9, EndLine: 10},
+		},
+	}}
+	if got := docsToFindHits(hits, 2); len(got) != 2 {
+		t.Errorf("got %d loci, want 2", len(got))
 	}
 }

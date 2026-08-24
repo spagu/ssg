@@ -282,6 +282,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 		APIKey:    cfg.Mddb.APIKey,
 		Timeout:   cfg.Mddb.Timeout,
 		BatchSize: cfg.Mddb.BatchSize,
+		AllowHTTP: cfg.Mddb.AllowHTTP,
 	})
 	if err != nil {
 		errf("❌ Error creating MDDB client: %v\n", err)
@@ -726,6 +727,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			Lang:       cfg.Mddb.Lang,
 			Timeout:    cfg.Mddb.Timeout,
 			BatchSize:  cfg.Mddb.BatchSize,
+			AllowHTTP:  cfg.Mddb.AllowHTTP,
 		},
 	}
 }

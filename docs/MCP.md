@@ -143,7 +143,19 @@ mcp:
     mddb_api_key: $MDDB_TOKEN   # optional; always $ENV, never a literal
     mddb_lang: en               # query tokenisation
     mddb_fuzzy: 1               # typo tolerance: 0 off, 1 or 2 edits
+    mddb_allow_http: true       # only if the URL is http:// on a private network
 ```
+
+The API key travels in `X-API-Key`, which is the header MDDB validates keys
+from. Its bearer path is for JWTs — a key sent that way is parsed as a token and
+refused with `401 invalid token`, which blames the key rather than the header. If
+`mddb_api_key` holds a JWT instead, it is sent as `Authorization: Bearer` and
+both work.
+
+An API key is refused over plaintext `http://` to anything but loopback. On a
+private container network — `http://mddb:11023`, never leaving the host — that is
+the same trust boundary as loopback spelled with a service name, so
+`mddb_allow_http: true` says so deliberately. Leave it off for anything routable.
 
 Fill the collection with `ssg mddb push-theme`:
 

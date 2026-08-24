@@ -17,7 +17,7 @@ func TestEnsureSecureForAPIKey(t *testing.T) {
 		{"http://10.0.0.5:11023", true},
 	}
 	for _, tt := range tests {
-		err := ensureSecureForAPIKey(tt.url)
+		err := ensureSecureForAPIKey(tt.url, false)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("ensureSecureForAPIKey(%q) err=%v, wantErr=%v", tt.url, err, tt.wantErr)
 		}

@@ -35,16 +35,21 @@ type Shortcode struct {
 
 // MddbConfig holds MDDB connection settings
 type MddbConfig struct {
-	Enabled       bool   `yaml:"enabled" toml:"enabled" json:"enabled"`                      // Enable mddb as content source
-	URL           string `yaml:"url" toml:"url" json:"url"`                                  // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
-	Protocol      string `yaml:"protocol" toml:"protocol" json:"protocol"`                   // Connection protocol: "http" (default) or "grpc"
-	APIKey        string `yaml:"api_key" toml:"api_key" json:"api_key"`                      // Optional API key
-	Collection    string `yaml:"collection" toml:"collection" json:"collection"`             // Collection name for content
-	Lang          string `yaml:"lang" toml:"lang" json:"lang"`                               // Language filter (e.g., "en_US")
-	Timeout       int    `yaml:"timeout" toml:"timeout" json:"timeout"`                      // Request timeout in seconds
-	BatchSize     int    `yaml:"batch_size" toml:"batch_size" json:"batch_size"`             // Batch size for pagination (default: 1000)
-	Watch         bool   `yaml:"watch" toml:"watch" json:"watch"`                            // Enable watch mode for MDDB changes
-	WatchInterval int    `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
+	Enabled    bool   `yaml:"enabled" toml:"enabled" json:"enabled"`          // Enable mddb as content source
+	URL        string `yaml:"url" toml:"url" json:"url"`                      // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
+	Protocol   string `yaml:"protocol" toml:"protocol" json:"protocol"`       // Connection protocol: "http" (default) or "grpc"
+	APIKey     string `yaml:"api_key" toml:"api_key" json:"api_key"`          // Optional API key
+	Collection string `yaml:"collection" toml:"collection" json:"collection"` // Collection name for content
+	Lang       string `yaml:"lang" toml:"lang" json:"lang"`                   // Language filter (e.g., "en_US")
+	Timeout    int    `yaml:"timeout" toml:"timeout" json:"timeout"`          // Request timeout in seconds
+	BatchSize  int    `yaml:"batch_size" toml:"batch_size" json:"batch_size"` // Batch size for pagination (default: 1000)
+	Watch      bool   `yaml:"watch" toml:"watch" json:"watch"`                // Enable watch mode for MDDB changes
+	// AllowHTTP permits sending the API key over plaintext http:// to a
+	// non-loopback host — a container network that never leaves the host is
+	// the same trust boundary as loopback, spelled with a service name. Off by
+	// default; the same opt-in `external_sources` already take (#201).
+	AllowHTTP     bool `yaml:"allow_http" toml:"allow_http" json:"allow_http"`
+	WatchInterval int  `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
 }
 
 // ContentSource is one extra Markdown root merged into the site (CONTENT-002).
@@ -751,6 +756,9 @@ type MCPSearch struct {
 	// `ssg mddb push-theme` takes its connection from; that command never reads
 	// the `mddb:` block.
 	MddbValidate *bool `yaml:"mddb_validate" toml:"mddb_validate" json:"mddb_validate"`
+	// MddbAllowHTTP is the same opt-in as mddb.allow_http, for the search
+	// client this block configures (#201).
+	MddbAllowHTTP bool `yaml:"mddb_allow_http" toml:"mddb_allow_http" json:"mddb_allow_http"`
 }
 
 // ValidateEnabled reports whether writes should be validated first.

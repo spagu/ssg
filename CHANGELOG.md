@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🔑 **The MDDB API key goes in the header MDDB reads it from** (#202). ssg sent
+  it as `Authorization: Bearer`, and MDDB's HTTP middleware takes whatever
+  follows `Bearer ` and validates it as a JWT — the `X-API-Key` path is reached
+  only when there is no bearer value at all. So a correct key was parsed as a
+  token, refused, and came back as `401 invalid token`, which sends the reader
+  off to check a key that was right all along.
+
+  Every request from `ssg mddb push-theme` and from `designer_find`'s MDDB
+  backend failed this way. The feature could not work with an API key at all.
+  A credential shaped like a JWT still travels as a bearer token, so the
+  long-lived-JWT workaround people reached for keeps working.
+
+  The test that should have caught this asserted `Bearer test-api-key` — the bug
+  written down as a requirement — against a fake that ignored auth entirely. The
+  fake now refuses what MDDB refuses, so a credential in the wrong header fails a
+  test the way it fails a deployment.
+- 📍 **`designer_find`'s MDDB backend reports where the match is** (#203). It
+  printed lines 1–5 of the document: a real file beside a made-up location, which
+  is worse than the local scan it was meant to improve on, because the agent's
+  next step is an anchored edit and there was nothing to anchor to. It now asks
+  for highlights and reports each one's own line range, so a document matching in
+  two places gives two loci. Against a server predating MDDB 2.12.0's line ranges
+  it says the line is unknown rather than inventing one.
+
+### Added
+- 🔓 **`mddb.allow_http` / `mcp.search.mddb_allow_http`** (#201). An API key was
+  refused over plaintext `http://` to anything but loopback — right on the
+  internet, blind on a private network, where `http://mddb:11023` is the same
+  trust boundary as loopback spelled with a service name. The only escape was a
+  private CA mounted into every container that runs ssg, plus `SSL_CERT_FILE` in
+  each environment: an hour of certificate ceremony to encrypt a link between two
+  processes on one host. The same opt-in `external_sources` already take, off by
+  default, and the refusal now names the setting that would change it.
+
 ## [1.8.48] - 2026-08-24
 
 ### Added

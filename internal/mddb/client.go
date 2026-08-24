@@ -21,6 +21,7 @@ type Client struct {
 	httpClient *http.Client
 	apiKey     string
 	batchSize  int
+	allowHTTP  bool
 }
 
 // Config holds mddb client configuration
@@ -29,6 +30,11 @@ type Config struct {
 	APIKey    string // Optional API key for authentication
 	Timeout   int    // Timeout in seconds (default: 30)
 	BatchSize int    // Batch size for pagination (default: 1000)
+	// AllowHTTP permits sending the API key over plaintext http:// to a
+	// non-loopback host. Off by default and deliberately awkward to turn on:
+	// it is the right answer on a private container network and the wrong one
+	// on anything routable (#201).
+	AllowHTTP bool
 }
 
 // Document represents a markdown document from mddb
@@ -130,6 +136,7 @@ func NewClient(cfg Config) *Client {
 		},
 		apiKey:    cfg.APIKey,
 		batchSize: batchSize,
+		allowHTTP: cfg.AllowHTTP,
 	}
 }
 
@@ -350,16 +357,22 @@ func (c *Client) Checksum(collection string) (*ChecksumResponse, error) {
 // ensureSecureForAPIKey refuses to attach a Bearer API key over plaintext http://
 // to a non-loopback host, preventing credential leakage over untrusted networks
 // (SEC-007). https:// and loopback hosts (localhost, 127.0.0.0/8, ::1) are allowed.
-func ensureSecureForAPIKey(rawURL string) error {
+func ensureSecureForAPIKey(rawURL string, allowHTTP bool) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("parsing mddb URL %q: %w", rawURL, err)
 	}
-	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) {
+	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) || allowHTTP {
 		return nil
 	}
+	// The message names the setting that would change the answer. A refusal
+	// whose only remedy is reading the source teaches people to route around
+	// the tool: the escape from this one used to be a private CA mounted into
+	// every container, an hour of certificate ceremony to encrypt a link
+	// between two processes on one host (#201).
 	return fmt.Errorf(
-		"refusing to send API key over plaintext %s:// to non-loopback host %q; use https://",
+		"refusing to send API key over plaintext %s:// to non-loopback host %q; "+
+			"use https://, or set mddb.allow_http / mcp.search.mddb_allow_http when the network is private",
 		u.Scheme, u.Hostname())
 }
 
@@ -392,10 +405,10 @@ func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response
 	req.Header.Set("Accept", "application/json")
 
 	if c.apiKey != "" {
-		if err := ensureSecureForAPIKey(c.baseURL); err != nil {
+		if err := ensureSecureForAPIKey(c.baseURL, c.allowHTTP); err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		setCredential(req.Header, c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -413,4 +426,59 @@ func (c *Client) doRequest(method, endpoint string, body []byte) (*http.Response
 	// SEC-009: cap every successful body so downstream decoders/readers are bounded.
 	resp.Body = limitedBody(resp.Body, maxResponseSize)
 	return resp, nil
+}
+
+// setCredential puts the configured secret in the header MDDB reads it from.
+//
+// The two are not interchangeable, which is the whole of #202. MDDB's HTTP
+// middleware takes whatever follows "Bearer " and validates it as a JWT; only
+// when there is no bearer value at all does it look at X-API-Key. So an API key
+// sent as a bearer token is never even offered to the key path — it is parsed
+// as a token, fails, and comes back as `401 invalid token`, which sends the
+// reader off to check a key that was correct all along.
+//
+// A JWT is three base64url segments separated by dots. Anything else is a
+// credential MDDB validates as a key, so it goes in X-API-Key: that is the
+// documented header, and defaulting to it means a key of any format works
+// rather than only the mddb_live_ / mddb_test_ shapes we happen to know about.
+func setCredential(h http.Header, secret string) {
+	if looksLikeJWT(secret) {
+		h.Set("Authorization", "Bearer "+secret)
+		return
+	}
+	h.Set("X-API-Key", secret)
+}
+
+// looksLikeJWT reports whether secret has the shape of a JSON Web Token.
+func looksLikeJWT(secret string) bool {
+	parts := strings.Split(secret, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, r := range p {
+			// base64url: the standard alphabet with - and _ for + and /, and
+			// = where a JWT is padded (it usually is not).
+			if !isBase64URLChar(r) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// isBase64URLChar reports whether r may appear in a JWT segment: the base64url
+// alphabet, which swaps + and / for - and _, plus = where a token is padded
+// (most are not).
+func isBase64URLChar(r rune) bool {
+	switch {
+	case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		return true
+	case r == '-', r == '_', r == '=':
+		return true
+	}
+	return false
 }
