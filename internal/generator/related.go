@@ -115,6 +115,7 @@ func (g *Generator) relatedMddbClient() mddb.MddbClient {
 			APIKey:    g.config.Mddb.APIKey,
 			Timeout:   g.config.Mddb.Timeout,
 			BatchSize: g.config.Mddb.BatchSize,
+			AllowHTTP: g.config.Mddb.AllowHTTP,
 		})
 		if err != nil {
 			fmt.Printf("   ⚠️  relatedFromMddb: %v\n", err)

@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.49] - 2026-08-24
+
+### Fixed
+- ✂️ **A line is no longer treated as a unit of size** (#204, #205). `designer_find`
+  and `designer_edit` reported context by line — the matched lines, the changed
+  line, a few either side. On a minified stylesheet a line *is* the file, so
+  three colour changes across two minified files cost 40–50k tokens: the exact
+  cost the anchored edit was built to remove, back through a side door. Migrated
+  themes are where this lands, since many WordPress sites ship their CSS and JS
+  already minified and a migration keeps what it fetched.
+
+  A match on a line longer than 400 characters now comes back as a window of
+  ±160 characters with a column range — `static/css/site.css:1:9834-9859` — so a
+  one-line file yields a one-line answer of a few hundred bytes and an anchored
+  edit still has an exact target. Whatever is omitted is stated, and every
+  fragment is capped whatever produced it. Lines stay the right unit for source
+  that has lines: the switch keys on the length of the line in hand, not on the
+  file's name, so a hand-written stylesheet with one enormous selector list is
+  treated the same and a minified file with short lines is not punished for what
+  it is called.
+
+  The window snaps to rune boundaries in both directions. Slicing UTF-8 at an
+  offset that is not a boundary is how a tool corrupts text instead of trimming
+  it — the same mistake as #199, one week apart, in unrelated code.
+- 🔑 **The MDDB API key goes in the header MDDB reads it from** (#202). ssg sent
+  it as `Authorization: Bearer`, and MDDB's HTTP middleware takes whatever
+  follows `Bearer ` and validates it as a JWT — the `X-API-Key` path is reached
+  only when there is no bearer value at all. So a correct key was parsed as a
+  token, refused, and came back as `401 invalid token`, which sends the reader
+  off to check a key that was right all along.
+
+  Every request from `ssg mddb push-theme` and from `designer_find`'s MDDB
+  backend failed this way. The feature could not work with an API key at all.
+  A credential shaped like a JWT still travels as a bearer token, so the
+  long-lived-JWT workaround people reached for keeps working.
+
+  The test that should have caught this asserted `Bearer test-api-key` — the bug
+  written down as a requirement — against a fake that ignored auth entirely. The
+  fake now refuses what MDDB refuses, so a credential in the wrong header fails a
+  test the way it fails a deployment.
+- 📍 **`designer_find`'s MDDB backend reports where the match is** (#203). It
+  printed lines 1–5 of the document: a real file beside a made-up location, which
+  is worse than the local scan it was meant to improve on, because the agent's
+  next step is an anchored edit and there was nothing to anchor to. It now asks
+  for highlights and reports each one's own line range, so a document matching in
+  two places gives two loci. Against a server predating MDDB 2.12.0's line ranges
+  it says the line is unknown rather than inventing one.
+
+### Added
+- 🔓 **`mddb.allow_http` / `mcp.search.mddb_allow_http`** (#201). An API key was
+  refused over plaintext `http://` to anything but loopback — right on the
+  internet, blind on a private network, where `http://mddb:11023` is the same
+  trust boundary as loopback spelled with a service name. The only escape was a
+  private CA mounted into every container that runs ssg, plus `SSL_CERT_FILE` in
+  each environment: an hour of certificate ceremony to encrypt a link between two
+  processes on one host. The same opt-in `external_sources` already take, off by
+  default, and the refusal now names the setting that would change it.
+
 ## [1.8.48] - 2026-08-24
 
 ### Added

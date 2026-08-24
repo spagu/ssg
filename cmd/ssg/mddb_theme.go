@@ -42,7 +42,11 @@ func runMddbPushTheme(args []string) int {
 			"   (see docs/MCP.md; without it the find tools scan the project locally, which needs no setup)\n")
 		return 1
 	}
-	client := mddb.NewClient(mddb.Config{BaseURL: sc.MddbURL, APIKey: expandEnvValue(sc.MddbAPIKey)})
+	client := mddb.NewClient(mddb.Config{
+		BaseURL:   sc.MddbURL,
+		APIKey:    expandEnvValue(sc.MddbAPIKey),
+		AllowHTTP: sc.MddbAllowHTTP,
+	})
 	lang := firstNonEmpty(flags.lang, sc.MddbLang, "en")
 	flags.validate = sc.ValidateEnabled() && !flags.noValidate
 

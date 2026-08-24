@@ -22,19 +22,41 @@ type FTSRequest struct {
 	Fuzzy      int    `json:"fuzzy,omitempty"`
 	Lang       string `json:"lang,omitempty"`
 	Mode       string `json:"mode,omitempty"`
+	// Highlight asks for the matching fragments and, from MDDB 2.12.0, the
+	// line range of each. Without it a hit names a document and nothing more,
+	// and the caller is left printing the head of the file as if that were
+	// where the match was (#203).
+	Highlight bool `json:"highlight,omitempty"`
+	// MaxHighlights caps the fragments per document; 0 leaves it to the server.
+	MaxHighlights int `json:"maxHighlights,omitempty"`
 }
 
-// FTSHit is one scored document from a full-text query.
+// Highlight is one matching region of a document.
+//
+// StartLine and EndLine are 1-based and inclusive. They are zero against a
+// server older than 2.12.0, which is the case a caller has to handle rather
+// than paper over: a made-up line range is worse than none, because the next
+// step is an anchored edit that has nothing to anchor to.
+type Highlight struct {
+	Fragment  string `json:"fragment"`
+	StartLine int    `json:"startLine"`
+	EndLine   int    `json:"endLine"`
+}
+
+// FTSHit is one scored document from a full-text query, with the regions that
+// matched when highlights were asked for.
 type FTSHit struct {
-	Document Document
-	Score    float64
+	Document   Document
+	Score      float64
+	Highlights []Highlight
 }
 
 // ftsResponse mirrors the endpoint's envelope.
 type ftsResponse struct {
 	Results []struct {
-		Document mddbDocument `json:"document"`
-		Score    float64      `json:"score"`
+		Document   mddbDocument `json:"document"`
+		Score      float64      `json:"score"`
+		Highlights []Highlight  `json:"highlights"`
 	} `json:"results"`
 	Total int `json:"total"`
 }
@@ -61,7 +83,11 @@ func (c *Client) FTS(req FTSRequest) ([]FTSHit, error) {
 	hits := make([]FTSHit, len(out.Results))
 	for i, r := range out.Results {
 		doc := r.Document
-		hits[i] = FTSHit{Document: doc.toDocument(req.Collection), Score: r.Score}
+		hits[i] = FTSHit{
+			Document:   doc.toDocument(req.Collection),
+			Score:      r.Score,
+			Highlights: r.Highlights,
+		}
 	}
 	return hits, nil
 }

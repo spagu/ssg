@@ -1532,10 +1532,18 @@ mddb:
 | `mddb.collection` | empty | `--mddb-collection` |
 | `mddb.lang` | empty | `--mddb-lang` |
 | `mddb.api_key` | empty | `--mddb-key` |
+| `mddb.allow_http` | `false` | — |
 | `mddb.timeout` | `30` | `--mddb-timeout` |
 | `mddb.batch_size` | `1000` | `--mddb-batch-size` |
 | `mddb.watch` | `false` | `--mddb-watch` |
 | `mddb.watch_interval` | `30` | `--mddb-watch-interval` |
+
+`mddb.allow_http` permits the API key over plaintext `http://` to a host that is
+not loopback. It is off by default and should stay off for anything routable —
+but a container network that never leaves the host is the same trust boundary as
+loopback, spelled with a service name, and `http://mddb:11023` had no way to say
+so. The key itself travels in `X-API-Key`; a value shaped like a JWT is sent as
+`Authorization: Bearer` instead.
 
 HTTP commonly uses `http://localhost:11023`; gRPC commonly uses
 `localhost:11024`. MDDB watch polls the collection checksum and rebuilds when it
@@ -1849,6 +1857,7 @@ MDDB collection and it can:
 | `mcp.search.mddb_lang` | Language used to tokenise the query, e.g. `en` |
 | `mcp.search.mddb_fuzzy` | Typo tolerance: `0` off, `1` or `2` edit distance |
 | `mcp.search.mddb_validate` | Check each document before storing it (`ssg mddb push-theme`, MDDB 2.12.0+). Default on; warnings never fail a push |
+| `mcp.search.mddb_allow_http` | Permit the API key over plaintext `http://` to a non-loopback host — a private container network. Off by default |
 
 ```yaml
 mcp:

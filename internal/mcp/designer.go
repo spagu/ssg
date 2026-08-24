@@ -51,8 +51,9 @@ func (s *Server) designerTools() []tool {
 			description: "DESIGNER · Change ONE piece of a template or asset in place — PREFER THIS over " +
 				"designer_write for anything smaller than a rewrite. Give the exact existing text as " +
 				"`old` and its replacement as `new`; `old` must appear exactly once in the file. " +
-				"Costs a fraction of a full write and returns the changed lines in context, so no " +
-				"verifying re-read is needed. Refuses (naming the count) when `old` matches zero or " +
+				"Costs a fraction of a full write and returns the change in context, so no " +
+				"verifying re-read is needed \u2014 bounded by characters on a minified or otherwise very " +
+				"long line, so the reply never grows to the file. Refuses (naming the count) when `old` matches zero or " +
 				"several times, so nothing fuzzy ever lands.",
 			schema:  editSchema("Project-relative path under a template/asset directory"),
 			handler: s.designerEdit,

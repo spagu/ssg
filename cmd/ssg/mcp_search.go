@@ -25,8 +25,9 @@ func buildMCPSearch(cfg *config.Config, logf func(string, ...any)) func(string, 
 		return nil
 	}
 	client := mddb.NewClient(mddb.Config{
-		BaseURL: sc.MddbURL,
-		APIKey:  expandEnvValue(sc.MddbAPIKey),
+		BaseURL:   sc.MddbURL,
+		APIKey:    expandEnvValue(sc.MddbAPIKey),
+		AllowHTTP: sc.MddbAllowHTTP,
 	})
 	logf("   🔎 search: MDDB %s collection %q (local scan is the fallback)", sc.MddbURL, sc.MddbCollection)
 
@@ -37,6 +38,10 @@ func buildMCPSearch(cfg *config.Config, logf func(string, ...any)) func(string, 
 			Limit:      limit,
 			Fuzzy:      sc.MddbFuzzy,
 			Lang:       sc.MddbLang,
+			// Without highlights a hit names a file and nothing else, and the
+			// answer carries a real path beside a made-up location (#203).
+			Highlight:     true,
+			MaxHighlights: mcpSearchMaxHighlights,
 		})
 		if err != nil {
 			return nil, err
@@ -45,26 +50,72 @@ func buildMCPSearch(cfg *config.Config, logf func(string, ...any)) func(string, 
 	}
 }
 
-// docsToFindHits turns scored documents into the find-tool shape. The key is
-// the project-relative path the theme sync stored them under, so a hit is
-// directly actionable: read it, or anchor an edit in it.
+// mcpSearchMaxHighlights caps the regions asked for per document. A find is
+// meant to point somewhere; a document that matches in twenty places is a
+// document to read, not a locus.
+const mcpSearchMaxHighlights = 3
+
+// docsToFindHits turns scored documents into the find-tool shape.
+//
+// Each highlight is its own locus, because that is what the caller does next:
+// an anchored edit needs the neighbourhood of the match, and a document that
+// matched in two places has two of them. The key is the project-relative path
+// the theme sync stored the document under, so a hit names the file to open.
 func docsToFindHits(hits []mddb.FTSHit, limit int) []mcp.FindHit {
 	out := make([]mcp.FindHit, 0, len(hits))
 	for _, h := range hits {
-		if len(out) >= limit {
-			break
+		for _, loc := range locate(h) {
+			if len(out) >= limit {
+				return out
+			}
+			out = append(out, loc)
 		}
-		lines := strings.Split(h.Document.Content, "\n")
-		to := min(len(lines), mcp.FindFragmentLines)
-		out = append(out, mcp.FindHit{
-			Path:     documentPath(h.Document),
-			From:     1,
-			To:       max(to, 1),
-			Fragment: strings.Join(lines[:to], "\n"),
-			Note:     fmt.Sprintf("score %.2f", h.Score),
-		})
 	}
 	return out
+}
+
+// locate turns one scored document into the regions worth reporting.
+func locate(h mddb.FTSHit) []mcp.FindHit {
+	path, note := documentPath(h.Document), fmt.Sprintf("score %.2f", h.Score)
+
+	var out []mcp.FindHit
+	for _, hl := range h.Highlights {
+		// A server older than 2.12.0 sends fragments without line numbers.
+		// Reporting 0, or inventing a range, would hand the agent a location
+		// that is not one — worse than the local scan, which at least reports
+		// the lines it matched.
+		if hl.StartLine < 1 || hl.EndLine < hl.StartLine {
+			continue
+		}
+		out = append(out, mcp.FindHit{
+			Path:     path,
+			From:     hl.StartLine,
+			To:       hl.EndLine,
+			Fragment: hl.Fragment,
+			Note:     note,
+		})
+	}
+	if len(out) > 0 {
+		return out
+	}
+	// No usable highlight: name the document and say so, rather than print its
+	// first lines as though the match were there.
+	return []mcp.FindHit{{
+		Path:     path,
+		From:     1,
+		To:       1,
+		Fragment: firstLine(h.Document.Content),
+		Note:     note + ", line unknown — this MDDB predates highlight line ranges",
+	}}
+}
+
+// firstLine returns the document's opening line, as a label rather than as a
+// claim about where the match is.
+func firstLine(content string) string {
+	if i := strings.IndexByte(content, '\n'); i >= 0 {
+		return content[:i]
+	}
+	return content
 }
 
 // documentPath prefers the stored path metadata and falls back to the key,

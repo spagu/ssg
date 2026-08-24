@@ -36,6 +36,7 @@ type ClientConfig struct {
 	APIKey    string // Optional API key for authentication
 	Timeout   int    // Timeout in seconds (default: 30)
 	BatchSize int    // Batch size for pagination (default: 1000)
+	AllowHTTP bool   // Permit an API key over plaintext http:// to a private host (#201)
 }
 
 // NewMddbClient creates a new MDDB client based on protocol configuration
@@ -55,6 +56,7 @@ func NewMddbClient(cfg ClientConfig) (MddbClient, error) {
 			APIKey:    cfg.APIKey,
 			Timeout:   cfg.Timeout,
 			BatchSize: cfg.BatchSize,
+			AllowHTTP: cfg.AllowHTTP,
 		}), nil
 	}
 }

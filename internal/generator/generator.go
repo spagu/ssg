@@ -81,6 +81,7 @@ type MddbConfig struct {
 	Lang       string // Language filter (e.g., "en_US")
 	Timeout    int    // Request timeout in seconds
 	BatchSize  int    // Batch size for pagination (default: 1000)
+	AllowHTTP  bool   // Permit an API key over plaintext http:// to a private host (#201)
 	// Watch/WatchInterval live in the CLI config only — the watch loop runs in
 	// cmd/ssg, not in the generator (GO-043: dead copies removed).
 }
@@ -1698,6 +1699,7 @@ func (g *Generator) loadContentFromMddb() error {
 		APIKey:    g.config.Mddb.APIKey,
 		Timeout:   g.config.Mddb.Timeout,
 		BatchSize: g.config.Mddb.BatchSize,
+		AllowHTTP: g.config.Mddb.AllowHTTP,
 	})
 	if err != nil {
 		return fmt.Errorf("creating mddb client: %w", err)

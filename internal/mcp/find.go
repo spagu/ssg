@@ -43,6 +43,11 @@ type FindHit struct {
 	// Matches counts how many matching lines this region covers, so a merged
 	// window does not read as a single hit.
 	Matches int
+	// FromCol and ToCol narrow the locus to a character range within a line,
+	// 1-based and inclusive. Zero when the whole line is the answer. They are
+	// what keeps a hit useful in a minified file, where the line is the file
+	// (#204).
+	FromCol, ToCol int
 }
 
 // FindFragmentLines is how many lines of a document a backend that has no line
@@ -101,16 +106,29 @@ func searchOneFile(root, rel string, q searchQuery) []FindHit {
 	}
 	lines := strings.Split(string(b), "\n")
 
+	// A long line is reported as a window around the match rather than merged
+	// with its neighbours: merging assumes a line is a small thing (#204).
 	var matched []int
+	var long []FindHit
 	for i, line := range lines {
-		if q.re.MatchString(line) {
-			matched = append(matched, i+1)
+		loc := q.re.FindStringIndex(line)
+		if loc == nil {
+			continue
 		}
+		if isLongLine(line) {
+			frag, fromCol, toCol, _ := charWindow(line, loc[0], loc[1])
+			long = append(long, FindHit{
+				Path: rel, From: i + 1, To: i + 1, Fragment: capFragment(frag),
+				FromCol: fromCol, ToCol: toCol, Matches: 1,
+			})
+			continue
+		}
+		matched = append(matched, i+1)
 	}
 	if len(matched) == 0 {
-		return nil
+		return long
 	}
-	return mergeHits(rel, lines, matched)
+	return append(long, mergeHits(rel, lines, matched)...)
 }
 
 // mergeHits turns matching line numbers into context windows, coalescing only
@@ -133,7 +151,7 @@ func mergeHits(rel string, lines []string, matched []int) []FindHit {
 		out = append(out, FindHit{Path: rel, From: from, To: to, Matches: 1})
 	}
 	for i := range out {
-		out[i].Fragment = strings.Join(lines[out[i].From-1:out[i].To], "\n")
+		out[i].Fragment = capFragment(strings.Join(lines[out[i].From-1:out[i].To], "\n"))
 	}
 	return out
 }
@@ -155,7 +173,7 @@ func renderHits(hits []FindHit, q string, literal bool) string {
 		if h.Note != "" {
 			note = "  (" + h.Note + ")"
 		}
-		fmt.Fprintf(&b, "\n%s:%d-%d%s\n%s\n", h.Path, h.From, h.To, note, h.Fragment)
+		fmt.Fprintf(&b, "\n%s:%s%s\n%s\n", h.Path, locusOf(h.From, h.To, h.FromCol, h.ToCol), note, h.Fragment)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

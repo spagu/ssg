@@ -284,9 +284,15 @@ func TestClient_GetByType(t *testing.T) {
 
 func TestClient_WithAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auth := r.Header.Get("Authorization")
-		if auth != "Bearer test-api-key" {
-			t.Errorf("Expected Authorization header 'Bearer test-api-key', got '%s'", auth)
+		// An API key goes in X-API-Key, not in Authorization. MDDB's middleware
+		// validates any bearer value as a JWT and never falls through to the
+		// key path, so the old expectation here was the bug written down as a
+		// requirement (#202).
+		if key := r.Header.Get("X-API-Key"); key != "test-api-key" {
+			t.Errorf("X-API-Key = %q, want the configured key", key)
+		}
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("an API key must not be sent as a bearer token, got %q", auth)
 		}
 
 		resp := mddbDocument{
@@ -722,9 +728,11 @@ func TestClient_Checksum_InvalidJSON(t *testing.T) {
 
 func TestClient_DoRequest_NoAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" {
+		if authHeader := r.Header.Get("Authorization"); authHeader != "" {
 			t.Errorf("expected no Authorization header, got %q", authHeader)
+		}
+		if key := r.Header.Get("X-API-Key"); key != "" {
+			t.Errorf("expected no X-API-Key header, got %q", key)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
