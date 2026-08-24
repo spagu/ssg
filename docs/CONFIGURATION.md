@@ -1848,6 +1848,7 @@ MDDB collection and it can:
 | `mcp.search.mddb_api_key` | Optional API key — use `$ENV_VAR`, never a literal |
 | `mcp.search.mddb_lang` | Language used to tokenise the query, e.g. `en` |
 | `mcp.search.mddb_fuzzy` | Typo tolerance: `0` off, `1` or `2` edit distance |
+| `mcp.search.mddb_validate` | Check each document before storing it (`ssg mddb push-theme`, MDDB 2.12.0+). Default on; warnings never fail a push |
 
 ```yaml
 mcp:

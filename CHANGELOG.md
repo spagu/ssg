@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   document whose author had moved on. MDDB 2.12.0 added the same lint to
   `/v1/validate`, and ssg now asks before storing. A warning is reported, never
   fatal — MDDB does not fail validation on one either, because
-  `map[answer:… question:…]` is a valid string. `mddb.validate: false` or
+  `map[answer:… question:…]` is a valid string. `mcp.search.mddb_validate: false` or
   `--no-validate` opts a large batch out of the extra round trip, and a server
   older than 2.12.0 is detected once and skipped silently rather than complained
   about per document.

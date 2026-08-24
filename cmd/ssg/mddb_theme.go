@@ -44,7 +44,7 @@ func runMddbPushTheme(args []string) int {
 	}
 	client := mddb.NewClient(mddb.Config{BaseURL: sc.MddbURL, APIKey: expandEnvValue(sc.MddbAPIKey)})
 	lang := firstNonEmpty(flags.lang, sc.MddbLang, "en")
-	flags.validate = cfg.Mddb.ValidateEnabled() && !flags.noValidate
+	flags.validate = sc.ValidateEnabled() && !flags.noValidate
 
 	files := themeFiles(cfg)
 	if len(files) == 0 {
