@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.49] - 2026-08-24
+
 ### Fixed
 - ✂️ **A line is no longer treated as a unit of size** (#204, #205). `designer_find`
   and `designer_edit` reported context by line — the matched lines, the changed
