@@ -59,3 +59,25 @@ func TestCheckDecodable(t *testing.T) {
 		}
 	}
 }
+
+// TestDecodableIsTheSharedAllowlist: exported so every package that hands a
+// file to imaging asks the same question. A second copy of this list somewhere
+// else is a second thing to forget to update — which is how the AVIF pass came
+// to gate on the file extension instead and skip the check entirely (#198).
+func TestDecodableIsTheSharedAllowlist(t *testing.T) {
+	for _, format := range []string{"jpeg", "png", "gif", "webp"} {
+		if !Decodable(format) {
+			t.Errorf("%q must be processable", format)
+		}
+	}
+	// The two imaging registers behind our back, and the CVE-2023-36308 path.
+	for _, format := range []string{"tiff", "bmp", "", "TIFF", "jpg"} {
+		if Decodable(format) {
+			t.Errorf("%q must not be processable", format)
+		}
+	}
+	// The exported form and the internal one cannot drift.
+	if Decodable("tiff") != (checkDecodable("h", "s", "tiff") == nil) {
+		t.Error("Decodable and checkDecodable disagree")
+	}
+}

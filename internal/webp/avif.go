@@ -20,6 +20,7 @@ package webp
 
 import (
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"os/exec"
@@ -29,6 +30,7 @@ import (
 	"sync"
 
 	"github.com/disintegration/imaging"
+	"github.com/spagu/ssg/internal/images"
 )
 
 // AVIFOptions configures the site-level AVIF pass.
@@ -234,6 +236,9 @@ func encodeAVIFFile(src, dst string, quality, speed, width int) error {
 // two extra processes per variant and a lossy round trip, to avoid a dependency
 // that is already in go.mod for the template helpers.
 func resizeToPNG(src, dst string, width int) error {
+	if err := refuseUndecodable(src); err != nil {
+		return err
+	}
 	img, err := imaging.Open(src, imaging.AutoOrientation(true))
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", filepath.Base(src), err)
@@ -247,4 +252,31 @@ func resizeToPNG(src, dst string, width int) error {
 	}
 	defer func() { _ = out.Close() }()
 	return png.Encode(out, resized)
+}
+
+// refuseUndecodable rejects a source whose real format is outside the set ssg
+// processes, before imaging touches it (#198).
+//
+// The caller selected this file by its extension, and that is not the same
+// question: image.Decode dispatches on magic bytes, and importing imaging
+// registers the BMP and TIFF decoders too. A crafted TIFF named "photo.png"
+// therefore decodes — and CVE-2023-36308 panics in imaging's scanner, with no
+// fixed release upstream to upgrade to. The allowlist is the mitigation, so a
+// path that skips it has nothing behind it (SEC-013).
+func refuseUndecodable(src string) error {
+	f, err := os.Open(src) // #nosec G304 -- enumerated from the output tree by avifSources
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", filepath.Base(src), err)
+	}
+	defer func() { _ = f.Close() }()
+
+	_, format, err := image.DecodeConfig(f)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", filepath.Base(src), err)
+	}
+	if !images.Decodable(format) {
+		return fmt.Errorf("%s decodes as %q despite its extension, which ssg does not process",
+			filepath.Base(src), format)
+	}
+	return nil
 }

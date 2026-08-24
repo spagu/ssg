@@ -8,7 +8,7 @@
 #
 # Cross-compile from the native BUILDPLATFORM to the requested TARGETPLATFORM so
 # ARM images build fast without QEMU emulation (supports amd64, arm64 and armv7).
-FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS builder
 
 # Provided automatically by buildx.
 ARG TARGETARCH
@@ -32,7 +32,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
     go build -ldflags="-s -w -X main.Version=1.8.47" -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
-FROM alpine:3.24
+# Pinned by digest as well as tag: a tag is a moving target, so a digest is
+# what makes a build reproducible. Dependabot bumps both (.github/dependabot.yml)
+# — a digest nobody updates stops receiving security patches silently.
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 # Install runtime dependencies (cwebp)
 RUN apk add --no-cache libwebp-tools

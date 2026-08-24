@@ -49,6 +49,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   being declared current. A version *ahead* of the newest release is told so and
   left alone.
 
+### Security
+- 🖼️ **The AVIF pass no longer trusts a file extension** (#198). ssg closed this
+  hole deliberately once: `image.Decode` dispatches on magic bytes, not on the
+  name, and importing `github.com/disintegration/imaging` registers the BMP and
+  TIFF decoders too — so a crafted TIFF called `photo.png` decodes, and then
+  panics in imaging's scanner (CVE-2023-36308, **no fixed release upstream**).
+  `internal/images` therefore checks the *decoded* format against an allowlist
+  before any transform touches the pixels (SEC-013).
+
+  The AVIF pass added in 1.8.46 selected its sources by extension and handed
+  them straight to `imaging.Open`, so it skipped that check entirely. The
+  allowlist is now exported and used by both packages — a second copy of the
+  list is a second thing to forget — and a source whose real format is outside
+  it is refused before imaging sees it. The regression test writes a real TIFF
+  named `.png` and fails without the guard.
+
+  Impact was a crashed build rather than anything worse, but `ssg migrate` pulls
+  media from a site the operator does not control, which is the case the
+  original mitigation was written for.
+
+### Changed
+- 📌 **Docker base images pinned by digest, with Dependabot to keep them
+  current.** A tag is a moving target — `golang:1.27.0-alpine` is not the same
+  bytes this week as last — so a digest is what makes the build reproducible.
+  A digest nobody updates is worse than a tag, though: the image stops receiving
+  security patches and nothing says so. The pin and the new
+  `.github/dependabot.yml` (docker, gomod, github-actions) are one decision, not
+  two. Digests verified against the registry, not copied from a suggestion.
+
 ### Fixed
 - 🔇 **`--quiet` is quiet** (#194). `--help` promised "only exit codes" and a
   quiet build still printed four lines to stdout — the content-loading counts,

@@ -1,0 +1,38 @@
+# Keeping pinned dependencies pinned *and* current.
+#
+# The Dockerfile pins its base images by digest, which is what an image
+# reference has to do to be reproducible — a tag is a moving target, and
+# "golang:1.27.0-alpine" is not the same bytes this week as last. But a digest
+# with nobody updating it is worse than a tag: the image silently stops
+# receiving security patches and nothing says so. The pin and this file are one
+# decision, not two.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+    groups:
+      # One PR for the x/ repositories: they release together and splitting them
+      # produces a queue of PRs that each fail until the last one lands.
+      golang-x:
+        patterns: ["golang.org/x/*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]

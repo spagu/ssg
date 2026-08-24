@@ -22,6 +22,15 @@ var decodableFormats = map[string]bool{
 	"webp": true,
 }
 
+// Decodable reports whether a format name from image.Decode / image.DecodeConfig
+// is one ssg processes.
+//
+// Exported because the allowlist is the mitigation, not a detail of this
+// package: any code that hands a file to imaging needs the same check, and a
+// second copy of the list is a second thing to forget to update. The AVIF pass
+// gated on the file extension instead and so skipped it entirely (#198).
+func Decodable(format string) bool { return decodableFormats[format] }
+
 // checkDecodable rejects a decoded format outside the supported set, naming the
 // format so a mislabelled file is obvious from the build log.
 func checkDecodable(helper, source, format string) error {
