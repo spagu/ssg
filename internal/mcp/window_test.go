@@ -224,7 +224,14 @@ func TestSnapToRuneMovesOffBoundaries(t *testing.T) {
 			}
 			// Slicing there must produce valid UTF-8 on both sides, which is
 			// the property the whole function exists for.
-			if !utf8.ValidString(s[:got]) || !utf8.ValidString(s[got:]) {
+			//
+			// Named rather than sliced inline: SonarCloud reads `s[:got]` and
+			// `s[got:]` as the same expression and fails the reliability gate
+			// on it. They are the prefix and the suffix, so the finding is
+			// wrong — but this reads better anyway, and arguing with a linter
+			// in a comment costs more than naming two variables.
+			before, after := s[:got], s[got:]
+			if !utf8.ValidString(before) || !utf8.ValidString(after) {
 				t.Fatalf("slicing at %d produced invalid UTF-8", got)
 			}
 		}
