@@ -81,6 +81,15 @@ same author (1). Until 1.8.23 it was registered under the name `related` as
 well, where it was unreachable — use `related` for keyword and tag scoring over
 the site's own posts, and `relatedIn` when you have a collection in hand.
 
+> **MDDB metadata is flat.** Anything the helpers hand back from an MDDB
+> collection went through `map[string][]string` on the way in, so a nested
+> structure in the source frontmatter arrives as *text* unless the producer
+> encoded it. A theme reaching for that field gets a string where it expected a
+> list, and the failure looks like a template bug rather than a storage one. See
+> [Structured frontmatter through MDDB's flat meta](CONFIGURATION.md#structured-frontmatter-through-mddbs-flat-meta)
+> for the producer contract — you meet the constraint through this helper long
+> before you meet it in the config file.
+
 See [`examples/related-posts/`](../examples/related-posts/) for the keyword, mddb
 and embeddings/vector approaches.
 

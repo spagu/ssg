@@ -48,8 +48,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   any release, so such a build is told what the newest release is rather than
   being declared current. A version *ahead* of the newest release is told so and
   left alone.
+- 🧪 **Fuzz targets for the parsers that read bytes ssg did not write** —
+  `orientationFromTIFF`, `stripJPEG`, `sanitizeHTML` and `verbatimSpans`. All
+  four run over content a migration pulled from someone else's server, so
+  malformed input is the normal case rather than a hypothetical, and a panic in
+  a build is a build that stops on a file the operator cannot easily remove from
+  somebody else's export. The image parsers survived ~105 million executions
+  between them without a finding; the sanitiser did not — see below. CI runs a
+  short fuzz pass on every push so the corpus keeps growing.
+- ✅ **`ssg mddb push-theme` validates before it writes** (#192). The render side
+  already recognises a Go-stringified structure and names the document and the
+  field; the producer side was silent, so a bad value was stored successfully and
+  surfaced at the *next* render — another machine, possibly weeks later, naming a
+  document whose author had moved on. MDDB 2.12.0 added the same lint to
+  `/v1/validate`, and ssg now asks before storing. A warning is reported, never
+  fatal — MDDB does not fail validation on one either, because
+  `map[answer:… question:…]` is a valid string. `mddb.validate: false` or
+  `--no-validate` opts a large batch out of the extra round trip, and a server
+  older than 2.12.0 is detected once and skipped silently rather than complained
+  about per document.
 
 ### Security
+- 🔤 **The sanitiser no longer rewrites bytes it has no opinion about** (#199),
+  found by its own new fuzz target in under a second. A file that is not valid
+  UTF-8 — a Latin-1 export, a truncated sequence, a byte a scraper mangled — came
+  out with every offending byte replaced by U+FFFD, **while reporting zero
+  removals**: `caf\xe9` became `caf` plus a replacement character, and the build
+  said it had cleaned nothing. Ranging a string yields `RuneError` for each
+  invalid byte, and writing that rune back substitutes three bytes for one.
+  Encoding belongs to `output_encoding`; this function removes invisible
+  characters and nothing else, so an invalid byte now passes through untouched.
+
+  The same root caused a worse defect in `verbatimSpans`, which lowercased the
+  document with `strings.ToLower` to find tags — also substituting U+FFFD, so
+  every offset it found was computed in a string of a different length from the
+  one those offsets are used against. `<pre \x88</pre>` (12 bytes) produced a
+  protected span of `[0,14)`, past the end of the document. Folding ASCII only is
+  length-preserving by construction and loses nothing, since tag names are ASCII.
+
+  Worth recording that the first fix was incomplete — it guarded one path and not
+  the protected-`<code>` branch beside it — and the fuzz target found the gap
+  immediately, on the fixed code. That is the argument for keeping these in CI
+  rather than running them once.
 - 🖼️ **The AVIF pass no longer trusts a file extension** (#198). ssg closed this
   hole deliberately once: `image.Decode` dispatches on magic bytes, not on the
   name, and importing `github.com/disintegration/imaging` registers the BMP and

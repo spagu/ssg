@@ -100,6 +100,22 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      # A short fuzz pass on every push. Not to find something in 20 seconds —
+      # to keep the targets compiling, keep the seed corpus exercised, and grow
+      # testdata/fuzz over time. The parsers these cover read bytes ssg did not
+      # write: EXIF, JPEG marker segments, and Markdown a migration pulled from
+      # someone else's server. Both defects fixed in this release were found
+      # this way, and the second was found in code that had just been "fixed".
+      - name: Fuzz the untrusted-input parsers
+        run: |
+          set -e
+          for target in FuzzOrientationFromTIFF FuzzStripJPEG; do
+            go test ./internal/images/ -run '^$' -fuzz "$target" -fuzztime 20s
+          done
+          for target in FuzzSanitizeHTML FuzzVerbatimSpans; do
+            go test ./internal/generator/ -run '^$' -fuzz "$target" -fuzztime 20s
+          done
+
       # Shuffled, so a test whose isolation comes from another test's t.Chdir
       # cannot pass quietly. That ordering dependency let a leaked watcher build
       # a site into the repository itself, and it was invisible in the default

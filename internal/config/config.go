@@ -45,7 +45,18 @@ type MddbConfig struct {
 	BatchSize     int    `yaml:"batch_size" toml:"batch_size" json:"batch_size"`             // Batch size for pagination (default: 1000)
 	Watch         bool   `yaml:"watch" toml:"watch" json:"watch"`                            // Enable watch mode for MDDB changes
 	WatchInterval int    `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
+	// Validate checks each document against the collection before storing it,
+	// so a producer hears about lost structured frontmatter at write time
+	// rather than at the next render (#192). Pointer: on by default, and
+	// `validate: false` opts a large batch out of the extra round trip —
+	// /v1/validate is per document, so a 10k-document sync doubles its
+	// requests. A server without the endpoint (before MDDB 2.12.0) is silently
+	// skipped either way.
+	Validate *bool `yaml:"validate" toml:"validate" json:"validate"`
 }
+
+// ValidateEnabled reports whether writes should be validated first.
+func (m MddbConfig) ValidateEnabled() bool { return m.Validate == nil || *m.Validate }
 
 // ContentSource is one extra Markdown root merged into the site (CONTENT-002).
 // `path` is required; `type` is "page" (default) or "post"; `category` files

@@ -25,6 +25,7 @@ func syncTheme(client *mddb.Client, collection, lang string, files []string,
 		onDisk[rel] = true
 	}
 
+	validate := flags.validate
 	pushed, failed := 0, 0
 	for _, rel := range files {
 		body, readErr := os.ReadFile(rel) // #nosec G304 -- enumerated from the configured theme dirs
@@ -33,11 +34,19 @@ func syncTheme(client *mddb.Client, collection, lang string, files []string,
 			failed++
 			continue
 		}
+		doc := themeDocument(collection, lang, rel, body)
+		if validate {
+			// A warning is reported, never fatal — MDDB does not fail
+			// validation on one either, because a stringified structure is a
+			// valid string (#192). An older server has no such endpoint, and
+			// saying so once beats saying it per document.
+			validate = reportValidation(client, doc, rel, quiet)
+		}
 		if flags.dry {
 			pushed++
 			continue
 		}
-		if addErr := client.Add(themeDocument(collection, lang, rel, body)); addErr != nil {
+		if addErr := client.Add(doc); addErr != nil {
 			errf("⚠️  %s: %v\n", rel, addErr)
 			failed++
 			continue
@@ -145,4 +154,36 @@ func themeFiles(cfg *config.Config) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// reportValidation checks one document before it is stored and prints whatever
+// the server has to say about it. It returns false when the server does not
+// offer validation, so the caller stops asking.
+//
+// The point is where the message lands: the render path already recognises a
+// Go-stringified structure, but it does so at the next render — another machine,
+// possibly weeks later, naming a document whose author has moved on. Here the
+// producer is still holding the source.
+func reportValidation(client *mddb.Client, doc mddb.AddRequest, rel string, quiet bool) bool {
+	result, unsupported, err := client.Validate(doc.Collection, doc.Meta)
+	switch {
+	case unsupported:
+		if !quiet {
+			fmt.Printf("   ℹ️  this MDDB has no /v1/validate (2.12.0+); pushing without checking\n")
+		}
+		return false
+	case err != nil:
+		// A validation that cannot run must not stop a write: the document is
+		// fine as far as anyone knows, and refusing to store it would make a
+		// diagnostic into an outage.
+		errf("⚠️  %s: could not validate: %v\n", rel, err)
+		return true
+	}
+	for _, w := range result.Warnings {
+		errf("⚠️  %s: %s\n", rel, w)
+	}
+	for _, e := range result.Errors {
+		errf("⚠️  %s: %s\n", rel, e)
+	}
+	return true
 }

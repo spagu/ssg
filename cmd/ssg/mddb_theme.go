@@ -22,15 +22,17 @@ import (
 
 // pushThemeFlags are the options `ssg mddb push-theme` accepts.
 type pushThemeFlags struct {
-	dry  bool
-	lang string
+	dry        bool
+	lang       string
+	validate   bool
+	noValidate bool
 }
 
 // runMddbPushTheme uploads the theme to the configured MDDB collection.
 func runMddbPushTheme(args []string) int {
 	flags, err := parsePushThemeFlags(args)
 	if err != nil {
-		errf("❌ %v\n\nusage: ssg mddb push-theme [--dry] [--lang=en]\n", err)
+		errf("❌ %v\n\nusage: ssg mddb push-theme [--dry] [--lang=en] [--no-validate]\n", err)
 		return 1
 	}
 	cfg := loadConfig(nil)
@@ -42,6 +44,7 @@ func runMddbPushTheme(args []string) int {
 	}
 	client := mddb.NewClient(mddb.Config{BaseURL: sc.MddbURL, APIKey: expandEnvValue(sc.MddbAPIKey)})
 	lang := firstNonEmpty(flags.lang, sc.MddbLang, "en")
+	flags.validate = cfg.Mddb.ValidateEnabled() && !flags.noValidate
 
 	files := themeFiles(cfg)
 	if len(files) == 0 {
@@ -58,6 +61,8 @@ func parsePushThemeFlags(args []string) (pushThemeFlags, error) {
 		switch {
 		case a == "--dry" || a == "--dry-run":
 			f.dry = true
+		case a == "--no-validate":
+			f.noValidate = true
 		case strings.HasPrefix(a, "--lang="):
 			f.lang = strings.TrimPrefix(a, "--lang=")
 		default:
