@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.48] - 2026-08-24
+
 ### Added
 - 🔔 **`ssg self-update-check`, and a build that says what built it** (#193).
 
@@ -117,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   security patches and nothing says so. The pin and the new
   `.github/dependabot.yml` (docker, gomod, github-actions) are one decision, not
   two. Digests verified against the registry, not copied from a suggestion.
+- Edited four MCP, migration and preview articles for direct, natural prose;
+  checked their technical claims against the implementation, tests and platform
+  documentation; and aligned their filenames with the existing lowercase
+  kebab-case blog convention. Their published slugs remain unchanged.
 
 ### Fixed
 - 🔇 **`--quiet` is quiet** (#194). `--help` promised "only exit codes" and a
@@ -127,11 +133,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project whose logs are aggregated. Found while adding the startup version line
   above, which obeys `--quiet` and made the four sitting under it obvious.
 
-### Changed
-- Edited four MCP, migration and preview articles for direct, natural prose;
-  checked their technical claims against the implementation, tests and platform
-  documentation; and aligned their filenames with the existing lowercase
-  kebab-case blog convention. Their published slugs remain unchanged.
 
 ## [1.8.47] - 2026-08-21
 
