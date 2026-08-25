@@ -92,7 +92,15 @@ func TestEnsureTemplatesGenericFallback(t *testing.T) {
 	if strings.Contains(s, `lang="en"`) {
 		t.Error("the scaffold must not hardcode a language")
 	}
-	if !strings.Contains(s, `{{if .Lang}}`) || !strings.Contains(s, `.Site.DefaultLanguage`) {
+	// The <html> element moved into the shared skeleton (#216), so the language
+	// is resolved there — asserting on index.html would assert on a file that
+	// can no longer carry it.
+	shared, err := os.ReadFile(filepath.Join(tplPath, "partials.html"))
+	if err != nil {
+		t.Fatalf("expected a partials.html: %v", err)
+	}
+	if !strings.Contains(string(shared), `{{if .Ctx.Lang}}`) ||
+		!strings.Contains(string(shared), `.Ctx.Site.DefaultLanguage`) {
 		t.Error("the scaffold must resolve the document language, falling back to the site default")
 	}
 	// base.html is gone rather than repaired: it looked like the layout and

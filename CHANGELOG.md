@@ -57,6 +57,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   311 lines became 237, and the duplication SonarCloud was failing the gate on
   is gone rather than excluded from measurement.
+
+  The scaffold theme had the same shape and gets the same treatment: it now
+  writes a `partials.html` holding the skeleton, which also answers what #208
+  left open. That issue removed a `base.html` nothing included, on the grounds
+  that making the four templates extend it would be a different theme — the
+  pattern that actually works in Go templates, a skeleton pages wrap themselves
+  in, is what was missing then.
+
+### Fixed
+- 🔗 **The scaffold's post canonical pointed at a URL that does not exist**
+  (#217). It built the link by hand — `https://{{.Domain}}/{{.Post.Slug}}/` —
+  while a post renders wherever `post_url_format` says, and the default is
+  dated. So a scaffolded site published `output/2024/01/02/post/index.html`
+  declaring its canonical to be `https://example.com/post/`: every post telling
+  search engines the authoritative copy of itself lives at a 404. Worse than no
+  canonical, which at least leaves the crawler with the URL it fetched.
+
+  It survived because `page.html` had the same hand-built shape and happens to
+  agree with how pages are addressed — it was wrong in one of the two places,
+  and the wrong one is the one with dates in it. Both now call
+  `GetCanonical`, which is what the bundled theme has always used, and an
+  explicit `.Canonical` still wins.
+
+  Found by diffing the rendered output before and after the restructure above,
+  not by reading the templates.
 - 🇬🇧 **`simple`, the theme `ssg init` writes, is in English** (#213). It shipped
   Polish copy — `Strona główna`, `Witamy na stronie`, `Najnowsze wpisy`,
   `Czytaj więcej` — and declared `<html lang="pl">` outright, so a fresh

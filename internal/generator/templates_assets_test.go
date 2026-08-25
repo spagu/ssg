@@ -88,14 +88,14 @@ func TestScaffoldStylesheetIsSelfContained(t *testing.T) {
 // TestScaffoldScriptTargetsWhatTheTemplatesShip: the templates carry a menu
 // button, and a button that does nothing is worse than no button.
 func TestScaffoldScriptTargetsWhatTheTemplatesShip(t *testing.T) {
-	// Asserted against every template the scaffold writes, not one of them:
-	// the header is repeated in all four, so a button losing its id in three
-	// of them would leave this passing on the fourth (#208).
+	// Asserted against the shared skeleton, which is where the header now lives.
+	// This used to check all four page templates, because the header was
+	// repeated in all four and a button losing its id in three of them would
+	// have left the check passing on the fourth. There is one copy now (#216),
+	// so one place to look — which is the improvement, not a weakening.
 	for _, id := range []string{"menu-toggle", "nav-links"} {
-		for _, tmpl := range scaffoldTemplates() {
-			if !strings.Contains(tmpl, `id="`+id+`"`) {
-				t.Fatalf("a scaffold template no longer ships #%s — this test is guarding nothing", id)
-			}
+		if !strings.Contains(partialsTemplate, `id="`+id+`"`) {
+			t.Fatalf("the scaffold skeleton no longer ships #%s — this test is guarding nothing", id)
 		}
 		if !strings.Contains(scaffoldScript, id) {
 			t.Errorf("the script must drive #%s", id)
@@ -169,6 +169,12 @@ func TestScaffoldAssetWriteFailureIsReported(t *testing.T) {
 // once so a test cannot assert against a template that is no longer shipped —
 // which is how base.html kept its guarantees long after nothing included it.
 func scaffoldTemplates() []string {
+	return []string{partialsTemplate, indexTemplate, pageTemplate, postTemplate, categoryTemplate}
+}
+
+// scaffoldPageTemplates returns only the four addressed as page templates —
+// the ones that must no longer carry a document of their own (#216).
+func scaffoldPageTemplates() []string {
 	return []string{indexTemplate, pageTemplate, postTemplate, categoryTemplate}
 }
 
@@ -347,6 +353,37 @@ func firstTag(body, tag string) string {
 		}
 	}
 	return "(not found)"
+}
+
+// TestTheScaffoldDoesNotRepeatItsDocument: the scaffold carried four standalone
+// documents too, which is the shape #208 removed a broken base.html for. It now
+// ships a partials file that works — a skeleton the pages wrap themselves in,
+// since Go templates cannot dispatch {{template}} on a computed name (#216).
+func TestTheScaffoldDoesNotRepeatItsDocument(t *testing.T) {
+	if n := strings.Count(partialsTemplate, `{{define "site-open"}}`); n != 1 {
+		t.Fatalf("the skeleton must be defined once, found %d", n)
+	}
+	for _, tmpl := range scaffoldPageTemplates() {
+		for _, repeated := range []string{"<!DOCTYPE html>", "<html lang", `<footer class="site-footer"`} {
+			if strings.Contains(tmpl, repeated) {
+				t.Errorf("a scaffold template carries its own %q instead of the shared skeleton", repeated)
+			}
+		}
+		if !strings.Contains(tmpl, `{{template "site-open"`) || !strings.Contains(tmpl, `{{template "site-close"`) {
+			t.Error("every scaffold template must wrap itself in the shared skeleton")
+		}
+	}
+
+	// A post's canonical must come from the method that knows the URL format,
+	// not from a hand-built path: the scaffold used to publish
+	// https://site/<slug>/ for a post rendered at /2024/01/02/<slug>/, so every
+	// post pointed search engines at a 404 (#217).
+	if !strings.Contains(postTemplate, ".Post.GetCanonical") {
+		t.Error("the post canonical must be derived, not hand-built")
+	}
+	if strings.Contains(postTemplate, `https://{{.Domain}}/{{.Post.Slug}}/`) {
+		t.Error("the hand-built post canonical is back")
+	}
 }
 
 // TestTheBundledThemeDoesNotRepeatItsDocument: the four page templates used to
