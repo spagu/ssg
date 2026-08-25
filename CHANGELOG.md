@@ -35,9 +35,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so the fallback renders the domain and all four corpora are byte-identical.
   Checking beat assuming.
 
-  `simple`'s Polish default copy is a different matter and stays open in #213:
-  it is a product decision, and unlike the title it really does move the
-  baseline, because the strings are in the output.
+### Changed
+- 🇬🇧 **`simple`, the theme `ssg init` writes, is in English** (#213). It shipped
+  Polish copy — `Strona główna`, `Witamy na stronie`, `Najnowsze wpisy`,
+  `Czytaj więcej` — and declared `<html lang="pl">` outright, so a fresh
+  `ssg init` anywhere produced a site that greeted visitors in Polish and told
+  screen readers it was Polish, whatever language it was actually in. It is
+  presented as the neutral default; now it reads as one.
+
+  The language attribute follows the document, as the scaffold's has since #208,
+  rather than being hardcoded in the other direction.
+
+  **This moves the golden baseline**, because the strings are in the output —
+  the only such change in this release. The recorded manifests are updated in
+  the same commit, and the diff was read before it was recorded: every line of
+  it is one of the seven translated phrases or the language attribute, across
+  nine files and nothing else.
 
 ## [1.8.50] - 2026-08-25
 

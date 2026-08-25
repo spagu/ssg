@@ -347,3 +347,26 @@ func TestTheBundledThemeShowsTheSiteName(t *testing.T) {
 		t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
 	}
 }
+
+// TestTheBundledThemeIsNeutral: `simple` is what `ssg init` writes, so a fresh
+// site anywhere in the world used to greet visitors in Polish and declare
+// itself Polish to screen readers, whatever language it was actually in (#213).
+func TestTheBundledThemeIsNeutral(t *testing.T) {
+	for _, name := range []string{"index.html", "category.html", "page.html", "post.html"} {
+		body := mustRead(t, filepath.Join("..", "..", "templates", "simple", name))
+
+		// No Polish diacritics: the copy is English now, and a stray one would
+		// mean a phrase was missed.
+		if i := strings.IndexAny(body, "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ"); i >= 0 {
+			t.Errorf("%s still carries Polish copy near %q", name, body[max(0, i-40):min(len(body), i+40)])
+		}
+		// And it must not hardcode a language, for the same reason the scaffold
+		// must not (#208): the export knows what language the site is in.
+		if strings.Contains(body, `<html lang="pl"`) || strings.Contains(body, `<html lang="en"`) {
+			t.Errorf("%s hardcodes a document language", name)
+		}
+		if !strings.Contains(body, "{{if .Lang}}") {
+			t.Errorf("%s must resolve the document language", name)
+		}
+	}
+}

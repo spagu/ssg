@@ -1,10 +1,10 @@
 {{define "category.html"}}<!DOCTYPE html>
-<html lang="pl">
+<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Category.Name}} - {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</title>
-    <meta name="description" content="Artykuły z kategorii {{.Category.Name}}">
+    <meta name="description" content="Articles in {{.Category.Name}}">
     <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
     <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -43,7 +43,7 @@
                             {{.Date.Format "2 January 2006"}}
                         </time>
                         <p class="post-excerpt">{{.Excerpt}}</p>
-                        <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                        <a href="/{{.Slug}}/" class="read-more">Read more →</a>
                     </article>
                     {{end}}
                 </div>
