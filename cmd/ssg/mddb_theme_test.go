@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/mcp"
 	"github.com/spagu/ssg/internal/mddb"
 )
 
@@ -329,6 +331,12 @@ func TestTheSearchBackendIsOptional(t *testing.T) {
 // the document key is the path the sync stored it under.
 func TestTheSearchBackendMapsHitsToPaths(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A collection without vectors: hybrid is asked once, declines, and the
+		// lexical path answers — which is what this test is about (#207).
+		if r.URL.Path == "/v1/hybrid-search" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		if r.URL.Path != "/v1/fts" {
 			t.Errorf("path = %q", r.URL.Path)
 		}
@@ -730,5 +738,199 @@ func TestTheLimitCountsLoci(t *testing.T) {
 	}}
 	if got := docsToFindHits(hits, 2); len(got) != 2 {
 		t.Errorf("got %d loci, want 2", len(got))
+	}
+}
+
+// hybridServer answers both search endpoints, so the two-call merge can be
+// driven end to end (#207).
+type hybridServer struct {
+	mu          sync.Mutex
+	hybridCalls int
+	ftsCalls    int
+	noVectors   bool
+	hybridBody  string
+	ftsBody     string
+}
+
+func (h *hybridServer) handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		switch r.URL.Path {
+		case "/v1/hybrid-search":
+			h.hybridCalls++
+			if h.noVectors {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(h.hybridBody))
+		case "/v1/fts":
+			h.ftsCalls++
+			_, _ = w.Write([]byte(h.ftsBody))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+}
+
+// searchFor builds the backend against a stand-in and runs one query.
+func searchFor(t *testing.T, h *hybridServer, query string) ([]mcp.FindHit, func(string, int) ([]mcp.FindHit, error)) {
+	t.Helper()
+	srv := httptest.NewServer(h.handler())
+	t.Cleanup(srv.Close)
+	cfg := config.DefaultConfig()
+	cfg.MCP.Search.MddbURL, cfg.MCP.Search.MddbCollection = srv.URL, "theme"
+	search := buildMCPSearch(cfg, func(string, ...any) {})
+	if search == nil {
+		t.Fatal("a configured backend must produce a hook")
+	}
+	hits, err := search(query, 5)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	return hits, search
+}
+
+// TestVectorsDecideTheOrderAndKeywordsSupplyTheLines is the whole of #207: the
+// vectors were computed and never consulted, but hybrid results carry no
+// positions, so dropping the lexical call would have undone #203.
+func TestVectorsDecideTheOrderAndKeywordsSupplyTheLines(t *testing.T) {
+	h := &hybridServer{
+		// Hybrid ranks the template first — a semantic match, no keyword score.
+		hybridBody: `{"results":[
+			{"document":{"key":"templates/base.html","contentMd":"first line\nsecond"},
+			 "combinedScore":0.81,"ftsScore":0,"vectorScore":0.81,"rank":1},
+			{"document":{"key":"css/style.css","contentMd":"x"},
+			 "combinedScore":0.40,"ftsScore":0.40,"vectorScore":0,"rank":2}]}`,
+		// The lexical run only found the stylesheet, and knows where.
+		ftsBody: `{"results":[
+			{"document":{"key":"css/style.css","contentMd":"x"},"score":0.40,
+			 "highlights":[{"fragment":"nav { display:flex }","startLine":41,"endLine":45}]}]}`,
+	}
+	hits, _ := searchFor(t, h, "how the navigation looks on phones")
+
+	if h.hybridCalls != 1 || h.ftsCalls != 1 {
+		t.Fatalf("hybrid=%d fts=%d, want one of each", h.hybridCalls, h.ftsCalls)
+	}
+	if len(hits) != 2 {
+		t.Fatalf("got %d hits: %+v", len(hits), hits)
+	}
+	// Hybrid's order is the answer's order.
+	if hits[0].Path != "templates/base.html" {
+		t.Errorf("the semantically ranked document must come first, got %q", hits[0].Path)
+	}
+	// It has no lexical match, so it says so rather than inventing a line.
+	if !strings.Contains(hits[0].Note, "line unknown") {
+		t.Errorf("a document with no lexical hit must admit it: %q", hits[0].Note)
+	}
+	// The one the keyword run found carries its real range.
+	if hits[1].From != 41 || hits[1].To != 45 {
+		t.Errorf("range = %d-%d, want 41-45", hits[1].From, hits[1].To)
+	}
+}
+
+// TestACollectionWithoutVectorsAsksOnce, not once per query — a per-query
+// probe against a collection that will never have vectors is a wasted round
+// trip on every single search.
+func TestACollectionWithoutVectorsAsksOnce(t *testing.T) {
+	h := &hybridServer{
+		noVectors: true,
+		ftsBody: `{"results":[{"document":{"key":"css/style.css","contentMd":"x"},"score":0.5,
+			"highlights":[{"fragment":"body{}","startLine":3,"endLine":5}]}]}`,
+	}
+	hits, search := searchFor(t, h, "background")
+	if len(hits) != 1 || hits[0].From != 3 {
+		t.Fatalf("the lexical path must still answer: %+v", hits)
+	}
+	if _, err := search("another query", 5); err != nil {
+		t.Fatal(err)
+	}
+	if h.hybridCalls != 1 {
+		t.Errorf("hybrid asked %d times, want exactly 1", h.hybridCalls)
+	}
+	if h.ftsCalls != 2 {
+		t.Errorf("fts asked %d times, want one per query", h.ftsCalls)
+	}
+}
+
+// TestMergeKeepsHybridOrderAndBorrowsLoci, driven directly so the mapping is
+// asserted without a server in the way.
+func TestMergeKeepsHybridOrderAndBorrowsLoci(t *testing.T) {
+	ranked := []mddb.HybridHit{
+		{Document: mddb.Document{Key: "b.html"}, CombinedScore: 0.9},
+		{Document: mddb.Document{Key: "a.css"}, CombinedScore: 0.4},
+	}
+	lexical := []mddb.FTSHit{
+		{Document: mddb.Document{Key: "a.css"},
+			Highlights: []mddb.Highlight{{Fragment: "hit", StartLine: 7, EndLine: 9}}},
+		{Document: mddb.Document{Key: "unrelated.js"},
+			Highlights: []mddb.Highlight{{Fragment: "x", StartLine: 1, EndLine: 2}}},
+	}
+	got := mergeRanked(ranked, lexical)
+
+	if len(got) != 2 || got[0].Document.Key != "b.html" || got[1].Document.Key != "a.css" {
+		t.Fatalf("hybrid's order must survive: %+v", got)
+	}
+	if len(got[0].Highlights) != 0 {
+		t.Error("a document the lexical run did not find must carry no locus")
+	}
+	if len(got[1].Highlights) != 1 || got[1].Highlights[0].StartLine != 7 {
+		t.Errorf("the lexical locus must be borrowed: %+v", got[1].Highlights)
+	}
+	// A document only the lexical run found is not smuggled in: hybrid decided
+	// relevance, and adding to its result set second-guesses that.
+	for _, h := range got {
+		if h.Document.Key == "unrelated.js" {
+			t.Error("the merge must not add documents hybrid did not rank")
+		}
+	}
+}
+
+// TestRankedWithoutPositionsStillAnswers: hybrid succeeded, the lexical call
+// did not. Every hit will say its line is unknown, which is true — and losing
+// the ranking too, because the half that supplies positions failed, would help
+// nobody (#207).
+func TestRankedWithoutPositionsStillAnswers(t *testing.T) {
+	var logged strings.Builder
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/hybrid-search" {
+			_, _ = w.Write([]byte(`{"results":[{"document":{"key":"templates/base.html",` +
+				`"contentMd":"opening line\nrest"},"combinedScore":0.7,"rank":1}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError) // the keyword half is down
+	}))
+	defer srv.Close()
+
+	cfg := config.DefaultConfig()
+	cfg.MCP.Search.MddbURL, cfg.MCP.Search.MddbCollection = srv.URL, "theme"
+	search := buildMCPSearch(cfg, func(f string, a ...any) { fmt.Fprintf(&logged, f, a...) })
+
+	hits, err := search("navigation on phones", 5)
+	if err != nil {
+		t.Fatalf("a failed keyword half must not lose the ranked answer: %v", err)
+	}
+	if len(hits) != 1 || hits[0].Path != "templates/base.html" {
+		t.Fatalf("hits = %+v", hits)
+	}
+	if !strings.Contains(hits[0].Note, "line unknown") {
+		t.Errorf("without positions the hit must say so: %q", hits[0].Note)
+	}
+	if !strings.Contains(logged.String(), "keyword search") {
+		t.Errorf("the failure must be logged: %q", logged.String())
+	}
+}
+
+// TestBothHalvesDownIsAnError, rather than a confident empty answer.
+func TestBothHalvesDownIsAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	cfg := config.DefaultConfig()
+	cfg.MCP.Search.MddbURL, cfg.MCP.Search.MddbCollection = srv.URL, "theme"
+	if _, err := buildMCPSearch(cfg, func(string, ...any) {})("q", 5); err == nil {
+		t.Error("with neither half answering, the caller must hear about it")
 	}
 }

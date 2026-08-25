@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🧭 **`designer_find` uses the vectors it was given** (#207). The MDDB backend
+  only ever asked `/v1/fts`, so a collection carrying embeddings was searched
+  lexically anyway: "how the navigation looks on phones" found nothing unless
+  those words appeared in the code — which is the one class of question the
+  backend gets configured for, since identifiers and colours are already
+  answered by the local scan. The vectors were computed and never consulted.
+
+  It now asks `/v1/hybrid-search` for **which** documents matter and `/v1/fts`
+  for **where**. Two calls per query, deliberately: hybrid results carry no
+  highlights and no line ranges at all, so switching to them alone would have
+  undone #203 one release later — every hit back to a real file beside no
+  location, with nothing for an anchored edit to anchor to.
+
+  A document the vectors ranked but the keywords did not match is reported with
+  its line marked unknown rather than guessed. A collection without embeddings
+  declines once, is remembered, and behaves exactly as before. If the keyword
+  half fails while hybrid succeeded, the ranking is still returned without
+  positions; only both halves failing is an error.
+
 ### Fixed
 - 🌍 **The scaffold theme declares the document's own language** (#208). It
   hardcoded `<html lang="en">` in five places, so a migrated Polish site told

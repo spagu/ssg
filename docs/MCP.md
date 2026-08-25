@@ -182,6 +182,21 @@ what makes it actionable rather than merely relevant. The sync reconciles:
 documents whose file no longer exists are deleted, and running it twice changes
 nothing the second time.
 
+When the collection carries embeddings, the query is answered by **two** calls,
+and the reason is worth knowing before you tune anything:
+
+- `/v1/hybrid-search` decides **which** documents matter. That is what the
+  vectors are for, and it is what lets "how the navigation looks on phones" find
+  a template that never uses either word.
+- `/v1/fts` supplies the **line ranges**. Hybrid results carry none — no
+  highlights, no positions — and a hit without a locus is a hit an anchored
+  `designer_edit` cannot use.
+
+A document the vectors ranked but the keywords did not match is still reported,
+with its line marked unknown rather than guessed. A collection without
+embeddings declines the first call once, is remembered, and behaves exactly as
+it did before.
+
 The index is consulted **first and never required**. When it errors or finds
 nothing, the local scan still runs and answers. A search backend that is down
 degrades the answer; it does not take the ability to edit the site down with it.

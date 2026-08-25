@@ -31,8 +31,38 @@ func buildMCPSearch(cfg *config.Config, logf func(string, ...any)) func(string, 
 	})
 	logf("   🔎 search: MDDB %s collection %q (local scan is the fallback)", sc.MddbURL, sc.MddbCollection)
 
+	// hybrid is consulted until the server says it cannot. A collection without
+	// embeddings is ordinary, so the answer is remembered rather than asked
+	// again on every query.
+	hybrid := true
 	return func(query string, limit int) ([]mcp.FindHit, error) {
-		hits, err := client.FTS(mddb.FTSRequest{
+		// Two calls, deliberately. Hybrid decides which documents matter —
+		// that is what the vectors are for, and asking only /v1/fts left them
+		// computed and never consulted (#207). But hybrid results carry no
+		// line ranges at all, and a document without a locus is what #203 was
+		// about: the agent's next step is an anchored edit with nothing to
+		// anchor to. So the lexical call supplies the positions.
+		var ranked []mddb.HybridHit
+		if hybrid {
+			var unsupported bool
+			var err error
+			ranked, unsupported, err = client.HybridSearch(mddb.HybridRequest{
+				Collection: sc.MddbCollection, Query: query, TopK: limit,
+				Fuzzy: sc.MddbFuzzy, Lang: sc.MddbLang, IncludeContent: true,
+			})
+			switch {
+			case unsupported:
+				logf("   ℹ️  this MDDB collection has no vector search; using keyword search")
+				hybrid = false
+			case err != nil:
+				// A failure here must not lose the answer the lexical path can
+				// still give.
+				logf("   ⚠️  hybrid search: %v — falling back to keyword search", err)
+				ranked = nil
+			}
+		}
+
+		lexical, err := client.FTS(mddb.FTSRequest{
 			Collection: sc.MddbCollection,
 			Query:      query,
 			Limit:      limit,
@@ -44,10 +74,41 @@ func buildMCPSearch(cfg *config.Config, logf func(string, ...any)) func(string, 
 			MaxHighlights: mcpSearchMaxHighlights,
 		})
 		if err != nil {
-			return nil, err
+			if len(ranked) == 0 {
+				return nil, err
+			}
+			// Ranked without positions still beats nothing: every hit will say
+			// its line is unknown, which is true.
+			logf("   ⚠️  keyword search: %v — reporting documents without line ranges", err)
 		}
-		return docsToFindHits(hits, limit), nil
+		if len(ranked) == 0 {
+			return docsToFindHits(lexical, limit), nil
+		}
+		return docsToFindHits(mergeRanked(ranked, lexical), limit), nil
 	}
+}
+
+// mergeRanked keeps hybrid's ordering and borrows the lexical run's line
+// ranges for the same documents.
+//
+// Hybrid decided relevance, so its order is the answer's order; a document it
+// found semantically and the lexical run did not is reported without a locus
+// rather than dropped, because "this file, line unknown" is true and useful
+// while silence is neither.
+func mergeRanked(ranked []mddb.HybridHit, lexical []mddb.FTSHit) []mddb.FTSHit {
+	loci := make(map[string][]mddb.Highlight, len(lexical))
+	for _, h := range lexical {
+		loci[h.Document.Key] = h.Highlights
+	}
+	out := make([]mddb.FTSHit, 0, len(ranked))
+	for _, r := range ranked {
+		out = append(out, mddb.FTSHit{
+			Document:   r.Document,
+			Score:      r.CombinedScore,
+			Highlights: loci[r.Document.Key],
+		})
+	}
+	return out
 }
 
 // mcpSearchMaxHighlights caps the regions asked for per document. A find is
