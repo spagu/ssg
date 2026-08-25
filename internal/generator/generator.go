@@ -3128,8 +3128,18 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 	}
 
 	// Create default templates
+	// base.html is deliberately absent. It used to be written here beside four
+	// templates that each carry their own <!DOCTYPE>…</html>, and nothing
+	// included it — its {{template "content"}} referred to blocks none of them
+	// define, so it could not have rendered even on purpose. What it did do was
+	// read as "this is the layout": an editor changes the footer there, nothing
+	// happens, and the real footer is in four other files. An MCP agent edited
+	// it twice before anyone noticed (#208).
+	//
+	// A file that cannot work and looks authoritative is worse than a missing
+	// one, so it is gone rather than repaired: making the four extend it would
+	// be a different theme, and the scaffold's job is to be replaced.
 	templates := map[string]string{
-		"base.html":      baseTemplate,
 		indexHTMLName:    indexTemplate,
 		pageHTMLName:     pageTemplate,
 		postHTMLName:     postTemplate,
@@ -3475,6 +3485,10 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		// so every field a theme may read has to be named here too — a footer
 		// in a shared partial is on the front page as much as anywhere (#186).
 		BuildTime time.Time
+		// Lang, for the same reason. A theme writing <html lang="{{.Lang}}">
+		// needs it on every view or on none, and the front page is the one
+		// document that must not be mislabelled: it is the most linked (#208).
+		Lang string
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -3488,6 +3502,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
+		Lang:             g.currentLang,
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and

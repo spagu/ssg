@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🌍 **The scaffold theme declares the document's own language** (#208). It
+  hardcoded `<html lang="en">` in five places, so a migrated Polish site told
+  browsers, screen readers and search engines it was English — however clearly
+  its own export said otherwise, with `lang: pl` on every document. It now
+  prints the page's language, falling back to the site default and to `en` only
+  when nothing says otherwise.
+
+  The front page needed a fix of its own: it renders from an anonymous struct
+  rather than the page map, so `{{.Lang}}` there is not an empty value but
+  `can't evaluate field Lang` — a hard error on the most linked document the
+  site has. Same surface as #186, a week apart. The regression test is a full
+  Polish build that checks every rendered document, and it fails with exactly
+  that error without the fix.
+
+  The generated `404.html` is deliberately left in English and tracked as #209:
+  its copy is English, so declaring another language over it would mislead a
+  screen reader rather than help it. That one needs translated strings, not an
+  attribute.
+- 🪤 **The scaffold no longer writes a `base.html` nothing includes** (#208).
+  `page.html`, `post.html`, `index.html` and `category.html` each carry their
+  own `<!DOCTYPE>`…`</html>`, and nothing referenced `base.html` — its
+  `{{template "content"}}` named blocks none of them define, so it could not
+  have rendered even on purpose. What it did do was read as *the layout*: an
+  editor changes the footer there, nothing happens, and the real footer is in
+  four other files. An MCP agent edited it twice before anyone noticed.
+
+  Removed rather than repaired: making the four extend it would be a different
+  theme, and the scaffold's job is to be replaced. A file that cannot work and
+  looks authoritative is worse than a missing one.
+
 ## [1.8.49] - 2026-08-24
 
 ### Fixed

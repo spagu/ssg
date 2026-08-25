@@ -21,9 +21,7 @@ func TestEveryScaffoldedReferenceIsWritten(t *testing.T) {
 	if err := writeScaffoldAssets(dir); err != nil {
 		t.Fatal(err)
 	}
-	templates := strings.Join([]string{
-		baseTemplate, indexTemplate, pageTemplate, postTemplate, categoryTemplate,
-	}, "\n")
+	templates := strings.Join(scaffoldTemplates(), "\n")
 
 	for _, ref := range []string{"/css/style.css", "/js/main.js"} {
 		if !strings.Contains(templates, ref) {
@@ -90,9 +88,14 @@ func TestScaffoldStylesheetIsSelfContained(t *testing.T) {
 // TestScaffoldScriptTargetsWhatTheTemplatesShip: the templates carry a menu
 // button, and a button that does nothing is worse than no button.
 func TestScaffoldScriptTargetsWhatTheTemplatesShip(t *testing.T) {
+	// Asserted against every template the scaffold writes, not one of them:
+	// the header is repeated in all four, so a button losing its id in three
+	// of them would leave this passing on the fourth (#208).
 	for _, id := range []string{"menu-toggle", "nav-links"} {
-		if !strings.Contains(baseTemplate, `id="`+id+`"`) {
-			t.Fatalf("base.html no longer ships #%s — this test is guarding nothing", id)
+		for _, tmpl := range scaffoldTemplates() {
+			if !strings.Contains(tmpl, `id="`+id+`"`) {
+				t.Fatalf("a scaffold template no longer ships #%s — this test is guarding nothing", id)
+			}
 		}
 		if !strings.Contains(scaffoldScript, id) {
 			t.Errorf("the script must drive #%s", id)
@@ -159,5 +162,93 @@ func TestScaffoldAssetWriteFailureIsReported(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "style.css") {
 		t.Errorf("the error must name the file: %v", err)
+	}
+}
+
+// scaffoldTemplates returns every template the scaffold writes to disk. Named
+// once so a test cannot assert against a template that is no longer shipped —
+// which is how base.html kept its guarantees long after nothing included it.
+func scaffoldTemplates() []string {
+	return []string{indexTemplate, pageTemplate, postTemplate, categoryTemplate}
+}
+
+// TestTheScaffoldDeclaresTheDocumentLanguage drives a real build, because the
+// four template contexts are not one shape: pages and archives get a map, the
+// front page and taxonomy indexes get anonymous structs. A field missing from a
+// struct is not an empty value in a Go template — it is a hard error, on the
+// most linked document the site has. That is how #186 nearly shipped, and #208
+// is the same surface (#208).
+func TestTheScaffoldDeclaresTheDocumentLanguage(t *testing.T) {
+	tmp := t.TempDir()
+	contentDir := filepath.Join(tmp, "content", "site")
+	mustWrite(t, filepath.Join(contentDir, "metadata.json"),
+		`{"categories":[{"id":1,"name":"Nowosci","slug":"nowosci"}],"media":[],"users":[]}`)
+	mustWrite(t, filepath.Join(contentDir, "pages", "o-nas.md"),
+		"---\ntitle: O nas\nslug: o-nas\nstatus: publish\ntype: page\nlang: pl\n---\n\nTresc.\n")
+	mustWrite(t, filepath.Join(contentDir, "posts", "news", "wpis.md"),
+		"---\ntitle: Wpis\nslug: wpis\nstatus: publish\ntype: post\ndate: 2024-01-02\ncategories: [Nowosci]\nlang: pl\n---\n\nTresc.\n")
+
+	gen, err := New(Config{
+		Source: "site", Template: "scaffoldpl", Domain: "example.com",
+		DefaultLanguage: "pl",
+		ContentDir:      filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	// The scaffold no longer writes a layout nothing includes.
+	if _, err := os.Stat(filepath.Join(tmp, "templates", "scaffoldpl", "base.html")); err == nil {
+		t.Error("base.html must not be written")
+	}
+
+	// Every document the theme rendered says pl — the front page included,
+	// which is the one that renders from a struct.
+	var checked int
+	err = filepath.WalkDir(filepath.Join(tmp, "output"), func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(p) != ".html" || filepath.Base(p) == "404.html" {
+			return nil //nolint:nilerr // the generated 404 has its own English copy (#209)
+		}
+		checked++
+		if body := mustRead(t, p); !strings.Contains(body, `<html lang="pl">`) {
+			rel, _ := filepath.Rel(tmp, p)
+			t.Errorf("%s does not declare pl", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checked < 4 {
+		t.Fatalf("only %d document(s) checked — the fixture proves too little", checked)
+	}
+}
+
+// TestTheScaffoldFallsBackToEnglishWhenNothingSaysOtherwise, so a site that
+// declares no language is unchanged.
+func TestTheScaffoldFallsBackToEnglishWhenNothingSaysOtherwise(t *testing.T) {
+	tmp := t.TempDir()
+	contentDir := filepath.Join(tmp, "content", "site")
+	mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
+	mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
+		"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
+
+	gen, err := New(Config{
+		Source: "site", Template: "scaffolden", Domain: "example.com",
+		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if body := mustRead(t, filepath.Join(tmp, "output", "about", indexHTMLName)); !strings.Contains(body, `<html lang="en">`) {
+		t.Error("with no language anywhere the scaffold must still say en")
 	}
 }
