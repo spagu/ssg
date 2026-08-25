@@ -253,98 +253,58 @@ func TestTheScaffoldFallsBackToEnglishWhenNothingSaysOtherwise(t *testing.T) {
 	}
 }
 
-// TestTheScaffoldShowsTheSiteName: making `title` settable over MCP (#212)
-// achieves nothing if no default theme reads it. A key that writes cleanly and
-// changes nothing visible is the same trap as the base.html of #208 — it looks
-// like it worked.
-func TestTheScaffoldShowsTheSiteName(t *testing.T) {
-	build := func(title string) string {
-		tmp := t.TempDir()
-		contentDir := filepath.Join(tmp, "content", "site")
-		mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
-		mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
-			"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
-		gen, err := New(Config{
-			Source: "site", Template: "scaffoldname", Domain: "example.com", Title: title,
-			ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-			OutputDir: filepath.Join(tmp, "output"), Quiet: true,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := gen.Generate(); err != nil {
-			t.Fatalf("Generate: %v", err)
-		}
-		return mustRead(t, filepath.Join(tmp, "output", indexHTMLName))
-	}
+// buildWithTheme renders a one-page site with the given theme and title.
+func buildWithTheme(t *testing.T, theme, title string) string {
+	t.Helper()
+	tmp := t.TempDir()
+	contentDir := filepath.Join(tmp, "content", "site")
+	mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
+	mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
+		"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
 
-	named := build("Tradik")
-	if !strings.Contains(named, "<title>Tradik - Home</title>") {
-		t.Errorf("the configured name must reach the page:\n%s", firstTag(named, "<title>"))
+	gen, err := New(Config{
+		Source: "site", Template: theme, Domain: "example.com", Title: title,
+		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	// The host is still the host: a canonical URL is not a title.
-	if !strings.Contains(named, `href="https://example.com/"`) {
-		t.Error("the canonical URL must keep the domain")
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
 	}
-
-	// With no name configured, the domain stands in — an existing site that
-	// never set `title` looks exactly as it did.
-	unnamed := build("")
-	if !strings.Contains(unnamed, "<title>example.com - Home</title>") {
-		t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
-	}
+	return mustRead(t, filepath.Join(tmp, "output", indexHTMLName))
 }
 
-// firstTag returns the line carrying tag, for a readable failure.
-func firstTag(body, tag string) string {
-	for _, line := range strings.Split(body, "\n") {
-		if strings.Contains(line, tag) {
-			return strings.TrimSpace(line)
-		}
-	}
-	return "(not found)"
-}
+// TestADefaultThemeShowsTheSiteName covers both themes a user can end up on
+// without choosing one: `simple`, which `ssg init` writes into a fresh config,
+// and the scaffold, which a theme with no local files falls back to.
+//
+// Making `title` settable over MCP achieves nothing if neither reads it (#212),
+// and neither did: the setting wrote cleanly into the config and changed
+// nothing on the page — the same trap as the base.html of #208 (#213).
+func TestADefaultThemeShowsTheSiteName(t *testing.T) {
+	for _, theme := range []string{"simple", "scaffoldname"} {
+		t.Run(theme, func(t *testing.T) {
+			named := buildWithTheme(t, theme, "Tradik")
+			if !strings.Contains(named, "<title>Tradik") {
+				t.Errorf("the configured name must reach the page:\n%s", firstTag(named, "<title>"))
+			}
+			// The host is still the host: neither a canonical URL nor a
+			// copyright line is a title.
+			if !strings.Contains(named, `href="https://example.com/"`) {
+				t.Error("the canonical URL must keep the host")
+			}
+			if !strings.Contains(named, "&copy; example.com") {
+				t.Error("the copyright line names the host, not the title")
+			}
 
-// TestTheBundledThemeShowsTheSiteName: `simple` is what `ssg init` writes, so
-// it is the theme most people meet first — and it printed the host wherever it
-// meant the name, which made `title` a setting that wrote cleanly and changed
-// nothing (#213).
-func TestTheBundledThemeShowsTheSiteName(t *testing.T) {
-	build := func(title string) string {
-		tmp := t.TempDir()
-		contentDir := filepath.Join(tmp, "content", "site")
-		mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
-		mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
-			"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
-		gen, err := New(Config{
-			Source: "site", Template: "simple", Domain: "example.com", Title: title,
-			ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
-			OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+			// Unset, the domain stands in — which is why the golden corpora,
+			// none of which configure a title, were unmoved by this change.
+			if unnamed := buildWithTheme(t, theme, ""); !strings.Contains(unnamed, "<title>example.com") {
+				t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
+			}
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := gen.Generate(); err != nil {
-			t.Fatalf("Generate: %v", err)
-		}
-		return mustRead(t, filepath.Join(tmp, "output", indexHTMLName))
-	}
-
-	named := build("Tradik")
-	if !strings.Contains(named, "<title>Tradik") {
-		t.Errorf("the configured name must reach the page:\n%s", firstTag(named, "<title>"))
-	}
-	if !strings.Contains(named, `href="https://example.com/"`) {
-		t.Error("the canonical URL must keep the host")
-	}
-	if !strings.Contains(named, "&copy; example.com") {
-		t.Error("the copyright line names the host, not the title")
-	}
-
-	// Unset, the domain stands in — which is why the golden corpora, none of
-	// which configure a title, are byte-identical across this change.
-	if unnamed := build(""); !strings.Contains(unnamed, "<title>example.com") {
-		t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
 	}
 }
 
@@ -369,4 +329,14 @@ func TestTheBundledThemeIsNeutral(t *testing.T) {
 			t.Errorf("%s must resolve the document language", name)
 		}
 	}
+}
+
+// firstTag returns the line carrying tag, for a readable failure.
+func firstTag(body, tag string) string {
+	for _, line := range strings.Split(body, "\n") {
+		if strings.Contains(line, tag) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return "(not found)"
 }
