@@ -91,3 +91,26 @@ func TestDispatchSingleVerb(t *testing.T) {
 		t.Fatalf("init should be handled with exit 0, got (%d,%v)", code, handled)
 	}
 }
+
+// TestAFreshSiteBuildsWithThePostItWasGiven: `ssg init` scaffolds a post
+// directly in posts/, which the loader skips by default — so every fresh site
+// began with a post its own build ignored, and a hosted "create a site" flow
+// built on init produced sites whose blog was empty (#211).
+func TestAFreshSiteBuildsWithThePostItWasGiven(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if code := runInit([]string{"mysite", "--domain", "example.com"}); code != 0 {
+		t.Fatalf("init = %d", code)
+	}
+	raw, err := os.ReadFile(".ssg.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "flat_posts: true") {
+		t.Error("the scaffolded config must opt into the layout it scaffolds")
+	}
+	// The post is where init put it, and the config is what makes that work —
+	// the two have to agree, which is the whole of the second half of #211.
+	if _, err := os.Stat(filepath.Join("content", "mysite", "posts", "hello-world.md")); err != nil {
+		t.Fatalf("the example post is missing: %v", err)
+	}
+}

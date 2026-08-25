@@ -109,7 +109,7 @@ func TestEnsureTemplates(t *testing.T) {
 	}
 
 	// Check if templates were created
-	expectedFiles := []string{"base.html", "index.html", "page.html", "post.html", "category.html"}
+	expectedFiles := []string{"index.html", "page.html", "post.html", "category.html"}
 	for _, f := range expectedFiles {
 		path := filepath.Join(templatePath, f)
 		if _, err := os.Stat(path); err != nil {

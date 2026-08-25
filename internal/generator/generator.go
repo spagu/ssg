@@ -314,6 +314,11 @@ type Config struct {
 	// paragraph instead of leaving it empty (GO-057). Off by default: it
 	// changes listing text, feed summaries and meta descriptions.
 	AutoExcerpt bool
+	// FlatPosts loads Markdown sitting directly in posts/ as posts. Off by
+	// default: those files have always been skipped, and a site with a
+	// published one it never saw rendered would gain a page nobody asked to
+	// publish. Off, the build names them instead of counting to zero (#211).
+	FlatPosts bool
 
 	// ShortcodeErrors decides what a shortcode that fails to render leaves
 	// behind: "" / "drop" (historical behaviour — a warning and nothing in the
@@ -1928,8 +1933,45 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 			continue
 		}
 
-		if !strings.HasSuffix(entry.Name(), ".md") {
+		if page, ok := g.loadMarkdownEntry(dir, entry); ok {
+			pages = append(pages, page)
+		}
+	}
+
+	return pages, nil
+}
+
+// loadMarkdownFiles reads the Markdown among entries, which belong to dir, and
+// does not descend. loadPostsDir walks the subdirectories itself, so the
+// recursive form would load every post twice (#211).
+//
+// The entries are passed in rather than read again: the caller has just listed
+// this directory, so a second read could only fail in ways the first already
+// would have — an error branch no caller could reach.
+func (g *Generator) loadMarkdownFiles(dir string, entries []os.DirEntry) []models.Page {
+	var pages []models.Page
+	for _, entry := range entries {
+		if entry.IsDir() {
 			continue
+		}
+		if page, ok := g.loadMarkdownEntry(dir, entry); ok {
+			pages = append(pages, page)
+		}
+	}
+	return pages
+}
+
+// loadMarkdownEntry parses one file into a page, or reports that it is not one.
+//
+// Extracted so the recursive walk and the flat read share it exactly: two
+// copies of "which files count and what happens to them" is how the two paths
+// would drift, and the drift is what #211 was.
+func (g *Generator) loadMarkdownEntry(dir string, entry os.DirEntry) (models.Page, bool) {
+	{
+		entryPath := filepath.Join(dir, entry.Name())
+
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			return models.Page{}, false
 		}
 		// content_exclude opts a file out of being treated as a page (#74).
 		// Checked BEFORE parsing: a file that is data rather than content — a
@@ -1938,13 +1980,13 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		// page. status: draft cannot help, because the failure happens while
 		// unmarshalling, before any status field is read.
 		if g.excludedFromContent(entryPath) {
-			continue
+			return models.Page{}, false
 		}
 
 		page, err := parser.ParseMarkdownFile(entryPath)
 		if err != nil {
 			fmt.Printf("   ⚠️  Warning: failed to parse %s: %v\n", entry.Name(), err)
-			continue
+			return models.Page{}, false
 		}
 		if page.Status == "publish" {
 			page.SourceDir = dir
@@ -1968,14 +2010,14 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 				}
 			}
 
-			pages = append(pages, *page)
+			return *page, true
 		}
 	}
-
-	return pages, nil
+	return models.Page{}, false
 }
 
-// loadPostsDir loads posts from category subdirectories
+// loadPostsDir loads posts from the folders under dir, and — when flat_posts is
+// set — from dir itself (#211).
 func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 	var posts []models.Page
 
@@ -1985,6 +2027,15 @@ func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 			return posts, nil
 		}
 		return nil, err
+	}
+
+	// A file at the top level was read by nobody and reported by nothing. Off
+	// by default because loading it is a behaviour change for any site that has
+	// one; loud either way, because silence is what made this cost an hour.
+	if g.config.FlatPosts {
+		posts = append(posts, g.loadMarkdownFiles(dir, entries)...)
+	} else {
+		warnSkippedFlatPosts(dir, g.config.Quiet)
 	}
 
 	for _, entry := range entries {
@@ -3128,8 +3179,18 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 	}
 
 	// Create default templates
+	// base.html is deliberately absent. It used to be written here beside four
+	// templates that each carry their own <!DOCTYPE>…</html>, and nothing
+	// included it — its {{template "content"}} referred to blocks none of them
+	// define, so it could not have rendered even on purpose. What it did do was
+	// read as "this is the layout": an editor changes the footer there, nothing
+	// happens, and the real footer is in four other files. An MCP agent edited
+	// it twice before anyone noticed (#208).
+	//
+	// A file that cannot work and looks authoritative is worse than a missing
+	// one, so it is gone rather than repaired: making the four extend it would
+	// be a different theme, and the scaffold's job is to be replaced.
 	templates := map[string]string{
-		"base.html":      baseTemplate,
 		indexHTMLName:    indexTemplate,
 		pageHTMLName:     pageTemplate,
 		postHTMLName:     postTemplate,
@@ -3475,6 +3536,10 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		// so every field a theme may read has to be named here too — a footer
 		// in a shared partial is on the front page as much as anywhere (#186).
 		BuildTime time.Time
+		// Lang, for the same reason. A theme writing <html lang="{{.Lang}}">
+		// needs it on every view or on none, and the front page is the one
+		// document that must not be mislabelled: it is the most linked (#208).
+		Lang string
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -3488,6 +3553,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
+		Lang:             g.currentLang,
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
@@ -5042,27 +5108,10 @@ func (g *Generator) generateNotFound() error {
 	if _, err := os.Stat(path); err == nil {
 		return nil // the site provides its own
 	}
-	title := g.config.Domain
-	if title == "" {
-		title = "This site"
-	}
-	content := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>404 — page not found</title>
-</head>
-<body>
-<h1>404 — page not found</h1>
-<p>That page does not exist on %s.</p>
-<p><a href="/">Go to the home page</a></p>
-</body>
-</html>
-`, template.HTMLEscapeString(title))
+	// notFoundText always returns a title — the English copy is the floor, not
+	// an optional case — so there is nothing to guard against here.
 	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(renderNotFound(g.notFoundText())), 0644)
 }
 
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare

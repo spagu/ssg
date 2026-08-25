@@ -79,7 +79,16 @@ The loader follows these rules:
    ignored, which allows direct use of larger export metadata files.
 2. Pages are loaded recursively from `pages/`.
 3. Posts must be below at least one directory inside `posts/`. A Markdown file
-   placed directly in `posts/` is ignored.
+   placed directly in `posts/` is ignored — but the build now names it rather
+   than counting to zero, because a skipped post is otherwise indistinguishable
+   from a frontmatter problem (pages at the top level of `pages/` load fine).
+
+   Set `flat_posts: true` to load them where they are. It is off by default:
+   those files have always been skipped, so a site with a published one it never
+   saw rendered would gain a page nobody asked to publish on its next build.
+   `ssg init` scaffolds its example post directly in `posts/` and turns the key
+   on in the config it writes, so a fresh site builds with the post it was
+   given.
 4. After that first grouping directory, post directories are recursive.
 5. Directories organise files only. Post categories come from frontmatter.
 6. A supported non-Markdown file beside a page or post is a co-located asset.

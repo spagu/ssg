@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.50] - 2026-08-25
+
+### Added
+- 📂 **`flat_posts`, and a build that names what it skips** (#211). A Markdown
+  file directly in `posts/` is not loaded — documented in
+  [CONTENT.md](docs/CONTENT.md), and true since forever — but the build said
+  nothing about it, so a skipped post was indistinguishable from a frontmatter
+  problem. Pages at the top level of `pages/` load fine, which is what makes it
+  look like one: the reporter bisected `id`, `link`, date quoting and category
+  shapes before finding the folder depth was the whole difference.
+
+  Worse, **`ssg init` scaffolded its example post exactly there**, so every
+  fresh site began with a post its own build ignored, and a hosted "create a
+  site" flow built on `ssg init` produced sites whose blog was empty.
+
+  Two halves, both fixed. `flat_posts: true` loads them where they are — off by
+  default, because those files have always been skipped and loading one unasked
+  would publish a page nobody asked to publish, which is worse than the bug.
+  With it off the build names the files and both remedies. And `ssg init` now
+  writes the key into the config it scaffolds, so a fresh site builds with the
+  post it was given.
+
+  The switch changes where the loader looks, not what it publishes: the
+  `status: publish` gate is unchanged, so the only files that can appear are
+  ones that already asked to be published.
+- 🧭 **`designer_find` uses the vectors it was given** (#207). The MDDB backend
+  only ever asked `/v1/fts`, so a collection carrying embeddings was searched
+  lexically anyway: "how the navigation looks on phones" found nothing unless
+  those words appeared in the code — which is the one class of question the
+  backend gets configured for, since identifiers and colours are already
+  answered by the local scan. The vectors were computed and never consulted.
+
+  It now asks `/v1/hybrid-search` for **which** documents matter and `/v1/fts`
+  for **where**. Two calls per query, deliberately: hybrid results carry no
+  highlights and no line ranges at all, so switching to them alone would have
+  undone #203 one release later — every hit back to a real file beside no
+  location, with nothing for an anchored edit to anchor to.
+
+  A document the vectors ranked but the keywords did not match is reported with
+  its line marked unknown rather than guessed. A collection without embeddings
+  declines once, is remembered, and behaves exactly as before. If the keyword
+  half fails while hybrid succeeded, the ranking is still returned without
+  positions; only both halves failing is an error.
+
+### Fixed
+- 🚦 **The generated 404 speaks the site's language** (#209). It always said
+  `404 — page not found` under `lang="en"`, so a Polish site served an English
+  404 to real visitors — and on a static host that page answers every dead URL,
+  which after a migration is what every old link produces.
+
+  The attribute was never the bug: `lang` describes the language of the content,
+  and the content was English, so printing `pl` over it would have made a screen
+  reader switch voice for words that had not changed. The copy is what was
+  wrong, so it now comes from the i18n catalog (`not_found.title`,
+  `not_found.body` with a `{{site}}` placeholder, `not_found.home`) and the page
+  is labelled with whichever language it actually used.
+
+  All three keys or none: a page with two translated lines, one English one and
+  `lang="pl"` is worse than a wholly English page, because the mislabelled part
+  is exactly the part a screen reader gets wrong. A site with no catalog is
+  unchanged and says nothing about it — a warning per string, on every build,
+  about copy the author never wrote would be noise.
+- 🌍 **The scaffold theme declares the document's own language** (#208). It
+  hardcoded `<html lang="en">` in five places, so a migrated Polish site told
+  browsers, screen readers and search engines it was English — however clearly
+  its own export said otherwise, with `lang: pl` on every document. It now
+  prints the page's language, falling back to the site default and to `en` only
+  when nothing says otherwise.
+
+  The front page needed a fix of its own: it renders from an anonymous struct
+  rather than the page map, so `{{.Lang}}` there is not an empty value but
+  `can't evaluate field Lang` — a hard error on the most linked document the
+  site has. Same surface as #186, a week apart. The regression test is a full
+  Polish build that checks every rendered document, and it fails with exactly
+  that error without the fix.
+
+  The generated `404.html` is deliberately left in English and tracked as #209:
+  its copy is English, so declaring another language over it would mislead a
+  screen reader rather than help it. That one needs translated strings, not an
+  attribute.
+- 🪤 **The scaffold no longer writes a `base.html` nothing includes** (#208).
+  `page.html`, `post.html`, `index.html` and `category.html` each carry their
+  own `<!DOCTYPE>`…`</html>`, and nothing referenced `base.html` — its
+  `{{template "content"}}` named blocks none of them define, so it could not
+  have rendered even on purpose. What it did do was read as *the layout*: an
+  editor changes the footer there, nothing happens, and the real footer is in
+  four other files. An MCP agent edited it twice before anyone noticed.
+
+  Removed rather than repaired: making the four extend it would be a different
+  theme, and the scaffold's job is to be replaced. A file that cannot work and
+  looks authoritative is worse than a missing one.
+
 ## [1.8.49] - 2026-08-24
 
 ### Fixed

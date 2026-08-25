@@ -75,17 +75,30 @@ func TestEnsureTemplatesGenericFallback(t *testing.T) {
 	if err := g.ensureTemplates(tplPath); err != nil {
 		t.Fatalf("ensureTemplates: %v", err)
 	}
-	data, err := os.ReadFile(filepath.Join(tplPath, "base.html"))
+	// index.html, not base.html: the scaffold no longer writes a base nothing
+	// includes (#208).
+	data, err := os.ReadFile(filepath.Join(tplPath, "index.html"))
 	if err != nil {
-		t.Fatalf("expected generic base.html: %v", err)
+		t.Fatalf("expected a generic index.html: %v", err)
 	}
 	s := string(data)
-	// FE-011: no external font CDN; DOC-013: neutral English scaffold.
+	// FE-011: no external font CDN.
 	if strings.Contains(s, "fonts.googleapis.com") {
 		t.Error("generic scaffold must not reference external font CDNs")
 	}
-	if !strings.Contains(s, `lang="en"`) {
-		t.Error("generic scaffold should default to lang=\"en\"")
+	// The language is the document's, not a constant. Hardcoding lang="en"
+	// declared every migrated site English to browsers, screen readers and
+	// search engines, however loudly its own export said otherwise (#208).
+	if strings.Contains(s, `lang="en"`) {
+		t.Error("the scaffold must not hardcode a language")
+	}
+	if !strings.Contains(s, `{{if .Lang}}`) || !strings.Contains(s, `.Site.DefaultLanguage`) {
+		t.Error("the scaffold must resolve the document language, falling back to the site default")
+	}
+	// base.html is gone rather than repaired: it looked like the layout and
+	// could not render.
+	if _, err := os.Stat(filepath.Join(tplPath, "base.html")); err == nil {
+		t.Error("the scaffold must not write a base.html nothing includes")
 	}
 
 	// Existing templates are never overwritten.

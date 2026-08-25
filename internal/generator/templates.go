@@ -1,56 +1,12 @@
 // Package generator - templates.go contains the generic fallback templates
 // scaffolded when a theme has no local files and is not one of the embedded
 // starter themes (DOC-013). No external CDN references — system font stack
-// only (FE-011), neutral English copy, lang="en".
+// only (FE-011), neutral English copy. The document language is the page's
+// own, falling back to the site default and to "en" only when nothing says
+// otherwise — an export knows its language, and declaring every migrated
+// site English is wrong for every site that is not (#208).
 package generator
 
-// baseTemplate is the base HTML layout template with embedded content blocks
-const baseTemplate = `{{define "base"}}<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{template "title" .}}</title>
-    <meta name="description" content="{{template "description" .}}">
-    <link rel="canonical" href="https://{{.Domain}}{{template "canonical" .}}">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
-    <main class="main-content" id="main-content">
-        {{template "content" .}}
-    </main>
-
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}`
-
-// indexTemplate is the homepage template
 const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
 {{define "index-description"}}Welcome to {{.Domain}}{{end}}
 {{define "index-canonical"}}/{{end}}
@@ -84,7 +40,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
 {{end}}
 
 {{define "index.html"}}<!DOCTYPE html>
-<html lang="en">
+<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -155,7 +111,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
 
 // pageTemplate is the static page template
 const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
-<html lang="en">
+<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -210,7 +166,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
 
 // postTemplate is the blog post template
 const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
-<html lang="en">
+<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -277,7 +233,7 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
 
 // categoryTemplate is the category listing template
 const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
-<html lang="en">
+<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

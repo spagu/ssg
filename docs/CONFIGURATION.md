@@ -114,6 +114,7 @@ empty value.
 | `content_dir` | `content` | `--content-dir` | Parent of local sources |
 | `content_sources` | empty | `--content-source` (repeatable) | Extra Markdown roots merged into the site; see [CONTENT.md](CONTENT.md#extra-sources-content_sources) |
 | `auto_excerpt` | `false` | `--auto-excerpt` | Derive a missing excerpt from the opening paragraph |
+| `flat_posts` | `false` | — | Load Markdown sitting directly in `posts/` as posts, not only from folders under it |
 | `templates_dir` | `templates` | `--templates-dir` | Parent of themes |
 | `output_dir` | `output` | `--output-dir` | Generated site destination |
 | `static_dir` | `static` | `--static-dir` | Verbatim passthrough files |
