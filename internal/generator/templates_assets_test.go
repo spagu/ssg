@@ -325,9 +325,17 @@ func TestTheBundledThemeIsNeutral(t *testing.T) {
 		if strings.Contains(body, `<html lang="pl"`) || strings.Contains(body, `<html lang="en"`) {
 			t.Errorf("%s hardcodes a document language", name)
 		}
-		if !strings.Contains(body, "{{if .Lang}}") {
-			t.Errorf("%s must resolve the document language", name)
-		}
+	}
+
+	// The language is resolved once, in the shared skeleton — the four page
+	// templates no longer carry an <html> element of their own (#216), so
+	// asserting on them would be asserting on a file that cannot fail.
+	shared := mustRead(t, filepath.Join("..", "..", "templates", "simple", "partials.html"))
+	if strings.Contains(shared, `<html lang="pl"`) || strings.Contains(shared, `<html lang="en"`) {
+		t.Error("the shared skeleton hardcodes a document language")
+	}
+	if !strings.Contains(shared, "{{if .Ctx.Lang}}") {
+		t.Error("the shared skeleton must resolve the document language")
 	}
 }
 
