@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.51] - 2026-08-25
+
 ### Added
 - 🖼️ **`media_*` — the pictures a site serves, changeable over MCP** (#214).
   "Change the picture on the about page" is the most ordinary request after "fix
