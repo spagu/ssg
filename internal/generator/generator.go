@@ -3191,6 +3191,7 @@ func (g *Generator) ensureTemplates(templatePath string) error {
 	// one, so it is gone rather than repaired: making the four extend it would
 	// be a different theme, and the scaffold's job is to be replaced.
 	templates := map[string]string{
+		"partials.html":  partialsTemplate,
 		indexHTMLName:    indexTemplate,
 		pageHTMLName:     pageTemplate,
 		postHTMLName:     postTemplate,

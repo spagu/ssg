@@ -117,6 +117,10 @@ func runMCP(args []string) int {
 		// nil unless mcp.search.mddb_* is configured, which is the documented
 		// "scan the project locally" case rather than a missing feature (#190).
 		Search: buildMCPSearch(cfg, logf),
+		// Off unless the operator says the media host is on their own private
+		// network; the guard itself lives inside the tool, so this only widens
+		// what it will dial (#214).
+		MediaAllowPrivate: cfg.MCP.MediaAllowPrivate,
 	}
 
 	logf("🔌 ssg mcp %s — designer/content development server (stdio)", Version)

@@ -26,6 +26,16 @@ func (s *Server) instructions() string {
 			strings.Join(s.opts.ContentDirs, ", ") + ".\n")
 		b.WriteString("  CANNOT: touch templates or styles, or write non-Markdown files.\n\n")
 	}
+	if s.opts.Roles["designer"] || s.opts.Roles["content"] {
+		b.WriteString("MEDIA (media_*) — the pictures the site serves. Both roles have these: a " +
+			"photograph is neither purely presentation nor purely content.\n")
+		b.WriteString("  CAN: list, add, replace in place and remove images under " +
+			strings.Join(s.opts.StaticDirs, ", ") + ", from base64 bytes or a URL.\n")
+		b.WriteString("  CANNOT: store anything that is not a JPEG, PNG, GIF or WebP — the file's own " +
+			"bytes decide, not its name — or delete a file a page still references.\n")
+		b.WriteString("  To change a picture: media_replace keeps the path, so every page using it " +
+			"changes at once. media_upload then content_edit is for pointing a page somewhere new.\n\n")
+	}
 	if s.opts.Git.Enabled() {
 		b.WriteString("GIT (git_*) — safe write-back.\n")
 		b.WriteString("  Flow: git_new_branch → edit → git_commit → human reviews → git_open_pr.\n")

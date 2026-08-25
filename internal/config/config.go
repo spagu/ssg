@@ -735,6 +735,14 @@ type Config struct {
 type MCPConfig struct {
 	Git    MCPGit    `yaml:"git" toml:"git" json:"git"`
 	Search MCPSearch `yaml:"search" toml:"search" json:"search"`
+	// MediaAllowPrivate permits `media_upload` to fetch a URL resolving to a
+	// loopback or private address. Off by default, and deliberately awkward:
+	// this server downloads on someone else's instruction, so an unguarded
+	// fetch is server-side request forgery — "download this and put it on the
+	// site" is exactly the shape that reaches an internal service. Turn it on
+	// only when the images genuinely come from a host on the same private
+	// network (#214).
+	MediaAllowPrivate bool `yaml:"media_allow_private" toml:"media_allow_private" json:"media_allow_private"`
 }
 
 // MCPSearch points designer_find / content_find at an MDDB collection so a

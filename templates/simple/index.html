@@ -1,17 +1,17 @@
-{{define "index-title"}}{{.Domain}} - Strona główna{{end}}
-{{define "index-description"}}Witamy na stronie {{.Domain}}{{end}}
+{{define "index-title"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Home{{end}}
+{{define "index-description"}}{{if .Site.Description}}{{.Site.Description}}{{else}}Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}{{end}}
 {{define "index-canonical"}}/{{end}}
 {{define "index-content"}}
 <section class="hero" id="hero">
     <div class="container">
-        <h1 class="hero-title">Witamy na {{.Domain}}</h1>
-        <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
+        <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
+        <p class="hero-subtitle">The latest articles and updates</p>
     </div>
 </section>
 
 <section class="posts-section" id="posts-section">
     <div class="container">
-        <h2 class="section-title">Najnowsze wpisy</h2>
+        <h2 class="section-title">Latest posts</h2>
         <div class="posts-grid" id="posts-grid">
             {{range .Posts}}
             <article class="post-card" id="post-card-{{.Slug}}">
@@ -22,7 +22,7 @@
                     {{.Date.Format "2 January 2006"}}
                 </time>
                 <p class="post-excerpt">{{.Excerpt}}</p>
-                <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                <a href="/{{.Slug}}/" class="read-more">Read more →</a>
             </article>
             {{end}}
         </div>
@@ -30,43 +30,18 @@
 </section>
 {{end}}
 
-{{define "index.html"}}<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Domain}} - Strona główna</title>
-    <meta name="description" content="Witamy na stronie {{.Domain}}">
-    <link rel="canonical" href="https://{{.Domain}}/">
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-{{template "site-nav" .}}
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+{{define "index.html"}}{{template "site-open" (dict "Ctx" . "Suffix" "Home" "Description" .Site.Description "Welcome" true "Canonical" (printf "https://%s/" .Domain))}}
     <main class="main-content" id="main-content">
         <section class="hero" id="hero">
             <div class="container">
-                <h1 class="hero-title">Witamy na {{.Domain}}</h1>
-                <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
+                <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
+                <p class="hero-subtitle">The latest articles and updates</p>
             </div>
         </section>
 
         <section class="posts-section" id="posts-section">
             <div class="container">
-                <h2 class="section-title">Najnowsze wpisy</h2>
+                <h2 class="section-title">Latest posts</h2>
                 <div class="posts-grid" id="posts-grid">
                     {{range .Posts}}
                     <article class="post-card" id="post-card-{{.Slug}}">
@@ -77,7 +52,7 @@
                             {{.Date.Format "2 January 2006"}}
                         </time>
                         <p class="post-excerpt">{{.Excerpt}}</p>
-                        <a href="/{{.Slug}}/" class="read-more">Czytaj więcej →</a>
+                        <a href="/{{.Slug}}/" class="read-more">Read more →</a>
                     </article>
                     {{end}}
                 </div>
@@ -85,12 +60,4 @@
         </section>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}
+{{template "site-close" .}}{{end}}

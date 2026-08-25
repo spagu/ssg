@@ -7,13 +7,68 @@
 // site English is wrong for every site that is not (#208).
 package generator
 
-const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
-{{define "index-description"}}Welcome to {{.Domain}}{{end}}
+// partialsTemplate holds the document every page template used to repeat.
+//
+// The scaffold wrote four standalone documents, so its header and footer
+// existed in four copies — the shape #208 removed a broken `base.html` for, and
+// #216 removed from the bundled theme. The difference now is that this one
+// works: Go templates cannot dispatch {{template}} on a computed name, so this
+// is a skeleton the page templates wrap themselves in rather than a base they
+// extend, which is exactly why the old base.html could never have rendered.
+const partialsTemplate = `{{/* Shared blocks. This file defines only — it
+     renders nothing on its own and is never addressed as a page template. */}}
+
+{{define "site-name"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}
+
+{{define "site-open"}}<!DOCTYPE html>
+<html lang="{{if .Ctx.Lang}}{{.Ctx.Lang}}{{else if .Ctx.Site.DefaultLanguage}}{{.Ctx.Site.DefaultLanguage}}{{else}}en{{end}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .PageTitle}}{{.PageTitle}} - {{end}}{{template "site-name" .Ctx}}{{if .Suffix}} - {{.Suffix}}{{end}}</title>
+    <meta name="description" content="{{if .Description}}{{.Description}}{{else if .Welcome}}Welcome to {{template "site-name" .Ctx}}{{end}}">
+    <link rel="canonical" href="{{.Canonical}}">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <header class="site-header" id="site-header">
+        <div class="container">
+            <nav class="main-nav" id="main-nav">
+                <a href="/" class="logo" id="site-logo">{{template "site-name" .Ctx}}</a>
+                <div class="nav-links" id="nav-links">
+                    {{range .Ctx.Site.Pages}}
+                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
+                    {{end}}
+                </div>
+                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+{{end}}
+
+{{define "site-close"}}    <footer class="site-footer" id="site-footer">
+        <div class="container">
+            <p>&copy; {{.Domain}}</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>{{end}}`
+
+const indexTemplate = `{{define "index-title"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Home{{end}}
+{{define "index-description"}}{{if .Site.Description}}{{.Site.Description}}{{else}}Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}{{end}}
 {{define "index-canonical"}}/{{end}}
 {{define "index-content"}}
 <section class="hero" id="hero">
     <div class="container">
-        <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+        <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
         <p class="hero-subtitle">Latest articles and updates</p>
     </div>
 </section>
@@ -39,41 +94,11 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
 </section>
 {{end}}
 
-{{define "index.html"}}<!DOCTYPE html>
-<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Domain}} - Home</title>
-    <meta name="description" content="Welcome to {{.Domain}}">
-    <link rel="canonical" href="https://{{.Domain}}/">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+{{define "index.html"}}{{template "site-open" (dict "Ctx" . "Suffix" "Home" "Description" .Site.Description "Welcome" true "Canonical" (printf "https://%s/" .Domain))}}
     <main class="main-content" id="main-content">
         <section class="hero" id="hero">
             <div class="container">
-                <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+                <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
                 <p class="hero-subtitle">Latest articles and updates</p>
             </div>
         </section>
@@ -99,48 +124,10 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
         </section>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}`
+{{template "site-close" .}}{{end}}`
 
 // pageTemplate is the static page template
-const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
-<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Page.Title}} - {{.Domain}}</title>
-    <meta name="description" content="{{.Page.Excerpt}}">
-    <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+const pageTemplate = `{{define "page.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Page.Title "Description" .Page.Excerpt "Canonical" (or .Canonical (.Page.GetCanonical .Domain)))}}
     <main class="main-content" id="main-content">
         <article class="page-content" id="page-{{.Page.Slug}}">
             <div class="container">
@@ -154,48 +141,10 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
         </article>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}`
+{{template "site-close" .}}{{end}}`
 
 // postTemplate is the blog post template
-const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
-<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Post.Title}} - {{.Domain}}</title>
-    <meta name="description" content="{{.Post.Excerpt}}">
-    <link rel="canonical" href="https://{{.Domain}}/{{.Post.Slug}}/">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+const postTemplate = `{{define "post.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Post.Title "Description" .Post.Excerpt "Canonical" (or .Canonical (.Post.GetCanonical .Domain)))}}
     <main class="main-content" id="main-content">
         <article class="post-content" id="post-{{.Post.Slug}}">
             <div class="container">
@@ -221,48 +170,10 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
         </article>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}`
+{{template "site-close" .}}{{end}}`
 
 // categoryTemplate is the category listing template
-const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
-<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Category.Name}} - {{.Domain}}</title>
-    <meta name="description" content="Posts in category {{.Category.Name}}">
-    <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
-                <div class="nav-links" id="nav-links">
-                    {{range .Site.Pages}}
-                    <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
-                    {{end}}
-                </div>
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+const categoryTemplate = `{{define "category.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Category.Name "Description" (printf "Posts in category %s" .Category.Name) "Canonical" (printf "https://%s/category/%s/" .Domain .Category.Slug))}}
     <main class="main-content" id="main-content">
         <section class="category-page" id="category-{{.Category.Slug}}">
             <div class="container">
@@ -290,12 +201,4 @@ const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
         </section>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}`
+{{template "site-close" .}}{{end}}`

@@ -21,6 +21,12 @@ func (s *Server) buildTools() []tool {
 	if s.opts.Roles["content"] {
 		tools = append(tools, s.contentTools()...)
 	}
+	// Media belong to both roles: a picture is neither purely presentation nor
+	// purely content, and the owner asking for one does not know the difference
+	// (#214).
+	if s.opts.Roles["designer"] || s.opts.Roles["content"] {
+		tools = append(tools, s.mediaTools()...)
+	}
 	if s.opts.Git.Enabled() {
 		tools = append(tools, s.gitTools()...)
 	}

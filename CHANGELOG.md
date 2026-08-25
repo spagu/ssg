@@ -7,6 +7,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.51] - 2026-08-25
+
+### Added
+- 🖼️ **`media_*` — the pictures a site serves, changeable over MCP** (#214).
+  "Change the picture on the about page" is the most ordinary request after "fix
+  this text", and the answer was that the assistant could not: the content tools
+  handle Markdown, `designer_write` is text, and nothing touched a file. A hosted
+  setup putting `ssg mcp` behind a token had no way to add uploads without a side
+  channel, which would break the property that every change goes through the same
+  audited tools.
+
+  `media_list`, `media_upload`, `media_replace` and `media_delete`, from base64
+  bytes or a URL the server downloads. Both roles get them, because a photograph
+  is neither purely presentation nor purely content. `media_replace` keeps the
+  path, so every page using an image changes at once with no content edits.
+
+  Three rules, each of them a mistake already made once here:
+
+  - **The bytes decide, not the name.** A shell script called `photo.png` is
+    refused. That is SEC-013, which the AVIF pass forgot a release later (#198).
+  - **A URL is fetched through the guard external sources use**, which resolves
+    the host itself and refuses private and loopback addresses, so DNS changing
+    between check and connection cannot reach one either. A server that downloads
+    whatever it is told to is a proxy into the network it runs on.
+    `mcp.media_allow_private` opts in, off by default.
+  - **A referenced file cannot be deleted**, and the refusal names the pages that
+    point at it. A broken image is worse than an unused file.
+
+  JPEG, PNG, GIF and WebP only — the formats the image pipeline can process, so
+  an upload is a file the build can resize, convert and check. SVG is
+  deliberately outside that set: it is XML that can carry script, served from the
+  site's own origin, and "it is an image" is the reasoning that makes it
+  dangerous.
+- 🏷️ **The site's name and description are settable over MCP** (#212).
+  `designer_config_read` listed only rendering switches, so asking an assistant
+  to change the site title dead-ended: the only MCP-reachable answer was
+  hardcoding the string into every template, duplicating it across four files.
+
+  `title` and `description` join the writable set. The boundary is unchanged and
+  the test for it is not "is this about rendering" but: does the key carry a
+  secret, move the deployment, change what the server does, or change what a URL
+  is? The site's own name fails all four. `language` and `author` were suggested
+  alongside and are deliberately absent — neither exists as a top-level key, and
+  `default_language`, which does, drives i18n and URL prefixes, so the same rule
+  refuses it.
+
+  **The scaffold theme now reads `.Site.Title`.** Making a key settable achieves
+  nothing if no default theme reads it: before this, `title` wrote cleanly into
+  the config and changed nothing on the page — the same trap as the `base.html`
+  of #208, which looked authoritative and did nothing. The `<title>`, meta
+  description, hero heading and logo are the site's name; the canonical URL and
+  the copyright line keep the host, because that is what they are. With no
+  `title` configured the domain stands in, so an existing site is unchanged.
+
+  The bundled `simple` theme had the same gap and is fixed with it (#213). That
+  was filed as a separate job on the assumption it would move the golden
+  baseline — the corpora build with `simple` — but they configure no site name,
+  so the fallback renders the domain and all four corpora are byte-identical.
+  Checking beat assuming.
+
+### Changed
+- 🧱 **`simple` stopped repeating its whole document four times** (#216). Each of
+  the four page templates carried a complete `<!DOCTYPE>`…`</html>` — the same
+  head, header, nav and footer — so changing the footer meant changing it in
+  four files, and changing three of them was a silent inconsistency. The same
+  shape as the scaffold's orphaned `base.html` in #208, minus the file that
+  looked authoritative.
+
+  The skeleton now lives once in `partials.html` as `site-open` / `site-close`,
+  and each page template wraps its own `<main>` in it. Go templates cannot
+  dispatch `{{template}}` on a computed name, so this is a skeleton the pages
+  wrap themselves in rather than a base they extend — which is why the original
+  `base.html` could never have worked.
+
+  **The output is byte-identical.** Not "the tests still pass": the corpus was
+  built before and after and compared file by file, and the one difference the
+  first attempt produced — a stray blank line at a seam — was fixed rather than
+  recorded as a new baseline. A restructure that changes no output is the only
+  kind that needs no argument.
+
+  311 lines became 237, and the duplication SonarCloud was failing the gate on
+  is gone rather than excluded from measurement.
+
+  The scaffold theme had the same shape and gets the same treatment: it now
+  writes a `partials.html` holding the skeleton, which also answers what #208
+  left open. That issue removed a `base.html` nothing included, on the grounds
+  that making the four templates extend it would be a different theme — the
+  pattern that actually works in Go templates, a skeleton pages wrap themselves
+  in, is what was missing then.
+
+### Fixed
+- 🔗 **The scaffold's post canonical pointed at a URL that does not exist**
+  (#217). It built the link by hand — `https://{{.Domain}}/{{.Post.Slug}}/` —
+  while a post renders wherever `post_url_format` says, and the default is
+  dated. So a scaffolded site published `output/2024/01/02/post/index.html`
+  declaring its canonical to be `https://example.com/post/`: every post telling
+  search engines the authoritative copy of itself lives at a 404. Worse than no
+  canonical, which at least leaves the crawler with the URL it fetched.
+
+  It survived because `page.html` had the same hand-built shape and happens to
+  agree with how pages are addressed — it was wrong in one of the two places,
+  and the wrong one is the one with dates in it. Both now call
+  `GetCanonical`, which is what the bundled theme has always used, and an
+  explicit `.Canonical` still wins.
+
+  Found by diffing the rendered output before and after the restructure above,
+  not by reading the templates.
+- 🇬🇧 **`simple`, the theme `ssg init` writes, is in English** (#213). It shipped
+  Polish copy — `Strona główna`, `Witamy na stronie`, `Najnowsze wpisy`,
+  `Czytaj więcej` — and declared `<html lang="pl">` outright, so a fresh
+  `ssg init` anywhere produced a site that greeted visitors in Polish and told
+  screen readers it was Polish, whatever language it was actually in. It is
+  presented as the neutral default; now it reads as one.
+
+  The language attribute follows the document, as the scaffold's has since #208,
+  rather than being hardcoded in the other direction.
+
+  **This moves the golden baseline**, because the strings are in the output —
+  the only such change in this release. The recorded manifests are updated in
+  the same commit, and the diff was read before it was recorded: every line of
+  it is one of the seven translated phrases or the language attribute, across
+  nine files and nothing else.
+
 ## [1.8.50] - 2026-08-25
 
 ### Added
