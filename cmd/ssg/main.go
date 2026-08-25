@@ -711,6 +711,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentSources:         contentSourcesOf(cfg),
 		LinkRewrites:           cfg.LinkRewrites,
 		AutoExcerpt:            cfg.AutoExcerpt,
+		FlatPosts:              cfg.FlatPosts,
 		Headers:                cfg.Headers,
 		HeadersDefaultsOff:     cfg.HeadersDefaultsOff,
 		Redirects:              redirectsOf(cfg),

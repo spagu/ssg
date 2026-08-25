@@ -626,6 +626,12 @@ type Config struct {
 	LinkRewrites map[string]string `yaml:"link_rewrites" toml:"link_rewrites" json:"link_rewrites"`
 
 	// AutoExcerpt derives a missing excerpt from the opening paragraph of the
+	// FlatPosts loads Markdown sitting directly in `posts/` as posts. Off by
+	// default, because those files have always been skipped: a site with a
+	// published one it never saw rendered would gain a page nobody asked to
+	// publish on its next build. With it off the build names them rather than
+	// counting to zero, which is what made this cost an hour to find (#211).
+	FlatPosts bool `yaml:"flat_posts" toml:"flat_posts" json:"flat_posts"`
 	// content, so listings, feeds and meta descriptions are not blank for
 	// documents written without a "## Excerpt" section. Off by default,
 	// because it changes those texts on an existing site (GO-057).

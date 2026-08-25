@@ -314,6 +314,11 @@ type Config struct {
 	// paragraph instead of leaving it empty (GO-057). Off by default: it
 	// changes listing text, feed summaries and meta descriptions.
 	AutoExcerpt bool
+	// FlatPosts loads Markdown sitting directly in posts/ as posts. Off by
+	// default: those files have always been skipped, and a site with a
+	// published one it never saw rendered would gain a page nobody asked to
+	// publish. Off, the build names them instead of counting to zero (#211).
+	FlatPosts bool
 
 	// ShortcodeErrors decides what a shortcode that fails to render leaves
 	// behind: "" / "drop" (historical behaviour — a warning and nothing in the
@@ -1928,8 +1933,45 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 			continue
 		}
 
-		if !strings.HasSuffix(entry.Name(), ".md") {
+		if page, ok := g.loadMarkdownEntry(dir, entry); ok {
+			pages = append(pages, page)
+		}
+	}
+
+	return pages, nil
+}
+
+// loadMarkdownFiles reads the Markdown among entries, which belong to dir, and
+// does not descend. loadPostsDir walks the subdirectories itself, so the
+// recursive form would load every post twice (#211).
+//
+// The entries are passed in rather than read again: the caller has just listed
+// this directory, so a second read could only fail in ways the first already
+// would have — an error branch no caller could reach.
+func (g *Generator) loadMarkdownFiles(dir string, entries []os.DirEntry) []models.Page {
+	var pages []models.Page
+	for _, entry := range entries {
+		if entry.IsDir() {
 			continue
+		}
+		if page, ok := g.loadMarkdownEntry(dir, entry); ok {
+			pages = append(pages, page)
+		}
+	}
+	return pages
+}
+
+// loadMarkdownEntry parses one file into a page, or reports that it is not one.
+//
+// Extracted so the recursive walk and the flat read share it exactly: two
+// copies of "which files count and what happens to them" is how the two paths
+// would drift, and the drift is what #211 was.
+func (g *Generator) loadMarkdownEntry(dir string, entry os.DirEntry) (models.Page, bool) {
+	{
+		entryPath := filepath.Join(dir, entry.Name())
+
+		if !strings.HasSuffix(entry.Name(), ".md") {
+			return models.Page{}, false
 		}
 		// content_exclude opts a file out of being treated as a page (#74).
 		// Checked BEFORE parsing: a file that is data rather than content — a
@@ -1938,13 +1980,13 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 		// page. status: draft cannot help, because the failure happens while
 		// unmarshalling, before any status field is read.
 		if g.excludedFromContent(entryPath) {
-			continue
+			return models.Page{}, false
 		}
 
 		page, err := parser.ParseMarkdownFile(entryPath)
 		if err != nil {
 			fmt.Printf("   ⚠️  Warning: failed to parse %s: %v\n", entry.Name(), err)
-			continue
+			return models.Page{}, false
 		}
 		if page.Status == "publish" {
 			page.SourceDir = dir
@@ -1968,14 +2010,14 @@ func (g *Generator) loadMarkdownDir(dir string) ([]models.Page, error) {
 				}
 			}
 
-			pages = append(pages, *page)
+			return *page, true
 		}
 	}
-
-	return pages, nil
+	return models.Page{}, false
 }
 
-// loadPostsDir loads posts from category subdirectories
+// loadPostsDir loads posts from the folders under dir, and — when flat_posts is
+// set — from dir itself (#211).
 func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 	var posts []models.Page
 
@@ -1985,6 +2027,15 @@ func (g *Generator) loadPostsDir(dir string) ([]models.Page, error) {
 			return posts, nil
 		}
 		return nil, err
+	}
+
+	// A file at the top level was read by nobody and reported by nothing. Off
+	// by default because loading it is a behaviour change for any site that has
+	// one; loud either way, because silence is what made this cost an hour.
+	if g.config.FlatPosts {
+		posts = append(posts, g.loadMarkdownFiles(dir, entries)...)
+	} else {
+		warnSkippedFlatPosts(dir, g.config.Quiet)
 	}
 
 	for _, entry := range entries {

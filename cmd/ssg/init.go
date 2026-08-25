@@ -106,6 +106,12 @@ static_dir: static
 feed: true
 search_index: true
 seo: true
+
+# The example post below sits directly in posts/. Posts are normally read from
+# a folder under posts/ — one per category — and this opts into the flat layout
+# so a fresh site builds with the post it was given (#211). Delete the key once
+# your posts live in folders.
+flat_posts: true
 `, source, domain)
 }
 

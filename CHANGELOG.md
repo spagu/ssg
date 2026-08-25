@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📂 **`flat_posts`, and a build that names what it skips** (#211). A Markdown
+  file directly in `posts/` is not loaded — documented in
+  [CONTENT.md](docs/CONTENT.md), and true since forever — but the build said
+  nothing about it, so a skipped post was indistinguishable from a frontmatter
+  problem. Pages at the top level of `pages/` load fine, which is what makes it
+  look like one: the reporter bisected `id`, `link`, date quoting and category
+  shapes before finding the folder depth was the whole difference.
+
+  Worse, **`ssg init` scaffolded its example post exactly there**, so every
+  fresh site began with a post its own build ignored, and a hosted "create a
+  site" flow built on `ssg init` produced sites whose blog was empty.
+
+  Two halves, both fixed. `flat_posts: true` loads them where they are — off by
+  default, because those files have always been skipped and loading one unasked
+  would publish a page nobody asked to publish, which is worse than the bug.
+  With it off the build names the files and both remedies. And `ssg init` now
+  writes the key into the config it scaffolds, so a fresh site builds with the
+  post it was given.
+
+  The switch changes where the loader looks, not what it publishes: the
+  `status: publish` gate is unchanged, so the only files that can appear are
+  ones that already asked to be published.
 - 🧭 **`designer_find` uses the vectors it was given** (#207). The MDDB backend
   only ever asked `/v1/fts`, so a collection carrying embeddings was searched
   lexically anyway: "how the navigation looks on phones" found nothing unless
