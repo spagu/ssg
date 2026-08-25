@@ -28,6 +28,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   positions; only both halves failing is an error.
 
 ### Fixed
+- 🚦 **The generated 404 speaks the site's language** (#209). It always said
+  `404 — page not found` under `lang="en"`, so a Polish site served an English
+  404 to real visitors — and on a static host that page answers every dead URL,
+  which after a migration is what every old link produces.
+
+  The attribute was never the bug: `lang` describes the language of the content,
+  and the content was English, so printing `pl` over it would have made a screen
+  reader switch voice for words that had not changed. The copy is what was
+  wrong, so it now comes from the i18n catalog (`not_found.title`,
+  `not_found.body` with a `{{site}}` placeholder, `not_found.home`) and the page
+  is labelled with whichever language it actually used.
+
+  All three keys or none: a page with two translated lines, one English one and
+  `lang="pl"` is worse than a wholly English page, because the mislabelled part
+  is exactly the part a screen reader gets wrong. A site with no catalog is
+  unchanged and says nothing about it — a warning per string, on every build,
+  about copy the author never wrote would be noise.
 - 🌍 **The scaffold theme declares the document's own language** (#208). It
   hardcoded `<html lang="en">` in five places, so a migrated Polish site told
   browsers, screen readers and search engines it was English — however clearly

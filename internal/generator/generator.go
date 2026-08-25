@@ -5057,27 +5057,10 @@ func (g *Generator) generateNotFound() error {
 	if _, err := os.Stat(path); err == nil {
 		return nil // the site provides its own
 	}
-	title := g.config.Domain
-	if title == "" {
-		title = "This site"
-	}
-	content := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>404 — page not found</title>
-</head>
-<body>
-<h1>404 — page not found</h1>
-<p>That page does not exist on %s.</p>
-<p><a href="/">Go to the home page</a></p>
-</body>
-</html>
-`, template.HTMLEscapeString(title))
+	// notFoundText always returns a title — the English copy is the floor, not
+	// an optional case — so there is nothing to guard against here.
 	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(renderNotFound(g.notFoundText())), 0644)
 }
 
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare
