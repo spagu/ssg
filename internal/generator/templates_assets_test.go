@@ -340,3 +340,29 @@ func firstTag(body, tag string) string {
 	}
 	return "(not found)"
 }
+
+// TestTheBundledThemeDoesNotRepeatItsDocument: the four page templates used to
+// carry a whole standalone document each, so the header and footer existed in
+// four copies and changing three of them was a silent inconsistency (#216).
+func TestTheBundledThemeDoesNotRepeatItsDocument(t *testing.T) {
+	shared := mustRead(t, filepath.Join("..", "..", "templates", "simple", "partials.html"))
+	for _, block := range []string{"site-open", "site-close", "site-name", "site-nav"} {
+		if !strings.Contains(shared, `{{define "`+block+`"}}`) {
+			t.Errorf("partials.html no longer defines %q — this test is guarding nothing", block)
+		}
+	}
+
+	for _, name := range []string{"index.html", "category.html", "page.html", "post.html"} {
+		body := mustRead(t, filepath.Join("..", "..", "templates", "simple", name))
+		// The skeleton lives in one place. A page template carrying its own
+		// <html> or <footer> has drifted back to a copy.
+		for _, repeated := range []string{"<!DOCTYPE html>", "<html lang", "<footer class=\"site-footer\"", "<script src=\"/js/main.js\">"} {
+			if strings.Contains(body, repeated) {
+				t.Errorf("%s carries its own %q instead of using the shared skeleton", name, repeated)
+			}
+		}
+		if !strings.Contains(body, `{{template "site-open"`) || !strings.Contains(body, `{{template "site-close"`) {
+			t.Errorf("%s must wrap itself in the shared skeleton", name)
+		}
+	}
+}

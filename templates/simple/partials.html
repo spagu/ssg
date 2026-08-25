@@ -3,6 +3,64 @@
      navigation and the comment thread in one place means a fix lands once
      instead of in four near-identical copies. */}}
 
+{{/* site-open and site-close are the document every page template used to
+     repeat: the head, the header and nav, and the footer with its script. They
+     were copied into all four, so changing the footer meant changing it four
+     times and changing three of them was a silent inconsistency (#216).
+
+     Go templates cannot dispatch {{template}} on a computed name, so this is a
+     skeleton the page templates wrap themselves in rather than a base they
+     extend. The argument is a dict: `Ctx` is the page's own context, and the
+     rest is what differs between page kinds.
+
+       PageTitle    prefixes the title; empty on the front page
+       Suffix       appended after the site name; only the front page uses it
+       Description  the meta description
+       Welcome      fall back to "Welcome to <site>" when Description is empty;
+                    only the front page wants that, and a page whose excerpt is
+                    empty must stay empty rather than borrow the front page's
+                    sentence
+       Canonical    the canonical URL */}}
+
+{{define "site-name"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}
+
+{{define "site-open"}}<!DOCTYPE html>
+<html lang="{{if .Ctx.Lang}}{{.Ctx.Lang}}{{else if .Ctx.Site.DefaultLanguage}}{{.Ctx.Site.DefaultLanguage}}{{else}}en{{end}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .PageTitle}}{{.PageTitle}} - {{end}}{{template "site-name" .Ctx}}{{if .Suffix}} - {{.Suffix}}{{end}}</title>
+    <meta name="description" content="{{if .Description}}{{.Description}}{{else if .Welcome}}Welcome to {{template "site-name" .Ctx}}{{end}}">
+    <link rel="canonical" href="{{.Canonical}}">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <header class="site-header" id="site-header">
+        <div class="container">
+            <nav class="main-nav" id="main-nav">
+                <a href="/" class="logo" id="site-logo">{{template "site-name" .Ctx}}</a>
+{{template "site-nav" .Ctx}}
+                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+{{end}}
+
+{{define "site-close"}}    <footer class="site-footer" id="site-footer">
+        <div class="container">
+            <p>&copy; {{.Domain}}</p>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>{{end}}
+
 {{define "site-nav"}}
                 <div class="nav-links" id="nav-links">
                     {{/* The site's own navigation when a migration brought one

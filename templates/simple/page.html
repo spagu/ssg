@@ -1,29 +1,4 @@
-{{define "page.html"}}<!DOCTYPE html>
-<html lang="{{if .Lang}}{{.Lang}}{{else if .Site.DefaultLanguage}}{{.Site.DefaultLanguage}}{{else}}en{{end}}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Page.Title}} - {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</title>
-    <meta name="description" content="{{.Page.Excerpt}}">
-    <link rel="canonical" href="{{with .Canonical}}{{.}}{{else}}{{$.Page.GetCanonical $.Domain}}{{end}}">
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="site-header" id="site-header">
-        <div class="container">
-            <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
-{{template "site-nav" .}}
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </nav>
-        </div>
-    </header>
-
+{{define "page.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Page.Title "Description" .Page.Excerpt "Canonical" (or .Canonical (.Page.GetCanonical .Domain)))}}
     <main class="main-content" id="main-content">
         <article class="page-content" id="page-{{.Page.Slug}}">
             <div class="container">
@@ -37,12 +12,4 @@
         </article>
     </main>
 
-    <footer class="site-footer" id="site-footer">
-        <div class="container">
-            <p>&copy; {{.Domain}}</p>
-        </div>
-    </footer>
-
-    <script src="/js/main.js"></script>
-</body>
-</html>{{end}}
+{{template "site-close" .}}{{end}}

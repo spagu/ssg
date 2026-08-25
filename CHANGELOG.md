@@ -36,6 +36,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Checking beat assuming.
 
 ### Changed
+- 🧱 **`simple` stopped repeating its whole document four times** (#216). Each of
+  the four page templates carried a complete `<!DOCTYPE>`…`</html>` — the same
+  head, header, nav and footer — so changing the footer meant changing it in
+  four files, and changing three of them was a silent inconsistency. The same
+  shape as the scaffold's orphaned `base.html` in #208, minus the file that
+  looked authoritative.
+
+  The skeleton now lives once in `partials.html` as `site-open` / `site-close`,
+  and each page template wraps its own `<main>` in it. Go templates cannot
+  dispatch `{{template}}` on a computed name, so this is a skeleton the pages
+  wrap themselves in rather than a base they extend — which is why the original
+  `base.html` could never have worked.
+
+  **The output is byte-identical.** Not "the tests still pass": the corpus was
+  built before and after and compared file by file, and the one difference the
+  first attempt produced — a stray blank line at a seam — was fixed rather than
+  recorded as a new baseline. A restructure that changes no output is the only
+  kind that needs no argument.
+
+  311 lines became 237, and the duplication SonarCloud was failing the gate on
+  is gone rather than excluded from measurement.
 - 🇬🇧 **`simple`, the theme `ssg init` writes, is in English** (#213). It shipped
   Polish copy — `Strona główna`, `Witamy na stronie`, `Najnowsze wpisy`,
   `Czytaj więcej` — and declared `<html lang="pl">` outright, so a fresh
