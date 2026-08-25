@@ -28,8 +28,22 @@ type configKey struct {
 // designerConfigKeys is the complete set of writable keys. Anything absent here
 // is refused — notably every secret (`ai.*.key`, `mcp.git.token`, `jwt_secret`,
 // auth), deployment, server, endpoint, hook and URL-structure setting, plus
-// `sass_binary` (an executable path). Presentation only, by construction.
+// `sass_binary` (an executable path).
+//
+// The test for membership is not "is it about rendering" but: does it carry a
+// secret, change where the site deploys, what the server does, or what a URL
+// is? The site's own name and description fail all four, and they are what a
+// designer or content manager most obviously expects to edit — asking an
+// assistant to change the site title used to dead-end, with hardcoding the
+// string into four templates as the only MCP-reachable answer (#212).
+//
+// `language` and `author` were suggested alongside them and are deliberately
+// absent: neither exists as a top-level config key. `default_language` does,
+// but it drives i18n, URL prefixes and hreflang — a URL-structure setting, and
+// so refused by the rule above rather than by oversight.
 var designerConfigKeys = map[string]configKey{
+	"title":                  {"string", "the site's name, used in <title>, og:site_name and feeds"},
+	"description":            {"string", "the site's description, used in the meta description and feeds"},
 	"template":               {"string", "theme name used to render the site"},
 	"templates_dir":          {"string", "directory themes are loaded from"},
 	"static_dir":             {"string", "directory copied verbatim into the output"},

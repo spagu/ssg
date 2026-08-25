@@ -172,3 +172,65 @@ func TestConfigReadErrors(t *testing.T) {
 		t.Error("missing value must error")
 	}
 }
+
+// TestTheSiteNameAndDescriptionAreSettable — the reported dead end. Asking the
+// assistant to change the site title had no MCP-reachable answer except
+// hardcoding the string into every template, which duplicates it across four
+// files (#212).
+func TestTheSiteNameAndDescriptionAreSettable(t *testing.T) {
+	s, path := configServer(t, baseConfig, func(string) error { return nil })
+
+	for key, want := range map[string]string{
+		"title":       "Tradik",
+		"description": "A site about things.",
+	} {
+		res := call(t, s, "designer_config_set", map[string]any{"key": key, "value": want})
+		if res.IsError {
+			t.Fatalf("setting %s failed: %s", key, text(res))
+		}
+		if got := readFileString(t, path); !strings.Contains(got, key+": "+want) &&
+			!strings.Contains(got, key+": \""+want+"\"") {
+			t.Errorf("%s not written to the config:\n%s", key, got)
+		}
+	}
+
+	// And they are discoverable, or an assistant cannot know to use them.
+	listing := text(call(t, s, "designer_config_read", map[string]any{}))
+	for _, key := range []string{"title", "description"} {
+		if !strings.Contains(listing, key) {
+			t.Errorf("designer_config_read does not offer %q:\n%s", key, listing)
+		}
+	}
+}
+
+// TestTheRefusedSetIsUnchanged: the boundary is not "is it about rendering" but
+// whether a key carries a secret, moves the deployment, changes what the server
+// does, or changes what a URL is. Widening it for the site name must not have
+// widened it for anything else (#212).
+func TestTheRefusedSetIsUnchanged(t *testing.T) {
+	s, _ := configServer(t, baseConfig, func(string) error { return nil })
+
+	refused := []string{
+		"jwt_secret", "deploy", "server_auth", "endpoints", "hooks",
+		"sass_binary", "post_url_format", "content_dir", "output_dir",
+		// Suggested alongside title/description, and absent on purpose:
+		// default_language drives i18n, URL prefixes and hreflang.
+		"default_language", "language", "author",
+	}
+	for _, key := range refused {
+		res := call(t, s, "designer_config_set", map[string]any{"key": key, "value": "x"})
+		if !res.IsError {
+			t.Errorf("%q must not be settable through MCP", key)
+		}
+	}
+}
+
+// readFileString reads a file the test just wrote through.
+func readFileString(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}

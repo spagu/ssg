@@ -252,3 +252,55 @@ func TestTheScaffoldFallsBackToEnglishWhenNothingSaysOtherwise(t *testing.T) {
 		t.Error("with no language anywhere the scaffold must still say en")
 	}
 }
+
+// TestTheScaffoldShowsTheSiteName: making `title` settable over MCP (#212)
+// achieves nothing if no default theme reads it. A key that writes cleanly and
+// changes nothing visible is the same trap as the base.html of #208 — it looks
+// like it worked.
+func TestTheScaffoldShowsTheSiteName(t *testing.T) {
+	build := func(title string) string {
+		tmp := t.TempDir()
+		contentDir := filepath.Join(tmp, "content", "site")
+		mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
+		mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
+			"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
+		gen, err := New(Config{
+			Source: "site", Template: "scaffoldname", Domain: "example.com", Title: title,
+			ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+			OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := gen.Generate(); err != nil {
+			t.Fatalf("Generate: %v", err)
+		}
+		return mustRead(t, filepath.Join(tmp, "output", indexHTMLName))
+	}
+
+	named := build("Tradik")
+	if !strings.Contains(named, "<title>Tradik - Home</title>") {
+		t.Errorf("the configured name must reach the page:\n%s", firstTag(named, "<title>"))
+	}
+	// The host is still the host: a canonical URL is not a title.
+	if !strings.Contains(named, `href="https://example.com/"`) {
+		t.Error("the canonical URL must keep the domain")
+	}
+
+	// With no name configured, the domain stands in — an existing site that
+	// never set `title` looks exactly as it did.
+	unnamed := build("")
+	if !strings.Contains(unnamed, "<title>example.com - Home</title>") {
+		t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
+	}
+}
+
+// firstTag returns the line carrying tag, for a readable failure.
+func firstTag(body, tag string) string {
+	for _, line := range strings.Split(body, "\n") {
+		if strings.Contains(line, tag) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return "(not found)"
+}

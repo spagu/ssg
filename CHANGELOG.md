@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🏷️ **The site's name and description are settable over MCP** (#212).
+  `designer_config_read` listed only rendering switches, so asking an assistant
+  to change the site title dead-ended: the only MCP-reachable answer was
+  hardcoding the string into every template, duplicating it across four files.
+
+  `title` and `description` join the writable set. The boundary is unchanged and
+  the test for it is not "is this about rendering" but: does the key carry a
+  secret, move the deployment, change what the server does, or change what a URL
+  is? The site's own name fails all four. `language` and `author` were suggested
+  alongside and are deliberately absent — neither exists as a top-level key, and
+  `default_language`, which does, drives i18n and URL prefixes, so the same rule
+  refuses it.
+
+  **The scaffold theme now reads `.Site.Title`.** Making a key settable achieves
+  nothing if no default theme reads it: before this, `title` wrote cleanly into
+  the config and changed nothing on the page — the same trap as the `base.html`
+  of #208, which looked authoritative and did nothing. The `<title>`, meta
+  description, hero heading and logo are the site's name; the canonical URL and
+  the copyright line keep the host, because that is what they are. With no
+  `title` configured the domain stands in, so an existing site is unchanged.
+
+  The bundled `simple` theme has the same gap and Polish default copy; it is
+  filed as #213 rather than folded in here, because the golden corpora build
+  with it and moving that baseline deserves its own commit.
+
 ## [1.8.50] - 2026-08-25
 
 ### Added

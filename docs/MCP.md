@@ -53,7 +53,7 @@ no business rewriting a layout.
 | `designer_write` | Create or replace one, full content (not a patch) |
 | `designer_edit` | Change one piece in place: exact `old` → `new`, matched once |
 | `designer_find` | Where something lives — file and line range, without reading |
-| `designer_config_read` | The presentation settings that may be changed, with current values |
+| `designer_config_read` | The settings that may be changed — site name and description, theme, rendering — with current values |
 | `designer_config_set` | Change one of them |
 
 Writes are confined to the template and asset directories. The designer cannot

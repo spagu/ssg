@@ -7,13 +7,13 @@
 // site English is wrong for every site that is not (#208).
 package generator
 
-const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
-{{define "index-description"}}Welcome to {{.Domain}}{{end}}
+const indexTemplate = `{{define "index-title"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Home{{end}}
+{{define "index-description"}}{{if .Site.Description}}{{.Site.Description}}{{else}}Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}{{end}}
 {{define "index-canonical"}}/{{end}}
 {{define "index-content"}}
 <section class="hero" id="hero">
     <div class="container">
-        <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+        <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
         <p class="hero-subtitle">Latest articles and updates</p>
     </div>
 </section>
@@ -44,8 +44,8 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Domain}} - Home</title>
-    <meta name="description" content="Welcome to {{.Domain}}">
+    <title>{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Home</title>
+    <meta name="description" content="{{if .Site.Description}}{{.Site.Description}}{{else}}Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}">
     <link rel="canonical" href="https://{{.Domain}}/">
     <link rel="stylesheet" href="/css/style.css">
     <style>body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}</style>
@@ -55,7 +55,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
                 <div class="nav-links" id="nav-links">
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
@@ -73,7 +73,7 @@ const indexTemplate = `{{define "index-title"}}{{.Domain}} - Home{{end}}
     <main class="main-content" id="main-content">
         <section class="hero" id="hero">
             <div class="container">
-                <h1 class="hero-title">Welcome to {{.Domain}}</h1>
+                <h1 class="hero-title">Welcome to {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
                 <p class="hero-subtitle">Latest articles and updates</p>
             </div>
         </section>
@@ -115,7 +115,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Page.Title}} - {{.Domain}}</title>
+    <title>{{.Page.Title}} - {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</title>
     <meta name="description" content="{{.Page.Excerpt}}">
     <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/">
     <link rel="stylesheet" href="/css/style.css">
@@ -126,7 +126,7 @@ const pageTemplate = `{{define "page.html"}}<!DOCTYPE html>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
                 <div class="nav-links" id="nav-links">
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
@@ -181,7 +181,7 @@ const postTemplate = `{{define "post.html"}}<!DOCTYPE html>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
                 <div class="nav-links" id="nav-links">
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
@@ -248,7 +248,7 @@ const categoryTemplate = `{{define "category.html"}}<!DOCTYPE html>
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
                 <div class="nav-links" id="nav-links">
                     {{range .Site.Pages}}
                     <a href="/{{.Slug}}/" class="nav-link">{{.Title}}</a>
