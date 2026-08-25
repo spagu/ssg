@@ -304,3 +304,46 @@ func firstTag(body, tag string) string {
 	}
 	return "(not found)"
 }
+
+// TestTheBundledThemeShowsTheSiteName: `simple` is what `ssg init` writes, so
+// it is the theme most people meet first — and it printed the host wherever it
+// meant the name, which made `title` a setting that wrote cleanly and changed
+// nothing (#213).
+func TestTheBundledThemeShowsTheSiteName(t *testing.T) {
+	build := func(title string) string {
+		tmp := t.TempDir()
+		contentDir := filepath.Join(tmp, "content", "site")
+		mustWrite(t, filepath.Join(contentDir, "metadata.json"), `{"categories":[],"media":[],"users":[]}`)
+		mustWrite(t, filepath.Join(contentDir, "pages", "about.md"),
+			"---\ntitle: About\nslug: about\nstatus: publish\ntype: page\n---\n\nBody.\n")
+		gen, err := New(Config{
+			Source: "site", Template: "simple", Domain: "example.com", Title: title,
+			ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+			OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := gen.Generate(); err != nil {
+			t.Fatalf("Generate: %v", err)
+		}
+		return mustRead(t, filepath.Join(tmp, "output", indexHTMLName))
+	}
+
+	named := build("Tradik")
+	if !strings.Contains(named, "<title>Tradik") {
+		t.Errorf("the configured name must reach the page:\n%s", firstTag(named, "<title>"))
+	}
+	if !strings.Contains(named, `href="https://example.com/"`) {
+		t.Error("the canonical URL must keep the host")
+	}
+	if !strings.Contains(named, "&copy; example.com") {
+		t.Error("the copyright line names the host, not the title")
+	}
+
+	// Unset, the domain stands in — which is why the golden corpora, none of
+	// which configure a title, are byte-identical across this change.
+	if unnamed := build(""); !strings.Contains(unnamed, "<title>example.com") {
+		t.Errorf("without a title the domain must stand in:\n%s", firstTag(unnamed, "<title>"))
+	}
+}

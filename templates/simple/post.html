@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Post.Title}} - {{.Domain}}</title>
+    <title>{{.Post.Title}} - {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</title>
     <meta name="description" content="{{.Post.Excerpt}}">
     <link rel="canonical" href="{{with .Canonical}}{{.}}{{else}}{{$.Post.GetCanonical $.Domain}}{{end}}">
     <link rel="stylesheet" href="/css/style.css">
@@ -13,7 +13,7 @@
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
 {{template "site-nav" .}}
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
                     <span></span>

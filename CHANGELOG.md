@@ -29,9 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the copyright line keep the host, because that is what they are. With no
   `title` configured the domain stands in, so an existing site is unchanged.
 
-  The bundled `simple` theme has the same gap and Polish default copy; it is
-  filed as #213 rather than folded in here, because the golden corpora build
-  with it and moving that baseline deserves its own commit.
+  The bundled `simple` theme had the same gap and is fixed with it (#213). That
+  was filed as a separate job on the assumption it would move the golden
+  baseline — the corpora build with `simple` — but they configure no site name,
+  so the fallback renders the domain and all four corpora are byte-identical.
+  Checking beat assuming.
+
+  `simple`'s Polish default copy is a different matter and stays open in #213:
+  it is a product decision, and unlike the title it really does move the
+  baseline, because the strings are in the output.
 
 ## [1.8.50] - 2026-08-25
 

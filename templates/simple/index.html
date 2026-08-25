@@ -1,10 +1,10 @@
-{{define "index-title"}}{{.Domain}} - Strona główna{{end}}
-{{define "index-description"}}Witamy na stronie {{.Domain}}{{end}}
+{{define "index-title"}}{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Strona główna{{end}}
+{{define "index-description"}}{{if .Site.Description}}{{.Site.Description}}{{else}}Witamy na stronie {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}{{end}}
 {{define "index-canonical"}}/{{end}}
 {{define "index-content"}}
 <section class="hero" id="hero">
     <div class="container">
-        <h1 class="hero-title">Witamy na {{.Domain}}</h1>
+        <h1 class="hero-title">Witamy na {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
         <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
     </div>
 </section>
@@ -35,8 +35,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Domain}} - Strona główna</title>
-    <meta name="description" content="Witamy na stronie {{.Domain}}">
+    <title>{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}} - Strona główna</title>
+    <meta name="description" content="{{if .Site.Description}}{{.Site.Description}}{{else}}Witamy na stronie {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}{{end}}">
     <link rel="canonical" href="https://{{.Domain}}/">
     <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -45,7 +45,7 @@
     <header class="site-header" id="site-header">
         <div class="container">
             <nav class="main-nav" id="main-nav">
-                <a href="/" class="logo" id="site-logo">{{.Domain}}</a>
+                <a href="/" class="logo" id="site-logo">{{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</a>
 {{template "site-nav" .}}
                 <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
                     <span></span>
@@ -59,7 +59,7 @@
     <main class="main-content" id="main-content">
         <section class="hero" id="hero">
             <div class="container">
-                <h1 class="hero-title">Witamy na {{.Domain}}</h1>
+                <h1 class="hero-title">Witamy na {{if .Site.Title}}{{.Site.Title}}{{else}}{{.Domain}}{{end}}</h1>
                 <p class="hero-subtitle">Najnowsze artykuły i informacje</p>
             </div>
         </section>
