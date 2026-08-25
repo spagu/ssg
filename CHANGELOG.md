@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.50] - 2026-08-25
+
 ### Added
 - 📂 **`flat_posts`, and a build that names what it skips** (#211). A Markdown
   file directly in `posts/` is not loaded — documented in
