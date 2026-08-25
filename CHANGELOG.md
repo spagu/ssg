@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Checking beat assuming.
 
 ### Changed
+- 🔍 **Duplication detection is off for theme templates** (#216). A theme's page
+  templates each carry a whole standalone document, so the header, nav and
+  footer repeat once per template — real repetition, filed as #216, but a
+  property of how the theme is built rather than a defect introduced by whoever
+  last edited a line of copy. Left in, the gate fails on every template edit,
+  which teaches people to ignore it. Analysis is otherwise unchanged: those
+  files are still scanned for everything else.
 - 🇬🇧 **`simple`, the theme `ssg init` writes, is in English** (#213). It shipped
   Polish copy — `Strona główna`, `Witamy na stronie`, `Najnowsze wpisy`,
   `Czytaj więcej` — and declared `<html lang="pl">` outright, so a fresh
