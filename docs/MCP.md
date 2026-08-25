@@ -77,6 +77,49 @@ names, the current values and what each one does.
 | `content_edit` | Change one passage in place: exact `old` → `new`, matched once |
 | `content_find` | Which files mention something, and where |
 
+## Media (`media_*`)
+
+"Change the picture on the about page" is the most ordinary request after "fix
+this text", and until 1.8.51 the answer was that the assistant could not: the
+content tools handle Markdown, `designer_write` is text, and nothing touched a
+file. A hosted setup putting `ssg mcp` behind a token could not add a side
+channel for uploads without breaking the property that every change goes through
+the same audited tools.
+
+| Tool | Purpose |
+|---|---|
+| `media_list` | Every image the site serves, with size and format |
+| `media_upload` | Add a new one, from base64 bytes or a URL the server downloads |
+| `media_replace` | Replace one in place, keeping its path |
+| `media_delete` | Remove one — refused while anything still references it |
+
+Both roles get them: a photograph is neither purely presentation nor purely
+content, and the owner asking does not know the difference.
+
+**`media_replace` is usually the tool you want.** It keeps the path, so every
+page using that image changes at once with no content edits. `media_upload`
+followed by `content_edit` is for pointing one page somewhere new.
+
+Three rules, each of which is a mistake this project has made once already:
+
+- **The file's bytes decide what it is, not its name.** A shell script called
+  `photo.png` is refused. Extensions decide nothing — the image pipeline learned
+  that as SEC-013, and the AVIF pass forgot it a release later (#198).
+- **A URL is fetched through the same guard external sources use**, which
+  resolves the host itself and refuses private and loopback addresses, so a DNS
+  answer that changes between check and connection cannot reach one either. A
+  server that downloads whatever it is told to is a proxy into the network it
+  runs on. Set `mcp.media_allow_private: true` only when the images genuinely
+  come from a host on your own private network.
+- **A file something references cannot be deleted.** The refusal names the pages
+  that still point at it; a broken image is a worse outcome than an unused file.
+
+Only JPEG, PNG, GIF and WebP are stored — the formats the image pipeline can
+process, so an uploaded file is one the build can resize, convert and check. SVG
+is deliberately outside that set: it is XML that can carry script, served from
+the site's own origin, and "it is an image" is exactly the reasoning that makes
+it dangerous.
+
 `content_create` and `content_update` are separate on purpose: creating over an
 existing file and updating a missing one are both mistakes, and splitting them
 turns each into an error instead of silent data loss. `content_delete` is

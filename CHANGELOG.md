@@ -8,6 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 🖼️ **`media_*` — the pictures a site serves, changeable over MCP** (#214).
+  "Change the picture on the about page" is the most ordinary request after "fix
+  this text", and the answer was that the assistant could not: the content tools
+  handle Markdown, `designer_write` is text, and nothing touched a file. A hosted
+  setup putting `ssg mcp` behind a token had no way to add uploads without a side
+  channel, which would break the property that every change goes through the same
+  audited tools.
+
+  `media_list`, `media_upload`, `media_replace` and `media_delete`, from base64
+  bytes or a URL the server downloads. Both roles get them, because a photograph
+  is neither purely presentation nor purely content. `media_replace` keeps the
+  path, so every page using an image changes at once with no content edits.
+
+  Three rules, each of them a mistake already made once here:
+
+  - **The bytes decide, not the name.** A shell script called `photo.png` is
+    refused. That is SEC-013, which the AVIF pass forgot a release later (#198).
+  - **A URL is fetched through the guard external sources use**, which resolves
+    the host itself and refuses private and loopback addresses, so DNS changing
+    between check and connection cannot reach one either. A server that downloads
+    whatever it is told to is a proxy into the network it runs on.
+    `mcp.media_allow_private` opts in, off by default.
+  - **A referenced file cannot be deleted**, and the refusal names the pages that
+    point at it. A broken image is worse than an unused file.
+
+  JPEG, PNG, GIF and WebP only — the formats the image pipeline can process, so
+  an upload is a file the build can resize, convert and check. SVG is
+  deliberately outside that set: it is XML that can carry script, served from the
+  site's own origin, and "it is an image" is the reasoning that makes it
+  dangerous.
 - 🏷️ **The site's name and description are settable over MCP** (#212).
   `designer_config_read` listed only rendering switches, so asking an assistant
   to change the site title dead-ended: the only MCP-reachable answer was

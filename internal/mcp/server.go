@@ -37,6 +37,13 @@ type Options struct {
 	// never required: an error or an empty answer falls back to the local scan,
 	// so a search backend that is down cannot take editing down with it.
 	Search func(query string, limit int) ([]FindHit, error)
+
+	// MediaAllowPrivate permits media_upload to fetch a URL that resolves to a
+	// loopback or private address. Off by default: this server fetches on
+	// someone else's instruction, which is server-side request forgery unless
+	// something stops it, and "download this and put it on the site" is exactly
+	// the shape that reaches an internal service (#214).
+	MediaAllowPrivate bool
 }
 
 // Server is a running MCP stdio server.
