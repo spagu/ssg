@@ -95,14 +95,39 @@ func TestUploadAndReplaceAreSeparate(t *testing.T) {
 
 // TestMediaCannotEscapeItsDirectories: the confinement the other tools enforce
 // must not have a hole where the binary writes are.
+//
+// Two kinds of refusal, and the distinction is the point. A path that escapes
+// the project is a security question. A path that belongs to no published root
+// — a content file, a template — is a correctness one: resolving it into the
+// first root that could hold it would confine the write and still put the file
+// somewhere nobody asked for, which is the worse kind of "safe".
 func TestMediaCannotEscapeItsDirectories(t *testing.T) {
-	s, _ := newTestServer(t, nil)
-	for _, path := range []string{"../escape.png", "/etc/passwd", "content/posts/x.png", "templates/x.png"} {
+	s, root := newTestServer(t, nil)
+	for _, path := range []string{
+		"../escape.png", "../../escape.png", "content/posts/x.png", "templates/x.png",
+		"/../escape.png", "not-a-root/x.png", "",
+	} {
 		if res := call(t, s, "media_upload", map[string]any{
 			"path": path, "content_base64": b64(onePNG),
 		}); !res.IsError {
 			t.Errorf("%q must be refused", path)
 		}
+	}
+
+	// A served path that looks like a system file is not an escape: it names
+	// the file the site would serve at that URL, and it lands inside the
+	// project like any other. Asserted because "it was refused" would be the
+	// wrong guarantee — what matters is where the bytes go.
+	if res := call(t, s, "media_upload", map[string]any{
+		"path": "/etc/passwd.png", "content_base64": b64(onePNG),
+	}); res.IsError {
+		t.Fatalf("a served path under a root must be accepted: %s", text(res))
+	}
+	if !fileExists(filepath.Join(root, "static", "etc", "passwd.png")) {
+		t.Error("the file must land inside the project's own static directory")
+	}
+	if fileExists("/etc/passwd.png") {
+		t.Fatal("a file was written outside the project")
 	}
 }
 

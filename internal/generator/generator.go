@@ -4779,17 +4779,25 @@ func (g *Generator) generateSitemap() error {
 			break
 		}
 	}
+	// The addresses the front-page entry claims, so a document that resolves to
+	// one of them is not listed a second time below (#219). Only when that entry
+	// was actually written: if it was suppressed, nothing has claimed the root.
+	claimed := map[string]bool{}
 	if !skipHomepage {
 		if g.config.I18n.Enabled {
 			for _, lang := range g.siteData.Languages {
+				loc := fmt.Sprintf("https://%s%s", g.config.Domain, g.languageURL(lang.Code))
+				claimed[loc] = true
 				sb.WriteString(sitemapURLOpen)
-				fmt.Fprintf(&sb, "    <loc>https://%s%s</loc>\n", g.config.Domain, g.languageURL(lang.Code))
+				fmt.Fprintf(&sb, "    <loc>%s</loc>\n", loc)
 				sb.WriteString("    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n")
 				sb.WriteString(sitemapURLClose)
 			}
 		} else {
+			loc := fmt.Sprintf("https://%s/", g.config.Domain)
+			claimed[loc] = true
 			sb.WriteString(sitemapURLOpen)
-			fmt.Fprintf(&sb, "    <loc>https://%s/</loc>\n", g.config.Domain)
+			fmt.Fprintf(&sb, "    <loc>%s</loc>\n", loc)
 			sb.WriteString("    <changefreq>daily</changefreq>\n")
 			sb.WriteString("    <priority>1.0</priority>\n")
 			sb.WriteString(sitemapURLClose)
@@ -4798,7 +4806,7 @@ func (g *Generator) generateSitemap() error {
 
 	// Pages
 	for _, page := range g.siteData.Pages {
-		if g.excludesFromSitemap(page) {
+		if g.excludesFromSitemap(page) || claimed[g.servedCanonical(page)] {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
@@ -4814,7 +4822,7 @@ func (g *Generator) generateSitemap() error {
 
 	// Posts
 	for _, post := range g.siteData.Posts {
-		if g.excludesFromSitemap(post) {
+		if g.excludesFromSitemap(post) || claimed[g.servedCanonical(post)] {
 			continue
 		}
 		sb.WriteString(sitemapURLOpen)
@@ -5132,11 +5140,21 @@ var (
 	minIgnoreBlockRe = regexp.MustCompile(`(?s)<!--\s*htmlmin:ignore\s*-->(.*?)<!--\s*/htmlmin:ignore\s*-->`)
 	// Whitespace-sensitive elements minification must never touch (GO-022):
 	// <pre>/<textarea> render whitespace, <script>/<style> may break semantically.
-	minPreserveTagRe  = regexp.MustCompile(`(?is)<pre\b[^>]*>.*?</pre>|<textarea\b[^>]*>.*?</textarea>|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>`)
-	minHTMLCommentRe  = regexp.MustCompile(`<!--[\s\S]*?-->`)
-	minTagGapRe       = regexp.MustCompile(`>\s+<`)
-	minMultiSpaceRe   = regexp.MustCompile(`\s{2,}`)
-	minCSSSpacesRe    = regexp.MustCompile(`\s*([:{};,])\s*`)
+	minPreserveTagRe = regexp.MustCompile(`(?is)<pre\b[^>]*>.*?</pre>|<textarea\b[^>]*>.*?</textarea>|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>`)
+	minHTMLCommentRe = regexp.MustCompile(`<!--[\s\S]*?-->`)
+	minTagGapRe      = regexp.MustCompile(`>\s+<`)
+	minMultiSpaceRe  = regexp.MustCompile(`\s{2,}`)
+	// Structural delimiters: whitespace on either side of these is never
+	// significant, so both sides go.
+	minCSSSpacesRe = regexp.MustCompile(`\s*([{};,])\s*`)
+	// A colon is not one of them. Whitespace BEFORE it can be the descendant
+	// combinator — `.prose :where(p)` selects a paragraph inside .prose, while
+	// `.prose:where(p)` selects an element that is both, which is nothing —
+	// and the rules still parse afterwards, so nothing errors and the styling
+	// is simply gone (#222). Only the space after a colon is removed, which is
+	// where the compression was anyway: declarations are written `color: red`,
+	// not `color :red`.
+	minCSSColonRe     = regexp.MustCompile(`:[ \t]+`)
 	minJSEmptyLinesRe = regexp.MustCompile(`\n\s*\n`)
 	minIntraSpaceRe   = regexp.MustCompile(`[ \t]{2,}`)
 )
@@ -5155,8 +5173,9 @@ func minifyCSSFile(path string) error {
 	// Remove newlines
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
-	// Remove spaces around : ; { } ,
+	// Remove spaces around ; { } , and after :
 	s = minCSSSpacesRe.ReplaceAllString(s, "$1")
+	s = minCSSColonRe.ReplaceAllString(s, ":")
 	// Collapse multiple spaces
 	s = minMultiSpaceRe.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)

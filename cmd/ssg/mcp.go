@@ -102,6 +102,7 @@ func runMCP(args []string) int {
 		Root:         ".",
 		TemplateDirs: []string{cfg.TemplatesDir},
 		StaticDirs:   []string{cfg.StaticDir},
+		MediaRoots:   mediaRootsOf(cfg),
 		ContentDirs:  contentRoots(cfg),
 		Roles:        roles,
 		Watch:        watch,
@@ -511,4 +512,29 @@ func printMCPHelp() {
 	fmt.Println("Register it with your assistant (this server speaks stdio, so the client")
 	fmt.Println("launches it — you do not run it yourself):")
 	printMCPWiring()
+}
+
+// mediaRootsOf lists every directory the build publishes verbatim, with the URL
+// prefix it appears under.
+//
+// The content source's media/ is the one that matters and the one the media
+// tools were blind to: an export puts every picture there and the build serves
+// them at /media/, while static/ holds the theme's own and is often empty. So
+// on a migrated site — the case the tools exist for — they saw nothing (#218).
+func mediaRootsOf(cfg *config.Config) []mcp.MediaRoot {
+	roots := []mcp.MediaRoot{{Dir: cfg.StaticDir, URL: "/"}}
+	if cfg.Source != "" {
+		roots = append(roots, mcp.MediaRoot{
+			Dir: filepath.Join(cfg.ContentDir, cfg.Source, "media"),
+			URL: "/media/",
+		})
+	}
+	// Extra passthrough roots, each at the destination it is copied to.
+	for _, src := range cfg.StaticSources {
+		if src.Path == "" {
+			continue
+		}
+		roots = append(roots, mcp.MediaRoot{Dir: src.Path, URL: "/" + strings.Trim(src.Dest, "/")})
+	}
+	return roots
 }
