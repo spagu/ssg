@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.52] - 2026-08-27
+
 ### Added
 - 🚦 **`ssg new worker rate-limit` — a request budget for the deployed Functions**
   (#220). Every template that writes something — `contact-form` sends email,
