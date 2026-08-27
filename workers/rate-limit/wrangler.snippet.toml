@@ -1,0 +1,25 @@
+# rate-limit — bounds how often the Functions in this project can be called.
+#
+# Pick ONE backend. The binding is exact and free and provisions nothing, so it
+# is the one to use unless something stops you.
+
+# Preferred: the Workers Rate Limiting binding.
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"          # any id unique within this account
+# simple = { limit = 20, period = 60 }   # period is 10 or 60
+
+# Fallback: a KV namespace. Approximate — KV is eventually consistent, so a
+# burst arriving at several points of presence at once can overshoot the cap.
+#   npx wrangler kv namespace create RATE_LIMIT_KV
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "<paste-kv-namespace-id>"
+
+# [vars]
+# RATE_LIMIT_MAX = "20"        # requests per key per window
+# RATE_LIMIT_WINDOW = "60"     # seconds
+# RATE_LIMIT_BY = "ip"         # "ip" or "header:<name>"
+# RATE_LIMIT_PATHS = "/api/"   # comma-separated prefixes this covers
+# RATE_LIMIT_FAIL = "open"     # "open" or "closed" when the backend errors

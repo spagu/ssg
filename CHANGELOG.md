@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🚦 **`ssg new worker rate-limit` — a request budget for the deployed Functions**
+  (#220). Every template that writes something — `contact-form` sends email,
+  `comments` accepts writes, `cookie-consent` logs — is a public,
+  unauthenticated endpoint, and nothing bounded how often it could be called.
+  Turnstile raises the cost of abuse without capping it: a solved token can be
+  replayed inside its validity window, and Turnstile is optional anyway.
+  `rate_limit` in `.ssg.yaml` only ever covered the built-in preview server.
+
+  It ships as `functions/_middleware.ts`, so it wraps whatever else is in the
+  project, including routes added later, without either side knowing about the
+  other. The default backend is the Workers Rate Limiting binding — exact, free,
+  nothing to provision. KV is a documented fallback rather than an equal option:
+  it is eventually consistent, so a burst arriving at several points of presence
+  at once can overshoot the cap, which is precisely the shape a spam run takes.
+
+  Three decisions the report asked to have pinned down, and each is now asserted
+  by a test rather than left to be rediscovered:
+
+  - **Fail open by default.** Losing a real enquiry costs more than letting one
+    extra message through — but that is wrong for anything moving money, so
+    `RATE_LIMIT_FAIL = "closed"` exists and the choice is per project.
+  - **A rejected request is not counted.** Otherwise a bot locks a real visitor
+    out of a shared address indefinitely, and `cf-connecting-ip` buckets a whole
+    office or CGNAT together, so shared addresses are the normal case.
+  - **The `429` carries `Retry-After` and `Cache-Control: no-store`** — the first
+    so a well-behaved client backs off, the second because a cached 429 would
+    answer somebody else's request.
+
+  With no backend bound it is a no-op: an unconfigured project behaves exactly as
+  it did, because a limiter that turns visitors away for want of configuration is
+  worse than no limiter.
+
 ### Fixed
 - 🎨 **`minify_css` no longer changes what a selector means** (#222). It stripped
   whitespace on both sides of every `:`, and a space *before* a colon is the

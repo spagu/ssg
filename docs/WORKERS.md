@@ -105,12 +105,39 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `cookie-consent` | GDPR/UK cookie banner: edge geo (EEA+UK), granular categories, script-gating, Consent Mode v2, optional audit log; ships a starter `cookie-policy.md`. `ssgtheme` wires it from `variables.cookie_consent` rather than literal HTML — see [its README](../workers/cookie-consent/README.md) |
 | `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
 | `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
+| `rate-limit` | `functions/_middleware.ts` — a request budget for every Function in the project, including ones added later. Exact and free through the Workers Rate Limiting binding, KV as a fallback. See [its README](../workers/rate-limit/README.md) |
 
 ```sh
 ssg new worker stripe-checkout
 ```
 
 Each template ships a `README.md` listing the secrets it needs.
+
+### Bounding how often they can be called
+
+Every template above that writes something — sends an email, stores a comment,
+logs a consent — is a public, unauthenticated endpoint. Turnstile raises the
+cost of abusing one without capping it: a solved token can be replayed inside
+its validity window, and Turnstile is optional in the first place.
+
+`rate_limit` / `rate_burst` in `.ssg.yaml` bound the **built-in preview server**
+only. `rate-limit` is the deployed counterpart:
+
+```sh
+ssg new worker contact-form
+ssg new worker rate-limit
+cp -r workers/rate-limit/functions/_middleware.ts workers/contact-form/functions/
+```
+
+It is middleware, so it wraps whatever is in `functions/` without either side
+knowing about the other. Without a backend bound it is a **no-op** — a limiter
+that turns visitors away because nobody finished configuring it is worse than no
+limiter — and it fails open by default, which is right for a contact form and
+wrong for a checkout, so `RATE_LIMIT_FAIL = "closed"` is there for the latter.
+
+Prefer the `RATE_LIMITER` binding over KV. KV is eventually consistent, so a
+burst arriving at several points of presence at once can overshoot the cap,
+which is exactly the shape a spam run takes.
 
 ## Secrets
 
