@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- 🎨 **`minify_css` no longer changes what a selector means** (#222). It stripped
+  whitespace on both sides of every `:`, and a space *before* a colon is the
+  descendant combinator: `.prose :where(p)` — a paragraph inside `.prose` —
+  became `.prose:where(p)`, an element that is both, which is nothing.
+
+  The rules still parsed, so nothing errored and nothing warned; the styling was
+  simply gone. A Tailwind stylesheet using `@tailwindcss/typography` emits its
+  whole ruleset as `.prose :where(…)`, so after minification `prose` styled
+  nothing at all and the page rendered as unstyled running text — which is why
+  it took a while to notice. `.panel :hover` had it worse than most: it silently
+  became `.panel:hover`, styling the panel instead of its descendants.
+
+  Only the space *after* a colon is removed now, which is where the compression
+  was anyway — declarations are written `color: red`, not `color :red`. The
+  source-map path was never affected: it only collapses runs of whitespace.
 - 🗂️ **The media tools can see a migrated site's pictures** (#218). They shipped
   knowing one root, `static/` — the theme's own, and usually near-empty on the
   sites they were built for. Everything an export brings across lives under the

@@ -5140,11 +5140,21 @@ var (
 	minIgnoreBlockRe = regexp.MustCompile(`(?s)<!--\s*htmlmin:ignore\s*-->(.*?)<!--\s*/htmlmin:ignore\s*-->`)
 	// Whitespace-sensitive elements minification must never touch (GO-022):
 	// <pre>/<textarea> render whitespace, <script>/<style> may break semantically.
-	minPreserveTagRe  = regexp.MustCompile(`(?is)<pre\b[^>]*>.*?</pre>|<textarea\b[^>]*>.*?</textarea>|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>`)
-	minHTMLCommentRe  = regexp.MustCompile(`<!--[\s\S]*?-->`)
-	minTagGapRe       = regexp.MustCompile(`>\s+<`)
-	minMultiSpaceRe   = regexp.MustCompile(`\s{2,}`)
-	minCSSSpacesRe    = regexp.MustCompile(`\s*([:{};,])\s*`)
+	minPreserveTagRe = regexp.MustCompile(`(?is)<pre\b[^>]*>.*?</pre>|<textarea\b[^>]*>.*?</textarea>|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>`)
+	minHTMLCommentRe = regexp.MustCompile(`<!--[\s\S]*?-->`)
+	minTagGapRe      = regexp.MustCompile(`>\s+<`)
+	minMultiSpaceRe  = regexp.MustCompile(`\s{2,}`)
+	// Structural delimiters: whitespace on either side of these is never
+	// significant, so both sides go.
+	minCSSSpacesRe = regexp.MustCompile(`\s*([{};,])\s*`)
+	// A colon is not one of them. Whitespace BEFORE it can be the descendant
+	// combinator — `.prose :where(p)` selects a paragraph inside .prose, while
+	// `.prose:where(p)` selects an element that is both, which is nothing —
+	// and the rules still parse afterwards, so nothing errors and the styling
+	// is simply gone (#222). Only the space after a colon is removed, which is
+	// where the compression was anyway: declarations are written `color: red`,
+	// not `color :red`.
+	minCSSColonRe     = regexp.MustCompile(`:[ \t]+`)
 	minJSEmptyLinesRe = regexp.MustCompile(`\n\s*\n`)
 	minIntraSpaceRe   = regexp.MustCompile(`[ \t]{2,}`)
 )
@@ -5163,8 +5173,9 @@ func minifyCSSFile(path string) error {
 	// Remove newlines
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\r", "")
-	// Remove spaces around : ; { } ,
+	// Remove spaces around ; { } , and after :
 	s = minCSSSpacesRe.ReplaceAllString(s, "$1")
+	s = minCSSColonRe.ReplaceAllString(s, ":")
 	// Collapse multiple spaces
 	s = minMultiSpaceRe.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)
