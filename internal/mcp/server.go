@@ -38,12 +38,33 @@ type Options struct {
 	// so a search backend that is down cannot take editing down with it.
 	Search func(query string, limit int) ([]FindHit, error)
 
+	// MediaRoots are the directories the build publishes verbatim, each with the
+	// URL prefix it is served under. Empty falls back to StaticDirs at "/",
+	// which is what the media tools assumed when they shipped — and why they
+	// were blind to a migrated site, whose pictures live in the content
+	// source's media/ and are served at /media/ (#218).
+	MediaRoots []MediaRoot
+
 	// MediaAllowPrivate permits media_upload to fetch a URL that resolves to a
 	// loopback or private address. Off by default: this server fetches on
 	// someone else's instruction, which is server-side request forgery unless
 	// something stops it, and "download this and put it on the site" is exactly
 	// the shape that reaches an internal service (#214).
 	MediaAllowPrivate bool
+}
+
+// MediaRoot is one directory the build copies into the output untouched, and
+// the URL prefix it appears under once there.
+//
+// Both halves matter: Dir is where a file is written, URL is how the site — and
+// therefore the person asking for a change — refers to it. The owner does not
+// know that the picture on the about page is stored under a content source;
+// they know it is /media/images/team.jpg.
+type MediaRoot struct {
+	// Dir is project-relative, e.g. "static" or "content/site/media".
+	Dir string
+	// URL is the served prefix, e.g. "/" or "/media/".
+	URL string
 }
 
 // Server is a running MCP stdio server.

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🗂️ **The media tools can see a migrated site's pictures** (#218). They shipped
+  knowing one root, `static/` — the theme's own, and usually near-empty on the
+  sites they were built for. Everything an export brings across lives under the
+  content source and is published at `/media/…`, so on a migrated site
+  `media_list` said "nothing" while the site served hundreds of images, and
+  `media_replace /media/images/team.jpg` said "not there" — the one call that
+  answers "change the picture on the about page" without touching content.
+
+  Media are now addressed **the way the site serves them**, across every root the
+  build publishes verbatim: the static directory, each `static_sources` entry,
+  and the content source's `media/`. The owner does not know a picture is stored
+  under a content source; they know it is `/media/images/team.jpg`.
+
+  A new file goes to the root serving the prefix it was addressed under, so an
+  upload to `/media/…` lands beside the site's other pictures instead of starting
+  a second media tree in `static/`. The longest prefix wins, because every root
+  is under `/` and a first-match search would send every `/media/` upload to the
+  theme's directory. Project-relative paths still work; a path under no
+  publishing root is refused and told where media live, rather than being
+  silently resolved into the first root that could hold it.
+
+  The reference check that guards `media_delete` used to derive the served path
+  by chopping the first segment — right for `static/`, wrong for a content
+  source, so a `/media/` picture three pages used looked unreferenced. It now
+  asks the root that holds the file.
+- 🗺️ **A front page is listed once in `sitemap.xml`** (#219). A document claiming
+  the root with `link: "/"` appeared twice — once as the generated front-page
+  entry at `priority 1.0`, once as an ordinary page at `0.8` — so the sitemap
+  contradicted itself about the site's most important URL. The guard against this
+  keyed on the page's *slug*, which is why `link: "/"` walked past it; it now
+  keys on the address, which covers every way a document can come to be the front
+  page. The `sitemap: "no"` workaround is no longer needed, and still means what
+  it says.
+
 ## [1.8.51] - 2026-08-25
 
 ### Added

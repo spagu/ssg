@@ -96,6 +96,22 @@ the same audited tools.
 Both roles get them: a photograph is neither purely presentation nor purely
 content, and the owner asking does not know the difference.
 
+**Address a file the way the site does**, not by where it is stored:
+`/media/images/team.jpg`, the way a page links it. That matters because where
+media live differs between sites. A fresh project keeps them in `static/`; a site
+out of `wpexporter` keeps every picture under the content source
+(`content/<site>/media/…`, published at `/media/…`) and `static/` holds only the
+theme's own. The tools cover every root the build publishes verbatim — the static
+directory, each `static_sources` entry, and the content source's `media/` — and
+resolve a served path to whichever one holds it. A new file goes to the root that
+serves the prefix you addressed, so an upload to `/media/…` lands under the
+content source rather than creating a second media tree in `static/`.
+
+A project-relative path is still accepted, since the tools took those when they
+shipped. A path belonging to no publishing root is refused and told where media
+actually live, rather than being quietly resolved into the first root that could
+hold it — a tool that silently relocates a file is worse than one that refuses.
+
 **`media_replace` is usually the tool you want.** It keeps the path, so every
 page using that image changes at once with no content edits. `media_upload`
 followed by `content_edit` is for pointing one page somewhere new.

@@ -29,8 +29,11 @@ func (s *Server) instructions() string {
 	if s.opts.Roles["designer"] || s.opts.Roles["content"] {
 		b.WriteString("MEDIA (media_*) — the pictures the site serves. Both roles have these: a " +
 			"photograph is neither purely presentation nor purely content.\n")
-		b.WriteString("  CAN: list, add, replace in place and remove images under " +
-			strings.Join(s.opts.StaticDirs, ", ") + ", from base64 bytes or a URL.\n")
+		b.WriteString("  CAN: list, add, replace in place and remove images served under " +
+			strings.Join(servedPrefixes(s.mediaRoots()), ", ") + ", from base64 bytes or a URL.\n")
+		b.WriteString("  Address a file the way the SITE does — /media/images/team.jpg — not by where " +
+			"it is stored: on a migrated site the pictures live under the content source, not in " +
+			"the theme's directory. media_list shows both.\n")
 		b.WriteString("  CANNOT: store anything that is not a JPEG, PNG, GIF or WebP — the file's own " +
 			"bytes decide, not its name — or delete a file a page still references.\n")
 		b.WriteString("  To change a picture: media_replace keeps the path, so every page using it " +

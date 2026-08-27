@@ -14,9 +14,12 @@ import (
 // site serves. Both roles get it — a photograph is neither purely presentation
 // nor purely content, and the owner asking for it does not know the difference.
 func (s *Server) mediaTools() []tool {
+	served := strings.Join(servedPrefixes(s.mediaRoots()), ", ")
 	bases := strings.Join(s.mediaBases(), ", ")
 	payload := map[string]any{
-		"path": stringProp("Project-relative path for the file, under " + bases),
+		"path": stringProp("The path the SITE serves the file at, as a page would link it — " +
+			"e.g. /media/images/team.jpg. Media are served under: " + served +
+			". A project-relative path (under " + bases + ") is accepted too."),
 		"content_base64": stringProp("The file's bytes, base64-encoded. Use this when you already " +
 			"have the image; otherwise give `url` instead."),
 		"url": stringProp("An http(s) URL the server downloads. Use this when the owner pasted a " +
@@ -25,15 +28,17 @@ func (s *Server) mediaTools() []tool {
 	return []tool{
 		{
 			name: "media_list",
-			description: "MEDIA · List every image the site serves (under: " + bases + ") with its " +
-				"size and format. Start here to see what exists before adding or replacing anything.",
+			description: "MEDIA · List every image the site serves, by the path the site serves it at, with " +
+				"its size and format. Start here: it shows where media actually live on this " +
+				"site, which is not the same on a migrated site as on a fresh one.",
 			schema:  objectSchema(nil),
 			handler: s.mediaList,
 		},
 		{
 			name: "media_upload",
 			description: "MEDIA · Add a NEW image, from base64 bytes or a URL the server downloads. " +
-				"CAN: write images (jpeg, png, gif, webp) under " + bases + ". CANNOT: overwrite an " +
+				"CAN: write images (jpeg, png, gif, webp) under " + served + ", each of which is a " +
+				"directory the build publishes verbatim. CANNOT: overwrite an " +
 				"existing file (use media_replace), write outside those directories, or write " +
 				"anything that is not an image — the format is decided by the file's own bytes, not " +
 				"by its name. After it lands, point a page at it with content_edit.",
@@ -53,7 +58,7 @@ func (s *Server) mediaTools() []tool {
 			description: "MEDIA · Remove an image. Refuses while any page or template still " +
 				"references it, naming them — deleting a file three pages point at turns three " +
 				"pages into broken images. Destructive: only on an explicit request.",
-			schema:  objectSchema(map[string]any{"path": stringProp("Project-relative path of the image to remove")}, "path"),
+			schema:  objectSchema(map[string]any{"path": stringProp("The path the site serves the image at, e.g. /media/images/old.jpg")}, "path"),
 			handler: s.mediaDelete,
 		},
 	}
@@ -65,20 +70,24 @@ func (s *Server) mediaList(map[string]any) toolResult {
 		return errResult("list failed: " + err.Error())
 	}
 	var lines []string
-	for _, rel := range files {
-		info, statErr := os.Stat(joinProject(s.opts.Root, rel))
-		if statErr != nil || info.IsDir() {
-			continue
+	for _, root := range s.mediaRoots() {
+		for _, rel := range filesUnder(files, root.Dir) {
+			info, statErr := os.Stat(joinProject(s.opts.Root, rel))
+			if statErr != nil || info.IsDir() {
+				continue
+			}
+			body, readErr := os.ReadFile(joinProject(s.opts.Root, rel)) // #nosec G304 -- listed from the section's own directories
+			if readErr != nil {
+				continue
+			}
+			kind, kindErr := mediaKind(body)
+			if kindErr != nil {
+				continue // not an image: the content and designer tools own it
+			}
+			// The served path, because that is the address every other media
+			// tool takes and the one the site's own pages use (#218).
+			lines = append(lines, fmt.Sprintf("%s  (%s, %d bytes)", root.servedPath(rel), kind, info.Size()))
 		}
-		body, readErr := os.ReadFile(joinProject(s.opts.Root, rel)) // #nosec G304 -- listed from the section's own directories
-		if readErr != nil {
-			continue
-		}
-		kind, kindErr := mediaKind(body)
-		if kindErr != nil {
-			continue // not an image: the content and designer tools own it
-		}
-		lines = append(lines, fmt.Sprintf("%s  (%s, %d bytes)", rel, kind, info.Size()))
 	}
 	sort.Strings(lines)
 	if len(lines) == 0 {
@@ -100,8 +109,8 @@ func (s *Server) mediaReplace(args map[string]any) toolResult {
 // and replacing a missing one are both mistakes, and separating them turns each
 // into an error instead of silent data loss.
 func (s *Server) writeMedia(args map[string]any, mustExist bool) toolResult {
-	rel, _ := strArg(args, "path")
-	abs, _, err := resolveIn(s.opts.Root, s.mediaBases(), rel)
+	given, _ := strArg(args, "path")
+	abs, _, rel, err := s.resolveMedia(given)
 	if err != nil {
 		return errResult(err.Error())
 	}
@@ -136,8 +145,8 @@ func (s *Server) writeMedia(args map[string]any, mustExist bool) toolResult {
 }
 
 func (s *Server) mediaDelete(args map[string]any) toolResult {
-	rel, _ := strArg(args, "path")
-	abs, _, err := resolveIn(s.opts.Root, s.mediaBases(), rel)
+	given, _ := strArg(args, "path")
+	abs, _, rel, err := s.resolveMedia(given)
 	if err != nil {
 		return errResult(err.Error())
 	}
@@ -161,4 +170,16 @@ func writeBytes(path string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644) // #nosec G306 -- a file the site serves
+}
+
+// filesUnder narrows a listing to one root, so each file is reported under the
+// URL prefix that actually serves it.
+func filesUnder(files []string, dir string) []string {
+	var out []string
+	for _, f := range files {
+		if f == dir || strings.HasPrefix(f, dir+"/") {
+			out = append(out, f)
+		}
+	}
+	return out
 }

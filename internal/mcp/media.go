@@ -37,10 +37,6 @@ const maxMediaBytes = 20 << 20
 // hangs.
 const mediaFetchTimeout = 30 * time.Second
 
-// mediaBases is where media may be written: the static directories, which is
-// where a site's images live and what the build copies verbatim.
-func (s *Server) mediaBases() []string { return s.opts.StaticDirs }
-
 // mediaKind names the format from the file's leading bytes, or says why it is
 // not storable.
 //
@@ -142,7 +138,7 @@ func (s *Server) fetchMedia(raw string) ([]byte, error) {
 // only the full relative path would report "nothing uses it" about a file three
 // pages display.
 func (s *Server) mediaReferences(rel string) []string {
-	needles := referenceForms(rel)
+	needles := s.referenceForms(rel)
 	var out []string
 	for _, base := range append(append([]string{}, s.opts.ContentDirs...), s.opts.TemplateDirs...) {
 		files, err := listFiles(s.opts.Root, []string{base})
@@ -163,16 +159,23 @@ func (s *Server) mediaReferences(rel string) []string {
 }
 
 // referenceForms lists the spellings a document might use for a media path.
-func referenceForms(rel string) []string {
+//
+// The stored path, the served path, and the bare filename — because a page
+// links a picture the way the site addresses it, and matching only the stored
+// form would report "nothing uses it" about a file three pages display. The
+// served form now comes from the root that holds the file rather than from
+// chopping the first segment off, since /media/ and / are different roots and
+// guessing between them was only ever right for one of the two (#218).
+func (s *Server) referenceForms(rel string) []string {
 	rel = strings.TrimPrefix(rel, "./")
 	forms := []string{rel, "/" + rel}
-	if i := strings.LastIndex(rel, "/"); i >= 0 {
-		// The path as the site serves it: static/images/x.png is /images/x.png,
-		// because the static directory itself is not part of the URL.
-		if cut := strings.Index(rel, "/"); cut >= 0 {
-			served := rel[cut:]
+	for _, root := range s.mediaRoots() {
+		if rel == root.Dir || strings.HasPrefix(rel, root.Dir+"/") {
+			served := root.servedPath(rel)
 			forms = append(forms, served, strings.TrimPrefix(served, "/"))
 		}
+	}
+	if i := strings.LastIndex(rel, "/"); i >= 0 {
 		forms = append(forms, rel[i+1:])
 	}
 	return forms
