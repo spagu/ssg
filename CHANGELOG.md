@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 🧭 **`webmcp: true` — the built site declares its own tools to a browser agent**
+  (#224). A static site already knows its index, its taxonomy and its canonical
+  URLs at build time, and until now threw that away: an agent opening the
+  published site had to infer all of it from HTML. With this on, every rendered
+  document — posts, pages, archives, taxonomy listings, the home page and
+  `404.html` — registers four tools through the browser's `navigator.modelContext`
+  API: `searchPosts`, `listByTag`, `getDocument` and `navigate`. `navigate`
+  refuses any URL the site did not publish, so an agent can move a reader around
+  this site and nowhere else. The tools answer from `search-index.json`, so the
+  switch turns `search_index` on rather than shipping four tools that throw on
+  first call; with `i18n` on, each page reads the index in its own language.
+  **This is not `ssg mcp`** — that serves the author's assistant and writes
+  files, this is a property of the output serving the visitor's agent.
+  WebMCP is a W3C Community Group Draft, so the feature is off by default, the
+  script feature-detects and does nothing where the API is absent, the index is
+  fetched on first tool call rather than at page load, and a theme shipping its
+  own registration keeps it. A site that does not ask for it is unchanged byte
+  for byte. `--webmcp`, documented in [docs/AI-AGENTS.md](docs/AI-AGENTS.md).
+
+### Fixed
+- 📝 **The comment on `protocolVersion` described a server that no longer exists.**
+  It still claimed `2026-07-28` was deliberately unimplemented and pointed at
+  #174 as open work; #174 shipped in 1.8.45 and the server has spoken both eras
+  since. The constant is unchanged and correct — it is the initialize-era
+  fallback for a client that names no version — but the reasoning around it now
+  says so, and points at `supportedVersions` in `modern.go` for the full list.
+
 ## [1.8.52] - 2026-08-27
 
 ### Added

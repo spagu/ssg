@@ -330,7 +330,12 @@ func (g *Generator) searchRecord(p models.Page) map[string]interface{} {
 // generateSearchIndex writes search-index.json (all posts + pages) for a
 // client-side search widget when enabled (PLAT-004).
 func (g *Generator) generateSearchIndex() error {
-	if !g.config.SearchIndex {
+	// WebMCP's tools answer from this file, so it is written when either asks
+	// for it. Keeping the dependency here rather than in the caller means a
+	// Generator built any way at all cannot ship tools with nothing behind
+	// them — the failure mode would be four registered tools that always throw
+	// on first call, visible only to an agent (#224).
+	if !g.config.SearchIndex && !g.config.WebMCP {
 		return nil
 	}
 	g.log("🔎 Building search index...")

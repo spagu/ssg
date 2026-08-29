@@ -706,6 +706,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Bundles:                cfg.Bundles,
 		Outputs:                cfg.Outputs,
 		SearchIndex:            cfg.SearchIndex,
+		WebMCP:                 cfg.WebMCP,
 		SanitizeHTML:           cfg.SanitizeHTML,
 		ShortcodeErrors:        cfg.ShortcodeErrors,
 		ContentSources:         contentSourcesOf(cfg),
@@ -1663,6 +1664,7 @@ func printUsage() {
 	fmt.Println("                           (feeds: in config adds more, in atom | rss | json)")
 	fmt.Println("  --feed-items=N         - Max entries in the feed (default: 20)")
 	fmt.Println("  --search-index         - Emit search-index.json for client-side search")
+	fmt.Println("  --webmcp               - Declare the site's tools to a browser agent (WebMCP)")
 	fmt.Println("  --paginate=N           - Posts per index page; 0 disables pagination (default)")
 	fmt.Println("  --outputs=LIST         - Extra output formats per page, comma-separated (e.g. json)")
 	fmt.Println("  --check-links          - Validate internal links after build (warn mode)")
@@ -2013,6 +2015,7 @@ func boolFlagTargets(cfg *config.Config) map[string]*bool {
 		"--math":             &cfg.Math, "--feed": &cfg.Feed,
 		"--highlight": &cfg.Highlight, "--toc": &cfg.TOC,
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
+		"--webmcp": &cfg.WebMCP,
 		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
 		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)

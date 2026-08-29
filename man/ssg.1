@@ -540,6 +540,14 @@ shortcode that failed. Recommended in CI.
 .B \-\-search\-index
 Emit \fBsearch-index.json\fR for client-side search.
 .TP
+.B \-\-webmcp
+Declare the site's own tools to an AI agent running in the visitor's browser,
+via the WebMCP \fBnavigator.modelContext\fR API: search, list by tag, fetch a
+document, navigate. The tools answer from \fBsearch-index.json\fR, so this
+implies \fB\-\-search\-index\fR. The script feature-detects and does nothing
+where the API is absent. Distinct from \fBssg mcp\fR, which serves the author's
+assistant rather than the visitor's.
+.TP
 .BR \-\-outputs =\fILIST
 Per-page output formats, e.g. \fBhtml,json\fR (json writes index.json).
 .TP

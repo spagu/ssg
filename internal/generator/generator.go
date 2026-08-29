@@ -282,6 +282,10 @@ type Config struct {
 	Bundles     map[string][]string
 	Outputs     []string
 	SearchIndex bool
+	// WebMCP emits the browser-agent tool registrations into every page
+	// (#224). It reads search-index.json, so enabling it turns SearchIndex
+	// on rather than shipping tools with nothing to answer from.
+	WebMCP bool
 	// ContentSchemas validate per-type frontmatter contracts; Strict escalates
 	// violations (and link checks) to build failures; RouteManifest writes
 	// routes.json (#62).
@@ -5119,8 +5123,17 @@ func (g *Generator) generateNotFound() error {
 	}
 	// notFoundText always returns a title — the English copy is the floor, not
 	// an optional case — so there is nothing to guard against here.
+	doc := renderNotFound(g.notFoundText())
+	// This document is written directly rather than through transformHTMLPage,
+	// so it must ask for the registration itself (#224). A dead URL is where a
+	// visiting agent most needs searchPosts: it is the one page whose whole
+	// purpose is that the reader wanted something else. A site providing its
+	// own 404 rendered through the pipeline and already has it.
+	if g.config.WebMCP {
+		doc = injectWebMCP(doc, g.webmcpIndexURL(nil))
+	}
 	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(path, []byte(renderNotFound(g.notFoundText())), 0644)
+	return os.WriteFile(path, []byte(doc), 0644)
 }
 
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare

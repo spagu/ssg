@@ -575,6 +575,13 @@ type Config struct {
 	// client-side search widget (PLAT-004).
 	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`
 
+	// WebMCP makes the built site declare tools to an agent running in the
+	// visitor's browser via navigator.modelContext (#224): search, list by tag,
+	// fetch a document, navigate. It answers from search-index.json, so turning
+	// it on turns SearchIndex on too. Off by default — the API is a W3C
+	// Community Group Draft, and the script does nothing where it is absent.
+	WebMCP bool `yaml:"webmcp" toml:"webmcp" json:"webmcp"`
+
 	// ContentSchemas declares per-type frontmatter contracts (#62): required
 	// fields and per-field type/format/enum rules, validated after content load
 	// so missing/malformed frontmatter is caught at build instead of shipping a

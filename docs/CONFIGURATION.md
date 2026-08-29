@@ -743,6 +743,7 @@ shortcode_errors: strict
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
+| `webmcp` | `false` | `--webmcp` | Declare the site's tools to a browser agent via `navigator.modelContext` ([WebMCP](AI-AGENTS.md#webmcp)). Turns `search_index` on, which its tools read |
 
 Pagination writes page 1 at the site root and pages 2 onward under `/page/N/`.
 Themes receive `.Pager`.
