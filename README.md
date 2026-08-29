@@ -294,6 +294,7 @@ Common options:
 | Compile SCSS | `scss: true` | `--scss` |
 | Generate Atom feeds | `feed: true` | `--feed` |
 | Generate search index | `search_index: true` | `--search-index` |
+| Declare the site's tools to a browser agent | `webmcp: true` | `--webmcp` |
 | Add SEO metadata | `seo: true` | `--seo` |
 | Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
 | Fail the build on any violation | `strict: true` | `--strict` |

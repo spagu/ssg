@@ -188,6 +188,12 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	if g.config.Mermaid {
 		s = g.mermaidHTMLString(s)
 	}
+	// Before the link rewrite, so the index URL the script carries is rewritten
+	// with every other absolute path rather than staying rooted at / on a site
+	// served from a subdirectory (#224).
+	if g.config.WebMCP {
+		s = injectWebMCP(s, g.webmcpIndexURL(page))
+	}
 	if g.config.RelativeLinks && g.config.Domain != "" {
 		s = relativizeHTMLString(s, g.config.Domain)
 	}
