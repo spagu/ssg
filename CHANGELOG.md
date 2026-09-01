@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 💸 **CI builds each release binary once, not four times** (#232). The
+  eleven-target Build Binaries matrix ran on every PR and every push to main,
+  compiling dev-versioned binaries nobody publishes — four full matrix runs per
+  release cycle before the one that ships — and the DEB and RPM jobs then
+  recompiled the linux targets a third and fourth time at the tag. Now: the
+  matrix runs on tags only; a PR gets a cross-compile check instead (one cached
+  `go build` per GOOS, seconds, no artifacts); DEB and RPM download the build
+  job's artifacts, which also makes the packaged binaries provably the same
+  bytes as the released tarballs; and the Docker image rebuilds on a PR only
+  when the image definition itself changes — code changes are already compiled
+  and tested by CI. Roughly 50 of ~65 compile jobs per release cycle gone, and
+  most of the cost of an ordinary PR with them.
+
 ## [1.8.54] - 2026-09-01
 
 ### Fixed

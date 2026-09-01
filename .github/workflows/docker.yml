@@ -8,19 +8,16 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main]
-    paths-ignore:
-      # Content and the docs theme cannot change the binary or its tests:
-      # embedded.go embeds templates/simple and templates/krowy only, so
-      # templates/ssgtheme is site material like docs/ and blog/. The docs site
-      # has its own workflow, which builds and link-checks all of this.
-      # Tag pushes ignore path filters entirely, so releases are unaffected.
-      - "docs/**"
-      - "blog/**"
-      - "assets/**"
-      - "templates/ssgtheme/**"
-      - "docs-site.yaml"
-      - "*.md"
-      - ".github/workflows/docs-site.yml"
+    # A PR image build exists to catch a broken Dockerfile before the tag —
+    # so it runs only when the image definition itself changes. Go code is
+    # compiled and tested by CI on every PR already; rebuilding the image for
+    # every code change was a four-minute multi-stage build per PR that
+    # verified nothing the CI workflow had not. Tag pushes ignore path
+    # filters entirely, so releases are unaffected.
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
   workflow_dispatch:
 
 env:
