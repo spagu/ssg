@@ -126,6 +126,29 @@ sudo dnf install libwebp-tools
 
 ## Linux - Snap (Ubuntu)
 
+> **On WSL, prefer the [DEB package](#linux---debianubuntu-deb).** The snap is
+> strictly confined, so running it needs snapd to build a private mount
+> namespace — something WSL's kernel does not always allow. The symptom is not
+> an ssg error but a snapd one, before ssg starts at all:
+>
+> ```
+> cannot preserve mount namespace of process NNNNN as static-site-generator.mnt: Invalid argument
+> unexpected eof from helper process
+> ```
+>
+> It typically appears right after a `snap refresh`, when a namespace from the
+> previous revision is left behind. Clear it and retry:
+>
+> ```bash
+> sudo umount /run/snapd/ns/static-site-generator.mnt 2>/dev/null
+> sudo rm -f /run/snapd/ns/static-site-generator.mnt
+> sudo systemctl restart snapd.service
+> ```
+>
+> If it persists, `wsl --shutdown` from Windows clears every namespace at once.
+> snapd also needs systemd, which WSL enables only with `systemd=true` under
+> `[boot]` in `/etc/wsl.conf`. The DEB has none of these moving parts.
+
 ### Install from Snap Store
 
 ```bash
