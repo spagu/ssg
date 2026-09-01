@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 📖 **The install guide never mentioned WSL, where the snap can fail to start.**
+  The snap is strictly confined, so snapd must build a private mount namespace
+  for it — which WSL's kernel does not always permit, most often right after a
+  `snap refresh` leaves the previous revision's namespace behind. The failure
+  reads `cannot preserve mount namespace … Invalid argument`, comes from snapd
+  before ssg runs at all, and gives no hint that the packaging is the problem.
+  [docs/INSTALL.md](docs/INSTALL.md) now names the symptom, gives the commands
+  that clear a stale namespace, notes that snapd needs `systemd=true` in
+  `/etc/wsl.conf`, and points WSL users at the DEB, which has none of these
+  moving parts.
+
 ## [1.8.53] - 2026-09-01
 
 ### Added
