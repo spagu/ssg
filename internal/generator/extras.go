@@ -70,6 +70,13 @@ func (g *Generator) checkLinks() ([]brokenLink, error) {
 		}
 		rel, _ := filepath.Rel(root, path)
 		for _, ref := range refs {
+			// An absolute URL on the site's own domain is an internal
+			// reference wearing its Sunday clothes — and one class of them, the
+			// canonical, is ALWAYS absolute. Skipping every absolute URL
+			// exempted exactly the reference three production sites shipped
+			// broken: a theme hardcoding /category/ into canonicals it stamped
+			// on tag and author archives too (#229).
+			ref = g.stripOwnDomain(ref)
 			if !isInternalRef(ref) {
 				continue
 			}
@@ -115,6 +122,35 @@ func extractRefs(path string) ([]string, error) {
 	}
 	walk(doc)
 	return refs, nil
+}
+
+// stripOwnDomain rewrites an absolute URL on the site's own domain to the
+// path-only form the checker validates, and returns every other reference
+// unchanged. Case-insensitive on the host, exact on the boundary: the domain
+// must be followed by "/", "?", "#" or nothing, so example.com.evil stays
+// foreign (#229). With no configured domain there is nothing to match.
+func (g *Generator) stripOwnDomain(ref string) string {
+	domain := strings.ToLower(strings.TrimSpace(g.config.Domain))
+	if domain == "" {
+		return ref
+	}
+	lower := strings.ToLower(strings.TrimSpace(ref))
+	for _, prefix := range []string{"https://" + domain, "http://" + domain, "//" + domain} {
+		if !strings.HasPrefix(lower, prefix) {
+			continue
+		}
+		rest := strings.TrimSpace(ref)[len(prefix):]
+		if rest == "" {
+			return "/"
+		}
+		if rest[0] == '/' || rest[0] == '?' || rest[0] == '#' {
+			if rest[0] != '/' {
+				rest = "/" + rest
+			}
+			return rest
+		}
+	}
+	return ref
 }
 
 // isInternalRef reports whether a reference points inside the generated site.

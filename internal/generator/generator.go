@@ -395,10 +395,15 @@ type Generator struct {
 	// sequentially, so every worker in a batch only ever reads it (BUILD-PARALLEL).
 	// Anything that would set it per page must take per-render context instead.
 	currentLang string
-	md          goldmark.Markdown  // configured Markdown renderer (AX-001/002/003)
-	tagSlugs    map[string]string  // tag name → slug, for sitemap/feeds (BLOG-004)
-	authorSlugs map[string]string  // author slug → slug, for sitemap (BLOG-005)
-	taxonomies  *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
+	md          goldmark.Markdown // configured Markdown renderer (AX-001/002/003)
+	tagSlugs    map[string]string // tag name → slug, for sitemap/feeds (BLOG-004)
+	// categoryArchives records, per category id, the path its archive was
+	// actually written at. The sitemap reads THIS, not siteData.Categories: the
+	// metadata declares terms, but only a term with posts gets a page, and a
+	// term with its own link gets one somewhere other than /category/ (#228).
+	categoryArchives map[int]string
+	authorSlugs      map[string]string  // author slug → slug, for sitemap (BLOG-005)
+	taxonomies       *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
 	// External sources: .ExternalData / .ExternalDataMeta namespaces plus
 	// content-mode CMS imports merged into the site before finalize.
 	externalData map[string]interface{}
@@ -4024,6 +4029,15 @@ func (g *Generator) generateCategories() error {
 				fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
 				break
 			}
+			// Only a written archive may reach the sitemap (#228): a render
+			// failure above breaks out before this line, and a term that never
+			// enters this loop was never rendered at all.
+			if chunk.Pager.Current == 1 {
+				if g.categoryArchives == nil {
+					g.categoryArchives = make(map[int]string)
+				}
+				g.categoryArchives[catID] = archivePath
+			}
 		}
 	}
 
@@ -4875,22 +4889,39 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 }
 
 // writeSitemapCategories appends the category archive entries, skipping
-// "Bez kategorii" and archives suppressed by an explicit page (GO-050).
+// "Bez kategorii".
+//
+// It reads what generateCategories recorded, so the file can only name
+// documents the build wrote. Iterating siteData.Categories instead advertised
+// every declared term: one with no posts has no archive, so its entry 404ed,
+// and one served away from /category/ by its link (#143) was named at the
+// default path its archive does not live at (#228). Suppressed archives
+// (GO-050) never enter the record, so no ownership re-check is needed here.
 func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
-	for _, cat := range g.siteData.Categories {
-		if _, taken := g.archiveURLOwner("category", models.SanitizeRelPath(cat.Slug)); taken {
+	paths := make([]string, 0, len(g.categoryArchives))
+	for catID, path := range g.categoryArchives {
+		if catID == 1 { // Skip "Bez kategorii"
 			continue
 		}
-		if cat.ID != 1 { // Skip "Bez kategorii"
-			g.writeSitemapArchive(sb, "category", models.CategoryPath(cat, g.siteData.Categories))
-		}
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		g.writeSitemapArchivePath(sb, path)
 	}
 }
 
-// writeSitemapArchive appends a sitemap entry for an archive page (category/tag/author).
+// writeSitemapArchive appends a sitemap entry for an archive page (tag/author)
+// living at the built-in /{kind}/{slug}/ layout.
 func (g *Generator) writeSitemapArchive(sb *strings.Builder, kind, slug string) {
+	g.writeSitemapArchivePath(sb, kind+"/"+slug)
+}
+
+// writeSitemapArchivePath appends a sitemap entry for an archive served at an
+// arbitrary path — which is what a category with its own link has (#143).
+func (g *Generator) writeSitemapArchivePath(sb *strings.Builder, path string) {
 	sb.WriteString(sitemapURLOpen)
-	fmt.Fprintf(sb, "    <loc>https://%s/%s/%s/</loc>\n", g.config.Domain, kind, slug)
+	fmt.Fprintf(sb, "    <loc>https://%s/%s/</loc>\n", g.config.Domain, strings.Trim(path, "/"))
 	sb.WriteString("    <changefreq>weekly</changefreq>\n")
 	sb.WriteString("    <priority>0.5</priority>\n")
 	sb.WriteString(sitemapURLClose)

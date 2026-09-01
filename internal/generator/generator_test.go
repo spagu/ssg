@@ -1096,6 +1096,10 @@ func TestGenerateSitemapWithPages(t *testing.T) {
 				2: {ID: 2, Name: "News", Slug: "news"},
 			},
 		},
+		// The sitemap lists what generateCategories recorded as written, not
+		// what the metadata declares (#228) — so a test that skips the render
+		// step must record the archive the way a real build would.
+		categoryArchives: map[int]string{2: "category/news"},
 	}
 
 	if err := gen.generateSitemap(); err != nil {

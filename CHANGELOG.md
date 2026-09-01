@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- 🗺️ **`sitemap.xml` advertised category archives the build never wrote** (#228).
+  The renderer creates an archive only for a category that has posts, but the
+  sitemap iterated the declared metadata — so a term nobody posted in got an
+  entry that 404s, and a term served away from `/category/` by its own link
+  (#143) was named at the default path its archive does not live at. Found live
+  on a production site as *4XX page in sitemap*, critical. The sitemap now
+  consumes a record of what `generateCategories` actually wrote — a term with
+  no posts, a suppressed archive (GO-050) or a failed render never enters it,
+  and a linked term is named at the path it serves. Tags and authors were
+  already safe: their sitemap source only ever contained rendered archives.
+- 🔗 **`check_links` never validated absolute own-domain URLs — so broken
+  canonicals sailed through strict builds** (#229). A canonical is always
+  absolute, and the checker exempted everything starting `http(s)://` as
+  external — exactly the reference class three production sites shipped broken,
+  after a theme hardcoded `/category/<slug>/` into a template that also renders
+  tag and author archives. An absolute URL on the site's own domain is now
+  rewritten to its path form and validated like any relative link; foreign
+  hosts stay exempt and the checker still never touches the network.
+  **Deliberate behaviour change:** a strict build that silently carried such a
+  reference now fails — every one it reports is a dead link crawlers were
+  already hitting.
 - 📖 **The install guide never mentioned WSL, where the snap can fail to start.**
   The snap is strictly confined, so snapd must build a private mount namespace
   for it — which WSL's kernel does not always permit, most often right after a
