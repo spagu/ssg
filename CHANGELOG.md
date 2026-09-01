@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.53] - 2026-09-01
+
 ### Added
 - 🧭 **`webmcp: true` — the built site declares its own tools to a browser agent**
   (#224). A static site already knows its index, its taxonomy and its canonical
