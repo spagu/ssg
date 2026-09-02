@@ -259,14 +259,26 @@ func watchIteration(dirs []string, sigCache *fileSigCache, lastBuild time.Time, 
 }
 
 // watchDirs returns the directories watched for changes: content, templates,
-// data and every extra Markdown root, so editing a file in a content_sources
-// directory rebuilds like editing the primary source does (CONTENT-002).
+// data, every extra Markdown root (CONTENT-002) — and the static roots (#235).
+// static_dir is where the files somebody edits most often while watching live
+// end up — the stylesheet, the script, the logo — and since 1.8.51 it is also
+// where the MCP media tools write, so an assistant swapping a picture over MCP
+// changes a file the watcher otherwise cannot see. "Save and look" has to be
+// true for these files too.
 func watchDirs(cfg *config.Config) []string {
 	dirs := []string{cfg.ContentDir, cfg.TemplatesDir}
 	if cfg.DataDir != "" {
 		dirs = append(dirs, cfg.DataDir)
 	}
+	if cfg.StaticDir != "" {
+		dirs = append(dirs, cfg.StaticDir)
+	}
 	for _, src := range cfg.ContentSources {
+		if p := strings.TrimSpace(src.Path); p != "" {
+			dirs = append(dirs, p)
+		}
+	}
+	for _, src := range cfg.StaticSources {
 		if p := strings.TrimSpace(src.Path); p != "" {
 			dirs = append(dirs, p)
 		}

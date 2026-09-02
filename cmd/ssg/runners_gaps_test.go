@@ -9,6 +9,7 @@ import (
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/generator"
+	"github.com/spagu/ssg/internal/models"
 )
 
 func TestRunArchives(t *testing.T) {
@@ -179,5 +180,28 @@ func TestWatchDirsContentSources(t *testing.T) {
 	// No data dir → skipped.
 	if dirs := watchDirs(&config.Config{ContentDir: "c", TemplatesDir: "t"}); len(dirs) != 2 {
 		t.Fatalf("no data dir: %v", dirs)
+	}
+}
+
+// TestWatchDirsStaticRoots: static_dir is where the stylesheet, the script and
+// the pictures live — the files somebody edits most often while watching — and
+// since 1.8.51 where the MCP media tools write. A watcher blind to it breaks
+// the mode's whole promise for exactly those files (#235).
+func TestWatchDirsStaticRoots(t *testing.T) {
+	cfg := &config.Config{ContentDir: "content", TemplatesDir: "templates", StaticDir: "static"}
+	cfg.StaticSources = []models.StaticSource{{Path: "shared-assets"}, {Path: "  "}, {Path: "brand", Dest: "img"}}
+	dirs := watchDirs(cfg)
+	want := []string{"content", "templates", "static", "shared-assets", "brand"}
+	if len(dirs) != len(want) {
+		t.Fatalf("watchDirs = %v, want %v", dirs, want)
+	}
+	for i := range want {
+		if dirs[i] != want[i] {
+			t.Fatalf("watchDirs[%d] = %q, want %q", i, dirs[i], want[i])
+		}
+	}
+	// No static dir configured → nothing extra to watch.
+	if dirs := watchDirs(&config.Config{ContentDir: "c", TemplatesDir: "t"}); len(dirs) != 2 {
+		t.Fatalf("no static dir: %v", dirs)
 	}
 }
