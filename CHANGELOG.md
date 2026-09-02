@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.55] - 2026-09-02
+
 ### Fixed
 - 🏠 **A query-only link ("/?cpt=123") claimed the site root and overwrote the
   front page** (#234). A WordPress export can address a custom-type entry
