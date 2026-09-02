@@ -5,40 +5,30 @@ package generator
 // and with it went the protection against a second page landing on the root.
 
 import (
-	"github.com/spagu/ssg/internal/models"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spagu/ssg/internal/models"
 )
 
 func buildFrontPageSite(t *testing.T, pages map[string]string) (outDir string) {
 	t.Helper()
-	tmp := t.TempDir()
-	contentDir := filepath.Join(tmp, "content")
-	tmplDir := filepath.Join(tmp, "templates")
-	outDir = filepath.Join(tmp, "output")
-
-	mustWrite(t, filepath.Join(contentDir, "site", "metadata.json"),
-		`{"categories":[],"media":[],"users":[]}`)
+	files := map[string]string{}
 	for name, body := range pages {
-		mustWrite(t, filepath.Join(contentDir, "site", "pages", name), body)
+		files["pages/"+name] = body
 	}
-	for _, name := range []string{"base.html", "index.html", "post.html", "page.html",
-		"category.html", "tag.html", "taxonomy.html"} {
-		mustWrite(t, filepath.Join(tmplDir, "simple", name),
-			`{{define "`+name+`"}}<html><body>{{.Content}}</body></html>{{end}}`)
-	}
-	gen, err := New(Config{
-		Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: contentDir, TemplatesDir: tmplDir, OutputDir: outDir, Quiet: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	return outDir
+	// Pages render their own Content so the tests can see WHICH document won
+	// the root; listing templates never execute here (the root is claimed).
+	cfg := newSiteFixture(t, `{"categories":[],"media":[],"users":[]}`, files,
+		func(name string) string {
+			if name == "page.html" {
+				return `<html><body>{{.Content}}</body></html>`
+			}
+			return `<html><body><p>x</p></body></html>`
+		})
+	buildSiteFixture(t, cfg)
+	return cfg.OutputDir
 }
 
 // TestQueryLinkedPagesDoNotOverwriteTheFrontPage is the issue's reproduction:
