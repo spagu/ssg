@@ -123,6 +123,19 @@ jobs:
       - name: Run tests in a shuffled order
         run: go test -race -shuffle=on ./...
 
+      # The full Build Binaries matrix runs only on tags now, so this is what
+      # catches platform-specific compile breakage in a PR: one compile per
+      # GOOS (plus arm64 for the odd 64-bit-only assumption), no artifacts,
+      # warm module cache. Seconds, not eleven runners.
+      - name: Cross-compile check
+        env:
+          CGO_ENABLED: 0
+        run: |
+          for target in linux/arm64 darwin/arm64 windows/amd64 freebsd/amd64 openbsd/amd64; do
+            echo "— $target"
+            GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/ssg
+          done
+
       # The generated site must not depend on the recorded baseline drifting, nor
       # on how many workers built it. Neither check ran in CI before, which is how
       # four parallel-render bugs shipped: each lived on a path the unit tests
@@ -183,6 +196,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [test, lint, security]
+    # Tags only. This matrix ran on every PR and every push to main, building
+    # eleven dev-versioned binaries nobody publishes — four full matrix runs
+    # per release cycle before the one that ships. Cross-platform compile
+    # breakage is still caught on every PR by the cross-compile check in the
+    # test job, which costs one cached `go build` per GOOS instead of eleven
+    # artifact builds.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true'
     strategy:
       matrix:
         include:
@@ -287,7 +307,11 @@ jobs:
     name: Build DEB Packages
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test, lint, security]
+    # The .deb wraps the binary the build job already made — recompiling here
+    # was a third build of each linux target per tag, and a package that could
+    # in principle carry different bytes than the released tarball. Downloading
+    # the artifact makes the .deb provably the same binary.
+    needs: [build]
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true'
     strategy:
       matrix:
@@ -295,12 +319,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
 
       - name: Get version
         id: version
@@ -311,14 +329,15 @@ jobs:
             echo "version=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build binary
-        env:
-          GOOS: linux
-          GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: 0
+      - name: Download built binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ssg-linux-${{ matrix.arch }}
+
+      - name: Unpack binary
         run: |
-          go build -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
-            -o ssg ./cmd/ssg
+          mv "ssg-linux-${{ matrix.arch }}" ssg
+          chmod 755 ssg
 
       - name: Build DEB package
         run: |
@@ -367,7 +386,9 @@ jobs:
     name: Build RPM Packages
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [test, lint, security]
+    # Same provenance argument as build-deb: wrap the built artifact, don't
+    # compile a fourth copy.
+    needs: [build]
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true'
     strategy:
       matrix:
@@ -379,12 +400,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
 
       - name: Install RPM tools
         run: sudo apt-get update && sudo apt-get install -y rpm
@@ -398,14 +413,15 @@ jobs:
             echo "version=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build binary
-        env:
-          GOOS: linux
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+      - name: Download built binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ssg-linux-${{ matrix.goarch }}
+
+      - name: Unpack binary
         run: |
-          go build -ldflags "-s -w -X main.Version=${{ steps.version.outputs.version }}" \
-            -o ssg ./cmd/ssg
+          mv "ssg-linux-${{ matrix.goarch }}" ssg
+          chmod 755 ssg
 
       - name: Build RPM package
         run: |
