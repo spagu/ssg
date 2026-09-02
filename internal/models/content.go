@@ -159,10 +159,18 @@ type Page struct {
 // Posts without Link: use URLFormat ("date" or "slug")
 // Pages without Link: use slug
 // PageFormat "flat" returns .html suffix, "directory"/"both" returns trailing slash
+// queryOnlyLink reports whether a parsed link carries its meaning entirely in
+// the query string — a root path plus a query, like "/?cpt=123". Such a link
+// names a dynamic address; a static build serves nothing there, so it is
+// ignored and the page falls back to its slug-derived address (#234).
+func queryOnlyLink(u *url.URL) bool {
+	return (u.Path == "" || u.Path == "/") && u.RawQuery != ""
+}
+
 func (p Page) GetURL() string {
 	// Link field ALWAYS takes priority (for both posts and pages)
 	if p.Link != "" {
-		if u, err := url.Parse(p.Link); err == nil {
+		if u, err := url.Parse(p.Link); err == nil && !queryOnlyLink(u) {
 			path := u.Path
 			if !strings.HasPrefix(path, "/") {
 				path = "/" + path
@@ -229,7 +237,15 @@ func (p Page) GetOutputPath() string {
 	// Link field ALWAYS takes priority (for both posts and pages); no language prefix.
 	if p.Link != "" {
 		if u, err := url.Parse(p.Link); err == nil {
-			return SanitizeRelPath(u.Path)
+			if rel := SanitizeRelPath(u.Path); rel != "" || u.RawQuery == "" {
+				return rel
+			}
+			// A link that is all query — "/?modula-gallery=1289" — names a
+			// dynamic address a static build cannot serve. Taking its empty
+			// path at face value claimed the site root and overwrote the
+			// front page with whichever such page rendered last (#234). The
+			// slug-derived path below is somewhere; the root belongs to the
+			// one page that names it plainly with link: "/".
 		}
 	}
 
