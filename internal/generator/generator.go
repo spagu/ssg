@@ -3648,8 +3648,16 @@ func (g *Generator) getOutputPaths(subPath string) []string {
 func (g *Generator) generatePage(page models.Page) error {
 	// A page that resolves to the site root IS the front page (#129): it is
 	// written to index.html, and the post listing moved to posts_page (or was
-	// not generated) before this ran.
+	// not generated) before this ran. But only the ONE page rootPage picked —
+	// a second claimant would overwrite it, and which document a site leads
+	// with would be decided by render order (#234).
 	outputSubPath := page.GetOutputPath()
+	if isRootOutputPath(outputSubPath) && !g.isDesignatedFrontPage(page) {
+		fmt.Printf("   ⚠️  Skipping page '%s' (slug: %s) — the site root already belongs to the front page (#234)\n",
+			page.Title, page.Slug)
+		fmt.Printf("      Hint: give it a real path in 'link', or remove the extra link: \"/\"\n")
+		return nil
+	}
 
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)

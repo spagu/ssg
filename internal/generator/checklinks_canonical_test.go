@@ -5,7 +5,6 @@ package generator
 // production sites shipped broken.
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -15,36 +14,23 @@ import (
 // live: a category.html hardcoding /category/<slug>/ while serving tags too.
 func buildBrokenCanonicalSite(t *testing.T, strict bool) error {
 	t.Helper()
-	tmp := t.TempDir()
-	contentDir := filepath.Join(tmp, "content")
-	tmplDir := filepath.Join(tmp, "templates")
-
-	mustWrite(t, filepath.Join(contentDir, "site", "metadata.json"),
-		`{"categories":[{"id":2,"name":"News","slug":"news"}],"media":[],"users":[]}`)
-	mustWrite(t, filepath.Join(contentDir, "site", "posts", "news", "one.md"),
-		"---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\ncategories: [News]\n---\n\nBody.\n")
-
-	for _, name := range []string{"base.html", "index.html", "post.html", "page.html",
-		"category.html", "tag.html", "taxonomy.html"} {
-		body := `<html><head></head><body><p>x</p></body></html>`
-		if name == "post.html" {
-			// The canonical names a document that does not exist, absolutely —
-			// and a genuinely external link stays exempt beside it.
-			body = `<html><head>` +
-				`<link rel="canonical" href="https://example.com/category/phantom/">` +
-				`<a href="https://other.example.net/never-checked/">elsewhere</a>` +
-				`</head><body><p>x</p></body></html>`
-		}
-		mustWrite(t, filepath.Join(tmplDir, "simple", name),
-			`{{define "`+name+`"}}`+body+`{{end}}`)
-	}
-
-	cfg := Config{
-		Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: contentDir, TemplatesDir: tmplDir,
-		OutputDir: filepath.Join(tmp, "output"), Quiet: true,
-		CheckLinks: "warn",
-	}
+	cfg := newSiteFixture(t,
+		`{"categories":[{"id":2,"name":"News","slug":"news"}],"media":[],"users":[]}`,
+		map[string]string{
+			"posts/news/one.md": "---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\ncategories: [News]\n---\n\nBody.\n",
+		},
+		func(name string) string {
+			if name == "post.html" {
+				// The canonical names a document that does not exist, absolutely —
+				// and a genuinely external link stays exempt beside it.
+				return `<html><head>` +
+					`<link rel="canonical" href="https://example.com/category/phantom/">` +
+					`<a href="https://other.example.net/never-checked/">elsewhere</a>` +
+					`</head><body><p>x</p></body></html>`
+			}
+			return `<html><head></head><body><p>x</p></body></html>`
+		})
+	cfg.CheckLinks = "warn"
 	if strict {
 		cfg.CheckLinks = "strict"
 	}

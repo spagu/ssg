@@ -9,6 +9,7 @@ import (
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/generator"
+	"github.com/spagu/ssg/internal/models"
 )
 
 func TestRunArchives(t *testing.T) {
@@ -163,21 +164,44 @@ func TestReportMissingSettings(t *testing.T) {
 	reportMissingSettings(&config.Config{Template: "simple"}, false) // config file present
 }
 
-func TestWatchDirsContentSources(t *testing.T) {
-	cfg := &config.Config{ContentDir: "content", TemplatesDir: "templates", DataDir: "data"}
-	cfg.ContentSources = []config.ContentSource{{Path: "docs"}, {Path: "  "}, {Path: "blog"}}
-	dirs := watchDirs(cfg)
-	want := []string{"content", "templates", "data", "docs", "blog"}
-	if len(dirs) != len(want) {
-		t.Fatalf("watchDirs = %v, want %v", dirs, want)
+// TestWatchDirs drives every kind of watched root through one table: the
+// Markdown roots (CONTENT-002) and the static roots (#235) — static_dir is
+// where the stylesheet and the pictures live, and since 1.8.51 where the MCP
+// media tools write, so a watcher blind to it broke "save and look" for
+// exactly the files edited most often.
+func TestWatchDirsRoots(t *testing.T) {
+	static := func(c *config.Config) {
+		c.StaticDir = "static"
+		c.StaticSources = []models.StaticSource{{Path: "shared-assets"}, {Path: "  "}, {Path: "brand", Dest: "img"}}
 	}
-	for i := range want {
-		if dirs[i] != want[i] {
-			t.Fatalf("watchDirs[%d] = %q, want %q", i, dirs[i], want[i])
-		}
+	content := func(c *config.Config) {
+		c.DataDir = "data"
+		c.ContentSources = []config.ContentSource{{Path: "docs"}, {Path: "  "}, {Path: "blog"}}
 	}
-	// No data dir → skipped.
-	if dirs := watchDirs(&config.Config{ContentDir: "c", TemplatesDir: "t"}); len(dirs) != 2 {
-		t.Fatalf("no data dir: %v", dirs)
+	cases := []struct {
+		name string
+		mut  func(*config.Config)
+		want []string
+	}{
+		{"bare", func(*config.Config) {}, []string{"content", "templates"}},
+		{"content sources", content, []string{"content", "templates", "data", "docs", "blog"}},
+		{"static roots", static, []string{"content", "templates", "static", "shared-assets", "brand"}},
+		{"everything", func(c *config.Config) { content(c); static(c) },
+			[]string{"content", "templates", "data", "static", "docs", "blog", "shared-assets", "brand"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{ContentDir: "content", TemplatesDir: "templates"}
+			tc.mut(cfg)
+			dirs := watchDirs(cfg)
+			if len(dirs) != len(tc.want) {
+				t.Fatalf("watchDirs = %v, want %v", dirs, tc.want)
+			}
+			for i := range tc.want {
+				if dirs[i] != tc.want[i] {
+					t.Fatalf("watchDirs[%d] = %q, want %q", i, dirs[i], tc.want[i])
+				}
+			}
+		})
 	}
 }

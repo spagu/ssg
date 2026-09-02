@@ -45,6 +45,24 @@ func isRootOutputPath(p string) bool {
 	return p == "" || p == "."
 }
 
+// isDesignatedFrontPage reports whether this page is the one rootPage picked —
+// the page the build's front-page report names. Exactly one document may write
+// the root: #129 removed the page-side GO-023 guard so a page could BE the
+// front page, and with it went the protection against a SECOND page landing
+// there, where render order silently decided what the site leads with (#234).
+//
+// The comparison mirrors rootPage's own selection, so the page that renders
+// the root is always the page the report claimed.
+func (g *Generator) isDesignatedFrontPage(page models.Page) bool {
+	lang := ""
+	if g.config.I18n.Enabled {
+		lang = page.Lang
+	}
+	front := rootPage(g.siteData.Pages, lang)
+	return front != nil && front.SourceFile == page.SourceFile &&
+		front.Slug == page.Slug && front.Title == page.Title
+}
+
 // postsListingPrefix resolves where the post listing goes for one language.
 // Empty means the site root; ok is false when the root is taken by a page and
 // no posts_page is configured, so the listing has nowhere to live.

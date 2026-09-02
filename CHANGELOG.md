@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- 🏠 **A query-only link ("/?cpt=123") claimed the site root and overwrote the
+  front page** (#234). A WordPress export can address a custom-type entry
+  entirely in the query string; taking that link's empty path at face value
+  resolved it to the root, and on a real migration two gallery entries rendered
+  over the home document — the build finished green, reported the right front
+  page, and shipped a site leading with a stray gallery. Two repairs: a link
+  whose meaning is all query names a dynamic address a static build cannot
+  serve, so the page now falls back to its slug-derived path instead of
+  claiming the root; and the root may now be written only by the page the
+  front-page report names — a second `link: "/"` claimant is skipped with a
+  warning instead of winning by render order. GO-023 guarded posts against
+  this; #129 necessarily removed the page-side guard so a page could BE the
+  front page, and this restores it one page narrower.
+- 👀 **`--watch` ignored `static_dir`, so editing a stylesheet or a picture
+  rebuilt nothing** (#235). The watcher covered content, templates, data and
+  `content_sources` — not the static roots, which are where the files somebody
+  edits most often while watching live actually live, and since 1.8.51 also
+  where the MCP media tools write. The edit then appeared alongside the next
+  unrelated template change, which was worse than failing plainly. `static_dir`
+  and every `static_sources` root are now watched.
+
 ### Changed
 - 💸 **CI builds each release binary once, not four times** (#232). The
   eleven-target Build Binaries matrix ran on every PR and every push to main,

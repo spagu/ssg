@@ -14,43 +14,22 @@ import (
 // its posts use, plus one category served away from /category/ by its link.
 func buildCategorySite(t *testing.T) (outDir, sitemap string) {
 	t.Helper()
-	tmp := t.TempDir()
-	contentDir := filepath.Join(tmp, "content")
-	tmplDir := filepath.Join(tmp, "templates")
-	outDir = filepath.Join(tmp, "output")
-
 	// News has a post. Legal exists only in metadata — the schema-resume.org
 	// case, where /category/legal/ was in the sitemap and 404ed. Projects has a
 	// post but serves at /projects-archive/ via its link (#143), so the flat
 	// /category/projects/ is a redirect, not the archive.
-	mustWrite(t, filepath.Join(contentDir, "site", "metadata.json"), `{
+	cfg := newSiteFixture(t, `{
 		"categories":[
 			{"id":2,"name":"News","slug":"news"},
 			{"id":3,"name":"Legal","slug":"legal"},
 			{"id":4,"name":"Projects","slug":"projects","link":"https://example.com/projects-archive/"}
-		],"media":[],"users":[]}`)
-	mustWrite(t, filepath.Join(contentDir, "site", "posts", "news", "one.md"),
-		"---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\ncategories: [News]\n---\n\nBody.\n")
-	mustWrite(t, filepath.Join(contentDir, "site", "posts", "projects", "two.md"),
-		"---\ntitle: Two\nslug: two\nstatus: publish\ntype: post\ndate: 2024-01-03\ncategories: [Projects]\n---\n\nBody.\n")
-
-	for _, name := range []string{"base.html", "index.html", "post.html", "page.html",
-		"category.html", "tag.html", "taxonomy.html"} {
-		mustWrite(t, filepath.Join(tmplDir, "simple", name),
-			`{{define "`+name+`"}}<html><body><p>x</p></body></html>{{end}}`)
-	}
-
-	gen, err := New(Config{
-		Source: "site", Template: "simple", Domain: "example.com",
-		ContentDir: contentDir, TemplatesDir: tmplDir, OutputDir: outDir, Quiet: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gen.Generate(); err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	return outDir, mustRead(t, filepath.Join(outDir, "sitemap.xml"))
+		],"media":[],"users":[]}`,
+		map[string]string{
+			"posts/news/one.md":     "---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\ncategories: [News]\n---\n\nBody.\n",
+			"posts/projects/two.md": "---\ntitle: Two\nslug: two\nstatus: publish\ntype: post\ndate: 2024-01-03\ncategories: [Projects]\n---\n\nBody.\n",
+		}, nil)
+	buildSiteFixture(t, cfg)
+	return cfg.OutputDir, mustRead(t, filepath.Join(cfg.OutputDir, "sitemap.xml"))
 }
 
 // TestSitemapListsOnlyRenderedCategories: a category nobody posted in has no
