@@ -11,7 +11,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/aymerick/raymond v2.0.2+incompatible
-	github.com/cbroglie/mustache v1.4.0
+	github.com/cbroglie/mustache v1.4.2
 	github.com/disintegration/imaging v1.6.2
 	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/go-sql-driver/mysql v1.10.0
