@@ -21,7 +21,7 @@ require (
 	github.com/pkg/sftp v1.13.11
 	github.com/quic-go/quic-go v0.62.0
 	github.com/ulikunitz/xz v0.5.16
-	github.com/yuin/goldmark v1.8.5
+	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	golang.org/x/crypto v0.56.0
 	golang.org/x/image v0.45.0
