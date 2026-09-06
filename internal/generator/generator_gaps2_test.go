@@ -112,11 +112,14 @@ func TestGenerateFeedsWriteFailures(t *testing.T) {
 	}
 }
 
-// TestGenerateFeedsSkipsEmptyCategorySlug: a category without a slug has no
-// feed URL to write — skipped, while the rest of the feeds still emit.
-func TestGenerateFeedsSkipsEmptyCategorySlug(t *testing.T) {
+// TestGenerateFeedsOnlyForWrittenArchives: a category feed belongs beside an
+// archive, so a term the build never rendered — no posts, a suppressed archive
+// (GO-050), a failed render — gets none (#246). The rest of the feeds still
+// emit.
+func TestGenerateFeedsOnlyForWrittenArchives(t *testing.T) {
 	g := feedGen(t)
 	g.config.Feed = true
+	// Declared, posted in, and never rendered: absent from categoryArchives.
 	g.siteData.Categories[3] = models.Category{ID: 3, Name: "NoSlug", Slug: ""}
 	g.siteData.Posts[0].Categories = []int{3}
 	if err := g.generateFeeds(); err != nil {
@@ -125,8 +128,17 @@ func TestGenerateFeedsSkipsEmptyCategorySlug(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(g.config.OutputDir, feedFileName)); err != nil {
 		t.Error("root feed must still be written")
 	}
-	if _, err := os.Stat(filepath.Join(g.config.OutputDir, "category")); err == nil {
-		t.Error("a slug-less category must not emit a feed")
+	if _, err := os.Stat(filepath.Join(g.config.OutputDir, "category", "noslug")); err == nil {
+		t.Error("a category with no rendered archive must not emit a feed")
+	}
+	// A recorded path that is empty names no directory to write into, so it is
+	// skipped rather than dropping a feed at the output root.
+	g.categoryArchives[3] = "/"
+	if err := g.generateFeeds(); err != nil {
+		t.Fatalf("generateFeeds: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(g.config.OutputDir, "category", "noslug")); err == nil {
+		t.Error("an empty archive path must not emit a feed")
 	}
 }
 

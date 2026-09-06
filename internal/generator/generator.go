@@ -514,6 +514,10 @@ type Generator struct {
 	// strippedImages counts published images that lost metadata (#176).
 	strippedImages int
 	sanitizeMu     sync.Mutex
+	// emptyCanonicals maps an output-relative HTML file to the self-URL tags it
+	// left empty (#247). Written from the render workers, so it is guarded.
+	emptyCanonicals map[string]string
+	canonicalMu     sync.Mutex
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -820,6 +824,10 @@ func (g *Generator) Generate() error {
 	// Release the lazily-built related-posts mddb client when the build ends.
 	defer g.closeRelatedMddb()
 
+	// This build's findings only: a watch-mode rebuild reports the site as it is
+	// now, not every page that was ever wrong in this process (#247).
+	g.resetEmptyCanonicals()
+
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
 	}
@@ -953,6 +961,9 @@ func (g *Generator) assetPhase() error {
 	// whole build (#176).
 	g.reportSanitized()
 	g.reportStrippedImages()
+	// Unconditional, unlike the checks below: an empty canonical is wrong for
+	// every site, so it needs no mode to turn on (#247).
+	g.reportEmptyCanonicals()
 	// Source-level, and first of the checks: it explains a page that looks
 	// wrong in the browser, so it must not be buried under the output checks.
 	if err := g.checkMarkupIfRequested(); err != nil {
@@ -2164,6 +2175,7 @@ func (g *Generator) renderWithEngine(templateName, outputPath string, data inter
 	out := buf.String()
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
 		out = g.transformHTMLPage(out, page, isPost)
+		g.noteEmptyCanonical(outputPath, out)
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(outputPath, []byte(out), 0644)
@@ -5056,25 +5068,8 @@ func (g *Generator) generateFeeds() error {
 		return err
 	}
 
-	catPosts := make(map[int][]models.Page)
-	for _, p := range g.siteData.Posts {
-		for _, id := range p.Categories {
-			catPosts[id] = append(catPosts[id], p)
-		}
-	}
-	for id, posts := range catPosts {
-		cat, ok := g.siteData.Categories[id]
-		if !ok || models.IsCatchAllCategory(cat) {
-			continue
-		}
-		slug := models.SanitizeRelPath(cat.Slug)
-		if slug == "" {
-			continue
-		}
-		rel := filepath.Join("category", slug, feedFileName)
-		if err := g.writeFeed(rel, cat.Name, base+"/category/"+slug+"/", posts, limit); err != nil {
-			return err
-		}
+	if err := g.writeCategoryFeeds(base, limit); err != nil {
+		return err
 	}
 
 	tagPosts := make(map[string][]models.Page)
@@ -5090,6 +5085,49 @@ func (g *Generator) generateFeeds() error {
 		}
 	}
 	return g.generateTaxonomyFeeds(limit)
+}
+
+// writeCategoryFeeds writes one Atom feed per category, beside the archive it
+// belongs to.
+//
+// It reads what generateCategories actually wrote, the same record the sitemap
+// consumes since #228, rather than re-deriving a path from the slug (#246).
+// Deriving it put the feed at /category/<slug>/ for a category served away from
+// /category/ by its own link (#143) and for a nested one (#138): a feed file in a
+// directory holding no archive, whose <link> names a URL the archive does not
+// live at, so a reader following it from the archive finds nothing. Reading the
+// record also means a term whose archive was suppressed (GO-050) or failed to
+// render no longer gets a feed, which is the rule the taxonomy registry already
+// applies to every non-folded taxonomy.
+func (g *Generator) writeCategoryFeeds(base string, limit int) error {
+	catPosts := make(map[int][]models.Page)
+	for _, p := range g.siteData.Posts {
+		for _, id := range p.Categories {
+			catPosts[id] = append(catPosts[id], p)
+		}
+	}
+	ids := make([]int, 0, len(g.categoryArchives))
+	for id := range g.categoryArchives {
+		ids = append(ids, id)
+	}
+	// Deterministic order: a build must write the same files in the same order
+	// twice (BUILD-PARALLEL).
+	sort.Ints(ids)
+	for _, id := range ids {
+		cat, ok := g.siteData.Categories[id]
+		if !ok || models.IsCatchAllCategory(cat) {
+			continue
+		}
+		archivePath := strings.Trim(g.categoryArchives[id], "/")
+		if archivePath == "" {
+			continue
+		}
+		rel := filepath.Join(filepath.FromSlash(archivePath), feedFileName)
+		if err := g.writeFeed(rel, cat.Name, base+"/"+archivePath+"/", catPosts[id], limit); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // writeFeed renders an Atom 1.0 feed for up to limit newest posts and writes it to

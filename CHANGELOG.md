@@ -34,6 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `models.IsCatchAllCategory`, matching slug or name against `uncategorized`,
   `bez-kategorii` and their translations, asked by all four call sites (the
   `isValidCategory` helper restated it too) so they cannot drift apart again.
+- 📰 **Per-category Atom feeds were written at `/category/<slug>/`, ignoring
+  where the archive actually lives** (#246). The feed path was derived from the
+  slug while the archive is written at `models.CategoryArchivePath` — so a
+  category served away from `/category/` by its own `link:` (#143) and a nested
+  one (#138) each got a feed file in a directory holding no archive, whose
+  `<link>` named a URL the archive does not live at. The feeds now read the
+  record of what `generateCategories` wrote, the same source the sitemap has
+  consumed since #228, so the feed sits beside its archive wherever that is. A
+  term whose archive was suppressed (GO-050) or failed to render no longer gets
+  a feed either — the rule the taxonomy registry already applies to every
+  non-folded taxonomy.
 - 🔗 **Archive templates had no canonical, so themes shipped
   `<link rel="canonical" href=""/>` on every archive** (#245). Pages and posts
   carry `.CanonicalURL`; `archiveData` — shared by category, tag, author, series,
@@ -49,6 +60,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   itself rather than claiming to be page 1.
 
 ### Added
+- 🔍 **Every build reports an empty canonical** (#247). `<link rel="canonical"
+  href=""/>`, and an empty `og:url` or `twitter:url` beside it, is wrong for
+  every site and was reported by nothing: the build succeeds, `check_links` is
+  clean — there is no link to follow — and `check_meta` looks at the title and
+  the description. It is how #245 stayed invisible until a third-party crawl of a
+  live site was read by hand, weeks later. The finished HTML of every rendered
+  document is now checked as it is written, whichever template engine produced
+  it, and the build names the files:
+
+  ```text
+     ⚠️  10 page(s) name their own URL with an empty value
+        category/air-conditioning/index.html → <link rel="canonical">, og:url
+  ```
+
+  No mode and no configuration to turn it on: a canonical that *disagrees* with
+  the permalink needs judgement and stays behind `sitemap_prune_canonical`, an
+  empty one needs none. It stays a warning — the site is publishable, and a build
+  that refused to finish over a theme bug would be worked around rather than
+  fixed.
 - ✍️ **`authorURL`** template helper (#245). The author archive is driven outside
   the taxonomy registry (#44), so `termURL` cannot name it and a byline had to
   hardcode `/author/<slug>/` and guess the slug rule — which is how an author

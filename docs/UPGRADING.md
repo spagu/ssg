@@ -192,7 +192,7 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.56">
 
-### 1.8.56 — your sitemap gains entries, and `id 1` stops being special
+### 1.8.56 — your sitemap gains entries, `id 1` stops being special, and empty canonicals get reported
 
 **Nothing to configure.** Three fixes change what a rebuild publishes, and each
 one adds something that was missing rather than taking anything away.
@@ -220,6 +220,28 @@ no feed. The catch-all is now recognised by what it is — slug or name
 
 If your `metadata.json` was renumbered to work around the old behaviour, you can
 put the ids back.
+
+**A category feed moves if its archive is not at `/category/<slug>/`.** The
+per-category feeds were addressed by slug while the archive is written where the
+source site served it, so a category with its own `link:` had its feed at
+`/category/<slug>/feed.xml` next to no archive. The feed now sits beside the
+archive — `/projects-archive/feed.xml`, `/category/rooms/kitchens/feed.xml` — and
+a term whose archive was never rendered no longer gets one. Only sites using
+category `link:` or nested categories see any file move; if you linked a feed URL
+by hand, check it.
+
+**A new warning may appear, and it is worth reading.** Every build now says so
+when a page ships `<link rel="canonical" href=""/>`, or an empty `og:url` or
+`twitter:url`:
+
+```text
+   ⚠️  10 page(s) name their own URL with an empty value
+      category/air-conditioning/index.html → <link rel="canonical">, og:url
+```
+
+It is a warning, never a build failure, and it needs no configuration. If it
+fires on your archives, the canonical fix above is the answer; elsewhere it means
+a template names a value its context does not carry.
 
 **Archives carry `.CanonicalURL`.** Themes had no way to get an archive's own
 URL, so `<link rel="canonical" href="{{ .CanonicalURL }}"/>` in `category.html`

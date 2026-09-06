@@ -488,7 +488,9 @@ Maximum heading level included in the TOC (default: 3).
 .SS Feeds, SEO and Search
 .TP
 .B \-\-feed
-Generate an Atom \fBfeed.xml\fR at the root and per category/tag.
+Generate an Atom \fBfeed.xml\fR at the root and per category/tag. A term's feed is
+written beside its archive, so a category served away from \fB/category/\fR by its
+own \fBlink:\fR has its feed there too; a term with no rendered archive gets none.
 .TP
 .BR \-\-feed\-items =\fIN
 Maximum items per feed (default: 20).
@@ -891,7 +893,10 @@ Custom metadata fields from MDDB frontmatter are also flattened to root level.
 .PP
 \fB.CanonicalURL\fR names the path the archive was written to, which stays right
 for a category served away from \fB/category/\fR by its own \fBlink:\fR and for a
-nested category; page 2 canonicalises to itself. Use \fBauthorURL\fR to link an
+nested category; page 2 canonicalises to itself. A page that ships an empty
+canonical \- or an empty \fBog:url\fR / \fBtwitter:url\fR \- is reported by every
+build, with no option to enable: it is a template naming a value its context does
+not carry, and it is wrong for every site. Use \fBauthorURL\fR to link an
 author archive (\fB/author/<slug>/\fR, from an author id, a post, an author
 record or a display name) \- \fBtermURL\fR covers registered taxonomies only.
 .PP

@@ -225,6 +225,7 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 	data2 := []byte(out)
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
 		out = g.transformHTMLPage(out, page, isPost)
+		g.noteEmptyCanonical(outputPath, out)
 		// Re-encode the finished HTML to the page's output encoding, keeping the
 		// declared <meta charset> in step with the bytes on disk (GO-087).
 		enc := g.encodingFor(page)
