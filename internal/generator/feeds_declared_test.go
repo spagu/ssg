@@ -19,6 +19,9 @@ func feedGen(t *testing.T) *Generator {
 	g := newTestGen(t, "")
 	g.config.Domain = "ex.com"
 	g.siteData.Categories[2] = models.Category{ID: 2, Name: "Releases", Slug: "releases"}
+	// What generateCategories records for a rendered archive; the per-category
+	// feeds are written beside it (#246).
+	g.categoryArchives = map[int]string{2: "category/releases"}
 	day := func(n int) time.Time { return time.Date(2026, 1, n, 0, 0, 0, 0, time.UTC) }
 	g.siteData.Posts = []models.Page{
 		{Slug: "b1", Title: "Blog one", Type: "post", Status: "publish", SourceDir: "blog",

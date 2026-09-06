@@ -1,6 +1,6 @@
 # SSG — Static Site Generator
 
-[![Go Version](https://img.shields.io/badge/Go-1.27.0+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27.1+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![CI](https://github.com/spagu/ssg/actions/workflows/ci.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
 [![codecov](https://codecov.io/gh/spagu/ssg/branch/main/graph/badge.svg)](https://codecov.io/gh/spagu/ssg)
@@ -500,7 +500,7 @@ workflow examples are available in [examples/workflows](examples/workflows/).
 
 ## Development
 
-Building SSG itself requires Go 1.27.0 or newer — the version the `go` directive
+Building SSG itself requires Go 1.27.1 or newer — the version the `go` directive
 in [go.mod](go.mod) asks for. The floor was 1.26.6 before that, because earlier
 Go 1.26 releases contain standard-library vulnerabilities relevant to this
 project.

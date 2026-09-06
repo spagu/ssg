@@ -2,7 +2,7 @@
 #
 # The Dockerfile pins its base images by digest, which is what an image
 # reference has to do to be reproducible — a tag is a moving target, and
-# "golang:1.27.0-alpine" is not the same bytes this week as last. But a digest
+# "golang:1.27.1-alpine" is not the same bytes this week as last. But a digest
 # with nobody updating it is worse than a tag: the image silently stops
 # receiving security patches and nothing says so. The pin and this file are one
 # decision, not two.

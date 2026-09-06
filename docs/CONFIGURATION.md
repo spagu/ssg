@@ -184,6 +184,13 @@ language and one per taxonomy term. That is all-or-nothing: a site with several
 content roots cannot offer "just the blog", and "the three tags that mean
 *release*" would need three subscriptions.
 
+A term's feed is written **beside its archive** — `/category/news/feed.xml` for
+an ordinary category, `/projects-archive/feed.xml` for one served away from
+`/category/` by its own `link:`, `/category/rooms/kitchens/feed.xml` for a nested
+one — and a term whose archive was not rendered gets no feed. Before 1.8.56 the
+category feeds were addressed by slug alone, which put them next to no archive in
+the last two cases.
+
 `feeds:` declares any number of extra feeds, each choosing **what goes in**, **where
 it is written** and **in what format**. `feed: true` keeps doing exactly what it
 does today, so adding this changes nothing that already works.
@@ -1290,6 +1297,44 @@ kept by default. A canonical that disagrees with the permalink is far more often
 theme bug than a deliberate exclusion, and quietly removing real pages from the
 sitemap over one would be worse than the contradiction it fixes. Opt in with
 `sitemap_prune_canonical: true`.
+
+### An empty canonical is always reported
+
+Separate from the sitemap, and needing no configuration: every build says so when
+a page ships `<link rel="canonical" href=""/>`, or an empty `og:url` or
+`twitter:url`.
+
+```text
+   ⚠️  10 page(s) name their own URL with an empty value
+      category/air-conditioning/index.html → <link rel="canonical">, og:url
+```
+
+The cause is always a template naming a value its context does not carry: Go
+templates resolve a missing key to nothing and render empty rather than failing,
+so one typo in one theme file ships an empty canonical on every page it renders,
+with a green build and a clean `check_links`. There is no site for which the
+empty value is correct, which is why this needs no mode — unlike a canonical that
+merely *disagrees* with the permalink, which needs judgement and stays behind
+`sitemap_prune_canonical`.
+
+It is a warning, never a failure: the site is publishable, and a build that
+refused to finish over a theme bug would be worked around rather than fixed.
+
+### What the sitemap lists
+
+Everything the build rendered and nothing it did not: the front page, pages,
+posts, the **post listing** (`/blog/` under `posts_page` — the hub every post
+links back to, and the site root otherwise, where the front-page entry already
+names it), and the category, tag, author and custom-taxonomy archives that were
+actually written.
+
+Only the first page of a listing or archive is named; a paginated tail is left
+out on purpose. Category archives are read from what the build wrote, so a term
+with no posts is not advertised and a term served away from `/category/` by its
+own `link:` is named where it really lives. The exporter's catch-all term —
+`Uncategorized`, `Bez kategorii` and their translations — is left out, recognised
+by its slug or name; before 1.8.56 that rule was "category id 1", which silently
+dropped a real archive on every export numbering its categories from 1.
 
 ### Excluding Markdown that is not a page
 

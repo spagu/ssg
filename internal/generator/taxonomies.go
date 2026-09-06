@@ -416,7 +416,7 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
 		data := g.archiveData(def.Name, term.Name,
-			models.Category{Name: term.Name, Slug: slug}, chunk.Posts, chunk.Pager, lang)
+			models.Category{Name: term.Name, Slug: slug}, chunk.Posts, chunk.Pager, lang, term.URL)
 		// A custom taxonomy also names the term's own definition and info, which
 		// only this view has.
 		data["Taxonomy"] = info

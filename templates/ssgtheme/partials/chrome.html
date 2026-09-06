@@ -7,6 +7,11 @@
   so a role can pass its own metadata:
 
       {{ template "sc-head" (dict "Title" ... "Desc" ... "Canonical" ... "Ctx" .) }}
+
+  Canonical is a site-relative path ("/about/"), which sc-head prefixes with the
+  domain. An archive passes CanonicalURL instead — the absolute URL the generator
+  wrote the archive to, which is the only value that stays right for a category
+  served away from /category/ or nested under a parent (#245).
 */}}
 
 {{define "sc-head"}}
@@ -17,7 +22,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ .Desc }}">
-    <link rel="canonical" href="https://{{ .Ctx.Domain }}{{ .Canonical }}">
+    {{ $canonical := .CanonicalURL }}{{ if and (not $canonical) .Canonical }}{{ $canonical = printf "https://%s%s" .Ctx.Domain .Canonical }}{{ end }}
+    <link rel="canonical" href="{{ $canonical }}">
     <meta name="robots" content="index, follow">
     <meta name="generator" content="SSG">
     <meta name="color-scheme" content="light dark">
@@ -28,7 +34,7 @@
     <meta property="og:site_name" content="{{ .Ctx.Domain }}">
     <meta property="og:title" content="{{ .Title }}">
     <meta property="og:description" content="{{ .Desc }}">
-    <meta property="og:url" content="https://{{ .Ctx.Domain }}{{ .Canonical }}">
+    <meta property="og:url" content="{{ $canonical }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ .Title }}">
     <meta name="twitter:description" content="{{ .Desc }}">

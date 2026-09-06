@@ -402,14 +402,18 @@ func isASCIILetter(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
-// HasValidCategories returns true if post has categories other than "Bez kategorii" (ID 1)
+// HasValidCategories reports whether the post is filed under any category.
+//
+// Deprecated: it used to answer "any category other than id 1", on the
+// assumption that id 1 is WordPress's "Uncategorized" — an assumption that is
+// only ever right by coincidence, and that hid a real archive on every export
+// numbering its categories from 1 (#243). Without the site's category table
+// there is nothing here to recognise the catch-all term by, so this reports
+// membership only. Use [Page.HasCategoriesOtherThanCatchAll], which resolves the
+// ids and applies [IsCatchAllCategory]; the `hasValidCategories` template helper
+// already does.
 func (p Page) HasValidCategories() bool {
-	for _, catID := range p.Categories {
-		if catID != 1 { // 1 is usually "Bez kategorii"
-			return true
-		}
-	}
-	return false
+	return len(p.Categories) > 0
 }
 
 // Category represents a content category

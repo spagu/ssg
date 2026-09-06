@@ -140,7 +140,7 @@ func (g *Generator) writeDateArchive(a dateArchive) (bool, error) {
 
 	data := g.archiveData("date", a.Label,
 		models.Category{Name: a.Label, Slug: strings.ReplaceAll(a.Path, "/", "-")},
-		a.Posts, singlePagePager(len(a.Posts)), g.currentLang)
+		a.Posts, singlePagePager(len(a.Posts)), g.currentLang, a.Path)
 	// The path lets a theme link between years and months without re-deriving
 	// them from the label.
 	data["DatePath"] = a.Path

@@ -98,7 +98,8 @@ The index context provides `.Taxonomy` (`Name/Label/Singular/Path/URL`) and
 `.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`). The term context
 provides `.Taxonomy`, `.Term`, `.Posts` (newest first), `.Pager` and — for
 compatibility with `category.html` — `.Category`, `.Kind` and `.Name`. With
-`paginate` set, term archives paginate to `/technology/go/page/2/`.
+`paginate` set, term archives paginate to `/technology/go/page/2/`, and
+`.CanonicalURL` names the page currently being rendered.
 
 ### Template helpers
 
@@ -123,6 +124,13 @@ it is worth stating the built-in names outright — they are `category`, `tag` a
 
 An unknown taxonomy name returns an empty string rather than an error, so the
 mistake shows up as `href=""` rather than as a failed build.
+
+**Author is not one of them.** The author archive is keyed on an author id
+rather than a frontmatter field, so it is driven outside the registry and
+`termURL "author"` returns `""`. Use `authorURL` instead — it takes the author id
+a post carries, the post itself, an author record or a display name, and returns
+`/author/<slug>/` (see
+[docs/TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md)).
 
 ## Multilingual builds
 

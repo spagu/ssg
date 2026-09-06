@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Category.Name}} - {{.Domain}}</title>
     <meta name="description" content="Artykuły z kategorii {{.Category.Name}}">
-    <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/">
+    <link rel="canonical" href="{{.CanonicalURL}}">
     {{template "seo-head" .}}
     <link rel="stylesheet" href="/css/style.css">
 </head>

@@ -402,11 +402,20 @@ func TestTmplGetAuthorNameMissing(t *testing.T) {
 }
 
 func TestTmplIsValidCategory(t *testing.T) {
-	if tmplIsValidCategory(1) {
-		t.Error("Category 1 should not be valid")
+	g := newTestGen(t, "")
+	g.siteData.Categories = map[int]models.Category{
+		1: {ID: 1, Name: "Air Conditioning", Slug: "air-conditioning"},
+		2: {ID: 2, Name: "Uncategorized", Slug: "uncategorized"},
 	}
-	if !tmplIsValidCategory(2) {
-		t.Error("Category 2 should be valid")
+	// Id 1 is whatever the export numbered first, not a reserved value (#243).
+	if !g.tmplIsValidCategory(1) {
+		t.Error("a real category numbered 1 must be valid")
+	}
+	if g.tmplIsValidCategory(2) {
+		t.Error("the catch-all term must not be valid")
+	}
+	if !g.tmplIsValidCategory(99) {
+		t.Error("an id no table knows must be left alone")
 	}
 }
 
@@ -1151,14 +1160,24 @@ func TestTmplGetCanonical(t *testing.T) {
 }
 
 func TestTmplHasValidCategories(t *testing.T) {
-	pageWithCats := models.Page{Categories: []int{2, 3}}
-	if !tmplHasValidCategories(pageWithCats) {
-		t.Error("Expected true for page with valid categories")
+	g := newTestGen(t, "")
+	g.siteData.Categories = map[int]models.Category{
+		1: {ID: 1, Name: "Air Conditioning", Slug: "air-conditioning"},
+		2: {ID: 2, Name: "Gas Safety", Slug: "gas-safety"},
+		3: {ID: 3, Name: "Bez kategorii", Slug: "bez-kategorii"},
 	}
-
-	pageWithOnlyDefault := models.Page{Categories: []int{1}}
-	result := tmplHasValidCategories(pageWithOnlyDefault)
-	_ = result
+	if !g.tmplHasValidCategories(models.Page{Categories: []int{1, 2}}) {
+		t.Error("Expected true for a post with real categories")
+	}
+	if g.tmplHasValidCategories(models.Page{Categories: []int{3}}) {
+		t.Error("Expected false for a post filed only under the catch-all term")
+	}
+	if !g.tmplHasValidCategories(models.Page{Categories: []int{1}}) {
+		t.Error("a real category numbered 1 must count (#243)")
+	}
+	if g.tmplHasValidCategories(models.Page{}) {
+		t.Error("Expected false for a post with no categories")
+	}
 }
 
 func TestFixMediaPathsThumbnailInSrcset(t *testing.T) {

@@ -59,6 +59,7 @@ func TestGenerateFeeds(t *testing.T) {
 	g.config.Feed = true
 	g.config.FeedItems = 20
 	g.siteData.Categories[2] = models.Category{ID: 2, Name: "News", Slug: "news"}
+	g.categoryArchives = map[int]string{2: "category/news"}
 	g.siteData.Posts = []models.Page{
 		{Title: "Post A", Slug: "a", Type: "post", Date: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 			Categories: []int{2}, Tags: []string{"go"}, Excerpt: "excerpt A"},

@@ -108,6 +108,12 @@ no consent banner is required until you opt in.
 {{ template "sc-footer" . }}
 ```
 
+`Canonical` is a site-relative path, which `sc-head` prefixes with the domain.
+An archive passes `"CanonicalURL" .CanonicalURL` instead — the absolute URL the
+generator wrote the archive to, which is the only value that stays right for a
+category served away from `/category/` by its own `link:` or nested under a
+parent. Pass one or the other; `CanonicalURL` wins when both are present.
+
 Files in `partials/` are parsed into the same template set as the theme root,
 so these define names are callable from any role template. See
 [docs/TEMPLATES.md](../../docs/TEMPLATES.md#template-loading-and-sharing).
@@ -128,7 +134,7 @@ variables:
   logo: logo.png          # assets/logo.png — transparent PNG
   hero_image: river.jpg   # assets/river.jpg
   github_repo: spagu/ssg
-  version: "1.8.55"
+  version: "1.8.56"
   nav:
     - label: Docs
       url: /#documentation

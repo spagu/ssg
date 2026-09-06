@@ -118,10 +118,11 @@ func TestGenerateDateArchivesOptIn(t *testing.T) {
 func TestArchiveDataIsUniform(t *testing.T) {
 	g := newTestGen(t, "")
 	data := g.archiveData("tag", "Go", models.Category{Name: "Go", Slug: "go"},
-		[]models.Page{{Title: "P"}}, singlePagePager(1), "")
+		[]models.Page{{Title: "P"}}, singlePagePager(1), "", "tag/go")
 
 	for _, key := range []string{"Site", "Category", "Kind", "Name", "Series",
-		"Posts", "Pager", "Lang", "Domain", "Vars", "Data", "ExternalData"} {
+		"Posts", "Pager", "Lang", "Domain", "Vars", "Data", "ExternalData",
+		"CanonicalURL"} {
 		if _, ok := data[key]; !ok {
 			t.Errorf("archive data lacks %q", key)
 		}
