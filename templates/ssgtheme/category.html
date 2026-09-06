@@ -6,7 +6,7 @@
 {{ template "sc-head" (dict
     "Title" $title
     "Desc" (printf "Everything filed under %s on %s." .Name .Domain)
-    "Canonical" (printf "/%s/%s/" .Kind .Category.Slug)
+    "CanonicalURL" .CanonicalURL
     "Ctx" .) }}
 </head>
 <body>

@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.56] - 2026-09-06
+
+### Fixed
+- 🗺️ **The post listing was never in `sitemap.xml`** (#244). `generateSitemap`
+  wrote the home page, pages, posts and every archive — but not the listing
+  itself, which belongs to none of those collections and is written by
+  `generateIndex`. On a site using `posts_page`, `/blog/` is a real rendered
+  document with its own title and pagination, the hub every post links back to,
+  and it was absent from the one file the site uses to state its own structure.
+  Found on a production site via an Ahrefs crawl: *indexable page not in
+  sitemap*, with 21 internal inlinks — the most-linked page after the home page.
+  The listing is now named at priority 0.9, first page only (the paginated tail
+  is left out on purpose), honouring `noindex` like every other document. On the
+  site root nothing changes: the front-page entry already covered it, which is
+  why this went unnoticed until a site moved its listing off the root.
+- 🏷️ **Category id 1 was assumed to be "Uncategorized", so a real category
+  there vanished from the sitemap and got no feed** (#243). Three places — the
+  sitemap, the per-category Atom feeds and `HasValidCategories` — restated
+  `id == 1` as "skip this", a convention that lives in WordPress's database and
+  not in exported data. On a production migration id 1 was *Air Conditioning*,
+  carrying two of the site's three posts: the archive was rendered and linked
+  from every post in it, and crawlers reached it with nothing in the sitemap
+  pointing there. This is the inverse of #228 and fails just as silently — green
+  build, clean `check_links`. The catch-all term now names itself: one rule, in
+  `models.IsCatchAllCategory`, matching slug or name against `uncategorized`,
+  `bez-kategorii` and their translations, asked by all four call sites (the
+  `isValidCategory` helper restated it too) so they cannot drift apart again.
+- 🔗 **Archive templates had no canonical, so themes shipped
+  `<link rel="canonical" href=""/>` on every archive** (#245). Pages and posts
+  carry `.CanonicalURL`; `archiveData` — shared by category, tag, author, series,
+  date and custom-taxonomy views — carried no canonical and no helper produced
+  one. A theme reaching for the name it already uses elsewhere got a missing map
+  key, which Go templates resolve to empty rather than failing: on one migrated
+  site all ten archives shipped an empty canonical, plus empty `og:url` and
+  `twitter:url`, to production. Archives now carry `.CanonicalURL`, built from
+  the path the archive was actually written to — which is the only thing that
+  survives a category served away from `/category/` by its own `link:` (#143)
+  and a nested category at `/category/<parent>/<child>/` (#138), the two shapes a
+  template cannot reconstruct from `.Category.Slug`. Page 2 canonicalises to
+  itself rather than claiming to be page 1.
+
+### Added
+- ✍️ **`authorURL`** template helper (#245). The author archive is driven outside
+  the taxonomy registry (#44), so `termURL` cannot name it and a byline had to
+  hardcode `/author/<slug>/` and guess the slug rule — which is how an author
+  archive ended up an orphan on a live site: published, in the sitemap, linked
+  from nowhere. `authorURL` applies the generator's own slug rule and accepts
+  what a template actually holds: the author id a post carries, the post itself,
+  an author record or a display name.
+
+### Changed
+- 🐹 **Go 1.27.1** (from 1.27.0) across the `go` directive, CI and the
+  `golang:1.27.1-alpine` build image, digest-pinned as before.
+- ⬆️ **Dependency bumps**: `quic-go` 0.61.0 → 0.62.0, `grpc` 1.83.1 → 1.83.2,
+  `mustache` 1.4.0 → 1.4.2, and `softprops/action-gh-release` v3.0.2 → v3.0.3.
+  `kr/pretty` is held at 0.3.1: `go mod tidy` would have selected 0.3.0 through
+  quic-go's new test dependency, and a bump that quietly downgrades something
+  else is not a bump.
+
+### Deprecated
+- `models.Page.HasValidCategories()` now reports plain membership and is
+  deprecated in favour of `HasCategoriesOtherThanCatchAll(cats)`, which resolves
+  the ids it is judging. Without the site's category table there is nothing for
+  the old method to recognise the catch-all term by, and the id it used to guess
+  from was the bug in #243. The `hasValidCategories` template helper already
+  resolves them, so themes need no change.
+
 ## [1.8.55] - 2026-09-02
 
 ### Fixed

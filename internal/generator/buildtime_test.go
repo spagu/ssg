@@ -86,7 +86,7 @@ func TestEveryPageOfOneBuildAgrees(t *testing.T) {
 	}
 
 	page := g.pageToTemplateData(models.Page{Slug: "hello", Title: "Hello"}, false)
-	archive := g.archiveData("category", "news", models.Category{}, nil, Pager{}, "en")
+	archive := g.archiveData("category", "news", models.Category{}, nil, Pager{}, "en", "category/news")
 
 	pageTime, ok := page["BuildTime"].(time.Time)
 	if !ok {

@@ -425,7 +425,7 @@ SSG registers several helper functions in the Go template engine for date format
   ```gotemplate
   {{ getCategorySlug .Category }}
   ```
-* **`isValidCategory id`** — Returns `true` if the category ID is not `1` (ID `1` is commonly reserved for "Bez kategorii").
+* **`isValidCategory id`** — Returns `true` unless the ID resolves to the exporter's catch-all term (`Uncategorized`, `Bez kategorii` and their translations, matched on slug or name). Since 1.8.56 the ID itself means nothing: `1` is whatever the export numbered first, and a real category there is valid like any other.
   ```gotemplate
   {{ if isValidCategory .Category }}...{{ end }}
   ```
@@ -433,7 +433,11 @@ SSG registers several helper functions in the Go template engine for date format
   ```gotemplate
   {{ getAuthorName .Author }}
   ```
-* **`hasValidCategories page`** — Returns `true` if the page or post has categories assigned other than ID `1`.
+* **`authorURL author`** — Returns the address of an author's archive, `/author/<slug>/`, or `""` when the value names no author. Accepts the author ID a post carries, the post itself, an author record or a display name. `termURL` covers registered taxonomies only, so this is how a byline links the archive the build published.
+  ```gotemplate
+  <a href="{{ authorURL .Post.Author }}">{{ getAuthorName .Post.Author }}</a>
+  ```
+* **`hasValidCategories page`** — Returns `true` if the page or post is filed under at least one category that is not the catch-all term.
   ```gotemplate
   {{ if hasValidCategories . }}...{{ end }}
   ```

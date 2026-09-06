@@ -461,10 +461,31 @@ directly ships unrendered Markdown to the reader.
 | `.Name` | Display name |
 | `.Series` | Series name for compatibility |
 | `.Posts` | Posts in the archive |
+| `.Pager` | Pagination for this archive (`.Current`, `.Total`, `.Pages`) |
+| `.CanonicalURL` | Absolute URL of **this** archive page |
+| `.Lang`, `.BuildTime` | Language code and build timestamp |
 | `.Domain`, `.Vars`, `.Data` | Global values |
 
 Category, tag and author posts are newest first. Series posts are oldest first
 to preserve reading order.
+
+`.CanonicalURL` is the same name pages and posts carry, so one expression writes
+the canonical everywhere:
+
+```gotemplate
+<link rel="canonical" href="{{ .CanonicalURL }}"/>
+<meta property="og:url" content="{{ .CanonicalURL }}"/>
+```
+
+It names the path the archive was actually written to, which matters in two
+cases a template cannot reconstruct from `.Category.Slug`: a category with its
+own `link:` is served away from `/category/`, and a nested category is served at
+`/category/<parent>/<child>/`. Page 2 canonicalises to itself rather than
+claiming to be page 1.
+
+Author archives are addressed with `authorURL` (see
+[docs/TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md)); `termURL` covers registered
+taxonomies only.
 
 ## Site data
 

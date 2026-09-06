@@ -17,14 +17,14 @@ review workflow. By participating, you agree to follow the
 
 ## Requirements
 
-- Go 1.27.0 or newer
+- Go 1.27.1 or newer
 - Make for the documented shortcuts
 - Git
 - Optional `cwebp` for WebP integration paths
 - Optional Dart Sass for SCSS integration paths
 - Optional `golangci-lint`, `gosec` and `govulncheck` for extended checks
 
-Go 1.27.0 is the minimum: it is what the `go` directive asks for, and the
+Go 1.27.1 is the minimum: it is what the `go` directive asks for, and the
 linter refuses to analyse a target newer than the Go it was built with. The
 floor before it was 1.26.6, because earlier 1.26 standard libraries contain
 security issues relevant to this project. The exact module requirement is in

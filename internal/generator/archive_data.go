@@ -18,7 +18,12 @@ package generator
 // key below is present for every kind, so the difference between views is the
 // VALUE, not the shape.
 
-import "github.com/spagu/ssg/internal/models"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/spagu/ssg/internal/models"
+)
 
 // archiveData builds the template context shared by every archive view.
 //
@@ -26,8 +31,11 @@ import "github.com/spagu/ssg/internal/models"
 // use; passing a map rather than a struct keeps every existing expression
 // working (Go templates index maps and structs identically) while removing the
 // class of failure above.
+// archiveURL is the site-relative address the archive was written to — the same
+// value its pager is built from — so the canonical below names the path the
+// build actually produced rather than one the template re-derives.
 func (g *Generator) archiveData(kind, name string, cat models.Category,
-	posts []models.Page, pager Pager, lang string) map[string]interface{} {
+	posts []models.Page, pager Pager, lang, archiveURL string) map[string]interface{} {
 	return map[string]interface{}{
 		"Site":     g.siteData,
 		"Category": cat,
@@ -49,7 +57,34 @@ func (g *Generator) archiveData(kind, name string, cat models.Category,
 		// The same build timestamp a page gets: a footer rendered in a base
 		// template must not say one year on a post and another on an archive.
 		"BuildTime": g.buildTime,
+		// The name pages and posts already carry, so one expression writes
+		// <link rel="canonical">, og:url and twitter:url on every view (#245).
+		// Archives had no canonical at all, and a theme reaching for the key it
+		// uses elsewhere got a missing map key — which Go templates resolve to
+		// empty rather than failing, so whole sites shipped href="" on every
+		// archive with a green build and a clean link check.
+		"CanonicalURL": g.archiveCanonical(archiveURL, pager),
 	}
+}
+
+// archiveCanonical is the absolute URL of one archive page.
+//
+// It is built from the path the archive was written to, which is the only thing
+// that survives a category served away from /category/ by its own link (#143)
+// and a nested category at /category/<parent>/<child>/ (#138) — the two shapes a
+// template cannot reconstruct from .Category.Slug. Page 2 canonicalises to
+// itself rather than claiming to be page 1, and the host's URL handling applies,
+// exactly as it does for a page.
+func (g *Generator) archiveCanonical(archiveURL string, pager Pager) string {
+	rel := strings.Trim(archiveURL, "/")
+	if rel == "" {
+		return ""
+	}
+	rel = "/" + rel + "/"
+	if pager.Current > 1 {
+		rel = fmt.Sprintf("%spage/%d/", rel, pager.Current)
+	}
+	return g.servedURL(httpsScheme + g.config.Domain + rel)
 }
 
 // singlePagePager describes an archive that was not paginated, so a template

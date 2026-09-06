@@ -205,7 +205,7 @@ func (g *Generator) writeTypeArchive(a typeArchive) (bool, error) {
 		if err := g.ensureParent(outputPath); err != nil {
 			return false, err
 		}
-		data := g.archiveData("type", a.Name, term, chunk.Posts, chunk.Pager, g.currentLang)
+		data := g.archiveData("type", a.Name, term, chunk.Posts, chunk.Pager, g.currentLang, slug)
 		// The type slug lets a theme tell one content-type archive from another
 		// without parsing the URL.
 		data["ContentType"] = a.Type

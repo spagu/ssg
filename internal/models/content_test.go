@@ -324,47 +324,78 @@ func TestPageGetOutputPath(t *testing.T) {
 	}
 }
 
-func TestPageHasValidCategories(t *testing.T) {
+func TestPageHasCategoriesOtherThanCatchAll(t *testing.T) {
+	cats := map[int]Category{
+		// The reproduction from #243: the export numbers from 1, and id 1 is a
+		// real, populated category.
+		1: {ID: 1, Name: "Air Conditioning", Slug: "air-conditioning"},
+		4: {ID: 4, Name: "Gas Safety", Slug: "gas-safety"},
+		9: {ID: 9, Name: "Bez kategorii", Slug: "bez-kategorii"},
+	}
 	tests := []struct {
 		name       string
 		categories []int
 		expected   bool
 	}{
-		{
-			name:       "no categories",
-			categories: []int{},
-			expected:   false,
-		},
-		{
-			name:       "only uncategorized (ID 1)",
-			categories: []int{1},
-			expected:   false,
-		},
-		{
-			name:       "valid category",
-			categories: []int{5},
-			expected:   true,
-		},
-		{
-			name:       "mixed categories",
-			categories: []int{1, 5, 10},
-			expected:   true,
-		},
-		{
-			name:       "multiple uncategorized",
-			categories: []int{1, 1, 1},
-			expected:   false,
-		},
+		{name: "no categories", categories: []int{}, expected: false},
+		{name: "a real category that happens to be id 1", categories: []int{1}, expected: true},
+		{name: "the catch-all term alone", categories: []int{9}, expected: false},
+		{name: "several catch-all entries", categories: []int{9, 9}, expected: false},
+		{name: "catch-all plus a real one", categories: []int{9, 4}, expected: true},
+		{name: "an id the table does not know", categories: []int{77}, expected: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			page := Page{Categories: tt.categories}
-			result := page.HasValidCategories()
-			if result != tt.expected {
+			if result := page.HasCategoriesOtherThanCatchAll(cats); result != tt.expected {
 				t.Errorf("Expected %v, got %v", tt.expected, result)
 			}
 		})
+	}
+
+	// Without a table nothing can be resolved, so membership is the only honest
+	// answer — never the id guess that #243 was about.
+	if !(Page{Categories: []int{1}}).HasCategoriesOtherThanCatchAll(nil) {
+		t.Error("an unresolvable category must count as real")
+	}
+}
+
+func TestPageHasValidCategories(t *testing.T) {
+	if (Page{}).HasValidCategories() {
+		t.Error("no categories is not membership")
+	}
+	if !(Page{Categories: []int{1}}).HasValidCategories() {
+		t.Error("id 1 is an ordinary id now (#243)")
+	}
+}
+
+func TestIsCatchAllCategory(t *testing.T) {
+	catchAll := []Category{
+		{Slug: "uncategorized"},
+		{Slug: "uncategorised"},
+		{Slug: "bez-kategorii"},
+		{Name: "Bez kategorii"},
+		{Name: "Uncategorized"},
+		{Name: "  UNCATEGORIZED  "},
+		{Name: "Sans catégorie"},
+		{Slug: "senza-categoria"},
+	}
+	for _, cat := range catchAll {
+		if !IsCatchAllCategory(cat) {
+			t.Errorf("IsCatchAllCategory(%+v) = false, want true", cat)
+		}
+	}
+	real := []Category{
+		{},
+		{ID: 1, Name: "Air Conditioning", Slug: "air-conditioning"},
+		{Name: "Categories", Slug: "categories"},
+		{Name: "Uncategorized Gear", Slug: "uncategorized-gear"},
+	}
+	for _, cat := range real {
+		if IsCatchAllCategory(cat) {
+			t.Errorf("IsCatchAllCategory(%+v) = true, want false", cat)
+		}
 	}
 }
 

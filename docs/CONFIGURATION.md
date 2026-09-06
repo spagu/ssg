@@ -1291,6 +1291,22 @@ theme bug than a deliberate exclusion, and quietly removing real pages from the
 sitemap over one would be worse than the contradiction it fixes. Opt in with
 `sitemap_prune_canonical: true`.
 
+### What the sitemap lists
+
+Everything the build rendered and nothing it did not: the front page, pages,
+posts, the **post listing** (`/blog/` under `posts_page` — the hub every post
+links back to, and the site root otherwise, where the front-page entry already
+names it), and the category, tag, author and custom-taxonomy archives that were
+actually written.
+
+Only the first page of a listing or archive is named; a paginated tail is left
+out on purpose. Category archives are read from what the build wrote, so a term
+with no posts is not advertised and a term served away from `/category/` by its
+own `link:` is named where it really lives. The exporter's catch-all term —
+`Uncategorized`, `Bez kategorii` and their translations — is left out, recognised
+by its slug or name; before 1.8.56 that rule was "category id 1", which silently
+dropped a real archive on every export numbering its categories from 1.
+
 ### Excluding Markdown that is not a page
 
 `content_dir` is scanned recursively and every `.md` becomes a page. A file that

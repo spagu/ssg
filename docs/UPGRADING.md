@@ -57,6 +57,15 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.55">1.8.55 — 2026-09-02</option>
+      <option value="1.8.54">1.8.54 — 2026-09-01</option>
+      <option value="1.8.53">1.8.53 — 2026-09-01</option>
+      <option value="1.8.52">1.8.52 — 2026-08-27</option>
+      <option value="1.8.51">1.8.51 — 2026-08-25</option>
+      <option value="1.8.50">1.8.50 — 2026-08-25</option>
+      <option value="1.8.49">1.8.49 — 2026-08-24</option>
+      <option value="1.8.48">1.8.48 — 2026-08-24</option>
+      <option value="1.8.47">1.8.47 — 2026-08-21</option>
       <option value="1.8.46">1.8.46 — 2026-08-19</option>
       <option value="1.8.45">1.8.45 — 2026-08-19</option>
       <option value="1.8.44">1.8.44 — 2026-08-18</option>
@@ -180,6 +189,48 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.56">
+
+### 1.8.56 — your sitemap gains entries, and `id 1` stops being special
+
+**Nothing to configure.** Three fixes change what a rebuild publishes, and each
+one adds something that was missing rather than taking anything away.
+
+**`sitemap.xml` now names the post listing.** A site using `posts_page: blog`
+publishes `/blog/` — a real, indexable document, and usually the most linked
+page after the home page — and the sitemap never mentioned it. It appears now,
+at priority `0.9`, first page only. A listing whose rendered HTML says `noindex`
+still stays out. Without `posts_page` nothing changes: the listing is the site
+root, which the front-page entry already named.
+
+**Category id 1 is an ordinary id.** The sitemap, the per-category Atom feeds
+and the `isValidCategory` / `hasValidCategories` template helpers all used to
+skip category **id 1**, on the assumption that it is WordPress's *Uncategorized*.
+Any exporter numbering categories from 1 puts a real term there, and that term's
+archive was rendered and linked but silently absent from the sitemap and given
+no feed. The catch-all is now recognised by what it is — slug or name
+`uncategorized`, `bez-kategorii` and their translations — so:
+
+- an archive at id 1 gains a sitemap entry and a `feed.xml`;
+- a catch-all term at any id loses them, if it had them;
+- `{{ if hasValidCategories . }}` in a theme starts rendering the category block
+  for posts filed only under a real id-1 category, and stops for posts filed only
+  under a catch-all that used to slip through on a different id.
+
+If your `metadata.json` was renumbered to work around the old behaviour, you can
+put the ids back.
+
+**Archives carry `.CanonicalURL`.** Themes had no way to get an archive's own
+URL, so `<link rel="canonical" href="{{ .CanonicalURL }}"/>` in `category.html`
+silently rendered `href=""` — Go templates resolve a missing map key to empty. If
+your archives shipped an empty canonical, this release fills it in with no theme
+change. Themes reconstructing the URL by hand can drop that code; the built-in
+value is the path the archive was actually written to, which is also right for a
+category with its own `link:` and for a nested one. `authorURL` is new alongside
+it, for bylines that were hardcoding `/author/<slug>/`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.47">
 

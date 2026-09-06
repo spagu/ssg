@@ -402,8 +402,15 @@ type Generator struct {
 	// metadata declares terms, but only a term with posts gets a page, and a
 	// term with its own link gets one somewhere other than /category/ (#228).
 	categoryArchives map[int]string
-	authorSlugs      map[string]string  // author slug → slug, for sitemap (BLOG-005)
-	taxonomies       *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
+	// postsListings records the prefix each language's post listing was written
+	// under — "" for the site root, "blog" for posts_page: blog. The listing is
+	// a rendered, indexable document that belongs to none of the page or post
+	// collections, so nothing else in the build can tell the sitemap it exists
+	// (#244). A set rather than a list: a watch-mode rebuild records the same
+	// listing again.
+	postsListings map[string]bool
+	authorSlugs   map[string]string  // author slug → slug, for sitemap (BLOG-005)
+	taxonomies    *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
 	// External sources: .ExternalData / .ExternalDataMeta namespaces plus
 	// content-mode CMS imports merged into the site before finalize.
 	externalData map[string]interface{}
@@ -1430,7 +1437,7 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 		}
 	}
 	data := g.archiveData(kind, name, models.Category{Name: name, Slug: slug},
-		ordered, singlePagePager(len(ordered)), g.currentLang)
+		ordered, singlePagePager(len(ordered)), g.currentLang, kind+"/"+slug)
 	outputPath := filepath.Join(g.config.OutputDir, kind, slug, indexHTMLName)
 	if err := g.ensureWithinOutput(outputPath); err != nil {
 		fmt.Printf("   ⚠️  Skipping %s %q with unsafe slug: %v\n", kind, name, err)
@@ -2407,11 +2414,12 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"formatDatePL":         tmplFormatDatePL,
 		"getCategoryName":      g.tmplGetCategoryName,
 		"getCategorySlug":      g.tmplGetCategorySlug,
-		"isValidCategory":      tmplIsValidCategory,
+		"isValidCategory":      g.tmplIsValidCategory,
 		"getAuthorName":        g.tmplGetAuthorName,
+		"authorURL":            g.tmplAuthorURL, // /author/ian-zane/ ("" when unknown)
 		"getURL":               tmplGetURL,
 		"getCanonical":         tmplGetCanonical,
-		"hasValidCategories":   tmplHasValidCategories,
+		"hasValidCategories":   g.tmplHasValidCategories,
 		"thumbnailFromYoutube": tmplThumbnailFromYoutube,
 		"stripShortcodes":      tmplStripShortcodes,
 		"stripHTML":            tmplStripHTML,
@@ -2980,8 +2988,9 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"formatDatePL":    tmplFormatDatePL,
 		"getCategoryName": g.tmplGetCategoryName,
 		"getCategorySlug": g.tmplGetCategorySlug,
-		"isValidCategory": tmplIsValidCategory,
+		"isValidCategory": g.tmplIsValidCategory,
 		"getAuthorName":   g.tmplGetAuthorName,
+		"authorURL":       g.tmplAuthorURL,
 		"stripShortcodes": tmplStripShortcodes,
 		"stripHTML":       tmplStripHTML,
 		"default":         tmplDefault,
@@ -3099,8 +3108,12 @@ func (g *Generator) tmplGetCategorySlug(id int) string {
 	return ""
 }
 
-func tmplIsValidCategory(id int) bool {
-	return id != 1
+// tmplIsValidCategory reports whether a category id names a real subject rather
+// than the exporter's catch-all term. It resolves the id against the site's
+// categories (#243); an id no category table knows is left alone.
+func (g *Generator) tmplIsValidCategory(id int) bool {
+	cat, ok := g.siteData.Categories[id]
+	return !ok || !models.IsCatchAllCategory(cat)
 }
 
 func (g *Generator) tmplGetAuthorName(id int) string {
@@ -3118,8 +3131,8 @@ func tmplGetCanonical(p models.Page, domain string) string {
 	return p.GetCanonical(domain)
 }
 
-func tmplHasValidCategories(p models.Page) bool {
-	return p.HasValidCategories()
+func (g *Generator) tmplHasValidCategories(p models.Page) bool {
+	return p.HasCategoriesOtherThanCatchAll(g.siteData.Categories)
 }
 
 // Template helper patterns, compiled once (PERF-006).
@@ -3475,6 +3488,7 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 	if err := g.ensureDir(root); err != nil {
 		return err
 	}
+	g.recordPostsListing(prefix)
 
 	if per <= 0 || len(posts) <= per {
 		return g.renderIndexPage(posts, Pager{Current: 1, Total: 1, PerPage: per},
@@ -3509,6 +3523,16 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 		}
 	}
 	return nil
+}
+
+// recordPostsListing notes that a post listing is being written under prefix, so
+// generateSitemap can name it (#244). Only the first page is recorded: the
+// paginated tail is deliberately left out of the sitemap, the hub page is not.
+func (g *Generator) recordPostsListing(prefix string) {
+	if g.postsListings == nil {
+		g.postsListings = make(map[string]bool)
+	}
+	g.postsListings[strings.Trim(prefix, "/")] = true
 }
 
 // pageURLWithPrefix returns the URL for paginated index page n under prefix
@@ -4032,7 +4056,7 @@ func (g *Generator) generateCategories() error {
 			if err := g.ensureParent(pagePath); err != nil {
 				return err
 			}
-			data := g.archiveData("category", cat.Name, cat, chunk.Posts, chunk.Pager, g.currentLang)
+			data := g.archiveData("category", cat.Name, cat, chunk.Posts, chunk.Pager, g.currentLang, archivePath)
 			if err := g.renderTemplate(categoryHTMLName, pagePath, data); err != nil {
 				fmt.Printf("   ⚠️  Warning: failed to generate category %s: %v\n", cat.Slug, err)
 				break
@@ -4830,6 +4854,14 @@ func (g *Generator) generateSitemap() error {
 		}
 	}
 
+	// The post listing — /blog/ on a site using posts_page (#244). It is a real
+	// rendered document with its own title and pagination, and the hub every
+	// post links back to, but it belongs to neither Pages nor Posts, so nothing
+	// below would ever name it. On the site root it is already covered by the
+	// front-page entry above, which is why this went unnoticed until a site
+	// moved its listing off the root.
+	g.writeSitemapPostsListings(&sb, claimed)
+
 	// Pages
 	for _, page := range g.siteData.Pages {
 		if g.excludesFromSitemap(page) || claimed[g.servedCanonical(page)] {
@@ -4884,6 +4916,38 @@ func (g *Generator) generateSitemap() error {
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "sitemap.xml"), []byte(sb.String()), 0644)
 }
 
+// writeSitemapPostsListings names each language's post listing, when it was
+// written somewhere other than the site root.
+//
+// Priority sits between the home page and an ordinary page: the listing is the
+// entry point for the whole blog section, and on the site found by this bug it
+// was the most internally-linked page after the home page. Only the first page
+// is listed — a paginated tail is left out on purpose — and a listing whose own
+// output marks itself noindex keeps itself out, the same rule every other
+// document follows.
+func (g *Generator) writeSitemapPostsListings(sb *strings.Builder, claimed map[string]bool) {
+	prefixes := make([]string, 0, len(g.postsListings))
+	for prefix := range g.postsListings {
+		if prefix == "" {
+			continue // the site root, already claimed by the front-page entry
+		}
+		prefixes = append(prefixes, prefix)
+	}
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		loc := g.servedURL(httpsScheme + g.config.Domain + "/" + prefix + "/")
+		if claimed[loc] || g.renderedExcludesItself(models.Page{}, prefix) {
+			continue
+		}
+		claimed[loc] = true
+		sb.WriteString(sitemapURLOpen)
+		fmt.Fprintf(sb, "    <loc>%s</loc>\n", loc)
+		sb.WriteString("    <changefreq>daily</changefreq>\n")
+		sb.WriteString("    <priority>0.9</priority>\n")
+		sb.WriteString(sitemapURLClose)
+	}
+}
+
 func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page) {
 	if !g.config.I18n.Enabled {
 		return
@@ -4896,8 +4960,8 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 	}
 }
 
-// writeSitemapCategories appends the category archive entries, skipping
-// "Bez kategorii".
+// writeSitemapCategories appends the category archive entries, skipping the
+// exporter's catch-all term.
 //
 // It reads what generateCategories recorded, so the file can only name
 // documents the build wrote. Iterating siteData.Categories instead advertised
@@ -4908,7 +4972,7 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 	paths := make([]string, 0, len(g.categoryArchives))
 	for catID, path := range g.categoryArchives {
-		if catID == 1 { // Skip "Bez kategorii"
+		if g.isCatchAllCategory(catID) {
 			continue
 		}
 		paths = append(paths, path)
@@ -4917,6 +4981,15 @@ func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 	for _, path := range paths {
 		g.writeSitemapArchivePath(sb, path)
 	}
+}
+
+// isCatchAllCategory resolves a category id and applies the one catch-all rule
+// (#243). An id the site's category table does not know is not a catch-all:
+// nothing here can say what it is, and dropping it would repeat the guess that
+// caused the bug.
+func (g *Generator) isCatchAllCategory(id int) bool {
+	cat, ok := g.siteData.Categories[id]
+	return ok && models.IsCatchAllCategory(cat)
 }
 
 // writeSitemapArchive appends a sitemap entry for an archive page (tag/author)
@@ -4991,7 +5064,7 @@ func (g *Generator) generateFeeds() error {
 	}
 	for id, posts := range catPosts {
 		cat, ok := g.siteData.Categories[id]
-		if !ok || cat.ID == 1 {
+		if !ok || models.IsCatchAllCategory(cat) {
 			continue
 		}
 		slug := models.SanitizeRelPath(cat.Slug)
