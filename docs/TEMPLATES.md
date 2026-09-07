@@ -232,6 +232,20 @@ Notes that save a debugging session:
   never invokes it implicitly.
 - Templates are parsed once per build, after content is loaded, so site data is
   fully available to every helper.
+- **An HTML comment written in a template does not reach the output.** Go's
+  `html/template` strips comments while parsing — long-standing and reasonable
+  on its own terms, and silent: no error, no warning, output missing something
+  you wrote. It matters because every comment-based *host directive* is affected,
+  not just a note to yourself:
+
+  ```gotemplate
+  <!--email_off-->            {{/* Cloudflare Email Obfuscation opt-out — VANISHES */}}
+  {{ "<!--email_off-->" | safeHTML }}   {{/* survives */}}
+  ```
+
+  The same applies to SSI/ESI markers (`<!--#include …-->`), CDN and tag-manager
+  markers, and any build-provenance comment a theme wants to emit. Wrap the
+  comment in `safeHTML` whenever it is meant for something downstream to read.
 
 The bundled `ssgtheme` is the reference implementation of this layout:
 `partials/chrome.html` holds the head, header and footer; the four role
@@ -609,10 +623,36 @@ the page — `.` and `$` are the same object. In scope:
 | `.Data.key` | the entry's `data:` map (values are strings) |
 | `.Attrs.key`, `.InnerContent` | the invocation: `[name key="v"]inner[/name]` |
 | `.Vars.key`, `$.Vars.key` | site-wide `variables:` (same map page templates see) |
+| `.SiteData.key` | the `data/` files — the same tree page templates read as `.Data` |
+| `.ExternalData.key` | `external_sources` namespaces |
+
+`.SiteData`, not `.Data`: inside a shortcode `.Data` has always meant the
+`shortcodes:` entry's own `data:` map, and repointing it would break every theme
+using it. The site-wide namespaces are admitted for the same reason `.Vars` is —
+one map shared by every invocation, with nothing page-specific about it.
 
 **Not** in scope: `.Page`, `.Site`, `.Posts`, `.Categories` or anything else
 from a page template's context. A shortcode has no page — the same instance may
 render on many pages — so reaching for page data is a template error.
+
+**Theme partials are callable.** A shortcode is parsed into a copy of the
+theme's namespace, so `{{ template "card" . }}` reaches `partials/card.html`
+like any role template does, and a block both a page template and a shortcode
+need is written once. The copy is private to the shortcode: a `{{ define }}` in
+it wins inside it and cannot change what a page renders.
+
+**The collection helpers work here too** — `filter`, `sort`, `first`, `where`,
+`pluck` and the rest — because there is now site-wide data to use them on. With
+`int`/`float` converting an attribute, a data-driven block is expressible in
+full:
+
+```gotemplate
+{{/* shortcodes/reviews.html — [reviews min="4" limit="3"] */}}
+{{ $picked := filter "rating" "ge" (float .Attrs.min) .SiteData.reviews }}
+{{ range first (int .Attrs.limit) (sort "date" "desc" $picked) }}
+  {{ template "review-card" . }}
+{{ end }}
+```
 
 A template error does not stop the build by default: the shortcode is dropped
 from the page and a warning is printed. Set `shortcode_errors` (or

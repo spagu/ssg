@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"strconv"
+	"strings"
 )
 
 // Arithmetic helpers (TPL-003). Go templates have no arithmetic, so a theme
@@ -45,8 +47,34 @@ func toFloat(v interface{}) (value float64, isInt bool, ok bool) {
 		return float64(n), false, true
 	case float64:
 		return n, false, true
+	case string:
+		return parseNumericString(n)
 	}
 	return 0, false, false
+}
+
+// parseNumericString accepts a number that arrived as text.
+//
+// Every shortcode attribute is a string — `[reviews limit="3"]` hands the
+// template "3", not 3 — so without this a numeric option could not be used for
+// anything numeric: `add 0 .Attrs.limit` failed with "both arguments must be
+// numbers", and the honest workarounds were hardcoding or an `if eq $s "1"`
+// chain (#253). An integer spelling stays an integer, so `add 1 "2"` is 3 and
+// not 3.0. Text that is not a number is still not a number: it fails, rather
+// than silently becoming zero.
+func parseNumericString(s string) (value float64, isInt bool, ok bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, false, false
+	}
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return float64(n), true, true
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false, false
+	}
+	return f, false, true
 }
 
 // arithmetic applies op to two template arguments, keeping integers integral.
@@ -96,6 +124,36 @@ func tmplDiv(a, b interface{}) (interface{}, error) {
 		}
 		return x / y, nil
 	})
+}
+
+// tmplInt converts a value to a whole number, so a shortcode attribute can feed
+// a helper that counts: {{ first (int .Attrs.limit) .Posts }} (#253).
+//
+// A float truncates toward zero, the conversion Go's own int() performs. A
+// value that is not a number is a template error rather than a silent 0 —
+// `[reviews limit="six"]` is a mistake worth seeing, and the alternative is a
+// listing that renders nothing for no visible reason. `default` composes in
+// front of it for the optional case: {{ .Attrs.limit | default "6" | int }}.
+//
+// It returns `int`, not int64, because the helpers it exists to feed take one:
+// text/template will not convert between integer widths, so `first (int
+// .Attrs.limit)` with an int64 fails at execution with "wrong type for value".
+func tmplInt(v interface{}) (int, error) {
+	f, _, ok := toFloat(v)
+	if !ok {
+		return 0, fmt.Errorf("int: not a number: %v", v)
+	}
+	return int(f), nil
+}
+
+// tmplFloat is the same conversion, keeping the fractional part — for a
+// comparison like {{ filter "rating" "ge" (float .Attrs.min) $reviews }}.
+func tmplFloat(v interface{}) (float64, error) {
+	f, _, ok := toFloat(v)
+	if !ok {
+		return 0, fmt.Errorf("float: not a number: %v", v)
+	}
+	return f, nil
 }
 
 // tmplToJSON marshals a value to inline JSON for a theme — a config blob in a

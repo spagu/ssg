@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.56">1.8.56 — 2026-09-06</option>
       <option value="1.8.55">1.8.55 — 2026-09-02</option>
       <option value="1.8.54">1.8.54 — 2026-09-01</option>
       <option value="1.8.53">1.8.53 — 2026-09-01</option>
@@ -189,6 +190,47 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.57">
+
+### 1.8.57 — one file may change shape, and three things become possible
+
+**Nothing to configure**, and nothing that was working stops.
+
+**`_routes.json` may lose rules — deliberately.** Cloudflare rejects a routes
+file whose rules overlap, so a rule already covered by a splat in the same list
+is now folded into it: `/api/contact` and `/api/consent/*` beside `/api/*` are
+published as `/api/*` alone. The build names what it absorbed. If your site
+deployed before, it still deploys and routes identically; if it did **not**
+deploy — *"Overlapping rules found"* — this is the fix, and you can drop the
+workaround of repeating every specific route on the middleware worker.
+
+**Three things a theme could not do before.** All additive; no existing template
+changes meaning.
+
+- `int` and `float` convert a string to a number, so `[reviews limit="3"]` can
+  feed `first (int .Attrs.limit)`. `add`/`sub`/`mul`/`div` also accept a numeric
+  string now, so `{{ add 1 .Attrs.offset }}` works with no conversion.
+- A shortcode can read `.SiteData` (the `data/` files) and `.ExternalData`, call
+  the theme's partials with `{{ template "card" . }}`, and use the collection
+  helpers. **`.Data` inside a shortcode is unchanged** — it is still the
+  `shortcodes:` entry's own `data:` map, which is why the site-wide tree arrived
+  under a different name.
+- A `static_sources` entry takes `sitemap: true` (and an optional `priority`),
+  which lists a verbatim HTML document in `sitemap.xml`. Opt-in: nothing you
+  publish today is listed unless you ask.
+
+**If a comment you wrote is missing from your output, it always was.**
+`html/template` strips HTML comments while parsing, which silently removed
+Cloudflare's `<!--email_off-->`, SSI/ESI markers and anything similar. This
+release documents it rather than changing it; emit such a comment through
+`safeHTML`:
+
+```gotemplate
+{{ "<!--email_off-->" | safeHTML }}
+```
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.56">
 

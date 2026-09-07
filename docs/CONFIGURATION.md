@@ -349,6 +349,26 @@ Each entry keeps its own name by default, which is the point: URLs that already
 exist keep resolving. Sources are copied **after** `static_dir`, so a later entry
 wins a collision, and a missing path is a warning rather than a failed build.
 
+**A verbatim HTML document can join `sitemap.xml`.** A copied file never becomes
+a page, so no part of the sitemap could reach it — a hand-authored SPA linked
+from every page in the nav was absent from the file the site uses to state its
+own structure. The generator cannot tell a document from an asset by looking, so
+say which one is:
+
+```yaml
+static_sources:
+  - path: editor/index.html
+    dest: editor/index.html
+    sitemap: true            # listed at /editor/
+    priority: 0.8            # optional; 0.8 is what an ordinary page gets
+```
+
+Opt-in, because most of what a site copies verbatim is an asset. A directory
+entry resolves to the `index.html` at its root; anything that is not an HTML
+document is a warning rather than a sitemap line, and a document whose own HTML
+says `noindex` keeps itself out like every other entry. With `lastmod_from_git`
+the `<lastmod>` comes from the **source** file's last commit.
+
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
 

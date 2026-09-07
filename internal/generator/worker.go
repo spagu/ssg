@@ -65,6 +65,11 @@ func renderRoutesJSON(include, exclude []string) ([]byte, error) {
 	if exclude == nil {
 		exclude = []string{}
 	}
+	// Last line of defence: whatever the caller assembled, the document written
+	// to disk must be one Cloudflare accepts (#252). Idempotent, so a caller
+	// that already collapsed loses nothing by passing through here.
+	include = collapseRouteOverlaps(include)
+	exclude = collapseRouteOverlaps(exclude)
 	if len(include)+len(exclude) > cfMaxRoutesRules {
 		return nil, fmt.Errorf("_routes.json has %d rules, exceeding the Cloudflare Pages limit of %d", len(include)+len(exclude), cfMaxRoutesRules)
 	}
@@ -135,9 +140,19 @@ func (g *Generator) generateWorkerFiles() error {
 		exclude = append(exclude, w.RoutesExclude...)
 	}
 	// Two workers can legitimately name the same route; collapse duplicates so
-	// they don't count twice against the Cloudflare rule cap (GO-081).
+	// they don't count twice against the Cloudflare rule cap (GO-081), then
+	// collapse rules a splat already covers, which Cloudflare rejects outright
+	// (#252).
 	include = dedupeStrings(include)
 	exclude = dedupeStrings(exclude)
+	if collapsed := collapseRouteOverlaps(include); len(collapsed) != len(include) {
+		g.reportCollapsedRoutes("include", include, collapsed)
+		include = collapsed
+	}
+	if collapsed := collapseRouteOverlaps(exclude); len(collapsed) != len(exclude) {
+		g.reportCollapsedRoutes("exclude", exclude, collapsed)
+		exclude = collapsed
+	}
 	routes, err := renderRoutesJSON(include, exclude)
 	if err != nil {
 		return err
