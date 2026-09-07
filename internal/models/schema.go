@@ -38,6 +38,15 @@ type MetaLimits struct {
 type StaticSource struct {
 	Path string `yaml:"path" toml:"path" json:"path"`
 	Dest string `yaml:"dest" toml:"dest" json:"dest"`
+	// Sitemap lists this entry in sitemap.xml (#255). A verbatim HTML document
+	// — a hand-authored SPA, a spec viewer — never becomes a Page, so no branch
+	// of the sitemap could reach it, however heavily the site links it. The
+	// generator cannot tell a document from an asset by looking, so the site
+	// says which of the files it already declares here is one.
+	Sitemap bool `yaml:"sitemap" toml:"sitemap" json:"sitemap"`
+	// Priority is the sitemap <priority> for that entry; 0 means the 0.8 an
+	// ordinary page gets.
+	Priority float64 `yaml:"priority" toml:"priority" json:"priority"`
 }
 
 // FeedSpec is one declared syndication feed (#86). It answers two questions the
