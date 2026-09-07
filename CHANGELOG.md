@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.57] - 2026-09-07
+
+### Fixed
+- ☁️ **`_routes.json` could be written with overlapping rules, which Cloudflare
+  rejects at deploy time** (#252). The union of every worker's routes collapsed
+  exact duplicates (GO-081) but not overlapping ones, so the arrangement
+  `docs/WORKERS.md` recommends — a middleware worker beside route-owning workers
+  — produced a site that could not be published at all: *"Overlapping rules
+  found"*, after the upload, on a build that was green and passed every check.
+  Saying less did not avoid it either, since a worker with no `routes_include`
+  defaults to `/api/*`, exactly the value that overlaps. A rule already covered
+  by a splat in the same list is now folded into it — `/api/contact` and
+  `/api/consent/*` beside `/api/*` become `/api/*` — with `include` and
+  `exclude` normalised separately, and the build says which rules were absorbed.
+  It also spends fewer of the 100 rules Cloudflare allows. The generator writes
+  this file itself, so it can simply not write an invalid one — the argument of
+  #247, one step earlier.
+- 🗺️ **A `static_sources` HTML document could never enter `sitemap.xml`**
+  (#255). A copied root never becomes a `models.Page`, so no branch of
+  `generateSitemap` could reach it. On schema-resume.org the hand-authored CV
+  editor at `/editor/` — 17 internal inlinks, the most-linked page after the
+  home page, in the nav of every page — was reported by an Ahrefs crawl as
+  *indexable page not in sitemap*. This is the inverse of #244: there the
+  document was rendered and belonged to no collection, here it is a real
+  document the generator never rendered. A `static_sources` entry now takes
+  `sitemap: true` (and an optional `priority`), since the site already declares
+  the file and the generator cannot tell a document from an asset by looking. A
+  directory entry resolves to the `index.html` at its root; a non-document is a
+  warning rather than a sitemap line; `noindex` still keeps a document out; and
+  `lastmod_from_git` reads the **source** file's history.
+
+### Added
+- 🔢 **`int` and `float` template helpers** (#253). Every shortcode attribute
+  arrives as a string, and the helpers that would consume one want a number:
+  `first`/`limit`/`offset` take an int, `filter "rating" "ge"` compares
+  numerically. There was nothing in between — `add 0 .Attrs.limit` failed with
+  *both arguments must be numbers* — so a shortcode could take a numeric option
+  only by hardcoding it or writing a bounded `if eq $s "1"` chain. `int` returns
+  an `int` rather than an int64 precisely so `first (int .Attrs.limit)` works;
+  a value that is not a number is a template error, never a silent 0. `add`,
+  `sub`, `mul` and `div` now accept a numeric string directly as well, so the
+  arithmetic set works on attributes without conversion.
+- 🧩 **Shortcodes can read the site's data, call theme partials and use the
+  collection helpers** (#254). A shortcode was parsed as a set of one file and
+  executed against itself, which made the one thing a shortcode is for —
+  placing a data-driven block where the author wants it — impossible: no `data/`
+  files, `{{ template "card" }}` failing with *no such template*, and no
+  `filter`/`sort`/`first`. Three changes, one theme: `.SiteData` and
+  `.ExternalData` join `.Vars` in scope (all three are site-wide, which is the
+  reasoning by which `.Vars` was already there); each shortcode is parsed into a
+  private copy of the theme's namespace, so every partial is reachable and a
+  `{{ define }}` in a shortcode cannot change what a page renders; and the
+  collection helpers are admitted, the reason for excluding them having expired.
+  `.Page`, `.Site` and `.Posts` stay out, unchanged. **`.SiteData`, not
+  `.Data`**: inside a shortcode `.Data` has always meant the `shortcodes:`
+  entry's own `data:` map, and repointing it would break every theme using it.
+
+### Documentation
+- ✂️ **HTML comments are stripped by the template engine** (#256). `html/template`
+  removes comments while parsing — long-standing and reasonable, and silent — so
+  a theme could not emit one and every comment-based host directive vanished
+  with it: Cloudflare's `<!--email_off-->`, SSI/ESI markers, CDN and
+  tag-manager markers. On a specification site that meant every example address
+  in the JSON samples served as the literal text `[email protected]`, and six
+  pages linking to a 404 under `/cdn-cgi/l/`. The mechanism was always there —
+  `{{ "<!--email_off-->" | safeHTML }}` — but nothing connected "my comment
+  disappeared" to "the engine removed it". Now written down in
+  [docs/TEMPLATES.md](docs/TEMPLATES.md) beside the partials notes and in the
+  `safeHTML` entry of
+  [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md).
+
+### Changed
+- ⬆️ **Dependency bumps**: `goldmark` 1.8.5 → 1.8.6, `modernc.org/sqlite`
+  1.57.0 → 1.58.0, and `docker/setup-qemu-action` to its current v4 digest.
+
 ## [1.8.56] - 2026-09-06
 
 ### Fixed

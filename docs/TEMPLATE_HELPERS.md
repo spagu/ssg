@@ -393,6 +393,18 @@ SSG registers several helper functions in the Go template engine for date format
   ```
 
   Use it for shortcode output and other pre-rendered HTML too.
+
+  **It is also the only way to emit an HTML comment.** `html/template` strips
+  comments while parsing, so `<!--email_off-->` written literally in a template
+  is simply not in the output — silently, with a green build. Any comment a host
+  is meant to read (Cloudflare's Email Obfuscation opt-out, SSI/ESI markers, a
+  CDN directive) has to go through `safeHTML`:
+
+  ```gotemplate
+  {{ "<!--email_off-->" | safeHTML }}
+  …
+  {{ "<!--/email_off-->" | safeHTML }}
+  ```
 * **`decodeHTML value`** — Unescapes standard HTML entity sequences (e.g. `&amp;` becomes `&`).
   ```gotemplate
   {{ decodeHTML .Title }}
@@ -425,6 +437,16 @@ SSG registers several helper functions in the Go template engine for date format
   ```gotemplate
   {{ getCategorySlug .Category }}
   ```
+* **`int value`** — Converts a string, int or float to a whole number, truncating toward zero. Every shortcode attribute arrives as a string, so this is what lets `[reviews limit="3"]` feed a helper that counts. A value that is not a number is a template error, never a silent `0`.
+  ```gotemplate
+  {{ range first (int .Attrs.limit) .SiteData.reviews }}…{{ end }}
+  {{ .Attrs.limit | default "6" | int }}   {{/* default composes in front */}}
+  ```
+* **`float value`** — The same conversion keeping the fractional part, for a numeric comparison.
+  ```gotemplate
+  {{ filter "rating" "ge" (float .Attrs.min) .SiteData.reviews }}
+  ```
+  `add`, `sub`, `mul` and `div` accept a numeric string directly too, so `{{ add 1 .Attrs.offset }}` needs no conversion.
 * **`isValidCategory id`** — Returns `true` unless the ID resolves to the exporter's catch-all term (`Uncategorized`, `Bez kategorii` and their translations, matched on slug or name). Since 1.8.56 the ID itself means nothing: `1` is whatever the export numbered first, and a real category there is valid like any other.
   ```gotemplate
   {{ if isValidCategory .Category }}...{{ end }}

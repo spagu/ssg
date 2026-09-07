@@ -70,7 +70,14 @@ Per entry:
 
 How the build treats them: Cloudflare Pages serves a **single** `functions/`
 tree and one `_routes.json` per project, so the workers' functions are copied
-into that shared tree and their routes are combined. Because they are
+into that shared tree and their routes are combined. Combining **normalises**:
+Cloudflare rejects a `_routes.json` whose rules overlap, so a rule already
+covered by a splat in the same list is folded into it — `/api/contact` and
+`/api/consent/*` beside `/api/*` are published as `/api/*` alone, and the build
+says which rules were absorbed. Include and exclude are normalised separately.
+This matters most for a middleware worker, which legitimately covers every route
+rather than owning one, and for a worker that names no routes at all: it
+defaults to `/api/*`, which is exactly the value that overlaps. Because they are
 independent, **two workers claiming the same output file is a hard error**
 (never a silent overwrite) — give them distinct routes. Only one worker may use
 `mode: worker` (a project has one `_worker.js`).

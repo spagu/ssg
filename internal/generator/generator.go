@@ -64,6 +64,17 @@ type Shortcode struct {
 	// same inside a shortcode template as in every other template (issue #37).
 	// Filled per render, never from the config file.
 	Vars map[string]interface{}
+	// SiteData and ExternalData are the data/ files and the external_sources
+	// namespaces — site-wide, exactly like Vars, and admitted for the same
+	// reason: one map shared by every invocation, with nothing page-specific
+	// about it (#254). Without them a data-driven block could not be placed in
+	// content at all, which is the one thing a shortcode is for.
+	//
+	// SiteData, not Data: `.Data` has meant the shortcode entry's own `data:`
+	// map since shortcodes existed, and every theme using it would break if the
+	// name were repointed at the site's data files.
+	SiteData     map[string]interface{}
+	ExternalData map[string]interface{}
 	// Raw is the source that produced this invocation ("{{promo}}",
 	// `[promo a="b"]…[/promo]`). A shortcode whose template fails to render is
 	// replaced by this text rather than by nothing, so the gap is visible in the
@@ -424,7 +435,14 @@ type Generator struct {
 	engineTmpls map[string]engine.Template
 	sanitizer   *bluemonday.Policy // HTML sanitizer when SanitizeHTML is on (FE-005)
 
-	shortcodeTmpls    map[string]*template.Template  // parsed shortcode templates, one parse per build (PERF-002)
+	shortcodeTmpls map[string]*template.Template // parsed shortcode templates, one parse per build (PERF-002)
+	// shortcodeBase is an unexecuted clone of the theme set, taken at load time
+	// so shortcode templates can be parsed INTO the theme's namespace and reach
+	// its partials (#254). html/template refuses to clone a set that has
+	// already rendered, and shortcodes are parsed lazily during rendering, so
+	// the copy has to be taken here or not at all. It is never executed itself
+	// — every shortcode clones it — which is what keeps it clonable all build.
+	shortcodeBase     *template.Template
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
@@ -518,6 +536,9 @@ type Generator struct {
 	// left empty (#247). Written from the render workers, so it is guarded.
 	emptyCanonicals map[string]string
 	canonicalMu     sync.Mutex
+	// staticSitemap holds the verbatim documents that asked to be listed (#255).
+	staticSitemap   []staticSitemapEntry
+	staticSitemapMu sync.Mutex
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -825,8 +846,10 @@ func (g *Generator) Generate() error {
 	defer g.closeRelatedMddb()
 
 	// This build's findings only: a watch-mode rebuild reports the site as it is
-	// now, not every page that was ever wrong in this process (#247).
+	// now, not every page that was ever wrong in this process (#247), and lists
+	// the documents this build actually copied (#255).
 	g.resetEmptyCanonicals()
+	g.resetStaticSitemap()
 
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
@@ -2125,7 +2148,33 @@ func (g *Generator) loadTemplates() error {
 	}
 
 	g.tmpl = tmpl
+	g.shortcodeBase = shortcodeBaseOf(tmpl, g.shortcodeFuncMap())
 	return nil
+}
+
+// shortcodeBaseOf takes the copy of the theme set that shortcode templates are
+// parsed into (#254).
+//
+// A shortcode used to be parsed as a set of one file, so `{{ template "card" }}`
+// failed with `no such template` and a block both a page template and a
+// shortcode needed had to be written twice. Parsing into a copy of the theme's
+// namespace makes every partial reachable, and a copy — not the set itself —
+// means a shortcode redefining a name cannot damage the theme.
+//
+// The shortcode func map is layered on top rather than replacing the theme's:
+// a partial calls the theme's functions, so removing them would break the very
+// thing this exists to allow.
+func shortcodeBaseOf(tmpl *template.Template, funcs template.FuncMap) *template.Template {
+	if tmpl == nil {
+		return nil
+	}
+	clone, err := tmpl.Clone()
+	if err != nil {
+		// Only possible if the set has already rendered, which cannot happen at
+		// load time. Shortcodes then parse standalone, exactly as before.
+		return nil
+	}
+	return clone.Funcs(funcs)
 }
 
 // loadEngineTemplates parses every theme template (root + layouts/) through the
@@ -2439,7 +2488,9 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"default":              tmplDefault,
 		"dict":                 tmplDict,
 		"toJSON":               tmplToJSON, // marshal a value to inline JSON (config blobs, JSON-LD)
-		"add":                  tmplAdd,    // arithmetic for themes (TPL-003)
+		"int":                  tmplInt,    // "3" → 3, so a shortcode attribute can count (#253)
+		"float":                tmplFloat,
+		"add":                  tmplAdd, // arithmetic for themes (TPL-003)
 		"sub":                  tmplSub,
 		"mul":                  tmplMul,
 		"div":                  tmplDiv,
@@ -2929,8 +2980,11 @@ func (g *Generator) renderShortcode(sc Shortcode) string {
 	}
 
 	// Site variables are supplied here rather than stored on the configured
-	// shortcode, so one map is shared by every invocation (issue #37).
+	// shortcode, so one map is shared by every invocation (issue #37). The data
+	// namespaces ride along for the same reason (#254).
 	sc.Vars = g.config.Variables
+	sc.SiteData = g.data
+	sc.ExternalData = g.externalData
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, sc); err != nil {
@@ -2979,12 +3033,41 @@ func (g *Generator) parseShortcodeTemplate(templatePath string) *template.Templa
 		fmt.Printf("   ⚠️  Warning: shortcode template not found: %s\n", templatePath)
 		return nil
 	}
-	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(g.shortcodeFuncMap()).ParseFiles(templatePath)
+	name := filepath.Base(templatePath)
+	if set := g.shortcodeSet(); set != nil {
+		parsed, err := set.ParseFiles(templatePath)
+		if err != nil {
+			fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
+			return nil
+		}
+		// ParseFiles returns the SET; the shortcode is the template the file
+		// defined. Executing that one runs the shortcode while leaving the
+		// theme's partials reachable through the shared namespace.
+		if t := parsed.Lookup(name); t != nil {
+			return t
+		}
+	}
+	tmpl, err := template.New(name).Funcs(g.shortcodeFuncMap()).ParseFiles(templatePath)
 	if err != nil {
 		fmt.Printf("   ⚠️  Warning: shortcode template parse error: %v\n", err)
 		return nil
 	}
 	return tmpl
+}
+
+// shortcodeSet returns a private copy of the theme namespace for one shortcode
+// to be parsed into, or nil when there is no theme set to copy — a bare
+// generator in a test, or an alt-engine theme, where shortcodes parse standalone
+// as they always did.
+func (g *Generator) shortcodeSet() *template.Template {
+	if g.shortcodeBase == nil {
+		return nil
+	}
+	clone, err := g.shortcodeBase.Clone()
+	if err != nil {
+		return nil
+	}
+	return clone
 }
 
 // shortcodeFuncMap returns template functions available in shortcode templates
@@ -3007,6 +3090,8 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"stripHTML":       tmplStripHTML,
 		"default":         tmplDefault,
 		"dict":            tmplDict,
+		"int":             tmplInt,
+		"float":           tmplFloat,
 		"add":             tmplAdd,
 		"sub":             tmplSub,
 		"mul":             tmplMul,
@@ -3014,6 +3099,27 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 
 		// Safe, deterministic conditional helpers (v1.8.3). Collection helpers
 		// that depend on site-wide data stay normal-template-only by design.
+		//
+		// That reason expired with #254: `.SiteData` and `.ExternalData` are in
+		// scope now, so a shortcode has collections of its own to work on and no
+		// way to work on them. The whole set is admitted — the collection is the
+		// final argument in each, so they chain in a pipeline exactly as they do
+		// in a page template.
+		"where":      tmplWhere,
+		"filter":     tmplFilter,
+		"sort":       tmplSortBy,
+		"first":      tmplFirst,
+		"last":       tmplLast,
+		"limit":      tmplLimit,
+		"offset":     tmplOffset,
+		"groupBy":    tmplGroupBy,
+		"uniq":       tmplUniq,
+		"uniqBy":     tmplUniqBy,
+		"reverse":    tmplReverse,
+		"pluck":      tmplPluck,
+		"indexBy":    tmplIndexBy,
+		"concat":     tmplConcat,
+		"flatten":    tmplFlatten,
 		"slice":      tmplSliceOf,
 		"append":     tmplAppend,
 		"in":         tmplIn,
@@ -4414,6 +4520,7 @@ func (g *Generator) copyStaticSources() error {
 				return err
 			}
 		}
+		g.recordStaticSitemapEntry(src, dest)
 		if !g.config.Quiet {
 			fmt.Printf("   📦 Copied static source %s to output\n", path)
 		}
@@ -4759,11 +4866,21 @@ func (g *Generator) gitLastMod(p models.Page) (time.Time, bool) {
 	if p.SourceFile == "" {
 		return time.Time{}, false
 	}
+	return g.gitLastModForFile(filepath.Join(p.SourceDir, p.SourceFile))
+}
+
+// gitLastModForFile is the same lookup for any source file on disk, so a
+// document the generator copied rather than rendered can carry a truthful
+// <lastmod> too (#255).
+func (g *Generator) gitLastModForFile(path string) (time.Time, bool) {
+	if path == "" {
+		return time.Time{}, false
+	}
 	g.gitOnce.Do(func() { g.gitRoot, g.gitTimes = loadGitLastModTimes() })
 	if len(g.gitTimes) == 0 {
 		return time.Time{}, false
 	}
-	abs, err := filepath.Abs(filepath.Join(p.SourceDir, p.SourceFile))
+	abs, err := filepath.Abs(path)
 	if err != nil {
 		return time.Time{}, false
 	}
@@ -4873,6 +4990,10 @@ func (g *Generator) generateSitemap() error {
 	// front-page entry above, which is why this went unnoticed until a site
 	// moved its listing off the root.
 	g.writeSitemapPostsListings(&sb, claimed)
+
+	// Documents the build copied rather than rendered, where the site said so
+	// (#255) — a verbatim SPA or spec viewer is a page to a crawler.
+	g.writeSitemapStaticSources(&sb, claimed)
 
 	// Pages
 	for _, page := range g.siteData.Pages {
