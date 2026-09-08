@@ -113,6 +113,12 @@ type Config struct {
 	// PostsPage relocates the post listing, e.g. "blog" → /blog/ (#129).
 	PostsPage string
 	// New options
+	// MinifyHTMLKeepComments names comment openings HTML minification leaves
+	// alone, beyond the host directives kept by default (#263).
+	MinifyHTMLKeepComments []string
+	// Marketing is the site's declared social identity; it overrides whatever a
+	// migration recorded (#264).
+	Marketing  models.Marketing
 	SitemapOff bool // Disable sitemap generation
 	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
 	Sitemaps []models.SitemapSpec
@@ -1176,6 +1182,12 @@ func (g *Generator) loadContent() error {
 	// Content-mode CMS imports join the site before finalize so they get the
 	// same URL/translation/taxonomy treatment as native content.
 	g.mergeCMSContent()
+
+	// The site's declared social identity, over whatever a migration recorded.
+	// Here rather than beside the metadata.json read, because a site that has no
+	// metadata.json never reaches that code at all — and a site built from
+	// scratch is exactly the one that needs to declare a default card (#264).
+	g.applyConfiguredMarketing()
 
 	return g.finalizeLoadedContent()
 }

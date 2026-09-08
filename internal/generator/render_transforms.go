@@ -36,7 +36,10 @@ func prettifyHTMLString(s string) string {
 
 // minifyHTMLString collapses inter-tag whitespace and strips comments while
 // preserving htmlmin:ignore blocks and whitespace-sensitive elements (GO-022).
-func minifyHTMLString(s string) string {
+//
+// keepComments names additional comment openings to leave alone, beyond the
+// host directives kept by default (#263).
+func minifyHTMLString(s string, keepComments []string) string {
 	preservedBlocks := make(map[string]string)
 	preserve := func(inner string) string {
 		placeholder := fmt.Sprintf("__HTMLMIN_PRESERVE_%d__", len(preservedBlocks))
@@ -51,7 +54,7 @@ func minifyHTMLString(s string) string {
 	})
 	s = minPreserveTagRe.ReplaceAllStringFunc(s, preserve)
 	s = minHTMLCommentRe.ReplaceAllStringFunc(s, func(match string) string {
-		if strings.HasPrefix(match, "<!--[if") {
+		if keepsHTMLComment(match, keepComments) {
 			return match
 		}
 		return ""
@@ -201,7 +204,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 		s = prettifyHTMLString(s)
 	}
 	if g.config.MinifyHTML {
-		s = minifyHTMLString(s)
+		s = minifyHTMLString(s, g.config.MinifyHTMLKeepComments)
 	}
 	// Last, so it sees the finished document: characters arrive from content,
 	// from a template and from an injected block alike, and a pass that ran

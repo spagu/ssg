@@ -470,9 +470,21 @@ func (p *markdownParser) derivedTitle() string {
 	return ""
 }
 
-// ExcerptMaxRunes bounds a derived excerpt. Long enough for a card or a meta
+// ExcerptMaxRunes bounds a derived excerpt: long enough for a card or a meta
 // description, short enough that search engines do not truncate mid-thought.
-const ExcerptMaxRunes = 200
+//
+// 160, not 200, since #265. The claim above was false at 200 — Google displays
+// roughly 155–160 characters — and worse, it contradicted the project's own
+// statement of where the line is: `check_meta` reports a description over
+// `defaultDescriptionMax`, which is 160. So the DEFAULT path failed the DEFAULT
+// check, on every page that wrote no `excerpt:` of its own, and a site only
+// found out if it happened to turn the check on. Thirteen of eighteen pages on
+// this project's own documentation site were over, and it surfaced through a
+// third-party crawl rather than through the build.
+//
+// The two numbers are now the same number, and the generator's check imports
+// this one so they cannot drift apart again.
+const ExcerptMaxRunes = 160
 
 // inlineMarkdownRe strips the inline syntax that would otherwise show up as
 // punctuation noise in a card or a <meta description>: emphasis markers,

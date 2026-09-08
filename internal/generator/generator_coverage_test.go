@@ -610,7 +610,7 @@ func TestPrettifyIfRequestedSkipsWhenMinify(t *testing.T) {
 	}
 	input := "<html>\n\n<body>  <p>Hi</p>  </body>\n\n</html>\n"
 	out := gen.transformHTMLPage(input, nil, false)
-	if out != minifyHTMLString(input) {
+	if out != minifyHTMLString(input, nil) {
 		t.Errorf("Expected MinifyHTML to override PrettyHTML, got: %q", out)
 	}
 }
@@ -1344,7 +1344,7 @@ func TestMinifyHTMLFileEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := minifyHTMLString(tt.input)
+			result := minifyHTMLString(tt.input, nil)
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}

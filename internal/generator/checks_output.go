@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/html"
 
 	"github.com/spagu/ssg/internal/models"
+	"github.com/spagu/ssg/internal/parser"
 )
 
 // finding is one reported problem: the output file and what is wrong in it.
@@ -173,7 +174,10 @@ const (
 	defaultTitleMin       = 30
 	defaultTitleMax       = 60
 	defaultDescriptionMin = 70
-	defaultDescriptionMax = 160
+	// The same bound the parser truncates a derived excerpt to, taken from it
+	// rather than restated: when they were two numbers they disagreed, and an
+	// auto-derived excerpt could never pass this check (#265).
+	defaultDescriptionMax = parser.ExcerptMaxRunes
 )
 
 // limitOr returns the configured bound, or def when it is unset. An explicit 0

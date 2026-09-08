@@ -248,6 +248,21 @@ Notes that save a debugging session:
   markers, and any build-provenance comment a theme wants to emit. Wrap the
   comment in `safeHTML` whenever it is meant for something downstream to read.
 
+  **It then survives `minify_html` too.** Until 1.8.59 minification deleted every
+  comment but the conditional `<!--[if …]>`, so the `safeHTML` form worked with
+  minification off and silently did nothing with it on — which is how most
+  production builds run. The directives kept by default are `<!--[if`,
+  `<!--email_off`, `<!--/email_off`, `<!--#` (SSI), `<!--esi`, `<!--googleoff`,
+  `<!--googleon`, `<!--noindex`, `<!--/noindex` and `<!--htmlmin:keep`. A host
+  that reads something else is covered by `minify_html_keep_comments`:
+
+  ```yaml
+  minify_html_keep_comments: [acme:begin, acme:end]
+  ```
+
+  An ordinary comment — a note to yourself — is still removed, which is the
+  point of minifying.
+
 The bundled `ssgtheme` is the reference implementation of this layout:
 `partials/chrome.html` holds the head, header and footer; the four role
 templates hold only what is unique to them. See

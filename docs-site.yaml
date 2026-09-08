@@ -68,6 +68,20 @@ check_links: warn
 # window search engines actually display — which is how 32 pages here were found
 # to be over it at once, by a third-party crawl rather than by the build.
 check_meta: warn
+
+# The card every page posts as. Without it the theme asked for
+# summary_large_image and named no image, so an Ahrefs crawl reported "Open
+# Graph tags incomplete" on all 20 sampled pages (#264). No page here has a hero
+# photograph, so the site default is the whole answer.
+marketing:
+  og_site_name: "SSG"
+  # og_image: "/img/ssg-card.png"
+  #
+  # Uncomment once a card exists at that path (1200x630 PNG or JPEG, under 5 MB,
+  # published through static_dir). Until then the theme emits twitter:card
+  # "summary" rather than claiming summary_large_image with no image to show —
+  # and pointing this at a file that is not there would be worse than leaving it
+  # unset, which is the whole lesson of the past week.
 shortcode_errors: strict
 
 # docs/*.md have no "## Excerpt" section; derive one from the opening paragraph
@@ -221,7 +235,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.8.58"
+  version: "1.8.59"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants

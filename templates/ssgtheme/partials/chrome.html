@@ -35,7 +35,24 @@
     <meta property="og:title" content="{{ .Title }}">
     <meta property="og:description" content="{{ .Desc }}">
     <meta property="og:url" content="{{ $canonical }}">
+    {{/* The card image: this page's own if it has one, the site's declared
+         default otherwise (#264). The theme asked for summary_large_image — a
+         format defined by having an image — and then never named one, so every
+         page posted as a bare text card. With no image anywhere, the card type
+         drops to `summary`, which describes what is actually there. */}}
+    {{ $image := "" }}
+    {{ with .Image }}{{ $image = . }}{{ end }}
+    {{ if not $image }}{{ with .Ctx.Site.Marketing.OGImage }}{{ $image = . }}{{ end }}{{ end }}
+    {{ if and $image (not (hasPrefix $image "http")) }}
+      {{ $image = printf "https://%s/%s" .Ctx.Domain (trimPrefix $image "/") }}
+    {{ end }}
+    {{ if $image }}
+    <meta property="og:image" content="{{ $image }}">
+    <meta name="twitter:image" content="{{ $image }}">
     <meta name="twitter:card" content="summary_large_image">
+    {{ else }}
+    <meta name="twitter:card" content="summary">
+    {{ end }}
     <meta name="twitter:title" content="{{ .Title }}">
     <meta name="twitter:description" content="{{ .Desc }}">
 
