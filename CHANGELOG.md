@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.58] - 2026-09-08
+
+### Added
+- 🗺️ **Sub-sitemaps and a sitemap index** (`sitemaps:`, `sitemap_max_urls`).
+  One `sitemap.xml` holding everything answers neither of the two questions a
+  growing site asks. sitemaps.org caps a single file at **50,000 URLs** (and
+  50 MB uncompressed), and a build over that limit used to write it anyway — a
+  file every crawler rejects, with nothing said. And Search Console reports
+  indexing coverage **per submitted sitemap**, so "how much of the blog is
+  indexed" was unanswerable while the blog shared a file with everything else.
+
+  Size needs no configuration: a set over the ceiling is split into numbered
+  files and `sitemap.xml` becomes the `<sitemapindex>` naming them.
+  `sitemap_max_urls` only lowers the ceiling, never raises it.
+
+  Structure is declared, in the shape `feeds:` already uses:
+
+  ```yaml
+  sitemaps:
+    - path: /sitemap-blog.xml
+      source: blog
+    - path: /sitemap-archives.xml
+      include: [categories, tags, authors]
+  ```
+
+  Selection is a **partition**, not a set of views: a URL lands in the first
+  spec that matches it, so nothing is listed twice, and whatever matches none is
+  written to `sitemap-main.xml` rather than dropped. An unknown `include:` name
+  fails the build instead of writing an empty file. `robots.txt` is unchanged —
+  it points at `/sitemap.xml`, which is now the index, exactly as the protocol
+  expects, so a site already submitted needs no resubmission.
+
+  **A site that asks for none of this is untouched**: one file, no index, byte
+  for byte what earlier releases wrote — which the golden corpora check on every
+  build. Internally the sitemap is now assembled as entries and rendered once,
+  rather than nine functions appending to one buffer; splitting and routing both
+  need the set in hand before any of it is written.
+
+### Fixed
+- 🏷️ **`taxonomies: { tag: { sitemap: false } }` was accepted and silently
+  ignored** (#259). `category`, `tag` and `series` are folded built-ins whose
+  sitemap entries are written by the legacy loops, and only
+  `writeTaxonomySitemap` consulted `def.Sitemap` — the one place that skips
+  folded built-ins by design, to avoid listing them twice. So the check lived
+  exactly where it could not reach them: the setting parsed, validated, and did
+  nothing, while `archive: false` beside it worked. The cost was real: on a site
+  whose theme marked its tag archives `noindex`, an Ahrefs crawl reported 23
+  *noindex page in sitemap*, `sitemap: false` was the documented remedy, and
+  because it was inert the archives were made indexable instead — a site changed
+  to fit a setting that could not take effect. Both loops now ask the registry.
+  `author` is driven outside it (#44) and is unchanged.
+- 📚 **Series archives were written and linked but reached no sitemap at all**
+  (#261). `category`, `tag` and `series` are folded built-ins, which the registry
+  skips when writing the sitemap because they are meant to be listed by their own
+  legacy loop — and series had no legacy loop to be skipped to. There was no
+  `g.seriesSlugs` and nothing else named them, so the archive of every series a
+  site publishes, linked from every post in it, was absent from the file the site
+  uses to state its own structure. Same family as #228, #244 and #255, and the
+  exact inverse of #259 above: there `sitemap: false` could not turn a built-in's
+  entries off, here `sitemap: true` never turned them on. `generateSeries` now
+  records what it wrote — only written archives, so a slug that cannot be formed
+  or a URL an explicit page owns (GO-050) stays out — and the sitemap lists them,
+  honouring `taxonomies: { series: { sitemap: … } }`. **This adds URLs to the
+  sitemap of any site using series**, which is the intended change; the golden
+  baselines move by exactly that one line.
+- 📅 **A `static_sources` sitemap entry never got a `<lastmod>`** (#260, a
+  regression in the #255 work shipped yesterday). The date was emitted only when
+  `lastmod_from_git` was on **and** git could answer — a page in the same build
+  keeps its date because it falls back to frontmatter `modified`, then `date`,
+  and a copied document has no frontmatter to fall back to. So on a build where
+  git says nothing, 16 of 18 entries carried a date and the verbatim document
+  carried none. It now falls back to the file's own modification time, which is
+  what the filesystem knows about a document with no frontmatter.
+
+  **The build also says when git could not answer**, once per build. That
+  silence is what cost the reporter an afternoon: the setting was on, the pages
+  had dates, and nothing distinguished "git worked" from "git was never there".
+  The commonest cause is not a broken repository but an invisible `git` — a
+  strictly confined **snap** sees only its own rootfs, and this snap bundles
+  `cwebp` and `avifenc` for exactly that reason but not `git`, so
+  `lastmod_from_git` cannot reach a repository from the snap at all. Now
+  documented in [docs/CONTENT.md](docs/CONTENT.md#dates).
+
 ## [1.8.57] - 2026-09-07
 
 ### Fixed

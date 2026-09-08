@@ -366,8 +366,10 @@ static_sources:
 Opt-in, because most of what a site copies verbatim is an asset. A directory
 entry resolves to the `index.html` at its root; anything that is not an HTML
 document is a warning rather than a sitemap line, and a document whose own HTML
-says `noindex` keeps itself out like every other entry. With `lastmod_from_git`
-the `<lastmod>` comes from the **source** file's last commit.
+says `noindex` keeps itself out like every other entry. The `<lastmod>` comes
+from the **source** file's last commit under `lastmod_from_git`, and from its
+modification time otherwise — a copied document has no frontmatter date to fall
+back to, so the filesystem is what knows.
 
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
@@ -499,6 +501,8 @@ fingerprinted assets.
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `sitemap_off` | `false` | `--sitemap-off` | Disable `sitemap.xml` |
+| `sitemaps` | empty | config only | Declared sub-sitemaps, each with its own `path` and selection; `sitemap.xml` becomes their index. See [Splitting the sitemap](#splitting-the-sitemap-sitemaps-sitemap_max_urls) |
+| `sitemap_max_urls` | `50000` | config only | Per-file URL ceiling; a larger set is split and indexed |
 | `robots_off` | `false` | `--robots-off` | Disable `robots.txt` |
 | `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence |
 | `pretty_html` | `false` | `--pretty-html` | Remove blank lines from HTML |
@@ -850,7 +854,7 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
-| `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
+| `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
 
 SEO injection is non-destructive, and it is **not** all-or-nothing. It looks at
 what the page already rendered and fills only the gaps:
@@ -1339,6 +1343,51 @@ merely *disagrees* with the permalink, which needs judgement and stays behind
 
 It is a warning, never a failure: the site is publishable, and a build that
 refused to finish over a theme bug would be worked around rather than fixed.
+
+### Splitting the sitemap (`sitemaps`, `sitemap_max_urls`)
+
+One `sitemap.xml` holding everything is right for almost every site, and stays
+the default: nothing below changes a build that does not ask for it.
+
+Two things eventually ask. sitemaps.org caps **one file at 50,000 URLs** (and
+50 MB uncompressed), above which a `<sitemapindex>` is required — and Search
+Console reports indexing coverage **per submitted sitemap**, so "how much of the
+blog is indexed" is a question only a separate file can answer.
+
+**Size is handled without configuration.** A set over the ceiling is split into
+`sitemap-1.xml`, `sitemap-2.xml`… and `sitemap.xml` becomes the index naming
+them. `sitemap_max_urls` lowers the ceiling (never raises it — a larger file is
+invalid whatever the config says), which is useful for testing the shape on a
+small site.
+
+**Structure is declared**, in the shape `feeds:` already uses:
+
+```yaml
+sitemaps:
+  - path: /sitemap-blog.xml
+    source: blog                        # a content_sources path / content folder
+
+  - path: /sitemap-archives.xml
+    include: [categories, tags, authors]
+```
+
+Selectable in `include:`: `home`, `listing`, `pages`, `posts`, `static`,
+`categories`, `tags`, `authors`, `taxonomies`. An unknown name fails the build
+rather than writing an empty file. Narrowings combine with **AND**, and a spec
+with none of them claims everything still unclaimed — which is how a catch-all
+is written.
+
+Selection is a **partition, not a set of views**: a URL lands in the first spec
+that matches it, so order matters like a routing table, and no URL is listed
+twice. Whatever matches nothing goes to `sitemap-main.xml`, which is always
+written and always in the index — nothing is silently dropped by a `sitemaps:`
+block that does not cover the whole site. A spec that selects nothing is
+reported and its file is skipped, since an index entry pointing at an empty
+urlset is a fetch that teaches a crawler nothing.
+
+`robots.txt` is unchanged either way: it points at `/sitemap.xml`, which is now
+the index. That is exactly what the protocol expects, so a site already
+submitted to Search Console needs no resubmission.
 
 ### What the sitemap lists
 

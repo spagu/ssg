@@ -140,29 +140,164 @@ func TestStaticSitemapEdges(t *testing.T) {
 		filepath.Join(g.config.OutputDir, "editor"))
 
 	// Claimed by an earlier section: listed once, not twice (#219).
-	var sb strings.Builder
 	claimed := map[string]bool{"https://example.com/editor/": true}
-	g.writeSitemapStaticSources(&sb, claimed)
-	if sb.String() != "" {
-		t.Errorf("a claimed URL was listed again:\n%s", sb.String())
+	sb := renderStaticEntries(g, claimed)
+	if sb != "" {
+		t.Errorf("a claimed URL was listed again:\n%s", sb)
 	}
 
 	// Unclaimed: listed, and lastmod is simply absent outside a git checkout
 	// rather than invented.
-	sb.Reset()
-	g.writeSitemapStaticSources(&sb, map[string]bool{})
-	if !strings.Contains(sb.String(), "<loc>https://example.com/editor/</loc>") {
-		t.Errorf("the entry is missing:\n%s", sb.String())
+	sb = renderStaticEntries(g, map[string]bool{})
+	if !strings.Contains(sb, "<loc>https://example.com/editor/</loc>") {
+		t.Errorf("the entry is missing:\n%s", sb)
 	}
 
 	// Nothing recorded, nothing written.
 	g.resetStaticSitemap()
-	sb.Reset()
-	g.writeSitemapStaticSources(&sb, map[string]bool{})
-	if sb.String() != "" {
-		t.Errorf("an empty record wrote %q", sb.String())
+	if sb = renderStaticEntries(g, map[string]bool{}); sb != "" {
+		t.Errorf("an empty record wrote %q", sb)
 	}
 	if _, ok := g.gitLastModForFile(""); ok {
 		t.Error("an empty path has no commit date")
 	}
+}
+
+// TestStaticSitemapDatesWithoutGit: 1.8.57 emitted <lastmod> only when git could
+// answer, so a build where it cannot — a strictly confined snap, which sees
+// neither the host's git nor its own — produced an entry with no date while the
+// ordinary pages beside it kept theirs from frontmatter (#260).
+func TestStaticSitemapDatesWithoutGit(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.Domain = "example.com"
+	g.config.LastmodFromGit = true
+	// A source outside any repository: the git lookup can only fail.
+	src := filepath.Join(t.TempDir(), indexHTMLName)
+	mustWrite(t, src, `<html><head><title>E</title></head><body><p>x</p></body></html>`)
+	dest := filepath.Join(g.config.OutputDir, "editor", indexHTMLName)
+	mustWrite(t, dest, `<html><head><title>E</title></head><body><p>x</p></body></html>`)
+	g.recordStaticSitemapEntry(models.StaticSource{Path: src, Sitemap: true}, dest)
+
+	var sb string
+	out := captureBuildOutput(t, func() { sb = renderStaticEntries(g, map[string]bool{}) })
+
+	if !strings.Contains(sb, "<lastmod>") {
+		t.Errorf("no date at all, which is what #260 reported:\n%s", sb)
+	}
+	// And the build says why, instead of leaving it to be found by reading XML.
+	if !strings.Contains(out, "lastmod_from_git") || !strings.Contains(out, "modification time") {
+		t.Errorf("the fallback was silent:\n%s", out)
+	}
+	if !strings.Contains(out, "snap") {
+		t.Errorf("the commonest cause is not named:\n%s", out)
+	}
+}
+
+// TestStaticSitemapGitWarningIsOncePerBuild: one line however many documents it
+// applies to, and none at all under --quiet.
+func TestStaticSitemapGitWarningIsOncePerBuild(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.LastmodFromGit = true
+	dir := t.TempDir()
+	for _, name := range []string{"a", "b", "c"} {
+		src := filepath.Join(dir, name+".html")
+		mustWrite(t, src, "<html><body>x</body></html>")
+		dest := filepath.Join(g.config.OutputDir, name, indexHTMLName)
+		mustWrite(t, dest, "<html><body>x</body></html>")
+		g.recordStaticSitemapEntry(models.StaticSource{Path: src, Sitemap: true}, dest)
+	}
+
+	var sb string
+	out := captureBuildOutput(t, func() { sb = renderStaticEntries(g, map[string]bool{}) })
+	if n := strings.Count(out, "lastmod_from_git is on"); n != 1 {
+		t.Errorf("the warning appeared %d times, want 1:\n%s", n, out)
+	}
+	if n := strings.Count(sb, "<lastmod>"); n != 3 {
+		t.Errorf("%d of 3 documents carry a date", n)
+	}
+}
+
+// TestStaticSitemapNoDateWithoutASource: nothing to stat, no invented date.
+func TestStaticSitemapNoDateWithoutASource(t *testing.T) {
+	g := newTestGen(t, "")
+	if !g.staticLastMod("").IsZero() {
+		t.Error("an empty source produced a date")
+	}
+	if !g.staticLastMod(filepath.Join(t.TempDir(), "missing.html")).IsZero() {
+		t.Error("a missing file produced a date")
+	}
+}
+
+// TestStaticSitemapUsesGitWhenItCanAnswer: the half of #260 that was never
+// broken — with the file inside the repository the build runs in, the date comes
+// from the commit rather than the filesystem, and nothing is warned about.
+//
+// It uses one of this package's own tracked files as the source, because
+// loadGitLastModTimes reads the repository of the working directory: a scratch
+// repo elsewhere is invisible to it, which is itself worth knowing about a
+// static_sources path that points outside the project.
+func TestStaticSitemapUsesGitWhenItCanAnswer(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.LastmodFromGit = true
+	src := "static_sitemap.go" // tracked, and beside this test
+	if _, ok := g.gitLastModForFile(src); !ok {
+		t.Skip("not a git checkout, or git is unavailable")
+	}
+	dest := filepath.Join(g.config.OutputDir, "app", indexHTMLName)
+	mustWrite(t, dest, "<html><body>x</body></html>")
+	g.recordStaticSitemapEntry(models.StaticSource{Path: src, Sitemap: true}, dest)
+
+	var sb string
+	out := captureBuildOutput(t, func() { sb = renderStaticEntries(g, map[string]bool{}) })
+	if !strings.Contains(sb, "<lastmod>") {
+		t.Errorf("the commit date is missing:\n%s", sb)
+	}
+	if strings.Contains(out, "could not date") {
+		t.Errorf("git answered, so nothing should be warned about:\n%s", out)
+	}
+	// The commit date, not today's mtime of a file just written.
+	if info, err := os.Stat(src); err == nil {
+		gitDate, _ := g.gitLastModForFile(src)
+		if !strings.Contains(sb, gitDate.Format("2006-01-02")) {
+			t.Errorf("the date is not the commit date (mtime is %s):\n%s",
+				info.ModTime().Format("2006-01-02"), sb)
+		}
+	}
+}
+
+// TestStaticSitemapGitWarningRespectsQuiet: --quiet is quiet.
+func TestStaticSitemapGitWarningRespectsQuiet(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.Quiet = true
+	if out := captureBuildOutput(t, func() { g.warnGitLastModUnavailable("x.html") }); out != "" {
+		t.Errorf("--quiet printed %q", out)
+	}
+}
+
+// TestStaticSitemapUnreadableSource: an entry whose source cannot be read is
+// listed without a date, and says so rather than looking like #260 again.
+func TestStaticSitemapUnreadableSource(t *testing.T) {
+	g := newTestGen(t, "")
+	dest := filepath.Join(g.config.OutputDir, "app", indexHTMLName)
+	mustWrite(t, dest, "<html><body>x</body></html>")
+
+	out := captureBuildOutput(t, func() {
+		g.recordStaticSitemapEntry(models.StaticSource{Path: filepath.Join(t.TempDir(), "gone.html"), Sitemap: true}, dest)
+	})
+	if !strings.Contains(out, "cannot be read") {
+		t.Errorf("no warning for an unreadable source:\n%s", out)
+	}
+	if len(g.staticSitemap) != 1 || g.staticSitemap[0].source != "" {
+		t.Errorf("the entry should still be listed, dateless: %+v", g.staticSitemap)
+	}
+}
+
+// renderStaticEntries renders just the static-source section, which is what the
+// tests above used to read straight out of a shared builder.
+func renderStaticEntries(g *Generator, claimed map[string]bool) string {
+	var sb strings.Builder
+	for _, e := range g.staticSourceEntries(claimed) {
+		e.writeTo(&sb)
+	}
+	return sb.String()
 }

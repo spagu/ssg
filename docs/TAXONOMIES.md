@@ -143,6 +143,12 @@ the helpers all follow the language of the page being rendered.
 
 - `feed: true` (plus global `feed: true`) writes an Atom feed per term.
 - `sitemap: true` (default) adds the taxonomy index and each term archive.
+  `sitemap: false` keeps them out **without** removing them: `archive` is the
+  separate switch that decides whether they are written at all. It applies to the
+  built-in `category` and `tag` as well as to custom taxonomies — before 1.8.58
+  it parsed and validated on the built-ins and did nothing, so a site whose theme
+  marked its tag archives `noindex` kept advertising them anyway. `author` is
+  driven outside the registry and is not configurable this way.
 - The search index and JSON output records carry a `taxonomies` map
   (`{"technology": ["Go", "Rust"], …}`) for client-side filtering.
 

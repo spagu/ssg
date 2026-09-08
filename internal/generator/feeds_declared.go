@@ -244,7 +244,13 @@ func (g *Generator) selectFeedPosts(spec models.FeedSpec) []models.Page {
 // directory itself and anything beneath it, so `source: blog` covers
 // blog/2026/post.md as well as blog/post.md.
 func pageInSource(p models.Page, source string) bool {
-	dir := filepath.ToSlash(strings.TrimSuffix(p.SourceDir, "/"))
+	return sourceDirMatches(p.SourceDir, source)
+}
+
+// sourceDirMatches is that test on the directory alone, so a declared sitemap
+// selects content roots by exactly the rule a declared feed does (#86).
+func sourceDirMatches(sourceDir, source string) bool {
+	dir := filepath.ToSlash(strings.TrimSuffix(sourceDir, "/"))
 	want := filepath.ToSlash(strings.Trim(source, "/"))
 	if dir == "" || want == "" {
 		return false

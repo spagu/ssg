@@ -624,6 +624,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TemplatesDir:           cfg.TemplatesDir,
 		OutputDir:              cfg.OutputDir,
 		SitemapOff:             cfg.SitemapOff,
+		Sitemaps:               cfg.Sitemaps,
+		SitemapMaxURLs:         cfg.SitemapMaxURLs,
 		RobotsOff:              cfg.RobotsOff,
 		RobotsRules:            robotsRulesOf(cfg),
 		NotFoundOff:            cfg.NotFoundOff,

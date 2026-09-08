@@ -356,7 +356,7 @@ func TestGenerateSeries(t *testing.T) {
 		{Title: "A", Slug: "a", Type: "post", Series: "Learn Go", Date: time.Now()},
 		{Title: "B", Slug: "b", Type: "post", Series: "Learn Go", Date: time.Now()},
 	}
-	if err := g.generateSeries(); err != nil {
+	if _, err := g.generateSeries(); err != nil {
 		t.Fatalf("generateSeries: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(g.config.OutputDir, "series", "learn-go", "index.html"))

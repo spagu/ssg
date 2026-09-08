@@ -17,7 +17,7 @@ a601e4c24af50f53a7eec0022ed7bfa9fd80090b2226a61ae428cbb175140e02  ./index.html
 b87966e58d2e52aaf3d52e0e5308a67505c7b1015c2fa7f772d1ecc327c4082f  ./robots.txt
 c0b023625cced59b54727d908c9062cb8dcbb1d172dbb4bb976d1670ab1bbc29  ./search-index.json
 56eccd03c094e0e3a0066099886e1c4602a860a27d4d89501bd61b8dc9f124a8  ./series/shipping-to-embedded-targets/index.html
-6fe59ae697073011bccecde6fb734d282e2c1c4fb1397e4f825ffedad130fc04  ./sitemap.xml
+5c9b030e031b888301b4e40e7e302e1f8fcbf8247eb2e6b30acf59502055cdc6  ./sitemap.xml
 8f3bb766150030b378e30def121f9f3cc5cac5190e22d84aca36684aa4263232  ./tag/tutorial/feed.xml
 b7d5d600390705157086d4b000310fcdf21f595e5a898d963d7f4094d573bfab  ./tag/tutorial/index.html
 4f9213a630b2f876140c69900ae15d17aad29cc4376b4ccdbf150481efce1a82  ./technology/go/feed.xml

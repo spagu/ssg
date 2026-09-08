@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spagu/ssg/internal/models"
 )
@@ -74,7 +75,15 @@ func (g *Generator) recordStaticSitemapEntry(src models.StaticSource, dest strin
 	// The source file, not the copy: `lastmod_from_git` reads the repository,
 	// and the copy has no history of its own.
 	source := src.Path
-	if info, err := os.Stat(src.Path); err == nil && info.IsDir() {
+	switch info, err := os.Stat(src.Path); {
+	case err != nil:
+		// copyStaticSources skips a path it cannot stat, so this is unreachable
+		// in a normal build — but leaving `source` pointing at nothing would
+		// produce an entry with no date and no explanation (#260), which is the
+		// shape of failure this whole entry exists to stop.
+		fmt.Printf("   ⚠️  static_sources: %s is listed in the sitemap but cannot be read, so it carries no <lastmod>\n", src.Path)
+		source = ""
+	case info.IsDir():
 		source = filepath.Join(src.Path, indexHTMLName)
 	}
 	g.staticSitemapMu.Lock()
@@ -95,32 +104,77 @@ func (g *Generator) resetStaticSitemap() {
 	g.staticSitemap = nil
 }
 
-// writeSitemapStaticSources appends the verbatim documents that asked to be
-// listed, in URL order so two builds of the same site produce the same file.
+// staticSourceEntries lists the verbatim documents that asked for it, in URL
+// order so two builds of the same site produce the same file.
 //
 // They honour the rules every other entry does: a document already claimed by
 // another section is not repeated, and one whose own HTML says noindex keeps
 // itself out.
-func (g *Generator) writeSitemapStaticSources(sb *strings.Builder, claimed map[string]bool) {
+func (g *Generator) staticSourceEntries(claimed map[string]bool) []sitemapEntry {
 	g.staticSitemapMu.Lock()
 	entries := append([]staticSitemapEntry(nil), g.staticSitemap...)
 	g.staticSitemapMu.Unlock()
 	sort.Slice(entries, func(i, j int) bool { return entries[i].loc < entries[j].loc })
 
+	out := make([]sitemapEntry, 0, len(entries))
 	for _, e := range entries {
 		if claimed[e.loc] || g.renderedExcludesItself(models.Page{}, e.rel) {
 			continue
 		}
 		claimed[e.loc] = true
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(sb, "    <loc>%s</loc>\n", e.loc)
-		if g.config.LastmodFromGit {
-			if t, ok := g.gitLastModForFile(e.source); ok {
-				fmt.Fprintf(sb, "    <lastmod>%s</lastmod>\n", t.Format("2006-01-02"))
-			}
-		}
-		sb.WriteString("    <changefreq>monthly</changefreq>\n")
-		fmt.Fprintf(sb, "    <priority>%.1f</priority>\n", e.priority)
-		sb.WriteString(sitemapURLClose)
+		out = append(out, sitemapEntry{
+			loc:        e.loc,
+			lastmod:    g.staticLastMod(e.source),
+			changefreq: "monthly",
+			priority:   fmt.Sprintf("%.1f", e.priority),
+			kind:       kindStatic,
+		})
 	}
+	return out
+}
+
+// staticLastMod dates a copied document (#260).
+//
+// 1.8.57 emitted <lastmod> only when `lastmod_from_git` was on AND git could
+// answer, so a build where git says nothing produced an entry with no date at
+// all — while the ordinary pages in the same sitemap kept theirs, because a
+// page falls back to its frontmatter `modified`, then its `date`. A copied
+// document has no frontmatter, so it looked like the git lookup was broken when
+// what was missing was the fallback.
+//
+// The file's own modification time is the analogue of that frontmatter date: it
+// is what the filesystem knows about the document, always available, and never
+// worse than omitting the field.
+func (g *Generator) staticLastMod(source string) time.Time {
+	if source == "" {
+		return time.Time{}
+	}
+	if g.config.LastmodFromGit {
+		if t, ok := g.gitLastModForFile(source); ok {
+			return t
+		}
+		g.warnGitLastModUnavailable(source)
+	}
+	if info, err := os.Stat(source); err == nil {
+		return info.ModTime()
+	}
+	return time.Time{}
+}
+
+// warnGitLastModUnavailable says, once per build, that the setting the site
+// asked for could not be honoured.
+//
+// The silence is what cost the reporter of #260 an afternoon: `lastmod_from_git`
+// was on, the pages had dates, and there was no way to tell from the outside
+// that git had answered nothing. The commonest cause is not a broken repository
+// but an invisible git — a strictly confined snap sees only its own rootfs, and
+// this snap bundles cwebp and avifenc for exactly that reason but not git.
+func (g *Generator) warnGitLastModUnavailable(source string) {
+	if g.config.Quiet {
+		return
+	}
+	g.gitWarnOnce.Do(func() {
+		fmt.Printf("   ⚠️  lastmod_from_git is on, but git could not date %s — using the file's modification time instead\n", source)
+		fmt.Println("      git has to be on PATH; a strictly confined snap cannot see the host's copy.")
+	})
 }

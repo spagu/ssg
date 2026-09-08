@@ -162,7 +162,20 @@ type Config struct {
 
 	// Output Control
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
-	RobotsOff  bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
+
+	// Sitemaps declares sub-sitemaps, each choosing what goes in and where it is
+	// written; sitemap.xml becomes the <sitemapindex> naming them. One file
+	// holding everything answers neither of the questions a growing site asks:
+	// above 50,000 URLs the protocol requires an index, and Search Console
+	// reports indexing coverage per submitted sitemap, so "how much of the blog
+	// is indexed" needs the blog in a file of its own.
+	Sitemaps []models.SitemapSpec `yaml:"sitemaps" toml:"sitemaps" json:"sitemaps"`
+
+	// SitemapMaxURLs caps one sitemap file; 0 means the protocol's 50,000. A set
+	// over the cap is split into numbered files and indexed rather than written
+	// as one file every crawler rejects.
+	SitemapMaxURLs int  `yaml:"sitemap_max_urls" toml:"sitemap_max_urls" json:"sitemap_max_urls"`
+	RobotsOff      bool `yaml:"robots_off" toml:"robots_off" json:"robots_off"`
 	// RobotsRules replaces the default permissive robots.txt (User-agent: * /
 	// Allow: /) with explicit per-crawler directives, so a site can spell out
 	// its policy for AI and search crawlers — e.g. welcome GPTBot, OAI-SearchBot
