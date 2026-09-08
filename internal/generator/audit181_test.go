@@ -176,7 +176,7 @@ func TestFeedSummaryTruncationRuneSafe(t *testing.T) {
 func TestMinifyHTMLPreservesPreBlocks(t *testing.T) {
 	pre := "<pre><code>line1\n  indented\n\nline3</code></pre>"
 	html := "<html>\n  <body>\n    " + pre + "\n  <script>\nvar a = 1;\n</script>\n</body>\n</html>"
-	out := minifyHTMLString(html)
+	out := minifyHTMLString(html, nil)
 	if !strings.Contains(out, pre) {
 		t.Errorf("pre block must survive minification unchanged:\n%s", out)
 	}

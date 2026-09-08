@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.59] - 2026-09-08
+
+### Fixed
+- ✂️ **`minify_html` deleted the host directives 1.8.57 told themes to emit**
+  (#263). The minifier kept exactly one shape of comment — the conditional
+  `<!--[if …]>` — so the `safeHTML` remedy #256 documented worked with
+  minification off and silently did nothing with it on, which is how most
+  production builds run. Not cosmetic: a page carrying a `mailto:` without
+  `<!--email_off-->` has it rewritten by Cloudflare Email Obfuscation into a
+  `/cdn-cgi/l/email-protection` link whose bare endpoint answers 404, reported
+  by a crawl from every page of five sites carrying an address. Minification now
+  follows the rule its own CSS and JS scanners follow — where it is unsure, keep
+  the comment — with a default list covering conditional comments, `email_off`,
+  SSI, ESI, Google and Yandex regions, plus `minify_html_keep_comments` for a
+  host that invents another. An ordinary comment is still removed.
+- 🖼️ **A site could not declare a default `og:image` without a WordPress
+  migration** (#264). The site-wide fallback existed in `marketingSnippet` and
+  was reachable only through the `metadata.json` an `ssg migrate` crawl writes,
+  so a documentation site — where no page has a hero photograph and every page
+  wants the project's card — had no way in. An Ahrefs crawl reported *Open Graph
+  tags incomplete* on all 20 sampled pages of this project's own site. `marketing:`
+  is a config block now, winning field by field over a migration's values (the
+  precedence `title` already follows) and merging maps per key so one added
+  token does not drop three found ones. `ssgtheme` emits `og:image` and
+  `twitter:image` from the page's `featured_image` or that default, and drops
+  `twitter:card` to `summary` when there is no image at all rather than claiming
+  `summary_large_image` with nothing to show.
+- 📏 **A derived excerpt could never pass ssg's own meta check** (#265).
+  `ExcerptMaxRunes` was 200 while `defaultDescriptionMax` was 160, so the
+  default path failed the default check on every page that wrote no `excerpt:`
+  of its own — and the comment claiming 200 is "short enough that search engines
+  do not truncate mid-thought" was simply false. Thirteen of eighteen pages on
+  this project's documentation site were over, found by a third-party crawl
+  rather than by the build. They are one number now: the generator's check
+  imports the parser's constant, so they cannot drift apart again. Sites relying
+  on derived excerpts get shorter meta descriptions and shorter card summaries;
+  the golden corpora do not move, because their prose was already inside the
+  window.
+
 ## [1.8.58] - 2026-09-08
 
 ### Added

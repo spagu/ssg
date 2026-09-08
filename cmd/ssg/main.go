@@ -623,6 +623,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentDir:             cfg.ContentDir,
 		TemplatesDir:           cfg.TemplatesDir,
 		OutputDir:              cfg.OutputDir,
+		MinifyHTMLKeepComments: cfg.MinifyHTMLKeepComments,
+		Marketing:              cfg.Marketing,
 		SitemapOff:             cfg.SitemapOff,
 		Sitemaps:               cfg.Sitemaps,
 		SitemapMaxURLs:         cfg.SitemapMaxURLs,

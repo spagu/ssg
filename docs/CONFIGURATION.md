@@ -500,6 +500,7 @@ fingerprinted assets.
 
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
+| `minify_html_keep_comments` | empty | config only | Comment openings `minify_html` must not delete, beyond the host directives kept by default. Name the directive (`email_off`) or the whole opening (`<!--email_off`) |
 | `sitemap_off` | `false` | `--sitemap-off` | Disable `sitemap.xml` |
 | `sitemaps` | empty | config only | Declared sub-sitemaps, each with its own `path` and selection; `sitemap.xml` becomes their index. See [Splitting the sitemap](#splitting-the-sitemap-sitemaps-sitemap_max_urls) |
 | `sitemap_max_urls` | `50000` | config only | Per-file URL ceiling; a larger set is split and indexed |
@@ -1321,6 +1322,36 @@ kept by default. A canonical that disagrees with the permalink is far more often
 theme bug than a deliberate exclusion, and quietly removing real pages from the
 sitemap over one would be worse than the contradiction it fixes. Opt in with
 `sitemap_prune_canonical: true`.
+
+### The site's social card (`marketing`)
+
+`og:image` decides whether a link to the site posts as a card with a picture or
+as a bare line of text. A theme that asks for `twitter:card:
+summary_large_image` and names no image gets the bare line — the format is
+*defined* by having a picture.
+
+The generator has always had a site-wide fallback for pages with no
+`featured_image`, but it was reachable only through the `metadata.json` an
+`ssg migrate` crawl writes, so a site built from scratch could not declare one.
+It is configuration now:
+
+```yaml
+marketing:
+  og_image: "/img/card.png"      # 1200×630, absolute or site-relative
+  og_site_name: "SSG"
+  twitter_site: "@example"
+  theme_color: "#0f172a"
+  favicon: "/favicon.ico"
+```
+
+Values here win field by field over anything a migration recorded, the same
+precedence `title` and `description` follow — and maps (`verification`,
+`social_profiles`, `colors`) merge per key, so adding one token does not drop
+the three an export found.
+
+The bundled `ssgtheme` uses the page's own `featured_image` when it has one and
+this default otherwise, and drops `twitter:card` to `summary` when there is no
+image at all, so the tag describes what is actually there.
 
 ### An empty canonical is always reported
 

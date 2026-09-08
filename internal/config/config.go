@@ -161,6 +161,22 @@ type Config struct {
 	HTTP3 bool `yaml:"http3" toml:"http3" json:"http3"`
 
 	// Output Control
+	// MinifyHTMLKeepComments names comment openings `minify_html` must not
+	// delete, beyond the host directives kept by default (#263). A value may
+	// name the directive ("email_off") or the whole opening ("<!--email_off").
+	MinifyHTMLKeepComments []string `yaml:"minify_html_keep_comments" toml:"minify_html_keep_comments" json:"minify_html_keep_comments"`
+
+	// Marketing is the site's social identity: the default og:image, the
+	// og:site_name, verification tokens, icons and theme colour.
+	//
+	// It existed only as something `ssg migrate` recorded in metadata.json from
+	// a WordPress crawl, so a site built from scratch had no way to declare a
+	// default card image — and a documentation site, where no page has a hero
+	// photograph and every page wants the project's card, is exactly that case
+	// (#264). Values here win over a migration's, the same precedence
+	// `.Site.Title` follows (#128).
+	Marketing models.Marketing `yaml:"marketing" toml:"marketing" json:"marketing"`
+
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 
 	// Sitemaps declares sub-sitemaps, each choosing what goes in and where it is

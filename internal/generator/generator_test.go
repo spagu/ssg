@@ -570,7 +570,7 @@ whitespace
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := minifyHTMLString(tt.input)
+			result := minifyHTMLString(tt.input, nil)
 
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
@@ -782,7 +782,7 @@ func TestMinifyOutput(t *testing.T) {
 
 	// HTML is minified in memory at render time (PERF-005).
 	htmlContent := `<html>  <body>  Hello  </body>  </html>`
-	if contains(minifyHTMLString(htmlContent), "  ") {
+	if contains(minifyHTMLString(htmlContent, nil), "  ") {
 		t.Error("HTML still contains multiple spaces")
 	}
 
@@ -1248,7 +1248,7 @@ func TestMinifyOutputPartial(t *testing.T) {
 	htmlContent := "<html>  <body>  </body>  </html>"
 	cssContent := "body { color: red; }"
 
-	if contains(minifyHTMLString(htmlContent), "  ") {
+	if contains(minifyHTMLString(htmlContent, nil), "  ") {
 		t.Error("HTML should be minified")
 	}
 
@@ -3707,7 +3707,7 @@ func TestMinifyHTMLStringConditionalComment(t *testing.T) {
 <body>  Text  here  </body>
 </html>`
 
-	result := minifyHTMLString(content)
+	result := minifyHTMLString(content, nil)
 
 	// Conditional comment should be preserved
 	if !strings.Contains(result, "<!--[if IE]>") {

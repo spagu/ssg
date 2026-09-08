@@ -7,6 +7,7 @@
     "Title" $title
     "Desc" .Post.Excerpt
     "Canonical" .Post.GetURL
+    "Image" .Post.FeaturedImage
     "OgType" "article"
     "Ctx" .) }}
     <meta property="article:published_time" content="{{ .Post.Date.Format "2006-01-02" }}">

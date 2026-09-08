@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.58">1.8.58 — 2026-09-08</option>
       <option value="1.8.57">1.8.57 — 2026-09-07</option>
       <option value="1.8.56">1.8.56 — 2026-09-06</option>
       <option value="1.8.55">1.8.55 — 2026-09-02</option>
@@ -191,6 +192,45 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.59">
+
+### 1.8.59 — shorter meta descriptions, and comments that survive minification
+
+**Your meta descriptions may get shorter, and that is the fix.** A page with no
+`excerpt:` of its own gets one derived from its first paragraph, and that was
+capped at 200 characters while ssg's own `check_meta` flags anything over 160.
+The cap is 160 now, so the default path passes the default check. If you were
+relying on the longer form, set `excerpt:` explicitly — it is unchanged and
+still wins.
+
+**If you emit a host directive through `safeHTML`, check it is in your output.**
+It was being deleted by `minify_html`, so `<!--email_off-->` and friends worked
+locally and vanished in production. They survive now. If you worked around it
+with `<!--htmlmin:ignore-->`, that still works and you can drop it. A host that
+reads a directive ssg does not know about:
+
+```yaml
+minify_html_keep_comments: [acme:begin, acme:end]
+```
+
+**You can finally declare a social card without a migration.** `marketing:` is a
+config block:
+
+```yaml
+marketing:
+  og_image: "/img/card.png"     # 1200×630
+  og_site_name: "Example"
+```
+
+Values win over anything `ssg migrate` recorded, field by field. If you use
+`ssgtheme`, it now emits `og:image` and `twitter:image` from a page's
+`featured_image` or that default — **and drops `twitter:card` to `summary` when
+there is no image anywhere**, which is a visible change if you had it set to
+`summary_large_image` with nothing to show. Set `marketing.og_image` to get the
+large card back.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.58">
 
