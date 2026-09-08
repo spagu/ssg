@@ -49,6 +49,28 @@ type StaticSource struct {
 	Priority float64 `yaml:"priority" toml:"priority" json:"priority"`
 }
 
+// SitemapSpec is one declared sitemap file.
+//
+// `sitemap.xml` is one file holding everything, which answers neither of the
+// two questions a growing site asks. Above 50,000 URLs the protocol requires a
+// sitemap index, and Search Console reports indexing coverage **per submitted
+// sitemap**, so "how much of the blog is indexed" cannot be answered while the
+// blog shares a file with everything else.
+//
+// The shape mirrors [FeedSpec]: choose what goes in, and where it is written.
+// Selection is a partition — an entry lands in the first spec that matches it —
+// so order matters and no URL is listed twice or lost. Anything matching no
+// spec is written to a default file, and `sitemap.xml` becomes the index naming
+// them all.
+type SitemapSpec struct {
+	Path string `yaml:"path" toml:"path" json:"path"` // output path, e.g. "/sitemap-blog.xml"
+
+	// Selection — optional, combined with AND; none of them claims everything
+	// still unclaimed.
+	Source  string   `yaml:"source" toml:"source" json:"source"`    // a content_sources path / content folder
+	Include []string `yaml:"include" toml:"include" json:"include"` // pages, posts, categories, tags, authors, taxonomies, static, home, listing
+}
+
 // FeedSpec is one declared syndication feed (#86). It answers two questions the
 // built-in feeds cannot: WHICH posts, and in WHAT format.
 //

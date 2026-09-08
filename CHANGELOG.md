@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.58] - 2026-09-08
 
+### Added
+- 🗺️ **Sub-sitemaps and a sitemap index** (`sitemaps:`, `sitemap_max_urls`).
+  One `sitemap.xml` holding everything answers neither of the two questions a
+  growing site asks. sitemaps.org caps a single file at **50,000 URLs** (and
+  50 MB uncompressed), and a build over that limit used to write it anyway — a
+  file every crawler rejects, with nothing said. And Search Console reports
+  indexing coverage **per submitted sitemap**, so "how much of the blog is
+  indexed" was unanswerable while the blog shared a file with everything else.
+
+  Size needs no configuration: a set over the ceiling is split into numbered
+  files and `sitemap.xml` becomes the `<sitemapindex>` naming them.
+  `sitemap_max_urls` only lowers the ceiling, never raises it.
+
+  Structure is declared, in the shape `feeds:` already uses:
+
+  ```yaml
+  sitemaps:
+    - path: /sitemap-blog.xml
+      source: blog
+    - path: /sitemap-archives.xml
+      include: [categories, tags, authors]
+  ```
+
+  Selection is a **partition**, not a set of views: a URL lands in the first
+  spec that matches it, so nothing is listed twice, and whatever matches none is
+  written to `sitemap-main.xml` rather than dropped. An unknown `include:` name
+  fails the build instead of writing an empty file. `robots.txt` is unchanged —
+  it points at `/sitemap.xml`, which is now the index, exactly as the protocol
+  expects, so a site already submitted needs no resubmission.
+
+  **A site that asks for none of this is untouched**: one file, no index, byte
+  for byte what earlier releases wrote — which the golden corpora check on every
+  build. Internally the sitemap is now assembled as entries and rendered once,
+  rather than nine functions appending to one buffer; splitting and routing both
+  need the set in hand before any of it is written.
+
 ### Fixed
 - 🏷️ **`taxonomies: { tag: { sitemap: false } }` was accepted and silently
   ignored** (#259). `category`, `tag` and `series` are folded built-ins whose

@@ -104,32 +104,33 @@ func (g *Generator) resetStaticSitemap() {
 	g.staticSitemap = nil
 }
 
-// writeSitemapStaticSources appends the verbatim documents that asked to be
-// listed, in URL order so two builds of the same site produce the same file.
+// staticSourceEntries lists the verbatim documents that asked for it, in URL
+// order so two builds of the same site produce the same file.
 //
 // They honour the rules every other entry does: a document already claimed by
 // another section is not repeated, and one whose own HTML says noindex keeps
 // itself out.
-func (g *Generator) writeSitemapStaticSources(sb *strings.Builder, claimed map[string]bool) {
+func (g *Generator) staticSourceEntries(claimed map[string]bool) []sitemapEntry {
 	g.staticSitemapMu.Lock()
 	entries := append([]staticSitemapEntry(nil), g.staticSitemap...)
 	g.staticSitemapMu.Unlock()
 	sort.Slice(entries, func(i, j int) bool { return entries[i].loc < entries[j].loc })
 
+	out := make([]sitemapEntry, 0, len(entries))
 	for _, e := range entries {
 		if claimed[e.loc] || g.renderedExcludesItself(models.Page{}, e.rel) {
 			continue
 		}
 		claimed[e.loc] = true
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(sb, "    <loc>%s</loc>\n", e.loc)
-		if t := g.staticLastMod(e.source); !t.IsZero() {
-			fmt.Fprintf(sb, "    <lastmod>%s</lastmod>\n", t.Format("2006-01-02"))
-		}
-		sb.WriteString("    <changefreq>monthly</changefreq>\n")
-		fmt.Fprintf(sb, "    <priority>%.1f</priority>\n", e.priority)
-		sb.WriteString(sitemapURLClose)
+		out = append(out, sitemapEntry{
+			loc:        e.loc,
+			lastmod:    g.staticLastMod(e.source),
+			changefreq: "monthly",
+			priority:   fmt.Sprintf("%.1f", e.priority),
+			kind:       kindStatic,
+		})
 	}
+	return out
 }
 
 // staticLastMod dates a copied document (#260).

@@ -194,7 +194,7 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.58">
 
-### 1.8.58 — two settings start doing what they said
+### 1.8.58 — two settings start doing what they said, and the sitemap can be split
 
 **Nothing to configure.** Both changes make an existing setting take effect, so
 the only sites that see a difference are the ones that had already asked for it.
@@ -206,6 +206,14 @@ disappear from it on this build. That is the behaviour you asked for; if you had
 worked around the old bug by making the archives indexable, you can undo that.
 `archive` is still the separate switch that decides whether an archive is written
 at all, and `author` is not configurable this way.
+
+**Sub-sitemaps are new and entirely opt-in.** `sitemaps:` declares files with
+their own selection and turns `sitemap.xml` into the index; `sitemap_max_urls`
+lowers the per-file ceiling. A site that sets neither writes exactly the file it
+wrote before, byte for byte. The one behaviour that changed without asking: a
+site whose sitemap exceeded **50,000 URLs** was publishing a file crawlers
+reject, and is now split and indexed instead. See
+[CONFIGURATION.md](CONFIGURATION.md#splitting-the-sitemap-sitemaps-sitemap_max_urls).
 
 **A `static_sources` entry with `sitemap: true` now carries a `<lastmod>`.** It
 never did, because the date came only from git. It now falls back to the source

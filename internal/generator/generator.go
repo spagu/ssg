@@ -113,7 +113,12 @@ type Config struct {
 	// PostsPage relocates the post listing, e.g. "blog" → /blog/ (#129).
 	PostsPage string
 	// New options
-	SitemapOff        bool         // Disable sitemap generation
+	SitemapOff bool // Disable sitemap generation
+	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
+	Sitemaps []models.SitemapSpec
+	// SitemapMaxURLs is the per-file ceiling; 0 means the protocol's 50,000.
+	// A set over it is split and indexed rather than written invalid.
+	SitemapMaxURLs    int
 	RobotsOff         bool         // Disable robots.txt generation
 	RobotsRules       []RobotsRule // custom per-crawler robots.txt directives (GO-089)
 	NotFoundOff       bool         // Disable the generated 404.html (#102)
@@ -4939,16 +4944,41 @@ func loadGitLastModTimes() (string, map[string]time.Time) {
 }
 
 func (g *Generator) generateSitemap() error {
-	var sb strings.Builder
-
-	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-	sb.WriteString("\n")
-	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"`)
-	if g.config.I18n.Enabled {
-		sb.WriteString(` xmlns:xhtml="http://www.w3.org/1999/xhtml"`)
+	if err := g.validateSitemapSpecs(); err != nil {
+		return err
 	}
-	sb.WriteString(`>`)
-	sb.WriteString("\n")
+	entries := g.collectSitemapEntries()
+	files, index := g.planSitemaps(entries)
+	for _, f := range files {
+		path := filepath.Join(g.config.OutputDir, filepath.FromSlash(f.path))
+		if err := g.ensureWithinOutput(path); err != nil {
+			return fmt.Errorf("sitemaps: %w", err)
+		}
+		if err := g.ensureParent(path); err != nil {
+			return err
+		}
+		// #nosec G306 -- Web content files need to be world-readable
+		if err := os.WriteFile(path, g.renderURLSet(f.entries), 0644); err != nil {
+			return err
+		}
+	}
+	if !index {
+		return nil
+	}
+	// #nosec G306 -- Web content files need to be world-readable
+	return os.WriteFile(filepath.Join(g.config.OutputDir, defaultSitemapName),
+		g.renderSitemapIndex(files, g.buildTime), 0644)
+}
+
+// collectSitemapEntries gathers every URL the site publishes, in the order the
+// file has always listed them: the front page, the post listing, the documents
+// the build copied, pages, posts, then the archives.
+//
+// Order is preserved deliberately. It is what makes a small site's sitemap.xml
+// byte-identical to the one earlier releases wrote, which the golden corpora
+// check on every build.
+func (g *Generator) collectSitemapEntries() []sitemapEntry {
+	var entries []sitemapEntry
 
 	// Homepage — judged against the file actually served at "/", which is the root
 	// index.html. A page slugged "index" also emits "/index/"; reading the
@@ -4966,23 +4996,11 @@ func (g *Generator) generateSitemap() error {
 	// was actually written: if it was suppressed, nothing has claimed the root.
 	claimed := map[string]bool{}
 	if !skipHomepage {
-		if g.config.I18n.Enabled {
-			for _, lang := range g.siteData.Languages {
-				loc := fmt.Sprintf("https://%s%s", g.config.Domain, g.languageURL(lang.Code))
-				claimed[loc] = true
-				sb.WriteString(sitemapURLOpen)
-				fmt.Fprintf(&sb, "    <loc>%s</loc>\n", loc)
-				sb.WriteString("    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n")
-				sb.WriteString(sitemapURLClose)
-			}
-		} else {
-			loc := fmt.Sprintf("https://%s/", g.config.Domain)
+		for _, loc := range g.homepageLocs() {
 			claimed[loc] = true
-			sb.WriteString(sitemapURLOpen)
-			fmt.Fprintf(&sb, "    <loc>%s</loc>\n", loc)
-			sb.WriteString("    <changefreq>daily</changefreq>\n")
-			sb.WriteString("    <priority>1.0</priority>\n")
-			sb.WriteString(sitemapURLClose)
+			entries = append(entries, sitemapEntry{
+				loc: loc, changefreq: "daily", priority: "1.0", kind: kindHome,
+			})
 		}
 	}
 
@@ -4992,70 +5010,79 @@ func (g *Generator) generateSitemap() error {
 	// below would ever name it. On the site root it is already covered by the
 	// front-page entry above, which is why this went unnoticed until a site
 	// moved its listing off the root.
-	g.writeSitemapPostsListings(&sb, claimed)
+	entries = append(entries, g.postsListingEntries(claimed)...)
 
 	// Documents the build copied rather than rendered, where the site said so
 	// (#255) — a verbatim SPA or spec viewer is a page to a crawler.
-	g.writeSitemapStaticSources(&sb, claimed)
+	entries = append(entries, g.staticSourceEntries(claimed)...)
 
-	// Pages
-	for _, page := range g.siteData.Pages {
-		if g.excludesFromSitemap(page) || claimed[g.servedCanonical(page)] {
-			continue
-		}
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(page))
-		g.writeSitemapAlternates(&sb, page)
-		if lastmod := g.lastModFor(page); !lastmod.IsZero() {
-			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
-		}
-		sb.WriteString("    <changefreq>monthly</changefreq>\n")
-		sb.WriteString("    <priority>0.8</priority>\n")
-		sb.WriteString(sitemapURLClose)
-	}
-
-	// Posts
-	for _, post := range g.siteData.Posts {
-		if g.excludesFromSitemap(post) || claimed[g.servedCanonical(post)] {
-			continue
-		}
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", g.servedCanonical(post))
-		g.writeSitemapAlternates(&sb, post)
-		if lastmod := g.lastModFor(post); !lastmod.IsZero() {
-			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", lastmod.Format("2006-01-02"))
-		}
-		sb.WriteString("    <changefreq>monthly</changefreq>\n")
-		sb.WriteString("    <priority>0.6</priority>\n")
-		sb.WriteString(sitemapURLClose)
-	}
+	entries = append(entries, g.documentEntries(g.siteData.Pages, claimed, "0.8", kindPage)...)
+	entries = append(entries, g.documentEntries(g.siteData.Posts, claimed, "0.6", kindPost)...)
 
 	// Categories (archives suppressed by an explicit page stay out too, GO-050)
-	g.writeSitemapCategories(&sb)
+	entries = append(entries, g.categoryEntries()...)
 
 	// Tag archives (BLOG-004)
 	if g.taxonomySitemapEnabled("tag") {
 		for _, slug := range sortedValues(g.tagSlugs) {
-			g.writeSitemapArchive(&sb, "tag", slug)
+			entries = append(entries, g.archivePathEntry("tag/"+slug, kindTag))
 		}
 	}
 
 	// Author archives (BLOG-005)
 	for _, slug := range sortedValues(g.authorSlugs) {
-		g.writeSitemapArchive(&sb, "author", slug)
+		entries = append(entries, g.archivePathEntry("author/"+slug, kindAuthor))
 	}
 
 	// Custom taxonomy indexes + term archives (taxonomies-feature.md)
-	g.writeTaxonomySitemap(&sb)
+	entries = append(entries, g.taxonomyEntries()...)
 
-	sb.WriteString("</urlset>\n")
-
-	// #nosec G306 -- Web content files need to be world-readable
-	return os.WriteFile(filepath.Join(g.config.OutputDir, "sitemap.xml"), []byte(sb.String()), 0644)
+	return entries
 }
 
-// writeSitemapPostsListings names each language's post listing, when it was
-// written somewhere other than the site root.
+// homepageLocs is every address the front-page entry claims: one per language
+// under i18n, the site root otherwise.
+func (g *Generator) homepageLocs() []string {
+	if !g.config.I18n.Enabled {
+		return []string{fmt.Sprintf("https://%s/", g.config.Domain)}
+	}
+	locs := make([]string, 0, len(g.siteData.Languages))
+	for _, lang := range g.siteData.Languages {
+		locs = append(locs, fmt.Sprintf("https://%s%s", g.config.Domain, g.languageURL(lang.Code)))
+	}
+	return locs
+}
+
+// documentEntries turns pages or posts into entries, skipping the ones excluded
+// by their own output and the ones another section already claimed.
+func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool, priority string, kind sitemapKind) []sitemapEntry {
+	out := make([]sitemapEntry, 0, len(docs))
+	for _, doc := range docs {
+		loc := g.servedCanonical(doc)
+		if g.excludesFromSitemap(doc) || claimed[loc] {
+			continue
+		}
+		out = append(out, sitemapEntry{
+			loc:        loc,
+			alternates: g.sitemapAlternates(doc),
+			lastmod:    g.lastModFor(doc),
+			changefreq: "monthly",
+			priority:   priority,
+			kind:       kind,
+			source:     doc.SourceDir,
+		})
+	}
+	return out
+}
+
+// archivePathEntry is a sitemap entry for an archive served at an arbitrary
+// path — which is what a category with its own link has (#143).
+func (g *Generator) archivePathEntry(path string, kind sitemapKind) sitemapEntry {
+	return archiveEntry(fmt.Sprintf("https://%s/%s/", g.config.Domain, strings.Trim(path, "/")), kind)
+}
+
+// postsListingEntries names each language's post listing, when it was written
+// somewhere other than the site root.
 //
 // Priority sits between the home page and an ordinary page: the listing is the
 // entry point for the whole blog section, and on the site found by this bug it
@@ -5063,7 +5090,7 @@ func (g *Generator) generateSitemap() error {
 // is listed — a paginated tail is left out on purpose — and a listing whose own
 // output marks itself noindex keeps itself out, the same rule every other
 // document follows.
-func (g *Generator) writeSitemapPostsListings(sb *strings.Builder, claimed map[string]bool) {
+func (g *Generator) postsListingEntries(claimed map[string]bool) []sitemapEntry {
 	prefixes := make([]string, 0, len(g.postsListings))
 	for prefix := range g.postsListings {
 		if prefix == "" {
@@ -5072,30 +5099,32 @@ func (g *Generator) writeSitemapPostsListings(sb *strings.Builder, claimed map[s
 		prefixes = append(prefixes, prefix)
 	}
 	sort.Strings(prefixes)
+	out := make([]sitemapEntry, 0, len(prefixes))
 	for _, prefix := range prefixes {
 		loc := g.servedURL(httpsScheme + g.config.Domain + "/" + prefix + "/")
 		if claimed[loc] || g.renderedExcludesItself(models.Page{}, prefix) {
 			continue
 		}
 		claimed[loc] = true
-		sb.WriteString(sitemapURLOpen)
-		fmt.Fprintf(sb, "    <loc>%s</loc>\n", loc)
-		sb.WriteString("    <changefreq>daily</changefreq>\n")
-		sb.WriteString("    <priority>0.9</priority>\n")
-		sb.WriteString(sitemapURLClose)
+		out = append(out, sitemapEntry{
+			loc: loc, changefreq: "daily", priority: "0.9", kind: kindListing,
+		})
 	}
+	return out
 }
 
-func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page) {
+func (g *Generator) sitemapAlternates(page models.Page) string {
 	if !g.config.I18n.Enabled {
-		return
+		return ""
 	}
+	var sb strings.Builder
 	for _, tr := range page.Translations {
-		fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Lang), stdhtml.EscapeString(tr.Canonical))
+		fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Lang), stdhtml.EscapeString(tr.Canonical))
 		if tr.Lang == g.config.DefaultLanguage {
-			fmt.Fprintf(sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Canonical))
+			fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Canonical))
 		}
 	}
+	return sb.String()
 }
 
 // writeSitemapCategories appends the category archive entries, skipping the
@@ -5107,9 +5136,9 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 // and one served away from /category/ by its link (#143) was named at the
 // default path its archive does not live at (#228). Suppressed archives
 // (GO-050) never enter the record, so no ownership re-check is needed here.
-func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
+func (g *Generator) categoryEntries() []sitemapEntry {
 	if !g.taxonomySitemapEnabled("category") {
-		return
+		return nil
 	}
 	paths := make([]string, 0, len(g.categoryArchives))
 	for catID, path := range g.categoryArchives {
@@ -5119,9 +5148,11 @@ func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
+	out := make([]sitemapEntry, 0, len(paths))
 	for _, path := range paths {
-		g.writeSitemapArchivePath(sb, path)
+		out = append(out, g.archivePathEntry(path, kindCategory))
 	}
+	return out
 }
 
 // isCatchAllCategory resolves a category id and applies the one catch-all rule
@@ -5159,22 +5190,6 @@ func (g *Generator) taxonomySitemapEnabled(name string) bool {
 		return true
 	}
 	return def.Sitemap
-}
-
-// writeSitemapArchive appends a sitemap entry for an archive page (tag/author)
-// living at the built-in /{kind}/{slug}/ layout.
-func (g *Generator) writeSitemapArchive(sb *strings.Builder, kind, slug string) {
-	g.writeSitemapArchivePath(sb, kind+"/"+slug)
-}
-
-// writeSitemapArchivePath appends a sitemap entry for an archive served at an
-// arbitrary path — which is what a category with its own link has (#143).
-func (g *Generator) writeSitemapArchivePath(sb *strings.Builder, path string) {
-	sb.WriteString(sitemapURLOpen)
-	fmt.Fprintf(sb, "    <loc>https://%s/%s/</loc>\n", g.config.Domain, strings.Trim(path, "/"))
-	sb.WriteString("    <changefreq>weekly</changefreq>\n")
-	sb.WriteString("    <priority>0.5</priority>\n")
-	sb.WriteString(sitemapURLClose)
 }
 
 // sortedValues returns the deduplicated, sorted values of a string map.

@@ -497,10 +497,11 @@ func (g *Generator) taxonomyTermChain(def taxonomy.Definition) []string {
 
 // writeTaxonomySitemap appends sitemap entries for custom taxonomy indexes and
 // term archives (sitemap: true, the default).
-func (g *Generator) writeTaxonomySitemap(sb *strings.Builder) {
+func (g *Generator) taxonomyEntries() []sitemapEntry {
 	if g.taxonomies == nil {
-		return
+		return nil
 	}
+	var out []sitemapEntry
 	for _, name := range g.taxonomies.Names {
 		def := g.taxonomies.Definitions[name]
 		// Folded built-ins contribute to the sitemap through their legacy slug
@@ -514,21 +515,18 @@ func (g *Generator) writeTaxonomySitemap(sb *strings.Builder) {
 				continue
 			}
 			base := g.taxonomyBaseURL(def, lang)
-			g.writeSitemapRelURL(sb, base)
+			out = append(out, g.taxonomyRelEntry(base))
 			for _, t := range terms {
-				g.writeSitemapRelURL(sb, base+t.Slug+"/")
+				out = append(out, g.taxonomyRelEntry(base+t.Slug+"/"))
 			}
 		}
 	}
+	return out
 }
 
-// writeSitemapRelURL appends one archive-style sitemap entry for a site-relative URL.
-func (g *Generator) writeSitemapRelURL(sb *strings.Builder, rel string) {
-	sb.WriteString(sitemapURLOpen)
-	fmt.Fprintf(sb, "    <loc>%s%s%s</loc>\n", httpsScheme, g.config.Domain, rel)
-	sb.WriteString("    <changefreq>weekly</changefreq>\n")
-	sb.WriteString("    <priority>0.5</priority>\n")
-	sb.WriteString(sitemapURLClose)
+// taxonomyRelEntry is one archive-style sitemap entry for a site-relative URL.
+func (g *Generator) taxonomyRelEntry(rel string) sitemapEntry {
+	return archiveEntry(httpsScheme+g.config.Domain+rel, kindTaxonomy)
 }
 
 // generateTaxonomyFeeds writes one Atom feed per term for custom taxonomies
