@@ -448,7 +448,17 @@ see [TEMPLATES.md](TEMPLATES.md).
 `timezone` and `language_timezones` affect content dates used by templates and
 date permalink tokens. Feeds and sitemap timestamps remain UTC. With
 `lastmod_from_git`, sitemap modification dates come from the source file's last
-Git commit and fall back to frontmatter/file dates when unavailable.
+Git commit and fall back to frontmatter/file dates when unavailable — for a
+verbatim `static_sources` document, which has no frontmatter, the fallback is the
+file's modification time.
+
+**`git` has to be on `PATH`.** When it is not, every date quietly comes from the
+fallback instead, which looks like the setting working until the dates are
+compared. The build now says so once. The case that hits it in practice is the
+**snap**: strict confinement shows a snap only its own rootfs, and the snap
+bundles `cwebp` and `avifenc` for exactly that reason but not `git`, so
+`lastmod_from_git` cannot reach a repository there. Use the DEB, the tarball or
+the Docker image on a site that depends on it.
 
 ## WordPress-compatible media shortcodes
 

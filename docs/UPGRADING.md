@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.57">1.8.57 — 2026-09-07</option>
       <option value="1.8.56">1.8.56 — 2026-09-06</option>
       <option value="1.8.55">1.8.55 — 2026-09-02</option>
       <option value="1.8.54">1.8.54 — 2026-09-01</option>
@@ -190,6 +191,39 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.58">
+
+### 1.8.58 — two settings start doing what they said
+
+**Nothing to configure.** Both changes make an existing setting take effect, so
+the only sites that see a difference are the ones that had already asked for it.
+
+**`taxonomies: { tag: { sitemap: false } }` now works.** It parsed and did
+nothing on the built-in `category` and `tag`, so if you set it and moved on,
+those archives have been in your `sitemap.xml` ever since — and they will
+disappear from it on this build. That is the behaviour you asked for; if you had
+worked around the old bug by making the archives indexable, you can undo that.
+`archive` is still the separate switch that decides whether an archive is written
+at all, and `author` is not configurable this way.
+
+**A `static_sources` entry with `sitemap: true` now carries a `<lastmod>`.** It
+never did, because the date came only from git. It now falls back to the source
+file's modification time.
+
+**A new warning may appear if you use `lastmod_from_git`:**
+
+```text
+   ⚠️  lastmod_from_git is on, but git could not date app/index.html — using the file's modification time instead
+      git has to be on PATH; a strictly confined snap cannot see the host's copy.
+```
+
+If you see it, your sitemap dates have **not** been coming from Git — they were
+falling back all along, silently. The usual cause is running ssg from the snap,
+which cannot see `git` at all. Switch to the DEB, the tarball or the Docker image
+on a site that depends on commit dates.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.57">
 

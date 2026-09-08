@@ -366,8 +366,10 @@ static_sources:
 Opt-in, because most of what a site copies verbatim is an asset. A directory
 entry resolves to the `index.html` at its root; anything that is not an HTML
 document is a warning rather than a sitemap line, and a document whose own HTML
-says `noindex` keeps itself out like every other entry. With `lastmod_from_git`
-the `<lastmod>` comes from the **source** file's last commit.
+says `noindex` keeps itself out like every other entry. The `<lastmod>` comes
+from the **source** file's last commit under `lastmod_from_git`, and from its
+modification time otherwise — a copied document has no frontmatter date to fall
+back to, so the filesystem is what knows.
 
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
@@ -850,7 +852,7 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
-| `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap |
+| `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
 
 SEO injection is non-destructive, and it is **not** all-or-nothing. It looks at
 what the page already rendered and fills only the gaps:

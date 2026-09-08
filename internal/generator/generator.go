@@ -539,6 +539,9 @@ type Generator struct {
 	// staticSitemap holds the verbatim documents that asked to be listed (#255).
 	staticSitemap   []staticSitemapEntry
 	staticSitemapMu sync.Mutex
+	// gitWarnOnce keeps the "git could not date this" notice to one line per
+	// build, however many documents it applies to (#260).
+	gitWarnOnce sync.Once
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -5031,8 +5034,10 @@ func (g *Generator) generateSitemap() error {
 	g.writeSitemapCategories(&sb)
 
 	// Tag archives (BLOG-004)
-	for _, slug := range sortedValues(g.tagSlugs) {
-		g.writeSitemapArchive(&sb, "tag", slug)
+	if g.taxonomySitemapEnabled("tag") {
+		for _, slug := range sortedValues(g.tagSlugs) {
+			g.writeSitemapArchive(&sb, "tag", slug)
+		}
 	}
 
 	// Author archives (BLOG-005)
@@ -5103,6 +5108,9 @@ func (g *Generator) writeSitemapAlternates(sb *strings.Builder, page models.Page
 // default path its archive does not live at (#228). Suppressed archives
 // (GO-050) never enter the record, so no ownership re-check is needed here.
 func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
+	if !g.taxonomySitemapEnabled("category") {
+		return
+	}
 	paths := make([]string, 0, len(g.categoryArchives))
 	for catID, path := range g.categoryArchives {
 		if g.isCatchAllCategory(catID) {
@@ -5123,6 +5131,34 @@ func (g *Generator) writeSitemapCategories(sb *strings.Builder) {
 func (g *Generator) isCatchAllCategory(id int) bool {
 	cat, ok := g.siteData.Categories[id]
 	return ok && models.IsCatchAllCategory(cat)
+}
+
+// taxonomySitemapEnabled reports whether a taxonomy's archives may be listed in
+// sitemap.xml (#259).
+//
+// `taxonomies: { tag: { sitemap: false } }` parsed, validated and did nothing:
+// category, tag and series are folded built-ins whose entries are written by the
+// legacy loops here, and only writeTaxonomySitemap consulted def.Sitemap — the
+// one place that skips folded built-ins by design, to avoid listing them twice.
+// So the check existed exactly where it could not reach them.
+//
+// The cost was not theoretical: on a site whose theme marked tag archives
+// noindex, `sitemap: false` was the documented way to stop advertising them, an
+// Ahrefs crawl reported 23 "noindex page in sitemap", and the archives were made
+// indexable instead — a real change to a site, chosen because the setting that
+// expressed the intent was inert.
+//
+// A name the registry does not define — `author`, which is driven outside it
+// (#44) — keeps the behaviour it always had.
+func (g *Generator) taxonomySitemapEnabled(name string) bool {
+	if g.taxonomies == nil {
+		return true
+	}
+	def, ok := g.taxonomies.Definitions[name]
+	if !ok {
+		return true
+	}
+	return def.Sitemap
 }
 
 // writeSitemapArchive appends a sitemap entry for an archive page (tag/author)

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.58] - 2026-09-08
+
+### Fixed
+- 🏷️ **`taxonomies: { tag: { sitemap: false } }` was accepted and silently
+  ignored** (#259). `category`, `tag` and `series` are folded built-ins whose
+  sitemap entries are written by the legacy loops, and only
+  `writeTaxonomySitemap` consulted `def.Sitemap` — the one place that skips
+  folded built-ins by design, to avoid listing them twice. So the check lived
+  exactly where it could not reach them: the setting parsed, validated, and did
+  nothing, while `archive: false` beside it worked. The cost was real: on a site
+  whose theme marked its tag archives `noindex`, an Ahrefs crawl reported 23
+  *noindex page in sitemap*, `sitemap: false` was the documented remedy, and
+  because it was inert the archives were made indexable instead — a site changed
+  to fit a setting that could not take effect. Both loops now ask the registry.
+  `author` is driven outside it (#44) and is unchanged.
+- 📅 **A `static_sources` sitemap entry never got a `<lastmod>`** (#260, a
+  regression in the #255 work shipped yesterday). The date was emitted only when
+  `lastmod_from_git` was on **and** git could answer — a page in the same build
+  keeps its date because it falls back to frontmatter `modified`, then `date`,
+  and a copied document has no frontmatter to fall back to. So on a build where
+  git says nothing, 16 of 18 entries carried a date and the verbatim document
+  carried none. It now falls back to the file's own modification time, which is
+  what the filesystem knows about a document with no frontmatter.
+
+  **The build also says when git could not answer**, once per build. That
+  silence is what cost the reporter an afternoon: the setting was on, the pages
+  had dates, and nothing distinguished "git worked" from "git was never there".
+  The commonest cause is not a broken repository but an invisible `git` — a
+  strictly confined **snap** sees only its own rootfs, and this snap bundles
+  `cwebp` and `avifenc` for exactly that reason but not `git`, so
+  `lastmod_from_git` cannot reach a repository from the snap at all. Now
+  documented in [docs/CONTENT.md](docs/CONTENT.md#dates).
+
 ## [1.8.57] - 2026-09-07
 
 ### Fixed
