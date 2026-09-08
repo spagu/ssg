@@ -1058,3 +1058,91 @@ a:hover {
   font-size: var(--font-size-sm);
   color: var(--color-fg-muted);
 }
+
+/* ── Post layout ─────────────────────────────────────────────────────────────
+   An article beside what to read next.
+
+   Prose stays capped at its measure — 44rem is roughly 70 characters, which is
+   where a line stops being comfortable — so the space to its right on a wide
+   screen is not something to fill by widening the text. It is somewhere to put
+   a second thing. Related posts are that thing: computed from shared tags and
+   keywords, so the column earns its width instead of padding it.
+
+   The aside follows the article in source order, because the article is the
+   page: with no CSS, on a phone, or in a reader, "read this next" belongs
+   after what you were reading, and the grid only moves it sideways.          */
+
+.post-layout {
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1100px) {
+  .post-layout {
+    /* 44rem + gap + 16rem fits inside the 72rem container with room to
+       breathe; minmax(0, …) keeps a long code block from widening column one
+       past its share. */
+    grid-template-columns: minmax(0, 44rem) minmax(0, 1fr);
+    gap: var(--space-12);
+    align-items: start;
+  }
+
+  /* Columns are assigned rather than left to auto-placement: a post with no
+     related posts writes no aside, and auto-placement would then put the
+     comments section in the empty second column instead of under the article. */
+  .post-layout > .article,
+  .post-layout > #comments,
+  .post-layout > section.article {
+    grid-column: 1;
+  }
+
+  .post-aside {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    /* Clears the fixed header, matching the anchor offset used site-wide. */
+    top: var(--space-16);
+    max-height: calc(100vh - var(--space-24));
+    overflow-y: auto;
+  }
+}
+
+.post-aside__title {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+
+.post-aside__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.post-aside__link {
+  display: block;
+  padding: var(--space-2) var(--space-4);
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--color-fg-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.post-aside__link:hover {
+  color: var(--color-fg-primary);
+  border-left-color: var(--color-border-default);
+}
+
+.post-aside__meta {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}

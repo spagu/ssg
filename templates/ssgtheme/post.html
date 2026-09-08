@@ -15,7 +15,7 @@
 {{ template "sc-header" . }}
 
 <main class="main-content" id="main-content">
-    <div class="container">
+    <div class="container post-layout">
         <article class="article prose" id="post-{{ .Post.Slug }}">
             <p class="eyebrow">Post</p>
             <h1>{{ .Post.Title }}</h1>
@@ -45,6 +45,27 @@
             </nav>
             {{ end }}
         </article>
+
+        {{/* What to read next, ranked by shared tags and keywords (`related`,
+             since 1.8.16). After the article in source order — it is an
+             appendix, and only the grid moves it into the column beside the
+             prose. A post with nothing related renders no aside at all rather
+             than an empty heading. */}}
+        {{ with related .Post 6 }}
+        <aside class="post-aside" aria-labelledby="related-heading">
+            <h2 class="post-aside__title" id="related-heading">Related posts</h2>
+            <ul class="post-aside__list">
+                {{ range . }}
+                <li>
+                    <a class="post-aside__link" href="{{ .GetURL }}">
+                        {{ .Title }}
+                        <span class="post-aside__meta">{{ .Date.Format "2 Jan 2006" }} · {{ .ReadingTime }} min</span>
+                    </a>
+                </li>
+                {{ end }}
+            </ul>
+        </aside>
+        {{ end }}
 
         {{/* Comments — rendered only when variables.comments is set, so the
              theme stays generic. Assets come from the comments worker's

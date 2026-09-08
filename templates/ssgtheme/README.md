@@ -118,6 +118,25 @@ Files in `partials/` are parsed into the same template set as the theme root,
 so these define names are callable from any role template. See
 [docs/TEMPLATES.md](../../docs/TEMPLATES.md#template-loading-and-sharing).
 
+## Post layout
+
+`post.html` lays the article out beside a **related-posts** column on screens
+wide enough for both. Prose stays capped at its measure — roughly 70 characters
+— so the space to its right is filled with a second thing rather than by
+widening the text.
+
+The column comes from the built-in `related` helper, which ranks posts by shared
+tags and keywords in memory and needs no configuration or network:
+
+```gotemplate
+{{ with related .Post 6 }}…{{ end }}
+```
+
+A post with nothing related renders no aside at all, and the grid pins the
+article and the comments section to the first column so the layout does not
+shift when that happens. Below 1100px the aside stacks under the article, which
+is also its source order.
+
 ## Site configuration the theme reads
 
 | Variable | Effect |
