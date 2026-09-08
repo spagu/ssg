@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-24
 tags: [templates, determinism, reproducible-builds, static-sites, ci]
-excerpt: "A static site generator that reads the clock cannot promise the same bytes twice. That guarantee is worth keeping, which is why the copyright year in your footer is a harder problem than it looks."
+excerpt: "A generator that reads the clock cannot promise the same bytes twice. Which is why the copyright year in your footer is a harder problem than it looks."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

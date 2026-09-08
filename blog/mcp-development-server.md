@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [mcp, ai, development, workflow, git]
-excerpt: "ssg mcp turns your AI assistant into two well-behaved coworkers: a designer that edits templates and a content manager that handles Markdown. Each knows exactly what it may and may not touch, every change rebuilds the site immediately, and with git configured nothing ships without your approval — branch, commit, review, PR."
+excerpt: "ssg mcp turns your AI assistant into two coworkers: a designer that edits templates and a content manager for Markdown. Each knows what it may not touch."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-21
 tags: [mcp, security, ai, agents, development]
-excerpt: "An MCP server that can edit templates, rewrite content and open pull requests is not just another development endpoint. The moment it listens on HTTP, authentication stops being an optional deployment detail."
+excerpt: "An MCP server that edits templates and opens pull requests is not just another dev endpoint. The moment it listens on HTTP, authentication is not optional."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

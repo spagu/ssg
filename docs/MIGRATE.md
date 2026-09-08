@@ -1,6 +1,7 @@
 # Migrating a site into SSG (`ssg migrate`)
 
-One command takes a live site to a working SSG project:
+One command takes a live site to a working SSG project — WordPress, Drupal or
+a plain crawl — with URLs, media and taxonomies carried across intact:
 
 ```bash
 ssg migrate wordpress https://example.com --content pages,posts,media

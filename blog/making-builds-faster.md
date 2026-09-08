@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-03
 tags: [performance, profiling, go, build, benchmarks]
-excerpt: "The plan was SIMD, cache lines, maybe profile-guided optimization. The profiler said two thirds of the build was syscalls, and almost all of them came from listing the same directory once per post. Fixing that and one regex made a 5000-post build 5.25x faster — while a RAM disk bought 8% and PGO bought nothing at all."
+excerpt: "The plan was SIMD and PGO. The profiler said two thirds of the build was syscalls from listing one directory per post. Fixing that made it 5.25x faster."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

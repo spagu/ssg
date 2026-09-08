@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-07-21
 tags: [performance, images]
-excerpt: "Largest Contentful Paint is usually one photograph. A practical tour of SSG's build-time image pipeline — srcset, crops, cache keys — and an honest note about AVIF."
+excerpt: "Largest Contentful Paint is usually one photograph. A tour of the build-time image pipeline — srcset, crops, cache keys — and an honest note about AVIF."
 ---
 
 Open any page that fails Core Web Vitals and there is a good chance the culprit

@@ -63,6 +63,11 @@ link_rewrites:
   "../.github/": "https://github.com/spagu/ssg/blob/main/.github/"
   "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
 check_links: warn
+# The docs site runs the checks it documents. check_meta reports a page with no
+# <title> or no meta description, and flags a description outside the 70–160
+# window search engines actually display — which is how 32 pages here were found
+# to be over it at once, by a third-party crawl rather than by the build.
+check_meta: warn
 shortcode_errors: strict
 
 # docs/*.md have no "## Excerpt" section; derive one from the opening paragraph

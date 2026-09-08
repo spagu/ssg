@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [related-posts, content, embeddings, how-to, static-sites]
-excerpt: "\"Show 5 related articles\" is one template line if you're happy with keyword overlap, one config block if you want your whole database, and a small pipeline if you want posts that are actually about the same thing. Here's all three, and how to know which one you need."
+excerpt: "Five related articles is one template line, one config block, or a small pipeline — depending on whether you want keyword overlap or actual meaning."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

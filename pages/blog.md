@@ -6,7 +6,7 @@ layout: "blog"
 status: publish
 type: page
 hide_from_lists: true
-description: "Notes on static sites, build pipelines and the decisions behind SSG."
+description: "Notes on static sites, build pipelines and the decisions behind SSG — release notes, migration write-ups and the reasoning under the features."
 ---
 
 Notes on static sites, build pipelines, and the reasoning behind the decisions

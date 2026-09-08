@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-21
 tags: [mcp, ai, agents, context, development]
-excerpt: "Giving an AI agent access to your project is only half the problem. If changing one CSS value requires reading and rewriting an entire file, the agent is spending most of its context learning things it never needed to know."
+excerpt: "Giving an agent access to your project is half the problem. If changing one CSS value means rewriting a whole file, its context goes on learning nothing."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

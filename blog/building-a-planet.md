@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-07
 tags: [feeds, rss, atom, aggregation, publishing]
-excerpt: "Two projects, two feeds, two different formats — plus a blog of our own. Pulling them into one feed at tradik.com took a config block, and the interesting parts were the four decisions underneath it: whose format wins, what to drop, where each item came from, and what happens when a source goes dark."
+excerpt: "Three feeds into one took a config block. The interesting part was the four decisions under it: whose format wins, what to drop, what a dark source means."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

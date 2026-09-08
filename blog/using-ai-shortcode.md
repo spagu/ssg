@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [ai, content, how-to, static-sites]
-excerpt: "Step by step: configure a model, keep the key out of your repo, drop your first [ai …] into a post, gate it with ifs, commit the cache for key-free CI, and the handful of recipes worth stealing. If you want the why, read AI in Your Content first; this is the how."
+excerpt: "Step by step: configure a model, keep the key out of your repo, drop your first [ai …] into a post, and commit the cache so CI needs no key at all."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

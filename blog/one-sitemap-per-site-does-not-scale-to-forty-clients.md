@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-09-08
 tags: [seo, sitemap, agencies, search-console, ci, workflow]
-excerpt: "An agency running dozens of client sites has a different relationship with sitemap.xml than a site owner running one. Split sitemaps turn 'is the site indexed' into a question you can answer per section, per client, without opening forty dashboards."
+excerpt: "An agency has a different relationship with sitemap.xml than a site owner. Split sitemaps answer 'is it indexed' per section, without forty dashboards."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-07-24
 tags: [cloudflare, workers, gdpr, comments, static-sites, release]
-excerpt: "SSG 1.8.13 turns the single worker: hook into a plural workers: list and ships three batteries-included ones — cookie consent, comments, and a CI republish webhook — plus config includes and a wrangler generator. Still static-first."
+excerpt: "1.8.13 turns the single worker: hook into a workers: list, and ships three batteries-included ones: cookie consent, comments and a republish webhook."
 ---
 
 For a while SSG had exactly one escape hatch from "everything is static": a `worker:` block that dropped a single Cloudflare Pages Functions tree into your build. That was enough for a contact form or a Stripe checkout. It stopped being enough the moment you wanted two of them.

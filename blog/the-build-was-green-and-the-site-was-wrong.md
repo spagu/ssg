@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-09-08
 tags: [seo, sitemap, canonical, cloudflare, static-sites, diagnostics]
-excerpt: "Four releases in a week, and almost every fix in them came from the same place: a third-party crawler, weeks after a build that reported success. Here is what those failures had in common, and what a generator can do about them."
+excerpt: "Almost every fix in four releases came from one place: a third-party crawler, weeks after a build that reported success. What those failures had in common."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

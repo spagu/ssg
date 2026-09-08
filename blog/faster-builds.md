@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-01
 tags: [performance, images, webp, build, static-sites]
-excerpt: "SSG's build was honest but sequential: one image at a time, one page at a time. Now page rendering and WebP conversion both run in parallel — one worker per CPU, or however many you cap it to. And while we were in there, three speed features that were already quietly working turn out to have never been written down."
+excerpt: "Page rendering and WebP conversion now run in parallel, one worker per CPU — plus three speed features that were already working and never written down."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

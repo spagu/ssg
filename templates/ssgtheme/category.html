@@ -1,3 +1,7 @@
+{{/* Archive description: long enough to be a description rather than a label.
+     "Everything filed under X on Y." came out at 44–61 characters, which
+     check_meta flags as under the 70 search engines want — on every archive the
+     site has, which on this one is 55 pages. */}}
 {{define "category.html"}}<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +9,7 @@
     <title>{{ $title }}</title>
 {{ template "sc-head" (dict
     "Title" $title
-    "Desc" (printf "Everything filed under %s on %s." .Name .Domain)
+    "Desc" (printf "Every post filed under %s on %s, newest first — guides, release notes and the thinking behind SSG's features." .Name .Domain)
     "CanonicalURL" .CanonicalURL
     "Ctx" .) }}
 </head>

@@ -1,6 +1,7 @@
 # Templates and themes
 
-Two halves: the themes you can use as they are, and how to write one.
+Two halves: the themes you can use as they are, and how to write one of your
+own — the file layout, the values in scope, and which template renders what.
 
 Go template helper signatures are in [TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md);
 image functions are in [IMAGES.md](IMAGES.md).

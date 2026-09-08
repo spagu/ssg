@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-07-31
 tags: [seo, structured-data, ai, static-sites, release]
-excerpt: "1.8.14 is a release about the readers you never see — social scrapers, AI agents, and your own build tooling. Structured data from your frontmatter, social images that stop 404-ing, frontmatter contracts that fail the build instead of the page, and a route manifest you can diff. Still static, still one Go binary."
+excerpt: "1.8.14 is about the readers you never see: social scrapers, AI agents and your own tooling. Structured data, social images that work, build-time contracts."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [notifications, publishing, how-to, static-sites]
-excerpt: "The whole point of post-publish notifications is the part everyone gets wrong: announcing a post exactly once, from a build that runs a hundred times. Here's how to wire a destination, gate it behind --notify so dev builds stay quiet, and let the committed state file do the not-double-posting for you."
+excerpt: "Announcing a post exactly once, from a build that runs a hundred times. Wiring a destination, gating it behind --notify, and letting the state file work."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

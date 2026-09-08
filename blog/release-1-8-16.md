@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [release, ai, notifications, content, static-sites]
-excerpt: "1.8.16 is about the edges of publishing: ask an AI a question from inside a post (cached, deterministic), announce a new post to wherever you like without ever double-posting, show related articles by keyword or from your whole database, get an email the moment a comment needs review — and hand your AI assistant a development server with designer and content-manager roles that ships nothing without your approval. All opt-in, all still one static build."
+excerpt: "1.8.16 is about the edges of publishing: build-time AI answers, announcements that never double-post, related articles, and an MCP development server."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

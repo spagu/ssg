@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-09
 tags: [i18n, multilingual, seo, hreflang, static-sites]
-excerpt: "Translating the words is the easy half. The hard half is that /o-nas/ and /en/about/ are the same page, and nothing in a file tree says so — which is where the URL structure, the hreflang tags and the link between two documents all quietly go wrong."
+excerpt: "Translating the words is the easy half. The hard half is that /o-nas/ and /en/about/ are the same page, and nothing in a file tree says so."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"

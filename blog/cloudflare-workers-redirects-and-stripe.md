@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-07-22
 tags: [cloudflare, redirects, workers, stripe, static-sites]
-excerpt: "How SSG 1.8.11 bridges static site speed with edge execution—covering zero-latency redirect flattening, Cloudflare Pages Functions, and a end-to-end Stripe Checkout integration."
+excerpt: "How SSG 1.8.11 bridges static speed with edge execution: redirect flattening, Cloudflare Pages Functions, and an end-to-end Stripe Checkout integration."
 ---
 
 Web sites usually fall into two traps. Either they start out static and get rewritten into heavy SSR frameworks the moment marketing asks for a Stripe payment button, or they launch as a massive Node server just to render text and images that change twice a week.

@@ -5,7 +5,7 @@ status: publish
 type: post
 date: 2026-08-02
 tags: [ai, content, static-sites, build, caching]
-excerpt: "You can ask an AI a question from inside a Markdown file and bake the answer into the page — once, at build time, cached so it's deterministic. No API key in the browser, no per-visitor cost, no spinner. Here's how the [ai …] shortcode works and why build time is the right place for it."
+excerpt: "Ask an AI a question from inside a Markdown file and bake the answer into the page — once, at build time, cached. No key in the browser, no spinner."
 mermaid: true
 mermaid_theme: neutral
 mermaid_background: "#ffffff"
