@@ -74,7 +74,7 @@ func TestGenerateSeriesWriteError(t *testing.T) {
 	g := newTestGen(t, "")
 	g.siteData.Posts = []models.Page{{Slug: "p", Series: "Saga"}}
 	mustWrite(t, filepath.Join(g.config.OutputDir, "series"), "in the way")
-	if err := g.generateSeries(); err == nil {
+	if _, err := g.generateSeries(); err == nil {
 		t.Fatal("a blocked series directory must error")
 	}
 }

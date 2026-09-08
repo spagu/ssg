@@ -207,6 +207,12 @@ worked around the old bug by making the archives indexable, you can undo that.
 `archive` is still the separate switch that decides whether an archive is written
 at all, and `author` is not configurable this way.
 
+**A site using `series:` gains sitemap entries.** Series archives have always
+been written and linked, and were in no sitemap — the only built-in taxonomy
+with no code path listing it. They appear now, one entry per series, honouring
+`taxonomies: { series: { sitemap: false } }` if you would rather they did not.
+Nothing else about them changes.
+
 **Sub-sitemaps are new and entirely opt-in.** `sitemaps:` declares files with
 their own selection and turns `sitemap.xml` into the index; `sitemap_max_urls`
 lowers the per-file ceiling. A site that sets neither writes exactly the file it

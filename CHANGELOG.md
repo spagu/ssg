@@ -58,6 +58,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because it was inert the archives were made indexable instead — a site changed
   to fit a setting that could not take effect. Both loops now ask the registry.
   `author` is driven outside it (#44) and is unchanged.
+- 📚 **Series archives were written and linked but reached no sitemap at all**
+  (#261). `category`, `tag` and `series` are folded built-ins, which the registry
+  skips when writing the sitemap because they are meant to be listed by their own
+  legacy loop — and series had no legacy loop to be skipped to. There was no
+  `g.seriesSlugs` and nothing else named them, so the archive of every series a
+  site publishes, linked from every post in it, was absent from the file the site
+  uses to state its own structure. Same family as #228, #244 and #255, and the
+  exact inverse of #259 above: there `sitemap: false` could not turn a built-in's
+  entries off, here `sitemap: true` never turned them on. `generateSeries` now
+  records what it wrote — only written archives, so a slug that cannot be formed
+  or a URL an explicit page owns (GO-050) stays out — and the sitemap lists them,
+  honouring `taxonomies: { series: { sitemap: … } }`. **This adds URLs to the
+  sitemap of any site using series**, which is the intended change; the golden
+  baselines move by exactly that one line.
 - 📅 **A `static_sources` sitemap entry never got a `<lastmod>`** (#260, a
   regression in the #255 work shipped yesterday). The date was emitted only when
   `lastmod_from_git` was on **and** git could answer — a page in the same build

@@ -425,8 +425,11 @@ type Generator struct {
 	// (#244). A set rather than a list: a watch-mode rebuild records the same
 	// listing again.
 	postsListings map[string]bool
-	authorSlugs   map[string]string  // author slug → slug, for sitemap (BLOG-005)
-	taxonomies    *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
+	// seriesSlugs is series name → slug, for the sitemap (#261). Series is a
+	// folded built-in like tag, and needed the same record for the same reason.
+	seriesSlugs map[string]string
+	authorSlugs map[string]string  // author slug → slug, for sitemap (BLOG-005)
+	taxonomies  *taxonomy.Registry // generic taxonomy registry (taxonomies-feature.md)
 	// External sources: .ExternalData / .ExternalDataMeta namespaces plus
 	// content-mode CMS imports merged into the site before finalize.
 	externalData map[string]interface{}
@@ -1502,20 +1505,40 @@ func (g *Generator) renderArchive(kind, name, slug string, posts []models.Page, 
 }
 
 // generateSeries renders a landing page per series at /series/{slug}/ (AX-005),
-// consuming the shared collection renderer.
-func (g *Generator) generateSeries() error {
+// consuming the shared collection renderer, and returns the series→slug map for
+// the sitemap.
+//
+// It returned nothing until #261, which is why series archives were written and
+// linked and then reached no sitemap at all: the registry skips folded built-ins
+// (they are meant to be listed by their legacy loop) and series had no legacy
+// loop to skip to. The map is the thing that was missing, not the loop.
+//
+// Only a written archive enters it, the rule #228 set: a slug that cannot be
+// formed, or a URL an explicit page already owns (GO-050), is skipped here
+// rather than advertised.
+func (g *Generator) generateSeries() (map[string]string, error) {
 	groups := make(map[string][]models.Page)
 	for _, post := range g.siteData.Posts {
 		if post.Series != "" {
 			groups[post.Series] = append(groups[post.Series], post)
 		}
 	}
+	slugs := make(map[string]string, len(groups))
 	for _, name := range sortedKeys(groups) {
-		if err := g.renderArchive("series", name, slugify(name), groups[name], seriesHTMLName, true); err != nil {
-			return err
+		slug := slugify(name)
+		if slug == "" {
+			continue
+		}
+		if owner, taken := g.archiveURLOwner("series", slug); taken {
+			fmt.Printf("   ⚠️  Skipping auto series archive /series/%s/: %s already owns that URL\n", slug, owner)
+			continue
+		}
+		slugs[name] = slug
+		if err := g.renderArchive("series", name, slug, groups[name], seriesHTMLName, true); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return slugs, nil
 }
 
 // generateTags renders a listing per tag at /tag/{slug}/ using tag.html (fallback
@@ -5026,6 +5049,14 @@ func (g *Generator) collectSitemapEntries() []sitemapEntry {
 	if g.taxonomySitemapEnabled("tag") {
 		for _, slug := range sortedValues(g.tagSlugs) {
 			entries = append(entries, g.archivePathEntry("tag/"+slug, kindTag))
+		}
+	}
+
+	// Series landing pages (AX-005). Written and linked since the feature
+	// existed, and in no sitemap until #261.
+	if g.taxonomySitemapEnabled("series") {
+		for _, slug := range sortedValues(g.seriesSlugs) {
+			entries = append(entries, g.archivePathEntry("series/"+slug, kindSeries))
 		}
 	}
 

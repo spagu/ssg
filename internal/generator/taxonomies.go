@@ -307,7 +307,11 @@ func (g *Generator) renderFoldedBuiltin(def taxonomy.Definition) error {
 	case "category":
 		return g.generateCategories()
 	case "series":
-		return g.generateSeries()
+		slugs, err := g.generateSeries()
+		if err != nil {
+			return err
+		}
+		g.seriesSlugs = slugs
 	case "tag":
 		slugs, err := g.generateTags()
 		if err != nil {

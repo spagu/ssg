@@ -29,6 +29,7 @@ const (
 	kindPost     sitemapKind = "posts"
 	kindCategory sitemapKind = "categories"
 	kindTag      sitemapKind = "tags"
+	kindSeries   sitemapKind = "series"
 	kindAuthor   sitemapKind = "authors"
 	kindTaxonomy sitemapKind = "taxonomies"
 )
@@ -37,7 +38,7 @@ const (
 // against something better than silence.
 var sitemapKinds = []sitemapKind{
 	kindHome, kindListing, kindStatic, kindPage, kindPost,
-	kindCategory, kindTag, kindAuthor, kindTaxonomy,
+	kindCategory, kindTag, kindSeries, kindAuthor, kindTaxonomy,
 }
 
 // sitemapEntry is one <url> element.
