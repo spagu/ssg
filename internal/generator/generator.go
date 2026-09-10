@@ -24,6 +24,7 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/ai"
+	"github.com/spagu/ssg/internal/components"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
@@ -129,6 +130,10 @@ type Config struct {
 	// stdout, "json" writes build-profile.json beside the project. Empty is off,
 	// and off costs one nil check per phase.
 	Profile string
+
+	// ComponentsDir is where typed content components live (GO-093); empty
+	// means "components", and a directory that is not there is not an error.
+	ComponentsDir string
 
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
@@ -587,6 +592,14 @@ type Generator struct {
 	// profile measures this build when config.Profile asks for it, and is nil
 	// otherwise; every method on it accepts a nil receiver (GO-097).
 	profile *Profile
+	// components is the site's typed content components, or nil when it has
+	// none (GO-093). componentMu guards the per-build bookkeeping beside it:
+	// content renders on a worker pool.
+	components      *components.Set
+	componentMu     sync.Mutex
+	componentsUsed  map[string]bool
+	componentWarned map[string]bool
+	componentErr    error
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -900,6 +913,7 @@ func (g *Generator) Generate() error {
 	g.resetEmptyCanonicals()
 	g.resetStaticSitemap()
 	g.resetOutputRefs()
+	g.resetComponents()
 
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
@@ -930,6 +944,12 @@ func (g *Generator) Generate() error {
 	// Fail here rather than at the end: everything after this only decorates
 	// output whose content blocks are already known to be incomplete (issue #37).
 	if err := g.shortcodeErrorCheck(); err != nil {
+		return err
+	}
+	// A component call the content got wrong fails here for the same reason a
+	// shortcode does: everything after this only decorates output whose
+	// content blocks are already known to be incomplete (GO-093).
+	if err := g.componentError(); err != nil {
 		return err
 	}
 
@@ -1014,6 +1034,11 @@ func (g *Generator) assetPhase() error {
 	// SCSS compiles before bundling so bundles/minify/fingerprint see CSS (ASSET-003).
 	if err := g.compileSCSSIfRequested(); err != nil {
 		return fmt.Errorf("compiling SCSS: %w", err)
+	}
+	// Component assets land before bundling and fingerprinting, so they are
+	// treated like any other asset the site ships (GO-093).
+	if err := g.writeComponentAssets(); err != nil {
+		return err
 	}
 	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
 	if err := g.bundleIfRequested(); err != nil {
@@ -2212,6 +2237,12 @@ func (g *Generator) loadTemplates() error {
 	pageLinks := g.buildPageLinks()
 	funcs := g.buildTemplateFuncs(pageLinks)
 
+	// Components share the theme's helpers: a component is markup the site's
+	// author wrote, so it gets what a partial gets (GO-093).
+	if err := g.loadComponents(funcs); err != nil {
+		return err
+	}
+
 	// Non-Go engine (pongo2/mustache/handlebars): load the theme's own templates
 	// through the selected engine instead of html/template. No Go defaults are
 	// scaffolded — alt-engine themes must ship templates in that engine's syntax
@@ -2721,6 +2752,10 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 			protected = append(protected, html)
 			return fmt.Sprintf("ssg-protected-%d-token", len(protected)-1)
 		}
+		// Components first, and with their own syntax: `{{< name … >}}` cannot
+		// be confused with `{{name}}`, so a page using neither is untouched and
+		// a page using both gets both (GO-093).
+		s = g.renderComponents(s, protect)
 		s = g.processShortcodesWith(s, func(sc Shortcode) string { return protect(g.renderShortcode(sc)) })
 		if g.sanitizer != nil {
 			s = processWPShortcodesWith(s, protect) // [youtube]/[embed] iframes (GO-037)

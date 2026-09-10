@@ -118,6 +118,10 @@ markdown_publish: true
 # dog food (GO-095).
 site_graph: true
 
+# This project's own worked example, kept out of the default `components/` path
+# so a build run from the repository root does not pick it up implicitly.
+components_dir: examples/components
+
 # Explicit crawler policy (GO-089). The AI crawlers are welcomed because the
 # published Markdown/llms.txt above is written precisely for them; Google reads
 # the standard HTML regardless.

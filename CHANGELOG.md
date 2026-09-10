@@ -33,6 +33,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 🧩 **Typed content components** (GO-093). A shortcode is an entry in the site
+  config: a fixed name rendering fixed data. `{{gallery}}` renders the one
+  gallery the config describes, and a second gallery means a second config
+  entry — there was no way to say "this one, with these pictures, three across"
+  from inside the content that wanted it.
+
+  A component is a directory with a contract: `component.yaml` declaring its
+  props (type, required, default, enum), `template.html` rendering them, and an
+  optional `assets/` copied and linked **only on the pages that used it**.
+  Content calls one as `{{< youtube id="6hLDZ6HL0rw" ratio="4x3" >}}`.
+
+  The schema is the point. It makes a component usable without reading its
+  template, checkable before the page ships, and generatable by an agent: every
+  build publishes `components.json` — the props, their types, what is required,
+  and the shortest call that would validate.
+
+  Two decisions about what is *not* a call. A call naming a component the site
+  does not have is **left in the page as written**, under every error policy,
+  because documentation quoting a call is the ordinary case; the legacy
+  `{{name}}` form deletes what it does not recognise, and doing that to prose
+  would be a silent loss. And a call inside a code fence or backticks is not a
+  call at all — otherwise a component could not be documented on the site that
+  has it. A call to a component that *does* exist, made wrongly, follows
+  `shortcode_errors`, with a message naming the prop, the reason and the call.
+
+  `{{name}}` and `[name]` are untouched and not deprecated; the golden corpora
+  confirm a site without components builds byte for byte as before.
+
 - 📊 **`analytics_ids`: a tag manager a site can actually install** (FE-001).
   The only way to get a tracking id into a build was for a migration's crawl to
   have found one, so a site written by hand could not run Google Tag Manager at

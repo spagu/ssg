@@ -557,6 +557,20 @@ Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
 \fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
 where the time goes, this answers why.
 .TP
+.BR \-\-components\-dir =\fIDIR
+Where typed content components live (default \fBcomponents\fR). A component is a
+directory with \fBcomponent.yaml\fR declaring its props — type, required,
+default, enum — \fBtemplate.html\fR rendering them, and an optional
+\fBassets/\fR copied and linked only on the pages that use it. Content calls one
+as \fB{{< name key="value" >}}\fR, which cannot be confused with the legacy
+\fB{{name}}\fR or \fB[name]\fR forms.
+.IP
+A call made wrongly follows \fBshortcode_errors\fR; a call naming a component
+the site does not have is left in the page as written, because documentation
+quoting a call is the ordinary case. Calls inside code blocks are not calls.
+Every build with components publishes \fBcomponents.json\fR — the contract a
+person or an agent reads before writing one. See \fBdocs/COMPONENTS.md\fR.
+.TP
 .B analytics_ids:
 (config only) Tracking ids the site declares, by vendor —
 \fBgtm: GTM\-XXXXXXX\fR, \fBga4: G\-XXXXXXX\fR. Google Tag Manager is emitted in

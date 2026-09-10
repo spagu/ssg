@@ -92,6 +92,36 @@ without shipped support. So:
 If the API changes shape, the switch is what keeps that from becoming your
 problem: turn it off and the site is what it was.
 
+## `components.json`
+
+A site with typed content components publishes its contract at the root:
+
+```json
+{
+  "schema": 1,
+  "components": [
+    { "name": "youtube",
+      "description": "Embed a video from a privacy-friendly host.",
+      "example": "{{< youtube id=\"…\" >}}",
+      "props": [
+        { "name": "id", "type": "string", "required": true, "description": "The video id." },
+        { "name": "ratio", "type": "string", "default": "16x9", "enum": ["16x9", "4x3"] }
+      ] }
+  ]
+}
+```
+
+This is the difference between an agent that can write content for a site and
+one that can only write prose. Without it, a model generating a page either
+avoids the site's own components or invents attributes for them, and nobody
+notices until a reader does. With it, the contract is explicit — the types, what
+is required, what values an enum allows — and a call that gets it wrong is
+caught by the build rather than by a proofreader.
+
+The `example` is the shortest call that would validate: something to copy, not a
+grammar to infer. Read it before generating a call; see
+[COMPONENTS.md](COMPONENTS.md) for the whole feature.
+
 ## `site_graph`
 
 ```yaml

@@ -1,0 +1,15 @@
+{{- /* The example component that ships with ssg (GO-093).
+
+     Two things worth copying from it: every prop is declared, so a call that
+     forgets `id` is caught at build time rather than rendering an empty frame;
+     and the ratio is reserved in CSS, so the page does not jump when the
+     iframe loads. */ -}}
+<figure class="ssg-youtube ssg-youtube--{{ .Props.ratio }}">
+  <iframe src="https://www.youtube-nocookie.com/embed/{{ .Props.id }}"
+          title="{{ .Props.title }}" loading="lazy"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+  {{- with .Props.caption }}
+  <figcaption>{{ . }}</figcaption>
+  {{- end }}
+</figure>

@@ -198,6 +198,12 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
+**Components are opt-in by a directory.** If your project has a `components/`
+directory it is now loaded (see docs/COMPONENTS.md); if it does not, nothing
+changes. One thing to know either way: content that quotes `{{< something >}}`
+is safe — an unknown call is left as written, and calls inside code blocks are
+not calls.
+
 **A new flag, off by default.** `ssg --http --watch --edit` opens the browser
 editor (docs/EDITING.md). Nothing changes for a build that does not pass it: the
 theme attributes it uses are stripped from every published page, which the

@@ -190,6 +190,10 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 			s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 		}
 	}
+	// A page links the stylesheets and scripts of the components it actually
+	// contains, and then forgets which those were: the marker is bookkeeping,
+	// not content (GO-093).
+	s = g.injectComponentAssets(s)
 	// Tracking runs on every page, not only the ones with a page context and
 	// not only when `seo:` happens to be on (FE-001).
 	//

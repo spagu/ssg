@@ -495,6 +495,11 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # profile: text                # Report where the build's time went (phases, counters, slowest pages);
                                # "json" also writes build-profile.json beside the project for CI
 # profile_pprof: ""            # Directory for cpu.prof/heap.prof (`go tool pprof`) — maintainer's tool
+# components_dir: components   # Typed content components: a directory per component with
+#                              # component.yaml (props schema), template.html and optional
+#                              # assets/. Called from content as {{< name key="value" >}};
+#                              # a call made wrongly follows shortcode_errors, and a call to
+#                              # a component you do not have is left alone. docs/COMPONENTS.md
 # site_graph: false            # Publish site-graph.json — every page, section, taxonomy, link and redirect,
                                # stamped with the build; queryable over MCP as site_* (docs/AI-AGENTS.md)
 # clean_special_chars: false   # Normalise AI smart punctuation (quotes, dashes, NBSP, zero-width) to ASCII; CJK untouched

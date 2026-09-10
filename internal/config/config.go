@@ -708,6 +708,11 @@ type Config struct {
 	// because it changes those texts on an existing site (GO-057).
 	AutoExcerpt bool `yaml:"auto_excerpt" toml:"auto_excerpt" json:"auto_excerpt"`
 
+	// ComponentsDir is where typed content components live (GO-093): a
+	// directory per component, each with a props schema, a template and
+	// optional assets. Default "components"; absent means the site has none.
+	ComponentsDir string `yaml:"components_dir" toml:"components_dir" json:"components_dir"`
+
 	// ShortcodeErrors decides what a shortcode whose template fails to render
 	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
 	// and nothing in the page), "keep" (its raw source, so the gap is visible in

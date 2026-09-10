@@ -1,0 +1,20 @@
+description: >
+  Embed a YouTube video from the privacy-friendly host, with a caption and a
+  fixed aspect ratio so the page does not shift while it loads.
+props:
+  id:
+    type: string
+    required: true
+    description: The video id — the part after "v=" in the share URL.
+  title:
+    type: string
+    default: YouTube video
+    description: The iframe's accessible name. Screen readers read this.
+  caption:
+    type: string
+    description: Optional caption rendered under the video.
+  ratio:
+    type: string
+    enum: [16x9, 4x3]
+    default: 16x9
+    description: The aspect ratio the frame reserves.
