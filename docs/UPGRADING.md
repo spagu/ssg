@@ -198,6 +198,10 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
+**`outputs:` grew a second shape.** The flat list you have means exactly what it
+meant. A map per content type is new, and so are the `txt` format and
+`outputs_custom`. `markdown_publish: true` is unchanged.
+
 **The new frontmatter keys are additive.** `relations:`, `version:`,
 `version_of:` and `outputs:` do nothing unless a file uses them, and they stay
 readable at `.Extra.*` as well, so a template already reading `.Extra.version`

@@ -557,6 +557,22 @@ Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
 \fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
 where the time goes, this answers why.
 .TP
+.B outputs:
+Which representations each page publishes. A flat list — \fB[html, json]\fR —
+applies to every content type, exactly as it always has; a mapping —
+\fBpage: [html, json]\fR, \fBpost: [html, markdown]\fR — applies per type, and a
+page's own \fBoutputs:\fR frontmatter overrides both. \fBhtml\fR is always
+written; \fBjson\fR, \fBmarkdown\fR and \fBtxt\fR land beside it and are
+announced with \fB<link rel="alternate">\fR. \fBmarkdown_publish: true\fR is the
+older name for the Markdown output and still works.
+.TP
+.B outputs_custom:
+Formats the site defines itself: \fBname\fR, \fBsuffix\fR, \fBmime\fR and a
+\fBtemplate\fR receiving \fB.Page\fR, \fB.Site\fR, \fB.Domain\fR and
+\fB.Content\fR. Rendered with text/template — a custom format is not HTML, and
+HTML escaping would mangle an XML declaration — so the template owns its
+escaping and gets \fBxmlEscape\fR. This is why there is no built-in XML output.
+.TP
 .B versions:
 (config only) A chain of document versions, declared in frontmatter with
 \fBversion:\fR and \fBversion_of:\fR. The highest version is the latest and

@@ -33,6 +33,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 📄 **One page, several representations** (GO-092). Two mechanisms did this
+  already and did not know about each other: `outputs: [html, json]` wrote an
+  `index.json` from one global list, and `markdown_publish: true` wrote the
+  Markdown copy through a completely separate switch. A site could publish JSON
+  for everything or nothing, Markdown for everything or nothing, and could not
+  say "my reference pages also publish plain text" at all.
+
+  `outputs:` now takes a map per content type as well as the flat list it has
+  always taken, gains a `txt` format, and accepts formats a site defines with a
+  template of its own. Every non-HTML representation is announced in the page's
+  `<head>`. `markdown_publish` keeps working as the name for the Markdown
+  output, flat sibling and `llms.txt` included.
+
+  Custom formats render through **text/template**, not html/template, and that
+  is not an implementation detail: contextual HTML escaping turned an XML
+  declaration into `&lt;?xml`. A custom format is by definition not HTML, so it
+  owns its escaping and gets `xmlEscape`. That is also why there is no built-in
+  XML output — a generic one would have to invent a schema.
+
+  Feeds are deliberately not outputs: RSS is a representation of a collection,
+  and a one-item per-page feed is nothing anyone can subscribe to.
+
 - 🧭 **Content dimensions: named relations, document versions, outputs per
   page** (GO-096). Most of what this ticket asked for already existed — type,
   language, taxonomy, source — because a custom taxonomy *is* a dimension.

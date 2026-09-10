@@ -217,10 +217,15 @@ func compareVersions(a, b string) int {
 	return strings.Compare(a, b)
 }
 
-// pageWantsOutput is wantsOutput with the page's own `outputs:` taken into
-// account: a page overrides the site, and a site with no list of its own still
-// gets whatever the page asks for.
+// pageWantsOutput reports whether one page publishes a format, through the
+// registry — so the page's own `outputs:` (GO-096), its content type's list and
+// the site-wide list are all answered in one place (GO-092).
 func (g *Generator) pageWantsOutput(p models.Page, format string) bool {
+	if g.outputs != nil {
+		return g.publishesFormat(p, format)
+	}
+	// Before the registry is loaded (a bare Generator in a test), the flat
+	// list is still the honest answer.
 	if len(p.Outputs) == 0 {
 		return g.wantsOutput(format)
 	}

@@ -183,11 +183,15 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	}
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
-		// Point agents at the page's Markdown copy (GO-085). Only real source
-		// pages get an index.md; the synthetic home/listing context carries no
-		// Content, so it is skipped and never advertises a missing .md.
-		if g.config.MarkdownPublish && page.Content != "" {
-			s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
+		// Point agents at the page's other representations (GO-085, generalised
+		// by GO-092). Only real source pages have them; the synthetic
+		// home/listing context carries no Content, so it is skipped and never
+		// advertises a file that was not written.
+		if page.Content != "" {
+			if g.config.MarkdownPublish {
+				s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
+			}
+			s = injectAlternates(s, g.alternateLinks(*page, s))
 		}
 	}
 	// A page links the stylesheets and scripts of the components it actually

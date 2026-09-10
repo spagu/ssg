@@ -612,9 +612,21 @@ type Config struct {
 	// (ASSET-002): {"app.css": ["reset.css","theme.css"]}.
 	Bundles map[string][]string `yaml:"bundles" toml:"bundles" json:"bundles"`
 
-	// Outputs lists per-page output formats; "html" always emitted, add "json" for a
-	// headless JSON representation next to index.html (PLAT-003).
-	Outputs []string `yaml:"outputs" toml:"outputs" json:"outputs"`
+	// Outputs lists per-page output formats; "html" is always emitted (PLAT-003).
+	//
+	// It accepts two shapes (GO-092). The flat list it has always taken —
+	// `outputs: [html, json]` — applies to every content type. A mapping —
+	// `outputs: {page: [html, json], post: [html, markdown]}` — applies per
+	// type. OutputsPerType holds the second form; both decode through
+	// OutputsSpec so an existing config means exactly what it did.
+	Outputs        []string            `yaml:"-" toml:"-" json:"-"`
+	OutputsPerType map[string][]string `yaml:"-" toml:"-" json:"-"`
+	OutputsSpec    OutputsSpec         `yaml:"outputs" toml:"outputs" json:"outputs"`
+
+	// OutputsCustom are output formats this site defines with a template of
+	// its own — which is how a site publishes XML without the generator
+	// guessing at a schema (GO-092).
+	OutputsCustom []CustomOutput `yaml:"outputs_custom" toml:"outputs_custom" json:"outputs_custom"`
 
 	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
 	// client-side search widget (PLAT-004).
@@ -1108,6 +1120,9 @@ func Load(path string) (*Config, error) {
 	}
 	cfg.LanguageConfigs = expanded
 	cfg.I18n = cfg.I18n.WithDefaults()
+	// `outputs:` arrives as a list or a map; both land in the fields the
+	// generator reads (GO-092).
+	cfg.applyOutputsSpec()
 
 	// Apply minify_all
 	if cfg.MinifyAll {
@@ -1302,4 +1317,59 @@ type VersionsConfig struct {
 	// already drops any noindex page (#78) — rather than through a second
 	// switch that could disagree with the first.
 	NoindexOld bool `yaml:"noindex_old" toml:"noindex_old" json:"noindex_old"`
+}
+
+// CustomOutput is a page format a site defines for itself (GO-092).
+type CustomOutput struct {
+	Name     string `yaml:"name" toml:"name" json:"name"`
+	Suffix   string `yaml:"suffix" toml:"suffix" json:"suffix"`
+	MIME     string `yaml:"mime" toml:"mime" json:"mime"`
+	Template string `yaml:"template" toml:"template" json:"template"`
+}
+
+// OutputsSpec decodes `outputs:` in either of its two shapes (GO-092): the flat
+// list it has always been, or a mapping of content type to list.
+//
+// Two shapes rather than a new key, because the flat form is what every
+// existing config writes and a second key would leave two ways to say the same
+// thing forever.
+type OutputsSpec struct {
+	// All is the flat form, applying to every content type.
+	All []string
+	// PerType is the mapping form.
+	PerType map[string][]string
+}
+
+// UnmarshalYAML accepts both shapes.
+func (o *OutputsSpec) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.SequenceNode:
+		return value.Decode(&o.All)
+	case yaml.MappingNode:
+		return value.Decode(&o.PerType)
+	case 0:
+		return nil
+	}
+	return fmt.Errorf("outputs: expected a list of formats or a map of content type to formats")
+}
+
+// UnmarshalJSON accepts both shapes, for a JSON or TOML-decoded config.
+func (o *OutputsSpec) UnmarshalJSON(data []byte) error {
+	var list []string
+	if err := json.Unmarshal(data, &list); err == nil {
+		o.All = list
+		return nil
+	}
+	return json.Unmarshal(data, &o.PerType)
+}
+
+// applyOutputsSpec copies the decoded shape into the fields the generator
+// reads. Called by Load, so a config built in code can set either directly.
+func (c *Config) applyOutputsSpec() {
+	if len(c.OutputsSpec.All) > 0 {
+		c.Outputs = c.OutputsSpec.All
+	}
+	if len(c.OutputsSpec.PerType) > 0 {
+		c.OutputsPerType = c.OutputsSpec.PerType
+	}
 }

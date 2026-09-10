@@ -495,6 +495,15 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # profile: text                # Report where the build's time went (phases, counters, slowest pages);
                                # "json" also writes build-profile.json beside the project for CI
 # profile_pprof: ""            # Directory for cpu.prof/heap.prof (`go tool pprof`) — maintainer's tool
+# outputs:                     # Which representations each page publishes (docs/CONFIGURATION.md#outputs).
+#   page: [html, json, txt]    #   A flat list [html, json] still means "every content type".
+#   post: [html, markdown]     #   html is always written; the rest land beside it and are
+#                              #   announced with <link rel="alternate">.
+# outputs_custom:              # Formats you define yourself — this is where XML lives, because
+#   - name: onix               # a built-in one would have to invent a schema.
+#     suffix: index.xml
+#     mime: application/xml
+#     template: formats/onix.xml
 # versions:                    # A chain of document versions (frontmatter: version + version_of).
 #   noindex_old: false         #   Superseded versions always canonicalise to the latest; this
 #                              #   additionally marks them noindex, which also drops them from

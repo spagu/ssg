@@ -38,31 +38,6 @@ func markdownLeaf(u string) string {
 	}
 }
 
-// writeMarkdownOutput writes a page's Markdown copy when markdown_publish is
-// enabled. Directory pages get /section/index.md plus the flat sibling
-// /section.md; a flat page (/slug.html) gets /slug.md. The site root has no
-// slug, so it gets only index.md. Content is re-encoded to the page's resolved
-// output encoding. Mirrors writeJSONOutput.
-func (g *Generator) writeMarkdownOutput(page models.Page, htmlPath string) {
-	if !g.config.MarkdownPublish || !strings.HasSuffix(strings.ToLower(htmlPath), ".html") {
-		return
-	}
-	data := encodeText(g.pageMarkdown(page), g.encodingFor(&page))
-	if strings.HasSuffix(htmlPath, indexHTMLName) {
-		dir := filepath.Dir(htmlPath)
-		// #nosec G306 -- Web content files need to be world-readable
-		_ = os.WriteFile(filepath.Join(dir, "index.md"), data, 0644)
-		if filepath.Clean(dir) != filepath.Clean(g.config.OutputDir) {
-			// #nosec G306 -- Web content files need to be world-readable
-			_ = os.WriteFile(dir+".md", data, 0644)
-		}
-		return
-	}
-	// Flat page: /slug.html → /slug.md.
-	// #nosec G306 -- Web content files need to be world-readable
-	_ = os.WriteFile(strings.TrimSuffix(htmlPath, ".html")+".md", data, 0644)
-}
-
 // pageMarkdown returns the clean Markdown document for a page: an H1 title
 // (unless the body already opens with one) followed by the authored source.
 // AI punctuation is normalised when clean_special_chars is on.
@@ -170,7 +145,7 @@ func effectiveHomeLimit(cfg, total int) int {
 
 // markdownURLFor returns the absolute URL of a page's Markdown copy: the
 // directory form (…/index.md) or the flat form (…/slug.md), matching what
-// writeMarkdownOutput wrote. Empty when the page has no publishable Markdown
+// the markdown output wrote. Empty when the page has no publishable Markdown
 // (#116).
 func markdownURLFor(p models.Page, domain string) string {
 	u := p.GetURL()

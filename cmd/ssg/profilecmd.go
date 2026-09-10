@@ -79,9 +79,9 @@ func emitProfile(prof *generator.Profile, cfg *config.Config) {
 	}
 	prof.Finish()
 	now := time.Now()
-	if !cfg.Quiet {
-		prof.WriteText(os.Stdout, now)
-	}
+	// The report prints even under --quiet: quiet suppresses build chatter,
+	// and this is the thing the flag was passed to produce.
+	prof.WriteText(os.Stdout, now)
 	if cfg.Profile != generator.ProfileJSON {
 		return
 	}

@@ -735,6 +735,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		MetaLimits:             cfg.MetaLimits,
 		Bundles:                cfg.Bundles,
 		Outputs:                cfg.Outputs,
+		OutputsPerType:         cfg.OutputsPerType,
+		OutputsCustom:          toGeneratorOutputs(cfg.OutputsCustom),
 		SearchIndex:            cfg.SearchIndex,
 		WebMCP:                 cfg.WebMCP,
 		SanitizeHTML:           cfg.SanitizeHTML,
@@ -2100,4 +2102,15 @@ func logRunningVersion(cfg *config.Config) {
 		return
 	}
 	fmt.Printf("🧱 ssg %s\n", Version)
+}
+
+// toGeneratorOutputs converts the configured custom output formats (GO-092).
+func toGeneratorOutputs(in []config.CustomOutput) []generator.CustomOutput {
+	out := make([]generator.CustomOutput, 0, len(in))
+	for _, c := range in {
+		out = append(out, generator.CustomOutput{
+			Name: c.Name, Suffix: c.Suffix, MIME: c.MIME, Template: c.Template,
+		})
+	}
+	return out
 }

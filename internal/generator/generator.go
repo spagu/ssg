@@ -144,6 +144,12 @@ type Config struct {
 	// (GO-096).
 	Versions VersionsConfig
 
+	// OutputsPerType is `outputs:` in its per-content-type form (GO-092);
+	// Outputs stays the flat list it has always been.
+	OutputsPerType map[string][]string
+	// OutputsCustom are formats the site defines with a template of its own.
+	OutputsCustom []CustomOutput
+
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
 	// left in place. Off — which is every published build — the marker is not
@@ -606,6 +612,9 @@ type Generator struct {
 	// content renders on a worker pool.
 	// hooks are the render hooks this site declared (GO-099), or nil.
 	hooks *hookSet
+
+	// outputs is the format registry for this build (GO-092).
+	outputs *outputRegistry
 
 	// relationFailures are declared relations naming pages the site does not
 	// have, kept for the link check to report under strict (GO-096).
@@ -2265,6 +2274,11 @@ func (g *Generator) loadTemplates() error {
 	// Components share the theme's helpers: a component is markup the site's
 	// author wrote, so it gets what a partial gets (GO-093).
 	if err := g.loadComponents(funcs); err != nil {
+		return err
+	}
+	// The output registry needs the theme's helpers too: a custom format is a
+	// template (GO-092).
+	if err := g.loadOutputs(funcs); err != nil {
 		return err
 	}
 	// Hooks rebuild the markdown renderer, so they load before any content is
@@ -4019,8 +4033,7 @@ func (g *Generator) generatePage(page models.Page) error {
 				return err
 			}
 		}
-		g.writeJSONOutput(page, outputPath)
-		g.writeMarkdownOutput(page, outputPath)
+		g.writePageOutputs(page, outputPath)
 	}
 
 	if len(chunks) > 1 {
@@ -4081,8 +4094,7 @@ func (g *Generator) generatePost(post models.Page) error {
 		if err := g.renderPageTemplate(postHTMLName, outputPath, data, &post, true); err != nil {
 			return err
 		}
-		g.writeJSONOutput(post, outputPath)
-		g.writeMarkdownOutput(post, outputPath)
+		g.writePageOutputs(post, outputPath)
 	}
 
 	g.writeAliasStubs(post)

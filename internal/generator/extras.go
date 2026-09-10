@@ -316,7 +316,10 @@ func (g *Generator) writeBundle(name string, sources []string) error {
 
 // ─── PLAT-003: per-page JSON output ─────────────────────────────────────────
 
-// wantsOutput reports whether a named output format is enabled (PLAT-003).
+// wantsOutput reports whether a named output format is enabled site-wide.
+//
+// The per-page and per-type answer is formatsFor (GO-092); this is the flat
+// list, still consulted where the question genuinely has no page in scope.
 func (g *Generator) wantsOutput(format string) bool {
 	for _, o := range g.config.Outputs {
 		if strings.EqualFold(o, format) {
@@ -324,22 +327,6 @@ func (g *Generator) wantsOutput(format string) bool {
 		}
 	}
 	return false
-}
-
-// writeJSONOutput writes index.json next to a page's index.html when the json
-// output format is enabled (PLAT-003).
-func (g *Generator) writeJSONOutput(page models.Page, htmlPath string) {
-	if !g.pageWantsOutput(page, "json") || !strings.HasSuffix(htmlPath, "index.html") {
-		return
-	}
-	rec := g.pageRecord(page)
-	data, err := json.MarshalIndent(rec, "", "  ")
-	if err != nil {
-		return
-	}
-	jsonPath := strings.TrimSuffix(htmlPath, "index.html") + "index.json"
-	// #nosec G306 -- Web content files need to be world-readable
-	_ = os.WriteFile(jsonPath, data, 0644)
 }
 
 // pageRecord is the stable JSON representation of a page (PLAT-003 / PLAT-004).

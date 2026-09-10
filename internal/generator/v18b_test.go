@@ -165,7 +165,10 @@ func TestBundleAndOutputsAndSearch(t *testing.T) {
 	htmlPath := filepath.Join(out, "s", "index.html")
 	_ = os.MkdirAll(filepath.Dir(htmlPath), 0755)
 	_ = os.WriteFile(htmlPath, []byte("<html></html>"), 0644)
-	g.writeJSONOutput(page, htmlPath)
+	if err := g.loadOutputs(nil); err != nil {
+		t.Fatal(err)
+	}
+	g.writePageOutputs(page, htmlPath)
 	if _, err := os.Stat(filepath.Join(out, "s", "index.json")); err != nil {
 		t.Errorf("index.json not written: %v", err)
 	}

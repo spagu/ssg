@@ -560,7 +560,8 @@ fingerprinted assets.
 | `strip_md_link_text` | `false` | config only | Drop `.md` from link text that is a bare filename (`[CONFIGURATION.md]…` → "CONFIGURATION") |
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
-| `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
+| `outputs` | HTML only | `--outputs=html,json` | Which representations each page publishes — a flat list, or a map per content type. See [Outputs](#outputs) |
+| `outputs_custom` | empty | config only | Formats this site defines with a template of its own |
 | `markdown_publish` | `false` | config only | Publish a Markdown copy of every page (`index.md` + `page.md`), a `text/markdown` `<head>` alternate, and a root `llms.txt` — for language models and agents |
 | `site_graph` | `false` | config only | Publish `site-graph.json`: every page, section, taxonomy, link and redirect, stamped with the build — one model for agents and tools, also queryable over MCP as `site_*`. See [AI-AGENTS.md](AI-AGENTS.md#site_graph) |
 | `clean_special_chars` | `false` | config only | Normalise AI "smart" punctuation (curly quotes, en/em dashes, ellipsis, NBSP, zero-width) to ASCII across all content; CJK and other scripts untouched |
@@ -653,6 +654,89 @@ HTML regions can opt out of minification:
 <pre>Whitespace is preserved here.</pre>
 <!-- /htmlmin:ignore -->
 ```
+
+## Outputs
+
+One page, several representations. `outputs:` says which.
+
+```yaml
+outputs:
+  page: [html, json, txt]
+  post: [html, markdown]
+```
+
+`html` is always written. The others land beside it — `index.json`,
+`index.md`, `index.txt` — and are announced in the page's `<head>` with a
+`rel="alternate"` link, so a reader or an agent can find them.
+
+**The flat form still means what it always did.** `outputs: [html, json]`
+applies to every content type, which is what every existing config says. The
+mapping form is the new one; a type the map does not name publishes HTML only.
+
+A page can override both from its own frontmatter (see
+[Content dimensions](CONTENT.md#outputs-per-page)):
+
+```yaml
+---
+title: API reference
+outputs: [html, json]
+---
+```
+
+Precedence is narrowest first: the page, then its content type, then the site.
+
+### Built-in formats
+
+| Format | File | MIME | What it is |
+|---|---|---|---|
+| `html` | `index.html` | — | Always written |
+| `json` | `index.json` | `application/json` | The page record — title, dates, taxonomies, body |
+| `markdown` | `index.md` | `text/markdown` | The Markdown copy, plus the flat `/section.md` sibling and `llms.txt` |
+| `txt` | `index.txt` | `text/plain` | The title, then the body with the markup taken out |
+
+`markdown_publish: true` is the older way to ask for the Markdown output and
+keeps working exactly as it did — it adds `markdown` to whatever the lists say.
+
+### Formats you define
+
+```yaml
+outputs:
+  page: [html, onix]
+outputs_custom:
+  - name: onix
+    suffix: index.xml
+    mime: application/xml
+    template: formats/onix.xml
+```
+
+```gotemplate
+{{/* formats/onix.xml */}}
+<?xml version="1.0" encoding="UTF-8"?>
+<record>
+  <title>{{ xmlEscape .Page.Title }}</title>
+  <url>https://{{ .Domain }}{{ .Page.GetURL }}</url>
+</record>
+```
+
+The template receives `.Page`, `.Site`, `.Domain` and `.Content` (the rendered
+body), plus your theme's helpers and `xmlEscape`.
+
+Custom formats render through **text/template**, not html/template, and that
+difference is deliberate: a custom format is by definition not HTML, and
+contextual HTML escaping is wrong everywhere else — it turns an XML declaration
+into `&lt;?xml`. The template owns its own escaping, which is what `xmlEscape`
+is for.
+
+This is also why there is no built-in XML output. A generic one would have to
+invent a schema, and a schema nobody agreed on is noise; a site that wants XML
+knows which XML it wants.
+
+### Why feeds are not outputs
+
+RSS and Atom are representations of a **collection**, not of a page. A per-page
+"RSS output" would be a one-item feed nobody can subscribe to usefully. Feeds
+stay where they are — `feed:` and `feeds:` — and are documented under
+[Blog, feeds and search](#blog-feeds-and-search).
 
 ## Images
 
