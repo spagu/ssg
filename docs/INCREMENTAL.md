@@ -50,6 +50,10 @@ With no argument it prints the size of the graph, or the reasons this site's
 builds cannot be narrowed. With a file it prints the outputs that file reaches,
 or the reason a change to it is a full build.
 
+The graph holds pages, not aggregates. Listings, feeds and the sitemap are
+computed from the whole site on every build and are never skipped, so they do
+not appear in the count.
+
 ## When a build is full anyway
 
 | Situation | Why |

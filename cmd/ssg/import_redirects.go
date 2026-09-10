@@ -18,6 +18,14 @@ import (
 // (exitCode, true) when it handled the args, (0, false) to fall through to the
 // normal positional build. Only known verb+noun pairs are claimed.
 func dispatchSubcommand(args []string) (int, bool) {
+	if len(args) == 0 {
+		return 0, false
+	}
+	// `ssg graph` is the one verb here whose argument is optional, so it cannot
+	// be recognised by a verb+noun pair like the rest.
+	if args[0] == "graph" && isGraphInvocation(args[1:]) {
+		return runGraph(args[1:]), true
+	}
 	if len(args) < 2 {
 		return 0, false
 	}
@@ -30,8 +38,6 @@ func dispatchSubcommand(args []string) (int, bool) {
 		return runNewWrangler(args[2:]), true
 	case args[0] == "cache" && isCacheSubcommand(args[1]):
 		return runCache(args[1:]), true
-	case args[0] == "graph" && isGraphSubcommand(args[1]):
-		return runGraph(args[1:]), true
 	case args[0] == "config" && isConfigSubcommand(args[1]):
 		return runConfig(args[1:]), true
 	case args[0] == "profile" && isProfileSubcommand(args[1]):

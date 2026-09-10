@@ -18,10 +18,20 @@ import (
 	"github.com/spagu/ssg/internal/generator"
 )
 
-// isGraphSubcommand keeps the verb+noun dispatch rule loose here: `ssg graph`
-// takes a path or nothing, so anything that is not a flag is a path.
-func isGraphSubcommand(arg string) bool {
-	return !strings.HasPrefix(arg, "-")
+// isGraphInvocation reports whether what follows `graph` is this command's own
+// arguments rather than the start of a positional build.
+//
+// `ssg graph` names at most one thing — an optional path — while a positional
+// build names three, so a site whose source directory happens to be called
+// "graph" still builds.
+func isGraphInvocation(args []string) bool {
+	positional := 0
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			positional++
+		}
+	}
+	return positional <= 1
 }
 
 // runGraph implements `ssg graph [path] [--dot] [--json]`.
@@ -103,6 +113,10 @@ func printGraphText(graph *depgraph.Graph, target string) int {
 	if truncated {
 		fmt.Printf("  … and %d more (--json for the whole list)\n", len(plan.Outputs)-limit)
 	}
+	// The graph holds pages, not aggregates, because aggregates are never
+	// skipped: they are computed from the whole site on every build. Saying so
+	// stops the count above being read as "and nothing else changes".
+	fmt.Println("\nThe listings, feeds and sitemap are rebuilt on every build and are not counted here.")
 	return 0
 }
 

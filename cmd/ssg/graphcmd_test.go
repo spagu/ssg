@@ -185,9 +185,54 @@ func TestGraphRejectsAnUnknownOption(t *testing.T) {
 	}
 }
 
-func TestIsGraphSubcommandTakesAPathNotAFlag(t *testing.T) {
-	if !isGraphSubcommand("content/a.md") || isGraphSubcommand("--json") {
-		t.Error("isGraphSubcommand is wrong")
+// TestGraphIsClaimedUnlessItLooksLikeABuild: `ssg graph` takes an optional
+// path, but `ssg graph simple example.com` is a site whose source is named
+// "graph".
+func TestGraphIsClaimedUnlessItLooksLikeABuild(t *testing.T) {
+	for _, args := range [][]string{
+		{}, {"content/a.md"}, {"--json"}, {"--dot"}, {"--json", "content/a.md"},
+	} {
+		if !isGraphInvocation(args) {
+			t.Errorf("graph %v should be the graph command", args)
+		}
+	}
+	for _, args := range [][]string{
+		{"simple", "example.com"}, {"simple", "example.com", "--clean"},
+	} {
+		if isGraphInvocation(args) {
+			t.Errorf("graph %v is a positional build", args)
+		}
+	}
+}
+
+// TestGraphIsDispatchedWithNoArgument, which no verb+noun rule would catch.
+func TestGraphIsDispatchedWithNoArgument(t *testing.T) {
+	t.Chdir(t.TempDir())
+	seedGraph(t, false)
+	out, code := captureGraphOutput(t, func() int {
+		c, handled := dispatchSubcommand([]string{"graph"})
+		if !handled {
+			t.Error("`ssg graph` fell through to a build")
+		}
+		return c
+	})
+	if code != 0 || !strings.Contains(out, "Dependency graph:") {
+		t.Errorf("code = %d, output = %q", code, out)
+	}
+
+	out, _ = captureGraphOutput(t, func() int {
+		c, handled := dispatchSubcommand([]string{"graph", "--json", "content/site/posts/a.md"})
+		if !handled {
+			t.Error("`ssg graph --json path` fell through to a build")
+		}
+		return c
+	})
+	if !strings.Contains(out, `"full": false`) {
+		t.Errorf("output = %q", out)
+	}
+
+	if _, handled := dispatchSubcommand([]string{"graph", "simple", "example.com"}); handled {
+		t.Error("a site whose source is named graph must still build")
 	}
 }
 
@@ -231,6 +276,17 @@ func TestProfilePageForAnUnknownPageSaysSo(t *testing.T) {
 	seedGraph(t, false)
 	out, _ := captureGraphOutput(t, func() int { printPageInputs("/absent/"); return 0 })
 	if !strings.Contains(out, "not in the last build's graph") {
+		t.Errorf("output = %q", out)
+	}
+}
+
+// TestGraphSaysAggregatesAreNotCounted: the number of outputs is not the number
+// of files a build rewrites, and reading it that way would be wrong.
+func TestGraphSaysAggregatesAreNotCounted(t *testing.T) {
+	t.Chdir(t.TempDir())
+	seedGraph(t, false)
+	out, _ := captureGraphOutput(t, func() int { return runGraph([]string{"content/site/posts/a.md"}) })
+	if !strings.Contains(out, "rebuilt on every build and are not counted here") {
 		t.Errorf("output = %q", out)
 	}
 }

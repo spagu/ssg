@@ -41,3 +41,7 @@ audit/
 
 # Build profile (--profile=json)
 build-profile.json
+
+# Build caches, including the dependency graph (--incremental)
+.ssg-cache/
+.ai-cache/

@@ -63,6 +63,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reason a change to it means everything. `--json` for a script, `--dot` for
   `dot -Tsvg`, which is how a fan-out is seen rather than counted.
 
+  The graph holds pages, not aggregates: listings, feeds and the sitemap are
+  computed from the whole site on every build and never skipped, which
+  `ssg graph` says so the count is not read as "and nothing else changes".
+
   `ssg profile page /url/` now ends with the inputs the page was built from,
   read from that graph. It used to say the dependency tree required GO-094.
 
