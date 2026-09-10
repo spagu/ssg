@@ -19,6 +19,13 @@ import (
 // The key is taken literally, never parsed as a path (GO-101): a caller with a
 // key in hand means that key, even if it contains a dot.
 func SetYAMLKey(src []byte, key string, value interface{}) ([]byte, error) {
+	// A filler never invents a document. If the file holds no mapping there is
+	// nothing to fill in, and handing the caller back a config it did not write
+	// is worse than refusing. `ssg config set` is a person asking for a key, so
+	// it goes through SetYAMLPath and may write the first one.
+	if _, _, err := parseRoot(src); err != nil {
+		return nil, err
+	}
 	return setSegments(src, []pathSeg{{key: key}}, value)
 }
 

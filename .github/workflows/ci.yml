@@ -116,6 +116,33 @@ jobs:
           awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 96) }' \
             || { echo "::error::coverage ${pct}% is below the 96% floor"; exit 1; }
 
+      # The same floor, per package (TEST-001). The aggregate above was being
+      # held up by the packages at 99-100% while cmd/ssg sat at 91 and
+      # internal/parser at 87, which is exactly the shape a single number hides.
+      - name: Enforce the coverage floor per package
+        run: |
+          set -euo pipefail
+          below=$(awk 'NR > 1 {
+              split($1, parts, ":"); file = parts[1]
+              n = split(file, segs, "/"); pkg = segs[1]
+              for (i = 2; i < n; i++) pkg = pkg "/" segs[i]
+              total[pkg] += $2
+              if ($3 > 0) covered[pkg] += $2
+            }
+            END {
+              for (pkg in total) {
+                pct = 100 * covered[pkg] / total[pkg]
+                if (pct + 0 < 96) printf "%s %.1f%%\n", pkg, pct
+              }
+            }' coverage.gate.out | sort)
+          if [ -n "$below" ]; then
+            echo "$below" | while read -r pkg pct; do
+              echo "::error::${pkg} is at ${pct}, below the 96% floor"
+            done
+            exit 1
+          fi
+          echo "every package is at or above 96%"
+
       # A short fuzz pass on every push. Not to find something in 20 seconds —
       # to keep the targets compiling, keep the seed corpus exercised, and grow
       # testdata/fuzz over time. The parsers these cover read bytes ssg did not

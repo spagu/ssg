@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.60] - 2026-09-10
 
+### Changed
+- 🧪 **Every package now meets the 96% coverage floor** (TEST-001). The gate in
+  CI measures the repository as a whole, which a handful of packages at 99–100%
+  were carrying: `internal/parser` sat at 87.4%, `cmd/ssg` at 91.3%, and
+  `internal/sitegraph`, `internal/daemon`, `internal/config`, `internal/fetch`
+  and `internal/engine` between 93% and 96%.
+
+  Writing the tests found four real defects rather than confirming the code was
+  fine, which is the argument for the floor: `outputs:` written as a mapping
+  became a format literally named `map[html:true]`; `ssg config set` refused to
+  write the first key into an empty file; a credential in a URL survived into a
+  transport error message; and `runMddbWatchLoop` had no way to stop, unlike the
+  file watcher beside it. Each is listed on its own below.
+
+  `main()` is now a two-line shell over `run(args) (int, bool)`, so the startup
+  sequence — which subcommand claims the arguments, whether a refused edit-mode
+  combination stops before anything is written, whether a failed build is fatal
+  — is testable instead of sealed behind `os.Exit`.
+
+  CI now enforces the floor **per package** as well as on the module total, so
+  the average cannot be propped up by the packages that are already at 100%.
+  The module now sits at 97.5%.
+
 ### Added
 - 🧩 **`--incremental`: rebuild only what a change reaches, and `ssg graph` to
   see why** (GO-094). The watch loop has had one increment of this since
@@ -69,6 +92,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   `ssg profile page /url/` now ends with the inputs the page was built from,
   read from that graph. It used to say the dependency tree required GO-094.
+
+- 🐛 **`outputs:` written as a mapping no longer invents a format.** A page
+  whose frontmatter said `outputs: {html: true}` — the wrong shape, but one
+  people write — had that mapping rendered with `%v` and passed on as a format
+  named `map[html:true]`. A mapping or a list is not a scalar, and a line the
+  parser cannot read is now ignored rather than turned into a value nobody
+  typed (GO-096).
+
+- 🐛 **`ssg config set` writes the first key into an empty config.** A freshly
+  created or comments-only `.ssg.yaml` was refused as "not a YAML mapping",
+  which is true and useless: the command was unusable exactly when someone was
+  starting out. A file holding a list or a scalar is still refused, because
+  writing a key into it would lose what it held. `SetYAMLKey`, the filler that
+  must never invent a document, keeps its stricter contract (GO-101).
+
+- 🐛 **The MDDB watch loop can be stopped.** `runWatchLoop` beside it has taken
+  a stop channel since #191; this one had no exit at all, so nothing but the
+  process could own it. Both now end the same way.
+
+- 🔒 **A credential in a URL no longer reaches an error message** (found while
+  raising coverage). `safeURL` has always stripped the query string and the
+  userinfo from the address this package reports. The `*url.Error` the HTTP
+  client returns builds its own message from the raw URL and redacts only the
+  userinfo *password*, so on a transport failure — a timeout, a refused
+  connection — a `?token=…` arrived unredacted one clause later in the same
+  line, and from there into a log or a CI transcript. The cause is now unwrapped
+  and reported without the address. `errors.Is` still finds
+  `context.DeadlineExceeded`, because that is what the wrapper forwarded anyway.
 
 - 🤖 **`site_dependencies` over MCP** (GO-095 phase 3): what a page was built
   from, or what editing a file will rebuild. "What breaks if I change this

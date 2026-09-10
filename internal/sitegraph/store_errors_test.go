@@ -106,3 +106,83 @@ func TestWriteLinesReportsEncodeFailure(t *testing.T) {
 		t.Error("an unencodable record must fail writeLines")
 	}
 }
+
+// TestWriteReportsAGraphItCannotEncode: the single-file path encodes before it
+// touches the disk, so a graph JSON refuses must fail loudly and leave no
+// truncated site-graph.json beside an otherwise healthy build.
+func TestWriteReportsAGraphItCannotEncode(t *testing.T) {
+	dir := t.TempDir()
+	g := sample(2)
+	g.Build.Time = unencodableTime()
+	files, err := Write(dir, g, 0)
+	if err == nil {
+		t.Fatalf("an unencodable graph was written: %v", files)
+	}
+	if files != nil {
+		t.Errorf("files = %v with an error; want none", files)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, FileName)); !os.IsNotExist(statErr) {
+		t.Errorf("a failed Write left %s behind: %v", FileName, statErr)
+	}
+}
+
+// TestWriteShardedReportsAnIndexItCannotEncode: the shards are written first,
+// so a build stamp that cannot be rendered fails at the LAST step — it must
+// still surface as an error, never as a site-graph/ no index names.
+func TestWriteShardedReportsAnIndexItCannotEncode(t *testing.T) {
+	dir := t.TempDir()
+	g := sample(3)
+	g.Build.Time = unencodableTime() // lives in the index, not in the shards
+	files, err := Write(dir, g, 1)
+	if err == nil {
+		t.Fatalf("an unencodable index was written: %v", files)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ShardDir, "pages-1.jsonl")); statErr != nil {
+		t.Errorf("the page shard should exist before the index fails: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, FileName)); !os.IsNotExist(statErr) {
+		t.Errorf("index written despite the encoding error: %v", statErr)
+	}
+}
+
+// TestWriteLinesReportsAFailedFlush: the records are buffered, so the write
+// that actually reaches the disk happens in Flush — a full disk there has to
+// fail the shard instead of leaving a short file that still parses as a
+// complete one.
+func TestWriteLinesReportsAFailedFlush(t *testing.T) {
+	const full = "/dev/full" // every write to it fails with ENOSPC
+	f, err := os.OpenFile(full, os.O_WRONLY, 0)
+	if err != nil {
+		t.Skipf("no writable %s to stand in for a full disk: %v", full, err)
+	}
+	if err = f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// One small record: it stays in the buffer, so the failure can only come
+	// from the Flush and not from the encoder.
+	err = writeLines(full, []Link{{From: "/a/", To: "/b/", Kind: "page"}})
+	if err == nil {
+		t.Fatal("a shard that never reached the disk reported success")
+	}
+	if !strings.Contains(err.Error(), full) {
+		t.Errorf("flush error = %v; want the underlying write failure", err)
+	}
+}
+
+// TestLoadRefusesAnIndexItCannotRead: an index whose shard list is the wrong
+// shape still passes the schema probe, so Load has to fail on it rather than
+// hand back a graph that quietly has no pages.
+func TestLoadRefusesAnIndexItCannotRead(t *testing.T) {
+	dir := t.TempDir()
+	body := `{"schema": 1, "sharded": true, "shards": {"pages": "site-graph/pages-1.jsonl"}}`
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g, err := Load(dir)
+	if err == nil {
+		t.Fatalf("a shard list that is not a list loaded: %+v", g)
+	}
+	if g.Schema != 0 || len(g.Pages) != 0 {
+		t.Errorf("a failed Load returned a partial graph: %+v", g)
+	}
+}

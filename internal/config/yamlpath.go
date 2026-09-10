@@ -153,9 +153,18 @@ func SetYAMLPath(src []byte, path string, value interface{}) ([]byte, error) {
 // setSegments is SetYAMLPath with the path already parsed, so a caller holding
 // a literal key never has it re-parsed as a path.
 func setSegments(src []byte, segs []pathSeg, value interface{}) ([]byte, error) {
-	root, doc, err := parseRoot(src)
+	root, _, err := parseRoot(src)
 	if err != nil {
-		return nil, err
+		// A file with nothing in it — freshly created, or only comments — is a
+		// config whose first key has yet to be written, not a malformed one.
+		// `ssg config set` on one has to work, or the command is useless
+		// exactly when someone is starting out. A file holding a list or a
+		// scalar stays refused: that is a different document, and writing a key
+		// into it would lose whatever it held.
+		if !emptyDocument(src) {
+			return nil, err
+		}
+		root = &yaml.Node{Kind: yaml.MappingNode}
 	}
 	full := pathString(segs)
 	node, parentKey := root, (*yaml.Node)(nil)
@@ -202,11 +211,7 @@ func setSegments(src []byte, segs []pathSeg, value interface{}) ([]byte, error) 
 		}
 		return out, nil
 	}
-	// A brand-new key in a mapping that exists. Fall back to re-encoding only
-	// if the file gave the parser no positions to work from.
-	if doc == nil {
-		return nil, fmt.Errorf("%s: the config file is empty", full)
-	}
+	// A brand-new key in a mapping that exists.
 	return insertNested(src, node, parentKey, segs[len(segs)-1:], value)
 }
 
@@ -254,6 +259,20 @@ func parseRoot(src []byte) (*yaml.Node, *yaml.Node, error) {
 		return nil, nil, fmt.Errorf("the config file is not a YAML mapping")
 	}
 	return root, doc, nil
+}
+
+// emptyDocument reports whether a file holds no YAML value at all, which is
+// what an empty file and a file of only comments both produce.
+//
+// It is deliberately not folded into parseRoot: SetYAMLKey shares that and is a
+// filler that must never invent a document, while `ssg config set` is a person
+// asking for a key to be written.
+func emptyDocument(src []byte) bool {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(src, &doc); err != nil {
+		return false
+	}
+	return doc.Kind == 0 || (doc.Kind == yaml.DocumentNode && len(doc.Content) == 0)
 }
 
 // descend walks the segments from a mapping node, creating nothing.

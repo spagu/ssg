@@ -117,7 +117,7 @@ func downloadOnce(archiveURL string, auth Auth, timeout time.Duration) (path str
 	}
 	resp, err := client(auth, timeout).Do(req) // #nosec G107 -- url from the user's own worker config
 	if err != nil {
-		return "", true, fmt.Errorf("downloading %s: %w", safeURL(archiveURL), err)
+		return "", true, fmt.Errorf("downloading %s: %w", safeURL(archiveURL), transportCause(err))
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {

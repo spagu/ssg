@@ -24,10 +24,19 @@ review workflow. By participating, you agree to follow the
 - Optional Dart Sass for SCSS integration paths
 - Optional `golangci-lint`, `gosec` and `govulncheck` for extended checks
 
-CI enforces a **96 % statement-coverage floor** on the whole module, computed
-without the generated protobuf under `internal/mddb/proto` (the same exclusion
-`codecov.yml` uses). A pull request that drops below it fails the `Test` job;
-`make test-coverage` shows the same number locally. gosec runs in CI too, with
+CI enforces a **96 % statement-coverage floor twice**: on the whole module, and
+on every package individually. Both are computed without the generated protobuf
+under `internal/mddb/proto` (the same exclusion `codecov.yml` uses). A pull
+request that drops either below the floor fails the `Test` job;
+`make test-coverage` shows the module number locally, and
+
+```bash
+go test -cover ./... | sort -t: -k2 -n
+```
+
+shows the per-package one. The second gate exists because the first was being
+held up by packages at 99–100 % while others sat in the eighties, which is
+exactly the shape a single number hides. gosec runs in CI too, with
 results in the repository's Security tab.
 
 Go 1.27.1 is the minimum: it is what the `go` directive asks for, and the

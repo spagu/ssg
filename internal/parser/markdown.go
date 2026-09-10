@@ -6,6 +6,7 @@ import (
 	"fmt"
 	stdhtml "html"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -674,6 +675,14 @@ func scalarField(v interface{}) string {
 		return strconv.FormatFloat(t, 'f', -1, 64)
 	case bool:
 		return strconv.FormatBool(t)
+	}
+	// A mapping or a list is not a scalar. Rendering one with %v would invent a
+	// value like "map[html:true]" and pass it on as if an author had typed it,
+	// which is how `outputs:` written as a mapping becomes an unknown output
+	// format instead of a line that was simply ignored.
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		return ""
 	}
 	return fmt.Sprintf("%v", v)
 }

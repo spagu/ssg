@@ -39,16 +39,27 @@ import (
 var Version = "dev"
 
 func main() {
-	args := os.Args[1:]
+	if code, done := run(os.Args[1:]); done {
+		os.Exit(code)
+	}
+}
 
+// run is main without the exit, so the whole startup sequence can be tested.
+//
+// It returns (code, true) when the program is finished and should exit with
+// that code, and (0, false) when it has handed control to a loop that owns the
+// process from here — the watcher, or the HTTP server. Splitting it this way
+// keeps every decision main used to make in one testable place, and leaves
+// main with the single thing a test cannot do: exit.
+func run(args []string) (int, bool) {
 	// Subcommands. Verb+noun pairs (new worker, import redirects) dispatch only
 	// on a known noun so a source directory literally named "new"/"import" still
 	// builds normally (GO-067). `init` is a standalone verb like `git init`.
 	if code, handled := dispatchSingleVerb(args); handled {
-		os.Exit(code)
+		return code, true
 	}
 	if code, handled := dispatchSubcommand(args); handled {
-		os.Exit(code)
+		return code, true
 	}
 
 	cfg := loadConfig(args)
@@ -76,11 +87,11 @@ func main() {
 	// Edit mode is checked before the first build, so a refused combination
 	// says so instead of building a site with an editor marker nobody serves.
 	if !startEditMode(genCfg, cfg) {
-		os.Exit(2)
+		return 2, true
 	}
 
 	if !runInitialBuild(genCfg, cfg) && !cfg.Watch && !cfg.HTTP {
-		os.Exit(1)
+		return 1, true
 	}
 
 	if cfg.HTTP {
@@ -90,7 +101,17 @@ func main() {
 		startServerAsync(cfg)
 	}
 
+	if !ownsTheProcess(cfg) {
+		return 0, true // a one-shot build: nothing is waiting on anything
+	}
 	runWatchOrServe(genCfg, cfg)
+	return 0, false
+}
+
+// ownsTheProcess reports whether this run ends by handing control to something
+// that keeps running — a watcher, or the HTTP server — rather than returning.
+func ownsTheProcess(cfg *config.Config) bool {
+	return cfg.Watch || cfg.HTTP || (cfg.Mddb.Watch && cfg.Mddb.Enabled)
 }
 
 // autoReloadEnabled reports whether live reload should run: it needs both the
@@ -128,7 +149,7 @@ func runInitialBuild(genCfg generator.Config, cfg *config.Config) bool {
 // runWatchOrServe handles watch mode loop or HTTP server blocking
 func runWatchOrServe(genCfg generator.Config, cfg *config.Config) {
 	if cfg.Mddb.Watch && cfg.Mddb.Enabled {
-		runMddbWatchLoop(genCfg, cfg)
+		runMddbWatchLoop(genCfg, cfg, nil) // the process's own loop: it ends with the process
 	} else if cfg.Watch {
 		runWatchLoop(genCfg, cfg, nil) // the process's own loop: it ends with the process
 	} else if cfg.HTTP {
@@ -300,8 +321,13 @@ func watchDirs(cfg *config.Config) []string {
 	return dirs
 }
 
-// runMddbWatchLoop continuously polls MDDB checksum and rebuilds on changes
-func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
+// runMddbWatchLoop continuously polls the MDDB checksum and rebuilds on change.
+//
+// stop ends the loop, exactly as it does for runWatchLoop beside it: a nil
+// channel never fires, which is the main command's case, where the loop ends
+// with the process. Without it the loop had no exit at all, which made it
+// impossible to own from anywhere else — and impossible to test.
+func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struct{}) {
 	client, err := mddb.NewMddbClient(mddb.ClientConfig{
 		URL:       cfg.Mddb.URL,
 		Protocol:  cfg.Mddb.Protocol,
@@ -340,7 +366,11 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config) {
 	}
 
 	for {
-		time.Sleep(time.Duration(interval) * time.Second)
+		select {
+		case <-stop:
+			return
+		case <-time.After(time.Duration(interval) * time.Second):
+		}
 
 		checksumResp, err := client.Checksum(cfg.Mddb.Collection)
 		if err != nil {
