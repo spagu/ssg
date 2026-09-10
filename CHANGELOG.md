@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the average cannot be propped up by the packages that are already at 100%.
   The module now sits at 97.5%.
 
+  One consequence worth knowing: `internal/webp` measured four points lower in
+  CI than on a developer's machine, because the tests that drive `cwebp` and
+  `avifenc` skip when those are not installed. The conversion paths are now
+  exercised with stand-in encoders as well, so the number is the same
+  everywhere. The tests against the real tools stay: what they check — that the
+  encoder accepts the arguments we build — a stub cannot.
+
 ### Added
 - 🧩 **`--incremental`: rebuild only what a change reaches, and `ssg graph` to
   see why** (GO-094). The watch loop has had one increment of this since
