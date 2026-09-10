@@ -305,6 +305,7 @@ Common options:
 | Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
 | Turn records from a file or API into pages | `mode: content` + `content_map:` | config only |
 | Edit frontmatter in the browser | — | `--http --watch --edit` |
+| Declare tracking ids (GTM both halves, GA4) | `analytics_ids: {gtm: GTM-…}` | config only |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |

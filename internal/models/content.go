@@ -422,6 +422,13 @@ func (p Page) HasValidCategories() bool {
 }
 
 // Category represents a content category
+// Every field here is theme-facing API, reached as `.Site.Categories`, and
+// several are read by nothing in the generator itself (GO-045). That is not
+// dead weight: `Count` renders "12 posts" beside a term, `Parent` builds a
+// nested category menu, `Link` is the URL the source CMS served the archive
+// at, which a migrated site may still want to link. They are documented in
+// docs/TEMPLATES.md rather than removed, because removing them would break
+// themes silently and save nothing.
 type Category struct {
 	ID          int    `json:"id"`
 	Count       int    `json:"count"`
@@ -440,6 +447,15 @@ type Author struct {
 }
 
 // MediaItem represents a media file
+// Like Category, this is theme-facing API at `.Site.Media` (GO-045). The
+// generator itself reads only MediaDetails.File, when it resolves a featured
+// image; everything else is here for a template — MimeType to choose an icon
+// for a document link, Width/Height to write the attributes that stop a page
+// shifting as images load, SourceURL to point at the original on a site that
+// did not copy its media across. Documented in docs/TEMPLATES.md.
+//
+// FlexInt on Width/Height is load-bearing rather than decorative: an export
+// writes them as strings about as often as numbers.
 type MediaItem struct {
 	ID           int    `json:"id"`
 	Slug         string `json:"slug"`

@@ -137,7 +137,6 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	// The site palette as CSS custom properties, so a theme can style against
 	// the source site's colours instead of the author copying hex codes (#128).
 	b.WriteString(g.buildPaletteHead(s))
-	b.WriteString(g.analyticsSnippet(s))
 	// Fall back to the front-matter description when the theme emitted no usable
 	// one (#76). Nothing is invented here — the author already wrote it, it just
 	// never reached the output because the template interpolated a different
@@ -191,6 +190,15 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 			s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 		}
 	}
+	// Tracking runs on every page, not only the ones with a page context and
+	// not only when `seo:` happens to be on (FE-001).
+	//
+	// It used to ride inside the SEO pass, which meant a site that had asked
+	// for a tag manager got it on its posts and pages and NOT on its home page
+	// or its archives — the pages an analytics report is mostly about — and a
+	// site with `seo: false` got none at all despite having consented. The two
+	// were always separate decisions; only the code had them tangled.
+	s = g.injectAnalytics(s)
 	// Feed autodiscovery is injected for every page, not only those with a page
 	// context. The SEO block runs only for posts and pages, so the site homepage
 	// — the first place a reader or a subscription tool looks — never advertised

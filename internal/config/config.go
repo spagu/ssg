@@ -506,7 +506,17 @@ type Config struct {
 	// JavaScript on every page is the site owner's decision, not a side effect
 	// of migrating content. The ids stay readable at .Site.Analytics either way.
 	Analytics bool `yaml:"analytics" toml:"analytics" json:"analytics"`
-	SEOOff    bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
+
+	// AnalyticsIDs are the tracking ids the site itself declares, keyed by
+	// vendor — `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Until now the only source
+	// of an id was a migration's crawl, so a site written by hand had no way
+	// to run a tag manager at all except by editing a theme (FE-001).
+	//
+	// Declaring one is the consent `analytics: true` asks for, so an id here
+	// renders without also setting that flag; ids from a migration still need
+	// it, because nobody chose those.
+	AnalyticsIDs map[string]string `yaml:"analytics_ids" toml:"analytics_ids" json:"analytics_ids"`
+	SEOOff       bool              `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
 
 	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
 	// (non-zero exit on a dead internal link) (SEO-005).

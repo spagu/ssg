@@ -155,6 +155,16 @@ analytics: false     # Render the tracking snippets a migration recorded in
                      # call. The ids stay readable at .Site.Analytics regardless;
                      # icons/social/verification ride with `seo` (they load nothing).
 
+# analytics_ids:     # Tracking ids this site declares for itself, by vendor.
+#   gtm: GTM-XXXXXXX #   Google Tag Manager: BOTH halves are emitted — the script
+#                    #   in <head> and the <noscript> iframe right after <body>.
+#   ga4: G-XXXXXXX   #   GA4 (gtag.js).
+                     # Declaring an id here IS the consent `analytics: true` asks
+                     # for, so it renders without also setting that flag; ids a
+                     # migration found still need it, because nobody chose those.
+                     # Nothing is emitted while a value is empty, and a theme that
+                     # already wires the id keeps its own snippet.
+
 # Site-wide JSON-LD merged into every page (a publisher, for example).
 # schema:
 #   publisher: { "@type": Organization, name: Example }

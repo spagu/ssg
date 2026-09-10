@@ -33,6 +33,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 📊 **`analytics_ids`: a tag manager a site can actually install** (FE-001).
+  The only way to get a tracking id into a build was for a migration's crawl to
+  have found one, so a site written by hand could not run Google Tag Manager at
+  all without editing a theme. `analytics_ids: {gtm: GTM-XXXXXXX}` declares it,
+  and declaring it is the consent `analytics: true` asks for.
+
+  Two defects surfaced while wiring it, both fixed. **GTM was half installed:**
+  the vendor needs a script in `<head>` and an iframe right after `<body>`, and
+  only the first was ever emitted — a visitor with JavaScript off, or a
+  consent-mode setup that defers the script, was counted by neither.
+  **Tracking rode inside the SEO pass**, so a site with `seo: false` got none
+  despite having consented, and a site with both flags on still had an
+  untracked home page and untracked archives — the pages an analytics report is
+  mostly about. The two were always separate decisions; only the code had them
+  tangled. Every bundled theme now carries a comment in its head pointing at
+  the config, so there is no theme edit to make.
+
 - ✎ **`--edit`: editing frontmatter in the browser** (GO-102, phase 1). The dev
   server already served the site and reloaded it after every rebuild; the MCP
   server could already read a document, change one passage of it, validate the
@@ -179,6 +196,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit that turns CI red. Gating on a clean baseline is the follow-up.
 
 ### Changed
+- 🧹 **Two audit findings about surface nobody used** (GO-044, GO-045).
+  `MddbClient.Get` and its `GetRequest` are gone: no production call site ever
+  reached them, and an interface that promises what nothing uses is a claim
+  nobody checks. `engine.GoEngine` stays, with the reason written down — it is
+  the reference implementation that keeps the Engine interface honest, and
+  routing the default render path through it would re-render every existing
+  site through a second code path for no behaviour anyone asked for. The
+  "write-only" fields on `Category`, `MediaItem` and the MDDB wire types are
+  theme-facing API and a faithful description of a server response
+  respectively; both are now documented as such, in docs/TEMPLATES.md and in
+  the types themselves, rather than removed.
+
 - 🧱 **CI and packaging hygiene from the audit** (OPS-012, OPS-014, OPS-015,
   OPS-017, TEST-002): every CI job declares `permissions` explicitly rather
   than inheriting them; the runtime image builds its user, its working

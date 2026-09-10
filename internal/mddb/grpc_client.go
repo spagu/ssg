@@ -177,30 +177,6 @@ func metadataToProtoMeta(meta map[string][]any) map[string]*pb.MetaValues {
 	return protoMeta
 }
 
-// Get fetches a single document by collection and key
-func (c *GRPCClient) Get(req GetRequest) (*Document, error) {
-	ctx, cancel := c.contextWithAuth()
-	defer cancel()
-
-	protoReq := &pb.GetRequest{
-		Collection: req.Collection,
-		Key:        req.Key,
-		Lang:       req.Lang,
-	}
-
-	if req.Env != nil {
-		protoReq.Env = req.Env
-	}
-
-	resp, err := c.client.Get(ctx, protoReq)
-	if err != nil {
-		return nil, fmt.Errorf("gRPC Get: %w", err)
-	}
-
-	doc := protoDocToDocument(resp, req.Collection)
-	return &doc, nil
-}
-
 // Search fetches multiple documents matching filters
 func (c *GRPCClient) Search(req SearchRequest) ([]Document, int, error) {
 	ctx, cancel := c.contextWithAuth()

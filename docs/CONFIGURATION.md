@@ -868,6 +868,40 @@ turns one record into one page, with its own URL, taxonomy archives and
 sitemap entry. See
 [Records as pages](EXTERNAL_SOURCES.md#records-as-pages).
 
+## Analytics
+
+Two sources, two consent rules.
+
+```yaml
+analytics_ids:
+  gtm: GTM-XXXXXXX
+  ga4: G-XXXXXXX
+```
+
+**Ids you declare here render on their own.** Writing one down is the decision
+`analytics: true` exists to ask for, so it does not also need that flag. Ids a
+migration's crawl recorded in `metadata.json` still do, because nobody chose
+those — they are whatever the old site happened to be running.
+
+**Google Tag Manager gets both of its halves.** The vendor's install is a
+script in `<head>` *and* an iframe immediately after `<body>`; only the first
+used to be emitted, so a visitor with JavaScript off, or a consent-mode setup
+that defers the script, was counted by neither.
+
+**Tracking reaches every page**, including the home page and the archives, and
+does not depend on `seo:`. Those were always separate decisions; before 1.8.60
+the code had them tangled, so a site with `seo: false` got no tracking at all
+despite having asked for it, and a site with both on still had an untracked
+front page.
+
+Nothing is emitted while a value is empty, and a theme that already wires the
+same id keeps its own snippet rather than getting a second one. Every bundled
+theme carries a comment in its head pointing here, so there is no theme edit to
+make.
+
+The ids stay readable at `.Site.Analytics` either way, for a theme that wants
+to place a vendor this generator does not know how to embed.
+
 ## Server access control
 
 | Key | Default | CLI | Purpose |
@@ -890,6 +924,8 @@ implemented.
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
+| `analytics` | `false` | — | Render the tracking snippets a migration recorded in `metadata.json` |
+| `analytics_ids` | empty | — | Tracking ids this site declares, by vendor: `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Declaring one is its own consent. See [Analytics](#analytics) |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |

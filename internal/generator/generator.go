@@ -273,6 +273,9 @@ type Config struct {
 	// (`analytics` block). Separate from SEO on purpose: third-party JavaScript
 	// is the owner's call, not a migration side effect.
 	Analytics bool
+	// AnalyticsIDs are the ids the site declares for itself, merged over
+	// whatever a migration recorded (FE-001).
+	AnalyticsIDs map[string]string
 	// DateArchives renders /YYYY/ and /YYYY/MM/ listings from the posts' own
 	// dates (#146). Opt-in: a site that never had these URLs should not grow
 	// them because it upgraded.
@@ -2018,6 +2021,16 @@ func (g *Generator) loadMetadata(path string) error {
 	}
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
+	}
+	// What the site declares wins over what a migration found: the config is
+	// the owner speaking, metadata.json is a crawl reporting (FE-001).
+	for vendor, id := range g.config.AnalyticsIDs {
+		if g.siteData.Analytics == nil {
+			g.siteData.Analytics = map[string]string{}
+		}
+		if strings.TrimSpace(id) != "" {
+			g.siteData.Analytics[vendor] = id
+		}
 	}
 	// Navigation as the source site arranged it: keyed by theme location and
 	// by slug, with each menu's items already nested and ordered (#132).

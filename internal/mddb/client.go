@@ -39,6 +39,11 @@ type Config struct {
 
 // Document represents a markdown document from mddb
 // This is the normalized format used internally by SSG
+// A wire model: the fields are what the server sends, not a menu of what this
+// build happens to read (GO-045). `ID` is the server's own identifier and the
+// generator addresses documents by `Key`, but a DTO that silently drops half a
+// response is a DTO that lies about the protocol — and the next feature that
+// needs the id would have to rediscover that it was there all along.
 type Document struct {
 	ID         string         `json:"id"`
 	Key        string         `json:"key"`
@@ -94,14 +99,6 @@ func unixToTime(sec int64) time.Time {
 		return time.Time{}
 	}
 	return time.Unix(sec, 0).UTC()
-}
-
-// GetRequest represents a request to fetch a single document
-type GetRequest struct {
-	Collection string            `json:"collection"`
-	Key        string            `json:"key"`
-	Lang       string            `json:"lang,omitempty"`
-	Env        map[string]string `json:"env,omitempty"` // Template variables
 }
 
 // SearchRequest represents a request to search documents
@@ -161,33 +158,6 @@ func limitedBody(body io.ReadCloser, limit int64) io.ReadCloser {
 		io.Reader
 		io.Closer
 	}{io.LimitReader(body, limit), body}
-}
-
-// Get fetches a single document by collection and key
-func (c *Client) Get(req GetRequest) (*Document, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
-	}
-
-	resp, err := c.doRequest("POST", "/v1/get", body)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Check for error response
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("document not found: %s/%s", req.Collection, req.Key)
-	}
-
-	var mddbDoc mddbDocument
-	if err := json.NewDecoder(resp.Body).Decode(&mddbDoc); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
-	}
-
-	doc := mddbDoc.toDocument(req.Collection)
-	return &doc, nil
 }
 
 // Search fetches multiple documents matching filters. The returned total is
@@ -323,6 +293,9 @@ func (c *Client) Health() error {
 }
 
 // ChecksumResponse represents the response from /v1/checksum endpoint
+// Collection echoes back what was asked for; change detection reads only the
+// checksum and the count. Kept for the same reason as Document.ID: this is the
+// server's response, described faithfully (GO-045).
 type ChecksumResponse struct {
 	Collection    string `json:"collection"`
 	Checksum      string `json:"checksum"`

@@ -707,6 +707,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Strict:                 cfg.Strict,
 		RouteManifest:          cfg.RouteManifest,
 		Profile:                cfg.Profile,
+		AnalyticsIDs:           cfg.AnalyticsIDs,
 		EditMode:               cfg.Edit,
 		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                     buildAIClient(cfg.AI),

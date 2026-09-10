@@ -54,63 +54,6 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestClient_Get(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/v1/get" {
-			t.Errorf("Expected /v1/get, got %s", r.URL.Path)
-		}
-
-		var req GetRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			t.Fatal(err)
-		}
-
-		// Return MDDB format response
-		resp := mddbDocument{
-			ID:        "doc|blog|hello-world|en_US",
-			Key:       req.Key,
-			Lang:      "en_US",
-			ContentMd: "# Test Content",
-			Meta: map[string][]any{
-				"title": {"Test Title"},
-				"type":  {"post"},
-			},
-			AddedAt:   1704844800,
-			UpdatedAt: 1704931200,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{BaseURL: server.URL})
-
-	doc, err := client.Get(GetRequest{
-		Collection: "blog",
-		Key:        "hello-world",
-	})
-
-	if err != nil {
-		t.Fatalf("Get() error = %v", err)
-	}
-
-	if doc.Key != "hello-world" {
-		t.Errorf("doc.Key = %v, want hello-world", doc.Key)
-	}
-
-	if doc.Metadata["title"] != "Test Title" {
-		t.Errorf("doc.Metadata[title] = %v, want Test Title", doc.Metadata["title"])
-	}
-
-	if doc.Content != "# Test Content" {
-		t.Errorf("doc.Content = %v, want # Test Content", doc.Content)
-	}
-}
-
 func TestClient_Search(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -295,11 +238,11 @@ func TestClient_WithAPIKey(t *testing.T) {
 			t.Errorf("an API key must not be sent as a bearer token, got %q", auth)
 		}
 
-		resp := mddbDocument{
+		resp := []mddbDocument{{
 			Key:       "test",
 			Lang:      "en_US",
 			ContentMd: "# Test",
-		}
+		}}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
@@ -311,10 +254,10 @@ func TestClient_WithAPIKey(t *testing.T) {
 		APIKey:  "test-api-key",
 	})
 
-	_, err := client.Get(GetRequest{Collection: "blog", Key: "test"})
+	_, _, err := client.Search(SearchRequest{Collection: "blog"})
 
 	if err != nil {
-		t.Fatalf("Get() error = %v", err)
+		t.Fatalf("Search() error = %v", err)
 	}
 }
 
@@ -329,10 +272,10 @@ func TestClient_ErrorHandling(t *testing.T) {
 
 		client := NewClient(Config{BaseURL: server.URL})
 
-		_, err := client.Get(GetRequest{Collection: "blog", Key: "missing"})
+		_, _, err := client.Search(SearchRequest{Collection: "blog"})
 
 		if err == nil {
-			t.Error("Get() error = nil, want error")
+			t.Error("Search() error = nil, want error")
 		}
 	})
 
@@ -345,10 +288,10 @@ func TestClient_ErrorHandling(t *testing.T) {
 
 		client := NewClient(Config{BaseURL: server.URL})
 
-		_, err := client.Get(GetRequest{Collection: "blog", Key: "test"})
+		_, _, err := client.Search(SearchRequest{Collection: "blog"})
 
 		if err == nil {
-			t.Error("Get() error = nil, want error")
+			t.Error("Search() error = nil, want error")
 		}
 	})
 }
@@ -425,43 +368,6 @@ func TestNewClient_CustomValues(t *testing.T) {
 
 	if client.httpClient.Timeout != 60*time.Second {
 		t.Errorf("timeout = %v, want 60s", client.httpClient.Timeout)
-	}
-}
-
-func TestClient_Get_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"error":"not found"}`))
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{BaseURL: server.URL})
-	_, err := client.Get(GetRequest{Collection: "blog", Key: "missing"})
-
-	if err == nil {
-		t.Fatal("expected error for 404")
-	}
-	if !strings.Contains(err.Error(), "document not found") {
-		t.Errorf("error = %v, want 'document not found'", err)
-	}
-}
-
-func TestClient_Get_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{invalid json`))
-	}))
-	defer server.Close()
-
-	client := NewClient(Config{BaseURL: server.URL})
-	_, err := client.Get(GetRequest{Collection: "blog", Key: "test"})
-
-	if err == nil {
-		t.Fatal("expected error for invalid JSON")
-	}
-	if !strings.Contains(err.Error(), "decoding response") {
-		t.Errorf("error = %v, want 'decoding response'", err)
 	}
 }
 
@@ -939,69 +845,6 @@ func TestGRPCClient_Close(t *testing.T) {
 
 	if err := client.Close(); err != nil {
 		t.Errorf("Close() error = %v", err)
-	}
-}
-
-func TestGRPCClient_Get(t *testing.T) {
-	srv := &mockMDDBServer{
-		getFunc: func(_ context.Context, req *pb.GetRequest) (*pb.Document, error) {
-			return &pb.Document{
-				Id:        "doc|blog|hello|en_US",
-				Key:       req.Key,
-				Lang:      req.Lang,
-				ContentMd: "# Hello",
-				Meta: map[string]*pb.MetaValues{
-					"title": {Values: []string{"Hello World"}},
-				},
-				AddedAt:   1704844800,
-				UpdatedAt: 1704931200,
-			}, nil
-		},
-	}
-
-	grpcClient, cleanup := newTestGRPCClient(t, srv)
-	defer cleanup()
-
-	doc, err := grpcClient.Get(GetRequest{
-		Collection: "blog",
-		Key:        "hello",
-		Lang:       "en_US",
-		Env:        map[string]string{"foo": "bar"},
-	})
-
-	if err != nil {
-		t.Fatalf("Get() error = %v", err)
-	}
-	if doc.Key != "hello" {
-		t.Errorf("doc.Key = %v, want hello", doc.Key)
-	}
-	if doc.Content != "# Hello" {
-		t.Errorf("doc.Content = %v, want '# Hello'", doc.Content)
-	}
-	if doc.Metadata["title"] != "Hello World" {
-		t.Errorf("doc.Metadata[title] = %v, want 'Hello World'", doc.Metadata["title"])
-	}
-	if doc.Collection != "blog" {
-		t.Errorf("doc.Collection = %v, want blog", doc.Collection)
-	}
-}
-
-func TestGRPCClient_Get_Error(t *testing.T) {
-	srv := &mockMDDBServer{
-		getFunc: func(_ context.Context, _ *pb.GetRequest) (*pb.Document, error) {
-			return nil, status.Errorf(codes.NotFound, "document not found")
-		},
-	}
-
-	grpcClient, cleanup := newTestGRPCClient(t, srv)
-	defer cleanup()
-
-	_, err := grpcClient.Get(GetRequest{Collection: "blog", Key: "missing"})
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "gRPC Get") {
-		t.Errorf("error = %v, want 'gRPC Get'", err)
 	}
 }
 

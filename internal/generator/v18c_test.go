@@ -84,7 +84,6 @@ func TestEnginePipeline(t *testing.T) {
 
 type fakeMddb struct{ byCollection map[string][]mddb.Document }
 
-func (f *fakeMddb) Get(mddb.GetRequest) (*mddb.Document, error) { return nil, nil }
 func (f *fakeMddb) Search(mddb.SearchRequest) ([]mddb.Document, int, error) {
 	return nil, 0, nil
 }

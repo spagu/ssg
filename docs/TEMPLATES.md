@@ -565,6 +565,34 @@ Examples:
 {{ end }}
 ```
 
+### What a category and a media item carry
+
+These entries hold more than the generator reads. The extra fields exist for
+themes, and are listed here so a theme author does not have to guess (GO-045):
+
+| `.Site.Categories[id]` | What it is |
+|---|---|
+| `.ID`, `.Name`, `.Slug` | identity; `.Slug` is what the archive URL uses |
+| `.Description` | the term's own text, for an archive header |
+| `.Count` | how many entries the source CMS had in it — "12 posts" beside a term |
+| `.Parent` | the id of the parent term, for a nested menu; `0` at the top |
+| `.Link` | the URL the **source** site served this archive at, useful on a migrated site |
+
+| `.Site.Media[id]` | What it is |
+|---|---|
+| `.ID`, `.Slug`, `.Title.Rendered` | identity and caption |
+| `.MediaType`, `.MimeType` | `image`, `file`; the MIME type picks an icon for a document link |
+| `.SourceURL` | the original URL, for a site that did not copy its media across |
+| `.MediaDetails.File` | the path the generator itself resolves a featured image through |
+| `.MediaDetails.Width`, `.Height` | the intrinsic size — write both attributes and the page stops shifting as images load |
+
+```gotemplate
+{{ with index .Site.Media .FeaturedMediaID }}
+  <img src="{{ .SourceURL }}" alt="{{ .Title.Rendered }}"
+       width="{{ .MediaDetails.Width }}" height="{{ .MediaDetails.Height }}">
+{{ end }}
+```
+
 ## Data and variables
 
 `data/authors/ada.yaml` is exposed as `.Data.authors.ada`. Configuration:

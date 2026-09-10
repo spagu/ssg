@@ -557,6 +557,14 @@ Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
 \fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
 where the time goes, this answers why.
 .TP
+.B analytics_ids:
+(config only) Tracking ids the site declares, by vendor —
+\fBgtm: GTM\-XXXXXXX\fR, \fBga4: G\-XXXXXXX\fR. Google Tag Manager is emitted in
+both required places: the script in \fB<head>\fR and the \fB<noscript>\fR iframe
+immediately after \fB<body>\fR. Declaring an id is the consent \fBanalytics:
+true\fR asks for, so it renders without that flag; ids a migration recorded
+still need it. Tracking reaches every page and does not depend on \fBseo\fR.
+.TP
 .B site_graph: true
 (config only) Publish \fBsite-graph.json\fR: every page, section, taxonomy,
 link and redirect the build produced, stamped with the build's version and a
