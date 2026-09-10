@@ -352,13 +352,21 @@ func (h *hookSet) isExternal(dest string) bool {
 	if h.domain == "" {
 		return true
 	}
+	// Compare hosts rather than whole prefixes: a site's own links are written
+	// with either scheme and sometimes with neither, and three concatenated
+	// prefixes only made that harder to read.
 	domain := strings.ToLower(strings.TrimSuffix(h.domain, "/"))
-	for _, prefix := range []string{"https://" + domain, "http://" + domain, "//" + domain} {
-		if lower == prefix || strings.HasPrefix(lower, prefix+"/") {
-			return false
-		}
+	host := stripScheme(lower)
+	return host != domain && !strings.HasPrefix(host, domain+"/")
+}
+
+// stripScheme removes a URL's scheme and its leading slashes, so two addresses
+// can be compared by host whatever each was written with.
+func stripScheme(u string) string {
+	if i := strings.Index(u, "://"); i >= 0 {
+		return u[i+3:]
 	}
-	return true
+	return strings.TrimPrefix(u, "//")
 }
 
 // plainRenderer is a renderer with this site's extensions and no hooks, used

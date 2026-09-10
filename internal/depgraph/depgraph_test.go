@@ -149,19 +149,19 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 // an error and not a partial answer.
 func TestLoadRefusesRatherThanGuesses(t *testing.T) {
 	dir := t.TempDir()
-	if g := Load(dir); g != nil {
+	if Load(dir) != nil {
 		t.Error("a missing graph should load as nil")
 	}
 	if err := os.WriteFile(filepath.Join(dir, FileName), []byte("{not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if g := Load(dir); g != nil {
+	if Load(dir) != nil {
 		t.Error("a corrupt graph should load as nil")
 	}
 	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(`{"schema":999,"nodes":{}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if g := Load(dir); g != nil {
+	if Load(dir) != nil {
 		t.Error("a graph from another schema should load as nil")
 	}
 }

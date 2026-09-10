@@ -94,17 +94,21 @@ for name in ("post.html", "page.html"):
 PY
 }
 
-# timeBuild <dir> <extra flags…> — best wall time of RUNS builds, in seconds.
-timeBuild() {
+# now_seconds prints a monotonic-ish timestamp; bash has no sub-second clock
+# that is portable, so python provides one.
+now_seconds() { python3 -c 'import time; print(time.perf_counter())'; }
+
+# time_build <dir> <extra flags…> — best wall time of RUNS builds, in seconds.
+time_build() {
   local dir="$1"; shift
   local best="" start end
   for _ in $(seq 1 "$RUNS"); do
     # Every repetition has to start from the same edit, or the second one
     # measures a build with nothing to do.
     [[ -n "${BENCH_TOUCH:-}" ]] && printf '\n// edited %s\n' "$(date -u +%FT%T.%NZ)" >> "$BENCH_TOUCH"
-    start=$(python3 -c 'import time; print(time.perf_counter())')
+    start=$(now_seconds)
     (cd "$dir" && "$SSG_BIN" --config .ssg.yaml --quiet "$@" >/dev/null 2>&1) || true
-    end=$(python3 -c 'import time; print(time.perf_counter())')
+    end=$(now_seconds)
     best=$(python3 -c "
 b = '$best'; t = $end - $start
 print(min(float(b), t) if b else t)")
@@ -128,8 +132,8 @@ for n in "${SIZES[@]}"; do
   # saved file costs, against what it used to cost (GO-094).
   if [[ -n "${BENCH_INCREMENTAL:-}" ]]; then
     rm -rf "$dir/out" "$dir/.ssg-cache"
-    full=$(timeBuild "$dir")
-    inc=$(BENCH_TOUCH="$dir/content/bench/posts/post-00000.md" timeBuild "$dir" --incremental)
+    full=$(time_build "$dir")
+    inc=$(BENCH_TOUCH="$dir/content/bench/posts/post-00000.md" time_build "$dir" --incremental)
     python3 -c "
 n, f, i = $n, float('$full'), float('$inc')
 print(f'{n:<8} {f:<10.2f} {i:<12.2f} {f/max(i,1e-9):.1f}x')"
@@ -141,9 +145,9 @@ print(f'{n:<8} {f:<10.2f} {i:<12.2f} {f/max(i,1e-9):.1f}x')"
     rm -rf "$dir/out"
     # Time the build itself; the corpus is already warm in the page cache, so
     # this measures the generator rather than the first read of the disk.
-    start=$(python3 -c 'import time; print(time.perf_counter())')
+    start=$(now_seconds)
     (cd "$dir" && "$SSG_BIN" --config .ssg.yaml --quiet >/dev/null 2>&1) || true
-    end=$(python3 -c 'import time; print(time.perf_counter())')
+    end=$(now_seconds)
     best=$(python3 -c "
 b = '$best'; t = $end - $start
 print(min(float(b), t) if b else t)")

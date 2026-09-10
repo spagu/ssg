@@ -342,3 +342,40 @@ func TestNestedHooksDoNotApplyInsideRenderedContent(t *testing.T) {
 		t.Errorf("a hook ran inside another hook's content:\n%s", got)
 	}
 }
+
+// TestStripSchemeComparesByHost: a site's own links are written with either
+// scheme and sometimes with neither, and all three mean the same page.
+func TestStripSchemeComparesByHost(t *testing.T) {
+	cases := map[string]string{
+		"https://example.com/a": "example.com/a",
+		"http://example.com/a":  "example.com/a",
+		"//example.com/a":       "example.com/a",
+		"/a":                    "/a",
+		"ftp://example.com":     "example.com",
+		"example.com/a":         "example.com/a",
+	}
+	for in, want := range cases {
+		if got := stripScheme(in); got != want {
+			t.Errorf("stripScheme(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestOwnDomainIsInternalWhateverTheSchemeAndAnotherHostIsNot.
+func TestOwnDomainIsInternalWhateverTheSchemeAndAnotherHostIsNot(t *testing.T) {
+	h := &hookSet{domain: "example.com/"}
+	for _, internal := range []string{
+		"https://example.com/a/", "http://example.com/a/", "//example.com/a/", "https://example.com",
+	} {
+		if h.isExternal(internal) {
+			t.Errorf("%s should be this site's own", internal)
+		}
+	}
+	for _, external := range []string{
+		"https://other.example/a/", "//other.example/a/", "https://example.com.evil.test/a/",
+	} {
+		if !h.isExternal(external) {
+			t.Errorf("%s should be external", external)
+		}
+	}
+}

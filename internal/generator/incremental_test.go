@@ -154,13 +154,9 @@ func TestIncrementalSkipsWhatCannotHaveChanged(t *testing.T) {
 	cfg := incrementalFixture(t, 4)
 	buildSiteFixture(t, cfg)
 
-	untouched := filepath.Join(cfg.OutputDir, "2024", "01", "03", "post-c", "index.html")
-	before, err := os.Stat(untouched)
-	if err != nil {
-		t.Fatal(err)
-	}
 	// Make the marker unmistakable: replace the file with something the build
 	// would overwrite if it rendered the page again.
+	untouched := filepath.Join(cfg.OutputDir, "2024", "01", "03", "post-c", "index.html")
 	if err := os.WriteFile(untouched, []byte("SENTINEL"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -168,14 +164,13 @@ func TestIncrementalSkipsWhatCannotHaveChanged(t *testing.T) {
 		"---\ntitle: Post a\nslug: post-a\nstatus: publish\ntype: post\ndate: 2024-01-01\ntags: [go]\n---\n\nEdited.\n")
 	buildSiteFixture(t, cfg)
 
-	if got := mustRead(t, untouched); got != "SENTINEL" {
-		t.Errorf("a page nothing could have changed was rewritten")
+	if mustRead(t, untouched) != "SENTINEL" {
+		t.Error("a page nothing could have changed was rewritten")
 	}
 	edited := mustRead(t, filepath.Join(cfg.OutputDir, "2024", "01", "01", "post-a", "index.html"))
 	if !strings.Contains(edited, "Edited.") {
 		t.Errorf("the edited page was not rewritten:\n%s", edited)
 	}
-	_ = before
 }
 
 // TestChangedTemplateForcesAFullBuild: the graph does not model which pages a
@@ -193,7 +188,7 @@ func TestChangedTemplateForcesAFullBuild(t *testing.T) {
 	mustWrite(t, tmpl, strings.Replace(body, "<body>", "<body data-changed=\"1\">", 1))
 	buildSiteFixture(t, cfg)
 
-	if got := mustRead(t, sentinel); got == "SENTINEL" {
+	if mustRead(t, sentinel) == "SENTINEL" {
 		t.Error("a changed template must rebuild every page")
 	}
 }
@@ -210,7 +205,7 @@ func TestNewContentForcesAFullBuild(t *testing.T) {
 	mustWrite(t, filepath.Join(contentRoot(cfg), "posts", "news", "z.md"),
 		"---\ntitle: New\nslug: post-z\nstatus: publish\ntype: post\ndate: 2024-02-02\n---\n\nNew.\n")
 	buildSiteFixture(t, cfg)
-	if got := mustRead(t, sentinel); got == "SENTINEL" {
+	if mustRead(t, sentinel) == "SENTINEL" {
 		t.Error("a new file must rebuild the site, because what depends on it is unknown")
 	}
 }
