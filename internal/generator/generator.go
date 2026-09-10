@@ -39,9 +39,9 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	gmparser "github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
-	gmutil "github.com/yuin/goldmark/util"
 )
 
 // Shortcode defines a reusable content snippet
@@ -134,6 +134,11 @@ type Config struct {
 	// ComponentsDir is where typed content components live (GO-093); empty
 	// means "components", and a directory that is not there is not an error.
 	ComponentsDir string
+
+	// RenderHooks maps a Markdown node kind — image, link, heading, code,
+	// table, blockquote — to the template that renders it (GO-099). Empty
+	// leaves goldmark's own markup untouched.
+	RenderHooks map[string]string
 
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
@@ -595,6 +600,9 @@ type Generator struct {
 	// components is the site's typed content components, or nil when it has
 	// none (GO-093). componentMu guards the per-build bookkeeping beside it:
 	// content renders on a worker pool.
+	// hooks are the render hooks this site declared (GO-099), or nil.
+	hooks *hookSet
+
 	components      *components.Set
 	componentMu     sync.Mutex
 	componentsUsed  map[string]bool
@@ -751,7 +759,12 @@ func newSanitizer(enabled bool) *bluemonday.Policy {
 // always on (footnotes are a common WP-export artifact, AX-003); auto heading IDs
 // back the table of contents (AX-002); Chroma syntax highlighting is added when
 // enabled (AX-001). WithUnsafe preserves the SSG contract of rendering author HTML.
-func buildMarkdown(cfg Config) goldmark.Markdown {
+func buildMarkdown(cfg Config) goldmark.Markdown { return buildMarkdownWith(cfg, nil) }
+
+// buildMarkdownWith is buildMarkdown with render hooks registered (GO-099).
+// A nil set registers nothing, which is what keeps an unhooked build's output
+// identical to goldmark's own.
+func buildMarkdownWith(cfg Config, hooks *hookSet) goldmark.Markdown {
 	exts := []goldmark.Extender{extension.Table, extension.Footnote}
 	if cfg.Highlight {
 		style := cfg.HighlightStyle
@@ -771,9 +784,9 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 			// Recompute heading ids from the VISIBLE text (issue #26): the
 			// built-in generator derives them from the raw source line, so a
 			// heading containing a Markdown link leaks the href into its id.
-			gmparser.WithASTTransformers(gmutil.Prioritized(headingIDTransformer{}, 900)),
+			gmparser.WithASTTransformers(hookTransformers(hooks)...),
 		),
-		goldmark.WithRendererOptions(html.WithUnsafe()),
+		goldmark.WithRendererOptions(append([]renderer.Option{html.WithUnsafe()}, hookRendererOption(hooks)...)...),
 	)
 }
 
@@ -2240,6 +2253,11 @@ func (g *Generator) loadTemplates() error {
 	// Components share the theme's helpers: a component is markup the site's
 	// author wrote, so it gets what a partial gets (GO-093).
 	if err := g.loadComponents(funcs); err != nil {
+		return err
+	}
+	// Hooks rebuild the markdown renderer, so they load before any content is
+	// converted (GO-099).
+	if err := g.loadRenderHooks(funcs); err != nil {
 		return err
 	}
 

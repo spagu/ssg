@@ -713,6 +713,12 @@ type Config struct {
 	// optional assets. Default "components"; absent means the site has none.
 	ComponentsDir string `yaml:"components_dir" toml:"components_dir" json:"components_dir"`
 
+	// RenderHooks maps a Markdown node kind to the template that renders it
+	// (GO-099): image, link, heading, code, table, blockquote. Absent leaves
+	// goldmark's own markup untouched — which is what every existing site
+	// gets.
+	RenderHooks map[string]string `yaml:"render_hooks" toml:"render_hooks" json:"render_hooks"`
+
 	// ShortcodeErrors decides what a shortcode whose template fails to render
 	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
 	// and nothing in the page), "keep" (its raw source, so the gap is visible in

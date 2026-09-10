@@ -307,6 +307,7 @@ Common options:
 | Edit frontmatter in the browser | — | `--http --watch --edit` |
 | Declare tracking ids (GTM both halves, GA4) | `analytics_ids: {gtm: GTM-…}` | config only |
 | Typed content components with a props schema | a `components/` directory | `--components-dir=DIR` |
+| Decide the markup for images, links, headings, code | `render_hooks: {image: …}` | config only |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
@@ -552,6 +553,7 @@ Development workflow and review requirements are in
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
+| [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |
 | [docs/EDITING.md](docs/EDITING.md) | `--edit`: editing frontmatter in the browser — what a theme marks, where a save goes, the security rules |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |

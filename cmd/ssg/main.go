@@ -709,6 +709,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Profile:                cfg.Profile,
 		AnalyticsIDs:           cfg.AnalyticsIDs,
 		ComponentsDir:          cfg.ComponentsDir,
+		RenderHooks:            cfg.RenderHooks,
 		EditMode:               cfg.Edit,
 		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                     buildAIClient(cfg.AI),

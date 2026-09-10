@@ -33,6 +33,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 🪝 **Render hooks: a template decides the markup for one node kind** (GO-099).
+  Everything this build did to rendered content, it did with regular
+  expressions over finished HTML. That can only change what is already there,
+  and the gap it could not close is the one that matters most: **an image
+  written in Markdown came out bare** — no `srcset`, no width, no height, no
+  `loading="lazy"`, because the responsive pipeline was reachable only from
+  templates. A site migrated from WordPress has hundreds of content images that
+  skipped it. There was also no policy for external links at all, and
+  `rel="noopener"` is a security property rather than a nicety.
+
+  `render_hooks:` maps a node kind — image, link, heading, code, table,
+  blockquote — to a template, registered with goldmark as a node renderer. The
+  context is complete rather than approximate: `.Text` and `.Inner` arrive
+  already rendered, so `[**bold** link](/x)` reaches a link hook as markup; a
+  heading gets the anchor the build already computed, so it cannot disagree
+  with the table of contents; a code hook gets the highlighted block in
+  `.Rendered` to **wrap** rather than replace.
+
+  Two details found while building it. A lone image is unwrapped from its
+  paragraph when an image hook is set, because `<p><figure>…</figure></p>` is
+  markup no browser agrees about and a caption is the first thing anyone writes
+  such a hook for. And a hook that fails at render time writes nothing and says
+  so, rather than falling back to markup that looks almost right.
+
+  Without hooks nothing is registered and the output is goldmark's own, byte
+  for byte — which the golden corpora check. The regular expressions this
+  replaces stay where they are, to be retired one at a time.
+
 - 🧩 **Typed content components** (GO-093). A shortcode is an entry in the site
   config: a fixed name rendering fixed data. `{{gallery}}` renders the one
   gallery the config describes, and a second gallery means a second config

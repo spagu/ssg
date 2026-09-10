@@ -198,6 +198,10 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
+**Render hooks are opt-in by config.** Without `render_hooks:` the Markdown
+renderer is untouched and the output is byte for byte what it was. With one, the
+named node kind is rendered by your template instead. See docs/RENDER_HOOKS.md.
+
 **Components are opt-in by a directory.** If your project has a `components/`
 directory it is now loaded (see docs/COMPONENTS.md); if it does not, nothing
 changes. One thing to know either way: content that quotes `{{< something >}}`

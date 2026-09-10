@@ -557,6 +557,19 @@ Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
 \fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
 where the time goes, this answers why.
 .TP
+.B render_hooks:
+(config only) A template per Markdown node kind — \fBimage\fR, \fBlink\fR,
+\fBheading\fR, \fBcode\fR, \fBtable\fR, \fBblockquote\fR — rendering that node
+at the syntax tree rather than by rewriting the HTML afterwards. This is how a
+content image gets \fBsrcset\fR, \fBloading="lazy"\fR or a caption (the
+responsive pipeline was reachable only from templates), and how external links
+get \fBrel="noopener"\fR.
+.IP
+\fB.Text\fR and \fB.Inner\fR arrive rendered, so markup inside a link survives;
+\fB.Rendered\fR hands a code hook the highlighted block to wrap rather than
+replace. Without hooks nothing is registered and the output is goldmark's own,
+byte for byte. See \fBdocs/RENDER_HOOKS.md\fR.
+.TP
 .BR \-\-components\-dir =\fIDIR
 Where typed content components live (default \fBcomponents\fR). A component is a
 directory with \fBcomponent.yaml\fR declaring its props — type, required,

@@ -788,6 +788,7 @@ scope table is in [TEMPLATES.md](TEMPLATES.md#what-is-in-scope-inside-a-shortcod
 |---|---:|---|---|
 | `shortcode_errors` | `drop` | `--shortcode-errors` | What a shortcode that fails to render — or a component call made wrongly — leaves in the page |
 | `components_dir` | `components` | `--components-dir=DIR` | Where typed content components live. See [COMPONENTS.md](COMPONENTS.md) |
+| `render_hooks` | empty | config only | A template per Markdown node kind — image, link, heading, code, table, blockquote. See [RENDER_HOOKS.md](RENDER_HOOKS.md) |
 
 - `drop` — a warning, and the shortcode is removed from the page (historical
   behaviour, so existing sites build byte-identically).
