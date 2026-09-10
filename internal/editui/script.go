@@ -59,6 +59,10 @@ white-space:pre-wrap}
 #ssg-edit-panel .ssg-edit-msg.ssg-bad{background:#7f1d1d}
 [data-ssg-edit]{outline:1px dashed rgba(37,99,235,.5);outline-offset:2px;cursor:pointer}
 [data-ssg-edit]:hover{outline:2px solid #2563eb}
+[data-ssg-edit="body"]{outline-color:rgba(37,99,235,.25);cursor:auto}
+[data-ssg-edit="body"] p:hover,[data-ssg-edit="body"] li:hover,[data-ssg-edit="body"] h2:hover,
+[data-ssg-edit="body"] h3:hover,[data-ssg-edit="body"] blockquote:hover{
+  outline:2px solid #2563eb;outline-offset:2px;cursor:pointer}
 </style>
 <script>(function(){
 var TOKEN=__SSG_EDIT_TOKEN__;
@@ -146,14 +150,84 @@ function openPanel(onlyKey){
 function show(node,text,bad){node.style.display="block";node.textContent=text;
   node.className="ssg-edit-msg"+(bad?" ssg-bad":"")}
 
+function openBlock(el){
+  var text=(el.innerText||el.textContent||"").trim();
+  if(!text){return}
+  api("/__edit/block?path="+encodeURIComponent(SOURCE)+"&text="+encodeURIComponent(text))
+    .then(function(b){blockPanel(b)})
+    .catch(function(e){bar("edit: "+(e.message||e))});
+}
+
+function blockPanel(b){
+  var old=document.getElementById("ssg-edit-panel");if(old){old.remove()}
+  var p=el("div",{id:"ssg-edit-panel"});
+  p.appendChild(el("h2",{textContent:"Edit "+b.kind}));
+  p.appendChild(el("div",{className:"ssg-edit-path",textContent:b.path}));
+  p.appendChild(el("label",{textContent:"Markdown source"}));
+  p.appendChild(el("span",{className:"ssg-edit-hint",
+    textContent:"This is what is in the file. Formatting like **bold** stays as it is written."}));
+  var box=el("textarea",{});box.value=b.source;box.style.minHeight="220px";
+  p.appendChild(box);
+  var msg=el("div",{className:"ssg-edit-msg"});msg.style.display="none";
+  p.appendChild(aiRow(box,msg,b.kind));
+  var actions=el("div",{className:"ssg-edit-actions"});
+  var save=el("button",{type:"button",className:"ssg-primary",textContent:"Save"});
+  var close=el("button",{type:"button",textContent:"Close"});
+  close.onclick=function(){p.remove()};
+  save.onclick=function(){
+    if(box.value===b.source){show(msg,"Nothing changed.",false);return}
+    save.disabled=true;
+    api("/__edit/body",{method:"POST",body:JSON.stringify({path:b.path,old:b.source,new:box.value})})
+      .then(function(r){b.source=box.value;show(msg,(r.git||"saved"),false)})
+      .catch(function(e){show(msg,String(e.message||e),true)})
+      .then(function(){save.disabled=false});
+  };
+  actions.appendChild(save);actions.appendChild(close);
+  p.appendChild(actions);p.appendChild(msg);
+  document.body.appendChild(p);
+  box.focus();
+}
+
+function aiRow(box,msg,kind){
+  var row=el("div",{className:"ssg-edit-actions"});
+  if(!STATUS.ai||!STATUS.aiActions){return row}
+  STATUS.aiActions.forEach(function(a){
+    if(a.name==="title"&&kind!=="heading"){return}
+    var b=el("button",{type:"button",textContent:"✨ "+a.label});
+    b.onclick=function(){
+      b.disabled=true;show(msg,"Asking the model…",false);
+      api("/__edit/ai",{method:"POST",body:JSON.stringify({action:a.name,text:box.value,limit:a.limit})})
+        .then(function(r){box.value=r.proposal;
+          show(msg,"A proposal — nothing is saved until you press Save.",false)})
+        .catch(function(e){show(msg,String(e.message||e),true)})
+        .then(function(){b.disabled=false});
+    };
+    row.appendChild(b);
+  });
+  return row;
+}
+
 document.addEventListener("click",function(ev){
-  var target=ev.target.closest?ev.target.closest("["+"data-ssg-edit"+"]"):null;
+  if(!ev.target.closest){return}
+  var target=ev.target.closest("["+"data-ssg-edit"+"]");
   if(!target){return}
   var spec=target.getAttribute("data-ssg-edit")||"";
-  if(spec.indexOf("frontmatter:")!==0){return}
+  if(spec.indexOf("frontmatter:")===0){
+    ev.preventDefault();
+    openPanel(spec.slice("frontmatter:".length));
+    return;
+  }
+  if(spec!=="body"){return}
+  // Inside a body region the clickable thing is the block, not the region:
+  // the whole article is not an edit anyone means to make.
+  var block=ev.target.closest("p,h1,h2,h3,h4,h5,h6,li,blockquote");
+  if(!block||!target.contains(block)){return}
   ev.preventDefault();
-  openPanel(spec.slice("frontmatter:".length));
+  openBlock(block);
 },true);
+
+var STATUS={};
+api("/__edit/status").then(function(st){STATUS=st}).catch(function(){});
 
 if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){bar()})}else{bar()}
 })();</script>`

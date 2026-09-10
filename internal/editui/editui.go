@@ -62,6 +62,15 @@ type Options struct {
 	// Branch names the git branch edits land on; empty means one is minted per
 	// session.
 	Branch string
+	// AI answers one editing action, or is nil when the site has no model
+	// configured (GO-102 phase 3). It is a function rather than a client so
+	// this package does not depend on the AI package, and so the credential
+	// stays wherever the caller keeps it.
+	AI func(question string, timeout time.Duration) (string, error)
+	// ExcerptLimit is the character budget the "shorten" action works to —
+	// the same one --check-meta measures against, so the two agree.
+	ExcerptLimit int
+
 	// Logf receives one line per refused request.
 	Logf func(string, ...any)
 }
@@ -89,6 +98,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(Path+"doc", s.guard(s.handleDoc))
 	mux.HandleFunc(Path+"frontmatter", s.guard(s.handleFrontmatter))
+	mux.HandleFunc(Path+"block", s.guard(s.handleBlock))
+	mux.HandleFunc(Path+"body", s.guard(s.handleBody))
+	mux.HandleFunc(Path+"ai", s.guard(s.handleAI))
 	mux.HandleFunc(Path+"status", s.guard(s.handleStatus))
 	return mux
 }
@@ -284,6 +296,86 @@ func describe(req frontmatterRequest) string {
 	return req.Key + " = " + value
 }
 
+// blockResponse is the source a click resolved to.
+type blockResponse struct {
+	Path   string `json:"path"`
+	Source string `json:"source"`
+	Kind   string `json:"kind"`
+}
+
+// handleBlock answers with the SOURCE Markdown behind a piece of rendered text.
+//
+// The editor shows that source, not the rendered HTML: editing a render means a
+// lossy round trip back to Markdown, and a paragraph with a link and a bold run
+// does not survive it. An author editing `**bold**` is editing what is in the
+// file, which is honest and is also the only version that can be saved safely.
+func (s *Server) handleBlock(w http.ResponseWriter, r *http.Request) {
+	rel := r.URL.Query().Get("path")
+	clicked := r.URL.Query().Get("text")
+	if rel == "" || clicked == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "path and text are required"})
+		return
+	}
+	text, isErr := s.opts.MCP.Call("content_read", map[string]any{"path": rel})
+	if isErr {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": text})
+		return
+	}
+	doc, err := splitDocument(text)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
+		return
+	}
+	block, err := FindBlock(doc.body, clicked)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, blockResponse{Path: rel, Source: block.Source, Kind: block.Kind})
+}
+
+// bodyRequest is one block being replaced.
+type bodyRequest struct {
+	Path string `json:"path"`
+	Old  string `json:"old"`
+	New  string `json:"new"`
+}
+
+// handleBody replaces one block of a page's body.
+//
+// It goes straight through `content_edit`, which requires the anchor to appear
+// exactly once and refuses with the count otherwise. That refusal is the point:
+// the failure mode of an editor like this is a green save that changed the
+// wrong paragraph, and a refusal an author can act on is strictly better.
+func (s *Server) handleBody(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "POST only"})
+		return
+	}
+	var req bodyRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "unreadable request: " + err.Error()})
+		return
+	}
+	if req.Path == "" || req.Old == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "path and old are required"})
+		return
+	}
+	if req.Old == req.New {
+		writeJSON(w, http.StatusOK, map[string]any{"saved": false, "message": "nothing changed"})
+		return
+	}
+	text, isErr := s.opts.MCP.Call("content_edit", map[string]any{
+		"path": req.Path, "old": req.Old, "new": req.New,
+	})
+	if isErr {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": text})
+		return
+	}
+	branch, note := s.commit(req.Path, "body edited")
+	writeJSON(w, http.StatusOK, map[string]any{"saved": true, "branch": branch, "git": note})
+}
+
 // handleStatus reports what the editor can do here, so the UI offers only what
 // will work rather than buttons that fail.
 func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
@@ -293,6 +385,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"git":    s.opts.MCP.HasTool("git_commit"),
 		"branch": branch,
+		"ai":     s.opts.AI != nil,
+		// The panel renders whatever this lists, so the buttons and the
+		// actions cannot disagree about what exists.
+		"aiActions": aiActionList(s.opts.ExcerptLimit),
 	})
 }
 

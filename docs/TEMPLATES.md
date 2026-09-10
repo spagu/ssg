@@ -280,7 +280,15 @@ A theme says which parts of a page may be edited in the browser
 ```
 
 The value names the source of the text: `frontmatter:<key>` opens that field's
-control. A region with no attribute is not editable, which is the point — most
+control, and `body` marks the region holding the page's content, inside which a
+click on a paragraph, heading, list item or quotation opens that block:
+
+```html
+<div class="post-body" data-ssg-edit="body">{{ .Post.Content | safeHTML }}</div>
+```
+
+Put it on an element the theme already has rather than adding a wrapper, so a
+published page keeps the markup it had. A region with no attribute is not editable, which is the point — most
 text on a rendered page did not come from a file's body, and guessing where it
 came from is how an editor changes the wrong paragraph.
 

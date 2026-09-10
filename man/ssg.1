@@ -536,6 +536,13 @@ save is written to the Markdown file, validated against \fBcontent_schemas\fR,
 rebuilt, reloaded in the browser and committed to a git branch of its own —
 never to the checked-out branch.
 .IP
+A region marked \fBdata\-ssg\-edit="body"\fR makes its paragraphs, headings,
+list items and quotations clickable; the panel shows the Markdown SOURCE of the
+block, and a save proceeds only when that block's text matches exactly one block
+of the file and its anchor appears exactly once in it. With a model configured,
+four AI buttons propose a shorter excerpt, a title, alt text or a translation —
+they fill the field and never save, and the key stays on the server.
+.IP
 Requires \fB\-\-http\fR and \fB\-\-watch\fR. Every request to \fB/__edit/*\fR
 must carry the session token in the \fBX\-SSG\-Edit\-Token\fR header; the token
 is printed at start-up and \fB$SSG_EDIT_TOKEN\fR overrides it. On a

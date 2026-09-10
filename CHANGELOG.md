@@ -33,6 +33,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- ✎ **Editing a page's body in the browser, and four AI actions** (GO-102,
+  phases 2 and 3). Phase 1 edited frontmatter, where the field a click means is
+  written on the element clicked. The body is the hard half, and the hazard is
+  the one the ticket named first: the HTML on screen went through Markdown
+  rendering, shortcode expansion, SEO injection, link rewriting, sanitisation
+  and minification, and none of that has an inverse.
+
+  So a click does not search the file for its text. The source is split into
+  the blocks Markdown is made of, each block's plain text is compared with the
+  clicked text after normalising what the build changes — collapsed whitespace,
+  smart quotes, dashes, ellipses — and the edit proceeds only when exactly one
+  block matches. The save then goes through `content_edit`, whose contract is
+  the same rule one level down. Two independent checks of one property, because
+  what they prevent is a green save that changed the wrong paragraph.
+
+  The panel shows the **Markdown source**, not the render: editing a render
+  means a lossy round trip back, and an author seeing `**bold**` is seeing what
+  is in the file.
+
+  With a model configured, four buttons propose a shorter excerpt (to the same
+  160 characters `--check-meta` measures), a title of at most 60, alt text for
+  an image, or a translation. An action **proposes and never saves** — the
+  answer lands in the field and the save is still the author's — and the key
+  never reaches the browser: the dev server calls the model exactly as the
+  build does.
+
 - 🕸️ **Site graph phase 2: which pages use which component** (GO-095). Each page
   in `site-graph.json` now lists the components it renders, and `ssg mcp` gains
   `site_components` — which inverts the question, because the graph stores it

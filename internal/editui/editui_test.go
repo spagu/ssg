@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spagu/ssg/internal/mcp"
 	"github.com/spagu/ssg/internal/models"
@@ -585,5 +587,171 @@ func TestValidateWithoutAFieldRule(t *testing.T) {
 	}
 	if got, err := s.validate("unknown-type", "anything", "true"); err != nil || got != "true" {
 		t.Errorf("got %#v, %v", got, err)
+	}
+}
+
+// TestBlockEndpointResolvesRenderedTextToSource (GO-102 phase 2).
+func TestBlockEndpointResolvesRenderedTextToSource(t *testing.T) {
+	s, rel, _ := newEditor(t, false)
+	if text, isErr := s.opts.MCP.Call("content_update", map[string]any{
+		"path": rel, "content": samplePost + "\nAnother **paragraph**.\n\nThe body.\n"}); isErr {
+		t.Fatal(text)
+	}
+	w := call(t, s, http.MethodGet, Path+"block?path="+rel+"&text="+url.QueryEscape("Another paragraph."), "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	got := decode(t, w)
+	if got["source"] != "Another **paragraph**." || got["kind"] != "paragraph" {
+		t.Errorf("block = %v", got)
+	}
+	// Text that is not a block of the source is refused, not guessed at.
+	w = call(t, s, http.MethodGet, Path+"block?path="+rel+"&text="+url.QueryEscape("Read more"), "")
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("%d: %s", w.Code, w.Body.String())
+	}
+	// The arguments both matter.
+	if w := call(t, s, http.MethodGet, Path+"block?path="+rel, ""); w.Code != http.StatusBadRequest {
+		t.Errorf("no text: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodGet, Path+"block?text=x", ""); w.Code != http.StatusBadRequest {
+		t.Errorf("no path: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodGet, Path+"block?path=content/site/gone.md&text=x", ""); w.Code != http.StatusNotFound {
+		t.Errorf("missing file: %d", w.Code)
+	}
+}
+
+// TestBodyEndpointSavesThroughContentEdit, and inherits its refusal.
+func TestBodyEndpointSavesThroughContentEdit(t *testing.T) {
+	s, rel, git := newEditor(t, true)
+	if text, isErr := s.opts.MCP.Call("content_update", map[string]any{
+		"path": rel, "content": samplePost + "\nSecond paragraph.\n"}); isErr {
+		t.Fatal(text)
+	}
+	w := call(t, s, http.MethodPost, Path+"body",
+		`{"path":"`+rel+`","old":"Second paragraph.","new":"Second paragraph, edited."}`)
+	if w.Code != http.StatusOK || decode(t, w)["saved"] != true {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(readBack(t, s, rel), "Second paragraph, edited.") {
+		t.Error("the edit did not land")
+	}
+	if !strings.Contains(strings.Join(git.calls, " "), "commit") {
+		t.Errorf("git calls = %v", git.calls)
+	}
+	// An anchor that appears twice is refused by content_edit, with the count.
+	if text, isErr := s.opts.MCP.Call("content_update", map[string]any{
+		"path": rel, "content": samplePost + "\nSame.\n\nSame.\n"}); isErr {
+		t.Fatal(text)
+	}
+	w = call(t, s, http.MethodPost, Path+"body", `{"path":"`+rel+`","old":"Same.","new":"Changed."}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("%d: %s", w.Code, w.Body.String())
+	}
+	if msg, _ := decode(t, w)["error"].(string); !strings.Contains(msg, "2 times") {
+		t.Errorf("the refusal should say the count: %q", msg)
+	}
+	// The request shapes that are simply wrong.
+	if w := call(t, s, http.MethodGet, Path+"body", ""); w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodPost, Path+"body", "{nope"); w.Code != http.StatusBadRequest {
+		t.Errorf("bad json: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodPost, Path+"body", `{"path":"x"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("no anchor: %d", w.Code)
+	}
+	w = call(t, s, http.MethodPost, Path+"body", `{"path":"`+rel+`","old":"Same.","new":"Same."}`)
+	if w.Code != http.StatusOK || decode(t, w)["saved"] != false {
+		t.Errorf("an unchanged block should report nothing changed: %s", w.Body.String())
+	}
+}
+
+// TestAIActionsProposeAndNeverSave (GO-102 phase 3).
+func TestAIActionsProposeAndNeverSave(t *testing.T) {
+	s, rel, _ := newEditor(t, false)
+	before := readBack(t, s, rel)
+	var asked string
+	s.opts.AI = func(question string, _ time.Duration) (string, error) {
+		asked = question
+		return "  A shorter line.  ", nil
+	}
+	s.opts.ExcerptLimit = 160
+
+	w := call(t, s, http.MethodPost, Path+"ai", `{"action":"shorten","text":"A very long line indeed."}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("%d: %s", w.Code, w.Body.String())
+	}
+	got := decode(t, w)
+	if got["proposal"] != "A shorter line." {
+		t.Errorf("proposal = %v (it should be trimmed)", got["proposal"])
+	}
+	if !strings.Contains(asked, "160 characters") || !strings.Contains(asked, "A very long line indeed.") {
+		t.Errorf("the prompt did not carry the budget and the text: %q", asked)
+	}
+	if readBack(t, s, rel) != before {
+		t.Error("an AI action must not write to the file")
+	}
+
+	// A translation carries its target language.
+	call(t, s, http.MethodPost, Path+"ai", `{"action":"translate","text":"Hello","lang":"Polish"}`)
+	if !strings.Contains(asked, "Polish") {
+		t.Errorf("prompt = %q", asked)
+	}
+	// An explicit limit overrides the action's own.
+	call(t, s, http.MethodPost, Path+"ai", `{"action":"title","text":"x","limit":42}`)
+	if !strings.Contains(asked, "42 characters") {
+		t.Errorf("prompt = %q", asked)
+	}
+}
+
+// TestAIActionErrors: no model, an unknown action, no text, and a model that
+// does not answer.
+func TestAIActionErrors(t *testing.T) {
+	s, _, _ := newEditor(t, false)
+	if w := call(t, s, http.MethodPost, Path+"ai", `{"action":"shorten","text":"x"}`); w.Code != http.StatusNotImplemented {
+		t.Errorf("no model: %d", w.Code)
+	}
+	s.opts.AI = func(string, time.Duration) (string, error) { return "", errAIUnavailable }
+	if w := call(t, s, http.MethodPost, Path+"ai", `{"action":"shorten","text":"x"}`); w.Code != http.StatusBadGateway {
+		t.Errorf("a model that fails: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodPost, Path+"ai", `{"action":"nonsense","text":"x"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("unknown action: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodPost, Path+"ai", `{"action":"shorten","text":"  "}`); w.Code != http.StatusBadRequest {
+		t.Errorf("no text: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodGet, Path+"ai", ""); w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET: %d", w.Code)
+	}
+	if w := call(t, s, http.MethodPost, Path+"ai", "{nope"); w.Code != http.StatusBadRequest {
+		t.Errorf("bad json: %d", w.Code)
+	}
+}
+
+// errAIUnavailable stands in for a model that does not answer.
+var errAIUnavailable = fmt.Errorf("connection refused")
+
+// TestStatusDescribesTheAIButtons so the panel and the server cannot disagree
+// about what exists.
+func TestStatusDescribesTheAIButtons(t *testing.T) {
+	s, _, _ := newEditor(t, false)
+	got := decode(t, call(t, s, http.MethodGet, Path+"status", ""))
+	if got["ai"] != false {
+		t.Errorf("ai = %v", got["ai"])
+	}
+	actions, _ := got["aiActions"].([]any)
+	if len(actions) != 4 {
+		t.Fatalf("actions = %v", got["aiActions"])
+	}
+	first, _ := actions[0].(map[string]any)
+	if first["name"] != "shorten" || first["label"] == "" {
+		t.Errorf("first action = %v", first)
+	}
+	s.opts.AI = func(string, time.Duration) (string, error) { return "x", nil }
+	if got := decode(t, call(t, s, http.MethodGet, Path+"status", "")); got["ai"] != true {
+		t.Error("a configured model should be reported")
 	}
 }

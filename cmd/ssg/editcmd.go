@@ -17,11 +17,13 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/editui"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mcp"
+	"github.com/spagu/ssg/internal/parser"
 )
 
 // editSession is what a running editor needs, published as one value so a
@@ -101,7 +103,11 @@ func startEditMode(genCfg generator.Config, cfg *config.Config) bool {
 			Token:   token,
 			Schemas: cfg.ContentSchemas,
 			Root:    ".",
-			Logf:    func(format string, a ...any) { errf(format+"\n", a...) },
+			// The model the site already has, called by the dev server so the
+			// key never reaches the browser (GO-102 phase 3).
+			AI:           editAIFunc(cfg),
+			ExcerptLimit: parser.ExcerptMaxRunes,
+			Logf:         func(format string, a ...any) { errf(format+"\n", a...) },
 		}),
 		script: editui.Script(token),
 	})
@@ -182,4 +188,16 @@ func localGit(g mcp.GitOptions, contentDirs []string) mcp.GitOptions {
 		g.BranchPrefix = "edit/"
 	}
 	return g
+}
+
+// editAIFunc wires the site's configured model into the editing panel, or
+// returns nil when there is none — which the panel reads as "no AI buttons".
+func editAIFunc(cfg *config.Config) func(string, time.Duration) (string, error) {
+	client := buildAIClient(cfg.AI)
+	if client == nil {
+		return nil
+	}
+	return func(question string, timeout time.Duration) (string, error) {
+		return client.Query("", "", question, timeout)
+	}
 }

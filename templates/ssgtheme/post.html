@@ -17,7 +17,7 @@
 
 <main class="main-content" id="main-content">
     <div class="container post-layout">
-        <article class="article prose" id="post-{{ .Post.Slug }}">
+        <article class="article prose" id="post-{{ .Post.Slug }}" data-ssg-edit="body">
             <p class="eyebrow">Post</p>
             <h1 data-ssg-edit="frontmatter:title">{{ .Post.Title }}</h1>
             <p class="article-meta">
