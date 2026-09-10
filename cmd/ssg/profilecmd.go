@@ -12,10 +12,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/spagu/ssg/internal/config"
+	"github.com/spagu/ssg/internal/depgraph"
 	"github.com/spagu/ssg/internal/generator"
 )
 
@@ -140,10 +142,44 @@ func printProfilePage(report generator.ProfileReport, p generator.PageTiming) {
 		fmt.Printf(" · ssg %s", report.Version)
 	}
 	fmt.Println()
-	// Honest about the half that does not exist yet: the cost is measured, the
-	// reason for it is not, and inventing a tree here would be worse than
-	// saying so.
-	fmt.Println("   dependency tree: requires the incremental build graph (GO-094)")
+	printPageInputs(p.Path)
+}
+
+// printPageInputs names what this page was built from, read from the dependency
+// graph the last build recorded (GO-094).
+//
+// The page is found by its URL, so the match is on the tail of an output path
+// rather than an exact name: the profile reports "/hello/" and the graph holds
+// "output/hello/index.html", and the output directory is not in the report.
+func printPageInputs(pageURL string) {
+	graph := depgraph.Load(graphDir())
+	if graph == nil {
+		fmt.Println("   built from      no dependency graph here — run a build, then `ssg graph`")
+		return
+	}
+	if reasons := graph.Reasons(); len(reasons) > 0 {
+		fmt.Printf("   built from      every input: %s\n", reasons[0])
+		return
+	}
+	tail := strings.TrimPrefix(pageURL, "/") + "index.html"
+	var inputs []string
+	for input, outputs := range graph.Edges {
+		for _, out := range outputs {
+			if strings.HasSuffix(out, tail) {
+				inputs = append(inputs, input)
+				break
+			}
+		}
+	}
+	if len(inputs) == 0 {
+		fmt.Println("   built from      not in the last build's graph (`ssg graph` for what is)")
+		return
+	}
+	sort.Strings(inputs)
+	fmt.Printf("   built from      %s\n", inputs[0])
+	for _, in := range inputs[1:] {
+		fmt.Printf("                   %s\n", in)
+	}
 }
 
 // normalizeProfileURL compares URLs the way a person types them against the

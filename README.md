@@ -302,6 +302,8 @@ Common options:
 | Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
 | Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
 | Report where the build's time went | `profile: text` | `--profile[=json]` |
+| Rebuild only what a change reaches | `incremental: true` | `--incremental` |
+| See what a change rebuilds, and why | — | `ssg graph [file]` |
 | Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
 | Turn records from a file or API into pages | `mode: content` + `content_map:` | config only |
 | Edit frontmatter in the browser | — | `--http --watch --edit` |
@@ -333,6 +335,7 @@ ssg --help
 | Task | Command |
 |---|---|
 | Preview while editing | `ssg my-blog simple example.com --http --watch` |
+| See what editing one file rebuilds | `ssg graph content/my-blog/posts/hello.md` |
 | Production build | `ssg my-blog simple example.com --clean --minify-all` |
 | WebP and responsive images | `ssg my-blog simple example.com --webp --image-sizes=480,960,1600` |
 | Feed, search and SEO | `ssg my-blog simple example.com --feed --search-index --seo` |
@@ -557,6 +560,7 @@ Development workflow and review requirements are in
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |
+| [docs/INCREMENTAL.md](docs/INCREMENTAL.md) | `--incremental` and `ssg graph`: what a change rebuilds, when a build is full anyway, what it saves |
 | [docs/EDITING.md](docs/EDITING.md) | `--edit`: editing frontmatter in the browser — what a theme marks, where a save goes, the security rules |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |

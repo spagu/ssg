@@ -442,6 +442,7 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
+| `incremental` | `false` | `--incremental` | Rebuild only the pages a change can reach. Always on under `--watch` |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
 
@@ -459,6 +460,34 @@ rather than exiting, so a half-saved file never kills a dev session.
 
 A change is detected by content, not mtime: touching a file without changing its
 bytes does not trigger a rebuild.
+
+### Rebuilding only what changed
+
+`--watch` builds incrementally: after the hash check says something did change,
+only the pages that change can reach are rendered. A one-shot build is full
+unless `--incremental` asks otherwise, because a build nobody is waiting on
+should be the simple one.
+
+An uncertain dependency means a full build, always. A changed template or
+partial, a changed configuration file, a file the last build never saw, `--clean`,
+or content coming from MDDB, external sources or a CMS import each rebuild
+everything — the graph does not model which pages those reach, and a stale page
+with a green build is a worse failure than a slow one.
+
+```bash
+ssg graph                                # what the last build recorded, or why it cannot be narrowed
+ssg graph content/site/posts/hello.md    # what changing that file rebuilds
+ssg graph --dot | dot -Tsvg > graph.svg
+```
+
+The graph is recorded by every build, incremental or not, in
+`.ssg-cache/graph/graph.json`. Delete it and the next build is full. An
+incremental build produces the same output tree as a full one, byte for byte;
+a property test asserts exactly that over random sequences of edits.
+
+What it narrows is the render phase, which on a 5 000-post corpus is about a
+quarter of a warm build — see [INCREMENTAL.md](INCREMENTAL.md) for the
+measurements and for why the wall clock moves less than the page count does.
 
 `watch_runner_config` points the runner at a config file kept anywhere on disk,
 so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.
@@ -1843,11 +1872,13 @@ $ ssg profile page /configuration/
    render              25.4 ms
    share                1.6% of a 1.56 s build
    build           2026-09-10 12:55:42 · ssg 1.8.60
-   dependency tree: requires the incremental build graph (GO-094)
+   built from      content/site/pages/configuration.md
+                   data/nav.yaml
 ```
 
-The dependency tree is honest about not existing yet: the cost is measured,
-the reason for it is not, and a made-up tree would be worse than the sentence.
+`built from` reads the dependency graph the last build recorded, so it names
+real inputs rather than a guessed tree. On a site whose builds cannot be
+narrowed it says so instead, and `ssg graph` gives the reason.
 
 `--profile-pprof=DIR` writes `cpu.prof` and `heap.prof` for `go tool pprof`.
 That is a maintainer's instrument — `--profile` answers where the time goes,

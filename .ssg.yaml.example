@@ -19,6 +19,9 @@ host: "127.0.0.1"    # Dev server bind address (use 0.0.0.0 to expose on all int
 port: 8888           # HTTP server port
 watch: false         # Watch for changes and rebuild
 clean: false         # Clean output before build
+incremental: false   # Rebuild only what a change reaches (always on under watch);
+                     # a changed template, a changed config, a new file or clean
+                     # still rebuild everything. `ssg graph` says what and why.
 
 # Public Server Hardening (opt-in; all off by default)
 tls_cert: ""         # Path to a PEM certificate (with tls_key → HTTPS + HTTP/2)

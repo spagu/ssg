@@ -628,6 +628,12 @@ type Config struct {
 	// guessing at a schema (GO-092).
 	OutputsCustom []CustomOutput `yaml:"outputs_custom" toml:"outputs_custom" json:"outputs_custom"`
 
+	// Incremental narrows a build to what a change can have affected, using
+	// the dependency graph the previous build recorded (GO-094). On by default
+	// in --watch, where it is the difference between a keystroke and a pause;
+	// a build that cannot be narrowed silently runs whole.
+	Incremental bool `yaml:"incremental" toml:"incremental" json:"incremental"`
+
 	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
 	// client-side search widget (PLAT-004).
 	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`

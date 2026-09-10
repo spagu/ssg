@@ -196,7 +196,7 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.60">
 
-### 1.8.60 — nothing to do
+### 1.8.60 — `--watch` rebuilds less, and one external-source mode is stricter
 
 **`outputs:` grew a second shape.** The flat list you have means exactly what it
 meant. A map per content type is new, and so are the `txt` format and
@@ -229,6 +229,25 @@ needs a `content_map` and is refused without one, because with GO-098 that mode
 finally does what it says. If you have such a source, either add the mapping
 (docs/EXTERNAL_SOURCES.md, "Records as pages") or drop the `mode: content` line
 that was doing nothing.
+
+**`--watch` now rebuilds incrementally.** After its hash check says something
+changed, it renders only the pages that change can reach, instead of the whole
+site. The output is the same tree either way — a property test asserts that byte
+for byte over random sequences of edits — so there is nothing to change in a
+project. What you will notice is a line naming the decision, either
+`🧩 Incremental: 1 changed file(s) affect 1 output(s)` or `🧩 Full build: …`
+with the reason.
+
+A build is full whenever the answer is not certain: a changed template or
+partial, a changed config, a file the last build never saw, `--clean`, or
+content from MDDB, external sources or a CMS import. `ssg graph` prints which of
+those applies to your site, and `ssg --incremental` asks for the same narrowing
+in a one-shot build. The graph lives in `.ssg-cache/graph/`, is listed by
+`ssg cache stats`, and deleting it costs one full build. See docs/INCREMENTAL.md.
+
+If you script around the watcher's output, note that `ssg profile page /url/`
+now ends with a `built from` list read from that graph, where it used to say the
+dependency tree required GO-094.
 
 **Otherwise purely additive.** `ssg config view|set|unset` reads and edits the config from
 the command line. One behaviour change worth knowing: the MCP `designer_config_set`

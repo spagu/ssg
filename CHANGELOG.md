@@ -10,6 +10,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.60] - 2026-09-10
 
 ### Added
+- 🧩 **`--incremental`: rebuild only what a change reaches, and `ssg graph` to
+  see why** (GO-094). The watch loop has had one increment of this since
+  PLAT-006: it hashes the content tree and skips a rebuild when nothing changed
+  by a byte. Every real change then cost a full build — every page, every
+  archive, every aggregate — so a one-word fix to one post re-rendered five
+  thousand of them.
+
+  A dependency graph is recorded by **every** build, incremental or not: a graph
+  is only useful if it describes the build that actually ran, and one written
+  only when asked goes stale the first time it is not. It lives in
+  `.ssg-cache/graph/graph.json`, `ssg cache stats` lists it, and deleting it
+  costs one full build.
+
+  The rule the whole design rests on is the one PLAT-006 wrote down: **an
+  uncertain dependency means rebuild everything.** A graph that misses an edge
+  produces a stale page with a green build, which is exactly the class of silent
+  failure the 1.8.55–1.8.59 week was made of. So a changed template or partial,
+  a changed config, a file the last build never saw, `--clean`, or content from
+  MDDB, external sources or a CMS import each rebuild the whole site, and each
+  says which of those applied. Being wrong here is worse than being slow.
+
+  `--incremental` is on by default under `--watch`, where the alternative is a
+  full build on every save; a one-shot build stays full unless asked, because a
+  build nobody is waiting on should be the simple one.
+
+  **What it does not do is as important.** Every build still loads all the
+  content and computes every aggregate — archives, taxonomies, the sitemap, the
+  site graph — from the full set. Incremental only skips *writing* pages whose
+  bytes cannot have changed. That is why an incremental build and a full one
+  produce the same tree, and a property test asserts exactly that: a random
+  sequence of edits, applied to a site rebuilt whole and a site rebuilt
+  incrementally, byte for byte identical at every step.
+
+  Measured honestly on a 5 000-post corpus, editing one post: 268 pages
+  rendered instead of 5 251, and the wall clock barely moves. Rendering is a
+  quarter of a warm build; loading content is half of it, and 540 ms of that is
+  Markdown conversion the graph cannot remove because a listing may show any
+  page's body. Caching that conversion between builds is
+  [#270](https://github.com/spagu/ssg/issues/270). Until then this is worth
+  having for watch latency and for very large sites, which is what the ticket's
+  own re-verification predicted.
+
+- 🕸️ **`ssg graph [file]`** answers the two questions a build log cannot: what a
+  change rebuilds, and why a build cannot be narrowed. With no argument it
+  prints the size of the last build's graph, or the reasons this site's builds
+  are always full. With a path it prints the outputs that file reaches, or the
+  reason a change to it means everything. `--json` for a script, `--dot` for
+  `dot -Tsvg`, which is how a fan-out is seen rather than counted.
+
+  `ssg profile page /url/` now ends with the inputs the page was built from,
+  read from that graph. It used to say the dependency tree required GO-094.
+
 - 📄 **A content page can paginate a listing it renders itself** (#267).
   `paginate` split every *generated* listing — the post index and each archive
   — and nothing a person wrote: a page had no `.Pager`, and a template can

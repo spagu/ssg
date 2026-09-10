@@ -12,7 +12,8 @@ func TestCacheNamespaces(t *testing.T) {
 	t.Chdir(t.TempDir())
 	// Defaults, no config, no legacy dir.
 	ns := cacheNamespaces(nil)
-	if len(ns) != 3 || ns[0].name != "images" || ns[2].dir != filepath.Join(".ssg-cache", "ai") {
+	if len(ns) != 4 || ns[0].name != "images" || ns[2].dir != filepath.Join(".ssg-cache", "ai") ||
+		ns[3].dir != filepath.Join(".ssg-cache", "graph") {
 		t.Fatalf("default namespaces = %+v", ns)
 	}
 	// Config overrides win.
@@ -28,7 +29,7 @@ func TestCacheNamespaces(t *testing.T) {
 		t.Fatal(err)
 	}
 	ns = cacheNamespaces(nil)
-	if len(ns) != 4 || ns[3].name != "ai (legacy)" {
+	if len(ns) != 5 || ns[4].name != "ai (legacy)" {
 		t.Fatalf("legacy root not surfaced: %+v", ns)
 	}
 }

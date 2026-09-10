@@ -37,6 +37,11 @@ ssg \- fast static site generator written in Go
 .B ssg profile page
 .I /url/
 .br
+.B ssg graph
+.RI [ path ]
+.RB [ \-\-dot ]
+.RB [ \-\-json ]
+.br
 .B ssg config
 .RB { view | set | unset }
 .RI [ path ]
@@ -125,7 +130,7 @@ endpoint is detected once and skipped silently.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
-external-sources, ai). \fBstats\fR prints entries and size per namespace;
+external-sources, ai, graph). \fBstats\fR prints entries and size per namespace;
 \fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
@@ -151,8 +156,20 @@ is refused rather than rewritten without its comments.
 .B ssg profile page \fI/url/\fR
 Report what one page cost in the last profiled build, read from
 \fBbuild-profile.json\fR (write it with \fB\-\-profile=json\fR). Prints the
-render time, its share of the build, and the build's stamp. The dependency
-tree is named as requiring the incremental build graph rather than invented.
+render time, its share of the build, the build's stamp, and the inputs the page
+was built from, read from the dependency graph (see \fBssg graph\fR).
+.TP
+.B ssg graph \fR[\fIpath\fR] [\fB\-\-dot\fR] [\fB\-\-json\fR]
+Report what the last build depended on, read from
+\fB.ssg\-cache/graph/graph.json\fR. With no argument it prints the size of the
+graph, or the reasons this site's builds cannot be narrowed at all. With a path
+it prints the outputs a change to that file rebuilds, or the reason a change to
+it means a full build.
+.IP
+\fB\-\-json\fR prints the same answer for a script; \fB\-\-dot\fR writes the
+graph for \fBdot \-Tsvg\fR, which is how a fan-out is seen rather than counted.
+A graph is recorded by every build, incremental or not. See
+\fBdocs/INCREMENTAL.md\fR.
 .TP
 .B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-engine\fR \fIPATH\fR] [\fB\-\-source\fR \fINAME\fR]
 Migrate a live site into a ready-to-build SSG project. The built-in
@@ -550,6 +567,21 @@ non-loopback address without a token the server does not start. Editing runs in
 the MCP content role: templates are not editable from a browser. A build
 without \fB\-\-edit\fR strips the theme's editing attributes, so a published
 page carries none of it. See \fBdocs/EDITING.md\fR.
+.TP
+.B \-\-incremental
+Rebuild only the pages a change can reach, using the dependency graph the last
+build recorded. On by default under \fB\-\-watch\fR, where the alternative is a
+full build on every save; a one\-shot build is full unless asked.
+.IP
+An uncertain dependency means a full build. A changed template or configuration
+file, a file the last build never saw, \fB\-\-clean\fR, or a site whose content
+comes from MDDB, external sources or a CMS import all rebuild everything, and
+\fBssg graph\fR names which of those applies. An incremental build produces the
+same output tree as a full one, byte for byte.
+.IP
+What it narrows is the render phase. On a 5\ 000\-post corpus that is about a
+quarter of a warm build, so the wall clock barely moves; it is worth having in a
+watch loop and on very large sites. See \fBdocs/INCREMENTAL.md\fR.
 .TP
 .BR \-\-profile "[=" \fIjson ]
 Report where the build's time went: the phases in the order they ran, the

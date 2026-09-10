@@ -25,6 +25,7 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/components"
+	"github.com/spagu/ssg/internal/depgraph"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
@@ -149,6 +150,17 @@ type Config struct {
 	OutputsPerType map[string][]string
 	// OutputsCustom are formats the site defines with a template of its own.
 	OutputsCustom []CustomOutput
+
+	// Incremental narrows a build to what a change can have affected, using
+	// the dependency graph the previous build recorded (GO-094). Off means a
+	// full build, which is also what an uncertain graph falls back to.
+	Incremental bool
+	// CacheDir is the root the graph is persisted under; empty means
+	// ".ssg-cache", the same root every other cache uses (GO-091).
+	CacheDir string
+	// ConfigPath is the file the site was configured from, recorded in the
+	// graph so a change to it forces a full build.
+	ConfigPath string
 
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
@@ -616,6 +628,14 @@ type Generator struct {
 	// outputs is the format registry for this build (GO-092).
 	outputs *outputRegistry
 
+	// graph records what this build depended on; prevGraph is the previous
+	// build's, and plan is what the two say can be skipped (GO-094). pending
+	// is the plan's outputs as a set, or nil for a full build.
+	graph     *depgraph.Graph
+	prevGraph *depgraph.Graph
+	plan      depgraph.Plan
+	pending   map[string]bool
+
 	// relationFailures are declared relations naming pages the site does not
 	// have, kept for the link check to report under strict (GO-096).
 	relationMu       sync.Mutex
@@ -945,6 +965,9 @@ func (g *Generator) Generate() error {
 	g.resetStaticSitemap()
 	g.resetOutputRefs()
 	g.resetComponents()
+	// The dependency graph is recorded on every build, incremental or not: a
+	// graph is only useful if it describes the build that actually ran (GO-094).
+	g.startGraph()
 
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
@@ -1034,6 +1057,7 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("sending notifications: %w", err)
 	}
 
+	g.finishGraph()
 	return nil
 }
 
@@ -1366,6 +1390,11 @@ func (g *Generator) finalizeLoadedContent() error {
 	// Relations and versions need every page loaded, because both are about
 	// pages knowing each other (GO-096).
 	g.applyDimensions()
+	// With the content loaded, the graph knows what this build reads and can
+	// say what a change since the last one can have affected (GO-094).
+	g.recordContentInputs()
+	g.planIncremental()
+	g.pending = g.incrementalOutputs()
 	if g.config.I18n.Enabled {
 		if err := g.validateI18nContent(languages); err != nil {
 			return err
@@ -4009,6 +4038,12 @@ func (g *Generator) generatePage(page models.Page) error {
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			return err
 		}
+		// What this page's output depends on, recorded for the next build
+		// whether or not this one is incremental (GO-094).
+		g.recordPageOutput(page, outputPath)
+		if g.skipUnchanged(outputPath) {
+			continue
+		}
 		outputDir := filepath.Dir(outputPath)
 		if err := g.ensureDir(outputDir); err != nil {
 			return err
@@ -4077,6 +4112,10 @@ func (g *Generator) generatePost(post models.Page) error {
 		// Reject any path that escapes the output directory (SEC-001).
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			return err
+		}
+		g.recordPageOutput(post, outputPath)
+		if g.skipUnchanged(outputPath) {
+			continue
 		}
 		outputDir := filepath.Dir(outputPath)
 		if err := g.ensureDir(outputDir); err != nil {

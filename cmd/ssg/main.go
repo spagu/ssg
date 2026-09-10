@@ -65,6 +65,14 @@ func main() {
 	// gives no way to tell whether the tool changed or the site did.
 	logRunningVersion(cfg)
 
+	// A watch loop is where narrowing pays for itself: the alternative is a
+	// full build on every save. One-shot builds stay full unless asked,
+	// because a build nobody is waiting on should be the simple one (GO-094).
+	if cfg.Watch {
+		cfg.Incremental = true
+		genCfg.Incremental = true
+	}
+
 	// Edit mode is checked before the first build, so a refused combination
 	// says so instead of building a site with an editor marker nobody serves.
 	if !startEditMode(genCfg, cfg) {
@@ -736,6 +744,9 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Bundles:                cfg.Bundles,
 		Outputs:                cfg.Outputs,
 		OutputsPerType:         cfg.OutputsPerType,
+		Incremental:            cfg.Incremental,
+		CacheDir:               ".ssg-cache",
+		ConfigPath:             configPathOf(os.Args[1:]),
 		OutputsCustom:          toGeneratorOutputs(cfg.OutputsCustom),
 		SearchIndex:            cfg.SearchIndex,
 		WebMCP:                 cfg.WebMCP,
@@ -1613,6 +1624,7 @@ func printUsage() {
 	fmt.Println("  ssg init [name]        - Scaffold a new site")
 	fmt.Println("  ssg new worker <kind>  - Scaffold a Pages Functions worker")
 	fmt.Println("  ssg new wrangler       - Generate a starter wrangler.toml")
+	fmt.Println("  ssg graph [path]       - What a change rebuilds, and why a build cannot be narrowed")
 	fmt.Println("  ssg config view|set|unset - Read and edit the config, comments intact")
 	fmt.Println("  ssg profile page /url/ - What one page cost in the last profiled build")
 	fmt.Println("  ssg import redirects   - Convert a Next.js redirects() rule set")
@@ -1742,6 +1754,7 @@ func printUsage() {
 	fmt.Println("  --strict               - Escalate every soft build problem into a hard failure")
 	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
 	fmt.Println("  --edit                 - Turn the preview into an editor (needs --http --watch); see docs/EDITING.md")
+	fmt.Println("  --incremental          - Rebuild only what a change affects (default in --watch)")
 	fmt.Println("  --profile[=json]       - Report where the build's time went; json writes build-profile.json")
 	fmt.Println("  --profile-pprof=DIR    - Also write cpu.prof and heap.prof for `go tool pprof`")
 	fmt.Println("  --notify               - Announce new and changed posts to the configured channels")
@@ -2074,11 +2087,12 @@ func boolFlagTargets(cfg *config.Config) map[string]*bool {
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
 		"--webmcp": &cfg.WebMCP,
 		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
-		"--edit":       &cfg.Edit,       // GO-102: the preview server becomes an editor
-		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
-		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
-		"--clean":      &cfg.Clean,
-		"--quiet":      &cfg.Quiet, "-q": &cfg.Quiet,
+		"--edit":        &cfg.Edit,        // GO-102: the preview server becomes an editor
+		"--incremental": &cfg.Incremental, // GO-094: narrow a build to what changed
+		"--notify":      &cfg.Notify,      // #1.8.16 announce new/changed posts
+		"--mddb-watch":  &cfg.Mddb.Watch,  // bool flag, not an =value flag (GO-018)
+		"--clean":       &cfg.Clean,
+		"--quiet":       &cfg.Quiet, "-q": &cfg.Quiet,
 		// External sources (docs/EXTERNAL_SOURCES.md)
 		"--offline":                  &cfg.ExternalSources.Offline,
 		"--refresh-external-sources": &cfg.ExternalSources.Refresh,
