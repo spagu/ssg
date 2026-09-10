@@ -461,6 +461,7 @@ executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface
 |---|---|
 | `.URL`, `.CanonicalURL`, `.OutputPath`, `.TOC`, `.Hreflang` | **root only** — computed for the template, no struct field behind them |
 | `.Site`, `.Domain`, `.Vars`, `.Data`, `.ExternalData`, `.Languages` | **root only** — site-level, not per-page |
+| `.Pager`, `.Posts` | **only on a page with `paginate:` in its frontmatter** — this page's pager and slice, the same shape an archive gets; nil / absent elsewhere, so guard with `{{ with .Pager }}` in a shared layout |
 | `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
 | custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
 

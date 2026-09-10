@@ -42,6 +42,13 @@ rate_burst: 0        # Token-bucket size (default 2×rate_limit)
 
 # Output Control
 sitemap_off: false   # Disable sitemap.xml generation
+sitemap_max_urls: 0  # Per-file URL ceiling (0 = the protocol's 50,000); a larger set is split into
+                     # sitemap-1.xml… and sitemap.xml becomes the index. Only ever lowers the limit.
+# sitemaps:          # Declared sub-sitemaps (same shape as feeds:); sitemap.xml becomes their index.
+#   - path: /sitemap-blog.xml       # A URL lands in the FIRST spec that matches — a partition, not views;
+#     source: blog                  # whatever matches none goes to sitemap-main.xml, never dropped.
+#   - path: /sitemap-archives.xml
+#     include: [categories, tags, series, authors]   # also: home, listing, pages, posts, static, taxonomies
 robots_off: false    # Disable robots.txt generation
 
 # A 404.html is generated when the site does not provide one. Without it, static
@@ -55,6 +62,9 @@ post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "
 page_format: ""      # Page output: "directory" (slug/index.html), "flat" (slug.html), "both"
 minify_all: false    # Minify HTML, CSS, and JS
 minify_html: false   # Minify only HTML
+minify_html_keep_comments: []   # Comment openings minification must keep, beyond the host directives kept by
+                                # default (<!--[if, email_off, SSI <!--#, ESI, googleoff/on, noindex).
+                                # Name the directive ("acme:begin") or the whole opening ("<!--acme:begin").
 minify_css: false    # Minify only CSS
 minify_js: false     # Minify only JS
 sourcemap: false     # Emit v3 source maps (*.js.map/*.css.map) for minified JS/CSS
@@ -74,6 +84,9 @@ lastmod_from_git: false   # sitemap <lastmod> from each file's last git commit (
 
 # Blog
 paginate: 0          # Posts per index page; 0 disables pagination (else adds /page/N/ + .Pager)
+                     # A content page can paginate a listing of its own from frontmatter — `paginate: 10`,
+                     # or {over: posts|pages, size, source} — and is written as /slug/, /slug/page/2/…
+                     # through its own layout with .Pager and .Posts in scope (docs/CONTENT.md).
 
 # Authoring
 math: false          # Detect $$…$$ / ```math and inject KaTeX only on pages that use it (opt-in)
@@ -194,7 +207,17 @@ content_exclude: []
 # Extra verbatim passthrough roots beyond static_dir (#84). Each entry keeps its
 # own name, so files already published at stable URLs keep resolving. dest: moves
 # an entry; dest: "." spreads a directory's contents at the output root.
-static_sources: []
+static_sources: []   # Extra verbatim roots; an HTML document among them may add `sitemap: true`
+                     # (and `priority:`) to enter sitemap.xml — the generator cannot tell a
+                     # document from an asset by looking, so the site says which one is.
+
+# marketing:         # The site's social identity, winning field by field over what a migration recorded.
+#   og_image: /img/card.png     # 1200×630 — without it a link posts as a bare text card
+#   og_site_name: Example
+#   twitter_site: "@example"
+#   theme_color: "#0f172a"
+#   verification:               # merged per key with a migration's tokens, not replaced
+#     google-site-verification: "…"
 
 # Extra feeds beyond `feed: true` (#86). Each picks its own posts, path and
 # format: atom (default), rss (2.0) or json (JSON Feed 1.1). Selection criteria

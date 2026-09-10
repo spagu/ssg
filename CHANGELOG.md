@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.60] - 2026-09-10
+
+### Added
+- 📄 **A content page can paginate a listing it renders itself** (#267).
+  `paginate` split every *generated* listing — the post index and each archive
+  — and nothing a person wrote: a page had no `.Pager`, and a template can
+  slice `.Site.Posts` but cannot write a second file, so `/blog/page/2/` was a
+  404 whatever it linked to. The page that needs it is the one that renders a
+  listing **and something else** — on the reporting site an aggregated planet
+  feed above 27 of the site's own posts — which is exactly why it is a page and
+  not the generated listing, and why `posts_page` (which hands the URL to the
+  generator) was no answer. The only route left was paging in the browser: a
+  client-side answer to a static-site question.
+
+  A page now opts in from its own frontmatter — `paginate: 10`, or the mapping
+  form with `over: posts|pages`, `size` and a `source:` root matched the way
+  `feeds:` does. The build writes `/blog/`, `/blog/page/2/`, … through the
+  page's own layout; every page of it gets `.Posts` and `.Pager` in the same
+  shape an archive gets, so one pager partial serves both. Pages 2..N render
+  from a copy of the page whose `Link` is that address, so the canonical in
+  context **and** the `og:url`/JSON-LD the SEO pass derives from the page name
+  page N — the mistake #245 fixed for archives is not reintroduced. Only page 1
+  enters the sitemap and owns the `.md`/`.json` outputs and aliases; a page
+  whose `link:` names a file is rendered whole, with a warning that says why.
+  Nothing changes for a page that does not ask.
+
+### Fixed
+- 🖼️ **`marketing:` in a YAML config did not load** — a regression in 1.8.59's
+  #264. `models.Marketing` carried json tags only (it had only ever been read
+  from `metadata.json`), so the YAML decoder mapped its fields by lowercased
+  name: `og_site_name` was reported as an unknown key and `og_image` was
+  silently dropped. The feature shipped; the config path to it did not work.
+  Caught by this project's own docs-site build one release later, which is
+  one release too late — the tests set the struct directly and never loaded it
+  through a file. Every field now carries `yaml` and `toml` tags matching the
+  json names, and `marketing:` is loaded through all three formats in tests.
+
 ## [1.8.59] - 2026-09-08
 
 ### Fixed

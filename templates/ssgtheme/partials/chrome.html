@@ -31,7 +31,9 @@
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 
     <meta property="og:type" content="{{ if .OgType }}{{ .OgType }}{{ else }}website{{ end }}">
-    <meta property="og:site_name" content="{{ .Ctx.Domain }}">
+    {{/* The declared site name when the site declared one (marketing.og_site_name,
+         #264); the domain is the fallback, not the answer. */}}
+    <meta property="og:site_name" content="{{ with .Ctx.Site.Marketing.OGSiteName }}{{ . }}{{ else }}{{ .Ctx.Domain }}{{ end }}">
     <meta property="og:title" content="{{ .Title }}">
     <meta property="og:description" content="{{ .Desc }}">
     <meta property="og:url" content="{{ $canonical }}">

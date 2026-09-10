@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.59">1.8.59 — 2026-09-08</option>
       <option value="1.8.58">1.8.58 — 2026-09-08</option>
       <option value="1.8.57">1.8.57 — 2026-09-07</option>
       <option value="1.8.56">1.8.56 — 2026-09-06</option>
@@ -192,6 +193,22 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.60">
+
+### 1.8.60 — nothing to do
+
+**Purely additive.** A content page may now carry `paginate:` in its frontmatter
+and be written as `/slug/`, `/slug/page/2/`, … through its own layout, with
+`.Pager` and `.Posts` in scope. A page that does not set it renders exactly as
+before, and `paginate` in the site config keeps meaning what it meant for the
+generated listings. The golden baseline is byte-identical.
+
+One thing to know if you write a shared layout: `.Pager` is nil on an ordinary
+page, so guard it — `{{ with .Pager }}…{{ end }}` — the way `category.html`
+already does.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.59">
 

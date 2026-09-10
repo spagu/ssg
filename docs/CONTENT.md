@@ -226,6 +226,7 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `schema` | map | both | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
 | `featured_image` | string | both | Hero image; also `og:image`, `twitter:image` and JSON-LD `image` |
 | `layout` | string | page | Theme layout; `redirect` also marks an item for sitemap exclusion |
+| `paginate` | int / map | page | Split a collection over this page and `/page/N/` siblings, each rendered through the page's own layout with `.Pager` and `.Posts` in scope. `paginate: 10` pages the site's posts ten at a time; the map form takes `over` (`posts`, default, or `pages`), `size` (else the site's `paginate`, else 10) and `source` (a content root, as in `feeds:`). Only the first page enters the sitemap. See [Paginating a page](#paginating-a-page) |
 | `template` | string | page | Specific page template filename override |
 | `robots` | string | both | Robots directive; `noindex` excludes from sitemap |
 | `sitemap` | string | both | `no` excludes the item from `sitemap.xml` |
@@ -459,6 +460,50 @@ compared. The build now says so once. The case that hits it in practice is the
 bundles `cwebp` and `avifenc` for exactly that reason but not `git`, so
 `lastmod_from_git` cannot reach a repository there. Use the DEB, the tarball or
 the Docker image on a site that depends on it.
+
+## Paginating a page
+
+`paginate` in the site config pages every *generated* listing — the post index,
+category, tag, author, date and type archives. A page you wrote could not: it
+had no `.Pager`, and a template can slice `.Site.Posts` but cannot write a
+second file, so `/blog/page/2/` was a 404 whatever it linked to.
+
+The case that needs it is a page that renders a listing **and something else**
+— an aggregated feed above the site's own posts, an introduction, a call to
+action — which is exactly why it is a page and not the generated listing.
+Setting `posts_page` would hand the URL to the generator and lose the rest.
+
+A page opts in from its own frontmatter:
+
+```yaml
+---
+title: Blog
+slug: blog
+layout: blog
+paginate: 10          # the site's posts, ten per page
+---
+```
+
+or, naming what it pages over:
+
+```yaml
+paginate:
+  over: posts         # posts (default) or pages
+  size: 10            # else the site's `paginate`, else 10
+  source: blog        # optional: one content root, matched as feeds: does
+```
+
+The build writes `/blog/`, `/blog/page/2/`, … through the page's own layout.
+Every page of it gets `.Posts` (that page's slice) and `.Pager` (`Current`,
+`Total`, `PrevURL`, `NextURL`, `Pages`), the same shape an archive gets, so one
+pager partial serves both. Page 2 canonicalises to itself, in `.CanonicalURL`
+and in the `og:url` and JSON-LD the SEO pass injects.
+
+Two rules carry over from the generated listings: only the first page enters
+`sitemap.xml` (the tail is a slice of one document, not more documents), and the
+page's `.md`/`.json` outputs and aliases belong to page 1 alone. A page whose
+`link:` names a file (`/blog.html`) has nowhere to put a `/page/2/` and is
+rendered whole, with a warning that says so.
 
 ## WordPress-compatible media shortcodes
 

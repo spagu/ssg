@@ -262,7 +262,7 @@ var knownFields = map[string]bool{
 	"translation_key": true,
 	"robots":          true, "featured_image": true, "tags": true, "category": true,
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
-	"taxonomies": true, "sticky": true,
+	"taxonomies": true, "sticky": true, "paginate": true,
 }
 
 // extractExtraFields returns fields not in knownFields
@@ -295,19 +295,20 @@ type PageFrontmatter struct {
 	Categories []interface{} `yaml:"categories,omitempty"`
 
 	// SEO and metadata fields
-	Description    string   `yaml:"description"`
-	Keywords       string   `yaml:"keywords"`
-	Lang           string   `yaml:"lang"`
-	TranslationKey string   `yaml:"translation_key"`
-	Canonical      string   `yaml:"canonical"`
-	Robots         string   `yaml:"robots"`
-	FeaturedImage  string   `yaml:"featured_image"`
-	Tags           []string `yaml:"tags,omitempty"`
-	Category       string   `yaml:"category"`
-	Sitemap        string   `yaml:"sitemap"`           // "no" excludes the page from sitemap.xml (GO-003)
-	Aliases        []string `yaml:"aliases,omitempty"` // old paths that redirect here (SEO-002)
-	Series         string   `yaml:"series,omitempty"`  // series grouping (AX-005)
-	Sticky         bool     `yaml:"sticky,omitempty"`  // pinned to the top of date-ordered listings (#155)
+	Description    string               `yaml:"description"`
+	Keywords       string               `yaml:"keywords"`
+	Lang           string               `yaml:"lang"`
+	TranslationKey string               `yaml:"translation_key"`
+	Canonical      string               `yaml:"canonical"`
+	Robots         string               `yaml:"robots"`
+	FeaturedImage  string               `yaml:"featured_image"`
+	Tags           []string             `yaml:"tags,omitempty"`
+	Category       string               `yaml:"category"`
+	Sitemap        string               `yaml:"sitemap"`            // "no" excludes the page from sitemap.xml (GO-003)
+	Aliases        []string             `yaml:"aliases,omitempty"`  // old paths that redirect here (SEO-002)
+	Series         string               `yaml:"series,omitempty"`   // series grouping (AX-005)
+	Sticky         bool                 `yaml:"sticky,omitempty"`   // pinned to the top of date-ordered listings (#155)
+	Paginate       *models.PaginateSpec `yaml:"paginate,omitempty"` // page-level pagination over a collection (#267)
 
 	// AliasStubs overrides the site-wide alias_stubs default per page: false =
 	// 301 only (no duplicate copy), true = force a stub (#65).
@@ -441,6 +442,7 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		AliasStubs:     pf.AliasStubs,
 		Series:         pf.Series,
 		Sticky:         pf.Sticky,
+		Paginate:       pf.Paginate,
 		Schema:         pf.Schema,
 		TaxonomiesFM:   pf.Taxonomies,
 		// Template selection

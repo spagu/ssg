@@ -92,6 +92,11 @@ type Page struct {
 	Tags           []string          `yaml:"tags,omitempty"`
 	Category       string            `yaml:"category"`
 
+	// Paginate asks the generator to split a collection over this page and its
+	// /page/N/ siblings, each rendered through the page's own layout with
+	// .Pager and .Posts in scope (#267). nil = an ordinary page.
+	Paginate *PaginateSpec `yaml:"paginate,omitempty"`
+
 	// Sticky pins a post to the top of the listings that sort by date — the
 	// index, the posts page and term archives — the way an editor pinned it in
 	// the source CMS (#155). Pinned posts keep their own order among
@@ -527,21 +532,28 @@ type SiteInfo struct {
 // Marketing is the site-level identity a migrated site would otherwise lose:
 // verification tokens, social defaults, profile links and brand assets. Every
 // field is best-effort — an absent one is empty, never invented.
+//
+// The yaml/toml tags carry the same names as the json ones. Until 1.8.60 the
+// struct had json tags only, so `marketing:` in a YAML config — the block #264
+// added — decoded by lowercased field name: `og_site_name` was an unknown key
+// and `og_image` was silently dropped. The feature shipped, and the config
+// path to it did not work. A struct read from more than one format needs a tag
+// per format, and a test that loads it through each.
 type Marketing struct {
-	Verification   map[string]string `json:"verification"`
-	SocialProfiles map[string]string `json:"social_profiles"`
-	OGSiteName     string            `json:"og_site_name"`
-	OGImage        string            `json:"og_image"`
-	TwitterSite    string            `json:"twitter_site"`
-	Favicon        string            `json:"favicon"`
-	AppleTouchIcon string            `json:"apple_touch_icon"`
-	Logo           string            `json:"logo"`
-	ThemeColor     string            `json:"theme_color"`
+	Verification   map[string]string `json:"verification" yaml:"verification" toml:"verification"`
+	SocialProfiles map[string]string `json:"social_profiles" yaml:"social_profiles" toml:"social_profiles"`
+	OGSiteName     string            `json:"og_site_name" yaml:"og_site_name" toml:"og_site_name"`
+	OGImage        string            `json:"og_image" yaml:"og_image" toml:"og_image"`
+	TwitterSite    string            `json:"twitter_site" yaml:"twitter_site" toml:"twitter_site"`
+	Favicon        string            `json:"favicon" yaml:"favicon" toml:"favicon"`
+	AppleTouchIcon string            `json:"apple_touch_icon" yaml:"apple_touch_icon" toml:"apple_touch_icon"`
+	Logo           string            `json:"logo" yaml:"logo" toml:"logo"`
+	ThemeColor     string            `json:"theme_color" yaml:"theme_color" toml:"theme_color"`
 	// Colors is the source theme's palette by role ("primary", "secondary",
 	// "accent", "text", "background", "link"), read by the exporter from the
 	// theme's own CSS custom properties (wpexporter >= 1.8.2). It is the one
 	// part of a site's look a migration can carry verbatim (#128).
-	Colors map[string]string `json:"colors"`
+	Colors map[string]string `json:"colors" yaml:"colors" toml:"colors"`
 }
 
 // Empty reports whether nothing was discovered, so callers can skip the whole

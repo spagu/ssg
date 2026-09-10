@@ -3847,6 +3847,22 @@ func (g *Generator) generatePage(page models.Page) error {
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)
 
+	// A page that asked to paginate gets page 1's slice and pager in its
+	// ordinary context; pages 2..N are written after it (#267).
+	chunks := g.pageChunks(page)
+	if len(chunks) > 0 {
+		applyChunk(data, chunks[0])
+	}
+
+	// Use custom layout/template if specified, otherwise default to page.html.
+	// Decided once: it depends on the page, not on which of its paths is written.
+	templateName := pageHTMLName
+	if page.Layout != "" {
+		templateName = g.layoutTemplateName(page.Layout)
+	} else if page.Template != "" {
+		templateName = page.Template + ".html"
+	}
+
 	outputPaths := g.getOutputPaths(outputSubPath)
 	for _, outputPath := range outputPaths {
 		// Reject any path that escapes the output directory (SEC-001).
@@ -3865,14 +3881,6 @@ func (g *Generator) generatePage(page models.Page) error {
 			}
 		}
 
-		// Use custom layout/template if specified, otherwise default to page.html
-		templateName := pageHTMLName
-		if page.Layout != "" {
-			templateName = g.layoutTemplateName(page.Layout)
-		} else if page.Template != "" {
-			templateName = page.Template + ".html"
-		}
-
 		// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
 		// single write (PERF-005).
 		if err := g.renderPageTemplate(templateName, outputPath, data, &page, false); err != nil {
@@ -3887,6 +3895,12 @@ func (g *Generator) generatePage(page models.Page) error {
 		}
 		g.writeJSONOutput(page, outputPath)
 		g.writeMarkdownOutput(page, outputPath)
+	}
+
+	if len(chunks) > 1 {
+		if err := g.renderPagedTail(page, chunks, templateName); err != nil {
+			return err
+		}
 	}
 
 	g.writeAliasStubs(page)
