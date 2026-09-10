@@ -495,6 +495,10 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # profile: text                # Report where the build's time went (phases, counters, slowest pages);
                                # "json" also writes build-profile.json beside the project for CI
 # profile_pprof: ""            # Directory for cpu.prof/heap.prof (`go tool pprof`) — maintainer's tool
+# versions:                    # A chain of document versions (frontmatter: version + version_of).
+#   noindex_old: false         #   Superseded versions always canonicalise to the latest; this
+#                              #   additionally marks them noindex, which also drops them from
+#                              #   the sitemap. docs/CONTENT.md#versions
 # render_hooks:                # A template decides the markup for one node kind (docs/RENDER_HOOKS.md).
 #   image: hooks/image.html    #   Content images get srcset/lazy/captions — the pipeline that was
 #   link: hooks/link.html      #   template-only until now. Links get rel="noopener" on external ones.

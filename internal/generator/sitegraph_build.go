@@ -102,6 +102,13 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 	if p.Category != "" && len(node.Categories) == 0 {
 		node.Categories = []string{p.Category}
 	}
+	// Declared relations are edges an author wrote down, which is exactly what
+	// a graph is for (GO-096).
+	for _, name := range sortedKeys(p.RelatedPages) {
+		for _, target := range p.RelatedPages[name] {
+			node.Relations = append(node.Relations, sitegraph.Relation{Name: name, URL: target.GetURL()})
+		}
+	}
 	for _, tr := range g.translationsFor(p) {
 		if tr.IsCurrent {
 			continue
@@ -111,7 +118,7 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 	if g.config.MarkdownPublish {
 		node.Outputs.Markdown = markdownURLFor(p, g.config.Domain)
 	}
-	if g.wantsOutput("json") && strings.HasSuffix(node.URL, "/") {
+	if g.pageWantsOutput(p, "json") && strings.HasSuffix(node.URL, "/") {
 		node.Outputs.JSON = node.URL + "index.json"
 	}
 	return node

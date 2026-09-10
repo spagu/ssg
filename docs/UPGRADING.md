@@ -198,6 +198,12 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
+**The new frontmatter keys are additive.** `relations:`, `version:`,
+`version_of:` and `outputs:` do nothing unless a file uses them, and they stay
+readable at `.Extra.*` as well, so a template already reading `.Extra.version`
+keeps working. One behaviour to know if you adopt versions: superseded pages
+gain a canonical pointing at the latest.
+
 **Render hooks are opt-in by config.** Without `render_hooks:` the Markdown
 renderer is untouched and the output is byte for byte what it was. With one, the
 named node kind is rendered by your template instead. See docs/RENDER_HOOKS.md.

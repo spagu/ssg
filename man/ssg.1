@@ -557,6 +557,21 @@ Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
 \fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
 where the time goes, this answers why.
 .TP
+.B versions:
+(config only) A chain of document versions, declared in frontmatter with
+\fBversion:\fR and \fBversion_of:\fR. The highest version is the latest and
+every earlier one canonicalises to it, so a document's own old revisions stop
+competing with it in search results. \fBnoindex_old: true\fR additionally marks
+them noindex, which also removes them from the sitemap. URLs are never
+rewritten. Templates get \fB.Page.Versions\fR and \fB.Page.IsLatest\fR.
+.TP
+.B relations:
+(frontmatter) Named links between pages — \fBsupersedes\fR, \fBsee_also\fR,
+anything the author needs — resolved to pages and available as
+\fBrelationsOf\fR and its inverse \fBrelatedBy\fR, and published as edges in
+\fBsite-graph.json\fR. A relation naming a page that does not exist follows
+\fBcheck_links\fR. See \fBdocs/CONTENT.md\fR.
+.TP
 .B render_hooks:
 (config only) A template per Markdown node kind — \fBimage\fR, \fBlink\fR,
 \fBheading\fR, \fBcode\fR, \fBtable\fR, \fBblockquote\fR — rendering that node

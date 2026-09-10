@@ -257,6 +257,145 @@ categories: [guides, performance]
 Name and slug matching is case-insensitive. Numeric strings are converted to
 IDs. Values that cannot be resolved through `metadata.json` are ignored.
 
+## Content dimensions
+
+A page is described by more than "post or page". Type, language, taxonomy and
+source have been dimensions here for a while — a custom taxonomy is a dimension,
+and `audience:` works today with no new code, see below. Three more arrived in
+1.8.60.
+
+### Relations
+
+```yaml
+---
+title: API Authentication
+slug: api-auth-v4
+relations:
+  supersedes: [api-auth-v3]
+  see_also: [oauth-setup, api-keys]
+---
+```
+
+A relation is a link the author names. The build already knew about series,
+translations and a "related posts" heuristic; it could not know that this page
+replaces that one, because only the person writing it does.
+
+Values are slugs, resolved in the page's own language, falling back to the
+default one for a page that has not been translated yet. In a template:
+
+```gotemplate
+{{ range relationsOf .Page "see_also" }}
+  <a href="{{ .GetURL }}">{{ .Title }}</a>
+{{ end }}
+
+{{/* The inverse — which pages point HERE — is the half nobody can write down,
+     because the new version does not know what it replaced until the whole
+     site is loaded. */}}
+{{ range relatedBy .Page "supersedes" }}
+  <a href="{{ .GetURL }}">Superseded: {{ .Title }}</a>
+{{ end }}
+```
+
+Relations also become edges in [`site-graph.json`](AI-AGENTS.md#site_graph), so
+an agent reading the site sees them.
+
+A relation naming a slug the site does not have is a broken link with a name on
+it, and follows `check_links`: silent when link checking is off, a warning when
+it is on, and a build failure under `strict`.
+
+### Versions
+
+```yaml
+---
+title: API Authentication
+slug: api-auth-v4
+version: 4
+version_of: api-auth
+---
+```
+
+`version_of` groups a chain; `version` orders it. Numbers sort as numbers, so
+10 comes after 2.
+
+The highest version is the **latest**, and every earlier one gets a canonical
+pointing at it. That is the part worth having: without it, a document's own old
+revisions compete with the current one for the same search query, and a site
+quietly ranks its out-of-date documentation above the page it wants people to
+read.
+
+Templates get the whole chain:
+
+```gotemplate
+{{ if not .Page.IsLatest }}
+  <p class="notice">There is a newer version of this page.</p>
+{{ end }}
+<ul>
+  {{ range .Page.Versions }}
+    <li{{ if .IsLatest }} class="current"{{ end }}><a href="{{ .GetURL }}">Version {{ .Version }}</a></li>
+  {{ end }}
+</ul>
+```
+
+```yaml
+versions:
+  noindex_old: true    # also removes them from the sitemap
+```
+
+`noindex_old` is off by default: a superseded page is still a page someone may
+have linked to. Turning it on removes those pages from the sitemap as well,
+through the rule that already drops any noindex page — rather than through a
+second switch that could disagree with the first.
+
+**URLs are not rewritten.** A version lives wherever its file says it does. The
+build does not invent `/v4/` paths, because a URL that moves on its own is a URL
+that breaks.
+
+### Outputs per page
+
+```yaml
+---
+title: API reference
+outputs: [html, json]
+---
+```
+
+Overrides the site's `outputs:` for this page, in both directions: a reference
+page can publish JSON while the rest of the site does not, and a page can opt
+out of what the site publishes.
+
+### Audience
+
+There is no `audience:` key, and there does not need to be one — it is a
+taxonomy, and custom taxonomies already do this:
+
+```yaml
+taxonomies:
+  audience:
+    multiple: true
+```
+
+```yaml
+---
+title: Deploying
+audience: [developer, operator]
+---
+```
+
+That gives archives at `/audience/developer/`, filtering in templates
+(`pagesByTerm "audience" "developer"`) and a term index, all of it working
+today. See [TAXONOMIES.md](TAXONOMIES.md).
+
+Rendering *different content* for different audiences under one URL is a
+deliberately separate thing, and is not part of this.
+
+### Nothing changes for frontmatter that does not use them
+
+Every one of these keys is optional, and a file without them behaves exactly as
+it did — the golden corpora check it. They also stay readable at `.Extra.version`
+and `.Extra.relations`, so a template that already reads them there keeps
+working. That is deliberate: promoting a key to a first-class field would
+otherwise take it out of `.Extra` and break such a template silently.
+
 ## Excerpts and section markers
 
 SSG supports WordPress-export-style section markers:

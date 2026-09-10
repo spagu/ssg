@@ -72,10 +72,13 @@ type Page struct {
 	// Taxonomies is every assignment by taxonomy name, the built-ins included.
 	Taxonomies   map[string][]string `json:"taxonomies,omitempty"`
 	Translations []Translation       `json:"translations,omitempty"`
-	Outputs      Outputs             `json:"outputs"`
-	WordCount    int                 `json:"word_count,omitempty"`
-	ReadingTime  int                 `json:"reading_time,omitempty"`
-	Sticky       bool                `json:"sticky,omitempty"`
+	// Relations are the links the author declared by name (GO-096) — the ones
+	// no heuristic could have found.
+	Relations   []Relation `json:"relations,omitempty"`
+	Outputs     Outputs    `json:"outputs"`
+	WordCount   int        `json:"word_count,omitempty"`
+	ReadingTime int        `json:"reading_time,omitempty"`
+	Sticky      bool       `json:"sticky,omitempty"`
 
 	// Source is the file the page was rendered from. Internal: the build's own
 	// views need it (routes.json publishes it, as it always has), the public
@@ -107,6 +110,12 @@ type Taxonomy struct {
 	Label string `json:"label,omitempty"`
 	Path  string `json:"path"`
 	Terms []Term `json:"terms"`
+}
+
+// Relation is one named link an author declared between two pages.
+type Relation struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 // Link is one reference from a page to somewhere.

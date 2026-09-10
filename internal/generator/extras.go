@@ -33,6 +33,20 @@ func (g *Generator) checkLinksIfRequested() error {
 	if g.config.Strict {
 		mode = "strict"
 	}
+	// A declared relation naming a page the site does not have is a broken
+	// link with a name on it, so it fails the same build under the same
+	// setting (GO-096).
+	if failures := g.relationErrors(); len(failures) > 0 {
+		for _, msg := range failures {
+			if mode != "" {
+				fmt.Printf("   ⚠️  %s\n", msg)
+			}
+		}
+		if mode == "strict" {
+			return fmt.Errorf("check_links: strict — %d declared relation(s) name a page that does not exist:\n   - %s",
+				len(failures), strings.Join(failures, "\n   - "))
+		}
+	}
 	if mode == "" {
 		return nil
 	}
@@ -315,7 +329,7 @@ func (g *Generator) wantsOutput(format string) bool {
 // writeJSONOutput writes index.json next to a page's index.html when the json
 // output format is enabled (PLAT-003).
 func (g *Generator) writeJSONOutput(page models.Page, htmlPath string) {
-	if !g.wantsOutput("json") || !strings.HasSuffix(htmlPath, "index.html") {
+	if !g.pageWantsOutput(page, "json") || !strings.HasSuffix(htmlPath, "index.html") {
 		return
 	}
 	rec := g.pageRecord(page)

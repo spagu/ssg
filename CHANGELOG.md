@@ -33,6 +33,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 🧭 **Content dimensions: named relations, document versions, outputs per
+  page** (GO-096). Most of what this ticket asked for already existed — type,
+  language, taxonomy, source — because a custom taxonomy *is* a dimension.
+  Three things did not.
+
+  **Relations were hard-coded.** A page could be in a series, have a
+  translation, or be "related" by a heuristic; it could not say
+  `supersedes: [api-auth-v3]`, even though the author is the only one who knows
+  it. `relations:` names them, they resolve to pages, `relationsOf` and its
+  inverse `relatedBy` render them, and they become edges in `site-graph.json`.
+  A relation naming nothing follows `check_links`.
+
+  **A version was a number in `.Extra`.** `version:` and `version_of:` now group
+  a document's revisions: the highest is the latest and every earlier one
+  canonicalises to it. Without that a document's own old revisions compete with
+  it for the same query, which is a real cost paid quietly by exactly the kind
+  of site that versions its documentation. `versions.noindex_old` is opt-in and
+  also drops them from the sitemap, through the rule that already drops any
+  noindex page rather than through a second switch. URLs are never rewritten.
+
+  **Outputs were site-wide.** `outputs:` in frontmatter overrides them per page,
+  in both directions.
+
+  The trap this avoided is worth naming: adding these keys to the parser's
+  known fields would have taken them out of `.Extra` and silently broken every
+  template already reading `.Extra.version` — the mechanism of #115, in
+  reverse. They are read from the raw frontmatter instead, so both accesses
+  return the same value. `audience:` needed no code at all: it is a custom
+  taxonomy, and the recipe is now in the docs.
+
 - 🪝 **Render hooks: a template decides the markup for one node kind** (GO-099).
   Everything this build did to rendered content, it did with regular
   expressions over finished HTML. That can only change what is already there,

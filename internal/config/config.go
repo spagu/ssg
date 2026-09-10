@@ -719,6 +719,11 @@ type Config struct {
 	// gets.
 	RenderHooks map[string]string `yaml:"render_hooks" toml:"render_hooks" json:"render_hooks"`
 
+	// Versions decides what a chain of document versions means for search
+	// engines (GO-096): whether superseded versions are noindexed, and whether
+	// they belong in the sitemap.
+	Versions VersionsConfig `yaml:"versions" toml:"versions" json:"versions"`
+
 	// ShortcodeErrors decides what a shortcode whose template fails to render
 	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
 	// and nothing in the page), "keep" (its raw source, so the gap is visible in
@@ -1286,4 +1291,15 @@ func FindConfigFile() string {
 	}
 
 	return ""
+}
+
+// VersionsConfig tunes a chain of document versions (GO-096).
+type VersionsConfig struct {
+	// NoindexOld adds `robots: noindex, follow` to superseded versions. Off by
+	// default: a superseded page is still a page someone may have linked to.
+	//
+	// Turning it on also removes them from the sitemap, through the rule that
+	// already drops any noindex page (#78) — rather than through a second
+	// switch that could disagree with the first.
+	NoindexOld bool `yaml:"noindex_old" toml:"noindex_old" json:"noindex_old"`
 }

@@ -140,6 +140,10 @@ type Config struct {
 	// leaves goldmark's own markup untouched.
 	RenderHooks map[string]string
 
+	// Versions tunes what a chain of versions means for search engines
+	// (GO-096).
+	Versions VersionsConfig
+
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
 	// left in place. Off — which is every published build — the marker is not
@@ -602,6 +606,11 @@ type Generator struct {
 	// content renders on a worker pool.
 	// hooks are the render hooks this site declared (GO-099), or nil.
 	hooks *hookSet
+
+	// relationFailures are declared relations naming pages the site does not
+	// have, kept for the link check to report under strict (GO-096).
+	relationMu       sync.Mutex
+	relationFailures []string
 
 	components      *components.Set
 	componentMu     sync.Mutex
@@ -1345,6 +1354,9 @@ func (g *Generator) finalizeLoadedContent() error {
 	finalize(g.siteData.Posts, "post")
 	g.computeSeriesLinks()
 	g.computeTranslations()
+	// Relations and versions need every page loaded, because both are about
+	// pages knowing each other (GO-096).
+	g.applyDimensions()
 	if g.config.I18n.Enabled {
 		if err := g.validateI18nContent(languages); err != nil {
 			return err
@@ -2704,6 +2716,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	mergeTemplateFuncs(funcs, g.taxonomyFuncs())
 	// External-source helpers (getExternal/getExternalMeta).
 	mergeTemplateFuncs(funcs, g.externalFuncs())
+	// Declared relations, and their inverse (GO-096).
+	mergeTemplateFuncs(funcs, g.relationFuncs())
 	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
 	mergeTemplateFuncs(funcs, g.relatedFuncs())
 	return funcs

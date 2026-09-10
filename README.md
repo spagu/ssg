@@ -308,6 +308,7 @@ Common options:
 | Declare tracking ids (GTM both halves, GA4) | `analytics_ids: {gtm: GTM-…}` | config only |
 | Typed content components with a props schema | a `components/` directory | `--components-dir=DIR` |
 | Decide the markup for images, links, headings, code | `render_hooks: {image: …}` | config only |
+| Name relations between pages, and version a document | `relations:` / `version_of:` in frontmatter | config only |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |

@@ -233,6 +233,16 @@ func (p *markdownParser) buildPage() (*models.Page, error) {
 	// Copy extra fields (those not in the struct)
 	page.Extra = extractExtraFields(allFields)
 
+	// The content dimensions (GO-096) are read from the raw fields rather than
+	// declared in PageFrontmatter, and deliberately NOT added to knownFields.
+	//
+	// That is the whole trick. A site that already writes `version:` in its
+	// frontmatter reads it in a template as `.Extra.version` today; promoting
+	// the key to a struct field would take it out of Extra and break that
+	// template silently — the mechanism of #115, in reverse. Reading them here
+	// leaves them in Extra too, so both accesses return the same value.
+	applyDimensions(page, allFields)
+
 	decodeTextEntities(page)
 
 	return page, nil
@@ -585,4 +595,85 @@ func truncateRunes(text string, max int) string {
 		cut = cut[:idx]
 	}
 	return strings.TrimRight(cut, " ,;:.") + "…"
+}
+
+// applyDimensions reads the content dimensions from the raw frontmatter
+// (GO-096): named relations, a version and its group, and per-page outputs.
+func applyDimensions(page *models.Page, fields map[string]interface{}) {
+	if rel := stringListMap(fields["relations"]); len(rel) > 0 {
+		page.Relations = rel
+	}
+	if v := scalarField(fields["version"]); v != "" {
+		page.Version = v
+	}
+	if v := scalarField(fields["version_of"]); v != "" {
+		page.VersionOf = v
+	}
+	if out := stringList(fields["outputs"]); len(out) > 0 {
+		page.Outputs = out
+	}
+}
+
+// stringListMap reads `name: [a, b]` (or `name: a`) into a map of lists.
+func stringListMap(v interface{}) map[string][]string {
+	raw, ok := v.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	out := make(map[string][]string, len(raw))
+	for name, value := range raw {
+		if list := stringList(value); len(list) > 0 {
+			out[name] = list
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// stringList accepts a list or a single value, which is how people write
+// frontmatter.
+func stringList(v interface{}) []string {
+	switch t := v.(type) {
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s := scalarField(item); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		return t
+	case nil:
+		return nil
+	}
+	if s := scalarField(v); s != "" {
+		return []string{s}
+	}
+	return nil
+}
+
+// scalarField renders a frontmatter scalar as the text it was written as, so
+// `version: 4` and `version: "4"` mean the same thing.
+func scalarField(v interface{}) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(t)
+	case int:
+		return strconv.Itoa(t)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	case float64:
+		if t == float64(int64(t)) {
+			return strconv.FormatInt(int64(t), 10)
+		}
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(t)
+	}
+	return fmt.Sprintf("%v", v)
 }

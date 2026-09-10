@@ -92,6 +92,29 @@ type Page struct {
 	Tags           []string          `yaml:"tags,omitempty"`
 	Category       string            `yaml:"category"`
 
+	// Relations are the links this page declares to other pages, by name:
+	// `relations: {supersedes: [api-auth-v3], see_also: [oauth-setup]}`
+	// (GO-096). The built-in relationships — series, translations, related —
+	// keep their own machinery; this is for the ones only an author knows.
+	//
+	// Values are slugs. RelatedPages holds them once resolved, so a template
+	// gets pages rather than strings.
+	Relations    map[string][]string `yaml:"-"`
+	RelatedPages map[string][]*Page  `yaml:"-" json:"-"`
+
+	// Version and VersionOf place a page in a chain of versions of one
+	// document (GO-096). `version_of` is the group; `version` orders it, and
+	// the highest is the one search engines should see. Versions is filled by
+	// the generator with the whole chain, newest first.
+	Version   string  `yaml:"-"`
+	VersionOf string  `yaml:"-"`
+	Versions  []*Page `yaml:"-" json:"-"`
+	IsLatest  bool    `yaml:"-"`
+
+	// Outputs overrides the site's `outputs:` for this page (GO-096): a
+	// reference page can publish JSON while the rest of the site does not.
+	Outputs []string `yaml:"-"`
+
 	// Paginate asks the generator to split a collection over this page and its
 	// /page/N/ siblings, each rendered through the page's own layout with
 	// .Pager and .Posts in scope (#267). nil = an ordinary page.
