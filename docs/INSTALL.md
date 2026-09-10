@@ -34,6 +34,11 @@ accounts for most of that size; no external libraries or runtimes are needed.
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
+
+The installer downloads over HTTPS only and verifies the tarball's SHA-256
+against the release's `checksums.sha256` before anything is moved into place —
+a mismatch stops it before `sudo` is ever asked for. `SSG_VERSION` pins a
+release, `SSG_INSTALL_DIR` changes the target directory.
 ```
 
 ---

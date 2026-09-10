@@ -44,6 +44,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through a file. Every field now carries `yaml` and `toml` tags matching the
   json names, and `marketing:` is loaded through all three formats in tests.
 
+### Security
+- 🔏 **`install.sh` verifies what it installs** (SEC-013). The one-liner
+  downloaded a tarball and moved it into `/usr/local/bin` with `sudo` on the
+  strength of nothing but the URL: no checksum, `set -e` alone, and `curl`
+  without `--fail`, so a 404 page could be handed to `tar`. Every release has
+  published `checksums.sha256` beside its binaries since the release workflow
+  existed; the installer now fetches it and refuses on a mismatch **before**
+  `sudo` is ever asked for. Also `set -euo pipefail`, HTTPS-only with an HTTP
+  error treated as an error, and `install -m 0755` in place of `mv` + `chmod`.
+  Tested live against v1.8.59, positive and negative.
+- 🔎 **gosec runs in CI** (OPS-008). The Security Scan job ran govulncheck —
+  known advisories in the dependency graph — and no static analysis of this
+  project's own code, despite 54 `#nosec` annotations that only make sense
+  under a scanner. gosec v2.29.0 now runs on every push with results as SARIF
+  in the Security tab. `-no-fail` is deliberate for this release: the tree
+  carries 12 reviewed findings, and turning the scanner on must not be the
+  commit that turns CI red. Gating on a clean baseline is the follow-up.
+
+### Changed
+- 🧱 **CI and packaging hygiene from the audit** (OPS-012, OPS-014, OPS-015,
+  OPS-017, TEST-002): every CI job declares `permissions` explicitly rather
+  than inheriting them; the runtime image builds its user, its working
+  directory and its one runtime package in a single layer, with `/site`
+  created owned by `ssg` instead of `chown -R`'d afterwards (6 `RUN` layers →
+  4); the dev server in `docker-compose.yml` is published on the host's
+  loopback only, where `"8888:8888"` had exposed it to the LAN; the example
+  Cloudflare Pages workflow pins `actions/checkout` to a SHA, as an example to
+  copy should; and the **96 % coverage floor is enforced** in CI rather than
+  reported — computed the way `codecov.yml` computes it, without the generated
+  protobuf. Codecov stays advisory.
+
 ## [1.8.59] - 2026-09-08
 
 ### Fixed

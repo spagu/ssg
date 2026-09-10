@@ -48,5 +48,8 @@ services:
       - ./output:/site/output
       - ./.ssg.yaml:/site/.ssg.yaml:ro
     ports:
-      - "8888:8888"
+      # Published on the host's loopback only: this is a dev server, and
+      # "8888:8888" would have exposed it to the whole LAN (OPS-015). Inside the
+      # container it still binds 0.0.0.0, which is what lets Docker reach it.
+      - "127.0.0.1:8888:8888"
     command: ["my-content", "krowy", "example.com", "--http", "--watch", "--host=0.0.0.0"]

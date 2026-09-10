@@ -43,6 +43,7 @@ Linux and macOS:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
+# verifies the download against the release's checksums.sha256 before installing
 ```
 
 Other supported installation methods:

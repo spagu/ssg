@@ -24,6 +24,12 @@ review workflow. By participating, you agree to follow the
 - Optional Dart Sass for SCSS integration paths
 - Optional `golangci-lint`, `gosec` and `govulncheck` for extended checks
 
+CI enforces a **96 % statement-coverage floor** on the whole module, computed
+without the generated protobuf under `internal/mddb/proto` (the same exclusion
+`codecov.yml` uses). A pull request that drops below it fails the `Test` job;
+`make test-coverage` shows the same number locally. gosec runs in CI too, with
+results in the repository's Security tab.
+
 Go 1.27.1 is the minimum: it is what the `go` directive asks for, and the
 linter refuses to analyse a target newer than the Go it was built with. The
 floor before it was 1.26.6, because earlier 1.26 standard libraries contain

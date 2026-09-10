@@ -37,8 +37,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
 # — a digest nobody updates stops receiving security patches silently.
 FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
-# Install runtime dependencies (cwebp)
-RUN apk add --no-cache libwebp-tools
+# Runtime dependencies (cwebp), the non-root user and its working directory in
+# ONE layer: three RUNs became one, and the directory is created already owned
+# by ssg instead of being chown'd afterwards (OPS-014).
+RUN apk add --no-cache libwebp-tools \
+    && adduser -D -u 1000 ssg \
+    && install -d -o ssg -g ssg /site
 
 # Labels
 LABEL org.opencontainers.image.title="SSG - Static Site Generator"
@@ -48,17 +52,12 @@ LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
 LABEL org.opencontainers.image.licenses="BSD-3-Clause"
 LABEL maintainer="spagu <spagu@github.com>"
 
-# Create non-root user
-RUN adduser -D -u 1000 ssg
-
-# Copy binary from builder
+# Copy binary from builder — root-owned and world-executable, which is what a
+# binary in /usr/local/bin should be; no chown needed.
 COPY --from=builder /build/ssg /usr/local/bin/ssg
 
-# Set working directory
+# Set working directory (created above, already owned by ssg)
 WORKDIR /site
-
-# Change ownership
-RUN chown -R ssg:ssg /site
 
 # Switch to non-root user
 USER ssg
