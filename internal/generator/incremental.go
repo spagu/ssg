@@ -155,6 +155,45 @@ func (g *Generator) recordPageOutput(page models.Page, outputPath string) {
 	if src := pageSourcePath(page); src != "" {
 		g.graph.Depends(id, g.graphID(src))
 	}
+	g.recordColocatedAssets(page, outputPath)
+}
+
+// recordAssetInputs registers a page's co-located assets as inputs before the
+// plan is made, without the edges — those need the output path, which does not
+// exist yet.
+//
+// Registering them this early is what makes an asset that appeared since the
+// last build visible: a file the previous graph never saw makes the plan full,
+// and an image added beside a page whose text already referenced it changes
+// that page without changing a single byte of Markdown.
+func (g *Generator) recordAssetInputs(page models.Page) {
+	if g.graph == nil || page.SourceDir == "" {
+		return
+	}
+	for _, name := range g.colocatedAssetNames(page.SourceDir, page.Content) {
+		g.recordInput(filepath.Join(page.SourceDir, name), depgraph.KindData)
+	}
+}
+
+// recordColocatedAssets registers the files beside a page that it references,
+// as inputs of that page's output.
+//
+// Without these edges an image replaced in place would be invisible: the graph
+// would have no hash for it, the plan would not name the page, and the build
+// would skip the page whose asset copy is the only thing that would have
+// refreshed it. A stale picture under a green build is the failure this whole
+// design exists to prevent, so the edge is recorded even though a changed image
+// then costs a re-render of the page's HTML as well.
+func (g *Generator) recordColocatedAssets(page models.Page, outputPath string) {
+	if g.graph == nil || page.SourceDir == "" {
+		return
+	}
+	id := g.graphID(outputPath)
+	for _, name := range g.colocatedAssetNames(page.SourceDir, page.Content) {
+		asset := filepath.Join(page.SourceDir, name)
+		g.recordInput(asset, depgraph.KindData)
+		g.graph.Depends(id, g.graphID(asset))
+	}
 }
 
 // pageSourcePath is the file a page was parsed from, or empty for a page that
@@ -217,9 +256,11 @@ func (g *Generator) recordContentInputs() {
 	}
 	for _, p := range g.siteData.Pages {
 		g.recordInput(pageSourcePath(p), depgraph.KindContent)
+		g.recordAssetInputs(p)
 	}
 	for _, p := range g.siteData.Posts {
 		g.recordInput(pageSourcePath(p), depgraph.KindContent)
+		g.recordAssetInputs(p)
 	}
 	g.recordTreeInputs(filepath.Join(g.config.TemplatesDir, g.config.Template), depgraph.KindTemplate)
 	g.recordTreeInputs(g.config.DataDir, depgraph.KindData)

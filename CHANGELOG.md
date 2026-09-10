@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sequence of edits, applied to a site rebuilt whole and a site rebuilt
   incrementally, byte for byte identical at every step.
 
+  A page's co-located assets are edges of their own, so an image replaced in
+  place refreshes the copy beside the page — a stale picture under a green
+  build is the same failure as a stale page.
+
   Measured honestly on a 5 000-post corpus, editing one post: 268 pages
   rendered instead of 5 251, and the wall clock barely moves. Rendering is a
   quarter of a warm build; loading content is half of it, and 540 ms of that is

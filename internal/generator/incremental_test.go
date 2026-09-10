@@ -382,3 +382,46 @@ func TestMddbContentCancelsNarrowing(t *testing.T) {
 		t.Errorf("reasons = %v", gen.graph.Reasons())
 	}
 }
+
+// TestChangedImageBesideAPageRefreshesIt: the hole a graph is easiest to leave.
+//
+// An image replaced in place changes no Markdown. Without an edge from the
+// asset to the page, the plan names nothing, the page is skipped, and the copy
+// that would have refreshed the picture never runs — a stale asset under a
+// green build.
+func TestChangedImageBesideAPageRefreshesIt(t *testing.T) {
+	cfg := incrementalFixture(t, 2)
+	dir := filepath.Join(contentRoot(cfg), "posts", "news")
+	mustWrite(t, filepath.Join(dir, "a.md"),
+		"---\ntitle: Post a\nslug: post-a\nstatus: publish\ntype: post\ndate: 2024-01-01\n---\n\n![Shot](shot.png)\n")
+	mustWrite(t, filepath.Join(dir, "shot.png"), "FIRST")
+	buildSiteFixture(t, cfg)
+
+	copied := filepath.Join(cfg.OutputDir, "2024", "01", "01", "post-a", "shot.png")
+	if got := mustRead(t, copied); got != "FIRST" {
+		t.Fatalf("the asset was not copied: %q", got)
+	}
+
+	mustWrite(t, filepath.Join(dir, "shot.png"), "SECOND")
+	buildSiteFixture(t, cfg)
+	if got := mustRead(t, copied); got != "SECOND" {
+		t.Errorf("a replaced image left a stale copy: %q", got)
+	}
+}
+
+// TestAnImageAddedBesideAPageIsSeen: the text already referenced it, so no
+// Markdown changed when the file finally appeared.
+func TestAnImageAddedBesideAPageIsSeen(t *testing.T) {
+	cfg := incrementalFixture(t, 2)
+	dir := filepath.Join(contentRoot(cfg), "posts", "news")
+	mustWrite(t, filepath.Join(dir, "a.md"),
+		"---\ntitle: Post a\nslug: post-a\nstatus: publish\ntype: post\ndate: 2024-01-01\n---\n\n![Shot](later.png)\n")
+	buildSiteFixture(t, cfg)
+
+	mustWrite(t, filepath.Join(dir, "later.png"), "ARRIVED")
+	buildSiteFixture(t, cfg)
+	copied := filepath.Join(cfg.OutputDir, "2024", "01", "01", "post-a", "later.png")
+	if got := mustRead(t, copied); got != "ARRIVED" {
+		t.Errorf("an image that appeared later was never copied: %q", got)
+	}
+}

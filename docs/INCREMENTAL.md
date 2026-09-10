@@ -75,6 +75,10 @@ full set. Incremental only skips *writing* pages whose bytes cannot have
 changed. That is why an incremental build and a full one produce the same tree,
 and why a test asserts exactly that over a random sequence of edits.
 
+Assets beside a page count as that page's inputs, so replacing an image in
+place rebuilds the page and refreshes the copy. A stale picture under a green
+build is the same failure as a stale page.
+
 **It is not a replacement for the watch loop's hash check.** The watcher still
 skips a rebuild entirely when nothing changed by a byte. Incremental is what
 happens after that check says something did.

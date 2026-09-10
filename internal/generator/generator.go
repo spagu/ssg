@@ -4879,36 +4879,18 @@ func isContentAsset(name string) bool {
 // copyColocatedAssets copies non-markdown files from a content source directory
 // to the corresponding output directory of the generated page/post
 func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) error {
-	entries := g.assetDirEntries(sourceDir)
-	if entries == nil {
-		return nil // Source dir might not exist, that's fine
-	}
-
+	names := g.colocatedAssetNames(sourceDir, content)
 	copied := 0
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-		if !isContentAsset(entry.Name()) {
-			continue
-		}
-		// PERF-007: a post's SourceDir is its whole category directory, so copying
-		// every asset would duplicate them into every sibling post's output dir
-		// (O(posts × assets) I/O and disk bloat). Copy only assets this page
-		// actually references by filename.
-		if !strings.Contains(content, entry.Name()) {
-			continue
-		}
-
-		srcPath := filepath.Join(sourceDir, entry.Name())
-		dstPath := filepath.Join(outputDir, entry.Name())
+	for _, name := range names {
+		srcPath := filepath.Join(sourceDir, name)
+		dstPath := filepath.Join(outputDir, name)
 
 		if err := g.ensureDir(outputDir); err != nil {
 			return err
 		}
 
 		if err := g.copyFile(srcPath, dstPath); err != nil {
-			fmt.Printf("   ⚠️  Warning: couldn't copy co-located asset %s: %v\n", entry.Name(), err)
+			fmt.Printf("   ⚠️  Warning: couldn't copy co-located asset %s: %v\n", name, err)
 			continue
 		}
 		copied++
@@ -4919,6 +4901,34 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 	}
 
 	return nil
+}
+
+// colocatedAssetNames selects the files beside a page that it actually
+// references — the one rule both the copy and the dependency graph must apply,
+// which is why it lives here rather than twice.
+//
+// PERF-007: a post's SourceDir is its whole category directory, so copying every
+// asset would duplicate them into every sibling post's output dir (O(posts ×
+// assets) I/O and disk bloat). Only assets named in the content are taken.
+func (g *Generator) colocatedAssetNames(sourceDir, content string) []string {
+	entries := g.assetDirEntries(sourceDir)
+	if entries == nil {
+		return nil // Source dir might not exist, that's fine
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		if !isContentAsset(entry.Name()) {
+			continue
+		}
+		if !strings.Contains(content, entry.Name()) {
+			continue
+		}
+		names = append(names, entry.Name())
+	}
+	return names
 }
 
 // assetDirEntries returns sourceDir's listing, reading it from disk at most once
