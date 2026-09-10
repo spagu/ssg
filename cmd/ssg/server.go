@@ -211,7 +211,7 @@ func logServerStart(cfg *config.Config, url, mode string, exposed bool) {
 	scheme := "HTTP"
 	if mode != "" {
 		scheme = "HTTPS"
-		url = strings.Replace(url, "http://", "https://", 1)
+		url = resolveListenURL(true, strings.TrimPrefix(url, plainScheme+"://"))
 	}
 	fmt.Printf("🌐 Starting %s server at %s\n", scheme, url)
 	if mode == "auto" {

@@ -175,26 +175,31 @@ func (g *Generator) resolveVersions() {
 		collect(&g.siteData.Posts[i])
 	}
 	for _, key := range sortedKeys(groups) {
-		chain := groups[key]
-		sort.SliceStable(chain, func(i, j int) bool {
-			return compareVersions(chain[i].Version, chain[j].Version) > 0 // newest first
-		})
-		latest := chain[0]
-		for _, p := range chain {
-			p.Versions = chain
-			p.IsLatest = p == latest
-			if p.IsLatest {
-				continue
-			}
-			// A superseded version points at the current one. Without this the
-			// old revisions compete with the new for the same query, and the
-			// site quietly ranks its own out-of-date documentation.
-			if p.Canonical == "" {
-				p.Canonical = "https://" + g.config.Domain + latest.GetURL()
-			}
-			if g.config.Versions.NoindexOld && p.Robots == "" {
-				p.Robots = "noindex, follow"
-			}
+		g.linkVersionChain(groups[key])
+	}
+}
+
+// linkVersionChain orders one document's revisions newest first, and points
+// every superseded one at the current version.
+//
+// Without that pointer the old revisions compete with the new for the same
+// query, and the site quietly ranks its own out-of-date documentation.
+func (g *Generator) linkVersionChain(chain []*models.Page) {
+	sort.SliceStable(chain, func(i, j int) bool {
+		return compareVersions(chain[i].Version, chain[j].Version) > 0 // newest first
+	})
+	latest := chain[0]
+	for _, p := range chain {
+		p.Versions = chain
+		p.IsLatest = p == latest
+		if p.IsLatest {
+			continue
+		}
+		if p.Canonical == "" {
+			p.Canonical = "https://" + g.config.Domain + latest.GetURL()
+		}
+		if g.config.Versions.NoindexOld && p.Robots == "" {
+			p.Robots = "noindex, follow"
 		}
 	}
 }

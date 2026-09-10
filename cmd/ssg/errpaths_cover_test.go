@@ -52,7 +52,7 @@ func TestInitReportsAScaffoldItCannotWrite(t *testing.T) {
 func TestInitRejectsAFlagItDoesNotKnow(t *testing.T) {
 	t.Chdir(t.TempDir())
 	out := captureStderr(t, func() {
-		if code := runInit([]string{"--domian=example.com"}); code == 0 {
+		if runInit([]string{"--domian=example.com"}) == 0 {
 			t.Error("an unknown flag must not scaffold anything")
 		}
 	})

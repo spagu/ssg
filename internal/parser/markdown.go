@@ -584,15 +584,15 @@ func skipForExcerpt(line string) bool {
 	return false
 }
 
-// truncateRunes cuts text to at most max runes, preferring the last word
+// truncateRunes cuts text to at most limit runes, preferring the last word
 // boundary, and marks the cut with an ellipsis.
-func truncateRunes(text string, max int) string {
+func truncateRunes(text string, limit int) string {
 	runes := []rune(text)
-	if len(runes) <= max {
+	if len(runes) <= limit {
 		return text
 	}
-	cut := string(runes[:max])
-	if idx := strings.LastIndex(cut, " "); idx > max/2 {
+	cut := string(runes[:limit])
+	if idx := strings.LastIndex(cut, " "); idx > limit/2 {
 		cut = cut[:idx]
 	}
 	return strings.TrimRight(cut, " ,;:.") + "…"

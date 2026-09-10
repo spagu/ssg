@@ -94,38 +94,66 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 		m := p.Modified
 		node.Modified = &m
 	}
-	for _, id := range p.Categories {
-		if cat, ok := g.siteData.Categories[id]; ok {
-			node.Categories = append(node.Categories, cat.Name)
-		}
-	}
-	if p.Category != "" && len(node.Categories) == 0 {
-		node.Categories = []string{p.Category}
-	}
+	node.Categories = g.graphCategories(p)
 	// The components this page renders (GO-093). Read from the page's own
 	// content rather than from a per-build tally, because the graph describes
 	// pages and a tally describes the build (GO-095 phase 2).
 	node.Components = g.componentsInContent(p.Content)
-	// Declared relations are edges an author wrote down, which is exactly what
-	// a graph is for (GO-096).
-	for _, name := range sortedKeys(p.RelatedPages) {
-		for _, target := range p.RelatedPages[name] {
-			node.Relations = append(node.Relations, sitegraph.Relation{Name: name, URL: target.GetURL()})
+	node.Relations = graphRelations(p)
+	node.Translations = g.graphTranslations(p)
+	node.Outputs = g.graphOutputs(p, node.URL)
+	return node
+}
+
+// graphCategories names a page's categories, falling back to the plain one a
+// migrated site carries when no id resolved.
+func (g *Generator) graphCategories(p models.Page) []string {
+	var names []string
+	for _, id := range p.Categories {
+		if cat, ok := g.siteData.Categories[id]; ok {
+			names = append(names, cat.Name)
 		}
 	}
+	if p.Category != "" && len(names) == 0 {
+		return []string{p.Category}
+	}
+	return names
+}
+
+// graphRelations are the edges an author wrote down, which is exactly what a
+// graph is for (GO-096).
+func graphRelations(p models.Page) []sitegraph.Relation {
+	var out []sitegraph.Relation
+	for _, name := range sortedKeys(p.RelatedPages) {
+		for _, target := range p.RelatedPages[name] {
+			out = append(out, sitegraph.Relation{Name: name, URL: target.GetURL()})
+		}
+	}
+	return out
+}
+
+// graphTranslations lists a page's other languages, never itself.
+func (g *Generator) graphTranslations(p models.Page) []sitegraph.Translation {
+	var out []sitegraph.Translation
 	for _, tr := range g.translationsFor(p) {
 		if tr.IsCurrent {
 			continue
 		}
-		node.Translations = append(node.Translations, sitegraph.Translation{Lang: tr.Lang, URL: tr.URL})
+		out = append(out, sitegraph.Translation{Lang: tr.Lang, URL: tr.URL})
 	}
+	return out
+}
+
+// graphOutputs names the representations this page publishes besides its HTML.
+func (g *Generator) graphOutputs(p models.Page, url string) sitegraph.Outputs {
+	out := sitegraph.Outputs{HTML: url}
 	if g.config.MarkdownPublish {
-		node.Outputs.Markdown = markdownURLFor(p, g.config.Domain)
+		out.Markdown = markdownURLFor(p, g.config.Domain)
 	}
-	if g.pageWantsOutput(p, "json") && strings.HasSuffix(node.URL, "/") {
-		node.Outputs.JSON = node.URL + "index.json"
+	if g.pageWantsOutput(p, "json") && strings.HasSuffix(url, "/") {
+		out.JSON = url + "index.json"
 	}
-	return node
+	return out
 }
 
 // graphSections lists the generated listings: the archive routes, the author

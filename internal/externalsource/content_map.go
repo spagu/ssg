@@ -313,45 +313,63 @@ func recordsOf(data interface{}) ([]map[string]interface{}, error) {
 	case []map[string]interface{}:
 		return v, nil
 	case []map[string]string:
-		out := make([]map[string]interface{}, 0, len(v))
-		for _, row := range v {
-			rec := make(map[string]interface{}, len(row))
-			for k, val := range row {
-				rec[k] = val
-			}
-			out = append(out, rec)
-		}
-		return out, nil
+		return recordsFromStringRows(v), nil
 	case []interface{}:
-		out := make([]map[string]interface{}, 0, len(v))
-		for i, item := range v {
-			rec, ok := toRecord(item)
-			if !ok {
-				return nil, fmt.Errorf("entry %d is %T, not an object — `transform.select` may be pointing at the wrong field", i+1, item)
-			}
-			out = append(out, rec)
-		}
-		return out, nil
+		return recordsFromList(v)
 	case map[string]interface{}:
-		keys := make([]string, 0, len(v))
-		for k := range v {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		out := make([]map[string]interface{}, 0, len(keys))
-		for _, k := range keys {
-			if rec, ok := toRecord(v[k]); ok {
-				out = append(out, rec)
-			}
-		}
-		if len(out) == 0 {
-			return []map[string]interface{}{v}, nil // one object is one record
-		}
-		return out, nil
+		return recordsFromMapping(v), nil
 	case nil:
 		return nil, nil
 	}
 	return nil, fmt.Errorf("the source parsed to %T, which holds no records", data)
+}
+
+// recordsFromStringRows widens a CSV-shaped table, whose cells are all text.
+func recordsFromStringRows(rows []map[string]string) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(rows))
+	for _, row := range rows {
+		rec := make(map[string]interface{}, len(row))
+		for k, val := range row {
+			rec[k] = val
+		}
+		out = append(out, rec)
+	}
+	return out
+}
+
+// recordsFromList takes a JSON array, refusing an entry that is not an object.
+// Naming the position is what turns "this did not work" into a fixable report,
+// because the usual cause is a `transform.select` pointing one level off.
+func recordsFromList(items []interface{}) ([]map[string]interface{}, error) {
+	out := make([]map[string]interface{}, 0, len(items))
+	for i, item := range items {
+		rec, ok := toRecord(item)
+		if !ok {
+			return nil, fmt.Errorf("entry %d is %T, not an object — `transform.select` may be pointing at the wrong field", i+1, item)
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
+// recordsFromMapping takes an object of objects in key order, so a rebuild is
+// stable. An object whose values are not themselves objects is one record.
+func recordsFromMapping(v map[string]interface{}) []map[string]interface{} {
+	keys := make([]string, 0, len(v))
+	for k := range v {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]map[string]interface{}, 0, len(keys))
+	for _, k := range keys {
+		if rec, ok := toRecord(v[k]); ok {
+			out = append(out, rec)
+		}
+	}
+	if len(out) == 0 {
+		return []map[string]interface{}{v}
+	}
+	return out
 }
 
 // toRecord accepts the two shapes a decoded object arrives in.

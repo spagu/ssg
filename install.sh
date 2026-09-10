@@ -24,10 +24,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+log_info() { local message="$1"; echo -e "${BLUE}[INFO]${NC} ${message}"; }
+log_success() { local message="$1"; echo -e "${GREEN}[OK]${NC} ${message}"; }
+log_warn() { local message="$1"; echo -e "${YELLOW}[WARN]${NC} ${message}"; }
+log_error() { local message="$1"; echo -e "${RED}[ERROR]${NC} ${message}"; exit 1; }
 
 TMP_DIR=""
 cleanup() { if [[ -n "$TMP_DIR" ]]; then rm -rf "$TMP_DIR"; fi; }
@@ -55,15 +55,17 @@ detect_platform() {
 # fetch downloads one release asset to a path; HTTPS only, no HTTP fallback,
 # and an HTTP error status fails instead of saving the error page.
 fetch() {
-    curl --proto '=https' --proto-redir =https --fail -sSL "$1" -o "$2"
+    local url="$1" dest="$2"
+    curl --proto '=https' --proto-redir =https --fail -sSL "${url}" -o "${dest}"
 }
 
 # sha256_of prints the SHA-256 of a file with whichever tool the platform has.
 sha256_of() {
+    local file="$1"
     if command -v sha256sum &> /dev/null; then
-        sha256sum "$1" | awk '{print $1}'
+        sha256sum "${file}" | awk '{print $1}'
     elif command -v shasum &> /dev/null; then
-        shasum -a 256 "$1" | awk '{print $1}'
+        shasum -a 256 "${file}" | awk '{print $1}'
     else
         return 1
     fi

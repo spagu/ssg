@@ -84,10 +84,14 @@ type Server struct {
 	branch string
 }
 
+// discardLog is the logger for a server nobody asked to narrate. It exists as
+// a named function so an empty body reads as a decision rather than an omission.
+func discardLog(string, ...any) {}
+
 // New builds an editing server.
 func New(opts Options) *Server {
 	if opts.Logf == nil {
-		opts.Logf = func(string, ...any) {}
+		opts.Logf = discardLog
 	}
 	return &Server{opts: opts, branch: opts.Branch}
 }

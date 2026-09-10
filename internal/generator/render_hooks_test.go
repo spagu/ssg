@@ -224,7 +224,7 @@ func TestHookThatFailsAtRenderTimeIsReported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := gen.Generate(); err != nil {
+	if gen.Generate() != nil {
 		return // reported, which is the point
 	}
 	got := mustRead(t, filepath.Join(cfg.OutputDir, "a", "index.html"))
@@ -263,7 +263,7 @@ func TestHookSetIsNilSafe(t *testing.T) {
 	if got := hookRendererOption(nil); got != nil {
 		t.Errorf("options = %v", got)
 	}
-	if got := hookRendererOption(&hookSet{}); got != nil {
+	if hookRendererOption(&hookSet{}) != nil {
 		t.Error("an empty set registers nothing")
 	}
 }

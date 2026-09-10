@@ -32,6 +32,13 @@ func isConfigSubcommand(noun string) bool {
 	return false
 }
 
+// reportConfigError prints one failure in the shape every config command uses
+// and returns its exit code, so the same two lines are not written eleven times.
+func reportConfigError(err error) int {
+	errf("❌ %v\n", err)
+	return 1
+}
+
 // runConfig implements `ssg config <verb> [args]`.
 func runConfig(args []string) int {
 	verb, rest := args[0], args[1:]
@@ -108,8 +115,7 @@ func runConfigView(path string, args []string) int {
 	}
 	src, err := os.ReadFile(path) // #nosec G304,G703 -- the project's own config, named by the operator on the command line
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	if target == "" {
 		fmt.Print(string(src))
@@ -117,8 +123,7 @@ func runConfigView(path string, args []string) int {
 	}
 	out, err := config.GetYAMLPath(src, target)
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	fmt.Print(string(out))
 	return 0
@@ -137,15 +142,13 @@ func runConfigView(path string, args []string) int {
 func printEffective(path, target string) int {
 	cfg, err := config.Load(path)
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	// #nosec G117 -- redactSecrets on the next line blanks every credential
 	// before a byte of this is printed; the marshal itself never leaves here.
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	data = redactSecrets(data)
 	if target == "" {
@@ -213,8 +216,7 @@ func runConfigSet(path string, args []string) int {
 		return 2
 	}
 	if err := yamlOnly(path); err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	target, raw := rest[0], rest[1]
 	var value interface{}
@@ -238,8 +240,7 @@ func runConfigUnset(path string, args []string) int {
 		return 2
 	}
 	if err := yamlOnly(path); err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	target := args[0]
 	return applyConfigEdit(path, target, func(src []byte) ([]byte, error) {
@@ -256,19 +257,16 @@ func runConfigUnset(path string, args []string) int {
 func applyConfigEdit(path, target string, edit func([]byte) ([]byte, error), what string) int {
 	src, err := os.ReadFile(path) // #nosec G304,G703 -- the project's own config, named by the operator on the command line
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	updated, err := edit(src)
 	if err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	check := siblingCheckPath(path)
 	// #nosec G306,G703 -- a scratch copy beside the config the operator named
 	if err := os.WriteFile(check, updated, 0o644); err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	defer func() { _ = os.Remove(check) }() // #nosec G703 -- the scratch file this function just made
 	if _, err := config.Load(check); err != nil {
@@ -278,8 +276,7 @@ func applyConfigEdit(path, target string, edit func([]byte) ([]byte, error), wha
 	}
 	// #nosec G306,G703 -- the config file the operator named, written back in place
 	if err := os.WriteFile(path, updated, 0o644); err != nil {
-		errf("❌ %v\n", err)
-		return 1
+		return reportConfigError(err)
 	}
 	fmt.Printf("✅ %s: %s\n", path, what)
 	return 0

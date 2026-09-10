@@ -269,18 +269,27 @@ func (g *Generator) resolveOutputLists(reg *outputRegistry) (map[string][]string
 		}
 	}
 	for kind, formats := range lists {
-		for _, name := range formats {
-			name = strings.ToLower(strings.TrimSpace(name))
-			if name == FormatHTML {
-				continue // always written; listing it is harmless
-			}
-			if _, ok := reg.formats[name]; !ok {
-				return nil, fmt.Errorf("outputs%s: %q is not a format (have: %s)",
-					typeSuffix(kind), name, strings.Join(reg.names(), ", "))
-			}
+		if err := reg.checkNames(kind, formats); err != nil {
+			return nil, err
 		}
 	}
 	return lists, nil
+}
+
+// checkNames refuses a format nobody defined, naming the ones that exist. A
+// typo here otherwise produces a page that is simply never written.
+func (r *outputRegistry) checkNames(kind string, formats []string) error {
+	for _, name := range formats {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name == FormatHTML {
+			continue // always written; listing it is harmless
+		}
+		if _, ok := r.formats[name]; !ok {
+			return fmt.Errorf("outputs%s: %q is not a format (have: %s)",
+				typeSuffix(kind), name, strings.Join(r.names(), ", "))
+		}
+	}
+	return nil
 }
 
 // typeSuffix names the config key an error came from.

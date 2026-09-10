@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -907,56 +908,55 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.AutoReload = &v
 		return true
 	}
-	if arg == "--wrangler" || arg == "-wrangler" {
-		selectWatchRunner(cfg, "wrangler", "", "")
-		return true
-	}
-	if arg == "--workerd" || arg == "-workerd" {
-		selectWatchRunner(cfg, "workerd", "", "")
+	if runner, ok := watchRunnerFlags()[arg]; ok {
+		selectWatchRunner(cfg, runner, "", "")
 		return true
 	}
 	if arg == "--profile" { // bare form reports on stdout; --profile=json writes the file
 		cfg.Profile = generator.ProfileText
 		return true
 	}
-	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
-		cfg.CheckLinks = "warn"
-		return true
-	}
-	if arg == "--check-images" { // same shape: bare form means warn (#75)
-		cfg.CheckImages = "warn"
-		return true
-	}
-	if arg == "--check-meta" { // same shape: bare form means warn (#76)
-		cfg.CheckMeta = "warn"
+	if target, ok := bareCheckFlags(cfg)[arg]; ok {
+		*target = "warn"
 		return true
 	}
 	if arg == "--no-check-markup" { // the one check that is on by default (#127)
 		cfg.CheckMarkup = ""
 		return true
 	}
-	if arg == "--check-schema" { // same shape: bare form means warn (#111)
-		cfg.CheckSchema = "warn"
-		return true
-	}
-	if arg == "--check-orphans" { // same shape: bare form means warn (#77)
-		cfg.CheckOrphans = "warn"
-		return true
-	}
-	if arg == "--check-redirects" { // same shape: bare form means warn (#87)
-		cfg.CheckRedirects = "warn"
-		return true
-	}
 	if arg == "--seo-off" { // deprecated no-op: SEO injection is opt-in since v1.8.2
 		cfg.SEO = false
 		return true
 	}
-	toggles := boolFlagTargets(cfg)
-	if target, ok := toggles[arg]; ok {
+	if target, ok := boolFlagTargets(cfg)[arg]; ok {
 		*target = true
 		return true
 	}
 	return false
+}
+
+// watchRunnerFlags are the convenience spellings that both select a runner and
+// turn watching on.
+func watchRunnerFlags() map[string]string {
+	return map[string]string{
+		"--wrangler": "wrangler", "-wrangler": "wrangler",
+		"--workerd": "workerd", "-workerd": "workerd",
+	}
+}
+
+// bareCheckFlags are the checks whose bare flag means "warn". Each also takes
+// an explicit level as --check-x=strict, which the equals-flag parser handles;
+// listing them here is what keeps six near-identical branches from being
+// written out, and what makes adding the seventh a one-line change.
+func bareCheckFlags(cfg *config.Config) map[string]*string {
+	return map[string]*string{
+		"--check-links":     &cfg.CheckLinks,
+		"--check-images":    &cfg.CheckImages,    // #75
+		"--check-meta":      &cfg.CheckMeta,      // #76
+		"--check-schema":    &cfg.CheckSchema,    // #111
+		"--check-orphans":   &cfg.CheckOrphans,   // #77
+		"--check-redirects": &cfg.CheckRedirects, // #87
+	}
 }
 
 // selectWatchRunner enables watch mode for a runner, optionally recording where
@@ -1289,6 +1289,10 @@ func parseSeparateValueFlags(args []string, i int, cfg *config.Config) int {
 // SEC-012: it defaults to loopback and flags exposure when an all-interfaces
 // address is requested. net.JoinHostPort brackets IPv6 literals so --host=::1
 // yields a valid listen address (GO-034).
+//
+// The URL is plain by default because the preview server is: TLS is opt-in, and
+// resolveListenURL is what a caller that has turned it on uses instead of
+// rewriting the string afterwards.
 func resolveListenAddr(host string, port int) (addr, url string, exposed bool) {
 	if host == "" {
 		host = "127.0.0.1"
@@ -1300,9 +1304,23 @@ func resolveListenAddr(host string, port int) (addr, url string, exposed bool) {
 		display = "127.0.0.1"
 		exposed = true
 	}
-	url = fmt.Sprintf("http://%s", net.JoinHostPort(display, portStr))
-	return addr, url, exposed
+	return addr, resolveListenURL(false, net.JoinHostPort(display, portStr)), exposed
 }
+
+// resolveListenURL formats the address a person is meant to open, for the
+// scheme the server actually speaks.
+func resolveListenURL(secure bool, hostPort string) string {
+	scheme := plainScheme
+	if secure {
+		scheme = plainScheme + "s"
+	}
+	return (&neturl.URL{Scheme: scheme, Host: hostPort}).String()
+}
+
+// plainScheme is the preview server's default. It is not a mistake and not a
+// setting a site inherits: this is a development server on loopback, and every
+// public deployment is somebody else's TLS.
+const plainScheme = "http"
 
 func build(genCfg generator.Config, cfg *config.Config) error {
 	gen, err := generator.New(genCfg)

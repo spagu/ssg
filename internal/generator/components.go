@@ -254,20 +254,23 @@ func (g *Generator) componentAssetTags(html string) string {
 		if !ok {
 			continue
 		}
-		for _, css := range c.StyleAssets() {
-			href := fmt.Sprintf("%s/%s/%s", componentAssetPrefix, name, css)
-			if !strings.Contains(html, href) {
-				fmt.Fprintf(&b, `<link rel="stylesheet" href="%s">`+"\n", href)
-			}
-		}
-		for _, js := range c.ScriptAssets() {
-			src := fmt.Sprintf("%s/%s/%s", componentAssetPrefix, name, js)
-			if !strings.Contains(html, src) {
-				fmt.Fprintf(&b, `<script src="%s" defer></script>`+"\n", src)
-			}
-		}
+		writeAssetTags(&b, html, name, c.StyleAssets(), `<link rel="stylesheet" href="%s">`)
+		writeAssetTags(&b, html, name, c.ScriptAssets(), `<script src="%s" defer></script>`)
 	}
 	return b.String()
+}
+
+// writeAssetTags emits one tag per asset a page does not already carry. The
+// check against the page is what keeps a theme that already links a component's
+// stylesheet from getting a second copy of it.
+func writeAssetTags(b *strings.Builder, html, name string, assets []string, tag string) {
+	for _, asset := range assets {
+		url := fmt.Sprintf("%s/%s/%s", componentAssetPrefix, name, asset)
+		if strings.Contains(html, url) {
+			continue
+		}
+		fmt.Fprintf(b, tag+"\n", url)
+	}
 }
 
 // injectComponentAssets places a page's component assets in its head and then

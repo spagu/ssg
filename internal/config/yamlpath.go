@@ -51,71 +51,108 @@ func ParseYAMLPath(path string) ([]pathSeg, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("empty path")
 	}
-	var segs []pathSeg
-	var cur strings.Builder
-	started := false // a segment has begun, even if its text is empty ("")
-	flush := func() error {
-		if !started {
-			return fmt.Errorf("%q: empty path segment", path)
-		}
-		segs = append(segs, pathSeg{key: cur.String()})
-		cur.Reset()
-		started = false
-		return nil
-	}
-	for i := 0; i < len(path); i++ {
-		switch c := path[i]; c {
-		case '"':
-			end := strings.IndexByte(path[i+1:], '"')
-			if end < 0 {
-				return nil, fmt.Errorf("%q: unclosed quote", path)
-			}
-			cur.WriteString(path[i+1 : i+1+end])
-			started = true
-			i += end + 1
-		case '.':
-			if err := flush(); err != nil {
-				return nil, err
-			}
-		case '[':
-			end := strings.IndexByte(path[i:], ']')
-			if end < 0 {
-				return nil, fmt.Errorf("%q: unclosed [", path)
-			}
-			if started {
-				if err := flush(); err != nil {
-					return nil, err
-				}
-			}
-			n, err := strconv.Atoi(path[i+1 : i+end])
-			if err != nil || n < 0 {
-				return nil, fmt.Errorf("%q: %q is not a list index", path, path[i:i+end+1])
-			}
-			segs = append(segs, pathSeg{index: n, isIndex: true})
-			i += end
-			// A dot after an index is separator noise: a[0].b and a[0]b would
-			// otherwise disagree about where the next segment starts.
-			if i+1 < len(path) && path[i+1] == '.' {
-				i++
-			}
-		case ']':
-			return nil, fmt.Errorf("%q: unmatched ]", path)
-		default:
-			cur.WriteByte(c)
-			started = true
-		}
-	}
-	if started {
-		if err := flush(); err != nil {
+	p := &pathParser{path: path}
+	for p.i = 0; p.i < len(path); p.i++ {
+		if err := p.step(path[p.i]); err != nil {
 			return nil, err
 		}
-	} else if strings.HasSuffix(path, ".") {
-		return nil, fmt.Errorf("%q: empty path segment", path)
 	}
-	if len(segs) == 0 {
-		return nil, fmt.Errorf("%q: no path segments", path)
+	return p.finish()
+}
+
+// pathParser walks a path expression one byte at a time. It is a type rather
+// than a closure-heavy loop because the four cases below each need to read and
+// move the same three pieces of state, and threading those through arguments
+// was what made this function unreadable.
+type pathParser struct {
+	path string
+	i    int
+	cur  strings.Builder
+	segs []pathSeg
+	// started records that a segment has begun even if its text is empty, which
+	// is what tells `a..b` (an empty segment) from `a.b`.
+	started bool
+}
+
+// step consumes one byte.
+func (p *pathParser) step(c byte) error {
+	switch c {
+	case '"':
+		return p.quoted()
+	case '.':
+		return p.flush()
+	case '[':
+		return p.index()
+	case ']':
+		return fmt.Errorf("%q: unmatched ]", p.path)
 	}
-	return segs, nil
+	p.cur.WriteByte(c)
+	p.started = true
+	return nil
+}
+
+// quoted consumes a "quoted key", which is how a key containing a dot or a
+// slash is written.
+func (p *pathParser) quoted() error {
+	end := strings.IndexByte(p.path[p.i+1:], '"')
+	if end < 0 {
+		return fmt.Errorf("%q: unclosed quote", p.path)
+	}
+	p.cur.WriteString(p.path[p.i+1 : p.i+1+end])
+	p.started = true
+	p.i += end + 1
+	return nil
+}
+
+// index consumes a [n] list position.
+func (p *pathParser) index() error {
+	end := strings.IndexByte(p.path[p.i:], ']')
+	if end < 0 {
+		return fmt.Errorf("%q: unclosed [", p.path)
+	}
+	if p.started {
+		if err := p.flush(); err != nil {
+			return err
+		}
+	}
+	n, err := strconv.Atoi(p.path[p.i+1 : p.i+end])
+	if err != nil || n < 0 {
+		return fmt.Errorf("%q: %q is not a list index", p.path, p.path[p.i:p.i+end+1])
+	}
+	p.segs = append(p.segs, pathSeg{index: n, isIndex: true})
+	p.i += end
+	// A dot after an index is separator noise: a[0].b and a[0]b would otherwise
+	// disagree about where the next segment starts.
+	if p.i+1 < len(p.path) && p.path[p.i+1] == '.' {
+		p.i++
+	}
+	return nil
+}
+
+// flush ends the segment being read.
+func (p *pathParser) flush() error {
+	if !p.started {
+		return fmt.Errorf("%q: empty path segment", p.path)
+	}
+	p.segs = append(p.segs, pathSeg{key: p.cur.String()})
+	p.cur.Reset()
+	p.started = false
+	return nil
+}
+
+// finish closes the last segment and checks the path named something.
+func (p *pathParser) finish() ([]pathSeg, error) {
+	if p.started {
+		if err := p.flush(); err != nil {
+			return nil, err
+		}
+	} else if strings.HasSuffix(p.path, ".") {
+		return nil, fmt.Errorf("%q: empty path segment", p.path)
+	}
+	if len(p.segs) == 0 {
+		return nil, fmt.Errorf("%q: no path segments", p.path)
+	}
+	return p.segs, nil
 }
 
 // GetYAMLPath returns the value at path, encoded as YAML: a scalar as its own
@@ -150,6 +187,35 @@ func SetYAMLPath(src []byte, path string, value interface{}) ([]byte, error) {
 	return setSegments(src, segs, value)
 }
 
+// walkToParent descends every segment but the last, returning the node that
+// holds it, the key that introduced that node, and — when the path runs out of
+// existing structure — the tail that still has to be created.
+func walkToParent(root *yaml.Node, segs []pathSeg, full string) (node, parentKey *yaml.Node, missing []pathSeg, err error) {
+	node, parentKey = root, nil
+	for n, seg := range segs[:len(segs)-1] {
+		if seg.isIndex {
+			if node.Kind != yaml.SequenceNode {
+				return nil, nil, nil, fmt.Errorf("%s: %s is not a list", full, pathString(segs[:n]))
+			}
+			if seg.index >= len(node.Content) {
+				return nil, nil, nil, fmt.Errorf("%s: the list at %s has %d entries",
+					full, pathString(segs[:n]), len(node.Content))
+			}
+			node, parentKey = node.Content[seg.index], nil
+			continue
+		}
+		if node.Kind != yaml.MappingNode {
+			return nil, nil, nil, fmt.Errorf("%s: %s is not a mapping", full, pathString(segs[:n]))
+		}
+		i := mappingIndex(node, seg.key)
+		if i < 0 {
+			return node, parentKey, segs[n:], nil
+		}
+		parentKey, node = node.Content[i], node.Content[i+1]
+	}
+	return node, parentKey, nil, nil
+}
+
 // setSegments is SetYAMLPath with the path already parsed, so a caller holding
 // a literal key never has it re-parsed as a path.
 func setSegments(src []byte, segs []pathSeg, value interface{}) ([]byte, error) {
@@ -167,28 +233,14 @@ func setSegments(src []byte, segs []pathSeg, value interface{}) ([]byte, error) 
 		root = &yaml.Node{Kind: yaml.MappingNode}
 	}
 	full := pathString(segs)
-	node, parentKey := root, (*yaml.Node)(nil)
-	for n, seg := range segs[:len(segs)-1] {
-		if seg.isIndex {
-			if node.Kind != yaml.SequenceNode {
-				return nil, fmt.Errorf("%s: %s is not a list", full, pathString(segs[:n]))
-			}
-			if seg.index >= len(node.Content) {
-				return nil, fmt.Errorf("%s: the list at %s has %d entries", full, pathString(segs[:n]), len(node.Content))
-			}
-			node, parentKey = node.Content[seg.index], nil
-			continue
-		}
-		if node.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("%s: %s is not a mapping", full, pathString(segs[:n]))
-		}
-		i := mappingIndex(node, seg.key)
-		if i < 0 {
-			// The rest of the path does not exist yet: write it as one nested
-			// block rather than refusing an edit the caller clearly meant.
-			return insertNested(src, node, parentKey, segs[n:], value)
-		}
-		parentKey, node = node.Content[i], node.Content[i+1]
+	node, parentKey, missing, err := walkToParent(root, segs, full)
+	if err != nil {
+		return nil, err
+	}
+	if missing != nil {
+		// The rest of the path does not exist yet: write it as one nested block
+		// rather than refusing an edit the caller clearly meant.
+		return insertNested(src, node, parentKey, missing, value)
 	}
 
 	last := segs[len(segs)-1]

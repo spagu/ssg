@@ -21,6 +21,17 @@ import (
 	"github.com/spagu/ssg/internal/generator"
 )
 
+// noProfileToStop is what a run that started no profile returns. Naming it says
+// what the empty body means, which four anonymous ones did not.
+func noProfileToStop() {}
+
+// pprofUnavailable reports why profiling did not start and returns a stop
+// function with nothing to stop.
+func pprofUnavailable(err error) func() {
+	errf("⚠️  --profile-pprof: %v\n", err)
+	return noProfileToStop
+}
+
 // startPprof begins CPU profiling when --profile-pprof names a directory, and
 // returns the function that stops it and writes the heap profile. It always
 // returns a callable, so the caller defers it without checking.
@@ -31,21 +42,18 @@ import (
 func startPprof(cfg *config.Config) func() {
 	dir := cfg.ProfilePprof
 	if dir == "" {
-		return func() {}
+		return noProfileToStop
 	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		errf("⚠️  --profile-pprof: %v\n", err)
-		return func() {}
+		return pprofUnavailable(err)
 	}
 	cpu, err := os.Create(filepath.Join(dir, "cpu.prof")) // #nosec G304 -- a directory the operator named
 	if err != nil {
-		errf("⚠️  --profile-pprof: %v\n", err)
-		return func() {}
+		return pprofUnavailable(err)
 	}
 	if err := pprof.StartCPUProfile(cpu); err != nil {
-		errf("⚠️  --profile-pprof: %v\n", err)
 		_ = cpu.Close()
-		return func() {}
+		return pprofUnavailable(err)
 	}
 	return func() {
 		pprof.StopCPUProfile()
@@ -60,6 +68,12 @@ func startPprof(cfg *config.Config) func() {
 // writeHeapProfile snapshots the heap after the build, when the numbers mean
 // something. A GC first, so what is reported is live memory rather than
 // whatever had not been collected yet.
+//
+// NOSONAR S4507: this is a maintainer's instrument behind an explicit
+// --profile-pprof flag, not a debug endpoint left on. Nothing is served, no
+// handler is registered, and a run without the flag never calls this. The
+// profile is written to a directory the operator named, beside the project and
+// never into the output tree.
 func writeHeapProfile(dir string) {
 	f, err := os.Create(filepath.Join(dir, "heap.prof")) // #nosec G304 -- a directory the operator named
 	if err != nil {

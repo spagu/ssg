@@ -146,10 +146,10 @@ func TestConfigUnset(t *testing.T) {
 	if strings.Contains(readFile(t, path), "highlight_style") {
 		t.Error("key not removed")
 	}
-	if code := runConfig([]string{"unset", "highlight_style"}); code != 1 {
+	if runConfig([]string{"unset", "highlight_style"}) != 1 {
 		t.Error("unsetting what is not set must fail")
 	}
-	if code := runConfig([]string{"unset"}); code != 2 {
+	if runConfig([]string{"unset"}) != 2 {
 		t.Error("a missing path is a usage error")
 	}
 }
@@ -168,13 +168,13 @@ func TestConfigView(t *testing.T) {
 			t.Errorf("%v: exit %d", args, code)
 		}
 	}
-	if code := runConfig([]string{"view", "nope"}); code != 1 {
+	if runConfig([]string{"view", "nope"}) != 1 {
 		t.Error("an unset path must fail")
 	}
-	if code := runConfig([]string{"view", "--effective", "nope"}); code != 1 {
+	if runConfig([]string{"view", "--effective", "nope"}) != 1 {
 		t.Error("an unknown key must fail even in the effective view")
 	}
-	if code := runConfig([]string{"view", "--nonsense"}); code != 2 {
+	if runConfig([]string{"view", "--nonsense"}) != 2 {
 		t.Error("an unknown option is a usage error")
 	}
 }
@@ -184,7 +184,7 @@ func TestConfigView(t *testing.T) {
 func TestConfigViewEffectiveShowsDefaults(t *testing.T) {
 	path := inProject(t, ".ssg.yaml", "source: mysite\ndomain: example.com\n")
 	out, err := captureStdout(func() error {
-		if code := runConfig([]string{"view", "--effective", "check_markup"}); code != 0 {
+		if runConfig([]string{"view", "--effective", "check_markup"}) != 0 {
 			t.Error("a defaulted key must resolve")
 		}
 		return nil
@@ -196,7 +196,7 @@ func TestConfigViewEffectiveShowsDefaults(t *testing.T) {
 		t.Errorf("check_markup = %q, want the default \"warn\"", strings.TrimSpace(out))
 	}
 	// And the raw view does not invent it.
-	if code := runConfig([]string{"view", "check_markup"}); code != 1 {
+	if runConfig([]string{"view", "check_markup"}) != 1 {
 		t.Error("the raw view must not report a key the file does not have")
 	}
 	_ = path
@@ -206,14 +206,14 @@ func TestConfigViewEffectiveShowsDefaults(t *testing.T) {
 // rewriting a TOML file without its comments.
 func TestConfigRefusesNonYAML(t *testing.T) {
 	path := inProject(t, ".ssg.toml", "source = \"mysite\"\ndomain = \"example.com\"\n")
-	if code := runConfig([]string{"set", "--config=" + path, "title", "X"}); code != 1 {
+	if runConfig([]string{"set", "--config=" + path, "title", "X"}) != 1 {
 		t.Error("a TOML config must be refused by set")
 	}
-	if code := runConfig([]string{"unset", "--config=" + path, "title"}); code != 1 {
+	if runConfig([]string{"unset", "--config=" + path, "title"}) != 1 {
 		t.Error("a TOML config must be refused by unset")
 	}
 	// Reading it is fine — nothing is at risk.
-	if code := runConfig([]string{"view", "--config=" + path}); code != 0 {
+	if runConfig([]string{"view", "--config=" + path}) != 0 {
 		t.Error("viewing a TOML config is harmless and should work")
 	}
 }
@@ -234,7 +234,7 @@ func TestConfigPathDiscovery(t *testing.T) {
 	}
 	// Nothing to find, and nothing to guess at.
 	t.Chdir(t.TempDir())
-	if code := runConfig([]string{"view"}); code != 1 {
+	if runConfig([]string{"view"}) != 1 {
 		t.Error("no config anywhere must be an error, not a panic")
 	}
 }
@@ -242,13 +242,13 @@ func TestConfigPathDiscovery(t *testing.T) {
 // TestConfigUsageErrors: the argument shapes that are simply wrong.
 func TestConfigUsageErrors(t *testing.T) {
 	inProject(t, ".ssg.yaml", sampleConfig)
-	if code := runConfig([]string{"set", "onlypath"}); code != 2 {
+	if runConfig([]string{"set", "onlypath"}) != 2 {
 		t.Error("set needs a path and a value")
 	}
-	if code := runConfig([]string{"set", "a", "b", "c"}); code != 2 {
+	if runConfig([]string{"set", "a", "b", "c"}) != 2 {
 		t.Error("set takes exactly two arguments")
 	}
-	if code := runConfig([]string{"set", "a..b", "x"}); code != 1 {
+	if runConfig([]string{"set", "a..b", "x"}) != 1 {
 		t.Error("a malformed path is refused")
 	}
 }
@@ -291,13 +291,13 @@ func TestConfigUnreadableFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 	missing := filepath.Join(dir, "gone.yaml")
-	if code := runConfig([]string{"view", "--config=" + missing}); code != 1 {
+	if runConfig([]string{"view", "--config=" + missing}) != 1 {
 		t.Error("a missing file must be an error")
 	}
-	if code := runConfig([]string{"set", "--config=" + missing, "title", "x"}); code != 1 {
+	if runConfig([]string{"set", "--config=" + missing, "title", "x"}) != 1 {
 		t.Error("a missing file must be an error for set too")
 	}
-	if code := runConfig([]string{"view", "--effective", "--config=" + missing}); code != 1 {
+	if runConfig([]string{"view", "--effective", "--config=" + missing}) != 1 {
 		t.Error("a missing file must be an error for the effective view")
 	}
 }
@@ -339,7 +339,7 @@ mcp:
     token: $SSG_TEST_TOKEN
 `)
 	out, err := captureStdout(func() error {
-		if code := runConfig([]string{"view", "--effective"}); code != 0 {
+		if runConfig([]string{"view", "--effective"}) != 0 {
 			t.Error("the effective view should print")
 		}
 		return nil

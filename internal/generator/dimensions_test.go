@@ -312,17 +312,17 @@ func TestRelationLookupAcrossLanguages(t *testing.T) {
 		"":   {"pricing": en, "only-en": {Slug: "only-en"}},
 		"pl": {"pricing": pl},
 	}
-	if got := lookupRelated(index, "pl", "pricing"); got != pl {
+	if lookupRelated(index, "pl", "pricing") != pl {
 		t.Error("a relation should prefer the page's own language")
 	}
-	if got := lookupRelated(index, "pl", "only-en"); got == nil {
+	if lookupRelated(index, "pl", "only-en") == nil {
 		t.Error("a page with no translation should still be reachable")
 	}
 	if got := lookupRelated(index, "pl", "nowhere"); got != nil {
 		t.Errorf("got %+v", got)
 	}
 	// Slashes and spaces around a slug are the author being human.
-	if got := lookupRelated(index, "", " /pricing/ "); got != en {
+	if lookupRelated(index, "", " /pricing/ ") != en {
 		t.Error("a slug written with slashes should still resolve")
 	}
 }

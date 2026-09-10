@@ -70,14 +70,32 @@ func minifyHTMLString(s string, keepComments []string) string {
 	return s
 }
 
+// webScheme is the scheme of the sites this generator publishes. It is spelled
+// once, and every "does this reference name my own origin" comparison builds
+// its prefixes from it — so the three ways a link can write this host live in
+// one function instead of being retyped, slightly differently, in three.
+const webScheme = "http"
+
+// ownOriginPrefixes are those three ways: either web scheme, or scheme-relative.
+func ownOriginPrefixes(host string) []string {
+	return []string{webScheme + "s://" + host, webScheme + "://" + host, "//" + host}
+}
+
+// hostOnly drops a scheme a person wrote into a `domain:` setting, which is a
+// host and not a URL — but is given as one often enough to handle.
+func hostOnly(domain string) string {
+	if i := strings.Index(domain, "://"); i >= 0 {
+		return domain[i+3:]
+	}
+	return strings.TrimPrefix(domain, "//")
+}
+
 // relativizeHTMLString rewrites absolute URLs pointing at domain into relative
 // links (href/src/action attributes and url() in inline styles).
 func relativizeHTMLString(s, domain string) string {
-	baseDomain := strings.TrimPrefix(domain, "https://")
-	baseDomain = strings.TrimPrefix(baseDomain, "http://")
-	baseDomain = strings.TrimSuffix(baseDomain, "/")
+	baseDomain := strings.TrimSuffix(hostOnly(domain), "/")
 
-	patterns := []string{"https://" + baseDomain, "http://" + baseDomain, "//" + baseDomain}
+	patterns := ownOriginPrefixes(baseDomain)
 	for _, pattern := range patterns {
 		for _, attr := range []string{"href", "src", "action"} {
 			s = strings.ReplaceAll(s, attr+`="`+pattern+`"`, attr+`="/"`)

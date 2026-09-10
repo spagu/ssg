@@ -155,7 +155,7 @@ func (g *Generator) stripOwnDomain(ref string) string {
 		return ref
 	}
 	lower := strings.ToLower(strings.TrimSpace(ref))
-	for _, prefix := range []string{"https://" + domain, "http://" + domain, "//" + domain} {
+	for _, prefix := range ownOriginPrefixes(domain) {
 		if !strings.HasPrefix(lower, prefix) {
 			continue
 		}

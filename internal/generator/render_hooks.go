@@ -345,8 +345,7 @@ func (h *hookSet) isExternal(dest string) bool {
 		return false
 	case strings.HasPrefix(lower, "mailto:"), strings.HasPrefix(lower, "tel:"):
 		return false
-	case !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") &&
-		!strings.HasPrefix(lower, "//"):
+	case !namesAHost(lower):
 		return false // a relative path
 	}
 	if h.domain == "" {
@@ -358,6 +357,17 @@ func (h *hookSet) isExternal(dest string) bool {
 	domain := strings.ToLower(strings.TrimSuffix(h.domain, "/"))
 	host := stripScheme(lower)
 	return host != domain && !strings.HasPrefix(host, domain+"/")
+}
+
+// namesAHost reports whether a reference carries an origin at all — a web
+// scheme, or the scheme-relative form — rather than being a path on this site.
+func namesAHost(lower string) bool {
+	for _, prefix := range ownOriginPrefixes("") {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // stripScheme removes a URL's scheme and its leading slashes, so two addresses

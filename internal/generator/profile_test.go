@@ -91,7 +91,7 @@ func TestMeasureRecordsAndAccumulates(t *testing.T) {
 // when it ends, so a nested caller cannot shorten the build it is part of.
 func TestFinishKeepsTheFirstTotal(t *testing.T) {
 	p := newProfileWithClock(fakeClock(time.Second))
-	if running := p.Total(); running == 0 {
+	if p.Total() == 0 {
 		t.Error("Total must report elapsed time before Finish")
 	}
 	p.Finish()

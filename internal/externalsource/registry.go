@@ -19,6 +19,35 @@ type connector interface {
 	Load(src Source) (*Result, error)
 }
 
+// connectorFor picks the connector one source needs. File is the default,
+// because a path is what a source is unless it says otherwise.
+func connectorFor(src Source, fileConn FileConnector, httpConn connector) connector {
+	switch src.Type {
+	case "http":
+		return httpConn
+	case "sql":
+		return SQLConnector{}
+	case "cms":
+		return CMSConnector{}
+	}
+	return fileConn
+}
+
+// mapRecordsIfContent turns records into pages for every source type that is
+// not a CMS — the CMS connector produces its own import (GO-098).
+func mapRecordsIfContent(src Source, result *Result) ([]string, error) {
+	if src.Mode != "content" || src.Type == "cms" {
+		return nil, nil
+	}
+	imported, warnings, err := MapRecords(src, result.Data)
+	if err != nil {
+		return nil, fail(src, "content_map", err)
+	}
+	result.CMS = imported
+	result.Metadata.RecordCount = len(imported.Pages) + len(imported.Posts)
+	return warnings, nil
+}
+
 // Load resolves the configuration and loads every source, up to
 // max_concurrent_sources at a time. Results and warnings keep the
 // deterministic name-sorted order regardless of completion order. A required
@@ -51,27 +80,12 @@ func Load(cfg Config) (*Registry, []string, error) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			var conn connector = fileConn
-			switch src.Type {
-			case "http":
-				conn = httpConn
-			case "sql":
-				conn = SQLConnector{}
-			case "cms":
-				conn = CMSConnector{}
-			}
-			results[i], errs[i] = conn.Load(src)
-			// Records become pages here, once, for every source type that is
-			// not a CMS — the CMS connector produces its own import (GO-098).
-			if errs[i] == nil && src.Mode == "content" && src.Type != "cms" {
-				imported, warns, err := MapRecords(src, results[i].Data)
-				if err != nil {
-					results[i], errs[i] = nil, fail(src, "content_map", err)
-					return
+			results[i], errs[i] = connectorFor(src, fileConn, httpConn).Load(src)
+			if errs[i] == nil {
+				mapWarnings[i], errs[i] = mapRecordsIfContent(src, results[i])
+				if errs[i] != nil {
+					results[i] = nil
 				}
-				results[i].CMS = imported
-				results[i].Metadata.RecordCount = len(imported.Pages) + len(imported.Posts)
-				mapWarnings[i] = warns
 			}
 		}(i, src)
 	}
