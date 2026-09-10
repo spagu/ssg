@@ -62,6 +62,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ssg profile page /url/` now ends with the inputs the page was built from,
   read from that graph. It used to say the dependency tree required GO-094.
 
+- 🤖 **`site_dependencies` over MCP** (GO-095 phase 3): what a page was built
+  from, or what editing a file will rebuild. "What breaks if I change this
+  partial?" was previously a grep and a guess.
+
+  It is the one part of the site model deliberately kept **out** of the public
+  `site-graph.json`. Pages, links, taxonomies and redirects all follow from the
+  published HTML, so publishing them costs nothing; which template rendered a
+  page and which data file it read is the shape of the project, not of the
+  site, and it stays in `.ssg-cache/`. The tool is therefore available without
+  `site_graph: true` — every build records a dependency graph.
+
+  Three shapes of answer: with no argument, how large the graph is and whether
+  this site's builds can be narrowed at all; with `url`, one page's inputs
+  grouped by kind; with `path`, the outputs a change reaches or the reason it
+  rebuilds everything. Every page answer carries the caveat, because a site fed
+  by external sources or MDDB records fewer edges than it really has, and an
+  agent has to know that before treating a list as complete.
+
 - 📄 **A content page can paginate a listing it renders itself** (#267).
   `paginate` split every *generated* listing — the post index and each archive
   — and nothing a person wrote: a page had no `.Pager`, and a template can

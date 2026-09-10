@@ -175,9 +175,9 @@ shard rather than load fifty thousand records to find one.
 
 ### Asking the graph over MCP
 
-`ssg mcp` gains a **site** section when it knows the output directory — five
+`ssg mcp` gains a **site** section when it knows the output directory — six
 read-only tools that answer from the last build's graph and name the `build`
-they answer from:
+they answer from, plus one that answers from the dependency graph:
 
 | Tool | Answers |
 |---|---|
@@ -187,9 +187,12 @@ they answer from:
 | `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
 | `site_redirects` | every rule the host will apply |
 | `site_components` | which pages use which component — ask before changing one |
+| `site_dependencies` | what a page was built from, or what editing a file rebuilds |
 
 "Which pages link to `/pricing/`?" is one call rather than a grep across the
-output. The tools are read-only by design: the graph is a model of the site,
+output. "What breaks if I change this partial?" is `site_dependencies`, which
+reads `.ssg-cache/graph/` rather than the published artifact: what rendered a
+page is the shape of the project, not of the site, so it is not published. The tools are read-only by design: the graph is a model of the site,
 not a CMS, and mutation stays with the file-shaped tools that know how.
 
 ## `clean_special_chars`

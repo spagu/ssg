@@ -22,11 +22,15 @@ type Options struct {
 	// OutputDir is where the build writes; the site_* tools read the last
 	// build's site-graph.json from it (GO-095). Empty disables that section.
 	OutputDir string
-	Git       GitOptions
-	Watch     bool
-	Version   string
-	Rebuild   func() (string, error)
-	Logf      func(string, ...any)
+	// CacheDir is the build's cache root, where site_dependencies reads the
+	// dependency graph (GO-094). Empty means Root/.ssg-cache, which is where a
+	// build with no cache_dir setting writes it.
+	CacheDir string
+	Git      GitOptions
+	Watch    bool
+	Version  string
+	Rebuild  func() (string, error)
+	Logf     func(string, ...any)
 
 	// ConfigPath is the site config file the designer may edit presentation keys
 	// in; empty disables the config tools. ValidateConfig re-loads it after an

@@ -35,6 +35,12 @@ func (s *Server) buildTools() []tool {
 	if s.opts.OutputDir != "" {
 		tools = append(tools, s.siteTools()...)
 	}
+	// Dependencies come from the build's cache rather than its output, so the
+	// tool is present whenever the server knows where the project is — a site
+	// without site_graph: true still has a dependency graph (GO-095 phase 3).
+	if s.opts.Root != "" || s.opts.CacheDir != "" {
+		tools = append(tools, s.dependencyTools()...)
+	}
 	return tools
 }
 

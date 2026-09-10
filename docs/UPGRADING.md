@@ -261,6 +261,11 @@ time went, and `--profile=json` writes `build-profile.json` beside the project
 for `ssg profile page /url/` and for CI to archive. Off by default, and it
 changes no output.
 
+`ssg mcp` gains `site_dependencies`, which answers what a page was built from
+or what editing a file rebuilds. It reads `.ssg-cache/graph/` rather than the
+published site graph, so it needs no configuration beyond a completed build,
+and dependencies stay out of the public `site-graph.json` on purpose.
+
 `site_graph: true` publishes a `site-graph.json` describing
 the whole site and adds `site_*` tools to `ssg mcp`; off by default. Under the
 hood `routes.json` and `llms.txt` are now derived from that same model — their

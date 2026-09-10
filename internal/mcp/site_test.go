@@ -56,11 +56,25 @@ func TestSiteToolsAreRegisteredWithAnOutputDir(t *testing.T) {
 			t.Errorf("%s not registered", want)
 		}
 	}
+	if !names["site_dependencies"] {
+		t.Error("site_dependencies not registered")
+	}
+
+	// Without an output dir there is no site graph, so those tools go — but
+	// site_dependencies stays: it reads the build's cache, and a site that
+	// never turned on site_graph still has a dependency graph.
 	bare := NewServer(Options{Root: t.TempDir(), Roles: map[string]bool{"content": true}})
 	for _, tl := range bare.buildTools() {
-		if strings.HasPrefix(tl.name, "site_") {
+		if strings.HasPrefix(tl.name, "site_") && tl.name != "site_dependencies" {
 			t.Errorf("%s registered without an output dir", tl.name)
 		}
+	}
+	bareNames := map[string]bool{}
+	for _, tl := range bare.buildTools() {
+		bareNames[tl.name] = true
+	}
+	if !bareNames["site_dependencies"] {
+		t.Error("site_dependencies should not need an output dir")
 	}
 }
 
