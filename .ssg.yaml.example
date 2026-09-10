@@ -467,6 +467,9 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 
 # Markdown for agents / AI search (index.md + page.md + llms.txt + text/markdown <head> alternate)
 # markdown_publish: false      # Publish a Markdown copy of every page for LLMs and agents
+# profile: text                # Report where the build's time went (phases, counters, slowest pages);
+                               # "json" also writes build-profile.json beside the project for CI
+# profile_pprof: ""            # Directory for cpu.prof/heap.prof (`go tool pprof`) — maintainer's tool
 # site_graph: false            # Publish site-graph.json — every page, section, taxonomy, link and redirect,
                                # stamped with the build; queryable over MCP as site_* (docs/AI-AGENTS.md)
 # clean_special_chars: false   # Normalise AI smart punctuation (quotes, dashes, NBSP, zero-width) to ASCII; CJK untouched

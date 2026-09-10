@@ -125,6 +125,10 @@ type Config struct {
 	// Version is the ssg that is running, stamped into the site graph so a
 	// reader can tell what produced it. Empty in tests and library use.
 	Version string
+	// Profile turns on build profiling (GO-097): "text" reports the phases on
+	// stdout, "json" writes build-profile.json beside the project. Empty is off,
+	// and off costs one nil check per phase.
+	Profile string
 
 	SitemapOff bool // Disable sitemap generation
 	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
@@ -571,6 +575,9 @@ type Generator struct {
 	outputRefsMu    sync.Mutex
 	// outputRefsParses counts the walks, so a test can prove there was one.
 	outputRefsParses int
+	// profile measures this build when config.Profile asks for it, and is nil
+	// otherwise; every method on it accepts a nil receiver (GO-097).
+	profile *Profile
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -705,6 +712,7 @@ func New(cfg Config) (*Generator, error) {
 		catalog:        catalog,
 		currentLang:    cfg.DefaultLanguage,
 		buildTime:      resolveBuildTime(time.Now),
+		profile:        NewProfile(cfg.Profile),
 	}, nil
 }
 
@@ -898,13 +906,13 @@ func (g *Generator) Generate() error {
 
 	// Content contracts run before rendering: a malformed page fails the build
 	// loudly (strict) instead of shipping broken output (#62).
-	if err := g.validateContentSchemas(); err != nil {
+	if err := g.profile.Measure("Content contracts", g.validateContentSchemas); err != nil {
 		return err
 	}
 
 	// Resolve [ai …] content shortcodes (cached) before rendering, sequentially,
 	// so the ifs guard sees full page context (#1.8.16).
-	g.resolveAIContent()
+	_ = g.profile.Measure("AI content", func() error { g.resolveAIContent(); return nil })
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
@@ -924,26 +932,28 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.generateSitemapAndRobots(); err != nil {
+	if err := g.profile.Measure("Sitemap and robots", g.generateSitemapAndRobots); err != nil {
 		return err
 	}
 
-	if err := g.generateLLMsTxt(); err != nil {
+	if err := g.profile.Measure("llms.txt", g.generateLLMsTxt); err != nil {
 		return fmt.Errorf("generating llms.txt: %w", err)
 	}
 
-	if err := g.writeRouteManifest(); err != nil {
+	if err := g.profile.Measure("Route manifest", g.writeRouteManifest); err != nil {
 		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
-	if err := g.generateDeclaredFeeds(); err != nil {
-		return err
-	}
-	if err := g.generateFeeds(); err != nil {
+	if err := g.profile.Measure("Feeds", func() error {
+		if err := g.generateDeclaredFeeds(); err != nil {
+			return err
+		}
+		return g.generateFeeds()
+	}); err != nil {
 		return fmt.Errorf("generating feeds: %w", err)
 	}
 
-	if err := g.generateSearchIndex(); err != nil {
+	if err := g.profile.Measure("Search index", g.generateSearchIndex); err != nil {
 		return fmt.Errorf("building search index: %w", err)
 	}
 
@@ -951,7 +961,7 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.assetPhase(); err != nil {
+	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {
 		return err
 	}
 
@@ -1090,14 +1100,34 @@ func (g *Generator) log(msg string) {
 	}
 }
 
-// runStep executes a generation step with logging
+// runStep executes a generation step with logging.
+//
+// It is also the seam every phase of the build passes through, so it is where
+// profiling measures one (GO-097): the step already names itself for the log,
+// and that name is what the report needs.
 func (g *Generator) runStep(msg string, fn func() error, errContext string) error {
 	g.log(msg)
-	if err := fn(); err != nil {
+	err := g.profile.Measure(stepName(msg), fn)
+	if err != nil {
 		return fmt.Errorf("%s: %w", errContext, err)
 	}
 	return nil
 }
+
+// stepName turns a log line into a report row: the leading emoji and the
+// trailing ellipsis are for the person watching the build, not for the table.
+func stepName(msg string) string {
+	name := strings.TrimSpace(msg)
+	if i := strings.IndexFunc(name, func(r rune) bool { return r < 0x2000 }); i > 0 {
+		name = strings.TrimSpace(name[i:])
+	}
+	return strings.TrimSuffix(name, "...")
+}
+
+// Profile returns this build's measurements, or nil when profiling is off.
+// The caller adds the phases that live outside the generator — image
+// conversion, archives, deployment — to the same report.
+func (g *Generator) Profile() *Profile { return g.profile }
 
 // cleanOutputIfRequested cleans the output directory if configured
 func (g *Generator) cleanOutputIfRequested() error {
@@ -2814,6 +2844,7 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		html, ok := g.mdCache[s]
 		g.mdMu.Unlock()
 		if ok {
+			g.profile.Count("markdown cache hits", 1)
 			return html
 		}
 	}
@@ -2834,6 +2865,7 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		g.mdCache[s] = out
 		g.mdConversions++
 		g.mdMu.Unlock()
+		g.profile.Count("markdown conversions", 1)
 	}
 	return out
 }

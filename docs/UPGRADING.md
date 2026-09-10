@@ -198,7 +198,12 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
-**Purely additive.** `site_graph: true` publishes a `site-graph.json` describing
+**Purely additive.** `--profile` (or `profile: text`) reports where the build's
+time went, and `--profile=json` writes `build-profile.json` beside the project
+for `ssg profile page /url/` and for CI to archive. Off by default, and it
+changes no output.
+
+`site_graph: true` publishes a `site-graph.json` describing
 the whole site and adds `site_*` tools to `ssg mcp`; off by default. Under the
 hood `routes.json` and `llms.txt` are now derived from that same model — their
 output is byte-identical, which the golden corpora check.

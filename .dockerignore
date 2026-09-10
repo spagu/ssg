@@ -38,3 +38,6 @@ coverage.*
 
 # Audit reports (local only)
 audit/
+
+# Build profile (--profile=json)
+build-profile.json

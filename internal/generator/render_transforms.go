@@ -12,8 +12,10 @@ import (
 	"fmt"
 	stdhtml "html"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spagu/ssg/internal/models"
 )
@@ -217,6 +219,16 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 // transforms and writes the result in a single write (PERF-005). page carries
 // the SEO context for posts/pages; nil for listing pages.
 func (g *Generator) renderPageTemplate(templateName, outputPath string, data interface{}, page *models.Page, isPost bool) error {
+	// Where a build's page time goes (GO-097). Pages render on a worker pool,
+	// so the profile takes a sharded slot rather than a shared lock; with
+	// profiling off this is one nil check.
+	if g.profile != nil {
+		started := time.Now()
+		defer func() {
+			g.profile.Page(g.profileOutputPath(outputPath), time.Since(started))
+			g.profile.Count("pages rendered", 1)
+		}()
+	}
 	if g.engine != nil {
 		return g.renderWithEngine(templateName, outputPath, data, page, isPost)
 	}
@@ -237,4 +249,16 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(outputPath, data2, 0644)
+}
+
+// profileOutputPath names a rendered file the way its reader will: by the URL
+// it serves, relative to the output root, so the report matches the site
+// rather than the machine it was built on.
+func (g *Generator) profileOutputPath(outputPath string) string {
+	rel, err := filepath.Rel(g.config.OutputDir, outputPath)
+	if err != nil {
+		return outputPath
+	}
+	rel = filepath.ToSlash(rel)
+	return "/" + strings.TrimSuffix(rel, "index.html")
 }

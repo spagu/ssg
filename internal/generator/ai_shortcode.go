@@ -63,6 +63,7 @@ func (g *Generator) runAIShortcode(attrs, vars map[string]string) string {
 	if question == "" {
 		return fallback
 	}
+	g.profile.Count("AI queries", 1)
 	answer, err := g.config.AI.Query(
 		firstOf(attrs, "agent", "ai_agent"),
 		firstOf(attrs, "model", "ai_model"),

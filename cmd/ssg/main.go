@@ -700,6 +700,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentSchemas:         cfg.ContentSchemas,
 		Strict:                 cfg.Strict,
 		RouteManifest:          cfg.RouteManifest,
+		Profile:                cfg.Profile,
 		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                     buildAIClient(cfg.AI),
 		Notify:                 buildNotifier(cfg),
@@ -860,6 +861,10 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		selectWatchRunner(cfg, "workerd", "", "")
 		return true
 	}
+	if arg == "--profile" { // bare form reports on stdout; --profile=json writes the file
+		cfg.Profile = generator.ProfileText
+		return true
+	}
 	if arg == "--check-links" { // the one toggle that sets a string mode, not a bool
 		cfg.CheckLinks = "warn"
 		return true
@@ -1005,6 +1010,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--image-sizes-attr=": &cfg.ImageSizesAttr,
 		"--sass-binary=":      &cfg.SassBinary,
 		"--highlight-style=":  &cfg.HighlightStyle,
+		"--profile-pprof=":    &cfg.ProfilePprof,
 		"--default-language=": &cfg.DefaultLanguage,
 		"--timezone=":         &cfg.Timezone,
 		"--engine=":           &cfg.Engine,
@@ -1107,6 +1113,10 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		setPermalink(cfg, "post", strings.TrimPrefix(arg, "--permalink-post="))
 	case strings.HasPrefix(arg, "--permalink-page="):
 		setPermalink(cfg, "page", strings.TrimPrefix(arg, "--permalink-page="))
+	case strings.HasPrefix(arg, "--profile="):
+		if v := strings.TrimPrefix(arg, "--profile="); v == generator.ProfileText || v == generator.ProfileJSON {
+			cfg.Profile = v
+		}
 	case strings.HasPrefix(arg, "--check-links="):
 		if v := strings.TrimPrefix(arg, "--check-links="); v == "warn" || v == "strict" {
 			cfg.CheckLinks = v
@@ -1244,20 +1254,27 @@ func build(genCfg generator.Config, cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("initializing generator: %w", err)
 	}
+	// The build's own accounting (GO-097). The generator measures its phases;
+	// the steps that live out here — images, archives, deployment — join the
+	// same report, because a build that spends nine seconds converting images
+	// is not explained by anything inside the generator.
+	prof := gen.Profile()
+	defer emitProfile(prof, cfg)
+	defer startPprof(cfg)()
 	if err := gen.Generate(); err != nil {
 		return fmt.Errorf("generating site: %w", err)
 	}
-	if err := emitEndpoints(cfg); err != nil {
+	if err := prof.Measure("Endpoints", func() error { return emitEndpoints(cfg) }); err != nil {
 		return err
 	}
 	runImagesGC(gen, cfg)
-	if err := runWebP(cfg); err != nil {
+	if err := prof.Measure("Images", func() error { return runWebP(cfg, prof) }); err != nil {
 		return err
 	}
-	if err := runArchives(cfg); err != nil {
+	if err := prof.Measure("Archives", func() error { return runArchives(cfg) }); err != nil {
 		return err
 	}
-	return runDeploy(cfg)
+	return prof.Measure("Deploy", func() error { return runDeploy(cfg) })
 }
 
 // runImagesGC prunes image-cache entries not referenced by this build when
@@ -1297,7 +1314,7 @@ func resolveBuildWorkers(n *int) int {
 }
 
 // runWebP converts output images to WebP and rewrites references when --webp is set.
-func runWebP(cfg *config.Config) error {
+func runWebP(cfg *config.Config, prof *generator.Profile) error {
 	if !cfg.WebP && !wantsFormat(cfg, "webp") && !wantsFormat(cfg, "avif") {
 		return nil
 	}
@@ -1325,6 +1342,8 @@ func runWebP(cfg *config.Config) error {
 	if err := webp.EmitSrcset(cfg.OutputDir, cfg.ImageSizes, cfg.ImageSizesAttr); err != nil {
 		return fmt.Errorf("emitting responsive srcset: %w", err)
 	}
+	prof.Count("images converted", int64(converted))
+	prof.Count("image bytes saved", saved)
 	if !cfg.Quiet && converted > 0 {
 		fmt.Printf("   📊 Converted %d images, saved %.1f MB\n", converted, float64(saved)/(1024*1024))
 	}
@@ -1706,6 +1725,8 @@ func printUsage() {
 	fmt.Println("                           strict = keep and fail the build)")
 	fmt.Println("  --strict               - Escalate every soft build problem into a hard failure")
 	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
+	fmt.Println("  --profile[=json]       - Report where the build's time went; json writes build-profile.json")
+	fmt.Println("  --profile-pprof=DIR    - Also write cpu.prof and heap.prof for `go tool pprof`")
 	fmt.Println("  --notify               - Announce new and changed posts to the configured channels")
 	fmt.Println("")
 	fmt.Println("Internationalisation (docs/I18N.md):")
@@ -1955,6 +1976,7 @@ func knownFlagNames(cfg *config.Config) map[string]bool {
 // their own branch in parseBoolFlags/parseSpecialFlags.
 var standaloneFlagNames = []string{
 	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
+	"--profile",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
 	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",
 }

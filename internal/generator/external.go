@@ -32,6 +32,14 @@ func (g *Generator) loadExternalSources() error {
 	g.externalData = registry.Data()
 	g.externalMeta = registry.Meta()
 	g.cmsImports = registry.CMSImports()
+	// Whether the network was touched is the first thing to know about a slow
+	// load, and the source already reports it (GO-097).
+	for _, name := range registry.Order {
+		g.profile.Count("external sources", 1)
+		if registry.Results[name].Metadata.FromCache {
+			g.profile.Count("external cache hits", 1)
+		}
+	}
 	if !g.config.Quiet {
 		for _, name := range registry.Order {
 			meta := registry.Results[name].Metadata

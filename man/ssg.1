@@ -34,6 +34,9 @@ ssg \- fast static site generator written in Go
 .RB [ \-\-namespace=\fINAME\fR ]
 .RB [ \-\-dry ]
 .br
+.B ssg profile page
+.I /url/
+.br
 .B ssg mddb push-theme
 .RB [ \-\-dry ]
 .RB [ \-\-lang=\fICODE\fR ]
@@ -122,6 +125,12 @@ external-sources, ai). \fBstats\fR prints entries and size per namespace;
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
+.TP
+.B ssg profile page \fI/url/\fR
+Report what one page cost in the last profiled build, read from
+\fBbuild-profile.json\fR (write it with \fB\-\-profile=json\fR). Prints the
+render time, its share of the build, and the build's stamp. The dependency
+tree is named as requiring the incremental build graph rather than invented.
 .TP
 .B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-engine\fR \fIPATH\fR] [\fB\-\-source\fR \fINAME\fR]
 Migrate a live site into a ready-to-build SSG project. The built-in
@@ -497,6 +506,19 @@ Maximum items per feed (default: 20).
 .TP
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.BR \-\-profile "[=" \fIjson ]
+Report where the build's time went: the phases in the order they ran, the
+counters the build kept (markdown conversions and cache hits, external sources
+served from cache, AI queries, images converted) and the ten slowest pages.
+\fB=json\fR additionally writes \fBbuild-profile.json\fR beside the project —
+not into the output tree, because a build's timings are not part of the site —
+for CI to archive and compare between commits. Profiling changes no output.
+.TP
+.BR \-\-profile\-pprof =\fIDIR
+Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
+\fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
+where the time goes, this answers why.
 .TP
 .B site_graph: true
 (config only) Publish \fBsite-graph.json\fR: every page, section, taxonomy,

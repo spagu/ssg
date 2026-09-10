@@ -631,6 +631,17 @@ type Config struct {
 	// route and its metadata — for external tooling and typed clients (#62).
 	RouteManifest bool `yaml:"route_manifest" toml:"route_manifest" json:"route_manifest"`
 
+	// Profile reports where the build's time went (GO-097): "text" prints the
+	// phases, counters and slowest pages after the build; "json" additionally
+	// writes build-profile.json beside the project, for CI to archive and
+	// compare between commits. Empty is off.
+	Profile string `yaml:"profile" toml:"profile" json:"profile"`
+
+	// ProfilePprof writes cpu.prof and heap.prof into the named directory, for
+	// `go tool pprof`. A maintainer's tool: --profile answers where the time
+	// goes, this answers why.
+	ProfilePprof string `yaml:"profile_pprof" toml:"profile_pprof" json:"profile_pprof"`
+
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`

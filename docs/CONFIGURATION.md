@@ -856,6 +856,8 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
+| `profile` | `` | `--profile[=json]` | Report where the build's time went; `json` also writes `build-profile.json` |
+| `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
 
 SEO injection is non-destructive, and it is **not** all-or-nothing. It looks at
@@ -1629,6 +1631,57 @@ so a section-assigned language reaches all of them. A page that already carries
 an explicit `link:` keeps it whole — `link:` is the highest-precedence URL
 source — so an export that already wrote `link: /de/impressum/` does not become
 `/de/de/impressum/` once the section assigns German.
+
+## Build profiling
+
+A build that has grown slow has to say where its time goes, and until now the
+only number `ssg` reported about its own work was a count of markdown
+conversions:
+
+```yaml
+profile: text     # or: ssg --profile
+```
+
+```
+⏱️  Build profile (2026-09-10 12:55:50)
+   Total                                  1.55 s
+   Loading content                          9 ms     1%
+   Generating site                        407 ms    26%
+   Search index                           655 ms    42%
+   Assets and checks                      449 ms    29%
+   Counters: pages rendered 96 · markdown conversions 81 · markdown cache hits 45
+   Slowest pages (10 of 96):
+     /configuration/                         25 ms
+```
+
+Phases appear in the order they ran and sum to the total, including the steps
+that happen after generation: images, archives, deployment. The counters are
+the tallies the build already kept — markdown conversions and cache hits,
+external sources served from cache, AI queries, images converted.
+
+`profile: json` (or `--profile=json`) additionally writes `build-profile.json`
+**beside the project, not into the output**: a build's timings are the
+project's business, not part of the site, and nobody asked to publish them.
+CI can archive that file and diff two commits. Then:
+
+```
+$ ssg profile page /configuration/
+/configuration/
+   render              25.4 ms
+   share                1.6% of a 1.56 s build
+   build           2026-09-10 12:55:42 · ssg 1.8.60
+   dependency tree: requires the incremental build graph (GO-094)
+```
+
+The dependency tree is honest about not existing yet: the cost is measured,
+the reason for it is not, and a made-up tree would be worse than the sentence.
+
+`--profile-pprof=DIR` writes `cpu.prof` and `heap.prof` for `go tool pprof`.
+That is a maintainer's instrument — `--profile` answers where the time goes,
+pprof answers why.
+
+Profiling does not change a single byte of output, and measuring costs about
+120 nanoseconds per page against a page that takes milliseconds to render.
 
 ## Build hooks
 

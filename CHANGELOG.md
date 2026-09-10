@@ -33,6 +33,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- ⏱️ **`--profile`: where the build's time actually goes** (GO-097). Every phase
+  of a build passed through one seam that logged what it was about to do and
+  measured nothing, so the only number ssg reported about its own work was a
+  markdown-conversion counter. A site whose build had grown slow had nowhere to
+  look; the answer lived in a blog post about one machine.
+
+  `--profile` (or `profile: text`) prints the phases in the order they ran,
+  summing to the total and including the steps after generation — images,
+  archives, deployment — plus the counters the build already kept and the ten
+  slowest pages. `--profile=json` also writes `build-profile.json` **beside the
+  project, never into the output**: a build's timings are the project's
+  business, not part of the site. `ssg profile page /url/` then answers for one
+  page. `--profile-pprof=DIR` writes cpu.prof/heap.prof for `go tool pprof`.
+
+  Measuring costs about 120 ns per page against a page that takes milliseconds
+  to render, and changes no output byte — the golden corpora check it. The
+  dependency tree `ssg profile page` would like to show is named as requiring
+  the incremental build graph (GO-094) rather than invented.
+
 - 🕸️ **`site_graph`: one model of the published site, for agents and tools**
   (GO-095, phase 1). The build computed every fact about the site — every
   page and its address, every taxonomy term, every redirect, every translation
