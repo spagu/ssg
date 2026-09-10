@@ -65,6 +65,12 @@ keys such as the theme, the Mermaid theme, the highlight style and minification.
 readable nor writable.** Call `designer_config_read` first: it returns the key
 names, the current values and what each one does.
 
+It writes through the same editor as `ssg config set` (GO-101), so an assistant
+and a person editing the same file get the same result: one setting changed is
+one line changed, and the comments stay where the author put them. The
+allow-list is the difference — `ssg config` is the project owner's own tool and
+edits any key.
+
 ### Content manager — Markdown
 
 | Tool | Purpose |

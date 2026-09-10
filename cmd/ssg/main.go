@@ -1599,6 +1599,8 @@ func printUsage() {
 	fmt.Println("  ssg init [name]        - Scaffold a new site")
 	fmt.Println("  ssg new worker <kind>  - Scaffold a Pages Functions worker")
 	fmt.Println("  ssg new wrangler       - Generate a starter wrangler.toml")
+	fmt.Println("  ssg config view|set|unset - Read and edit the config, comments intact")
+	fmt.Println("  ssg profile page /url/ - What one page cost in the last profiled build")
 	fmt.Println("  ssg import redirects   - Convert a Next.js redirects() rule set")
 	fmt.Println("  ssg migrate <src> <url> - Migrate a live site (see 'ssg migrate --help')")
 	fmt.Println("  ssg repair [--fix]     - Find (and fix) markup a migration left indented")

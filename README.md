@@ -302,6 +302,7 @@ Common options:
 | Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
 | Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
 | Report where the build's time went | `profile: text` | `--profile[=json]` |
+| Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |

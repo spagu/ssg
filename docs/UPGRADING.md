@@ -198,7 +198,14 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
-**Purely additive.** `--profile` (or `profile: text`) reports where the build's
+**Purely additive.** `ssg config view|set|unset` reads and edits the config from
+the command line. One behaviour change worth knowing: the MCP `designer_config_set`
+tool now writes through the same editor, which splices the change into the text
+instead of re-encoding the document — so an edited config keeps its blank lines
+and comment alignment where it used to lose them. Nothing about which keys that
+tool may write has changed.
+
+`--profile` (or `profile: text`) reports where the build's
 time went, and `--profile=json` writes `build-profile.json` beside the project
 for `ssg profile page /url/` and for CI to archive. Off by default, and it
 changes no output.

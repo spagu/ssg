@@ -7,7 +7,6 @@ package config
 // source site told us about itself — so the editor lives here, once.
 
 import (
-	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -16,32 +15,11 @@ import (
 // SetYAMLKey sets a top-level key, preserving the file's comments, key order
 // and formatting by editing the document node in place. A key that is already
 // present keeps its comments and gets the new value; a new key is appended.
+//
+// The key is taken literally, never parsed as a path (GO-101): a caller with a
+// key in hand means that key, even if it contains a dot.
 func SetYAMLKey(src []byte, key string, value interface{}) ([]byte, error) {
-	var doc yaml.Node
-	if err := yaml.Unmarshal(src, &doc); err != nil {
-		return nil, err
-	}
-	var valueNode yaml.Node
-	if err := valueNode.Encode(value); err != nil {
-		return nil, err
-	}
-	root := documentMapping(&doc)
-	if root == nil {
-		return nil, fmt.Errorf("the config file is not a YAML mapping")
-	}
-	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value == key {
-			// Replace the value, keeping any comment attached to the key.
-			valueNode.HeadComment = root.Content[i+1].HeadComment
-			valueNode.LineComment = root.Content[i+1].LineComment
-			valueNode.FootComment = root.Content[i+1].FootComment
-			*root.Content[i+1] = valueNode
-			return marshalYAML(&doc)
-		}
-	}
-	keyNode := yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
-	root.Content = append(root.Content, &keyNode, &valueNode)
-	return marshalYAML(&doc)
+	return setSegments(src, []pathSeg{{key: key}}, value)
 }
 
 // HasYAMLKey reports whether a top-level key is already present, so a caller

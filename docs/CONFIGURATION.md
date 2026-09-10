@@ -100,6 +100,50 @@ Most features are disabled by default. Defaults listed below come from the
 current `config.DefaultConfig`; omitted strings and booleans otherwise use Go's
 empty value.
 
+## Editing the config from the command line
+
+```
+ssg config view                                   # the whole file, as written
+ssg config view highlight_style                   # one value
+ssg config view taxonomies.audience               # one section
+ssg config view --effective toc_depth             # after defaults and normalisation
+ssg config set highlight_style github-dark
+ssg config set outputs [html,markdown,json]       # a list
+ssg config set taxonomies.audience.multiple true  # a nested path
+ssg config set headers."/css/*".Cache-Control "public, max-age=86400"
+ssg config set robots_rules[1].allow /docs/       # a list position
+ssg config set --json marketing '{"og_site_name":"Example"}'
+ssg config unset mermaid_background
+```
+
+**The file keeps its shape.** Setting one value changes one line: comments,
+blank lines, key order and the column trailing comments are aligned in all
+survive, because the edit is spliced into the text rather than produced by
+re-serialising the parsed config. That is not a nicety here — the configs in
+this project carry their reasoning in comments, and an editor that dropped
+them would make `ssg config set` a thing nobody could safely run twice.
+
+**Paths.** Dots descend into mappings. A key that contains dots or slashes is
+quoted (`headers."/css/*"`). A list position is `[n]`, and it must already
+exist: inventing list entries is guesswork. A path whose parent mappings do not
+exist yet is written whole.
+
+**Values** are typed the way they read: `true` is a bool, `8080` an int,
+`[a,b,c]` a list, everything else a string. `--string` forces text (for a
+version label that looks like a number), and `--json` takes any structure.
+
+**An edit that would break the config is refused.** The result is validated in
+a scratch file before the real one is touched, so a rejected edit leaves the
+config byte-for-byte as it was.
+
+Version one edits **YAML**. A TOML or JSON config is refused with a message
+rather than rewritten without its comments.
+
+The MCP designer tools (`ssg mcp`) write through the same engine, so an
+assistant and a person editing the same file get the same result — with the
+difference that MCP still restricts itself to an allow-list of presentation
+keys, while the CLI is the project owner's own tool and edits anything.
+
 ## Core and paths
 
 | Key | Default | CLI | Purpose |

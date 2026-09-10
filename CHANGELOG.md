@@ -33,6 +33,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- ⚙️ **`ssg config view|set|unset`: editing the config from the command line**
+  (GO-101). An assistant could change a handful of presentation settings through
+  MCP; a person had no way to change anything without opening an editor. The
+  engine behind that tool only reached top-level keys, so the settings that are
+  actually nested — `taxonomies.audience.multiple`, `headers."/css/*".Cache-Control`
+  — were out of reach for both.
+
+  Both now go through one editor that walks dotted paths, quoted segments and
+  list positions. Values are typed as they read (`true`, `8080`, `[a,b,c]`),
+  with `--string` and `--json` for the rest. `view --effective` shows the value
+  after defaults and normalisation, which is what the generator actually uses.
+
+  **The file keeps its shape.** The old editor re-encoded the YAML document:
+  comments and key order survived, but every blank line between sections did
+  not, and trailing comments were re-aligned — changing one setting rewrote
+  three hundred lines of this project's own config. The edit is now spliced
+  into the text at the position the parser found, so one setting changed is one
+  line changed and the comment stays in its column. That fixes the MCP path too.
+
+  An edit that would break the config is validated in a scratch file first, so
+  the original is never written and never needs rolling back. `view --effective`
+  redacts every credential-bearing key: that view resolves `$VAR` references,
+  and printing it whole would put a live secret on the terminal.
+
 - ⏱️ **`--profile`: where the build's time actually goes** (GO-097). Every phase
   of a build passed through one seam that logged what it was about to do and
   measured nothing, so the only number ssg reported about its own work was a

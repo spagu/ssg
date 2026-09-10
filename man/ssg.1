@@ -37,6 +37,11 @@ ssg \- fast static site generator written in Go
 .B ssg profile page
 .I /url/
 .br
+.B ssg config
+.RB { view | set | unset }
+.RI [ path ]
+.RI [ value ]
+.br
 .B ssg mddb push-theme
 .RB [ \-\-dry ]
 .RB [ \-\-lang=\fICODE\fR ]
@@ -125,6 +130,23 @@ external-sources, ai). \fBstats\fR prints entries and size per namespace;
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
+.TP
+.B ssg config \fR{\fBview\fR|\fBset\fR|\fBunset\fR} [\fIpath\fR] [\fIvalue\fR] [\fB\-\-effective\fR] [\fB\-\-string\fR] [\fB\-\-json\fR] [\fB\-\-config=\fIFILE\fR]
+Read and edit the configuration file. \fBview\fR with no path prints the file as
+written; with a path it prints that value; \fB\-\-effective\fR prints it after
+defaults and normalisation — what the generator actually uses.
+.IP
+Paths descend with dots (\fBtaxonomies.audience.multiple\fR); a key containing
+dots or slashes is quoted (\fBheaders."/css/*".Cache\-Control\fR); a list
+position is \fB[n]\fR and must already exist. Values are typed as they read
+(\fBtrue\fR, \fB8080\fR, \fB[a,b,c]\fR); \fB\-\-string\fR forces text and
+\fB\-\-json\fR takes any structure.
+.IP
+Setting one value changes one line: comments, blank lines and key order survive,
+because the edit is spliced into the text rather than re-serialised. An edit that
+would make the config invalid is refused after being checked in a scratch file,
+leaving the original untouched. YAML only in this version; a TOML or JSON config
+is refused rather than rewritten without its comments.
 .TP
 .B ssg profile page \fI/url/\fR
 Report what one page cost in the last profiled build, read from
