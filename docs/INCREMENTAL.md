@@ -95,3 +95,10 @@ it; `.gitignore` already excludes `.ssg-cache/`.
 
 The file records a schema version. A graph written by a different version of
 `ssg` is discarded rather than read, which makes an upgrade cost one full build.
+
+## Further reading
+
+[What breaks if I change this](../blog/what-breaks-if-i-change-this.md) covers
+the same feature from a maintainer's side: why the graph says "everything" so
+often, the replaced-image bug it nearly shipped with, and how the two builds are
+proven to agree.
