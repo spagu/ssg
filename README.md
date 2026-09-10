@@ -581,9 +581,10 @@ Development workflow and review requirements are in
 | [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting policy |
 
-Two posts cover 1.8.60 for the people who maintain client sites:
-[what an agency does between builds](blog/the-client-wants-to-fix-a-typo.md)
-and [what breaks if I change this](blog/what-breaks-if-i-change-this.md).
+Three posts cover 1.8.60 for the people who maintain client sites:
+[what an agency does between builds](blog/the-client-wants-to-fix-a-typo.md),
+[what breaks if I change this](blog/what-breaks-if-i-change-this.md) and
+[the paragraph you clicked is not in the file](blog/the-paragraph-you-clicked-is-not-in-the-file.md).
 
 The project blog also covers the reasoning behind recent MCP work, including
 [smaller context for targeted edits](blog/ai-agent-should-not-read-5000-tokens-for-one-css-value.md)

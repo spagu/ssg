@@ -184,3 +184,7 @@ rather than failing quietly.
 
 See also [MCP.md](MCP.md) for the server this is a client of, and
 [TEMPLATES.md](TEMPLATES.md) for the attribute convention.
+
+[The paragraph you clicked is not in the file](../blog/the-paragraph-you-clicked-is-not-in-the-file.md)
+is the reasoning behind the block-matching rule: why the obvious approach fails,
+what the two refusals mean, and why the AI actions propose rather than save.

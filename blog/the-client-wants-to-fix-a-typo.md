@@ -75,8 +75,12 @@ save is not.
 The attributes never reach a published page. A build without `--edit` strips
 them, byte for byte, so your themes can carry them permanently.
 
-This release does frontmatter: titles, dates, descriptions, tags. Editing body
-text is the next phase, and it is deliberately not guessed at.
+This release does frontmatter — titles, dates, descriptions, tags — and, by the
+time it shipped, body text as well. Editing a paragraph is the harder half,
+because the HTML on screen has been through six passes that have no inverse:
+[the paragraph you clicked is not in the file](/blog/the-paragraph-you-clicked-is-not-in-the-file/)
+covers the rule that decides which block a click means, and why the editor
+sometimes refuses to guess.
 
 ## The same block, on the ninth site
 
