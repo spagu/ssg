@@ -168,6 +168,7 @@ stale:
 | `site_links` | the link graph — filter `from`, `to`, `kind` (page, asset, external) |
 | `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
 | `site_redirects` | every redirect rule |
+| `site_components` | which components the site defines, and which pages use each one |
 
 "Which pages link to `/pricing/`?" is `site_links` with `to: /pricing/`, not a
 grep across the output. The section appears for every role once the server

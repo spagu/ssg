@@ -74,11 +74,15 @@ type Page struct {
 	Translations []Translation       `json:"translations,omitempty"`
 	// Relations are the links the author declared by name (GO-096) — the ones
 	// no heuristic could have found.
-	Relations   []Relation `json:"relations,omitempty"`
-	Outputs     Outputs    `json:"outputs"`
-	WordCount   int        `json:"word_count,omitempty"`
-	ReadingTime int        `json:"reading_time,omitempty"`
-	Sticky      bool       `json:"sticky,omitempty"`
+	Relations []Relation `json:"relations,omitempty"`
+	// Components names the typed content components this page renders
+	// (GO-093), so a reader can answer "which pages use the pricing table?"
+	// without grepping the output (GO-095 phase 2).
+	Components  []string `json:"components,omitempty"`
+	Outputs     Outputs  `json:"outputs"`
+	WordCount   int      `json:"word_count,omitempty"`
+	ReadingTime int      `json:"reading_time,omitempty"`
+	Sticky      bool     `json:"sticky,omitempty"`
 
 	// Source is the file the page was rendered from. Internal: the build's own
 	// views need it (routes.json publishes it, as it always has), the public

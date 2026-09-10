@@ -152,6 +152,10 @@ Every build with components publishes the contract at the site root:
 }
 ```
 
+`site-graph.json` carries the other half: each page lists the components it
+renders, and `ssg mcp` answers `site_components` with the inverse — which pages
+use a given component. That is the question to ask before changing one.
+
 This is what an agent reads before writing a call, and what makes generated
 content something the build can check rather than something a human has to
 proofread for invented attributes. The `example` is the shortest call that

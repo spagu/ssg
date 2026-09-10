@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 🕸️ **Site graph phase 2: which pages use which component** (GO-095). Each page
+  in `site-graph.json` now lists the components it renders, and `ssg mcp` gains
+  `site_components` — which inverts the question, because the graph stores it
+  per page and the person about to change a component asks it per component.
+
+  It is read from the page's source rather than from a tally of the build, and
+  that has a useful consequence: a call with a bad prop still counts. The page
+  whose call is broken is exactly the one whose author needs to see it.
+
 - 📄 **One page, several representations** (GO-092). Two mechanisms did this
   already and did not know about each other: `outputs: [html, json]` wrote an
   `index.json` from one global list, and `markdown_publish: true` wrote the

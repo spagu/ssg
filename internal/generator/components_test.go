@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spagu/ssg/internal/sitegraph"
 )
 
 // componentSite builds a site with a component library beside it.
@@ -305,5 +307,66 @@ func TestComponentAssetTagsAreNotDuplicated(t *testing.T) {
 	headless := gen.injectComponentAssets(`<figure data-ssg-component="youtube">x</figure>`)
 	if !strings.Contains(headless, "youtube.css") || strings.Contains(headless, componentMarkerAttr) {
 		t.Errorf("headless = %q", headless)
+	}
+}
+
+// TestComponentsReachTheSiteGraph: phase 2 of the site graph, unlocked by
+// components existing at all (GO-095).
+func TestComponentsReachTheSiteGraph(t *testing.T) {
+	cfg := componentSite(t, map[string]string{
+		"pages/demo.md": "---\ntitle: Demo\nslug: demo\nstatus: publish\ntype: page\n---\n\n" +
+			"{{< youtube id=\"a\" >}}\n\n{{< note text=\"x\" >}}\n\n{{< youtube id=\"b\" >}}\n",
+		"pages/plain.md": "---\ntitle: Plain\nslug: plain\nstatus: publish\ntype: page\n---\n\nNothing.\n",
+	}, func(cfg *Config) { cfg.SiteGraph = true })
+	buildSiteFixture(t, cfg)
+
+	graph, err := sitegraph.Load(cfg.OutputDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range graph.Pages {
+		switch {
+		case strings.Contains(p.URL, "/demo/"):
+			if len(p.Components) != 2 || p.Components[0] != "note" || p.Components[1] != "youtube" {
+				t.Errorf("components = %v (want them deduplicated and sorted)", p.Components)
+			}
+		case strings.Contains(p.URL, "/plain/"):
+			if len(p.Components) != 0 {
+				t.Errorf("a page using none should list none: %v", p.Components)
+			}
+		}
+	}
+}
+
+// TestComponentsInContentReadsTheSource: a call that will not resolve is still
+// a call the author wrote, and the page that has it is exactly the page
+// someone changing that component needs to see.
+func TestComponentsInContentReadsTheSource(t *testing.T) {
+	cfg := componentSite(t, map[string]string{
+		"pages/a.md": "---\ntitle: A\nslug: a\nstatus: publish\ntype: page\n---\n\nA.\n",
+	}, nil)
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatal(err)
+	}
+	// A call with a missing required prop still names its component.
+	if got := gen.componentsInContent(`{{< youtube >}}`); len(got) != 1 || got[0] != "youtube" {
+		t.Errorf("got %v", got)
+	}
+	// A call to something this site does not define is not a component of it.
+	if got := gen.componentsInContent(`{{< nosuch >}}`); len(got) != 0 {
+		t.Errorf("got %v", got)
+	}
+	// Content with no calls does no work.
+	if got := gen.componentsInContent("plain prose"); got != nil {
+		t.Errorf("got %v", got)
+	}
+	// A site with no components has none on any page.
+	bare := &Generator{}
+	if got := bare.componentsInContent(`{{< youtube id="x" >}}`); got != nil {
+		t.Errorf("got %v", got)
 	}
 }

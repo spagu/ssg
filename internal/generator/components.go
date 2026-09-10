@@ -283,3 +283,27 @@ func (g *Generator) injectComponentAssets(s string) string {
 	}
 	return stripComponentMarkers(s)
 }
+
+// componentsInContent names the components one page's source calls, in a
+// stable order and without duplicates.
+//
+// It reads the content rather than the rendered HTML on purpose: the graph
+// describes what a page IS, and a call that failed to resolve is still a call
+// the author wrote — a reader asking "which pages use the pricing table" wants
+// the page whose call is broken most of all.
+func (g *Generator) componentsInContent(content string) []string {
+	if g.components.Len() == 0 || !strings.Contains(content, "{{<") {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, call := range components.FindCalls(content) {
+		if _, known := g.components.Get(call.Name); !known || seen[call.Name] {
+			continue
+		}
+		seen[call.Name] = true
+		out = append(out, call.Name)
+	}
+	sort.Strings(out)
+	return out
+}

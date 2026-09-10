@@ -80,7 +80,56 @@ func (s *Server) siteTools() []tool {
 			schema:      objectSchema(nil),
 			handler:     s.siteRedirects,
 		},
+		{
+			name: "site_components",
+			description: "SITE · Which typed content components the site defines and which pages use each " +
+				"one. Ask before changing a component: this is who it affects. `name` narrows to one.",
+			schema:  objectSchema(map[string]any{"name": stringProp("One component's name (optional)")}),
+			handler: s.siteComponents,
+		},
 	}
+}
+
+// siteComponents answers which pages use which component.
+//
+// The question a component's author actually has is the inverse of the one the
+// graph stores per page, so it is inverted here rather than making every caller
+// do it (GO-095 phase 2).
+func (s *Server) siteComponents(args map[string]any) toolResult {
+	graph, err := s.loadGraph()
+	if err != nil {
+		return errResult(err.Error())
+	}
+	only, _ := strArg(args, "name")
+	usage := map[string][]string{}
+	for _, p := range graph.Pages {
+		for _, name := range p.Components {
+			if only != "" && name != only {
+				continue
+			}
+			usage[name] = append(usage[name], p.URL)
+		}
+	}
+	type componentUse struct {
+		Name  string   `json:"name"`
+		Pages []string `json:"pages"`
+		Count int      `json:"count"`
+	}
+	out := make([]componentUse, 0, len(usage))
+	for _, name := range sortedKeys(usage) {
+		out = append(out, componentUse{Name: name, Pages: usage[name], Count: len(usage[name])})
+	}
+	return graphResult(graph.Build, "components", out)
+}
+
+// sortedKeys lists a map's keys in a stable order.
+func sortedKeys[T any](m map[string]T) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // intProp is a JSON Schema integer property.

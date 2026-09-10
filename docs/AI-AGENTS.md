@@ -138,6 +138,7 @@ link and redirect the build produced, stamped with the build that produced it.
   "build": { "version": "1.8.60", "time": "2026-09-10T12:00:00Z", "hash": "3f9c…" },
   "domain": "example.com",
   "pages":      [ { "url": "/blog/hello/", "type": "post", "title": "Hello", "canonical": "https://example.com/blog/hello/",
+                    "components": ["youtube"], "relations": [{ "name": "see_also", "url": "/about/" }],
                     "tags": ["go"], "categories": ["News"], "translations": [{ "lang": "pl", "url": "/pl/blog/czesc/" }],
                     "outputs": { "html": "/blog/hello/", "markdown": "https://example.com/blog/hello/index.md" } } ],
   "sections":   [ { "path": "/tag/go/", "kind": "tag", "title": "go" } ],
@@ -185,6 +186,7 @@ they answer from:
 | `site_links` | the link graph, filterable by `from`, `to` and `kind` (page, asset, external) |
 | `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
 | `site_redirects` | every rule the host will apply |
+| `site_components` | which pages use which component — ask before changing one |
 
 "Which pages link to `/pricing/`?" is one call rather than a grep across the
 output. The tools are read-only by design: the graph is a model of the site,

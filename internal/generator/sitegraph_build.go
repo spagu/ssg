@@ -102,6 +102,10 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 	if p.Category != "" && len(node.Categories) == 0 {
 		node.Categories = []string{p.Category}
 	}
+	// The components this page renders (GO-093). Read from the page's own
+	// content rather than from a per-build tally, because the graph describes
+	// pages and a tally describes the build (GO-095 phase 2).
+	node.Components = g.componentsInContent(p.Content)
 	// Declared relations are edges an author wrote down, which is exactly what
 	// a graph is for (GO-096).
 	for _, name := range sortedKeys(p.RelatedPages) {

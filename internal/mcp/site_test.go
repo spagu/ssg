@@ -196,3 +196,50 @@ func TestGraphResultRefusesTheUnencodable(t *testing.T) {
 		t.Errorf("unencodable value: %+v", r)
 	}
 }
+
+// TestSiteComponentsInvertsTheQuestion: the graph stores components per page,
+// and the question a component's author has is the other way round.
+func TestSiteComponentsInvertsTheQuestion(t *testing.T) {
+	out := t.TempDir()
+	g := sitegraph.Graph{Schema: sitegraph.Schema, Domain: "example.com",
+		Build: sitegraph.Build{Version: "1.8.60", Hash: "abc"},
+		Pages: []sitegraph.Page{
+			{URL: "/a/", Type: "page", Components: []string{"youtube", "note"}},
+			{URL: "/b/", Type: "page", Components: []string{"youtube"}},
+			{URL: "/c/", Type: "page"},
+		},
+	}
+	if _, err := sitegraph.Write(out, g, 0); err != nil {
+		t.Fatal(err)
+	}
+	s := NewServer(Options{Root: t.TempDir(), OutputDir: out, Roles: map[string]bool{"content": true}})
+
+	got := decode(t, s.siteComponents(nil))
+	list, _ := got["components"].([]any)
+	if len(list) != 2 {
+		t.Fatalf("components = %v", got["components"])
+	}
+	first, _ := list[0].(map[string]any)
+	if first["name"] != "note" || first["count"] != float64(1) {
+		t.Errorf("first = %v (want them sorted by name)", first)
+	}
+	second, _ := list[1].(map[string]any)
+	if second["name"] != "youtube" || second["count"] != float64(2) {
+		t.Errorf("second = %v", second)
+	}
+
+	// One component's name narrows the answer.
+	only := decode(t, s.siteComponents(map[string]any{"name": "youtube"}))
+	if list, _ := only["components"].([]any); len(list) != 1 {
+		t.Errorf("narrowed = %v", only["components"])
+	}
+	// And the answer names the build it came from.
+	if _, ok := got["build"]; !ok {
+		t.Error("every site answer carries its build")
+	}
+	// Without a graph it says what to turn on.
+	bare := NewServer(Options{Root: t.TempDir(), OutputDir: t.TempDir(), Roles: map[string]bool{"content": true}})
+	if r := bare.siteComponents(nil); !r.IsError {
+		t.Error("no graph, no answer")
+	}
+}
