@@ -33,6 +33,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 📇 **Records as pages: `content_map` for file, HTTP and SQL sources**
+  (GO-098). The pieces were all here and did not meet. Seven input formats
+  already parsed into records; a CMS import already merged into the site
+  through one path that gives imported documents the same URLs, taxonomies and
+  outputs as native content; and `mode: content` already passed validation for
+  every source type — while doing nothing unless the source was a CMS database.
+  The documentation promised it for a Payload API that could not do it.
+
+  `content_map` supplies the one thing a tool cannot guess: which record field
+  is the title, and which is the body. A CSV of products becomes a page per
+  row, with its own URL, taxonomy archives, sitemap entry and `.md` output. A
+  value is a field path, a `=constant`, or a `{{.template}}` over the record;
+  `content_format: text` escapes prose that is not Markdown; `content_errors`
+  chooses warn or strict, and two records mapping to one slug stop the build
+  whatever the policy, because two pages at one URL loses one of them.
+
+  `mode: content` without a `content_map` is now refused with an explanation
+  instead of quietly doing nothing, and the Payload example in the docs says
+  what actually works. Mapped sources stay available as `.ExternalData` too.
+
 - ⚙️ **`ssg config view|set|unset`: editing the config from the command line**
   (GO-101). An assistant could change a handful of presentation settings through
   MCP; a person had no way to change anything without opening an editor. The

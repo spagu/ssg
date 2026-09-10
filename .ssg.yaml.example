@@ -292,7 +292,22 @@ data_dir: "data"
 #       url: https://api.example.com/products
 #       format: json
 #       auth: {type: bearer, token: "$API_TOKEN"}
-#       transform: {select: data.items}
+#       transform: {select: data.items}#     catalog_pages:          # records as PAGES, one page per record (GO-098)
+#       type: file
+#       path: ./data/products.csv
+#       format: csv
+#       mode: content         # without content_map this is refused: the build
+#                             # cannot guess which field is the title
+#       content_map:
+#         title: name         # a record field
+#         slug: "product-{{.sku}}"   # a template over the record
+#         content: description
+#         date: updated_at
+#         type: "=product"    # a leading = makes it a CONSTANT, not a field
+#         taxonomies: {tag: categories}
+#       content_format: markdown   # markdown (default) | html | text (escapes prose)
+#       content_errors: warn       # warn (default) | strict
+#       max_rows: 10000            # record cap
 #     inventory:              # read-only SQL; queries live ONLY in config
 #       type: sql
 #       driver: postgres      # mysql | mariadb | postgres | sqlite

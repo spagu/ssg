@@ -1692,24 +1692,11 @@ func sortedKeys[V any](m map[string]V) []string {
 
 // slugify converts an arbitrary label into a URL-safe slug (lowercase, spaces and
 // punctuation → hyphens), used for series/tag names (AX-005).
-func slugify(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	var b strings.Builder
-	prevDash := false
-	for _, r := range s {
-		switch {
-		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
-			b.WriteRune(r)
-			prevDash = false
-		default:
-			if !prevDash {
-				b.WriteByte('-')
-				prevDash = true
-			}
-		}
-	}
-	return strings.Trim(b.String(), "-")
-}
+//
+// The rule lives in models so the external-source mapper can produce the same
+// slugs from records that the generator produces from content (GO-098) — one
+// definition, because two would eventually disagree about a URL.
+func slugify(s string) string { return models.Slugify(s) }
 
 // mathDelimiterRe detects display math ($$…$$) or fenced ```math blocks (AX-004).
 var mathDelimiterRe = regexp.MustCompile("(?s)\\$\\$.+?\\$\\$|```math")

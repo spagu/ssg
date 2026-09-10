@@ -198,7 +198,14 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
-**Purely additive.** `ssg config view|set|unset` reads and edits the config from
+**One validation is stricter, deliberately.** An external source with
+`mode: content` that is not a CMS used to load and silently stay data. It now
+needs a `content_map` and is refused without one, because with GO-098 that mode
+finally does what it says. If you have such a source, either add the mapping
+(docs/EXTERNAL_SOURCES.md, "Records as pages") or drop the `mode: content` line
+that was doing nothing.
+
+**Otherwise purely additive.** `ssg config view|set|unset` reads and edits the config from
 the command line. One behaviour change worth knowing: the MCP `designer_config_set`
 tool now writes through the same editor, which splices the change into the text
 instead of re-encoding the document — so an edited config keeps its blank lines

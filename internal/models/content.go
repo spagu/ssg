@@ -716,3 +716,29 @@ func resolveCategories(p *Page, byName, bySlug map[string]int) {
 		}
 	}
 }
+
+// Slugify converts an arbitrary label into a URL-safe slug: lowercase, with
+// every run of anything else collapsed to a single hyphen.
+//
+// It lives here rather than in the generator because two producers need it —
+// the generator, for series and term names (AX-005), and the external-source
+// mapper, for pages built from records (GO-098). Two implementations would
+// eventually disagree about a URL, and a URL is a promise.
+func Slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	prevDash := false
+	for _, r := range s {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}

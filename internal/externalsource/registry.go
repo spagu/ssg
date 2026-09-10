@@ -37,6 +37,7 @@ func Load(cfg Config) (*Registry, []string, error) {
 	httpConn := newHTTPConnector(cfg)
 	results := make([]*Result, len(sources))
 	errs := make([]error, len(sources))
+	mapWarnings := make([][]string, len(sources))
 
 	limit := cfg.MaxConcurrent
 	if limit <= 0 {
@@ -60,6 +61,18 @@ func Load(cfg Config) (*Registry, []string, error) {
 				conn = CMSConnector{}
 			}
 			results[i], errs[i] = conn.Load(src)
+			// Records become pages here, once, for every source type that is
+			// not a CMS — the CMS connector produces its own import (GO-098).
+			if errs[i] == nil && src.Mode == "content" && src.Type != "cms" {
+				imported, warns, err := MapRecords(src, results[i].Data)
+				if err != nil {
+					results[i], errs[i] = nil, fail(src, "content_map", err)
+					return
+				}
+				results[i].CMS = imported
+				results[i].Metadata.RecordCount = len(imported.Pages) + len(imported.Posts)
+				mapWarnings[i] = warns
+			}
 		}(i, src)
 	}
 	wg.Wait()
@@ -77,6 +90,7 @@ func Load(cfg Config) (*Registry, []string, error) {
 		}
 		reg.Order = append(reg.Order, src.Name)
 		reg.Results[src.Name] = results[i]
+		warnings = append(warnings, mapWarnings[i]...)
 	}
 	return reg, warnings, nil
 }

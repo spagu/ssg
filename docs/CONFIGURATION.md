@@ -862,6 +862,12 @@ come exclusively from environment variables. CLI: `--offline`,
 `--external-source=NAME`. Full reference:
 [EXTERNAL_SOURCES.md](EXTERNAL_SOURCES.md).
 
+A source can also become **pages** rather than data: `mode: content` with a
+`content_map` naming which record field is the title and which is the body
+turns one record into one page, with its own URL, taxonomy archives and
+sitemap entry. See
+[Records as pages](EXTERNAL_SOURCES.md#records-as-pages).
+
 ## Server access control
 
 | Key | Default | CLI | Purpose |
