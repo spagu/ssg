@@ -27,7 +27,7 @@
                 <article class="post-content" id="post-{{.Post.Slug}}">
                     <div class="post-body" id="post-body">
                         <header class="post-header">
-                            <h1 class="post-title">{{.Post.Title | decodeHTML}}</h1>
+                            <h1 class="post-title" data-ssg-edit="frontmatter:title">{{.Post.Title | decodeHTML}}</h1>
                             <div class="post-meta">
                                 <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                                     {{formatDatePL .Post.Date}}

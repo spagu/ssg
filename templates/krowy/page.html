@@ -27,7 +27,7 @@
                 <article class="page-content" id="page-{{.Page.Slug}}">
                     <div class="page-body" id="page-body">
                         <header class="page-header">
-                            <h1 class="page-title">{{.Page.Title | decodeHTML}}</h1>
+                            <h1 class="page-title" data-ssg-edit="frontmatter:title">{{.Page.Title | decodeHTML}}</h1>
                         </header>
                         {{.Page.Content | safeHTML}}
                     </div>

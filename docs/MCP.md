@@ -71,6 +71,12 @@ one line changed, and the comments stay where the author put them. The
 allow-list is the difference — `ssg config` is the project owner's own tool and
 edits any key.
 
+The browser editor (`ssg --http --watch --edit`, see [EDITING.md](EDITING.md))
+is a second client of this same server rather than a second server: it calls
+`content_read`, `content_update` and the git tools in-process, in the content
+role, so the path confinement and the refusals are decided here. It adds no
+tool.
+
 ### Content manager — Markdown
 
 | Tool | Purpose |

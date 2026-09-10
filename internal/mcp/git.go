@@ -21,10 +21,27 @@ type GitOptions struct {
 	Run           func(args ...string) (string, error)
 	CreatePR      func(head, title, body string) (string, error)
 	Now           func() string
+
+	// Local exposes the tools that need only a repository — status, branch,
+	// commit — without a forge token (GO-102). `ssg serve --edit` sets it,
+	// because an edit made by clicking still belongs on a branch of its own,
+	// and asking for a GitHub token before a local commit would mean most
+	// sessions had no git safety at all.
+	//
+	// It is off everywhere else on purpose: `ssg mcp` continues to expose no
+	// git tools until an operator configures a token, so this never widens
+	// what an assistant can do without someone deciding it should.
+	Local bool
 }
 
 // Enabled reports whether the git tools should be exposed.
-func (g GitOptions) Enabled() bool { return g.Token != "" && g.Run != nil }
+func (g GitOptions) Enabled() bool { return (g.Token != "" || g.Local) && g.Run != nil }
+
+// canOpenPR reports whether the forge half is configured at all. A token with
+// no PR opener still pushes the branch and says to open the request by hand,
+// which is the flow this has always had; a local-only session has neither and
+// is not offered a button that cannot work.
+func (g GitOptions) canOpenPR() bool { return g.Token != "" }
 
 func (g GitOptions) remote() string {
 	if g.Remote != "" {
@@ -43,7 +60,7 @@ func (g GitOptions) base() string {
 // gitTools is the git write-back section (only exposed when configured): branch →
 // commit → open PR. The PR is the explicit, human-approved final step.
 func (s *Server) gitTools() []tool {
-	return []tool{
+	tools := []tool{
 		{
 			name: "git_status",
 			description: "GIT · Show the working-tree status (branch + changed files) so you and the " +
@@ -68,18 +85,23 @@ func (s *Server) gitTools() []tool {
 			schema:  objectSchema(map[string]any{"message": stringProp("Commit message describing the change")}, "message"),
 			handler: s.gitCommit,
 		},
-		{
-			name: "git_open_pr",
-			description: "GIT · Push the working branch and open a pull request against \"" + s.opts.Git.base() +
-				"\". THIS IS THE FINAL, HUMAN-APPROVED STEP — only call it after the person has reviewed " +
-				"the changes and explicitly asked to open the PR. Returns the PR URL.",
-			schema: objectSchema(map[string]any{
-				"title": stringProp("Pull-request title"),
-				"body":  stringProp("Pull-request description (optional)"),
-			}, "title"),
-			handler: s.gitOpenPR,
-		},
 	}
+	if !s.opts.Git.canOpenPR() {
+		// No token, no forge: the local tools stand on their own, and a button
+		// that cannot work is worse than one that is not there.
+		return tools
+	}
+	return append(tools, tool{
+		name: "git_open_pr",
+		description: "GIT · Push the working branch and open a pull request against \"" + s.opts.Git.base() +
+			"\". THIS IS THE FINAL, HUMAN-APPROVED STEP — only call it after the person has reviewed " +
+			"the changes and explicitly asked to open the PR. Returns the PR URL.",
+		schema: objectSchema(map[string]any{
+			"title": stringProp("Pull-request title"),
+			"body":  stringProp("Pull-request description (optional)"),
+		}, "title"),
+		handler: s.gitOpenPR,
+	})
 }
 
 func (s *Server) gitStatus(map[string]any) toolResult {

@@ -642,6 +642,14 @@ type Config struct {
 	// goes, this answers why.
 	ProfilePprof string `yaml:"profile_pprof" toml:"profile_pprof" json:"profile_pprof"`
 
+	// Edit turns the preview server into an editor (GO-102): a marked region
+	// on a page opens a form for that document's frontmatter, and a save is
+	// written, validated, rebuilt and committed to a branch of its own. Needs
+	// --http and --watch; refuses to start off loopback without a token. Never
+	// a config key on purpose — it belongs to a session at a keyboard, not to
+	// a project that might be built by CI.
+	Edit bool `yaml:"-" toml:"-" json:"-"`
+
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).
 	DataDir string `yaml:"data_dir" toml:"data_dir" json:"data_dir"`

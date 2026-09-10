@@ -33,6 +33,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- ✎ **`--edit`: editing frontmatter in the browser** (GO-102, phase 1). The dev
+  server already served the site and reloaded it after every rebuild; the MCP
+  server could already read a document, change one passage of it, validate the
+  result and commit it. What was missing between them was a client a person can
+  click.
+
+  `ssg --http --watch --edit` turns the preview into an editor. Clicking a
+  region a theme marked with `data-ssg-edit="frontmatter:title"` opens that
+  field's control — built from `content_schemas`, so an `enum` is a menu of its
+  values and a `date` is a date picker — and a save is written to the Markdown
+  file, rebuilt, reloaded, and committed to a git branch of its own. Never to
+  the checked-out branch.
+
+  **The theme's attributes never reach a published page.** A build without
+  `--edit` strips them byte for byte, which the golden corpora check, so
+  `ssgtheme`, `simple` and `krowy` can carry them without a production site
+  shipping the scaffolding of a tool it is not running.
+
+  Security is the design rather than a follow-up: the token lives in a header
+  and not a cookie, `--edit` needs `--http --watch`, a non-loopback address
+  without a token refuses to start, and editing runs in the MCP content role,
+  through the same tools an assistant calls — no new tool, no second
+  authorisation layer, one place that decides what a path may be. `mcp.Git`
+  gained an explicit local mode so a save can reach a branch without a forge
+  token; `ssg mcp` still exposes no git tools until an operator configures one.
+
+  Editing body text is phase two, and is deliberately not guessed at: finding a
+  paragraph in the source is what `content_edit`'s exactly-once rule is for.
+
 - 📇 **Records as pages: `content_map` for file, HTTP and SQL sources**
   (GO-098). The pieces were all here and did not meet. Seven input formats
   already parsed into records; a CMS import already merged into the site

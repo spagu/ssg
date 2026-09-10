@@ -343,3 +343,15 @@ func ParseYAMLValue(raw string, forceString bool) interface{} {
 	}
 	return raw
 }
+
+// ParseYAMLMap decodes a YAML mapping into a plain map, for a caller that
+// needs the values rather than the document: a form filling its fields in
+// (GO-102) reads here, and writes back through SetYAMLPath so the file keeps
+// its shape.
+func ParseYAMLMap(src []byte) (map[string]interface{}, error) {
+	out := map[string]interface{}{}
+	if err := yaml.Unmarshal(src, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

@@ -198,6 +198,11 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
+**A new flag, off by default.** `ssg --http --watch --edit` opens the browser
+editor (docs/EDITING.md). Nothing changes for a build that does not pass it: the
+theme attributes it uses are stripped from every published page, which the
+golden corpora check.
+
 **One validation is stricter, deliberately.** An external source with
 `mode: content` that is not a CMS used to load and silently stay data. It now
 needs a `content_map` and is refused without one, because with GO-098 that mode

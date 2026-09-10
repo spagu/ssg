@@ -130,6 +130,12 @@ type Config struct {
 	// and off costs one nil check per phase.
 	Profile string
 
+	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
+	// document they were rendered from, and the theme's editing attributes are
+	// left in place. Off — which is every published build — the marker is not
+	// written and the attributes are stripped, so the output is unchanged.
+	EditMode bool
+
 	SitemapOff bool // Disable sitemap generation
 	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
 	Sitemaps []models.SitemapSpec

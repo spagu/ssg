@@ -268,6 +268,26 @@ The bundled `ssgtheme` is the reference implementation of this layout:
 templates hold only what is unique to them. See
 [`templates/ssgtheme/README.md`](../templates/ssgtheme/README.md).
 
+## Marking editable regions
+
+A theme says which parts of a page may be edited in the browser
+(`ssg --http --watch --edit`, see [EDITING.md](EDITING.md)) with one attribute:
+
+```html
+<h1 data-ssg-edit="frontmatter:title">{{ .Post.Title }}</h1>
+<time data-ssg-edit="frontmatter:date" datetime="{{ .Post.Date.Format "2006-01-02" }}">…</time>
+<p data-ssg-edit="frontmatter:description">{{ .Page.Description }}</p>
+```
+
+The value names the source of the text: `frontmatter:<key>` opens that field's
+control. A region with no attribute is not editable, which is the point — most
+text on a rendered page did not come from a file's body, and guessing where it
+came from is how an editor changes the wrong paragraph.
+
+The attribute is free to leave in: a build without `--edit` removes it, byte for
+byte, so a published page carries none of it. `ssgtheme`, `simple` and `krowy`
+already have it on their titles.
+
 ## Template engines
 
 | Engine | Configuration | Aliases | Syntax |

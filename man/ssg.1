@@ -529,6 +529,21 @@ Maximum items per feed (default: 20).
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
 .TP
+.B \-\-edit
+Turn the preview server into an editor: a region a theme marked with
+\fBdata\-ssg\-edit="frontmatter:\fIkey\fB"\fR opens a form for that field, and a
+save is written to the Markdown file, validated against \fBcontent_schemas\fR,
+rebuilt, reloaded in the browser and committed to a git branch of its own —
+never to the checked-out branch.
+.IP
+Requires \fB\-\-http\fR and \fB\-\-watch\fR. Every request to \fB/__edit/*\fR
+must carry the session token in the \fBX\-SSG\-Edit\-Token\fR header; the token
+is printed at start-up and \fB$SSG_EDIT_TOKEN\fR overrides it. On a
+non-loopback address without a token the server does not start. Editing runs in
+the MCP content role: templates are not editable from a browser. A build
+without \fB\-\-edit\fR strips the theme's editing attributes, so a published
+page carries none of it. See \fBdocs/EDITING.md\fR.
+.TP
 .BR \-\-profile "[=" \fIjson ]
 Report where the build's time went: the phases in the order they ran, the
 counters the build kept (markdown conversions and cache hits, external sources

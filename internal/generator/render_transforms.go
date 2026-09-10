@@ -173,6 +173,15 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 			}
 		}
 	}
+	// The editing scaffolding: kept for the edit server, taken back out of a
+	// published page, before anything downstream measures or minifies it.
+	if g.config.EditMode {
+		if page != nil {
+			s = injectEditSource(s, editSourceMeta(page.SourceDir, page.SourceFile, page.Type))
+		}
+	} else {
+		s = stripEditAttrs(s)
+	}
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
 		// Point agents at the page's Markdown copy (GO-085). Only real source

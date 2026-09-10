@@ -29,7 +29,10 @@ func spliceSet(src []byte, keyNode, valNode *yaml.Node, value interface{}) ([]by
 		return nil, fmt.Errorf("the file does not have line %d", keyNode.Line)
 	}
 	indent := indentOf(lines[keyLine])
-	inline, block, err := renderValue(value, indent)
+	// A list the author wrote as [a, b] stays [a, b]: the style is the file's,
+	// not the editor's, and rewriting it into a block would change more lines
+	// than the edit did.
+	inline, block, err := renderValueStyled(value, indent, valNode != nil && valNode.Style == yaml.FlowStyle)
 	if err != nil {
 		return nil, err
 	}
@@ -186,9 +189,18 @@ func quoteKey(key string) string {
 // form on the lines below, indented past the key — because that is how a person
 // writes them, and a config is read far more often than it is set.
 func renderValue(value interface{}, indent int) (inline string, block []string, err error) {
+	return renderValueStyled(value, indent, false)
+}
+
+// renderValueStyled is renderValue with the collection style chosen by the
+// caller: flow keeps a list or a mapping on the key's own line.
+func renderValueStyled(value interface{}, indent int, flow bool) (inline string, block []string, err error) {
 	node, err := encodeNode(value)
 	if err != nil {
 		return "", nil, err
+	}
+	if flow {
+		setFlow(node)
 	}
 	var b strings.Builder
 	enc := yaml.NewEncoder(&b)
@@ -200,7 +212,7 @@ func renderValue(value interface{}, indent int) (inline string, block []string, 
 		return "", nil, err
 	}
 	text := strings.TrimRight(b.String(), "\n")
-	if node.Kind == yaml.ScalarNode {
+	if node.Kind == yaml.ScalarNode || flow {
 		return text, nil, nil
 	}
 	if text == "{}" || text == "[]" { // an empty collection reads better inline
@@ -328,4 +340,14 @@ func encodeNode(value interface{}) (node *yaml.Node, err error) {
 		return nil, err
 	}
 	return node, nil
+}
+
+// setFlow marks a collection and everything under it as flow style.
+func setFlow(n *yaml.Node) {
+	if n.Kind == yaml.MappingNode || n.Kind == yaml.SequenceNode {
+		n.Style = yaml.FlowStyle
+	}
+	for _, c := range n.Content {
+		setFlow(c)
+	}
 }

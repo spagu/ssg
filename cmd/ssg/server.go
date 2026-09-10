@@ -325,6 +325,10 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	// and HTML injection sees the finished page. A no-op unless --auto-reload
 	// created the hub (GO-090).
 	h = liveReloadMiddleware(h)
+	// Outside live reload, so the editor's panel is injected into the page the
+	// reload script has already been added to, and its own endpoints are not
+	// buffered by the reload injector (GO-102).
+	h = editMiddleware(h)
 	return h
 }
 

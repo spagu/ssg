@@ -65,6 +65,12 @@ func main() {
 	// gives no way to tell whether the tool changed or the site did.
 	logRunningVersion(cfg)
 
+	// Edit mode is checked before the first build, so a refused combination
+	// says so instead of building a site with an editor marker nobody serves.
+	if !startEditMode(genCfg, cfg) {
+		os.Exit(2)
+	}
+
 	if !runInitialBuild(genCfg, cfg) && !cfg.Watch && !cfg.HTTP {
 		os.Exit(1)
 	}
@@ -701,6 +707,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Strict:                 cfg.Strict,
 		RouteManifest:          cfg.RouteManifest,
 		Profile:                cfg.Profile,
+		EditMode:               cfg.Edit,
 		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                     buildAIClient(cfg.AI),
 		Notify:                 buildNotifier(cfg),
@@ -1727,6 +1734,7 @@ func printUsage() {
 	fmt.Println("                           strict = keep and fail the build)")
 	fmt.Println("  --strict               - Escalate every soft build problem into a hard failure")
 	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
+	fmt.Println("  --edit                 - Turn the preview into an editor (needs --http --watch); see docs/EDITING.md")
 	fmt.Println("  --profile[=json]       - Report where the build's time went; json writes build-profile.json")
 	fmt.Println("  --profile-pprof=DIR    - Also write cpu.prof and heap.prof for `go tool pprof`")
 	fmt.Println("  --notify               - Announce new and changed posts to the configured channels")
@@ -2059,6 +2067,7 @@ func boolFlagTargets(cfg *config.Config) map[string]*bool {
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
 		"--webmcp": &cfg.WebMCP,
 		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
+		"--edit":       &cfg.Edit,       // GO-102: the preview server becomes an editor
 		"--notify":     &cfg.Notify,     // #1.8.16 announce new/changed posts
 		"--mddb-watch": &cfg.Mddb.Watch, // bool flag, not an =value flag (GO-018)
 		"--clean":      &cfg.Clean,
