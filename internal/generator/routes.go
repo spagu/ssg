@@ -30,14 +30,20 @@ func (g *Generator) writeRouteManifest() error {
 	if !g.config.RouteManifest {
 		return nil
 	}
-	var routes []RouteEntry
-	for _, p := range g.siteData.Posts {
-		routes = append(routes, RouteEntry{Path: p.GetURL(), Type: "post", Title: p.Title, Source: p.SourceFile, Lang: p.Lang})
+	// A view of the site graph (GO-095): the same pages and sections the graph
+	// holds, in the same order it lists them, so this file is generated from
+	// one model rather than enumerated a second time.
+	graph := g.buildSiteGraph(false)
+	routes := make([]RouteEntry, 0, len(graph.Pages)+len(graph.Sections))
+	for _, p := range graph.Pages {
+		routes = append(routes, RouteEntry{Path: p.URL, Type: p.Type, Title: p.Title, Source: p.Source, Lang: p.Lang})
 	}
-	for _, p := range g.siteData.Pages {
-		routes = append(routes, RouteEntry{Path: p.GetURL(), Type: "page", Title: p.Title, Source: p.SourceFile, Lang: p.Lang})
+	for _, sec := range graph.Sections {
+		if sec.Kind == "listing" {
+			continue // routes.json never listed the post listing; the graph does
+		}
+		routes = append(routes, RouteEntry{Path: sec.Path, Type: sec.Kind, Title: sec.Title, Lang: sec.Lang})
 	}
-	routes = append(routes, g.taxonomyRoutes()...)
 
 	routes = dedupeRoutesByPath(routes)
 	sort.Slice(routes, func(i, j int) bool { return routes[i].Path < routes[j].Path })

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/spagu/ssg/internal/models"
+	"github.com/spagu/ssg/internal/sitegraph"
 )
 
 // markdownAlternateTag is the discovery link injected into a page <head>; a
@@ -112,8 +113,10 @@ func (g *Generator) generateLLMsTxt() error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", g.config.Domain)
 	b.WriteString("> Markdown copies of every page, for language models and agents.\n")
-	writeSection(&b, "Documentation", g.siteData.Pages, g.config.Domain)
-	writeSection(&b, "Posts", g.siteData.Posts, g.config.Domain)
+	// Two views of the site graph (GO-095), not a second enumeration.
+	graph := g.buildSiteGraph(false)
+	writeSection(&b, "Documentation", graphPagesOfType(graph, "page"))
+	writeSection(&b, "Posts", graphPagesOfType(graph, "post"))
 	data := encodeText(g.cleanSpecialChars(b.String()), normalizeEncoding(g.config.OutputEncoding))
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, "llms.txt"), data, 0644)
@@ -121,10 +124,10 @@ func (g *Generator) generateLLMsTxt() error {
 
 // writeSection appends one "## Heading" block listing pages as links to their
 // Markdown copies. Empty sections are skipped.
-func writeSection(b *strings.Builder, heading string, pages []models.Page, domain string) {
+func writeSection(b *strings.Builder, heading string, pages []sitegraph.Page) {
 	var lines []string
 	for _, p := range pages {
-		url := markdownURLFor(p, domain)
+		url := p.Outputs.Markdown
 		if url == "" {
 			continue
 		}
@@ -179,4 +182,15 @@ func markdownURLFor(p models.Page, domain string) string {
 		return base + u + "index.md"
 	}
 	return base + strings.TrimSuffix(u, ".html") + ".md" // flat: /slug.html → /slug.md
+}
+
+// graphPagesOfType selects one kind of page from the graph, in graph order.
+func graphPagesOfType(graph sitegraph.Graph, kind string) []sitegraph.Page {
+	var out []sitegraph.Page
+	for _, p := range graph.Pages {
+		if p.Type == kind {
+			out = append(out, p)
+		}
+	}
+	return out
 }

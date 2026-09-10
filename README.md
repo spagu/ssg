@@ -300,6 +300,7 @@ Common options:
 | Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
 | Fail the build on any violation | `strict: true` | `--strict` |
 | Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
+| Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |

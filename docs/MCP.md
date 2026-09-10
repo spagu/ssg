@@ -141,6 +141,28 @@ existing file and updating a missing one are both mistakes, and splitting them
 turns each into an error instead of silent data loss. `content_delete` is
 destructive and should follow an explicit request, never an inference.
 
+## Site (`site_*`)
+
+The other sections are file-shaped, which is right for editing and wrong for
+understanding. Five read-only tools answer questions about the site's **model**
+— from the `site-graph.json` the last build wrote (`site_graph: true`) — and
+every answer names the `build` it comes from, so an agent can tell fresh from
+stale:
+
+| Tool | Answers |
+|---|---|
+| `site_pages` | every page: url, type, title, lang, date — filter `type`/`lang`, page with `limit`/`offset` |
+| `site_page` | one page in full, with every link out of it and into it |
+| `site_links` | the link graph — filter `from`, `to`, `kind` (page, asset, external) |
+| `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
+| `site_redirects` | every redirect rule |
+
+"Which pages link to `/pricing/`?" is `site_links` with `to: /pricing/`, not a
+grep across the output. The section appears for every role once the server
+knows the output directory; without a graph on disk each tool says what to
+turn on rather than answering with nothing. See
+[AI-AGENTS.md](AI-AGENTS.md#site_graph) for the artifact itself.
+
 ## Find, then edit — the cheap path
 
 The tool list above has two shapes for changing a file, and the difference is

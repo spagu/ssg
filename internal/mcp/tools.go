@@ -30,6 +30,11 @@ func (s *Server) buildTools() []tool {
 	if s.opts.Git.Enabled() {
 		tools = append(tools, s.gitTools()...)
 	}
+	// The site section is read-only and belongs to every role: knowing what
+	// the site contains is a precondition of editing any of it (GO-095).
+	if s.opts.OutputDir != "" {
+		tools = append(tools, s.siteTools()...)
+	}
 	return tools
 }
 

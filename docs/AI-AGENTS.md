@@ -92,6 +92,74 @@ without shipped support. So:
 If the API changes shape, the switch is what keeps that from becoming your
 problem: turn it off and the site is what it was.
 
+## `site_graph`
+
+```yaml
+site_graph: true
+```
+
+`markdown_publish` hands an agent the site's *text*. `site_graph` hands it the
+site's *shape*: one JSON document describing every page, section, taxonomy,
+link and redirect the build produced, stamped with the build that produced it.
+
+```json
+{
+  "schema": 1,
+  "build": { "version": "1.8.60", "time": "2026-09-10T12:00:00Z", "hash": "3f9c…" },
+  "domain": "example.com",
+  "pages":      [ { "url": "/blog/hello/", "type": "post", "title": "Hello", "canonical": "https://example.com/blog/hello/",
+                    "tags": ["go"], "categories": ["News"], "translations": [{ "lang": "pl", "url": "/pl/blog/czesc/" }],
+                    "outputs": { "html": "/blog/hello/", "markdown": "https://example.com/blog/hello/index.md" } } ],
+  "sections":   [ { "path": "/tag/go/", "kind": "tag", "title": "go" } ],
+  "taxonomies": [ { "name": "tag", "path": "tag", "terms": [ { "name": "go", "slug": "go", "url": "/tag/go/", "count": 4 } ] } ],
+  "links":      [ { "from": "/blog/hello/", "to": "/about/", "kind": "page" } ],
+  "redirects":  [ { "from": "/old", "to": "/blog/hello/", "status": 301 } ]
+}
+```
+
+Why it exists: an agent working on a site otherwise learns what the site
+contains by listing directories and reading files, re-deriving what the build
+already knew. The build computes every one of these facts — the link checker
+alone parses every output page and extracts every reference, then discards the
+result once it has validated it. The graph keeps them.
+
+**One model, several views.** `routes.json` and `llms.txt` are now generated
+*from* the same in-memory graph, whether or not `site_graph` is on — so the
+manifests cannot drift from each other, and their bytes did not change when
+the source of truth moved (the golden corpora are the proof). `search-index.json`
+stays a text index; its metadata agrees with the graph, its text is its own.
+
+**What is in it, and what is not.** Everything in the artifact is something the
+published HTML already reveals. What a page was rendered *from* — its source
+file, its template — is the project's structure rather than the site's content,
+and is not published here (it still appears in `routes.json`, which has always
+carried it).
+
+**`build`** is how a reader tells fresh from stale. `hash` covers the content,
+not the clock: the same site built twice hashes equal, a changed site does not.
+
+**Scale.** Above 10,000 pages the file becomes an index and the page and link
+records move to JSON Lines under `site-graph/`, so a consumer can stream one
+shard rather than load fifty thousand records to find one.
+
+### Asking the graph over MCP
+
+`ssg mcp` gains a **site** section when it knows the output directory — five
+read-only tools that answer from the last build's graph and name the `build`
+they answer from:
+
+| Tool | Answers |
+|---|---|
+| `site_pages` | every page, filterable by `type` and `lang`, paged with `limit`/`offset` |
+| `site_page` | one page in full, with every link out of it and into it |
+| `site_links` | the link graph, filterable by `from`, `to` and `kind` (page, asset, external) |
+| `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
+| `site_redirects` | every rule the host will apply |
+
+"Which pages link to `/pricing/`?" is one call rather than a grep across the
+output. The tools are read-only by design: the graph is a model of the site,
+not a CMS, and mutation stays with the file-shaped tools that know how.
+
 ## `clean_special_chars`
 
 ```yaml

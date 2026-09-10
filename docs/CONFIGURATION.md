@@ -518,6 +518,7 @@ fingerprinted assets.
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
 | `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
 | `markdown_publish` | `false` | config only | Publish a Markdown copy of every page (`index.md` + `page.md`), a `text/markdown` `<head>` alternate, and a root `llms.txt` — for language models and agents |
+| `site_graph` | `false` | config only | Publish `site-graph.json`: every page, section, taxonomy, link and redirect, stamped with the build — one model for agents and tools, also queryable over MCP as `site_*`. See [AI-AGENTS.md](AI-AGENTS.md#site_graph) |
 | `clean_special_chars` | `false` | config only | Normalise AI "smart" punctuation (curly quotes, en/em dashes, ellipsis, NBSP, zero-width) to ASCII across all content; CJK and other scripts untouched |
 | `output_encoding` | `utf-8` | config only | Text-output encoding: `utf-8`, `utf-16le` or `utf-16be` (BOM added, `<meta charset>` kept in step) |
 | `output_encoding_sections` | empty | config only | Per-section `output_encoding` overrides, keyed by content directory (longest prefix wins; `home` = root) |

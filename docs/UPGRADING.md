@@ -198,7 +198,12 @@ which is a longer read but never a wrong one.
 
 ### 1.8.60 — nothing to do
 
-**Purely additive.** A content page may now carry `paginate:` in its frontmatter
+**Purely additive.** `site_graph: true` publishes a `site-graph.json` describing
+the whole site and adds `site_*` tools to `ssg mcp`; off by default. Under the
+hood `routes.json` and `llms.txt` are now derived from that same model — their
+output is byte-identical, which the golden corpora check.
+
+A content page may now carry `paginate:` in its frontmatter
 and be written as `/slug/`, `/slug/page/2/`, … through its own layout, with
 `.Pager` and `.Posts` in scope. A page that does not set it renders exactly as
 before, and `paginate` in the site config keeps meaning what it meant for the

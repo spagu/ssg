@@ -177,6 +177,12 @@ type Config struct {
 	// `.Site.Title` follows (#128).
 	Marketing models.Marketing `yaml:"marketing" toml:"marketing" json:"marketing"`
 
+	// SiteGraph writes site-graph.json: one model of the published site —
+	// pages, sections, taxonomies, links, redirects, translations — for agents
+	// and tools that would otherwise scan directories (GO-095). Opt-in, like
+	// markdown_publish; the same model feeds routes.json and llms.txt either way.
+	SiteGraph bool `yaml:"site_graph" toml:"site_graph" json:"site_graph"`
+
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 
 	// Sitemaps declares sub-sitemaps, each choosing what goes in and where it is

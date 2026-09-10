@@ -104,6 +104,7 @@ func runMCP(args []string) int {
 		StaticDirs:   []string{cfg.StaticDir},
 		MediaRoots:   mediaRootsOf(cfg),
 		ContentDirs:  contentRoots(cfg),
+		OutputDir:    cfg.OutputDir,
 		Roles:        roles,
 		Watch:        watch,
 		Version:      Version,

@@ -498,6 +498,14 @@ Maximum items per feed (default: 20).
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
 .TP
+.B site_graph: true
+(config only) Publish \fBsite-graph.json\fR: every page, section, taxonomy,
+link and redirect the build produced, stamped with the build's version and a
+content hash. Above 10,000 pages the records move to JSON Lines under
+\fBsite-graph/\fR. \fBssg mcp\fR then answers \fBsite_pages\fR, \fBsite_page\fR,
+\fBsite_links\fR, \fBsite_taxonomies\fR and \fBsite_redirects\fR from it.
+\fBroutes.json\fR and \fBllms.txt\fR are views of the same model.
+.TP
 .B posts_page \fR(configuration file only)
 Where the generated post listing goes, e.g. \fBposts_page: blog\fR publishes it
 at \fB/blog/\fR. A content page whose URL resolves to \fB/\fR becomes the site's

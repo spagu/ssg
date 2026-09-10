@@ -60,16 +60,23 @@ func (g *Generator) checkLinksIfRequested() error {
 func (g *Generator) checkLinks() ([]brokenLink, error) {
 	root := g.config.OutputDir
 	var broken []brokenLink
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.EqualFold(filepath.Ext(path), ".html") {
-			return err
-		}
-		refs, e := extractRefs(path)
-		if e != nil {
-			return nil // unreadable file is not a link error
-		}
-		rel, _ := filepath.Rel(root, path)
-		for _, ref := range refs {
+	// One parse of the output per build, shared with the site graph (GO-095):
+	// the references used to be extracted here and discarded once checked.
+	// The checker runs first and always reads what is on disk now — the graph,
+	// written right after it, reuses that parse.
+	g.resetOutputRefs()
+	refs, err := g.outputRefs()
+	if err != nil {
+		return nil, err
+	}
+	files := make([]string, 0, len(refs))
+	for rel := range refs {
+		files = append(files, rel)
+	}
+	sort.Strings(files)
+	for _, rel := range files {
+		htmlDir := filepath.Dir(filepath.Join(root, filepath.FromSlash(rel)))
+		for _, ref := range refs[rel] {
 			// An absolute URL on the site's own domain is an internal
 			// reference wearing its Sunday clothes — and one class of them, the
 			// canonical, is ALWAYS absolute. Skipping every absolute URL
@@ -80,19 +87,18 @@ func (g *Generator) checkLinks() ([]brokenLink, error) {
 			if !isInternalRef(ref) {
 				continue
 			}
-			if !g.refResolves(ref, filepath.Dir(path)) {
-				broken = append(broken, brokenLink{from: filepath.ToSlash(rel), href: ref})
+			if !g.refResolves(ref, htmlDir) {
+				broken = append(broken, brokenLink{from: rel, href: ref})
 			}
 		}
-		return nil
-	})
+	}
 	sort.Slice(broken, func(i, j int) bool {
 		if broken[i].from != broken[j].from {
 			return broken[i].from < broken[j].from
 		}
 		return broken[i].href < broken[j].href
 	})
-	return broken, err
+	return broken, nil
 }
 
 // extractRefs returns the href/src attribute values in an HTML file.

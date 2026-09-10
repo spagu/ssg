@@ -33,6 +33,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose `link:` names a file is rendered whole, with a warning that says why.
   Nothing changes for a page that does not ask.
 
+- 🕸️ **`site_graph`: one model of the published site, for agents and tools**
+  (GO-095, phase 1). The build computed every fact about the site — every
+  page and its address, every taxonomy term, every redirect, every translation
+  pair, every link on every page — and exposed them as four partial manifests
+  grown one at a time (`routes.json`, `search-index.json`, `llms.txt`,
+  `sitemap.xml`), each a different slice, each able to drift. The link checker
+  parsed every output page and discarded the result once validated. An agent
+  learning what the site contained scanned directories.
+
+  `site_graph: true` publishes `site-graph.json`: pages, sections, taxonomies,
+  links (page / asset / external), redirects and translations, stamped with
+  the build's version and a content hash that ignores the clock. Above 10,000
+  pages it shards to JSON Lines. `ssg mcp` gains a read-only **site** section
+  — `site_pages`, `site_page`, `site_links`, `site_taxonomies`,
+  `site_redirects` — answering from the last build and naming it.
+
+  **The design decision that matters:** the graph is the superset and the old
+  manifests are views of it. `routes.json` and `llms.txt` are now generated
+  *from* the in-memory graph whether or not the artifact is written, and the
+  golden corpora prove they did not change by a byte. The link checker and the
+  graph share one parse of the output. What a page was rendered from stays out
+  of the public file — the project's structure is not the site's content.
+  Phases 2–3 (components, dependencies) wait on GO-093 and GO-094.
+
 ### Fixed
 - 🖼️ **`marketing:` in a YAML config did not load** — a regression in 1.8.59's
   #264. `models.Marketing` carried json tags only (it had only ever been read

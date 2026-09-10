@@ -467,6 +467,8 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 
 # Markdown for agents / AI search (index.md + page.md + llms.txt + text/markdown <head> alternate)
 # markdown_publish: false      # Publish a Markdown copy of every page for LLMs and agents
+# site_graph: false            # Publish site-graph.json — every page, section, taxonomy, link and redirect,
+                               # stamped with the build; queryable over MCP as site_* (docs/AI-AGENTS.md)
 # clean_special_chars: false   # Normalise AI smart punctuation (quotes, dashes, NBSP, zero-width) to ASCII; CJK untouched
 # output_encoding: "utf-8"     # Text-output encoding: utf-8 | utf-16le | utf-16be (BOM added for UTF-16)
 # output_encoding_sections:    # Per-section overrides (longest prefix wins; "home" = root)

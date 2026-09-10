@@ -118,7 +118,14 @@ type Config struct {
 	MinifyHTMLKeepComments []string
 	// Marketing is the site's declared social identity; it overrides whatever a
 	// migration recorded (#264).
-	Marketing  models.Marketing
+	Marketing models.Marketing
+	// SiteGraph emits site-graph.json (GO-095); the in-memory graph is built
+	// regardless, because routes.json and llms.txt are views of it.
+	SiteGraph bool
+	// Version is the ssg that is running, stamped into the site graph so a
+	// reader can tell what produced it. Empty in tests and library use.
+	Version string
+
 	SitemapOff bool // Disable sitemap generation
 	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
 	Sitemaps []models.SitemapSpec
@@ -556,6 +563,14 @@ type Generator struct {
 	// gitWarnOnce keeps the "git could not date this" notice to one line per
 	// build, however many documents it applies to (#260).
 	gitWarnOnce sync.Once
+	// outputRefsCache is every href/src in every output HTML file, keyed by
+	// output-relative path — parsed once per build and shared by the link
+	// checker and the site graph, where it used to be parsed by the checker
+	// and thrown away (GO-095). Reset at the start of each build.
+	outputRefsCache map[string][]string
+	outputRefsMu    sync.Mutex
+	// outputRefsParses counts the walks, so a test can prove there was one.
+	outputRefsParses int
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -867,6 +882,7 @@ func (g *Generator) Generate() error {
 	// the documents this build actually copied (#255).
 	g.resetEmptyCanonicals()
 	g.resetStaticSitemap()
+	g.resetOutputRefs()
 
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
@@ -1010,6 +1026,11 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkLinksIfRequested(); err != nil {
+		return err
+	}
+	// After the link check on purpose: both parse every output file, and the
+	// parse is shared, so whichever runs first pays for it once (GO-095).
+	if err := g.writeSiteGraph(); err != nil {
 		return err
 	}
 	if err := g.checkImagesIfRequested(); err != nil {

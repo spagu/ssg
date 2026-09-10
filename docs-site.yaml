@@ -113,6 +113,10 @@ search_index: true
 # a text/markdown <head> alternate, and a root llms.txt. Agents and LLMs that
 # read Markdown (ChatGPT Search among them) get the authored source directly.
 markdown_publish: true
+# The site's own model, published: pages, sections, taxonomies, links and
+# redirects in one stamped file, and site_* over MCP. This site eats its own
+# dog food (GO-095).
+site_graph: true
 
 # Explicit crawler policy (GO-089). The AI crawlers are welcomed because the
 # published Markdown/llms.txt above is written precisely for them; Google reads

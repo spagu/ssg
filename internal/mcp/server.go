@@ -19,11 +19,14 @@ type Options struct {
 	StaticDirs   []string
 	ContentDirs  []string
 	Roles        map[string]bool // "designer" and/or "content"; empty ⇒ both
-	Git          GitOptions
-	Watch        bool
-	Version      string
-	Rebuild      func() (string, error)
-	Logf         func(string, ...any)
+	// OutputDir is where the build writes; the site_* tools read the last
+	// build's site-graph.json from it (GO-095). Empty disables that section.
+	OutputDir string
+	Git       GitOptions
+	Watch     bool
+	Version   string
+	Rebuild   func() (string, error)
+	Logf      func(string, ...any)
 
 	// ConfigPath is the site config file the designer may edit presentation keys
 	// in; empty disables the config tools. ValidateConfig re-loads it after an
@@ -69,6 +72,9 @@ type MediaRoot struct {
 
 // Server is a running MCP stdio server.
 type Server struct {
+	// graphs caches the last site graph read, invalidated by the artifact's
+	// mtime (GO-095).
+	graphs graphCache
 	opts   Options
 	tools  []tool
 	byName map[string]tool
