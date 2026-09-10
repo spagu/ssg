@@ -634,6 +634,19 @@ type Config struct {
 	// a build that cannot be narrowed silently runs whole.
 	Incremental bool `yaml:"incremental" toml:"incremental" json:"incremental"`
 
+	// MarkdownCache keeps converted Markdown between builds (#270).
+	//
+	// **Off by default, deliberately.** It costs disk equal to the size of the
+	// content and buys 3% on a developer's machine, because converting Markdown
+	// is parallel and reading a cache is not. It is worth turning on in one
+	// place: a CI runner with two cores and a cache carried between runs, where
+	// it is worth about 9%.
+	//
+	// A build with render hooks never uses it whatever this says — a hook can
+	// read the whole site, and a conversion that does is not a function of its
+	// own input any more.
+	MarkdownCache *bool `yaml:"markdown_cache" toml:"markdown_cache" json:"markdown_cache"`
+
 	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
 	// client-side search widget (PLAT-004).
 	SearchIndex bool `yaml:"search_index" toml:"search_index" json:"search_index"`
@@ -1367,6 +1380,13 @@ func (o *OutputsSpec) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	return json.Unmarshal(data, &o.PerType)
+}
+
+// MarkdownCacheEnabled reports whether conversions are kept between builds.
+// Unset means off; the pointer is there so a config can say either word and a
+// later default change cannot silently flip a project that had chosen.
+func (c *Config) MarkdownCacheEnabled() bool {
+	return c.MarkdownCache != nil && *c.MarkdownCache
 }
 
 // applyOutputsSpec copies the decoded shape into the fields the generator

@@ -162,6 +162,11 @@ type Config struct {
 	// graph so a change to it forces a full build.
 	ConfigPath string
 
+	// MarkdownCache keeps converted Markdown between builds (#270). On by
+	// default; a build with render hooks never uses it, because a hook can read
+	// the whole site and a conversion would stop being a function of its input.
+	MarkdownCache bool
+
 	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
 	// document they were rendered from, and the theme's editing attributes are
 	// left in place. Off — which is every published build — the marker is not
@@ -527,6 +532,8 @@ type Generator struct {
 	// are guarded by mdMu below.
 	mdCache       map[string]string
 	mdConversions int
+	// mdFingerprint describes the renderer for the between-builds cache (#270).
+	mdFingerprint markdownFingerprint
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
 	// renderContentFn is the safeHTML pipeline captured for reuse: it renders raw
 	// page Markdown to final HTML so root .Content is rendered, not raw (#127).
@@ -549,6 +556,11 @@ type Generator struct {
 	// every post in it. assetDirsMu keeps it safe under parallel render.
 	assetDirs   map[string][]os.DirEntry
 	assetDirsMu sync.Mutex
+
+	// assetNames is assetDirs filtered to the files that could be a page's
+	// co-located asset, memoized per directory (#270).
+	assetNames   map[string][]string
+	assetNamesMu sync.Mutex
 
 	// relatedMddb is the lazily-built client the relatedFromMddb template helper
 	// queries; relatedMddbOnce guards its one-time creation (safe under the
@@ -2895,9 +2907,14 @@ var (
 
 // cleanMarkdownArtifacts removes markdown artifacts and fixes bolding
 func cleanMarkdownArtifacts(s string) string {
+	// Both patterns need a "**" somewhere. Asking first is a scan for two bytes
+	// against a regex walk of the whole document, and on a corpus that has none
+	// the difference is most of this function (#270).
+	if !strings.Contains(s, "**") {
+		return s
+	}
 	s = mdStarLineRe.ReplaceAllString(s, "")
-	s = mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
-	return s
+	return mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
 }
 
 // autolinkListItems converts list items matching page titles to links
@@ -2964,6 +2981,13 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 			return html
 		}
 	}
+	// The same answer kept by an earlier build. Reading it costs a hash and a
+	// small file where converting costs an order of magnitude more (#270).
+	if html, ok := g.lookupMarkdownCache(s); ok {
+		g.rememberMarkdown(s, html)
+		g.profile.Count("markdown cache hits (disk)", 1)
+		return html
+	}
 	md := g.md
 	if md == nil {
 		md = buildMarkdown(g.config)
@@ -2976,14 +3000,31 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		return s
 	}
 	out := buf.String()
-	if g.mdCache != nil {
-		g.mdMu.Lock()
-		g.mdCache[s] = out
-		g.mdConversions++
-		g.mdMu.Unlock()
-		g.profile.Count("markdown conversions", 1)
-	}
+	g.rememberMarkdown(s, out)
+	g.countConversion()
+	g.storeMarkdownCache(s, out)
 	return out
+}
+
+// rememberMarkdown memoizes one answer for the rest of this build, whether it
+// was converted here or read back from the cache.
+func (g *Generator) rememberMarkdown(source, html string) {
+	if g.mdCache == nil {
+		return
+	}
+	g.mdMu.Lock()
+	g.mdCache[source] = html
+	g.mdMu.Unlock()
+}
+
+// countConversion records that this build did the work, which is what the
+// profile's "markdown conversions" means: a cache hit is not a conversion, and
+// counting it as one would make the cache look like it changed nothing.
+func (g *Generator) countConversion() {
+	g.mdMu.Lock()
+	g.mdConversions++
+	g.mdMu.Unlock()
+	g.profile.Count("markdown conversions", 1)
 }
 
 // tocHTML builds a table of contents from the headings in markdown source, using
@@ -4911,22 +4952,11 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 // asset would duplicate them into every sibling post's output dir (O(posts ×
 // assets) I/O and disk bloat). Only assets named in the content are taken.
 func (g *Generator) colocatedAssetNames(sourceDir, content string) []string {
-	entries := g.assetDirEntries(sourceDir)
-	if entries == nil {
-		return nil // Source dir might not exist, that's fine
-	}
 	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
-			continue
+	for _, name := range g.assetCandidates(sourceDir) {
+		if strings.Contains(content, name) {
+			names = append(names, name)
 		}
-		if !isContentAsset(entry.Name()) {
-			continue
-		}
-		if !strings.Contains(content, entry.Name()) {
-			continue
-		}
-		names = append(names, entry.Name())
 	}
 	return names
 }
@@ -4954,6 +4984,37 @@ func (g *Generator) assetDirEntries(sourceDir string) []os.DirEntry {
 	return entries
 }
 
+// assetCandidates is the memoized list of files in a directory that could be a
+// page's co-located asset: not a directory, not Markdown, and of a type the
+// build publishes.
+//
+// Filtering once per DIRECTORY rather than once per page is the whole point.
+// A post's SourceDir is its entire category directory, so on a five-thousand
+// post site the unfiltered walk was five thousand entries examined for every
+// one of five thousand pages — twenty-five million suffix checks to discover,
+// usually, that there are no assets at all (#270).
+func (g *Generator) assetCandidates(sourceDir string) []string {
+	g.assetNamesMu.Lock()
+	defer g.assetNamesMu.Unlock()
+	if names, ok := g.assetNames[sourceDir]; ok {
+		return names
+	}
+	var names []string
+	for _, entry := range g.assetDirEntries(sourceDir) {
+		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		if isContentAsset(entry.Name()) {
+			names = append(names, entry.Name())
+		}
+	}
+	if g.assetNames == nil {
+		g.assetNames = map[string][]string{}
+	}
+	g.assetNames[sourceDir] = names
+	return names
+}
+
 // Media-path rewrite patterns, compiled once instead of per rendered page;
 // wpSrcURLre replaces the per-image regex + full-document rescan that made this
 // O(images × content) per post (PERF-006).
@@ -4961,7 +5022,6 @@ var (
 	wpImageIDRe       = regexp.MustCompile(`wp-image-(\d+)`)
 	wpSrcURLRe        = regexp.MustCompile(`(src=["'])(https?://[^"']*\.(?:jpg|jpeg|png|gif|webp))(["'])`)
 	mediaSrcRe        = regexp.MustCompile(`((?:src|href|srcset)=["'])media/`)
-	mediaSrcsetItemRe = regexp.MustCompile(`, media/`)
 	mediaThumbRe      = regexp.MustCompile(`(/media/\d+_[^"'\s]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))`)
 	mediaSrcsetSizeRe = regexp.MustCompile(`(/media/\d+_[^"'\s,]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))\s+(\d+w)`)
 )
@@ -5000,7 +5060,7 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 	// First, fix WordPress absolute URLs using wp-image-ID class
 	// Pattern: wp-image-1048 ... src="http://...krowy.net/..." -> src="/media/1048_filename.jpg"
 	replacements := buildWPMediaReplacements(content, media)
-	if len(replacements) > 0 {
+	if len(replacements) > 0 && strings.Contains(content, "src=") {
 		// One pass over all src URLs; each candidate URL is matched against the
 		// known media filenames (PERF-006: no per-image full-document rescans).
 		content = wpSrcURLRe.ReplaceAllStringFunc(content, func(m string) string {
@@ -5017,19 +5077,27 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 		})
 	}
 
-	// Fix src/href/srcset="media/..." to ".../media/..."
-	content = mediaSrcRe.ReplaceAllString(content, `${1}/media/`)
+	// Every rewrite below is a WordPress-migration fixup, and every one of them
+	// needs the literal "media/" to be in the document at all. Asking first
+	// costs a substring scan; not asking costs four regex walks of every
+	// document on the site, which on a corpus with no media is the single
+	// largest thing the load phase does (#270).
+	if strings.Contains(content, "media/") {
+		// Fix src/href/srcset="media/..." to ".../media/..."
+		content = mediaSrcRe.ReplaceAllString(content, `${1}/media/`)
 
-	// Fix URLs in srcset attribute (multiple entries separated by comma)
-	content = mediaSrcsetItemRe.ReplaceAllString(content, `, /media/`)
+		// Fix URLs in srcset attribute (multiple entries separated by comma).
+		// A fixed string, so a plain replace does it without a regex at all.
+		content = strings.ReplaceAll(content, ", media/", ", /media/")
 
-	// Remove WordPress thumbnail size suffixes from media paths
-	// e.g., /media/1048_IMG_0316_p-300x225.jpg -> /media/1048_IMG_0316_p.jpg
-	content = mediaThumbRe.ReplaceAllString(content, `${1}${2}`)
+		// Remove WordPress thumbnail size suffixes from media paths
+		// e.g., /media/1048_IMG_0316_p-300x225.jpg -> /media/1048_IMG_0316_p.jpg
+		content = mediaThumbRe.ReplaceAllString(content, `${1}${2}`)
 
-	// Also handle srcset entries with size descriptors
-	// e.g., /media/1048_file-300x225.jpg 300w -> /media/1048_file.jpg 300w
-	content = mediaSrcsetSizeRe.ReplaceAllString(content, `${1}${2} ${3}`)
+		// Also handle srcset entries with size descriptors
+		// e.g., /media/1048_file-300x225.jpg 300w -> /media/1048_file.jpg 300w
+		content = mediaSrcsetSizeRe.ReplaceAllString(content, `${1}${2} ${3}`)
+	}
 
 	// Process WordPress shortcodes
 	content = processShortcodes(content)
@@ -5058,6 +5126,11 @@ func processShortcodes(content string) string {
 // processWPShortcodesWith converts WordPress video shortcodes to HTML, passing
 // each embed through emit so the sanitizing pipeline can protect it (GO-037).
 func processWPShortcodesWith(content string, emit func(string) string) string {
+	// Both patterns start with a literal bracket. A document with none cannot
+	// match either, and asking is a byte scan against two regex walks (#270).
+	if !strings.Contains(content, "[") {
+		return content
+	}
 	for _, re := range wpVideoShortcodeRes {
 		content = re.ReplaceAllStringFunc(content, func(match string) string {
 			submatches := re.FindStringSubmatch(match)

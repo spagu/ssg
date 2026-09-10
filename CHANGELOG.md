@@ -39,6 +39,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everywhere. The tests against the real tools stay: what they check — that the
   encoder accepts the arguments we build — a stub cannot.
 
+- ⚡ **A 5 000-post build got 19% faster, and not by caching anything** (#270).
+  GO-094 left an open question: rendering is a fifth of a warm build, so what is
+  the rest? `--profile-pprof`, added in the same release, answered it — **53% of
+  the build's CPU was regular expressions**, and goldmark's parser was 3%.
+
+  They were WordPress-migration fixups: rewriting `media/` paths, stripping
+  thumbnail suffixes, expanding `[youtube]` shortcodes. Every one of them walked
+  every document on the site, whether or not the document contained anything
+  they could match. They are now behind a substring check, and one of them —
+  a pattern for the fixed string `, media/` — is a plain replace. A corpus with
+  no media pays a byte scan where it used to pay four regex walks per document.
+
+  A second finding beside it: `colocatedAssetNames` filtered a post's whole
+  category directory once per page. A post's source directory is that whole
+  directory, so five thousand posts meant twenty-five million entry checks to
+  discover, usually, that there are no assets at all. The filtered list is now
+  computed once per directory.
+
+  Together: **1.70 s → 1.37 s** on the 5 000-post corpus, output byte-identical,
+  golden corpora and determinism unchanged.
+
+- 💾 **`markdown_cache`, off by default, and the measurements that say why**
+  (#270). Keeping converted Markdown between builds looked like the obvious win:
+  conversion is a pure function of its input, and a micro-benchmark put it at
+  108 µs per post — 540 ms across five thousand of them.
+
+  That reasoning was wrong, and worth writing down: the micro-benchmark was
+  serial and the phase is parallel. Conversion spreads across every core;
+  reading a cache back does not. Measured on the same corpus:
+
+  | Machine | Without the cache | With it |
+  |---|---|---|
+  | 32 cores | 1.44 s | 1.39 s |
+  | 4 cores | 1.45 s | 1.41 s |
+  | 2 cores | 1.74 s | 1.58 s |
+
+  It costs disk equal to the size of the content — 79 MB for that corpus — to
+  buy 3% on a workstation and 9% on a small runner. So it ships as an option
+  rather than a default, for the one case it was built for: continuous
+  integration with two cores and a cache carried between runs.
+
+  The key covers the source, the renderer's settings and the **goldmark version
+  the binary was built with**, so a dependency upgrade invalidates every entry
+  without anybody remembering to. A build with render hooks never uses it at
+  all: a hook is a template and a template can call the build's helpers, so its
+  output can depend on the whole site, and a key over one document would be a
+  lie. A test asserts a warm cache produces the same tree as a cold one, byte
+  for byte.
+
+  GO-094's "under a second at 5 000 posts" is still not met, and now for a
+  reason nothing in this area can fix: at 1.37 s the remaining time is reading
+  five thousand files and parsing them.
+
 ### Added
 - 🧩 **`--incremental`: rebuild only what a change reaches, and `ssg graph` to
   see why** (GO-094). The watch loop has had one increment of this since

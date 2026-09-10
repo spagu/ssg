@@ -303,6 +303,7 @@ Common options:
 | Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
 | Report where the build's time went | `profile: text` | `--profile[=json]` |
 | Rebuild only what a change reaches | `incremental: true` | `--incremental` |
+| Keep converted Markdown between builds | `markdown_cache: true` | `--markdown-cache` |
 | See what a change rebuilds, and why | — | `ssg graph [file]`, MCP `site_dependencies` |
 | Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
 | Turn records from a file or API into pages | `mode: content` + `content_map:` | config only |

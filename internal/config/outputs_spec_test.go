@@ -156,3 +156,22 @@ func TestMCPSearchValidatesWritesUnlessToldNotTo(t *testing.T) {
 		t.Error("explicitly off should be off")
 	}
 }
+
+// TestTheMarkdownCacheIsOffUnlessAsked.
+//
+// It costs disk equal to the content and buys a few per cent, so the default
+// has to be off — and the pointer is what lets a project say either word, so a
+// later change of mind about the default cannot silently flip a site that had
+// already chosen (#270).
+func TestTheMarkdownCacheIsOffUnlessAsked(t *testing.T) {
+	if (&Config{}).MarkdownCacheEnabled() {
+		t.Error("unset should mean off")
+	}
+	on, off := true, false
+	if !(&Config{MarkdownCache: &on}).MarkdownCacheEnabled() {
+		t.Error("explicitly on should be on")
+	}
+	if (&Config{MarkdownCache: &off}).MarkdownCacheEnabled() {
+		t.Error("explicitly off should be off")
+	}
+}

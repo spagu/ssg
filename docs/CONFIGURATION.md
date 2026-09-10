@@ -443,6 +443,7 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
 | `incremental` | `false` | `--incremental` | Rebuild only the pages a change can reach. Always on under `--watch` |
+| `markdown_cache` | `false` | `--markdown-cache` | Keep converted Markdown between builds. Off for a reason — see below |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
 
@@ -486,8 +487,35 @@ incremental build produces the same output tree as a full one, byte for byte;
 a property test asserts exactly that over random sequences of edits.
 
 What it narrows is the render phase, which on a 5 000-post corpus is about a
-quarter of a warm build — see [INCREMENTAL.md](INCREMENTAL.md) for the
+fifth of a warm build — see [INCREMENTAL.md](INCREMENTAL.md) for the
 measurements and for why the wall clock moves less than the page count does.
+
+### Keeping conversions between builds
+
+`markdown_cache: true` stores each converted document under
+`.ssg-cache/markdown/` and reads it back next time. **It is off by default, and
+the measurements are the reason.**
+
+Converting Markdown is a pure function of its input, so it looked like the
+obvious thing to cache. In wall-clock terms it is not: conversion runs across
+every core, and reading a cache back does not. On a 5 000-post corpus:
+
+| Machine | Without the cache | With it |
+|---|---|---|
+| 32 cores | 1.44 s | 1.39 s |
+| 4 cores | 1.45 s | 1.41 s |
+| 2 cores | 1.74 s | 1.58 s |
+
+It costs disk equal to the size of your content — 79 MB for that corpus — to
+buy 3% on a workstation and 9% on a small runner. Turn it on for the case it
+was built for: continuous integration with two cores and a cache carried
+between runs. Leave it off on your own machine.
+
+A build with **render hooks never uses it**, whatever the setting says. A hook
+is a template and a template can call the build's helpers, so its output can
+depend on the whole site rather than on the document being converted, and a key
+over the document would be a lie. `ssg cache stats` lists the namespace;
+deleting it costs one build.
 
 `watch_runner_config` points the runner at a config file kept anywhere on disk,
 so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.

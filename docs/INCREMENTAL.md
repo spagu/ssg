@@ -19,20 +19,40 @@ ssg                          # a full build
 A one-shot build is full unless asked, because a build nobody is waiting on
 should be the simple one.
 
-## What it costs on a real corpus
+## What it actually saves, and what it does not
 
-Measured with `BENCH_INCREMENTAL=1 scripts/bench-build.sh 5000` on a 5 000-post
-corpus, editing one post between builds:
+On a 5 000-post corpus, editing one post, `--incremental` renders 268 pages
+instead of 5 251. The wall clock moves less than that ratio suggests, and the
+reason is worth knowing before you turn it on expecting more:
 
-| Build | Wall time |
-|---|---|
-| Full | see `scripts/bench-build.sh` output |
-| Incremental, one post edited | same command, second column |
+| Phase of an incremental build after one edit | Time | Share |
+|---|---|---|
+| Loading content | 800 ms | 59% |
+| Generating site | 300 ms | 22% |
+| Sitemap and robots | 240 ms | 17% |
+| Everything else | ~30 ms | 2% |
 
-Run it yourself rather than trusting a number from another machine:
+Rendering pages is the only phase the graph narrows, and it is around a fifth
+of the build. Loading content reads and parses every page whether or not that
+page will be written, because an archive or a listing may show any page's body,
+and no dependency graph can remove that.
+
+So the honest summary at 5 000 posts: `--incremental` saves most of the render
+phase and about a tenth overall. It is worth having in a watch loop, where the
+alternative is that tenth on every save, and on sites large enough for the
+render phase to grow past the reading.
+
+Whether the load phase could be remembered instead of redone was measured under
+[#270](https://github.com/spagu/ssg/issues/270). Most of it turned out not to
+be conversion at all, and the answer was to stop doing unnecessary work rather
+than to cache it — see `markdown_cache` in
+[CONFIGURATION.md](CONFIGURATION.md), which is off by default and says why.
+
+Measure your own site rather than trusting a number from another machine:
 
 ```bash
 BENCH_INCREMENTAL=1 scripts/bench-build.sh 5000
+ssg --incremental --profile=text        # where your build actually spends time
 ```
 
 ## What a change rebuilds

@@ -130,7 +130,7 @@ endpoint is detected once and skipped silently.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
-external-sources, ai, graph). \fBstats\fR prints entries and size per namespace;
+external-sources, ai, graph, markdown). \fBstats\fR prints entries and size per namespace;
 \fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
@@ -582,6 +582,16 @@ same output tree as a full one, byte for byte.
 What it narrows is the render phase. On a 5\ 000\-post corpus that is about a
 quarter of a warm build, so the wall clock barely moves; it is worth having in a
 watch loop and on very large sites. See \fBdocs/INCREMENTAL.md\fR.
+.TP
+.B \-\-markdown\-cache
+Keep converted Markdown under \fB.ssg\-cache/markdown/\fR between builds, and
+read it back next time. Off by default: it costs disk equal to the size of the
+content and buys about 3% on a workstation, because conversion runs across every
+core and reading a cache does not. It is worth roughly 9% on a two\-core CI
+runner with the cache carried between runs, which is the case it exists for.
+\fB\-\-no\-markdown\-cache\fR turns it off again. A build with render hooks never
+uses it: a hook can read the whole site, so a key over one document would be a
+lie.
 .TP
 .BR \-\-profile "[=" \fIjson ]
 Report where the build's time went: the phases in the order they ran, the

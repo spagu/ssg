@@ -22,6 +22,10 @@ clean: false         # Clean output before build
 incremental: false   # Rebuild only what a change reaches (always on under watch);
                      # a changed template, a changed config, a new file or clean
                      # still rebuild everything. `ssg graph` says what and why.
+markdown_cache: false # Keep converted Markdown in .ssg-cache/markdown/ between
+                     # builds. Costs disk equal to your content and buys ~3% on a
+                     # workstation, ~9% on a 2-core CI runner. Ignored when
+                     # render_hooks are set. See docs/CONFIGURATION.md.
 
 # Public Server Hardening (opt-in; all off by default)
 tls_cert: ""         # Path to a PEM certificate (with tls_key → HTTPS + HTTP/2)

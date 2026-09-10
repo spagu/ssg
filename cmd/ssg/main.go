@@ -776,6 +776,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Outputs:                cfg.Outputs,
 		OutputsPerType:         cfg.OutputsPerType,
 		Incremental:            cfg.Incremental,
+		MarkdownCache:          cfg.MarkdownCacheEnabled(),
 		CacheDir:               ".ssg-cache",
 		ConfigPath:             configPathOf(os.Args[1:]),
 		OutputsCustom:          toGeneratorOutputs(cfg.OutputsCustom),
@@ -906,6 +907,11 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 	if arg == "--auto-reload" || arg == "--no-auto-reload" { // *bool: on by default in --watch
 		v := arg == "--auto-reload"
 		cfg.AutoReload = &v
+		return true
+	}
+	if arg == "--markdown-cache" || arg == "--no-markdown-cache" { // *bool: on by default (#270)
+		v := arg == "--markdown-cache"
+		cfg.MarkdownCache = &v
 		return true
 	}
 	if runner, ok := watchRunnerFlags()[arg]; ok {
@@ -2054,6 +2060,7 @@ func knownFlagNames(cfg *config.Config) map[string]bool {
 // their own branch in parseBoolFlags/parseSpecialFlags.
 var standaloneFlagNames = []string{
 	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
+	"--markdown-cache", "--no-markdown-cache",
 	"--profile",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
 	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",
