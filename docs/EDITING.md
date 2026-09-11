@@ -13,16 +13,6 @@ database, no draft store, no state anywhere but the files and git. Nothing here
 can be edited that could not be edited in a text editor, and nothing is saved
 that a `git diff` will not show you.
 
-## Try it on this repository
-
-```bash
-make site-edit
-```
-
-serves this project's own documentation with the editor on. Click a heading,
-change it, save: the edit lands on a branch of its own, never on the one you
-have checked out.
-
 ## What this is for
 
 The person who needs it is usually not the person who set the site up: a client

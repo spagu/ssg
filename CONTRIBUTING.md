@@ -91,10 +91,6 @@ packaging/          OS/package-manager definitions
 | `make security` | Run gosec and govulncheck when installed |
 | `make all` | Dependencies, lint, tests and build |
 | `make version-check` | Check packaging version consistency |
-| `make golden` / `make golden-update` | Check output against the recorded baseline, or re-record it |
-| `make determinism` | Check the worker count does not change the output |
-| `make site` / `make site-watch` | Build the project's own documentation site, or serve it and rebuild on change |
-| `make site-edit` | Serve the documentation site with the browser editor; edits land on a branch |
 | `make test-action` | Exercise the local Action build path |
 | `make clean` | Remove generated build/test artifacts |
 

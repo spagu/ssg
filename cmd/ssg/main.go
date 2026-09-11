@@ -1816,7 +1816,6 @@ func printUsage() {
 	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
 	fmt.Println("  --edit                 - Turn the preview into an editor (needs --http --watch); see docs/EDITING.md")
 	fmt.Println("  --incremental          - Rebuild only what a change affects (default in --watch)")
-	fmt.Println("  --markdown-cache       - Keep converted Markdown between builds (off by default; see docs)")
 	fmt.Println("  --profile[=json]       - Report where the build's time went; json writes build-profile.json")
 	fmt.Println("  --profile-pprof=DIR    - Also write cpu.prof and heap.prof for `go tool pprof`")
 	fmt.Println("  --notify               - Announce new and changed posts to the configured channels")
