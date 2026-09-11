@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.62] - 2026-09-11
+## [1.8.61] - 2026-09-11
 
 ### Fixed
 - 📦 **The Snap builds again, on both architectures.** v1.8.60's amd64 job failed
@@ -25,8 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   publishes only from `main`: from a branch it builds and stops, which is the
   only way to test a change to this workflow without putting the result in front
   of every user.
-
-## [1.8.61] - 2026-09-11
 
 ### Added
 - ✏️ **`make site-edit`** serves this project's own documentation with the
