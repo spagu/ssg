@@ -42,12 +42,17 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             # Destructive mode builds on the runner itself instead of inside a
-            # fresh LXD container. The container had to apt-update from scratch
-            # to fetch stage-packages (webp, libavif-bin), and on the amd64 pool
-            # that mirror hung for 14 minutes and then failed, three runs out of
-            # three, while arm64 sailed through. The runner's own apt is the one
-            # GitHub keeps working. The runners are ephemeral, so "destructive"
-            # costs nothing here.
+            # fresh LXD container. On the amd64 pool the container has no working
+            # route to archive.ubuntu.com at all — every fetch times out on port
+            # 80 and IPv6 reports the network unreachable — so installing snapd
+            # and the stage-packages (webp, libavif-bin) inside it hangs for a
+            # quarter of an hour and fails; three runs out of three for v1.8.60,
+            # while the host installed LXD and snapcraft from the store in
+            # seconds and arm64 passed every time. LXD itself warns on the way
+            # in that the runner's Docker packages "might interfere with LXD
+            # networking", which is the bridge NAT this trips over. The host's
+            # own network is the one GitHub keeps working, and the runners are
+            # ephemeral, so "destructive" costs nothing here.
             - name: Build Snap
               uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
               id: build
