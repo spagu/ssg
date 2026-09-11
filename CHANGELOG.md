@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.62] - 2026-09-11
+
+### Fixed
+- 📦 **The Snap builds again, on both architectures.** v1.8.60's amd64 job failed
+  three times inside the LXD container snapcraft launches: it had no working
+  route to `archive.ubuntu.com`, so fetching the `webp` and `libavif-bin`
+  stage-packages hung for a quarter of an hour and failed. `--destructive-mode`
+  builds on the runner instead, whose network GitHub keeps working — but
+  snapcraft then installs the part's build-snaps on the host, as the
+  unprivileged `runner` user, which cannot install a snap. The job installs the
+  Go snap itself first, with the privileges it does have.
+
+  Two lessons from the same incident are now in the workflow. The matrix does
+  not `fail-fast`, because for v1.8.60 amd64's failure would have cancelled the
+  arm64 build that was about to publish successfully. And a `workflow_dispatch`
+  publishes only from `main`: from a branch it builds and stops, which is the
+  only way to test a change to this workflow without putting the result in front
+  of every user.
+
 ## [1.8.61] - 2026-09-11
 
 ### Added

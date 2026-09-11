@@ -29,6 +29,10 @@ jobs:
         runs-on: ${{ matrix.runner }}
         timeout-minutes: 30
         strategy:
+            # One architecture's failure must not cancel the other's: for v1.8.60
+            # amd64 failed while arm64 built and published fine, and cancelling it
+            # would have left the store with neither.
+            fail-fast: false
             matrix:
                 include:
                     - arch: amd64
@@ -53,6 +57,14 @@ jobs:
             # networking", which is the bridge NAT this trips over. The host's
             # own network is the one GitHub keeps working, and the runners are
             # ephemeral, so "destructive" costs nothing here.
+            # In destructive mode snapcraft installs the part's build-snaps on
+            # the host, and the action runs it as the unprivileged `runner` user,
+            # which cannot install a snap: "Error installing snap 'go' from
+            # channel 'latest/stable'". Installing it here, with the privileges
+            # the job does have, leaves snapcraft nothing to do but find it.
+            - name: Install the Go build-snap
+              run: sudo snap install go --classic
+
             - name: Build Snap
               uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
               id: build
@@ -67,6 +79,9 @@ jobs:
                   retention-days: 7
 
             # Publish to Snap Store (requires SNAPCRAFT_STORE_CREDENTIALS secret).
+            # A dispatch publishes only from main; from a branch it builds and
+            # stops, which is the only way to test a change to this workflow
+            # without putting the result in front of every user.
             # workflow_dispatch also publishes, so a stuck store version can be
             # pushed without cutting a new release — the recovery path this
             # workflow lacked when it froze at 1.8.6 (OPS-013). A manual run
@@ -74,7 +89,8 @@ jobs:
             - name: Publish to Snap Store
               uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
               if: >-
-                (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+                (startsWith(github.ref, 'refs/tags/v')
+                  || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
                 && github.repository == 'spagu/ssg'
               env:
                 SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
