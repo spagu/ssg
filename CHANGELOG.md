@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser editor on (GO-102), beside `make site-watch`. The quickest way to see
   what a client would: click a heading, change it, and find the edit on a branch.
 
+### Fixed
+- 📦 **The amd64 Snap builds on the runner instead of inside a fresh LXD
+  container.** The container had to `apt update` from nothing to fetch
+  `webp` and `libavif-bin`, and on the amd64 pool that mirror hung for a quarter
+  of an hour and then failed — three runs out of three for v1.8.60, while arm64
+  passed every time. Destructive mode uses the runner's own apt, which GitHub
+  keeps working; the runner is pinned to `ubuntu-24.04` because the host has to
+  match the `core24` base. Ephemeral runners make "destructive" a misnomer.
+
 ### Changed
 - 📖 The README's Make-target table covers what a developer actually reaches
   for — the golden baseline and its re-record, determinism, the documentation
