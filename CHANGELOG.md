@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.61] - 2026-09-11
+
+### Added
+- ✏️ **`make site-edit`** serves this project's own documentation with the
+  browser editor on (GO-102), beside `make site-watch`. The quickest way to see
+  what a client would: click a heading, change it, and find the edit on a branch.
+
+### Fixed
+- 📦 **The Snap builds again, on both architectures.** v1.8.60's amd64 job failed
+  three times inside the LXD container snapcraft launches: it had no working
+  route to `archive.ubuntu.com`, so fetching the `webp` and `libavif-bin`
+  stage-packages hung for a quarter of an hour and failed. `--destructive-mode`
+  builds on the runner instead, whose network GitHub keeps working — but
+  snapcraft then installs the part's build-snaps on the host, as the
+  unprivileged `runner` user, which cannot install a snap. The job installs the
+  Go snap itself first, with the privileges it does have.
+
+  Two lessons from the same incident are now in the workflow. The matrix does
+  not `fail-fast`, because for v1.8.60 amd64's failure would have cancelled the
+  arm64 build that was about to publish successfully. And a `workflow_dispatch`
+  publishes only from `main`: from a branch it builds and stops, which is the
+  only way to test a change to this workflow without putting the result in front
+  of every user.
+
+- 🔍 **The SonarCloud quality gate stops failing on a decision already made.**
+  `docker:S8431` wants a tag or a digest on a `FROM` line, never both, and both
+  is deliberate: the digest makes the build reproducible, the tag lets
+  Dependabot see a newer image and open the bump. Every pull request that
+  touched the Dockerfile re-reported it as new code. `sonar-project.properties`
+  records the exemption, with the reasoning, where a reviewer can see it —
+  rather than in a dashboard click nobody can read later.
+
+### Changed
+- 📖 The README's Make-target table covers what a developer actually reaches
+  for — the golden baseline and its re-record, determinism, the documentation
+  site, version sync, packaging and release — where it listed eight of
+  thirty-seven. `make help` remains the complete list.
+- 📖 `--markdown-cache` appears in `--help`; it was documented in the manpage
+  and the guides but not where the flag is discovered.
+
 ## [1.8.60] - 2026-09-10
 
 ### Changed

@@ -307,7 +307,7 @@ Common options:
 | See what a change rebuilds, and why | — | `ssg graph [file]`, MCP `site_dependencies` |
 | Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
 | Turn records from a file or API into pages | `mode: content` + `content_map:` | config only |
-| Edit frontmatter in the browser | — | `--http --watch --edit` |
+| Edit frontmatter and body text in the browser, with AI proposals that never save | — | `--http --watch --edit` |
 | Declare tracking ids (GTM both halves, GA4) | `analytics_ids: {gtm: GTM-…}` | config only |
 | Typed content components with a props schema | a `components/` directory | `--components-dir=DIR` |
 | Decide the markup for images, links, headings, code | `render_hooks: {image: …}` | config only |
@@ -336,6 +336,7 @@ ssg --help
 | Task | Command |
 |---|---|
 | Preview while editing | `ssg my-blog simple example.com --http --watch` |
+| Let a client edit a page in the browser | `ssg my-blog simple example.com --http --watch --edit` |
 | See what editing one file rebuilds | `ssg graph content/my-blog/posts/hello.md` |
 | Production build | `ssg my-blog simple example.com --clean --minify-all` |
 | WebP and responsive images | `ssg my-blog simple example.com --webp --image-sizes=480,960,1600` |
@@ -526,18 +527,28 @@ cd ssg
 make all
 ```
 
-Useful targets:
+Useful targets — `make help` lists every one of them:
 
 | Command | Purpose |
 |---|---|
 | `make build` | Build `build/ssg` |
+| `make build-all` | Cross-compile for Linux, macOS, Windows, FreeBSD and OpenBSD |
+| `make install` / `make uninstall` | Install or remove the binary and its man page |
 | `make test` | Run tests |
 | `make test-coverage` | Run tests and generate coverage |
 | `make lint` | Run static checks |
 | `make security` | Run security scanners |
 | `make golden` | Check generated output against the recorded baseline |
+| `make golden-update` | Re-record the baseline after an intended output change |
 | `make determinism` | Check the worker count does not change the output |
 | `make bench` | Measure build throughput on a synthetic corpus |
+| `make site` | Build this project's own documentation site into `.site/` |
+| `make site-watch` | Serve the documentation site and rebuild on change |
+| `make site-edit` | The same, with the browser editor on — edits land on a branch |
+| `make version-check` | Fail if any packaging file drifts from `VERSION` |
+| `make version-sync` | Propagate `VERSION` into every file that states it |
+| `make package-all` | Build the DEB, RPM and Snap packages |
+| `make release VERSION=v1.2.3` | Tag and push a release |
 
 CI holds a **96% statement-coverage floor twice**: on the module as a whole and
 on every package individually, both computed without the generated protobuf. A

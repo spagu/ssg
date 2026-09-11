@@ -37,7 +37,7 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
-        site site-watch golden golden-update bench determinism \
+        site site-watch site-edit golden golden-update bench determinism \
         clean install uninstall release test-action
 
 # Default target
@@ -201,6 +201,10 @@ site: build ## 📚 Build the SSG documentation site into .site/
 site-watch: build ## 👀 Build the documentation site and rebuild+serve on change
 	@echo "${BLUE}👀 Watching docs/ and templates/ — http://127.0.0.1:8888${RESET}"
 	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml --watch --http
+
+site-edit: build ## ✏️  Serve the documentation site with the browser editor (GO-102)
+	@echo "${BLUE}✏️  Editing docs/ in the browser — http://127.0.0.1:8888 (edits land on a branch)${RESET}"
+	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml --watch --http --edit
 
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"
