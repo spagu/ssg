@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ✏️ **`make site-edit`** serves this project's own documentation with the
+  browser editor on (GO-102), beside `make site-watch`. The quickest way to see
+  what a client would: click a heading, change it, and find the edit on a branch.
+
+### Changed
+- 📖 The README's Make-target table covers what a developer actually reaches
+  for — the golden baseline and its re-record, determinism, the documentation
+  site, version sync, packaging and release — where it listed eight of
+  thirty-seven. `make help` remains the complete list.
+- 📖 `--markdown-cache` appears in `--help`; it was documented in the manpage
+  and the guides but not where the flag is discovered.
+
 ## [1.8.60] - 2026-09-10
 
 ### Changed
