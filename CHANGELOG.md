@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only way to test a change to this workflow without putting the result in front
   of every user.
 
+- 🔍 **The SonarCloud quality gate stops failing on a decision already made.**
+  `docker:S8431` wants a tag or a digest on a `FROM` line, never both, and both
+  is deliberate: the digest makes the build reproducible, the tag lets
+  Dependabot see a newer image and open the bump. Every pull request that
+  touched the Dockerfile re-reported it as new code. `sonar-project.properties`
+  records the exemption, with the reasoning, where a reviewer can see it —
+  rather than in a dashboard click nobody can read later.
+
 ### Added
 - ✏️ **`make site-edit`** serves this project's own documentation with the
   browser editor on (GO-102), beside `make site-watch`. The quickest way to see
