@@ -72,6 +72,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -99,6 +101,47 @@ jobs:
 
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
+
+      # The 96% floor the project holds itself to, enforced rather than reported
+      # (TEST-002). Generated protobuf is excluded the same way codecov.yml
+      # excludes it: 2,760 statements nobody writes, which dragged the number
+      # 16 points below the truth. Codecov still uploads below, but a status
+      # from an external service is advisory; this step is the gate.
+      - name: Enforce the coverage floor
+        run: |
+          set -euo pipefail
+          grep -v 'internal/mddb/proto' coverage.out > coverage.gate.out
+          pct=$(go tool cover -func=coverage.gate.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
+          echo "coverage excluding generated proto: ${pct}%"
+          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 96) }' \
+            || { echo "::error::coverage ${pct}% is below the 96% floor"; exit 1; }
+
+      # The same floor, per package (TEST-001). The aggregate above was being
+      # held up by the packages at 99-100% while cmd/ssg sat at 91 and
+      # internal/parser at 87, which is exactly the shape a single number hides.
+      - name: Enforce the coverage floor per package
+        run: |
+          set -euo pipefail
+          below=$(awk 'NR > 1 {
+              split($1, parts, ":"); file = parts[1]
+              n = split(file, segs, "/"); pkg = segs[1]
+              for (i = 2; i < n; i++) pkg = pkg "/" segs[i]
+              total[pkg] += $2
+              if ($3 > 0) covered[pkg] += $2
+            }
+            END {
+              for (pkg in total) {
+                pct = 100 * covered[pkg] / total[pkg]
+                if (pct + 0 < 96) printf "%s %.1f%%\n", pkg, pct
+              }
+            }' coverage.gate.out | sort)
+          if [ -n "$below" ]; then
+            echo "$below" | while read -r pkg pct; do
+              echo "::error::${pkg} is at ${pct}, below the 96% floor"
+            done
+            exit 1
+          fi
+          echo "every package is at or above 96%"
 
       # A short fuzz pass on every push. Not to find something in 20 seconds —
       # to keep the targets compiling, keep the seed corpus exercised, and grow
@@ -155,6 +198,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -174,6 +219,9 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # gosec SARIF → Security tab (OPS-008)
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -194,9 +242,31 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
+      # Static analysis of the source (OPS-008), which govulncheck above is not:
+      # that scans the dependency graph for known advisories, this scans OUR
+      # code for the classes of mistake it is written to find. Results land in
+      # the Security tab as SARIF. -no-fail is deliberate for now: the tree
+      # carries 12 known findings (path-traversal taint in tools that read
+      # their own output, an open-redirect in the dev server's redirect
+      # replay), each reviewed; gating on a clean baseline is the follow-up,
+      # and turning the scanner on must not be the commit that turns CI red.
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0 # NOSONAR S8545: pinned exact version (OPS-013)
+
+      - name: Run gosec
+        run: gosec -no-fail -fmt sarif -out gosec.sarif ./...
+
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # codeql-bundle-v2.26.3
+        with:
+          sarif_file: gosec.sarif
+          category: gosec
+
   build:
     name: Build Binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     needs: [test, lint, security]
     # Tags only. This matrix ran on every PR and every push to main, building
@@ -309,6 +379,8 @@ jobs:
   build-deb:
     name: Build DEB Packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     # The .deb wraps the binary the build job already made — recompiling here
     # was a third build of each linux target per tag, and a package that could
@@ -388,6 +460,8 @@ jobs:
   build-rpm:
     name: Build RPM Packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     # Same provenance argument as build-deb: wrap the built artifact, don't
     # compile a fourth copy.

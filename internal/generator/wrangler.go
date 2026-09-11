@@ -85,7 +85,7 @@ func renderWranglerConfig(name, outputDir string, workerDirs []string) (string, 
 // "ssg-site".
 func wranglerName(name string) string {
 	name = strings.ToLower(strings.TrimSpace(name))
-	name = strings.TrimPrefix(strings.TrimPrefix(name, "https://"), "http://")
+	name = hostOnly(name)
 	var out strings.Builder
 	for _, r := range name {
 		switch {

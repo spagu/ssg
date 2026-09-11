@@ -12,6 +12,7 @@
 #   scripts/bench-build.sh 500 5000        # explicit sizes
 #   SSG_BIN=/path/to/ssg scripts/bench-build.sh   # benchmark another binary
 #   BENCH_RUNS=5 scripts/bench-build.sh    # more repetitions (best is reported)
+#   BENCH_INCREMENTAL=1 scripts/bench-build.sh 5000   # also time a one-post edit
 #
 # The corpus lives under a temp dir and is reused across runs, so repeated
 # invocations only pay for generation once per size.
@@ -93,20 +94,60 @@ for name in ("post.html", "page.html"):
 PY
 }
 
-printf '%-8s %-10s %-8s %-12s\n' "posts" "best" "pages" "per page"
-printf '%-8s %-10s %-8s %-12s\n' "-----" "----" "-----" "--------"
+# now_seconds prints a monotonic-ish timestamp; bash has no sub-second clock
+# that is portable, so python provides one.
+now_seconds() { python3 -c 'import time; print(time.perf_counter())'; }
+
+# time_build <dir> <extra flags…> — best wall time of RUNS builds, in seconds.
+time_build() {
+  local dir="$1"; shift
+  local best="" start end
+  for _ in $(seq 1 "$RUNS"); do
+    # Every repetition has to start from the same edit, or the second one
+    # measures a build with nothing to do.
+    [[ -n "${BENCH_TOUCH:-}" ]] && printf '\n// edited %s\n' "$(date -u +%FT%T.%NZ)" >> "$BENCH_TOUCH"
+    start=$(now_seconds)
+    (cd "$dir" && "$SSG_BIN" --config .ssg.yaml --quiet "$@" >/dev/null 2>&1) || true
+    end=$(now_seconds)
+    best=$(python3 -c "
+b = '$best'; t = $end - $start
+print(min(float(b), t) if b else t)")
+  done
+  echo "$best"
+}
+
+if [[ -n "${BENCH_INCREMENTAL:-}" ]]; then
+  printf '%-8s %-10s %-12s %-10s\n' "posts" "full" "incremental" "speed-up"
+  printf '%-8s %-10s %-12s %-10s\n' "-----" "----" "-----------" "--------"
+else
+  printf '%-8s %-10s %-8s %-12s\n' "posts" "best" "pages" "per page"
+  printf '%-8s %-10s %-8s %-12s\n' "-----" "----" "-----" "--------"
+fi
 
 for n in "${SIZES[@]}"; do
   dir="$WORK/corpus-$n"
   generate "$dir" "$n"
+
+  # The incremental figure is the one that matters in a watch loop: what one
+  # saved file costs, against what it used to cost (GO-094).
+  if [[ -n "${BENCH_INCREMENTAL:-}" ]]; then
+    rm -rf "$dir/out" "$dir/.ssg-cache"
+    full=$(time_build "$dir")
+    inc=$(BENCH_TOUCH="$dir/content/bench/posts/post-00000.md" time_build "$dir" --incremental)
+    python3 -c "
+n, f, i = $n, float('$full'), float('$inc')
+print(f'{n:<8} {f:<10.2f} {i:<12.2f} {f/max(i,1e-9):.1f}x')"
+    continue
+  fi
+
   best=""
   for _ in $(seq 1 "$RUNS"); do
     rm -rf "$dir/out"
     # Time the build itself; the corpus is already warm in the page cache, so
     # this measures the generator rather than the first read of the disk.
-    start=$(python3 -c 'import time; print(time.perf_counter())')
+    start=$(now_seconds)
     (cd "$dir" && "$SSG_BIN" --config .ssg.yaml --quiet >/dev/null 2>&1) || true
-    end=$(python3 -c 'import time; print(time.perf_counter())')
+    end=$(now_seconds)
     best=$(python3 -c "
 b = '$best'; t = $end - $start
 print(min(float(b), t) if b else t)")

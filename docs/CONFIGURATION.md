@@ -100,6 +100,50 @@ Most features are disabled by default. Defaults listed below come from the
 current `config.DefaultConfig`; omitted strings and booleans otherwise use Go's
 empty value.
 
+## Editing the config from the command line
+
+```
+ssg config view                                   # the whole file, as written
+ssg config view highlight_style                   # one value
+ssg config view taxonomies.audience               # one section
+ssg config view --effective toc_depth             # after defaults and normalisation
+ssg config set highlight_style github-dark
+ssg config set outputs [html,markdown,json]       # a list
+ssg config set taxonomies.audience.multiple true  # a nested path
+ssg config set headers."/css/*".Cache-Control "public, max-age=86400"
+ssg config set robots_rules[1].allow /docs/       # a list position
+ssg config set --json marketing '{"og_site_name":"Example"}'
+ssg config unset mermaid_background
+```
+
+**The file keeps its shape.** Setting one value changes one line: comments,
+blank lines, key order and the column trailing comments are aligned in all
+survive, because the edit is spliced into the text rather than produced by
+re-serialising the parsed config. That is not a nicety here — the configs in
+this project carry their reasoning in comments, and an editor that dropped
+them would make `ssg config set` a thing nobody could safely run twice.
+
+**Paths.** Dots descend into mappings. A key that contains dots or slashes is
+quoted (`headers."/css/*"`). A list position is `[n]`, and it must already
+exist: inventing list entries is guesswork. A path whose parent mappings do not
+exist yet is written whole.
+
+**Values** are typed the way they read: `true` is a bool, `8080` an int,
+`[a,b,c]` a list, everything else a string. `--string` forces text (for a
+version label that looks like a number), and `--json` takes any structure.
+
+**An edit that would break the config is refused.** The result is validated in
+a scratch file before the real one is touched, so a rejected edit leaves the
+config byte-for-byte as it was.
+
+Version one edits **YAML**. A TOML or JSON config is refused with a message
+rather than rewritten without its comments.
+
+The MCP designer tools (`ssg mcp`) write through the same engine, so an
+assistant and a person editing the same file get the same result — with the
+difference that MCP still restricts itself to an allow-list of presentation
+keys, while the CLI is the project owner's own tool and edits anything.
+
 ## Core and paths
 
 | Key | Default | CLI | Purpose |
@@ -398,6 +442,8 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
+| `incremental` | `false` | `--incremental` | Rebuild only the pages a change can reach. Always on under `--watch` |
+| `markdown_cache` | `false` | `--markdown-cache` | Keep converted Markdown between builds. Off for a reason — see below |
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
 
@@ -415,6 +461,61 @@ rather than exiting, so a half-saved file never kills a dev session.
 
 A change is detected by content, not mtime: touching a file without changing its
 bytes does not trigger a rebuild.
+
+### Rebuilding only what changed
+
+`--watch` builds incrementally: after the hash check says something did change,
+only the pages that change can reach are rendered. A one-shot build is full
+unless `--incremental` asks otherwise, because a build nobody is waiting on
+should be the simple one.
+
+An uncertain dependency means a full build, always. A changed template or
+partial, a changed configuration file, a file the last build never saw, `--clean`,
+or content coming from MDDB, external sources or a CMS import each rebuild
+everything — the graph does not model which pages those reach, and a stale page
+with a green build is a worse failure than a slow one.
+
+```bash
+ssg graph                                # what the last build recorded, or why it cannot be narrowed
+ssg graph content/site/posts/hello.md    # what changing that file rebuilds
+ssg graph --dot | dot -Tsvg > graph.svg
+```
+
+The graph is recorded by every build, incremental or not, in
+`.ssg-cache/graph/graph.json`. Delete it and the next build is full. An
+incremental build produces the same output tree as a full one, byte for byte;
+a property test asserts exactly that over random sequences of edits.
+
+What it narrows is the render phase, which on a 5 000-post corpus is about a
+fifth of a warm build — see [INCREMENTAL.md](INCREMENTAL.md) for the
+measurements and for why the wall clock moves less than the page count does.
+
+### Keeping conversions between builds
+
+`markdown_cache: true` stores each converted document under
+`.ssg-cache/markdown/` and reads it back next time. **It is off by default, and
+the measurements are the reason.**
+
+Converting Markdown is a pure function of its input, so it looked like the
+obvious thing to cache. In wall-clock terms it is not: conversion runs across
+every core, and reading a cache back does not. On a 5 000-post corpus:
+
+| Machine | Without the cache | With it |
+|---|---|---|
+| 32 cores | 1.44 s | 1.39 s |
+| 4 cores | 1.45 s | 1.41 s |
+| 2 cores | 1.74 s | 1.58 s |
+
+It costs disk equal to the size of your content — 79 MB for that corpus — to
+buy 3% on a workstation and 9% on a small runner. Turn it on for the case it
+was built for: continuous integration with two cores and a cache carried
+between runs. Leave it off on your own machine.
+
+A build with **render hooks never uses it**, whatever the setting says. A hook
+is a template and a template can call the build's helpers, so its output can
+depend on the whole site rather than on the document being converted, and a key
+over the document would be a lie. `ssg cache stats` lists the namespace;
+deleting it costs one build.
 
 `watch_runner_config` points the runner at a config file kept anywhere on disk,
 so a `wrangler.toml` does not have to sit in the project root next to `.ssg`.
@@ -516,8 +617,10 @@ fingerprinted assets.
 | `strip_md_link_text` | `false` | config only | Drop `.md` from link text that is a bare filename (`[CONFIGURATION.md]…` → "CONFIGURATION") |
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
-| `outputs` | HTML only | `--outputs=html,json` | Add per-page JSON output |
+| `outputs` | HTML only | `--outputs=html,json` | Which representations each page publishes — a flat list, or a map per content type. See [Outputs](#outputs) |
+| `outputs_custom` | empty | config only | Formats this site defines with a template of its own |
 | `markdown_publish` | `false` | config only | Publish a Markdown copy of every page (`index.md` + `page.md`), a `text/markdown` `<head>` alternate, and a root `llms.txt` — for language models and agents |
+| `site_graph` | `false` | config only | Publish `site-graph.json`: every page, section, taxonomy, link and redirect, stamped with the build — one model for agents and tools, also queryable over MCP as `site_*`. See [AI-AGENTS.md](AI-AGENTS.md#site_graph) |
 | `clean_special_chars` | `false` | config only | Normalise AI "smart" punctuation (curly quotes, en/em dashes, ellipsis, NBSP, zero-width) to ASCII across all content; CJK and other scripts untouched |
 | `output_encoding` | `utf-8` | config only | Text-output encoding: `utf-8`, `utf-16le` or `utf-16be` (BOM added, `<meta charset>` kept in step) |
 | `output_encoding_sections` | empty | config only | Per-section `output_encoding` overrides, keyed by content directory (longest prefix wins; `home` = root) |
@@ -608,6 +711,89 @@ HTML regions can opt out of minification:
 <pre>Whitespace is preserved here.</pre>
 <!-- /htmlmin:ignore -->
 ```
+
+## Outputs
+
+One page, several representations. `outputs:` says which.
+
+```yaml
+outputs:
+  page: [html, json, txt]
+  post: [html, markdown]
+```
+
+`html` is always written. The others land beside it — `index.json`,
+`index.md`, `index.txt` — and are announced in the page's `<head>` with a
+`rel="alternate"` link, so a reader or an agent can find them.
+
+**The flat form still means what it always did.** `outputs: [html, json]`
+applies to every content type, which is what every existing config says. The
+mapping form is the new one; a type the map does not name publishes HTML only.
+
+A page can override both from its own frontmatter (see
+[Content dimensions](CONTENT.md#outputs-per-page)):
+
+```yaml
+---
+title: API reference
+outputs: [html, json]
+---
+```
+
+Precedence is narrowest first: the page, then its content type, then the site.
+
+### Built-in formats
+
+| Format | File | MIME | What it is |
+|---|---|---|---|
+| `html` | `index.html` | — | Always written |
+| `json` | `index.json` | `application/json` | The page record — title, dates, taxonomies, body |
+| `markdown` | `index.md` | `text/markdown` | The Markdown copy, plus the flat `/section.md` sibling and `llms.txt` |
+| `txt` | `index.txt` | `text/plain` | The title, then the body with the markup taken out |
+
+`markdown_publish: true` is the older way to ask for the Markdown output and
+keeps working exactly as it did — it adds `markdown` to whatever the lists say.
+
+### Formats you define
+
+```yaml
+outputs:
+  page: [html, onix]
+outputs_custom:
+  - name: onix
+    suffix: index.xml
+    mime: application/xml
+    template: formats/onix.xml
+```
+
+```gotemplate
+{{/* formats/onix.xml */}}
+<?xml version="1.0" encoding="UTF-8"?>
+<record>
+  <title>{{ xmlEscape .Page.Title }}</title>
+  <url>https://{{ .Domain }}{{ .Page.GetURL }}</url>
+</record>
+```
+
+The template receives `.Page`, `.Site`, `.Domain` and `.Content` (the rendered
+body), plus your theme's helpers and `xmlEscape`.
+
+Custom formats render through **text/template**, not html/template, and that
+difference is deliberate: a custom format is by definition not HTML, and
+contextual HTML escaping is wrong everywhere else — it turns an XML declaration
+into `&lt;?xml`. The template owns its own escaping, which is what `xmlEscape`
+is for.
+
+This is also why there is no built-in XML output. A generic one would have to
+invent a schema, and a schema nobody agreed on is noise; a site that wants XML
+knows which XML it wants.
+
+### Why feeds are not outputs
+
+RSS and Atom are representations of a **collection**, not of a page. A per-page
+"RSS output" would be a one-item feed nobody can subscribe to usefully. Feeds
+stay where they are — `feed:` and `feeds:` — and are documented under
+[Blog, feeds and search](#blog-feeds-and-search).
 
 ## Images
 
@@ -741,7 +927,10 @@ scope table is in [TEMPLATES.md](TEMPLATES.md#what-is-in-scope-inside-a-shortcod
 
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
-| `shortcode_errors` | `drop` | `--shortcode-errors` | What a shortcode that fails to render leaves in the page |
+| `shortcode_errors` | `drop` | `--shortcode-errors` | What a shortcode that fails to render — or a component call made wrongly — leaves in the page |
+| `components_dir` | `components` | `--components-dir=DIR` | Where typed content components live. See [COMPONENTS.md](COMPONENTS.md) |
+| `versions` | empty | config only | `noindex_old: true` marks superseded versions noindex. See [CONTENT.md](CONTENT.md#versions) |
+| `render_hooks` | empty | config only | A template per Markdown node kind — image, link, heading, code, table, blockquote. See [RENDER_HOOKS.md](RENDER_HOOKS.md) |
 
 - `drop` — a warning, and the shortcode is removed from the page (historical
   behaviour, so existing sites build byte-identically).
@@ -817,6 +1006,46 @@ come exclusively from environment variables. CLI: `--offline`,
 `--external-source=NAME`. Full reference:
 [EXTERNAL_SOURCES.md](EXTERNAL_SOURCES.md).
 
+A source can also become **pages** rather than data: `mode: content` with a
+`content_map` naming which record field is the title and which is the body
+turns one record into one page, with its own URL, taxonomy archives and
+sitemap entry. See
+[Records as pages](EXTERNAL_SOURCES.md#records-as-pages).
+
+## Analytics
+
+Two sources, two consent rules.
+
+```yaml
+analytics_ids:
+  gtm: GTM-XXXXXXX
+  ga4: G-XXXXXXX
+```
+
+**Ids you declare here render on their own.** Writing one down is the decision
+`analytics: true` exists to ask for, so it does not also need that flag. Ids a
+migration's crawl recorded in `metadata.json` still do, because nobody chose
+those — they are whatever the old site happened to be running.
+
+**Google Tag Manager gets both of its halves.** The vendor's install is a
+script in `<head>` *and* an iframe immediately after `<body>`; only the first
+used to be emitted, so a visitor with JavaScript off, or a consent-mode setup
+that defers the script, was counted by neither.
+
+**Tracking reaches every page**, including the home page and the archives, and
+does not depend on `seo:`. Those were always separate decisions; before 1.8.60
+the code had them tangled, so a site with `seo: false` got no tracking at all
+despite having asked for it, and a site with both on still had an untracked
+front page.
+
+Nothing is emitted while a value is empty, and a theme that already wires the
+same id keeps its own snippet rather than getting a second one. Every bundled
+theme carries a comment in its head pointing here, so there is no theme edit to
+make.
+
+The ids stay readable at `.Site.Analytics` either way, for a theme that wants
+to place a vendor this generator does not know how to embed.
+
 ## Server access control
 
 | Key | Default | CLI | Purpose |
@@ -839,6 +1068,8 @@ implemented.
 | Key | Default | CLI | Purpose |
 |---|---:|---|---|
 | `seo` | `false` | `--seo` | Inject missing Open Graph, Twitter and JSON-LD metadata |
+| `analytics` | `false` | — | Render the tracking snippets a migration recorded in `metadata.json` |
+| `analytics_ids` | empty | — | Tracking ids this site declares, by vendor: `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Declaring one is its own consent. See [Analytics](#analytics) |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
@@ -855,6 +1086,8 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
+| `profile` | `` | `--profile[=json]` | Report where the build's time went; `json` also writes `build-profile.json` |
+| `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
 
 SEO injection is non-destructive, and it is **not** all-or-nothing. It looks at
@@ -1628,6 +1861,59 @@ so a section-assigned language reaches all of them. A page that already carries
 an explicit `link:` keeps it whole — `link:` is the highest-precedence URL
 source — so an export that already wrote `link: /de/impressum/` does not become
 `/de/de/impressum/` once the section assigns German.
+
+## Build profiling
+
+A build that has grown slow has to say where its time goes, and until now the
+only number `ssg` reported about its own work was a count of markdown
+conversions:
+
+```yaml
+profile: text     # or: ssg --profile
+```
+
+```
+⏱️  Build profile (2026-09-10 12:55:50)
+   Total                                  1.55 s
+   Loading content                          9 ms     1%
+   Generating site                        407 ms    26%
+   Search index                           655 ms    42%
+   Assets and checks                      449 ms    29%
+   Counters: pages rendered 96 · markdown conversions 81 · markdown cache hits 45
+   Slowest pages (10 of 96):
+     /configuration/                         25 ms
+```
+
+Phases appear in the order they ran and sum to the total, including the steps
+that happen after generation: images, archives, deployment. The counters are
+the tallies the build already kept — markdown conversions and cache hits,
+external sources served from cache, AI queries, images converted.
+
+`profile: json` (or `--profile=json`) additionally writes `build-profile.json`
+**beside the project, not into the output**: a build's timings are the
+project's business, not part of the site, and nobody asked to publish them.
+CI can archive that file and diff two commits. Then:
+
+```
+$ ssg profile page /configuration/
+/configuration/
+   render              25.4 ms
+   share                1.6% of a 1.56 s build
+   build           2026-09-10 12:55:42 · ssg 1.8.60
+   built from      content/site/pages/configuration.md
+                   data/nav.yaml
+```
+
+`built from` reads the dependency graph the last build recorded, so it names
+real inputs rather than a guessed tree. On a site whose builds cannot be
+narrowed it says so instead, and `ssg graph` gives the reason.
+
+`--profile-pprof=DIR` writes `cpu.prof` and `heap.prof` for `go tool pprof`.
+That is a maintainer's instrument — `--profile` answers where the time goes,
+pprof answers why.
+
+Profiling does not change a single byte of output, and measuring costs about
+120 nanoseconds per page against a page that takes milliseconds to render.
 
 ## Build hooks
 

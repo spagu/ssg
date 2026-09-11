@@ -67,8 +67,8 @@ func (g *Generator) buildMarketingHead(existing string) string {
 // left in .Site.Analytics for a theme to place deliberately, because guessing
 // a vendor's snippet wrong is worse than not emitting it.
 func (g *Generator) analyticsSnippet(existing string) string {
-	ids := g.siteData.Analytics
-	if !g.config.Analytics || len(ids) == 0 {
+	ids := g.analyticsIDs()
+	if len(ids) == 0 {
 		return ""
 	}
 	var b strings.Builder
@@ -92,6 +92,83 @@ func (g *Generator) analyticsSnippet(existing string) string {
 		}
 	}
 	return b.String()
+}
+
+// analyticsIDs is the set of tracking ids this build will emit.
+//
+// Two sources with different consent rules (FE-001). Ids the site declares in
+// `analytics_ids:` are the owner asking for them, so they render on their own.
+// Ids a migration's crawl recorded still need `analytics: true`, because
+// nobody chose those — they are what the old site happened to be running.
+func (g *Generator) analyticsIDs() map[string]string {
+	if g.config.Analytics {
+		return g.siteData.Analytics
+	}
+	if len(g.config.AnalyticsIDs) == 0 {
+		return nil
+	}
+	declared := make(map[string]string, len(g.config.AnalyticsIDs))
+	for vendor, id := range g.config.AnalyticsIDs {
+		if strings.TrimSpace(id) != "" {
+			declared[vendor] = id
+		}
+	}
+	return declared
+}
+
+// injectAnalytics places both halves of the tracking snippets: the scripts in
+// the head, and the tag manager's iframe right after <body>.
+func (g *Generator) injectAnalytics(s string) string {
+	if head := g.analyticsSnippet(s); head != "" {
+		if i := strings.LastIndex(s, "</head>"); i >= 0 {
+			s = s[:i] + head + s[i:]
+		} else {
+			s = head + s
+		}
+	}
+	return injectAnalyticsNoscript(s, g.analyticsNoscript())
+}
+
+// analyticsNoscript is the half of Google Tag Manager that goes in the body.
+//
+// GTM is two tags: a script in the head and an iframe right after <body>. Only
+// the first was ever emitted, so a visitor with JavaScript off — or a
+// consent-mode setup that defers the script — was counted by neither. A tag
+// manager that is half installed is not installed.
+func (g *Generator) analyticsNoscript() string {
+	var b strings.Builder
+	ids := g.analyticsIDs()
+	for _, vendor := range sortedKeys(ids) {
+		id := strings.TrimSpace(ids[vendor])
+		if id == "" {
+			continue
+		}
+		switch strings.ToLower(vendor) {
+		case "gtm", "google_tag_manager", "googletagmanager":
+			fmt.Fprintf(&b, `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s"`+
+				` height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`+"\n",
+				stdhtml.EscapeString(id))
+		}
+	}
+	return b.String()
+}
+
+// injectAnalyticsNoscript places the body half immediately after <body>, where
+// the vendor requires it.
+func injectAnalyticsNoscript(s, snippet string) string {
+	if snippet == "" || strings.Contains(s, "googletagmanager.com/ns.html") {
+		return s
+	}
+	i := strings.Index(s, "<body")
+	if i < 0 {
+		return s
+	}
+	end := strings.Index(s[i:], ">")
+	if end < 0 {
+		return s
+	}
+	at := i + end + 1
+	return s[:at] + "\n" + snippet + s[at:]
 }
 
 // jsString escapes an id for a single-quoted JavaScript literal. Tracking ids

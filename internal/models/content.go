@@ -92,6 +92,34 @@ type Page struct {
 	Tags           []string          `yaml:"tags,omitempty"`
 	Category       string            `yaml:"category"`
 
+	// Relations are the links this page declares to other pages, by name:
+	// `relations: {supersedes: [api-auth-v3], see_also: [oauth-setup]}`
+	// (GO-096). The built-in relationships — series, translations, related —
+	// keep their own machinery; this is for the ones only an author knows.
+	//
+	// Values are slugs. RelatedPages holds them once resolved, so a template
+	// gets pages rather than strings.
+	Relations    map[string][]string `yaml:"-"`
+	RelatedPages map[string][]*Page  `yaml:"-" json:"-"`
+
+	// Version and VersionOf place a page in a chain of versions of one
+	// document (GO-096). `version_of` is the group; `version` orders it, and
+	// the highest is the one search engines should see. Versions is filled by
+	// the generator with the whole chain, newest first.
+	Version   string  `yaml:"-"`
+	VersionOf string  `yaml:"-"`
+	Versions  []*Page `yaml:"-" json:"-"`
+	IsLatest  bool    `yaml:"-"`
+
+	// Outputs overrides the site's `outputs:` for this page (GO-096): a
+	// reference page can publish JSON while the rest of the site does not.
+	Outputs []string `yaml:"-"`
+
+	// Paginate asks the generator to split a collection over this page and its
+	// /page/N/ siblings, each rendered through the page's own layout with
+	// .Pager and .Posts in scope (#267). nil = an ordinary page.
+	Paginate *PaginateSpec `yaml:"paginate,omitempty"`
+
 	// Sticky pins a post to the top of the listings that sort by date — the
 	// index, the posts page and term archives — the way an editor pinned it in
 	// the source CMS (#155). Pinned posts keep their own order among
@@ -417,6 +445,13 @@ func (p Page) HasValidCategories() bool {
 }
 
 // Category represents a content category
+// Every field here is theme-facing API, reached as `.Site.Categories`, and
+// several are read by nothing in the generator itself (GO-045). That is not
+// dead weight: `Count` renders "12 posts" beside a term, `Parent` builds a
+// nested category menu, `Link` is the URL the source CMS served the archive
+// at, which a migrated site may still want to link. They are documented in
+// docs/TEMPLATES.md rather than removed, because removing them would break
+// themes silently and save nothing.
 type Category struct {
 	ID          int    `json:"id"`
 	Count       int    `json:"count"`
@@ -435,6 +470,15 @@ type Author struct {
 }
 
 // MediaItem represents a media file
+// Like Category, this is theme-facing API at `.Site.Media` (GO-045). The
+// generator itself reads only MediaDetails.File, when it resolves a featured
+// image; everything else is here for a template — MimeType to choose an icon
+// for a document link, Width/Height to write the attributes that stop a page
+// shifting as images load, SourceURL to point at the original on a site that
+// did not copy its media across. Documented in docs/TEMPLATES.md.
+//
+// FlexInt on Width/Height is load-bearing rather than decorative: an export
+// writes them as strings about as often as numbers.
 type MediaItem struct {
 	ID           int    `json:"id"`
 	Slug         string `json:"slug"`
@@ -527,21 +571,28 @@ type SiteInfo struct {
 // Marketing is the site-level identity a migrated site would otherwise lose:
 // verification tokens, social defaults, profile links and brand assets. Every
 // field is best-effort — an absent one is empty, never invented.
+//
+// The yaml/toml tags carry the same names as the json ones. Until 1.8.60 the
+// struct had json tags only, so `marketing:` in a YAML config — the block #264
+// added — decoded by lowercased field name: `og_site_name` was an unknown key
+// and `og_image` was silently dropped. The feature shipped, and the config
+// path to it did not work. A struct read from more than one format needs a tag
+// per format, and a test that loads it through each.
 type Marketing struct {
-	Verification   map[string]string `json:"verification"`
-	SocialProfiles map[string]string `json:"social_profiles"`
-	OGSiteName     string            `json:"og_site_name"`
-	OGImage        string            `json:"og_image"`
-	TwitterSite    string            `json:"twitter_site"`
-	Favicon        string            `json:"favicon"`
-	AppleTouchIcon string            `json:"apple_touch_icon"`
-	Logo           string            `json:"logo"`
-	ThemeColor     string            `json:"theme_color"`
+	Verification   map[string]string `json:"verification" yaml:"verification" toml:"verification"`
+	SocialProfiles map[string]string `json:"social_profiles" yaml:"social_profiles" toml:"social_profiles"`
+	OGSiteName     string            `json:"og_site_name" yaml:"og_site_name" toml:"og_site_name"`
+	OGImage        string            `json:"og_image" yaml:"og_image" toml:"og_image"`
+	TwitterSite    string            `json:"twitter_site" yaml:"twitter_site" toml:"twitter_site"`
+	Favicon        string            `json:"favicon" yaml:"favicon" toml:"favicon"`
+	AppleTouchIcon string            `json:"apple_touch_icon" yaml:"apple_touch_icon" toml:"apple_touch_icon"`
+	Logo           string            `json:"logo" yaml:"logo" toml:"logo"`
+	ThemeColor     string            `json:"theme_color" yaml:"theme_color" toml:"theme_color"`
 	// Colors is the source theme's palette by role ("primary", "secondary",
 	// "accent", "text", "background", "link"), read by the exporter from the
 	// theme's own CSS custom properties (wpexporter >= 1.8.2). It is the one
 	// part of a site's look a migration can carry verbatim (#128).
-	Colors map[string]string `json:"colors"`
+	Colors map[string]string `json:"colors" yaml:"colors" toml:"colors"`
 }
 
 // Empty reports whether nothing was discovered, so callers can skip the whole
@@ -703,4 +754,30 @@ func resolveCategories(p *Page, byName, bySlug map[string]int) {
 			}
 		}
 	}
+}
+
+// Slugify converts an arbitrary label into a URL-safe slug: lowercase, with
+// every run of anything else collapsed to a single hyphen.
+//
+// It lives here rather than in the generator because two producers need it —
+// the generator, for series and term names (AX-005), and the external-source
+// mapper, for pages built from records (GO-098). Two implementations would
+// eventually disagree about a URL, and a URL is a promise.
+func Slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	prevDash := false
+	for _, r := range s {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }

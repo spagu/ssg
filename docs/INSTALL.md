@@ -34,6 +34,11 @@ accounts for most of that size; no external libraries or runtimes are needed.
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
+
+The installer downloads over HTTPS only and verifies the tarball's SHA-256
+against the release's `checksums.sha256` before anything is moved into place —
+a mismatch stops it before `sudo` is ever asked for. `SSG_VERSION` pins a
+release, `SSG_INSTALL_DIR` changes the target directory.
 ```
 
 ---
@@ -59,7 +64,7 @@ sudo apt install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.59
+VERSION=1.8.60
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -105,7 +110,7 @@ sudo dnf install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.59
+VERSION=1.8.60
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm

@@ -13,6 +13,7 @@ import (
 	"github.com/spagu/ssg/internal/cache"
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/externalsource"
+	"github.com/spagu/ssg/internal/generator"
 )
 
 // aiLegacyCacheDir mirrors internal/ai's pre-GO-091 default root; stats/clean
@@ -43,6 +44,12 @@ func cacheNamespaces(cfg *config.Config) []cacheNamespace {
 		{"images", cache.Dir("", "images")},
 		{"external-sources", extDir},
 		{"ai", aiDir},
+		// The dependency graph is a cache like the others: deleting it costs
+		// one full build, nothing more (GO-094).
+		{"graph", cache.Dir("", generator.GraphDirName)},
+		// Converted Markdown, kept between builds (#270). The largest of these
+		// on a big site, and the cheapest to lose.
+		{"markdown", cache.Dir("", generator.MarkdownCacheDirName)},
 	}
 	if _, err := os.Stat(aiLegacyCacheDir); err == nil {
 		ns = append(ns, cacheNamespace{"ai (legacy)", aiLegacyCacheDir})

@@ -7,6 +7,551 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.60] - 2026-09-10
+
+### Changed
+- 🧪 **Every package now meets the 96% coverage floor** (TEST-001). The gate in
+  CI measures the repository as a whole, which a handful of packages at 99–100%
+  were carrying: `internal/parser` sat at 87.4%, `cmd/ssg` at 91.3%, and
+  `internal/sitegraph`, `internal/daemon`, `internal/config`, `internal/fetch`
+  and `internal/engine` between 93% and 96%.
+
+  Writing the tests found four real defects rather than confirming the code was
+  fine, which is the argument for the floor: `outputs:` written as a mapping
+  became a format literally named `map[html:true]`; `ssg config set` refused to
+  write the first key into an empty file; a credential in a URL survived into a
+  transport error message; and `runMddbWatchLoop` had no way to stop, unlike the
+  file watcher beside it. Each is listed on its own below.
+
+  `main()` is now a two-line shell over `run(args) (int, bool)`, so the startup
+  sequence — which subcommand claims the arguments, whether a refused edit-mode
+  combination stops before anything is written, whether a failed build is fatal
+  — is testable instead of sealed behind `os.Exit`.
+
+  CI now enforces the floor **per package** as well as on the module total, so
+  the average cannot be propped up by the packages that are already at 100%.
+  The module now sits at 97.5%.
+
+  One consequence worth knowing: `internal/webp` measured four points lower in
+  CI than on a developer's machine, because the tests that drive `cwebp` and
+  `avifenc` skip when those are not installed. The conversion paths are now
+  exercised with stand-in encoders as well, so the number is the same
+  everywhere. The tests against the real tools stay: what they check — that the
+  encoder accepts the arguments we build — a stub cannot.
+
+- ⚡ **A 5 000-post build got 19% faster, and not by caching anything** (#270).
+  GO-094 left an open question: rendering is a fifth of a warm build, so what is
+  the rest? `--profile-pprof`, added in the same release, answered it — **53% of
+  the build's CPU was regular expressions**, and goldmark's parser was 3%.
+
+  They were WordPress-migration fixups: rewriting `media/` paths, stripping
+  thumbnail suffixes, expanding `[youtube]` shortcodes. Every one of them walked
+  every document on the site, whether or not the document contained anything
+  they could match. They are now behind a substring check, and one of them —
+  a pattern for the fixed string `, media/` — is a plain replace. A corpus with
+  no media pays a byte scan where it used to pay four regex walks per document.
+
+  A second finding beside it: `colocatedAssetNames` filtered a post's whole
+  category directory once per page. A post's source directory is that whole
+  directory, so five thousand posts meant twenty-five million entry checks to
+  discover, usually, that there are no assets at all. The filtered list is now
+  computed once per directory.
+
+  Together: **1.70 s → 1.37 s** on the 5 000-post corpus, output byte-identical,
+  golden corpora and determinism unchanged.
+
+- 💾 **`markdown_cache`, off by default, and the measurements that say why**
+  (#270). Keeping converted Markdown between builds looked like the obvious win:
+  conversion is a pure function of its input, and a micro-benchmark put it at
+  108 µs per post — 540 ms across five thousand of them.
+
+  That reasoning was wrong, and worth writing down: the micro-benchmark was
+  serial and the phase is parallel. Conversion spreads across every core;
+  reading a cache back does not. Measured on the same corpus:
+
+  | Machine | Without the cache | With it |
+  |---|---|---|
+  | 32 cores | 1.44 s | 1.39 s |
+  | 4 cores | 1.45 s | 1.41 s |
+  | 2 cores | 1.74 s | 1.58 s |
+
+  It costs disk equal to the size of the content — 79 MB for that corpus — to
+  buy 3% on a workstation and 9% on a small runner. So it ships as an option
+  rather than a default, for the one case it was built for: continuous
+  integration with two cores and a cache carried between runs.
+
+  The key covers the source, the renderer's settings and the **goldmark version
+  the binary was built with**, so a dependency upgrade invalidates every entry
+  without anybody remembering to. A build with render hooks never uses it at
+  all: a hook is a template and a template can call the build's helpers, so its
+  output can depend on the whole site, and a key over one document would be a
+  lie. A test asserts a warm cache produces the same tree as a cold one, byte
+  for byte.
+
+  GO-094's "under a second at 5 000 posts" is still not met, and now for a
+  reason nothing in this area can fix: at 1.37 s the remaining time is reading
+  five thousand files and parsing them.
+
+### Added
+- 🧩 **`--incremental`: rebuild only what a change reaches, and `ssg graph` to
+  see why** (GO-094). The watch loop has had one increment of this since
+  PLAT-006: it hashes the content tree and skips a rebuild when nothing changed
+  by a byte. Every real change then cost a full build — every page, every
+  archive, every aggregate — so a one-word fix to one post re-rendered five
+  thousand of them.
+
+  A dependency graph is recorded by **every** build, incremental or not: a graph
+  is only useful if it describes the build that actually ran, and one written
+  only when asked goes stale the first time it is not. It lives in
+  `.ssg-cache/graph/graph.json`, `ssg cache stats` lists it, and deleting it
+  costs one full build.
+
+  The rule the whole design rests on is the one PLAT-006 wrote down: **an
+  uncertain dependency means rebuild everything.** A graph that misses an edge
+  produces a stale page with a green build, which is exactly the class of silent
+  failure the 1.8.55–1.8.59 week was made of. So a changed template or partial,
+  a changed config, a file the last build never saw, `--clean`, or content from
+  MDDB, external sources or a CMS import each rebuild the whole site, and each
+  says which of those applied. Being wrong here is worse than being slow.
+
+  `--incremental` is on by default under `--watch`, where the alternative is a
+  full build on every save; a one-shot build stays full unless asked, because a
+  build nobody is waiting on should be the simple one.
+
+  **What it does not do is as important.** Every build still loads all the
+  content and computes every aggregate — archives, taxonomies, the sitemap, the
+  site graph — from the full set. Incremental only skips *writing* pages whose
+  bytes cannot have changed. That is why an incremental build and a full one
+  produce the same tree, and a property test asserts exactly that: a random
+  sequence of edits, applied to a site rebuilt whole and a site rebuilt
+  incrementally, byte for byte identical at every step.
+
+  A page's co-located assets are edges of their own, so an image replaced in
+  place refreshes the copy beside the page — a stale picture under a green
+  build is the same failure as a stale page.
+
+  Measured honestly on a 5 000-post corpus, editing one post: 268 pages
+  rendered instead of 5 251, and the wall clock barely moves. Rendering is a
+  quarter of a warm build; loading content is half of it, and 540 ms of that is
+  Markdown conversion the graph cannot remove because a listing may show any
+  page's body. Caching that conversion between builds is
+  [#270](https://github.com/spagu/ssg/issues/270). Until then this is worth
+  having for watch latency and for very large sites, which is what the ticket's
+  own re-verification predicted.
+
+- 🕸️ **`ssg graph [file]`** answers the two questions a build log cannot: what a
+  change rebuilds, and why a build cannot be narrowed. With no argument it
+  prints the size of the last build's graph, or the reasons this site's builds
+  are always full. With a path it prints the outputs that file reaches, or the
+  reason a change to it means everything. `--json` for a script, `--dot` for
+  `dot -Tsvg`, which is how a fan-out is seen rather than counted.
+
+  The graph holds pages, not aggregates: listings, feeds and the sitemap are
+  computed from the whole site on every build and never skipped, which
+  `ssg graph` says so the count is not read as "and nothing else changes".
+
+  `ssg profile page /url/` now ends with the inputs the page was built from,
+  read from that graph. It used to say the dependency tree required GO-094.
+
+- 🐛 **`outputs:` written as a mapping no longer invents a format.** A page
+  whose frontmatter said `outputs: {html: true}` — the wrong shape, but one
+  people write — had that mapping rendered with `%v` and passed on as a format
+  named `map[html:true]`. A mapping or a list is not a scalar, and a line the
+  parser cannot read is now ignored rather than turned into a value nobody
+  typed (GO-096).
+
+- 🐛 **`ssg config set` writes the first key into an empty config.** A freshly
+  created or comments-only `.ssg.yaml` was refused as "not a YAML mapping",
+  which is true and useless: the command was unusable exactly when someone was
+  starting out. A file holding a list or a scalar is still refused, because
+  writing a key into it would lose what it held. `SetYAMLKey`, the filler that
+  must never invent a document, keeps its stricter contract (GO-101).
+
+- 🐛 **The MDDB watch loop can be stopped.** `runWatchLoop` beside it has taken
+  a stop channel since #191; this one had no exit at all, so nothing but the
+  process could own it. Both now end the same way.
+
+- 🔒 **A credential in a URL no longer reaches an error message** (found while
+  raising coverage). `safeURL` has always stripped the query string and the
+  userinfo from the address this package reports. The `*url.Error` the HTTP
+  client returns builds its own message from the raw URL and redacts only the
+  userinfo *password*, so on a transport failure — a timeout, a refused
+  connection — a `?token=…` arrived unredacted one clause later in the same
+  line, and from there into a log or a CI transcript. The cause is now unwrapped
+  and reported without the address. `errors.Is` still finds
+  `context.DeadlineExceeded`, because that is what the wrapper forwarded anyway.
+
+- 🤖 **`site_dependencies` over MCP** (GO-095 phase 3): what a page was built
+  from, or what editing a file will rebuild. "What breaks if I change this
+  partial?" was previously a grep and a guess.
+
+  It is the one part of the site model deliberately kept **out** of the public
+  `site-graph.json`. Pages, links, taxonomies and redirects all follow from the
+  published HTML, so publishing them costs nothing; which template rendered a
+  page and which data file it read is the shape of the project, not of the
+  site, and it stays in `.ssg-cache/`. The tool is therefore available without
+  `site_graph: true` — every build records a dependency graph.
+
+  Three shapes of answer: with no argument, how large the graph is and whether
+  this site's builds can be narrowed at all; with `url`, one page's inputs
+  grouped by kind; with `path`, the outputs a change reaches or the reason it
+  rebuilds everything. Every page answer carries the caveat, because a site fed
+  by external sources or MDDB records fewer edges than it really has, and an
+  agent has to know that before treating a list as complete.
+
+- 📄 **A content page can paginate a listing it renders itself** (#267).
+  `paginate` split every *generated* listing — the post index and each archive
+  — and nothing a person wrote: a page had no `.Pager`, and a template can
+  slice `.Site.Posts` but cannot write a second file, so `/blog/page/2/` was a
+  404 whatever it linked to. The page that needs it is the one that renders a
+  listing **and something else** — on the reporting site an aggregated planet
+  feed above 27 of the site's own posts — which is exactly why it is a page and
+  not the generated listing, and why `posts_page` (which hands the URL to the
+  generator) was no answer. The only route left was paging in the browser: a
+  client-side answer to a static-site question.
+
+  A page now opts in from its own frontmatter — `paginate: 10`, or the mapping
+  form with `over: posts|pages`, `size` and a `source:` root matched the way
+  `feeds:` does. The build writes `/blog/`, `/blog/page/2/`, … through the
+  page's own layout; every page of it gets `.Posts` and `.Pager` in the same
+  shape an archive gets, so one pager partial serves both. Pages 2..N render
+  from a copy of the page whose `Link` is that address, so the canonical in
+  context **and** the `og:url`/JSON-LD the SEO pass derives from the page name
+  page N — the mistake #245 fixed for archives is not reintroduced. Only page 1
+  enters the sitemap and owns the `.md`/`.json` outputs and aliases; a page
+  whose `link:` names a file is rendered whole, with a warning that says why.
+  Nothing changes for a page that does not ask.
+
+- ✎ **Editing a page's body in the browser, and four AI actions** (GO-102,
+  phases 2 and 3). Phase 1 edited frontmatter, where the field a click means is
+  written on the element clicked. The body is the hard half, and the hazard is
+  the one the ticket named first: the HTML on screen went through Markdown
+  rendering, shortcode expansion, SEO injection, link rewriting, sanitisation
+  and minification, and none of that has an inverse.
+
+  So a click does not search the file for its text. The source is split into
+  the blocks Markdown is made of, each block's plain text is compared with the
+  clicked text after normalising what the build changes — collapsed whitespace,
+  smart quotes, dashes, ellipses — and the edit proceeds only when exactly one
+  block matches. The save then goes through `content_edit`, whose contract is
+  the same rule one level down. Two independent checks of one property, because
+  what they prevent is a green save that changed the wrong paragraph.
+
+  The panel shows the **Markdown source**, not the render: editing a render
+  means a lossy round trip back, and an author seeing `**bold**` is seeing what
+  is in the file.
+
+  With a model configured, four buttons propose a shorter excerpt (to the same
+  160 characters `--check-meta` measures), a title of at most 60, alt text for
+  an image, or a translation. An action **proposes and never saves** — the
+  answer lands in the field and the save is still the author's — and the key
+  never reaches the browser: the dev server calls the model exactly as the
+  build does.
+
+- 🕸️ **Site graph phase 2: which pages use which component** (GO-095). Each page
+  in `site-graph.json` now lists the components it renders, and `ssg mcp` gains
+  `site_components` — which inverts the question, because the graph stores it
+  per page and the person about to change a component asks it per component.
+
+  It is read from the page's source rather than from a tally of the build, and
+  that has a useful consequence: a call with a bad prop still counts. The page
+  whose call is broken is exactly the one whose author needs to see it.
+
+- 📄 **One page, several representations** (GO-092). Two mechanisms did this
+  already and did not know about each other: `outputs: [html, json]` wrote an
+  `index.json` from one global list, and `markdown_publish: true` wrote the
+  Markdown copy through a completely separate switch. A site could publish JSON
+  for everything or nothing, Markdown for everything or nothing, and could not
+  say "my reference pages also publish plain text" at all.
+
+  `outputs:` now takes a map per content type as well as the flat list it has
+  always taken, gains a `txt` format, and accepts formats a site defines with a
+  template of its own. Every non-HTML representation is announced in the page's
+  `<head>`. `markdown_publish` keeps working as the name for the Markdown
+  output, flat sibling and `llms.txt` included.
+
+  Custom formats render through **text/template**, not html/template, and that
+  is not an implementation detail: contextual HTML escaping turned an XML
+  declaration into `&lt;?xml`. A custom format is by definition not HTML, so it
+  owns its escaping and gets `xmlEscape`. That is also why there is no built-in
+  XML output — a generic one would have to invent a schema.
+
+  Feeds are deliberately not outputs: RSS is a representation of a collection,
+  and a one-item per-page feed is nothing anyone can subscribe to.
+
+- 🧭 **Content dimensions: named relations, document versions, outputs per
+  page** (GO-096). Most of what this ticket asked for already existed — type,
+  language, taxonomy, source — because a custom taxonomy *is* a dimension.
+  Three things did not.
+
+  **Relations were hard-coded.** A page could be in a series, have a
+  translation, or be "related" by a heuristic; it could not say
+  `supersedes: [api-auth-v3]`, even though the author is the only one who knows
+  it. `relations:` names them, they resolve to pages, `relationsOf` and its
+  inverse `relatedBy` render them, and they become edges in `site-graph.json`.
+  A relation naming nothing follows `check_links`.
+
+  **A version was a number in `.Extra`.** `version:` and `version_of:` now group
+  a document's revisions: the highest is the latest and every earlier one
+  canonicalises to it. Without that a document's own old revisions compete with
+  it for the same query, which is a real cost paid quietly by exactly the kind
+  of site that versions its documentation. `versions.noindex_old` is opt-in and
+  also drops them from the sitemap, through the rule that already drops any
+  noindex page rather than through a second switch. URLs are never rewritten.
+
+  **Outputs were site-wide.** `outputs:` in frontmatter overrides them per page,
+  in both directions.
+
+  The trap this avoided is worth naming: adding these keys to the parser's
+  known fields would have taken them out of `.Extra` and silently broken every
+  template already reading `.Extra.version` — the mechanism of #115, in
+  reverse. They are read from the raw frontmatter instead, so both accesses
+  return the same value. `audience:` needed no code at all: it is a custom
+  taxonomy, and the recipe is now in the docs.
+
+- 🪝 **Render hooks: a template decides the markup for one node kind** (GO-099).
+  Everything this build did to rendered content, it did with regular
+  expressions over finished HTML. That can only change what is already there,
+  and the gap it could not close is the one that matters most: **an image
+  written in Markdown came out bare** — no `srcset`, no width, no height, no
+  `loading="lazy"`, because the responsive pipeline was reachable only from
+  templates. A site migrated from WordPress has hundreds of content images that
+  skipped it. There was also no policy for external links at all, and
+  `rel="noopener"` is a security property rather than a nicety.
+
+  `render_hooks:` maps a node kind — image, link, heading, code, table,
+  blockquote — to a template, registered with goldmark as a node renderer. The
+  context is complete rather than approximate: `.Text` and `.Inner` arrive
+  already rendered, so `[**bold** link](/x)` reaches a link hook as markup; a
+  heading gets the anchor the build already computed, so it cannot disagree
+  with the table of contents; a code hook gets the highlighted block in
+  `.Rendered` to **wrap** rather than replace.
+
+  Two details found while building it. A lone image is unwrapped from its
+  paragraph when an image hook is set, because `<p><figure>…</figure></p>` is
+  markup no browser agrees about and a caption is the first thing anyone writes
+  such a hook for. And a hook that fails at render time writes nothing and says
+  so, rather than falling back to markup that looks almost right.
+
+  Without hooks nothing is registered and the output is goldmark's own, byte
+  for byte — which the golden corpora check. The regular expressions this
+  replaces stay where they are, to be retired one at a time.
+
+- 🧩 **Typed content components** (GO-093). A shortcode is an entry in the site
+  config: a fixed name rendering fixed data. `{{gallery}}` renders the one
+  gallery the config describes, and a second gallery means a second config
+  entry — there was no way to say "this one, with these pictures, three across"
+  from inside the content that wanted it.
+
+  A component is a directory with a contract: `component.yaml` declaring its
+  props (type, required, default, enum), `template.html` rendering them, and an
+  optional `assets/` copied and linked **only on the pages that used it**.
+  Content calls one as `{{< youtube id="6hLDZ6HL0rw" ratio="4x3" >}}`.
+
+  The schema is the point. It makes a component usable without reading its
+  template, checkable before the page ships, and generatable by an agent: every
+  build publishes `components.json` — the props, their types, what is required,
+  and the shortest call that would validate.
+
+  Two decisions about what is *not* a call. A call naming a component the site
+  does not have is **left in the page as written**, under every error policy,
+  because documentation quoting a call is the ordinary case; the legacy
+  `{{name}}` form deletes what it does not recognise, and doing that to prose
+  would be a silent loss. And a call inside a code fence or backticks is not a
+  call at all — otherwise a component could not be documented on the site that
+  has it. A call to a component that *does* exist, made wrongly, follows
+  `shortcode_errors`, with a message naming the prop, the reason and the call.
+
+  `{{name}}` and `[name]` are untouched and not deprecated; the golden corpora
+  confirm a site without components builds byte for byte as before.
+
+- 📊 **`analytics_ids`: a tag manager a site can actually install** (FE-001).
+  The only way to get a tracking id into a build was for a migration's crawl to
+  have found one, so a site written by hand could not run Google Tag Manager at
+  all without editing a theme. `analytics_ids: {gtm: GTM-XXXXXXX}` declares it,
+  and declaring it is the consent `analytics: true` asks for.
+
+  Two defects surfaced while wiring it, both fixed. **GTM was half installed:**
+  the vendor needs a script in `<head>` and an iframe right after `<body>`, and
+  only the first was ever emitted — a visitor with JavaScript off, or a
+  consent-mode setup that defers the script, was counted by neither.
+  **Tracking rode inside the SEO pass**, so a site with `seo: false` got none
+  despite having consented, and a site with both flags on still had an
+  untracked home page and untracked archives — the pages an analytics report is
+  mostly about. The two were always separate decisions; only the code had them
+  tangled. Every bundled theme now carries a comment in its head pointing at
+  the config, so there is no theme edit to make.
+
+- ✎ **`--edit`: editing frontmatter in the browser** (GO-102, phase 1). The dev
+  server already served the site and reloaded it after every rebuild; the MCP
+  server could already read a document, change one passage of it, validate the
+  result and commit it. What was missing between them was a client a person can
+  click.
+
+  `ssg --http --watch --edit` turns the preview into an editor. Clicking a
+  region a theme marked with `data-ssg-edit="frontmatter:title"` opens that
+  field's control — built from `content_schemas`, so an `enum` is a menu of its
+  values and a `date` is a date picker — and a save is written to the Markdown
+  file, rebuilt, reloaded, and committed to a git branch of its own. Never to
+  the checked-out branch.
+
+  **The theme's attributes never reach a published page.** A build without
+  `--edit` strips them byte for byte, which the golden corpora check, so
+  `ssgtheme`, `simple` and `krowy` can carry them without a production site
+  shipping the scaffolding of a tool it is not running.
+
+  Security is the design rather than a follow-up: the token lives in a header
+  and not a cookie, `--edit` needs `--http --watch`, a non-loopback address
+  without a token refuses to start, and editing runs in the MCP content role,
+  through the same tools an assistant calls — no new tool, no second
+  authorisation layer, one place that decides what a path may be. `mcp.Git`
+  gained an explicit local mode so a save can reach a branch without a forge
+  token; `ssg mcp` still exposes no git tools until an operator configures one.
+
+  Editing body text is phase two, and is deliberately not guessed at: finding a
+  paragraph in the source is what `content_edit`'s exactly-once rule is for.
+
+- 📇 **Records as pages: `content_map` for file, HTTP and SQL sources**
+  (GO-098). The pieces were all here and did not meet. Seven input formats
+  already parsed into records; a CMS import already merged into the site
+  through one path that gives imported documents the same URLs, taxonomies and
+  outputs as native content; and `mode: content` already passed validation for
+  every source type — while doing nothing unless the source was a CMS database.
+  The documentation promised it for a Payload API that could not do it.
+
+  `content_map` supplies the one thing a tool cannot guess: which record field
+  is the title, and which is the body. A CSV of products becomes a page per
+  row, with its own URL, taxonomy archives, sitemap entry and `.md` output. A
+  value is a field path, a `=constant`, or a `{{.template}}` over the record;
+  `content_format: text` escapes prose that is not Markdown; `content_errors`
+  chooses warn or strict, and two records mapping to one slug stop the build
+  whatever the policy, because two pages at one URL loses one of them.
+
+  `mode: content` without a `content_map` is now refused with an explanation
+  instead of quietly doing nothing, and the Payload example in the docs says
+  what actually works. Mapped sources stay available as `.ExternalData` too.
+
+- ⚙️ **`ssg config view|set|unset`: editing the config from the command line**
+  (GO-101). An assistant could change a handful of presentation settings through
+  MCP; a person had no way to change anything without opening an editor. The
+  engine behind that tool only reached top-level keys, so the settings that are
+  actually nested — `taxonomies.audience.multiple`, `headers."/css/*".Cache-Control`
+  — were out of reach for both.
+
+  Both now go through one editor that walks dotted paths, quoted segments and
+  list positions. Values are typed as they read (`true`, `8080`, `[a,b,c]`),
+  with `--string` and `--json` for the rest. `view --effective` shows the value
+  after defaults and normalisation, which is what the generator actually uses.
+
+  **The file keeps its shape.** The old editor re-encoded the YAML document:
+  comments and key order survived, but every blank line between sections did
+  not, and trailing comments were re-aligned — changing one setting rewrote
+  three hundred lines of this project's own config. The edit is now spliced
+  into the text at the position the parser found, so one setting changed is one
+  line changed and the comment stays in its column. That fixes the MCP path too.
+
+  An edit that would break the config is validated in a scratch file first, so
+  the original is never written and never needs rolling back. `view --effective`
+  redacts every credential-bearing key: that view resolves `$VAR` references,
+  and printing it whole would put a live secret on the terminal.
+
+- ⏱️ **`--profile`: where the build's time actually goes** (GO-097). Every phase
+  of a build passed through one seam that logged what it was about to do and
+  measured nothing, so the only number ssg reported about its own work was a
+  markdown-conversion counter. A site whose build had grown slow had nowhere to
+  look; the answer lived in a blog post about one machine.
+
+  `--profile` (or `profile: text`) prints the phases in the order they ran,
+  summing to the total and including the steps after generation — images,
+  archives, deployment — plus the counters the build already kept and the ten
+  slowest pages. `--profile=json` also writes `build-profile.json` **beside the
+  project, never into the output**: a build's timings are the project's
+  business, not part of the site. `ssg profile page /url/` then answers for one
+  page. `--profile-pprof=DIR` writes cpu.prof/heap.prof for `go tool pprof`.
+
+  Measuring costs about 120 ns per page against a page that takes milliseconds
+  to render, and changes no output byte — the golden corpora check it. The
+  dependency tree `ssg profile page` would like to show is named as requiring
+  the incremental build graph (GO-094) rather than invented.
+
+- 🕸️ **`site_graph`: one model of the published site, for agents and tools**
+  (GO-095, phase 1). The build computed every fact about the site — every
+  page and its address, every taxonomy term, every redirect, every translation
+  pair, every link on every page — and exposed them as four partial manifests
+  grown one at a time (`routes.json`, `search-index.json`, `llms.txt`,
+  `sitemap.xml`), each a different slice, each able to drift. The link checker
+  parsed every output page and discarded the result once validated. An agent
+  learning what the site contained scanned directories.
+
+  `site_graph: true` publishes `site-graph.json`: pages, sections, taxonomies,
+  links (page / asset / external), redirects and translations, stamped with
+  the build's version and a content hash that ignores the clock. Above 10,000
+  pages it shards to JSON Lines. `ssg mcp` gains a read-only **site** section
+  — `site_pages`, `site_page`, `site_links`, `site_taxonomies`,
+  `site_redirects` — answering from the last build and naming it.
+
+  **The design decision that matters:** the graph is the superset and the old
+  manifests are views of it. `routes.json` and `llms.txt` are now generated
+  *from* the in-memory graph whether or not the artifact is written, and the
+  golden corpora prove they did not change by a byte. The link checker and the
+  graph share one parse of the output. What a page was rendered from stays out
+  of the public file — the project's structure is not the site's content.
+  Phases 2–3 (components, dependencies) wait on GO-093 and GO-094.
+
+### Fixed
+- 🖼️ **`marketing:` in a YAML config did not load** — a regression in 1.8.59's
+  #264. `models.Marketing` carried json tags only (it had only ever been read
+  from `metadata.json`), so the YAML decoder mapped its fields by lowercased
+  name: `og_site_name` was reported as an unknown key and `og_image` was
+  silently dropped. The feature shipped; the config path to it did not work.
+  Caught by this project's own docs-site build one release later, which is
+  one release too late — the tests set the struct directly and never loaded it
+  through a file. Every field now carries `yaml` and `toml` tags matching the
+  json names, and `marketing:` is loaded through all three formats in tests.
+
+### Security
+- 🔏 **`install.sh` verifies what it installs** (SEC-013). The one-liner
+  downloaded a tarball and moved it into `/usr/local/bin` with `sudo` on the
+  strength of nothing but the URL: no checksum, `set -e` alone, and `curl`
+  without `--fail`, so a 404 page could be handed to `tar`. Every release has
+  published `checksums.sha256` beside its binaries since the release workflow
+  existed; the installer now fetches it and refuses on a mismatch **before**
+  `sudo` is ever asked for. Also `set -euo pipefail`, HTTPS-only with an HTTP
+  error treated as an error, and `install -m 0755` in place of `mv` + `chmod`.
+  Tested live against v1.8.59, positive and negative.
+- 🔎 **gosec runs in CI** (OPS-008). The Security Scan job ran govulncheck —
+  known advisories in the dependency graph — and no static analysis of this
+  project's own code, despite 54 `#nosec` annotations that only make sense
+  under a scanner. gosec v2.29.0 now runs on every push with results as SARIF
+  in the Security tab. `-no-fail` is deliberate for this release: the tree
+  carries 12 reviewed findings, and turning the scanner on must not be the
+  commit that turns CI red. Gating on a clean baseline is the follow-up.
+
+### Changed
+- 🧹 **Two audit findings about surface nobody used** (GO-044, GO-045).
+  `MddbClient.Get` and its `GetRequest` are gone: no production call site ever
+  reached them, and an interface that promises what nothing uses is a claim
+  nobody checks. `engine.GoEngine` stays, with the reason written down — it is
+  the reference implementation that keeps the Engine interface honest, and
+  routing the default render path through it would re-render every existing
+  site through a second code path for no behaviour anyone asked for. The
+  "write-only" fields on `Category`, `MediaItem` and the MDDB wire types are
+  theme-facing API and a faithful description of a server response
+  respectively; both are now documented as such, in docs/TEMPLATES.md and in
+  the types themselves, rather than removed.
+
+- 🧱 **CI and packaging hygiene from the audit** (OPS-012, OPS-014, OPS-015,
+  OPS-017, TEST-002): every CI job declares `permissions` explicitly rather
+  than inheriting them; the runtime image builds its user, its working
+  directory and its one runtime package in a single layer, with `/site`
+  created owned by `ssg` instead of `chown -R`'d afterwards (6 `RUN` layers →
+  4); the dev server in `docker-compose.yml` is published on the host's
+  loopback only, where `"8888:8888"` had exposed it to the LAN; the example
+  Cloudflare Pages workflow pins `actions/checkout` to a SHA, as an example to
+  copy should; and the **96 % coverage floor is enforced** in CI rather than
+  reported — computed the way `codecov.yml` computes it, without the generated
+  protobuf. Codecov stays advisory.
+
 ## [1.8.59] - 2026-09-08
 
 ### Fixed

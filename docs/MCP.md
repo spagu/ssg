@@ -65,6 +65,18 @@ keys such as the theme, the Mermaid theme, the highlight style and minification.
 readable nor writable.** Call `designer_config_read` first: it returns the key
 names, the current values and what each one does.
 
+It writes through the same editor as `ssg config set` (GO-101), so an assistant
+and a person editing the same file get the same result: one setting changed is
+one line changed, and the comments stay where the author put them. The
+allow-list is the difference — `ssg config` is the project owner's own tool and
+edits any key.
+
+The browser editor (`ssg --http --watch --edit`, see [EDITING.md](EDITING.md))
+is a second client of this same server rather than a second server: it calls
+`content_read`, `content_update` and the git tools in-process, in the content
+role, so the path confinement and the refusals are decided here. It adds no
+tool.
+
 ### Content manager — Markdown
 
 | Tool | Purpose |
@@ -140,6 +152,54 @@ it dangerous.
 existing file and updating a missing one are both mistakes, and splitting them
 turns each into an error instead of silent data loss. `content_delete` is
 destructive and should follow an explicit request, never an inference.
+
+## Site (`site_*`)
+
+The other sections are file-shaped, which is right for editing and wrong for
+understanding. Seven read-only tools answer questions about the site's **model**
+— from the `site-graph.json` the last build wrote (`site_graph: true`) — and
+every answer names the `build` it comes from, so an agent can tell fresh from
+stale:
+
+| Tool | Answers |
+|---|---|
+| `site_pages` | every page: url, type, title, lang, date — filter `type`/`lang`, page with `limit`/`offset` |
+| `site_page` | one page in full, with every link out of it and into it |
+| `site_links` | the link graph — filter `from`, `to`, `kind` (page, asset, external) |
+| `site_taxonomies` | every taxonomy with its terms, archive URLs and counts |
+| `site_redirects` | every redirect rule |
+| `site_components` | which components the site defines, and which pages use each one |
+| `site_dependencies` | what a page was built from (`url`), or what editing a file rebuilds (`path`) |
+
+"Which pages link to `/pricing/`?" is `site_links` with `to: /pricing/`, not a
+grep across the output. The section appears for every role once the server
+knows the output directory; without a graph on disk each tool says what to
+turn on rather than answering with nothing. See
+[AI-AGENTS.md](AI-AGENTS.md#site_graph) for the artifact itself.
+
+### Before you change a file, ask what it changes
+
+`site_dependencies` is the exception in that table: it reads the **dependency**
+graph from `.ssg-cache/graph/`, not the published site graph, so it works
+without `site_graph: true` and it is deliberately not part of the public
+artifact. Pages, links and taxonomies all follow from the published HTML.
+Which template rendered a page and which data file it read is the shape of the
+project, and an agent working on the project is the only reader that needs it.
+
+```jsonc
+site_dependencies { "url": "/pricing/" }
+// → output/pricing/index.html, and its inputs grouped by kind:
+//   content: content/site/pages/pricing.md
+//   data:    data/plans.yaml
+
+site_dependencies { "path": "templates/theme/partials/nav.html" }
+// → full: true, "…is a template; every page rendered through it may differ"
+```
+
+With no argument it says how large the graph is and whether this site's builds
+can be narrowed at all — worth asking first, because a site fed by external
+sources or MDDB records fewer edges than it really has, and every answer that
+comes back carries that caveat.
 
 ## Find, then edit — the cheap path
 

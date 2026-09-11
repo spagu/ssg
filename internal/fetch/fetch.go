@@ -9,6 +9,7 @@
 package fetch
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -204,7 +205,7 @@ func fetchOnce(url string, auth Auth, maxBytes int64, timeout time.Duration) (bo
 	}
 	resp, err := client(auth, timeout).Do(req) // #nosec G107 -- url comes from the user's own config include
 	if err != nil {
-		return nil, true, fmt.Errorf("fetching %s: %w", safeURL(url), err) // transport error: retriable
+		return nil, true, fmt.Errorf("fetching %s: %w", safeURL(url), transportCause(err)) // transport error: retriable
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
@@ -242,6 +243,26 @@ func safeURL(raw string) string {
 		return raw[:i]
 	}
 	return raw
+}
+
+// transportCause unwraps the *url.Error the HTTP client returns, so only the
+// cause is reported and not the address it was reaching.
+//
+// net/http builds that error's message from the RAW url, and redacts only the
+// userinfo password. A token in a query string — `?token=…`, which is how half
+// the world's private feeds are addressed — and a token used as the userinfo
+// username both survive into the message, and from there into a log or a CI
+// transcript. safeURL is already applied to the prefix; without this the same
+// URL arrives unredacted in the suffix a line later.
+//
+// Unwrapping keeps errors.Is working: *url.Error's own Unwrap returned the same
+// cause, so a caller testing for context.DeadlineExceeded still finds it.
+func transportCause(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) && urlErr.Err != nil {
+		return urlErr.Err
+	}
+	return err
 }
 
 // IsURL reports whether s is an http(s) URL rather than a local path.

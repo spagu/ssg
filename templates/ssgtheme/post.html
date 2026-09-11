@@ -17,11 +17,11 @@
 
 <main class="main-content" id="main-content">
     <div class="container post-layout">
-        <article class="article prose" id="post-{{ .Post.Slug }}">
+        <article class="article prose" id="post-{{ .Post.Slug }}" data-ssg-edit="body">
             <p class="eyebrow">Post</p>
-            <h1>{{ .Post.Title }}</h1>
+            <h1 data-ssg-edit="frontmatter:title">{{ .Post.Title }}</h1>
             <p class="article-meta">
-                <time datetime="{{ .Post.Date.Format "2006-01-02" }}">
+                <time data-ssg-edit="frontmatter:date" datetime="{{ .Post.Date.Format "2006-01-02" }}">
                     {{ .Post.Date.Format "2 January 2006" }}
                 </time>
                 <span>{{ .Post.ReadingTime }} min read</span>
@@ -29,7 +29,7 @@
             </p>
             {{ if .Post.Tags }}
             <p class="article-meta">
-                {{ range .Post.Tags }}<a class="badge" href="{{ termURL "tag" . }}">{{ . }}</a>{{ end }}
+                {{ range .Post.Tags }}<a class="badge" data-ssg-edit="frontmatter:tags" href="{{ termURL "tag" . }}">{{ . }}</a>{{ end }}
             </p>
             {{ end }}
 

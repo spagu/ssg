@@ -104,6 +104,8 @@ func runMCP(args []string) int {
 		StaticDirs:   []string{cfg.StaticDir},
 		MediaRoots:   mediaRootsOf(cfg),
 		ContentDirs:  contentRoots(cfg),
+		OutputDir:    cfg.OutputDir,
+		CacheDir:     ".ssg-cache",
 		Roles:        roles,
 		Watch:        watch,
 		Version:      Version,

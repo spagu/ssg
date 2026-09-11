@@ -12,8 +12,10 @@ import (
 	"fmt"
 	stdhtml "html"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spagu/ssg/internal/models"
 )
@@ -68,14 +70,32 @@ func minifyHTMLString(s string, keepComments []string) string {
 	return s
 }
 
+// webScheme is the scheme of the sites this generator publishes. It is spelled
+// once, and every "does this reference name my own origin" comparison builds
+// its prefixes from it — so the three ways a link can write this host live in
+// one function instead of being retyped, slightly differently, in three.
+const webScheme = "http"
+
+// ownOriginPrefixes are those three ways: either web scheme, or scheme-relative.
+func ownOriginPrefixes(host string) []string {
+	return []string{webScheme + "s://" + host, webScheme + "://" + host, "//" + host}
+}
+
+// hostOnly drops a scheme a person wrote into a `domain:` setting, which is a
+// host and not a URL — but is given as one often enough to handle.
+func hostOnly(domain string) string {
+	if i := strings.Index(domain, "://"); i >= 0 {
+		return domain[i+3:]
+	}
+	return strings.TrimPrefix(domain, "//")
+}
+
 // relativizeHTMLString rewrites absolute URLs pointing at domain into relative
 // links (href/src/action attributes and url() in inline styles).
 func relativizeHTMLString(s, domain string) string {
-	baseDomain := strings.TrimPrefix(domain, "https://")
-	baseDomain = strings.TrimPrefix(baseDomain, "http://")
-	baseDomain = strings.TrimSuffix(baseDomain, "/")
+	baseDomain := strings.TrimSuffix(hostOnly(domain), "/")
 
-	patterns := []string{"https://" + baseDomain, "http://" + baseDomain, "//" + baseDomain}
+	patterns := ownOriginPrefixes(baseDomain)
 	for _, pattern := range patterns {
 		for _, attr := range []string{"href", "src", "action"} {
 			s = strings.ReplaceAll(s, attr+`="`+pattern+`"`, attr+`="/"`)
@@ -135,7 +155,6 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	// The site palette as CSS custom properties, so a theme can style against
 	// the source site's colours instead of the author copying hex codes (#128).
 	b.WriteString(g.buildPaletteHead(s))
-	b.WriteString(g.analyticsSnippet(s))
 	// Fall back to the front-matter description when the theme emitted no usable
 	// one (#76). Nothing is invented here — the author already wrote it, it just
 	// never reached the output because the template interpolated a different
@@ -171,15 +190,41 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 			}
 		}
 	}
+	// The editing scaffolding: kept for the edit server, taken back out of a
+	// published page, before anything downstream measures or minifies it.
+	if g.config.EditMode {
+		if page != nil {
+			s = injectEditSource(s, editSourceMeta(page.SourceDir, page.SourceFile, page.Type))
+		}
+	} else {
+		s = stripEditAttrs(s)
+	}
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
-		// Point agents at the page's Markdown copy (GO-085). Only real source
-		// pages get an index.md; the synthetic home/listing context carries no
-		// Content, so it is skipped and never advertises a missing .md.
-		if g.config.MarkdownPublish && page.Content != "" {
-			s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
+		// Point agents at the page's other representations (GO-085, generalised
+		// by GO-092). Only real source pages have them; the synthetic
+		// home/listing context carries no Content, so it is skipped and never
+		// advertises a file that was not written.
+		if page.Content != "" {
+			if g.config.MarkdownPublish {
+				s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
+			}
+			s = injectAlternates(s, g.alternateLinks(*page, s))
 		}
 	}
+	// A page links the stylesheets and scripts of the components it actually
+	// contains, and then forgets which those were: the marker is bookkeeping,
+	// not content (GO-093).
+	s = g.injectComponentAssets(s)
+	// Tracking runs on every page, not only the ones with a page context and
+	// not only when `seo:` happens to be on (FE-001).
+	//
+	// It used to ride inside the SEO pass, which meant a site that had asked
+	// for a tag manager got it on its posts and pages and NOT on its home page
+	// or its archives — the pages an analytics report is mostly about — and a
+	// site with `seo: false` got none at all despite having consented. The two
+	// were always separate decisions; only the code had them tangled.
+	s = g.injectAnalytics(s)
 	// Feed autodiscovery is injected for every page, not only those with a page
 	// context. The SEO block runs only for posts and pages, so the site homepage
 	// — the first place a reader or a subscription tool looks — never advertised
@@ -217,6 +262,16 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 // transforms and writes the result in a single write (PERF-005). page carries
 // the SEO context for posts/pages; nil for listing pages.
 func (g *Generator) renderPageTemplate(templateName, outputPath string, data interface{}, page *models.Page, isPost bool) error {
+	// Where a build's page time goes (GO-097). Pages render on a worker pool,
+	// so the profile takes a sharded slot rather than a shared lock; with
+	// profiling off this is one nil check.
+	if g.profile != nil {
+		started := time.Now()
+		defer func() {
+			g.profile.Page(g.profileOutputPath(outputPath), time.Since(started))
+			g.profile.Count("pages rendered", 1)
+		}()
+	}
 	if g.engine != nil {
 		return g.renderWithEngine(templateName, outputPath, data, page, isPost)
 	}
@@ -237,4 +292,16 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(outputPath, data2, 0644)
+}
+
+// profileOutputPath names a rendered file the way its reader will: by the URL
+// it serves, relative to the output root, so the report matches the site
+// rather than the machine it was built on.
+func (g *Generator) profileOutputPath(outputPath string) string {
+	rel, err := filepath.Rel(g.config.OutputDir, outputPath)
+	if err != nil {
+		return outputPath
+	}
+	rel = filepath.ToSlash(rel)
+	return "/" + strings.TrimSuffix(rel, "index.html")
 }

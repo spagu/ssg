@@ -11,6 +11,10 @@
     {{template "seo-head" .}}
     <link rel="stylesheet" href="/css/style.css">
     {{template "schema-website" .}}
+{{- /* Analytics: set `analytics_ids: {gtm: GTM-XXXXXXX}` in the site config and the
+     generator injects the tag manager here (head) and its <noscript> iframe right
+     after <body>. Nothing is emitted while the id is unset — no theme edit needed.
+     See docs/CONFIGURATION.md, "Analytics". */}}
 </head>
 
 <body>

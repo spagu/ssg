@@ -8,6 +8,13 @@
 #
 # Cross-compile from the native BUILDPLATFORM to the requested TARGETPLATFORM so
 # ARM images build fast without QEMU emulation (supports amd64, arm64 and armv7).
+# Tag AND digest, deliberately, and SonarCloud's S8431 will keep asking for one
+# or the other. The digest is what makes the build reproducible; the tag is what
+# lets Dependabot see a newer one exists and open the bump. Keeping only the
+# digest means nobody is told when it stops receiving security patches.
+#
+# The annotation that would silence the rule cannot go here: a trailing comment
+# on a FROM line is parsed as extra arguments and fails the build.
 FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS builder
 
 # Provided automatically by buildx.
@@ -29,36 +36,36 @@ COPY . .
 # Build a static binary for the target architecture (GOARM derived from the
 # buildx variant, e.g. "v7" -> GOARM=7 for 32-bit ARM).
 RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
-    go build -ldflags="-s -w -X main.Version=1.8.59" -o ssg ./cmd/ssg
+    go build -ldflags="-s -w -X main.Version=1.8.60" -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
 # Pinned by digest as well as tag: a tag is a moving target, so a digest is
 # what makes a build reproducible. Dependabot bumps both (.github/dependabot.yml)
 # — a digest nobody updates stops receiving security patches silently.
+# Tag and digest together, for the reason above the builder stage.
 FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
-# Install runtime dependencies (cwebp)
-RUN apk add --no-cache libwebp-tools
+# Runtime dependencies (cwebp), the non-root user and its working directory in
+# ONE layer: three RUNs became one, and the directory is created already owned
+# by ssg instead of being chown'd afterwards (OPS-014).
+RUN apk add --no-cache libwebp-tools \
+    && adduser -D -u 1000 ssg \
+    && install -d -o ssg -g ssg /site
 
 # Labels
 LABEL org.opencontainers.image.title="SSG - Static Site Generator"
 LABEL org.opencontainers.image.description="Fast static site generator written in Go"
-LABEL org.opencontainers.image.version="1.8.59"
+LABEL org.opencontainers.image.version="1.8.60"
 LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
 LABEL org.opencontainers.image.licenses="BSD-3-Clause"
 LABEL maintainer="spagu <spagu@github.com>"
 
-# Create non-root user
-RUN adduser -D -u 1000 ssg
-
-# Copy binary from builder
+# Copy binary from builder — root-owned and world-executable, which is what a
+# binary in /usr/local/bin should be; no chown needed.
 COPY --from=builder /build/ssg /usr/local/bin/ssg
 
-# Set working directory
+# Set working directory (created above, already owned by ssg)
 WORKDIR /site
-
-# Change ownership
-RUN chown -R ssg:ssg /site
 
 # Switch to non-root user
 USER ssg

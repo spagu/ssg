@@ -19,11 +19,18 @@ type Options struct {
 	StaticDirs   []string
 	ContentDirs  []string
 	Roles        map[string]bool // "designer" and/or "content"; empty ⇒ both
-	Git          GitOptions
-	Watch        bool
-	Version      string
-	Rebuild      func() (string, error)
-	Logf         func(string, ...any)
+	// OutputDir is where the build writes; the site_* tools read the last
+	// build's site-graph.json from it (GO-095). Empty disables that section.
+	OutputDir string
+	// CacheDir is the build's cache root, where site_dependencies reads the
+	// dependency graph (GO-094). Empty means Root/.ssg-cache, which is where a
+	// build with no cache_dir setting writes it.
+	CacheDir string
+	Git      GitOptions
+	Watch    bool
+	Version  string
+	Rebuild  func() (string, error)
+	Logf     func(string, ...any)
 
 	// ConfigPath is the site config file the designer may edit presentation keys
 	// in; empty disables the config tools. ValidateConfig re-loads it after an
@@ -69,6 +76,9 @@ type MediaRoot struct {
 
 // Server is a running MCP stdio server.
 type Server struct {
+	// graphs caches the last site graph read, invalidated by the artifact's
+	// mtime (GO-095).
+	graphs graphCache
 	opts   Options
 	tools  []tool
 	byName map[string]tool
@@ -199,4 +209,38 @@ func (s *Server) callTool(params json.RawMessage) toolResult {
 		}
 	}
 	return t.handler(args)
+}
+
+// Call runs one tool in this process and returns its text and whether the tool
+// refused. It is the same path a JSON-RPC `tools/call` takes, with the wire
+// left out.
+//
+// It exists so a second client can be built on this server without a second
+// copy of anything (GO-102): the browser editor calls content_edit and the git
+// tools through here, so the path confinement, the role checks and the refusal
+// messages are decided in exactly one place, by the code that already knows how.
+func (s *Server) Call(name string, args map[string]any) (string, bool) {
+	t, ok := s.byName[name]
+	if !ok {
+		return fmt.Sprintf("unknown tool %q", name), true
+	}
+	if args == nil {
+		args = map[string]any{}
+	}
+	res := t.handler(args)
+	var b strings.Builder
+	for i, c := range res.Content {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(c.Text)
+	}
+	return b.String(), res.IsError
+}
+
+// HasTool reports whether a tool is available in this server's roles, so a
+// client can offer only what it can actually do.
+func (s *Server) HasTool(name string) bool {
+	_, ok := s.byName[name]
+	return ok
 }

@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.59" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.60" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -33,6 +33,19 @@ ssg \- fast static site generator written in Go
 .RB { stats | clean | gc }
 .RB [ \-\-namespace=\fINAME\fR ]
 .RB [ \-\-dry ]
+.br
+.B ssg profile page
+.I /url/
+.br
+.B ssg graph
+.RI [ path ]
+.RB [ \-\-dot ]
+.RB [ \-\-json ]
+.br
+.B ssg config
+.RB { view | set | unset }
+.RI [ path ]
+.RI [ value ]
 .br
 .B ssg mddb push-theme
 .RB [ \-\-dry ]
@@ -117,11 +130,46 @@ endpoint is detected once and skipped silently.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
-external-sources, ai). \fBstats\fR prints entries and size per namespace;
+external-sources, ai, graph, markdown). \fBstats\fR prints entries and size per namespace;
 \fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
+.TP
+.B ssg config \fR{\fBview\fR|\fBset\fR|\fBunset\fR} [\fIpath\fR] [\fIvalue\fR] [\fB\-\-effective\fR] [\fB\-\-string\fR] [\fB\-\-json\fR] [\fB\-\-config=\fIFILE\fR]
+Read and edit the configuration file. \fBview\fR with no path prints the file as
+written; with a path it prints that value; \fB\-\-effective\fR prints it after
+defaults and normalisation — what the generator actually uses.
+.IP
+Paths descend with dots (\fBtaxonomies.audience.multiple\fR); a key containing
+dots or slashes is quoted (\fBheaders."/css/*".Cache\-Control\fR); a list
+position is \fB[n]\fR and must already exist. Values are typed as they read
+(\fBtrue\fR, \fB8080\fR, \fB[a,b,c]\fR); \fB\-\-string\fR forces text and
+\fB\-\-json\fR takes any structure.
+.IP
+Setting one value changes one line: comments, blank lines and key order survive,
+because the edit is spliced into the text rather than re-serialised. An edit that
+would make the config invalid is refused after being checked in a scratch file,
+leaving the original untouched. YAML only in this version; a TOML or JSON config
+is refused rather than rewritten without its comments.
+.TP
+.B ssg profile page \fI/url/\fR
+Report what one page cost in the last profiled build, read from
+\fBbuild-profile.json\fR (write it with \fB\-\-profile=json\fR). Prints the
+render time, its share of the build, the build's stamp, and the inputs the page
+was built from, read from the dependency graph (see \fBssg graph\fR).
+.TP
+.B ssg graph \fR[\fIpath\fR] [\fB\-\-dot\fR] [\fB\-\-json\fR]
+Report what the last build depended on, read from
+\fB.ssg\-cache/graph/graph.json\fR. With no argument it prints the size of the
+graph, or the reasons this site's builds cannot be narrowed at all. With a path
+it prints the outputs a change to that file rebuilds, or the reason a change to
+it means a full build.
+.IP
+\fB\-\-json\fR prints the same answer for a script; \fB\-\-dot\fR writes the
+graph for \fBdot \-Tsvg\fR, which is how a fan-out is seen rather than counted.
+A graph is recorded by every build, incremental or not. See
+\fBdocs/INCREMENTAL.md\fR.
 .TP
 .B ssg migrate \fIprovider\fR \fIurl\fR [\fB\-\-content\fR \fIa,b,c\fR] [\fB\-\-watch\fR] [\fB\-\-http\fR] [\fB\-\-host\fR \fIADDR\fR] [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-all\-media\fR] [\fB\-\-engine\fR \fIPATH\fR] [\fB\-\-source\fR \fINAME\fR]
 Migrate a live site into a ready-to-build SSG project. The built-in
@@ -497,6 +545,140 @@ Maximum items per feed (default: 20).
 .TP
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.B \-\-edit
+Turn the preview server into an editor: a region a theme marked with
+\fBdata\-ssg\-edit="frontmatter:\fIkey\fB"\fR opens a form for that field, and a
+save is written to the Markdown file, validated against \fBcontent_schemas\fR,
+rebuilt, reloaded in the browser and committed to a git branch of its own —
+never to the checked-out branch.
+.IP
+A region marked \fBdata\-ssg\-edit="body"\fR makes its paragraphs, headings,
+list items and quotations clickable; the panel shows the Markdown SOURCE of the
+block, and a save proceeds only when that block's text matches exactly one block
+of the file and its anchor appears exactly once in it. With a model configured,
+four AI buttons propose a shorter excerpt, a title, alt text or a translation —
+they fill the field and never save, and the key stays on the server.
+.IP
+Requires \fB\-\-http\fR and \fB\-\-watch\fR. Every request to \fB/__edit/*\fR
+must carry the session token in the \fBX\-SSG\-Edit\-Token\fR header; the token
+is printed at start-up and \fB$SSG_EDIT_TOKEN\fR overrides it. On a
+non-loopback address without a token the server does not start. Editing runs in
+the MCP content role: templates are not editable from a browser. A build
+without \fB\-\-edit\fR strips the theme's editing attributes, so a published
+page carries none of it. See \fBdocs/EDITING.md\fR.
+.TP
+.B \-\-incremental
+Rebuild only the pages a change can reach, using the dependency graph the last
+build recorded. On by default under \fB\-\-watch\fR, where the alternative is a
+full build on every save; a one\-shot build is full unless asked.
+.IP
+An uncertain dependency means a full build. A changed template or configuration
+file, a file the last build never saw, \fB\-\-clean\fR, or a site whose content
+comes from MDDB, external sources or a CMS import all rebuild everything, and
+\fBssg graph\fR names which of those applies. An incremental build produces the
+same output tree as a full one, byte for byte.
+.IP
+What it narrows is the render phase. On a 5\ 000\-post corpus that is about a
+quarter of a warm build, so the wall clock barely moves; it is worth having in a
+watch loop and on very large sites. See \fBdocs/INCREMENTAL.md\fR.
+.TP
+.B \-\-markdown\-cache
+Keep converted Markdown under \fB.ssg\-cache/markdown/\fR between builds, and
+read it back next time. Off by default: it costs disk equal to the size of the
+content and buys about 3% on a workstation, because conversion runs across every
+core and reading a cache does not. It is worth roughly 9% on a two\-core CI
+runner with the cache carried between runs, which is the case it exists for.
+\fB\-\-no\-markdown\-cache\fR turns it off again. A build with render hooks never
+uses it: a hook can read the whole site, so a key over one document would be a
+lie.
+.TP
+.BR \-\-profile "[=" \fIjson ]
+Report where the build's time went: the phases in the order they ran, the
+counters the build kept (markdown conversions and cache hits, external sources
+served from cache, AI queries, images converted) and the ten slowest pages.
+\fB=json\fR additionally writes \fBbuild-profile.json\fR beside the project —
+not into the output tree, because a build's timings are not part of the site —
+for CI to archive and compare between commits. Profiling changes no output.
+.TP
+.BR \-\-profile\-pprof =\fIDIR
+Also write \fBcpu.prof\fR and \fBheap.prof\fR into \fIDIR\fR for
+\fBgo tool pprof\fR. A maintainer's instrument: \fB\-\-profile\fR answers
+where the time goes, this answers why.
+.TP
+.B outputs:
+Which representations each page publishes. A flat list — \fB[html, json]\fR —
+applies to every content type, exactly as it always has; a mapping —
+\fBpage: [html, json]\fR, \fBpost: [html, markdown]\fR — applies per type, and a
+page's own \fBoutputs:\fR frontmatter overrides both. \fBhtml\fR is always
+written; \fBjson\fR, \fBmarkdown\fR and \fBtxt\fR land beside it and are
+announced with \fB<link rel="alternate">\fR. \fBmarkdown_publish: true\fR is the
+older name for the Markdown output and still works.
+.TP
+.B outputs_custom:
+Formats the site defines itself: \fBname\fR, \fBsuffix\fR, \fBmime\fR and a
+\fBtemplate\fR receiving \fB.Page\fR, \fB.Site\fR, \fB.Domain\fR and
+\fB.Content\fR. Rendered with text/template — a custom format is not HTML, and
+HTML escaping would mangle an XML declaration — so the template owns its
+escaping and gets \fBxmlEscape\fR. This is why there is no built-in XML output.
+.TP
+.B versions:
+(config only) A chain of document versions, declared in frontmatter with
+\fBversion:\fR and \fBversion_of:\fR. The highest version is the latest and
+every earlier one canonicalises to it, so a document's own old revisions stop
+competing with it in search results. \fBnoindex_old: true\fR additionally marks
+them noindex, which also removes them from the sitemap. URLs are never
+rewritten. Templates get \fB.Page.Versions\fR and \fB.Page.IsLatest\fR.
+.TP
+.B relations:
+(frontmatter) Named links between pages — \fBsupersedes\fR, \fBsee_also\fR,
+anything the author needs — resolved to pages and available as
+\fBrelationsOf\fR and its inverse \fBrelatedBy\fR, and published as edges in
+\fBsite-graph.json\fR. A relation naming a page that does not exist follows
+\fBcheck_links\fR. See \fBdocs/CONTENT.md\fR.
+.TP
+.B render_hooks:
+(config only) A template per Markdown node kind — \fBimage\fR, \fBlink\fR,
+\fBheading\fR, \fBcode\fR, \fBtable\fR, \fBblockquote\fR — rendering that node
+at the syntax tree rather than by rewriting the HTML afterwards. This is how a
+content image gets \fBsrcset\fR, \fBloading="lazy"\fR or a caption (the
+responsive pipeline was reachable only from templates), and how external links
+get \fBrel="noopener"\fR.
+.IP
+\fB.Text\fR and \fB.Inner\fR arrive rendered, so markup inside a link survives;
+\fB.Rendered\fR hands a code hook the highlighted block to wrap rather than
+replace. Without hooks nothing is registered and the output is goldmark's own,
+byte for byte. See \fBdocs/RENDER_HOOKS.md\fR.
+.TP
+.BR \-\-components\-dir =\fIDIR
+Where typed content components live (default \fBcomponents\fR). A component is a
+directory with \fBcomponent.yaml\fR declaring its props — type, required,
+default, enum — \fBtemplate.html\fR rendering them, and an optional
+\fBassets/\fR copied and linked only on the pages that use it. Content calls one
+as \fB{{< name key="value" >}}\fR, which cannot be confused with the legacy
+\fB{{name}}\fR or \fB[name]\fR forms.
+.IP
+A call made wrongly follows \fBshortcode_errors\fR; a call naming a component
+the site does not have is left in the page as written, because documentation
+quoting a call is the ordinary case. Calls inside code blocks are not calls.
+Every build with components publishes \fBcomponents.json\fR — the contract a
+person or an agent reads before writing one. See \fBdocs/COMPONENTS.md\fR.
+.TP
+.B analytics_ids:
+(config only) Tracking ids the site declares, by vendor —
+\fBgtm: GTM\-XXXXXXX\fR, \fBga4: G\-XXXXXXX\fR. Google Tag Manager is emitted in
+both required places: the script in \fB<head>\fR and the \fB<noscript>\fR iframe
+immediately after \fB<body>\fR. Declaring an id is the consent \fBanalytics:
+true\fR asks for, so it renders without that flag; ids a migration recorded
+still need it. Tracking reaches every page and does not depend on \fBseo\fR.
+.TP
+.B site_graph: true
+(config only) Publish \fBsite-graph.json\fR: every page, section, taxonomy,
+link and redirect the build produced, stamped with the build's version and a
+content hash. Above 10,000 pages the records move to JSON Lines under
+\fBsite-graph/\fR. \fBssg mcp\fR then answers \fBsite_pages\fR, \fBsite_page\fR,
+\fBsite_links\fR, \fBsite_taxonomies\fR and \fBsite_redirects\fR from it.
+\fBroutes.json\fR and \fBllms.txt\fR are views of the same model.
 .TP
 .B posts_page \fR(configuration file only)
 Where the generated post listing goes, e.g. \fBposts_page: blog\fR publishes it

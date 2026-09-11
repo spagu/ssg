@@ -3,7 +3,7 @@
         <article class="post-content" id="post-{{.Post.Slug}}">
             <div class="container">
                 <header class="post-header">
-                    <h1 class="post-title">{{.Post.Title}}</h1>
+                    <h1 class="post-title" data-ssg-edit="frontmatter:title">{{.Post.Title}}</h1>
                     <div class="post-meta">
                         <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                             {{.Post.Date.Format "2 January 2006"}}
@@ -17,7 +17,7 @@
                         {{end}}
                     </div>
                 </header>
-                <div class="post-body" id="post-body">
+                <div class="post-body" id="post-body" data-ssg-edit="body">
                     {{.Post.Content | safeHTML}}
                 </div>
             </div>

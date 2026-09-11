@@ -1,0 +1,5 @@
+/* Reserve the frame before the iframe loads, so nothing on the page moves. */
+.ssg-youtube { margin: 1.5rem 0; }
+.ssg-youtube iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px; }
+.ssg-youtube--4x3 iframe { aspect-ratio: 4 / 3; }
+.ssg-youtube figcaption { margin-top: .5rem; font-size: .9em; opacity: .75; }

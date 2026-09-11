@@ -113,6 +113,14 @@ search_index: true
 # a text/markdown <head> alternate, and a root llms.txt. Agents and LLMs that
 # read Markdown (ChatGPT Search among them) get the authored source directly.
 markdown_publish: true
+# The site's own model, published: pages, sections, taxonomies, links and
+# redirects in one stamped file, and site_* over MCP. This site eats its own
+# dog food (GO-095).
+site_graph: true
+
+# This project's own worked example, kept out of the default `components/` path
+# so a build run from the repository root does not pick it up implicitly.
+components_dir: examples/components
 
 # Explicit crawler policy (GO-089). The AI crawlers are welcomed because the
 # published Markdown/llms.txt above is written precisely for them; Google reads
@@ -235,7 +243,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.8.59"
+  version: "1.8.60"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants

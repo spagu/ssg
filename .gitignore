@@ -6,6 +6,9 @@
 coverage.out
 coverage.html
 
+# Build profile (--profile=json)
+build-profile.json
+
 # IDE
 .idea/
 .vscode/

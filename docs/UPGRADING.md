@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.59">1.8.59 — 2026-09-08</option>
       <option value="1.8.58">1.8.58 — 2026-09-08</option>
       <option value="1.8.57">1.8.57 — 2026-09-07</option>
       <option value="1.8.56">1.8.56 — 2026-09-06</option>
@@ -192,6 +193,95 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.60">
+
+### 1.8.60 — `--watch` rebuilds less, and one external-source mode is stricter
+
+**`outputs:` grew a second shape.** The flat list you have means exactly what it
+meant. A map per content type is new, and so are the `txt` format and
+`outputs_custom`. `markdown_publish: true` is unchanged.
+
+**The new frontmatter keys are additive.** `relations:`, `version:`,
+`version_of:` and `outputs:` do nothing unless a file uses them, and they stay
+readable at `.Extra.*` as well, so a template already reading `.Extra.version`
+keeps working. One behaviour to know if you adopt versions: superseded pages
+gain a canonical pointing at the latest.
+
+**Render hooks are opt-in by config.** Without `render_hooks:` the Markdown
+renderer is untouched and the output is byte for byte what it was. With one, the
+named node kind is rendered by your template instead. See docs/RENDER_HOOKS.md.
+
+**Components are opt-in by a directory.** If your project has a `components/`
+directory it is now loaded (see docs/COMPONENTS.md); if it does not, nothing
+changes. One thing to know either way: content that quotes `{{< something >}}`
+is safe — an unknown call is left as written, and calls inside code blocks are
+not calls.
+
+**A new flag, off by default.** `ssg --http --watch --edit` opens the browser
+editor (docs/EDITING.md). Nothing changes for a build that does not pass it: the
+theme attributes it uses are stripped from every published page, which the
+golden corpora check.
+
+**One validation is stricter, deliberately.** An external source with
+`mode: content` that is not a CMS used to load and silently stay data. It now
+needs a `content_map` and is refused without one, because with GO-098 that mode
+finally does what it says. If you have such a source, either add the mapping
+(docs/EXTERNAL_SOURCES.md, "Records as pages") or drop the `mode: content` line
+that was doing nothing.
+
+**`--watch` now rebuilds incrementally.** After its hash check says something
+changed, it renders only the pages that change can reach, instead of the whole
+site. The output is the same tree either way — a property test asserts that byte
+for byte over random sequences of edits — so there is nothing to change in a
+project. What you will notice is a line naming the decision, either
+`🧩 Incremental: 1 changed file(s) affect 1 output(s)` or `🧩 Full build: …`
+with the reason.
+
+A build is full whenever the answer is not certain: a changed template or
+partial, a changed config, a file the last build never saw, `--clean`, or
+content from MDDB, external sources or a CMS import. `ssg graph` prints which of
+those applies to your site, and `ssg --incremental` asks for the same narrowing
+in a one-shot build. The graph lives in `.ssg-cache/graph/`, is listed by
+`ssg cache stats`, and deleting it costs one full build. See docs/INCREMENTAL.md.
+
+If you script around the watcher's output, note that `ssg profile page /url/`
+now ends with a `built from` list read from that graph, where it used to say the
+dependency tree required GO-094.
+
+**Otherwise purely additive.** `ssg config view|set|unset` reads and edits the config from
+the command line. One behaviour change worth knowing: the MCP `designer_config_set`
+tool now writes through the same editor, which splices the change into the text
+instead of re-encoding the document — so an edited config keeps its blank lines
+and comment alignment where it used to lose them. Nothing about which keys that
+tool may write has changed.
+
+`--profile` (or `profile: text`) reports where the build's
+time went, and `--profile=json` writes `build-profile.json` beside the project
+for `ssg profile page /url/` and for CI to archive. Off by default, and it
+changes no output.
+
+`ssg mcp` gains `site_dependencies`, which answers what a page was built from
+or what editing a file rebuilds. It reads `.ssg-cache/graph/` rather than the
+published site graph, so it needs no configuration beyond a completed build,
+and dependencies stay out of the public `site-graph.json` on purpose.
+
+`site_graph: true` publishes a `site-graph.json` describing
+the whole site and adds `site_*` tools to `ssg mcp`; off by default. Under the
+hood `routes.json` and `llms.txt` are now derived from that same model — their
+output is byte-identical, which the golden corpora check.
+
+A content page may now carry `paginate:` in its frontmatter
+and be written as `/slug/`, `/slug/page/2/`, … through its own layout, with
+`.Pager` and `.Posts` in scope. A page that does not set it renders exactly as
+before, and `paginate` in the site config keeps meaning what it meant for the
+generated listings. The golden baseline is byte-identical.
+
+One thing to know if you write a shared layout: `.Pager` is nil on an ordinary
+page, so guard it — `{{ with .Pager }}…{{ end }}` — the way `category.html`
+already does.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.59">
 

@@ -24,6 +24,8 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/ai"
+	"github.com/spagu/ssg/internal/components"
+	"github.com/spagu/ssg/internal/depgraph"
 	"github.com/spagu/ssg/internal/engine"
 	"github.com/spagu/ssg/internal/externalsource"
 	ssgi18n "github.com/spagu/ssg/internal/i18n"
@@ -38,9 +40,9 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	gmparser "github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
-	gmutil "github.com/yuin/goldmark/util"
 )
 
 // Shortcode defines a reusable content snippet
@@ -118,7 +120,59 @@ type Config struct {
 	MinifyHTMLKeepComments []string
 	// Marketing is the site's declared social identity; it overrides whatever a
 	// migration recorded (#264).
-	Marketing  models.Marketing
+	Marketing models.Marketing
+	// SiteGraph emits site-graph.json (GO-095); the in-memory graph is built
+	// regardless, because routes.json and llms.txt are views of it.
+	SiteGraph bool
+	// Version is the ssg that is running, stamped into the site graph so a
+	// reader can tell what produced it. Empty in tests and library use.
+	Version string
+	// Profile turns on build profiling (GO-097): "text" reports the phases on
+	// stdout, "json" writes build-profile.json beside the project. Empty is off,
+	// and off costs one nil check per phase.
+	Profile string
+
+	// ComponentsDir is where typed content components live (GO-093); empty
+	// means "components", and a directory that is not there is not an error.
+	ComponentsDir string
+
+	// RenderHooks maps a Markdown node kind — image, link, heading, code,
+	// table, blockquote — to the template that renders it (GO-099). Empty
+	// leaves goldmark's own markup untouched.
+	RenderHooks map[string]string
+
+	// Versions tunes what a chain of versions means for search engines
+	// (GO-096).
+	Versions VersionsConfig
+
+	// OutputsPerType is `outputs:` in its per-content-type form (GO-092);
+	// Outputs stays the flat list it has always been.
+	OutputsPerType map[string][]string
+	// OutputsCustom are formats the site defines with a template of its own.
+	OutputsCustom []CustomOutput
+
+	// Incremental narrows a build to what a change can have affected, using
+	// the dependency graph the previous build recorded (GO-094). Off means a
+	// full build, which is also what an uncertain graph falls back to.
+	Incremental bool
+	// CacheDir is the root the graph is persisted under; empty means
+	// ".ssg-cache", the same root every other cache uses (GO-091).
+	CacheDir string
+	// ConfigPath is the file the site was configured from, recorded in the
+	// graph so a change to it forces a full build.
+	ConfigPath string
+
+	// MarkdownCache keeps converted Markdown between builds (#270). On by
+	// default; a build with render hooks never uses it, because a hook can read
+	// the whole site and a conversion would stop being a function of its input.
+	MarkdownCache bool
+
+	// EditMode is `ssg serve --edit` (GO-102): pages carry a marker naming the
+	// document they were rendered from, and the theme's editing attributes are
+	// left in place. Off — which is every published build — the marker is not
+	// written and the attributes are stripped, so the output is unchanged.
+	EditMode bool
+
 	SitemapOff bool // Disable sitemap generation
 	// Sitemaps declares sub-sitemaps; sitemap.xml becomes their index.
 	Sitemaps []models.SitemapSpec
@@ -256,6 +310,9 @@ type Config struct {
 	// (`analytics` block). Separate from SEO on purpose: third-party JavaScript
 	// is the owner's call, not a migration side effect.
 	Analytics bool
+	// AnalyticsIDs are the ids the site declares for itself, merged over
+	// whatever a migration recorded (FE-001).
+	AnalyticsIDs map[string]string
 	// DateArchives renders /YYYY/ and /YYYY/MM/ listings from the posts' own
 	// dates (#146). Opt-in: a site that never had these URLs should not grow
 	// them because it upgraded.
@@ -475,6 +532,8 @@ type Generator struct {
 	// are guarded by mdMu below.
 	mdCache       map[string]string
 	mdConversions int
+	// mdFingerprint describes the renderer for the between-builds cache (#270).
+	mdFingerprint markdownFingerprint
 	mdLinkWarned  map[string]bool // once-per-(link,lang) missing-translation warnings (i18n §13)
 	// renderContentFn is the safeHTML pipeline captured for reuse: it renders raw
 	// page Markdown to final HTML so root .Content is rendered, not raw (#127).
@@ -497,6 +556,11 @@ type Generator struct {
 	// every post in it. assetDirsMu keeps it safe under parallel render.
 	assetDirs   map[string][]os.DirEntry
 	assetDirsMu sync.Mutex
+
+	// assetNames is assetDirs filtered to the files that could be a page's
+	// co-located asset, memoized per directory (#270).
+	assetNames   map[string][]string
+	assetNamesMu sync.Mutex
 
 	// relatedMddb is the lazily-built client the relatedFromMddb template helper
 	// queries; relatedMddbOnce guards its one-time creation (safe under the
@@ -556,6 +620,44 @@ type Generator struct {
 	// gitWarnOnce keeps the "git could not date this" notice to one line per
 	// build, however many documents it applies to (#260).
 	gitWarnOnce sync.Once
+	// outputRefsCache is every href/src in every output HTML file, keyed by
+	// output-relative path — parsed once per build and shared by the link
+	// checker and the site graph, where it used to be parsed by the checker
+	// and thrown away (GO-095). Reset at the start of each build.
+	outputRefsCache map[string][]string
+	outputRefsMu    sync.Mutex
+	// outputRefsParses counts the walks, so a test can prove there was one.
+	outputRefsParses int
+	// profile measures this build when config.Profile asks for it, and is nil
+	// otherwise; every method on it accepts a nil receiver (GO-097).
+	profile *Profile
+	// components is the site's typed content components, or nil when it has
+	// none (GO-093). componentMu guards the per-build bookkeeping beside it:
+	// content renders on a worker pool.
+	// hooks are the render hooks this site declared (GO-099), or nil.
+	hooks *hookSet
+
+	// outputs is the format registry for this build (GO-092).
+	outputs *outputRegistry
+
+	// graph records what this build depended on; prevGraph is the previous
+	// build's, and plan is what the two say can be skipped (GO-094). pending
+	// is the plan's outputs as a set, or nil for a full build.
+	graph     *depgraph.Graph
+	prevGraph *depgraph.Graph
+	plan      depgraph.Plan
+	pending   map[string]bool
+
+	// relationFailures are declared relations naming pages the site does not
+	// have, kept for the link check to report under strict (GO-096).
+	relationMu       sync.Mutex
+	relationFailures []string
+
+	components      *components.Set
+	componentMu     sync.Mutex
+	componentsUsed  map[string]bool
+	componentWarned map[string]bool
+	componentErr    error
 
 	// buildTime is read once, when the generator is constructed, and handed to
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
@@ -690,6 +792,7 @@ func New(cfg Config) (*Generator, error) {
 		catalog:        catalog,
 		currentLang:    cfg.DefaultLanguage,
 		buildTime:      resolveBuildTime(time.Now),
+		profile:        NewProfile(cfg.Profile),
 	}, nil
 }
 
@@ -706,7 +809,12 @@ func newSanitizer(enabled bool) *bluemonday.Policy {
 // always on (footnotes are a common WP-export artifact, AX-003); auto heading IDs
 // back the table of contents (AX-002); Chroma syntax highlighting is added when
 // enabled (AX-001). WithUnsafe preserves the SSG contract of rendering author HTML.
-func buildMarkdown(cfg Config) goldmark.Markdown {
+func buildMarkdown(cfg Config) goldmark.Markdown { return buildMarkdownWith(cfg, nil) }
+
+// buildMarkdownWith is buildMarkdown with render hooks registered (GO-099).
+// A nil set registers nothing, which is what keeps an unhooked build's output
+// identical to goldmark's own.
+func buildMarkdownWith(cfg Config, hooks *hookSet) goldmark.Markdown {
 	exts := []goldmark.Extender{extension.Table, extension.Footnote}
 	if cfg.Highlight {
 		style := cfg.HighlightStyle
@@ -726,9 +834,9 @@ func buildMarkdown(cfg Config) goldmark.Markdown {
 			// Recompute heading ids from the VISIBLE text (issue #26): the
 			// built-in generator derives them from the raw source line, so a
 			// heading containing a Markdown link leaks the href into its id.
-			gmparser.WithASTTransformers(gmutil.Prioritized(headingIDTransformer{}, 900)),
+			gmparser.WithASTTransformers(hookTransformers(hooks)...),
 		),
-		goldmark.WithRendererOptions(html.WithUnsafe()),
+		goldmark.WithRendererOptions(append([]renderer.Option{html.WithUnsafe()}, hookRendererOption(hooks)...)...),
 	)
 }
 
@@ -867,6 +975,11 @@ func (g *Generator) Generate() error {
 	// the documents this build actually copied (#255).
 	g.resetEmptyCanonicals()
 	g.resetStaticSitemap()
+	g.resetOutputRefs()
+	g.resetComponents()
+	// The dependency graph is recorded on every build, incremental or not: a
+	// graph is only useful if it describes the build that actually ran (GO-094).
+	g.startGraph()
 
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
@@ -882,13 +995,13 @@ func (g *Generator) Generate() error {
 
 	// Content contracts run before rendering: a malformed page fails the build
 	// loudly (strict) instead of shipping broken output (#62).
-	if err := g.validateContentSchemas(); err != nil {
+	if err := g.profile.Measure("Content contracts", g.validateContentSchemas); err != nil {
 		return err
 	}
 
 	// Resolve [ai …] content shortcodes (cached) before rendering, sequentially,
 	// so the ifs guard sees full page context (#1.8.16).
-	g.resolveAIContent()
+	_ = g.profile.Measure("AI content", func() error { g.resolveAIContent(); return nil })
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
@@ -897,6 +1010,12 @@ func (g *Generator) Generate() error {
 	// Fail here rather than at the end: everything after this only decorates
 	// output whose content blocks are already known to be incomplete (issue #37).
 	if err := g.shortcodeErrorCheck(); err != nil {
+		return err
+	}
+	// A component call the content got wrong fails here for the same reason a
+	// shortcode does: everything after this only decorates output whose
+	// content blocks are already known to be incomplete (GO-093).
+	if err := g.componentError(); err != nil {
 		return err
 	}
 
@@ -908,26 +1027,28 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.generateSitemapAndRobots(); err != nil {
+	if err := g.profile.Measure("Sitemap and robots", g.generateSitemapAndRobots); err != nil {
 		return err
 	}
 
-	if err := g.generateLLMsTxt(); err != nil {
+	if err := g.profile.Measure("llms.txt", g.generateLLMsTxt); err != nil {
 		return fmt.Errorf("generating llms.txt: %w", err)
 	}
 
-	if err := g.writeRouteManifest(); err != nil {
+	if err := g.profile.Measure("Route manifest", g.writeRouteManifest); err != nil {
 		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
-	if err := g.generateDeclaredFeeds(); err != nil {
-		return err
-	}
-	if err := g.generateFeeds(); err != nil {
+	if err := g.profile.Measure("Feeds", func() error {
+		if err := g.generateDeclaredFeeds(); err != nil {
+			return err
+		}
+		return g.generateFeeds()
+	}); err != nil {
 		return fmt.Errorf("generating feeds: %w", err)
 	}
 
-	if err := g.generateSearchIndex(); err != nil {
+	if err := g.profile.Measure("Search index", g.generateSearchIndex); err != nil {
 		return fmt.Errorf("building search index: %w", err)
 	}
 
@@ -935,7 +1056,7 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	if err := g.assetPhase(); err != nil {
+	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {
 		return err
 	}
 
@@ -948,6 +1069,7 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("sending notifications: %w", err)
 	}
 
+	g.finishGraph()
 	return nil
 }
 
@@ -980,6 +1102,11 @@ func (g *Generator) assetPhase() error {
 	if err := g.compileSCSSIfRequested(); err != nil {
 		return fmt.Errorf("compiling SCSS: %w", err)
 	}
+	// Component assets land before bundling and fingerprinting, so they are
+	// treated like any other asset the site ships (GO-093).
+	if err := g.writeComponentAssets(); err != nil {
+		return err
+	}
 	// Bundling concatenates asset groups before minification/fingerprinting (ASSET-002).
 	if err := g.bundleIfRequested(); err != nil {
 		return fmt.Errorf("bundling assets: %w", err)
@@ -1010,6 +1137,11 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkLinksIfRequested(); err != nil {
+		return err
+	}
+	// After the link check on purpose: both parse every output file, and the
+	// parse is shared, so whichever runs first pays for it once (GO-095).
+	if err := g.writeSiteGraph(); err != nil {
 		return err
 	}
 	if err := g.checkImagesIfRequested(); err != nil {
@@ -1069,14 +1201,34 @@ func (g *Generator) log(msg string) {
 	}
 }
 
-// runStep executes a generation step with logging
+// runStep executes a generation step with logging.
+//
+// It is also the seam every phase of the build passes through, so it is where
+// profiling measures one (GO-097): the step already names itself for the log,
+// and that name is what the report needs.
 func (g *Generator) runStep(msg string, fn func() error, errContext string) error {
 	g.log(msg)
-	if err := fn(); err != nil {
+	err := g.profile.Measure(stepName(msg), fn)
+	if err != nil {
 		return fmt.Errorf("%s: %w", errContext, err)
 	}
 	return nil
 }
+
+// stepName turns a log line into a report row: the leading emoji and the
+// trailing ellipsis are for the person watching the build, not for the table.
+func stepName(msg string) string {
+	name := strings.TrimSpace(msg)
+	if i := strings.IndexFunc(name, func(r rune) bool { return r < 0x2000 }); i > 0 {
+		name = strings.TrimSpace(name[i:])
+	}
+	return strings.TrimSuffix(name, "...")
+}
+
+// Profile returns this build's measurements, or nil when profiling is off.
+// The caller adds the phases that live outside the generator — image
+// conversion, archives, deployment — to the same report.
+func (g *Generator) Profile() *Profile { return g.profile }
 
 // cleanOutputIfRequested cleans the output directory if configured
 func (g *Generator) cleanOutputIfRequested() error {
@@ -1247,6 +1399,14 @@ func (g *Generator) finalizeLoadedContent() error {
 	finalize(g.siteData.Posts, "post")
 	g.computeSeriesLinks()
 	g.computeTranslations()
+	// Relations and versions need every page loaded, because both are about
+	// pages knowing each other (GO-096).
+	g.applyDimensions()
+	// With the content loaded, the graph knows what this build reads and can
+	// say what a change since the last one can have affected (GO-094).
+	g.recordContentInputs()
+	g.planIncremental()
+	g.pending = g.incrementalOutputs()
 	if g.config.I18n.Enabled {
 		if err := g.validateI18nContent(languages); err != nil {
 			return err
@@ -1641,24 +1801,11 @@ func sortedKeys[V any](m map[string]V) []string {
 
 // slugify converts an arbitrary label into a URL-safe slug (lowercase, spaces and
 // punctuation → hyphens), used for series/tag names (AX-005).
-func slugify(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	var b strings.Builder
-	prevDash := false
-	for _, r := range s {
-		switch {
-		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
-			b.WriteRune(r)
-			prevDash = false
-		default:
-			if !prevDash {
-				b.WriteByte('-')
-				prevDash = true
-			}
-		}
-	}
-	return strings.Trim(b.String(), "-")
-}
+//
+// The rule lives in models so the external-source mapper can produce the same
+// slugs from records that the generator produces from content (GO-098) — one
+// definition, because two would eventually disagree about a URL.
+func slugify(s string) string { return models.Slugify(s) }
 
 // mathDelimiterRe detects display math ($$…$$) or fenced ```math blocks (AX-004).
 var mathDelimiterRe = regexp.MustCompile("(?s)\\$\\$.+?\\$\\$|```math")
@@ -1975,6 +2122,16 @@ func (g *Generator) loadMetadata(path string) error {
 	if len(metadata.Analytics) > 0 {
 		g.siteData.Analytics = metadata.Analytics
 	}
+	// What the site declares wins over what a migration found: the config is
+	// the owner speaking, metadata.json is a crawl reporting (FE-001).
+	for vendor, id := range g.config.AnalyticsIDs {
+		if g.siteData.Analytics == nil {
+			g.siteData.Analytics = map[string]string{}
+		}
+		if strings.TrimSpace(id) != "" {
+			g.siteData.Analytics[vendor] = id
+		}
+	}
 	// Navigation as the source site arranged it: keyed by theme location and
 	// by slug, with each menu's items already nested and ordered (#132).
 	if len(metadata.Menus) > 0 {
@@ -2154,6 +2311,22 @@ func (g *Generator) loadTemplates() error {
 
 	pageLinks := g.buildPageLinks()
 	funcs := g.buildTemplateFuncs(pageLinks)
+
+	// Components share the theme's helpers: a component is markup the site's
+	// author wrote, so it gets what a partial gets (GO-093).
+	if err := g.loadComponents(funcs); err != nil {
+		return err
+	}
+	// The output registry needs the theme's helpers too: a custom format is a
+	// template (GO-092).
+	if err := g.loadOutputs(funcs); err != nil {
+		return err
+	}
+	// Hooks rebuild the markdown renderer, so they load before any content is
+	// converted (GO-099).
+	if err := g.loadRenderHooks(funcs); err != nil {
+		return err
+	}
 
 	// Non-Go engine (pongo2/mustache/handlebars): load the theme's own templates
 	// through the selected engine instead of html/template. No Go defaults are
@@ -2598,6 +2771,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	mergeTemplateFuncs(funcs, g.taxonomyFuncs())
 	// External-source helpers (getExternal/getExternalMeta).
 	mergeTemplateFuncs(funcs, g.externalFuncs())
+	// Declared relations, and their inverse (GO-096).
+	mergeTemplateFuncs(funcs, g.relationFuncs())
 	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
 	mergeTemplateFuncs(funcs, g.relatedFuncs())
 	return funcs
@@ -2664,6 +2839,10 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 			protected = append(protected, html)
 			return fmt.Sprintf("ssg-protected-%d-token", len(protected)-1)
 		}
+		// Components first, and with their own syntax: `{{< name … >}}` cannot
+		// be confused with `{{name}}`, so a page using neither is untouched and
+		// a page using both gets both (GO-093).
+		s = g.renderComponents(s, protect)
 		s = g.processShortcodesWith(s, func(sc Shortcode) string { return protect(g.renderShortcode(sc)) })
 		if g.sanitizer != nil {
 			s = processWPShortcodesWith(s, protect) // [youtube]/[embed] iframes (GO-037)
@@ -2728,9 +2907,14 @@ var (
 
 // cleanMarkdownArtifacts removes markdown artifacts and fixes bolding
 func cleanMarkdownArtifacts(s string) string {
+	// Both patterns need a "**" somewhere. Asking first is a scan for two bytes
+	// against a regex walk of the whole document, and on a corpus that has none
+	// the difference is most of this function (#270).
+	if !strings.Contains(s, "**") {
+		return s
+	}
 	s = mdStarLineRe.ReplaceAllString(s, "")
-	s = mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
-	return s
+	return mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
 }
 
 // autolinkListItems converts list items matching page titles to links
@@ -2793,8 +2977,16 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		html, ok := g.mdCache[s]
 		g.mdMu.Unlock()
 		if ok {
+			g.profile.Count("markdown cache hits", 1)
 			return html
 		}
+	}
+	// The same answer kept by an earlier build. Reading it costs a hash and a
+	// small file where converting costs an order of magnitude more (#270).
+	if html, ok := g.lookupMarkdownCache(s); ok {
+		g.rememberMarkdown(s, html)
+		g.profile.Count("markdown cache hits (disk)", 1)
+		return html
 	}
 	md := g.md
 	if md == nil {
@@ -2808,13 +3000,31 @@ func (g *Generator) convertMarkdownToHTML(s string) string {
 		return s
 	}
 	out := buf.String()
-	if g.mdCache != nil {
-		g.mdMu.Lock()
-		g.mdCache[s] = out
-		g.mdConversions++
-		g.mdMu.Unlock()
-	}
+	g.rememberMarkdown(s, out)
+	g.countConversion()
+	g.storeMarkdownCache(s, out)
 	return out
+}
+
+// rememberMarkdown memoizes one answer for the rest of this build, whether it
+// was converted here or read back from the cache.
+func (g *Generator) rememberMarkdown(source, html string) {
+	if g.mdCache == nil {
+		return
+	}
+	g.mdMu.Lock()
+	g.mdCache[source] = html
+	g.mdMu.Unlock()
+}
+
+// countConversion records that this build did the work, which is what the
+// profile's "markdown conversions" means: a cache hit is not a conversion, and
+// counting it as one would make the cache look like it changed nothing.
+func (g *Generator) countConversion() {
+	g.mdMu.Lock()
+	g.mdConversions++
+	g.mdMu.Unlock()
+	g.profile.Count("markdown conversions", 1)
 }
 
 // tocHTML builds a table of contents from the headings in markdown source, using
@@ -3847,51 +4057,86 @@ func (g *Generator) generatePage(page models.Page) error {
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)
 
-	outputPaths := g.getOutputPaths(outputSubPath)
-	for _, outputPath := range outputPaths {
-		// Reject any path that escapes the output directory (SEC-001).
-		if err := g.ensureWithinOutput(outputPath); err != nil {
+	// A page that asked to paginate gets page 1's slice and pager in its
+	// ordinary context; pages 2..N are written after it (#267).
+	chunks := g.pageChunks(page)
+	if len(chunks) > 0 {
+		applyChunk(data, chunks[0])
+	}
+
+	// Use custom layout/template if specified, otherwise default to page.html.
+	// Decided once: it depends on the page, not on which of its paths is written.
+	templateName := pageHTMLName
+	if page.Layout != "" {
+		templateName = g.layoutTemplateName(page.Layout)
+	} else if page.Template != "" {
+		templateName = page.Template + ".html"
+	}
+
+	for _, outputPath := range g.getOutputPaths(outputSubPath) {
+		if err := g.writePageAt(page, outputPath, templateName, data); err != nil {
 			return err
 		}
-		outputDir := filepath.Dir(outputPath)
-		if err := g.ensureDir(outputDir); err != nil {
+	}
+
+	if len(chunks) > 1 {
+		if err := g.renderPagedTail(page, chunks, templateName); err != nil {
 			return err
 		}
-
-		// Copy co-located assets only to the directory-style path (avoid duplicates)
-		if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
-			if err := g.copyColocatedAssets(page.SourceDir, outputDir, page.Content); err != nil {
-				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
-			}
-		}
-
-		// Use custom layout/template if specified, otherwise default to page.html
-		templateName := pageHTMLName
-		if page.Layout != "" {
-			templateName = g.layoutTemplateName(page.Layout)
-		} else if page.Template != "" {
-			templateName = page.Template + ".html"
-		}
-
-		// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
-		// single write (PERF-005).
-		if err := g.renderPageTemplate(templateName, outputPath, data, &page, false); err != nil {
-			// Fallback to page.html if custom template not found
-			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
-				if err := g.renderPageTemplate(pageHTMLName, outputPath, data, &page, false); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-		g.writeJSONOutput(page, outputPath)
-		g.writeMarkdownOutput(page, outputPath)
 	}
 
 	g.writeAliasStubs(page)
 	g.runPostPageHook(page)
 	return nil
+}
+
+// writePageAt renders one of a page's output paths, with the assets that sit
+// beside it. page_format: both gives a page two, which is why this is a loop's
+// body rather than the page's whole story.
+func (g *Generator) writePageAt(page models.Page, outputPath, templateName string, data map[string]interface{}) error {
+	// Reject any path that escapes the output directory (SEC-001).
+	if err := g.ensureWithinOutput(outputPath); err != nil {
+		return err
+	}
+	// What this page's output depends on, recorded for the next build whether
+	// or not this one is incremental (GO-094).
+	g.recordPageOutput(page, outputPath)
+	if g.skipUnchanged(outputPath) {
+		return nil
+	}
+	outputDir := filepath.Dir(outputPath)
+	if err := g.ensureDir(outputDir); err != nil {
+		return err
+	}
+
+	// Co-located assets go only to the directory-style path, to avoid duplicates.
+	if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
+		if err := g.copyColocatedAssets(page.SourceDir, outputDir, page.Content); err != nil {
+			fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
+		}
+	}
+
+	// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
+	// single write (PERF-005).
+	if err := g.renderPageOrFallback(templateName, outputPath, data, page); err != nil {
+		return err
+	}
+	g.writePageOutputs(page, outputPath)
+	return nil
+}
+
+// renderPageOrFallback renders through the page's chosen template, falling back
+// to page.html when that template does not exist — a layout named in
+// frontmatter is a request, and a missing one should not lose the page.
+func (g *Generator) renderPageOrFallback(templateName, outputPath string, data map[string]interface{}, page models.Page) error {
+	err := g.renderPageTemplate(templateName, outputPath, data, &page, false)
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(err.Error(), "no such template") && !strings.Contains(err.Error(), "is undefined") {
+		return err
+	}
+	return g.renderPageTemplate(pageHTMLName, outputPath, data, &page, false)
 }
 
 // runPostPageHook runs post_page hooks for a rendered page (PLAT-001). Failures are
@@ -3925,6 +4170,10 @@ func (g *Generator) generatePost(post models.Page) error {
 		if err := g.ensureWithinOutput(outputPath); err != nil {
 			return err
 		}
+		g.recordPageOutput(post, outputPath)
+		if g.skipUnchanged(outputPath) {
+			continue
+		}
 		outputDir := filepath.Dir(outputPath)
 		if err := g.ensureDir(outputDir); err != nil {
 			return err
@@ -3941,8 +4190,7 @@ func (g *Generator) generatePost(post models.Page) error {
 		if err := g.renderPageTemplate(postHTMLName, outputPath, data, &post, true); err != nil {
 			return err
 		}
-		g.writeJSONOutput(post, outputPath)
-		g.writeMarkdownOutput(post, outputPath)
+		g.writePageOutputs(post, outputPath)
 	}
 
 	g.writeAliasStubs(post)
@@ -4526,49 +4774,66 @@ func (g *Generator) copyStaticDirOnly() error {
 // prefix in the output.
 func (g *Generator) copyStaticSources() error {
 	for _, src := range g.config.StaticSources {
-		path := strings.TrimSpace(src.Path)
-		if path == "" {
-			continue
-		}
-		info, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Printf("   ⚠️  static_sources: %s does not exist, skipping\n", path)
-				continue
-			}
+		if err := g.copyStaticSource(src); err != nil {
 			return err
-		}
-		// An entry names a thing to publish, so it keeps its own name by default:
-		// `path: xml` serves /xml/..., which is the point — those URLs already
-		// exist and must keep resolving. `dest:` places it somewhere else, and
-		// `dest: "."` spreads a directory's contents at the output root, the way
-		// static_dir behaves.
-		rel := strings.TrimSpace(src.Dest)
-		if rel == "" {
-			rel = filepath.Base(path)
-		}
-		dest := g.config.OutputDir
-		if d := models.SanitizeRelPath(rel); d != "" && d != "." {
-			dest = filepath.Join(dest, d)
-		}
-		if info.IsDir() {
-			if err := g.copyDir(path, dest); err != nil {
-				return err
-			}
-		} else {
-			if err := g.ensureParent(dest); err != nil {
-				return err
-			}
-			if err := g.copyFile(path, dest); err != nil {
-				return err
-			}
-		}
-		g.recordStaticSitemapEntry(src, dest)
-		if !g.config.Quiet {
-			fmt.Printf("   📦 Copied static source %s to output\n", path)
 		}
 	}
 	return nil
+}
+
+// copyStaticSource publishes one extra passthrough root.
+//
+// An entry names a thing to publish, so it keeps its own name by default:
+// `path: xml` serves /xml/..., which is the point — those URLs already exist
+// and must keep resolving. `dest:` places it somewhere else, and `dest: "."`
+// spreads a directory's contents at the output root, the way static_dir does.
+func (g *Generator) copyStaticSource(src models.StaticSource) error {
+	path := strings.TrimSpace(src.Path)
+	if path == "" {
+		return nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("   ⚠️  static_sources: %s does not exist, skipping\n", path)
+			return nil
+		}
+		return err
+	}
+	dest := g.staticSourceDest(src, path)
+	if err := g.copyInto(path, dest, info.IsDir()); err != nil {
+		return err
+	}
+	g.recordStaticSitemapEntry(src, dest)
+	if !g.config.Quiet {
+		fmt.Printf("   📦 Copied static source %s to output\n", path)
+	}
+	return nil
+}
+
+// staticSourceDest is where one entry lands in the output tree.
+func (g *Generator) staticSourceDest(src models.StaticSource, path string) string {
+	rel := strings.TrimSpace(src.Dest)
+	if rel == "" {
+		rel = filepath.Base(path)
+	}
+	dest := g.config.OutputDir
+	if d := models.SanitizeRelPath(rel); d != "" && d != "." {
+		dest = filepath.Join(dest, d)
+	}
+	return dest
+}
+
+// copyInto copies a directory or a single file to dest, making the parent for
+// the file case — a directory copy makes its own.
+func (g *Generator) copyInto(path, dest string, isDir bool) error {
+	if isDir {
+		return g.copyDir(path, dest)
+	}
+	if err := g.ensureParent(dest); err != nil {
+		return err
+	}
+	return g.copyFile(path, dest)
 }
 
 // copyDir copies a directory recursively
@@ -4688,36 +4953,18 @@ func isContentAsset(name string) bool {
 // copyColocatedAssets copies non-markdown files from a content source directory
 // to the corresponding output directory of the generated page/post
 func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) error {
-	entries := g.assetDirEntries(sourceDir)
-	if entries == nil {
-		return nil // Source dir might not exist, that's fine
-	}
-
+	names := g.colocatedAssetNames(sourceDir, content)
 	copied := 0
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-		if !isContentAsset(entry.Name()) {
-			continue
-		}
-		// PERF-007: a post's SourceDir is its whole category directory, so copying
-		// every asset would duplicate them into every sibling post's output dir
-		// (O(posts × assets) I/O and disk bloat). Copy only assets this page
-		// actually references by filename.
-		if !strings.Contains(content, entry.Name()) {
-			continue
-		}
-
-		srcPath := filepath.Join(sourceDir, entry.Name())
-		dstPath := filepath.Join(outputDir, entry.Name())
+	for _, name := range names {
+		srcPath := filepath.Join(sourceDir, name)
+		dstPath := filepath.Join(outputDir, name)
 
 		if err := g.ensureDir(outputDir); err != nil {
 			return err
 		}
 
 		if err := g.copyFile(srcPath, dstPath); err != nil {
-			fmt.Printf("   ⚠️  Warning: couldn't copy co-located asset %s: %v\n", entry.Name(), err)
+			fmt.Printf("   ⚠️  Warning: couldn't copy co-located asset %s: %v\n", name, err)
 			continue
 		}
 		copied++
@@ -4728,6 +4975,23 @@ func (g *Generator) copyColocatedAssets(sourceDir, outputDir, content string) er
 	}
 
 	return nil
+}
+
+// colocatedAssetNames selects the files beside a page that it actually
+// references — the one rule both the copy and the dependency graph must apply,
+// which is why it lives here rather than twice.
+//
+// PERF-007: a post's SourceDir is its whole category directory, so copying every
+// asset would duplicate them into every sibling post's output dir (O(posts ×
+// assets) I/O and disk bloat). Only assets named in the content are taken.
+func (g *Generator) colocatedAssetNames(sourceDir, content string) []string {
+	var names []string
+	for _, name := range g.assetCandidates(sourceDir) {
+		if strings.Contains(content, name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // assetDirEntries returns sourceDir's listing, reading it from disk at most once
@@ -4753,6 +5017,37 @@ func (g *Generator) assetDirEntries(sourceDir string) []os.DirEntry {
 	return entries
 }
 
+// assetCandidates is the memoized list of files in a directory that could be a
+// page's co-located asset: not a directory, not Markdown, and of a type the
+// build publishes.
+//
+// Filtering once per DIRECTORY rather than once per page is the whole point.
+// A post's SourceDir is its entire category directory, so on a five-thousand
+// post site the unfiltered walk was five thousand entries examined for every
+// one of five thousand pages — twenty-five million suffix checks to discover,
+// usually, that there are no assets at all (#270).
+func (g *Generator) assetCandidates(sourceDir string) []string {
+	g.assetNamesMu.Lock()
+	defer g.assetNamesMu.Unlock()
+	if names, ok := g.assetNames[sourceDir]; ok {
+		return names
+	}
+	var names []string
+	for _, entry := range g.assetDirEntries(sourceDir) {
+		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		if isContentAsset(entry.Name()) {
+			names = append(names, entry.Name())
+		}
+	}
+	if g.assetNames == nil {
+		g.assetNames = map[string][]string{}
+	}
+	g.assetNames[sourceDir] = names
+	return names
+}
+
 // Media-path rewrite patterns, compiled once instead of per rendered page;
 // wpSrcURLre replaces the per-image regex + full-document rescan that made this
 // O(images × content) per post (PERF-006).
@@ -4760,7 +5055,6 @@ var (
 	wpImageIDRe       = regexp.MustCompile(`wp-image-(\d+)`)
 	wpSrcURLRe        = regexp.MustCompile(`(src=["'])(https?://[^"']*\.(?:jpg|jpeg|png|gif|webp))(["'])`)
 	mediaSrcRe        = regexp.MustCompile(`((?:src|href|srcset)=["'])media/`)
-	mediaSrcsetItemRe = regexp.MustCompile(`, media/`)
 	mediaThumbRe      = regexp.MustCompile(`(/media/\d+_[^"'\s]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))`)
 	mediaSrcsetSizeRe = regexp.MustCompile(`(/media/\d+_[^"'\s,]+)-\d+x\d+(\.(?:jpg|jpeg|png|gif|webp))\s+(\d+w)`)
 )
@@ -4799,7 +5093,7 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 	// First, fix WordPress absolute URLs using wp-image-ID class
 	// Pattern: wp-image-1048 ... src="http://...krowy.net/..." -> src="/media/1048_filename.jpg"
 	replacements := buildWPMediaReplacements(content, media)
-	if len(replacements) > 0 {
+	if len(replacements) > 0 && strings.Contains(content, "src=") {
 		// One pass over all src URLs; each candidate URL is matched against the
 		// known media filenames (PERF-006: no per-image full-document rescans).
 		content = wpSrcURLRe.ReplaceAllStringFunc(content, func(m string) string {
@@ -4816,19 +5110,27 @@ func fixMediaPaths(content string, media map[int]models.MediaItem) string {
 		})
 	}
 
-	// Fix src/href/srcset="media/..." to ".../media/..."
-	content = mediaSrcRe.ReplaceAllString(content, `${1}/media/`)
+	// Every rewrite below is a WordPress-migration fixup, and every one of them
+	// needs the literal "media/" to be in the document at all. Asking first
+	// costs a substring scan; not asking costs four regex walks of every
+	// document on the site, which on a corpus with no media is the single
+	// largest thing the load phase does (#270).
+	if strings.Contains(content, "media/") {
+		// Fix src/href/srcset="media/..." to ".../media/..."
+		content = mediaSrcRe.ReplaceAllString(content, `${1}/media/`)
 
-	// Fix URLs in srcset attribute (multiple entries separated by comma)
-	content = mediaSrcsetItemRe.ReplaceAllString(content, `, /media/`)
+		// Fix URLs in srcset attribute (multiple entries separated by comma).
+		// A fixed string, so a plain replace does it without a regex at all.
+		content = strings.ReplaceAll(content, ", media/", ", /media/")
 
-	// Remove WordPress thumbnail size suffixes from media paths
-	// e.g., /media/1048_IMG_0316_p-300x225.jpg -> /media/1048_IMG_0316_p.jpg
-	content = mediaThumbRe.ReplaceAllString(content, `${1}${2}`)
+		// Remove WordPress thumbnail size suffixes from media paths
+		// e.g., /media/1048_IMG_0316_p-300x225.jpg -> /media/1048_IMG_0316_p.jpg
+		content = mediaThumbRe.ReplaceAllString(content, `${1}${2}`)
 
-	// Also handle srcset entries with size descriptors
-	// e.g., /media/1048_file-300x225.jpg 300w -> /media/1048_file.jpg 300w
-	content = mediaSrcsetSizeRe.ReplaceAllString(content, `${1}${2} ${3}`)
+		// Also handle srcset entries with size descriptors
+		// e.g., /media/1048_file-300x225.jpg 300w -> /media/1048_file.jpg 300w
+		content = mediaSrcsetSizeRe.ReplaceAllString(content, `${1}${2} ${3}`)
+	}
 
 	// Process WordPress shortcodes
 	content = processShortcodes(content)
@@ -4857,6 +5159,11 @@ func processShortcodes(content string) string {
 // processWPShortcodesWith converts WordPress video shortcodes to HTML, passing
 // each embed through emit so the sanitizing pipeline can protect it (GO-037).
 func processWPShortcodesWith(content string, emit func(string) string) string {
+	// Both patterns start with a literal bracket. A document with none cannot
+	// match either, and asking is a byte scan against two regex walks (#270).
+	if !strings.Contains(content, "[") {
+		return content
+	}
 	for _, re := range wpVideoShortcodeRes {
 		content = re.ReplaceAllStringFunc(content, func(match string) string {
 			submatches := re.FindStringSubmatch(match)

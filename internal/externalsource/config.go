@@ -114,6 +114,14 @@ type SourceConfig struct {
 	Database string                 `yaml:"database" toml:"database" json:"database"`
 	Queries  map[string]QueryConfig `yaml:"queries" toml:"queries" json:"queries"`
 
+	// Records as pages (GO-098). ContentMap names the record field behind each
+	// page field and is what makes `mode: content` mean something for a source
+	// that is not a CMS; without it the source stays data, as it always was.
+	ContentMap    ContentMap `yaml:"content_map" toml:"content_map" json:"content_map"`
+	ContentFormat string     `yaml:"content_format" toml:"content_format" json:"content_format"` // markdown (default) | html | text
+	ContentErrors string     `yaml:"content_errors" toml:"content_errors" json:"content_errors"` // warn (default) | strict
+	MaxRows       int        `yaml:"max_rows" toml:"max_rows" json:"max_rows"`                   // record cap; default 10000
+
 	// CMS sources (phases 4-6) run over the same SQL drivers.
 	Adapter     string             `yaml:"adapter" toml:"adapter" json:"adapter"` // wordpress | drupal | movable_type
 	Mode        string             `yaml:"mode" toml:"mode" json:"mode"`          // content (default) | data
@@ -204,6 +212,12 @@ type Source struct {
 	DSN      string
 	Database string
 	Queries  map[string]Query
+
+	// Records as pages (GO-098).
+	ContentMap    ContentMap
+	ContentFormat string
+	ContentErrors string
+	MaxRows       int
 
 	// CMS sources (phases 4-6).
 	Adapter     string
@@ -299,6 +313,9 @@ func resolveSource(name string, sc SourceConfig, defaults Defaults, maxSize int6
 		MaxSize: maxSize, Transform: sc.Transform, CSV: sc.CSV}
 	switch sc.Type {
 	case "sql":
+		if err := resolveContentMapping(&src, sc); err != nil {
+			return Source{}, err
+		}
 		return src, resolveSQL(&src, sc, defaults)
 	case "cms":
 		return src, resolveCMS(&src, sc, defaults)
@@ -306,9 +323,15 @@ func resolveSource(name string, sc SourceConfig, defaults Defaults, maxSize int6
 		if err := resolveFormat(&src, sc); err != nil {
 			return Source{}, err
 		}
+		if err := resolveContentMapping(&src, sc); err != nil {
+			return Source{}, err
+		}
 		return src, resolveHTTP(&src, sc, defaults)
 	case "file":
-		return src, resolveFormat(&src, sc)
+		if err := resolveFormat(&src, sc); err != nil {
+			return Source{}, err
+		}
+		return src, resolveContentMapping(&src, sc)
 	default:
 		return Source{}, fmt.Errorf("external source %q: unsupported type %q (supported: file, http, sql, cms)", name, sc.Type)
 	}
@@ -574,4 +597,55 @@ func parseSize(s string, def int64) (int64, error) {
 		return 0, fmt.Errorf("invalid size %q (want e.g. 5MB, 512KB or a byte count)", s)
 	}
 	return n * mult, nil
+}
+
+// resolveContentMapping validates `mode` and `content_map` for the sources
+// that are not a CMS (GO-098).
+//
+// `mode: content` used to pass validation for every source type and do nothing
+// unless the source was a CMS — a promise the code did not keep, and one the
+// docs repeated. It now means what it says, and the one thing that cannot be
+// guessed has to be stated: which record field is the title, and which is the
+// body. A `mode: content` without a `content_map` is refused here rather than
+// producing a site full of pages titled after whatever key sorted first.
+func resolveContentMapping(src *Source, sc SourceConfig) error {
+	switch sc.Mode {
+	case "", "data":
+		src.Mode = "data"
+	case "content":
+		src.Mode = "content"
+	default:
+		return fmt.Errorf("external source %q: unsupported mode %q (supported: content, data)", src.Name, sc.Mode)
+	}
+	src.ContentMap = sc.ContentMap
+	src.MaxRows = sc.MaxRows
+
+	if src.Mode == "content" && sc.ContentMap.Empty() {
+		return fmt.Errorf("external source %q: mode: content needs a content_map saying which record field is the title "+
+			"and which is the body (see docs/EXTERNAL_SOURCES.md, \"Records as pages\")", src.Name)
+	}
+	if src.Mode == "data" && !sc.ContentMap.Empty() {
+		return fmt.Errorf("external source %q: content_map only applies with mode: content", src.Name)
+	}
+	if src.Mode == "content" && sc.ContentMap.Title == "" {
+		return fmt.Errorf("external source %q: content_map.title is required — a page with no title has nothing to be about", src.Name)
+	}
+
+	switch sc.ContentFormat {
+	case "":
+		src.ContentFormat = FormatMarkdown
+	case FormatMarkdown, FormatHTML, FormatText:
+		src.ContentFormat = sc.ContentFormat
+	default:
+		return fmt.Errorf("external source %q: unsupported content_format %q (supported: markdown, html, text)", src.Name, sc.ContentFormat)
+	}
+	switch sc.ContentErrors {
+	case "":
+		src.ContentErrors = "warn"
+	case "warn", "strict":
+		src.ContentErrors = sc.ContentErrors
+	default:
+		return fmt.Errorf("external source %q: unsupported content_errors %q (supported: warn, strict)", src.Name, sc.ContentErrors)
+	}
+	return nil
 }

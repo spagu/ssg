@@ -43,6 +43,7 @@ Linux and macOS:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/spagu/ssg/main/install.sh | bash
+# verifies the download against the release's checksums.sha256 before installing
 ```
 
 Other supported installation methods:
@@ -299,6 +300,19 @@ Common options:
 | Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
 | Fail the build on any violation | `strict: true` | `--strict` |
 | Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
+| Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
+| Report where the build's time went | `profile: text` | `--profile[=json]` |
+| Rebuild only what a change reaches | `incremental: true` | `--incremental` |
+| Keep converted Markdown between builds | `markdown_cache: true` | `--markdown-cache` |
+| See what a change rebuilds, and why | — | `ssg graph [file]`, MCP `site_dependencies` |
+| Read and edit the config from the CLI | — | `ssg config view\|set\|unset` |
+| Turn records from a file or API into pages | `mode: content` + `content_map:` | config only |
+| Edit frontmatter in the browser | — | `--http --watch --edit` |
+| Declare tracking ids (GTM both halves, GA4) | `analytics_ids: {gtm: GTM-…}` | config only |
+| Typed content components with a props schema | a `components/` directory | `--components-dir=DIR` |
+| Decide the markup for images, links, headings, code | `render_hooks: {image: …}` | config only |
+| Name relations between pages, and version a document | `relations:` / `version_of:` in frontmatter | config only |
+| Publish a page as JSON, Markdown, text or your own format | `outputs: {page: [html, json]}` | `--outputs=html,json` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
@@ -322,6 +336,7 @@ ssg --help
 | Task | Command |
 |---|---|
 | Preview while editing | `ssg my-blog simple example.com --http --watch` |
+| See what editing one file rebuilds | `ssg graph content/my-blog/posts/hello.md` |
 | Production build | `ssg my-blog simple example.com --clean --minify-all` |
 | WebP and responsive images | `ssg my-blog simple example.com --webp --image-sizes=480,960,1600` |
 | Feed, search and SEO | `ssg my-blog simple example.com --feed --search-index --seo` |
@@ -544,6 +559,10 @@ Development workflow and review requirements are in
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
+| [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
+| [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |
+| [docs/INCREMENTAL.md](docs/INCREMENTAL.md) | `--incremental` and `ssg graph`: what a change rebuilds, when a build is full anyway, what it saves |
+| [docs/EDITING.md](docs/EDITING.md) | `--edit`: editing frontmatter in the browser — what a theme marks, where a save goes, the security rules |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |
 | [docs/CONTENT.md](docs/CONTENT.md) | Content structure, frontmatter and URL rules |
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |
@@ -562,6 +581,11 @@ Development workflow and review requirements are in
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development and contribution workflow |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting policy |
+
+Three posts cover 1.8.60 for the people who maintain client sites:
+[what an agency does between builds](blog/the-client-wants-to-fix-a-typo.md),
+[what breaks if I change this](blog/what-breaks-if-i-change-this.md) and
+[the paragraph you clicked is not in the file](blog/the-paragraph-you-clicked-is-not-in-the-file.md).
 
 The project blog also covers the reasoning behind recent MCP work, including
 [smaller context for targeted edits](blog/ai-agent-should-not-read-5000-tokens-for-one-css-value.md)

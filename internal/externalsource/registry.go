@@ -19,6 +19,71 @@ type connector interface {
 	Load(src Source) (*Result, error)
 }
 
+// loadAll fetches every source in parallel, capped by max_concurrent, and
+// returns each one's result, error and mapping warnings by position. Positions
+// rather than a channel, because the caller reports sources in the order they
+// were configured and a map would have to be re-sorted to do that.
+func loadAll(cfg Config, sources []Source) ([]*Result, []error, [][]string) {
+	fileConn := FileConnector{}
+	httpConn := newHTTPConnector(cfg)
+	results := make([]*Result, len(sources))
+	errs := make([]error, len(sources))
+	mapWarnings := make([][]string, len(sources))
+
+	limit := cfg.MaxConcurrent
+	if limit <= 0 {
+		limit = defaultConcurrency
+	}
+	sem := make(chan struct{}, limit)
+	var wg sync.WaitGroup
+	for i, src := range sources {
+		wg.Add(1)
+		go func(i int, src Source) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results[i], errs[i] = connectorFor(src, fileConn, httpConn).Load(src)
+			if errs[i] == nil {
+				mapWarnings[i], errs[i] = mapRecordsIfContent(src, results[i])
+				if errs[i] != nil {
+					results[i] = nil
+				}
+			}
+		}(i, src)
+	}
+	wg.Wait()
+	return results, errs, mapWarnings
+}
+
+// connectorFor picks the connector one source needs. File is the default,
+// because a path is what a source is unless it says otherwise.
+func connectorFor(src Source, fileConn FileConnector, httpConn connector) connector {
+	switch src.Type {
+	case "http":
+		return httpConn
+	case "sql":
+		return SQLConnector{}
+	case "cms":
+		return CMSConnector{}
+	}
+	return fileConn
+}
+
+// mapRecordsIfContent turns records into pages for every source type that is
+// not a CMS — the CMS connector produces its own import (GO-098).
+func mapRecordsIfContent(src Source, result *Result) ([]string, error) {
+	if src.Mode != "content" || src.Type == "cms" {
+		return nil, nil
+	}
+	imported, warnings, err := MapRecords(src, result.Data)
+	if err != nil {
+		return nil, fail(src, "content_map", err)
+	}
+	result.CMS = imported
+	result.Metadata.RecordCount = len(imported.Pages) + len(imported.Posts)
+	return warnings, nil
+}
+
 // Load resolves the configuration and loads every source, up to
 // max_concurrent_sources at a time. Results and warnings keep the
 // deterministic name-sorted order regardless of completion order. A required
@@ -33,36 +98,7 @@ func Load(cfg Config) (*Registry, []string, error) {
 		return nil, warnings, err
 	}
 
-	fileConn := FileConnector{}
-	httpConn := newHTTPConnector(cfg)
-	results := make([]*Result, len(sources))
-	errs := make([]error, len(sources))
-
-	limit := cfg.MaxConcurrent
-	if limit <= 0 {
-		limit = defaultConcurrency
-	}
-	sem := make(chan struct{}, limit)
-	var wg sync.WaitGroup
-	for i, src := range sources {
-		wg.Add(1)
-		go func(i int, src Source) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			var conn connector = fileConn
-			switch src.Type {
-			case "http":
-				conn = httpConn
-			case "sql":
-				conn = SQLConnector{}
-			case "cms":
-				conn = CMSConnector{}
-			}
-			results[i], errs[i] = conn.Load(src)
-		}(i, src)
-	}
-	wg.Wait()
+	results, errs, mapWarnings := loadAll(cfg, sources)
 
 	reg := &Registry{Results: make(map[string]*Result, len(sources))}
 	for i, src := range sources {
@@ -77,6 +113,7 @@ func Load(cfg Config) (*Registry, []string, error) {
 		}
 		reg.Order = append(reg.Order, src.Name)
 		reg.Results[src.Name] = results[i]
+		warnings = append(warnings, mapWarnings[i]...)
 	}
 	return reg, warnings, nil
 }

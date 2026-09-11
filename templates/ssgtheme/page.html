@@ -17,9 +17,9 @@
 <main class="main-content" id="main-content">
     <div class="container docs-layout">
         {{ template "sc-docs-nav" . }}
-        <article class="article prose" id="page-{{ .Page.Slug }}">
+        <article class="article prose" id="page-{{ .Page.Slug }}" data-ssg-edit="body">
             <p class="eyebrow">Guide</p>
-            <h1>{{ .Page.Title }}</h1>
+            <h1 data-ssg-edit="frontmatter:title">{{ .Page.Title }}</h1>
             <p class="article-meta">
                 <span>{{ .Page.ReadingTime }} min read</span>
                 <span>{{ .Page.WordCount }} words</span>

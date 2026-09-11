@@ -177,6 +177,12 @@ type Config struct {
 	// `.Site.Title` follows (#128).
 	Marketing models.Marketing `yaml:"marketing" toml:"marketing" json:"marketing"`
 
+	// SiteGraph writes site-graph.json: one model of the published site —
+	// pages, sections, taxonomies, links, redirects, translations — for agents
+	// and tools that would otherwise scan directories (GO-095). Opt-in, like
+	// markdown_publish; the same model feeds routes.json and llms.txt either way.
+	SiteGraph bool `yaml:"site_graph" toml:"site_graph" json:"site_graph"`
+
 	SitemapOff bool `yaml:"sitemap_off" toml:"sitemap_off" json:"sitemap_off"`
 
 	// Sitemaps declares sub-sitemaps, each choosing what goes in and where it is
@@ -500,7 +506,17 @@ type Config struct {
 	// JavaScript on every page is the site owner's decision, not a side effect
 	// of migrating content. The ids stay readable at .Site.Analytics either way.
 	Analytics bool `yaml:"analytics" toml:"analytics" json:"analytics"`
-	SEOOff    bool `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
+
+	// AnalyticsIDs are the tracking ids the site itself declares, keyed by
+	// vendor — `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Until now the only source
+	// of an id was a migration's crawl, so a site written by hand had no way
+	// to run a tag manager at all except by editing a theme (FE-001).
+	//
+	// Declaring one is the consent `analytics: true` asks for, so an id here
+	// renders without also setting that flag; ids from a migration still need
+	// it, because nobody chose those.
+	AnalyticsIDs map[string]string `yaml:"analytics_ids" toml:"analytics_ids" json:"analytics_ids"`
+	SEOOff       bool              `yaml:"seo_off" toml:"seo_off" json:"seo_off"` // deprecated: use seo: false
 
 	// CheckLinks validates internal links after build: "" (off), "warn", or "strict"
 	// (non-zero exit on a dead internal link) (SEO-005).
@@ -596,9 +612,40 @@ type Config struct {
 	// (ASSET-002): {"app.css": ["reset.css","theme.css"]}.
 	Bundles map[string][]string `yaml:"bundles" toml:"bundles" json:"bundles"`
 
-	// Outputs lists per-page output formats; "html" always emitted, add "json" for a
-	// headless JSON representation next to index.html (PLAT-003).
-	Outputs []string `yaml:"outputs" toml:"outputs" json:"outputs"`
+	// Outputs lists per-page output formats; "html" is always emitted (PLAT-003).
+	//
+	// It accepts two shapes (GO-092). The flat list it has always taken —
+	// `outputs: [html, json]` — applies to every content type. A mapping —
+	// `outputs: {page: [html, json], post: [html, markdown]}` — applies per
+	// type. OutputsPerType holds the second form; both decode through
+	// OutputsSpec so an existing config means exactly what it did.
+	Outputs        []string            `yaml:"-" toml:"-" json:"-"`
+	OutputsPerType map[string][]string `yaml:"-" toml:"-" json:"-"`
+	OutputsSpec    OutputsSpec         `yaml:"outputs" toml:"outputs" json:"outputs"`
+
+	// OutputsCustom are output formats this site defines with a template of
+	// its own — which is how a site publishes XML without the generator
+	// guessing at a schema (GO-092).
+	OutputsCustom []CustomOutput `yaml:"outputs_custom" toml:"outputs_custom" json:"outputs_custom"`
+
+	// Incremental narrows a build to what a change can have affected, using
+	// the dependency graph the previous build recorded (GO-094). On by default
+	// in --watch, where it is the difference between a keystroke and a pause;
+	// a build that cannot be narrowed silently runs whole.
+	Incremental bool `yaml:"incremental" toml:"incremental" json:"incremental"`
+
+	// MarkdownCache keeps converted Markdown between builds (#270).
+	//
+	// **Off by default, deliberately.** It costs disk equal to the size of the
+	// content and buys 3% on a developer's machine, because converting Markdown
+	// is parallel and reading a cache is not. It is worth turning on in one
+	// place: a CI runner with two cores and a cache carried between runs, where
+	// it is worth about 9%.
+	//
+	// A build with render hooks never uses it whatever this says — a hook can
+	// read the whole site, and a conversion that does is not a function of its
+	// own input any more.
+	MarkdownCache *bool `yaml:"markdown_cache" toml:"markdown_cache" json:"markdown_cache"`
 
 	// SearchIndex writes search-index.json (title/url/tags/excerpt/text) for a
 	// client-side search widget (PLAT-004).
@@ -624,6 +671,25 @@ type Config struct {
 	// RouteManifest writes routes.json — a machine-readable list of every generated
 	// route and its metadata — for external tooling and typed clients (#62).
 	RouteManifest bool `yaml:"route_manifest" toml:"route_manifest" json:"route_manifest"`
+
+	// Profile reports where the build's time went (GO-097): "text" prints the
+	// phases, counters and slowest pages after the build; "json" additionally
+	// writes build-profile.json beside the project, for CI to archive and
+	// compare between commits. Empty is off.
+	Profile string `yaml:"profile" toml:"profile" json:"profile"`
+
+	// ProfilePprof writes cpu.prof and heap.prof into the named directory, for
+	// `go tool pprof`. A maintainer's tool: --profile answers where the time
+	// goes, this answers why.
+	ProfilePprof string `yaml:"profile_pprof" toml:"profile_pprof" json:"profile_pprof"`
+
+	// Edit turns the preview server into an editor (GO-102): a marked region
+	// on a page opens a form for that document's frontmatter, and a save is
+	// written, validated, rebuilt and committed to a branch of its own. Needs
+	// --http and --watch; refuses to start off loopback without a token. Never
+	// a config key on purpose — it belongs to a session at a keyboard, not to
+	// a project that might be built by CI.
+	Edit bool `yaml:"-" toml:"-" json:"-"`
 
 	// DataDir is the directory of data files (*.yaml|*.yml|*.json) loaded into
 	// the .Data.* template namespace (default "data", PLAT-002).
@@ -672,6 +738,22 @@ type Config struct {
 	// documents written without a "## Excerpt" section. Off by default,
 	// because it changes those texts on an existing site (GO-057).
 	AutoExcerpt bool `yaml:"auto_excerpt" toml:"auto_excerpt" json:"auto_excerpt"`
+
+	// ComponentsDir is where typed content components live (GO-093): a
+	// directory per component, each with a props schema, a template and
+	// optional assets. Default "components"; absent means the site has none.
+	ComponentsDir string `yaml:"components_dir" toml:"components_dir" json:"components_dir"`
+
+	// RenderHooks maps a Markdown node kind to the template that renders it
+	// (GO-099): image, link, heading, code, table, blockquote. Absent leaves
+	// goldmark's own markup untouched — which is what every existing site
+	// gets.
+	RenderHooks map[string]string `yaml:"render_hooks" toml:"render_hooks" json:"render_hooks"`
+
+	// Versions decides what a chain of document versions means for search
+	// engines (GO-096): whether superseded versions are noindexed, and whether
+	// they belong in the sitemap.
+	Versions VersionsConfig `yaml:"versions" toml:"versions" json:"versions"`
 
 	// ShortcodeErrors decides what a shortcode whose template fails to render
 	// leaves in the page: "" / "drop" (default, historical behaviour — a warning
@@ -1057,6 +1139,9 @@ func Load(path string) (*Config, error) {
 	}
 	cfg.LanguageConfigs = expanded
 	cfg.I18n = cfg.I18n.WithDefaults()
+	// `outputs:` arrives as a list or a map; both land in the fields the
+	// generator reads (GO-092).
+	cfg.applyOutputsSpec()
 
 	// Apply minify_all
 	if cfg.MinifyAll {
@@ -1240,4 +1325,77 @@ func FindConfigFile() string {
 	}
 
 	return ""
+}
+
+// VersionsConfig tunes a chain of document versions (GO-096).
+type VersionsConfig struct {
+	// NoindexOld adds `robots: noindex, follow` to superseded versions. Off by
+	// default: a superseded page is still a page someone may have linked to.
+	//
+	// Turning it on also removes them from the sitemap, through the rule that
+	// already drops any noindex page (#78) — rather than through a second
+	// switch that could disagree with the first.
+	NoindexOld bool `yaml:"noindex_old" toml:"noindex_old" json:"noindex_old"`
+}
+
+// CustomOutput is a page format a site defines for itself (GO-092).
+type CustomOutput struct {
+	Name     string `yaml:"name" toml:"name" json:"name"`
+	Suffix   string `yaml:"suffix" toml:"suffix" json:"suffix"`
+	MIME     string `yaml:"mime" toml:"mime" json:"mime"`
+	Template string `yaml:"template" toml:"template" json:"template"`
+}
+
+// OutputsSpec decodes `outputs:` in either of its two shapes (GO-092): the flat
+// list it has always been, or a mapping of content type to list.
+//
+// Two shapes rather than a new key, because the flat form is what every
+// existing config writes and a second key would leave two ways to say the same
+// thing forever.
+type OutputsSpec struct {
+	// All is the flat form, applying to every content type.
+	All []string
+	// PerType is the mapping form.
+	PerType map[string][]string
+}
+
+// UnmarshalYAML accepts both shapes.
+func (o *OutputsSpec) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.SequenceNode:
+		return value.Decode(&o.All)
+	case yaml.MappingNode:
+		return value.Decode(&o.PerType)
+	case 0:
+		return nil
+	}
+	return fmt.Errorf("outputs: expected a list of formats or a map of content type to formats")
+}
+
+// UnmarshalJSON accepts both shapes, for a JSON or TOML-decoded config.
+func (o *OutputsSpec) UnmarshalJSON(data []byte) error {
+	var list []string
+	if err := json.Unmarshal(data, &list); err == nil {
+		o.All = list
+		return nil
+	}
+	return json.Unmarshal(data, &o.PerType)
+}
+
+// MarkdownCacheEnabled reports whether conversions are kept between builds.
+// Unset means off; the pointer is there so a config can say either word and a
+// later default change cannot silently flip a project that had chosen.
+func (c *Config) MarkdownCacheEnabled() bool {
+	return c.MarkdownCache != nil && *c.MarkdownCache
+}
+
+// applyOutputsSpec copies the decoded shape into the fields the generator
+// reads. Called by Load, so a config built in code can set either directly.
+func (c *Config) applyOutputsSpec() {
+	if len(c.OutputsSpec.All) > 0 {
+		c.Outputs = c.OutputsSpec.All
+	}
+	if len(c.OutputsSpec.PerType) > 0 {
+		c.OutputsPerType = c.OutputsSpec.PerType
+	}
 }

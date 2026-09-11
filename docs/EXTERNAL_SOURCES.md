@@ -300,16 +300,112 @@ external_sources:
         select: docs           # Payload wraps results in { docs: [...] }
 ```
 
-The extracted array lands in `.ExternalData.payload_posts` for templates, or use
-`mode: content` to merge the documents into the site as native pages/posts. Keep
-the API key in the environment (`PAYLOAD_API_KEY`), never in the committed
-config.
+The extracted array lands in `.ExternalData.payload_posts` for templates. To
+merge the documents into the site as native pages instead, add `mode: content`
+**and a `content_map`** saying which document field is the title and which is
+the body — see [Records as pages](#records-as-pages) below. Keep the API key in
+the environment (`PAYLOAD_API_KEY`), never in the committed config.
+
+```yaml
+      mode: content
+      content_map:
+        title: title
+        slug: slug
+        content: content
+        date: publishedAt
+        type: "=post"
+```
 
 > **Note.** The generic `pagination:` block is not used here: it aggregates
 > pages that are each a bare JSON array, whereas Payload wraps every page in a
 > `{ docs: [...] }` object. Raise `limit` to fetch the collection in one
 > request instead. A collection larger than a single reasonable `limit` is the
 > one case that would justify a dedicated Payload preset.
+
+## Records as pages
+
+A source's records are data a template can iterate. With a `content_map` they
+become **pages** instead — one page per record, with their own URLs, taxonomy
+archives, sitemap entries, feeds and `.md`/`.json` outputs, exactly like a page
+written by hand.
+
+The build could already do this for a CMS database. Every other source type
+accepted `mode: content` in its configuration and then ignored it, because the
+one thing a tool cannot guess was missing: which field of a record is the
+title, and which is the body. `content_map` says so.
+
+```yaml
+external_sources:
+  enabled: true
+  sources:
+    products:
+      type: file
+      path: data/products.csv
+      format: csv
+      mode: content
+      content_map:
+        title: name              # a field of the record
+        slug: "product-{{.sku}}" # a template over the record
+        content: description
+        date: updated_at
+        type: "=product"         # a constant: every record gets this
+        taxonomies:
+          tag: categories        # a list field, or "a,b" in one CSV column
+      content_format: markdown   # markdown (default) | html | text
+      content_errors: warn       # warn (default) | strict
+      max_rows: 10000            # the record cap
+```
+
+Three CSV rows become three pages at `/product-w-1/`, `/product-w-2/` and
+`/product-w-3/`, each rendered through the `product` type's template if the
+theme has one and the post template otherwise.
+
+### How a mapping value is read
+
+| Written as | Means |
+|---|---|
+| `name` | the record's `name` field |
+| `attributes.title` | a dotted path into a nested record |
+| `=product` | a **constant** — every record gets this value |
+| `product-{{.sku}}` | a **template** over the record, for a value built from several fields |
+
+The leading `=` is the one piece of syntax worth remembering. Writing
+`type: product` looks right and means "the record's `product` field", which no
+record has; the build says so and points at `"=product"`.
+
+### The fields you can map
+
+`title` (required), `slug`, `content`, `excerpt`, `description`, `date`,
+`modified`, `type`, `status`, `link`, `image`, `lang`, and `taxonomies` as a
+map of taxonomy name to record field.
+
+A missing `slug` is derived from the title. A missing `type` is `post`; `page`
+routes the record onto the page pipeline. Dates are read as ISO-8601,
+`YYYY-MM-DD`, `DD/MM/YYYY`, RFC 1123 or a Unix timestamp.
+
+### What stops the build, and what only warns
+
+- **Two records mapping to the same slug** stops it, always. Two pages at one
+  URL means one of them is silently lost, and no policy makes that acceptable.
+  The error suggests the fix: a slug template with a field that is unique.
+- **More records than `max_rows`** stops it, so a source that grew by a
+  thousand does not quietly become a thousand pages.
+- **A record with no title** is skipped with a warning, and a **field the
+  mapping names but the record does not have** is warned about and left empty.
+  `content_errors: strict` promotes both to build failures.
+
+### `content_format`
+
+`markdown` (the default) and `html` both pass the body to the same renderer
+every page body goes through, which renders Markdown and passes HTML through.
+`text` is the one that changes something: it escapes the characters that turn
+prose into markup, so a product description with a `50% *off*` in it arrives as
+its author wrote it rather than half-italic.
+
+### Still data, too
+
+A mapped source keeps its `.ExternalData.<name>` namespace. The records are
+pages **and** data, so a template that already iterated them still can.
 
 ## SQL (`type: sql`)
 

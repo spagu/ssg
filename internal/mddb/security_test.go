@@ -20,7 +20,7 @@ func TestClient_ErrorBodyBounded(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(Config{BaseURL: server.URL})
-	_, err := client.Get(GetRequest{Collection: "blog", Key: "k"})
+	_, _, err := client.Search(SearchRequest{Collection: "blog"})
 	if err == nil {
 		t.Fatal("expected an error for HTTP 500")
 	}

@@ -268,6 +268,34 @@ The bundled `ssgtheme` is the reference implementation of this layout:
 templates hold only what is unique to them. See
 [`templates/ssgtheme/README.md`](../templates/ssgtheme/README.md).
 
+## Marking editable regions
+
+A theme says which parts of a page may be edited in the browser
+(`ssg --http --watch --edit`, see [EDITING.md](EDITING.md)) with one attribute:
+
+```html
+<h1 data-ssg-edit="frontmatter:title">{{ .Post.Title }}</h1>
+<time data-ssg-edit="frontmatter:date" datetime="{{ .Post.Date.Format "2006-01-02" }}">…</time>
+<p data-ssg-edit="frontmatter:description">{{ .Page.Description }}</p>
+```
+
+The value names the source of the text: `frontmatter:<key>` opens that field's
+control, and `body` marks the region holding the page's content, inside which a
+click on a paragraph, heading, list item or quotation opens that block:
+
+```html
+<div class="post-body" data-ssg-edit="body">{{ .Post.Content | safeHTML }}</div>
+```
+
+Put it on an element the theme already has rather than adding a wrapper, so a
+published page keeps the markup it had. A region with no attribute is not editable, which is the point — most
+text on a rendered page did not come from a file's body, and guessing where it
+came from is how an editor changes the wrong paragraph.
+
+The attribute is free to leave in: a build without `--edit` removes it, byte for
+byte, so a published page carries none of it. `ssgtheme`, `simple` and `krowy`
+already have it on their titles.
+
 ## Template engines
 
 | Engine | Configuration | Aliases | Syntax |
@@ -461,6 +489,7 @@ executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface
 |---|---|
 | `.URL`, `.CanonicalURL`, `.OutputPath`, `.TOC`, `.Hreflang` | **root only** — computed for the template, no struct field behind them |
 | `.Site`, `.Domain`, `.Vars`, `.Data`, `.ExternalData`, `.Languages` | **root only** — site-level, not per-page |
+| `.Pager`, `.Posts` | **only on a page with `paginate:` in its frontmatter** — this page's pager and slice, the same shape an archive gets; nil / absent elsewhere, so guard with `{{ with .Pager }}` in a shared layout |
 | `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
 | custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
 
@@ -541,6 +570,34 @@ Examples:
 ```gotemplate
 {{ with index .Site.Authors .Author }}
   <a href="/author/{{ .Slug }}/">{{ .Name }}</a>
+{{ end }}
+```
+
+### What a category and a media item carry
+
+These entries hold more than the generator reads. The extra fields exist for
+themes, and are listed here so a theme author does not have to guess (GO-045):
+
+| `.Site.Categories[id]` | What it is |
+|---|---|
+| `.ID`, `.Name`, `.Slug` | identity; `.Slug` is what the archive URL uses |
+| `.Description` | the term's own text, for an archive header |
+| `.Count` | how many entries the source CMS had in it — "12 posts" beside a term |
+| `.Parent` | the id of the parent term, for a nested menu; `0` at the top |
+| `.Link` | the URL the **source** site served this archive at, useful on a migrated site |
+
+| `.Site.Media[id]` | What it is |
+|---|---|
+| `.ID`, `.Slug`, `.Title.Rendered` | identity and caption |
+| `.MediaType`, `.MimeType` | `image`, `file`; the MIME type picks an icon for a document link |
+| `.SourceURL` | the original URL, for a site that did not copy its media across |
+| `.MediaDetails.File` | the path the generator itself resolves a featured image through |
+| `.MediaDetails.Width`, `.Height` | the intrinsic size — write both attributes and the page stops shifting as images load |
+
+```gotemplate
+{{ with index .Site.Media .FeaturedMediaID }}
+  <img src="{{ .SourceURL }}" alt="{{ .Title.Rendered }}"
+       width="{{ .MediaDetails.Width }}" height="{{ .MediaDetails.Height }}">
 {{ end }}
 ```
 

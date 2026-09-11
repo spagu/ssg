@@ -211,7 +211,7 @@ func logServerStart(cfg *config.Config, url, mode string, exposed bool) {
 	scheme := "HTTP"
 	if mode != "" {
 		scheme = "HTTPS"
-		url = strings.Replace(url, "http://", "https://", 1)
+		url = resolveListenURL(true, strings.TrimPrefix(url, plainScheme+"://"))
 	}
 	fmt.Printf("🌐 Starting %s server at %s\n", scheme, url)
 	if mode == "auto" {
@@ -325,6 +325,10 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	// and HTML injection sees the finished page. A no-op unless --auto-reload
 	// created the hub (GO-090).
 	h = liveReloadMiddleware(h)
+	// Outside live reload, so the editor's panel is injected into the page the
+	// reload script has already been added to, and its own endpoints are not
+	// buffered by the reload injector (GO-102).
+	h = editMiddleware(h)
 	return h
 }
 
