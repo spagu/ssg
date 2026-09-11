@@ -538,6 +538,13 @@ Useful targets:
 | `make golden` | Check generated output against the recorded baseline |
 | `make determinism` | Check the worker count does not change the output |
 | `make bench` | Measure build throughput on a synthetic corpus |
+
+CI holds a **96% statement-coverage floor twice**: on the module as a whole and
+on every package individually, both computed without the generated protobuf. A
+pull request that drops either fails the `Test` job — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the exact check and how to run it
+locally. `BENCH_INCREMENTAL=1 make bench` times a one-post edit under
+`--incremental` beside a full build.
 | `make all` | Dependencies, lint, tests and build |
 | `make install` | Install the binary and manual page |
 
