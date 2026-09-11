@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.61] - 2026-09-11
+
+### Added
+- ✏️ **`make site-edit`** serves this project's own documentation with the
+  browser editor on (GO-102), beside `make site-watch`. The quickest way to see
+  what a client would: click a heading, change it, and find the edit on a branch.
+
+### Fixed
+- 📦 **The amd64 Snap builds on the runner instead of inside a fresh LXD
+  container.** On the amd64 pool the container had no working route to
+  `archive.ubuntu.com` at all — every fetch timed out on port 80, IPv6 reported
+  the network unreachable — so installing snapd and the stage-packages inside
+  it hung for a quarter of an hour and failed, three runs out of three for
+  v1.8.60, while the host reached the snap store in seconds and arm64 passed
+  every time. LXD warns on the way in that the runner's Docker packages "might
+  interfere with LXD networking"; that is the bridge NAT it trips over.
+  Destructive mode builds on the host, whose network GitHub keeps working; the
+  runner is pinned to `ubuntu-24.04` because the host has to match the `core24`
+  base. Ephemeral runners make "destructive" a misnomer.
+
+### Changed
+- 📖 The README's Make-target table covers what a developer actually reaches
+  for — the golden baseline and its re-record, determinism, the documentation
+  site, version sync, packaging and release — where it listed eight of
+  thirty-seven. `make help` remains the complete list.
+- 📖 `--markdown-cache` appears in `--help`; it was documented in the manpage
+  and the guides but not where the flag is discovered.
+
 ## [1.8.60] - 2026-09-10
 
 ### Changed
