@@ -12,7 +12,7 @@
 # makes the build reproducible; the tag is what lets Dependabot see that a new
 # one exists and open the bump. Keeping only the digest means nobody is told
 # when it stops receiving security patches.
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS builder # NOSONAR S8431
 
 # Provided automatically by buildx.
 ARG TARGETARCH
@@ -40,7 +40,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
 # what makes a build reproducible. Dependabot bumps both (.github/dependabot.yml)
 # — a digest nobody updates stops receiving security patches silently.
 # NOSONAR S8431: tag and digest together, for the reason above.
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b # NOSONAR S8431
 
 # Runtime dependencies (cwebp), the non-root user and its working directory in
 # ONE layer: three RUNs became one, and the directory is created already owned

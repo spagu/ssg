@@ -4073,43 +4073,10 @@ func (g *Generator) generatePage(page models.Page) error {
 		templateName = page.Template + ".html"
 	}
 
-	outputPaths := g.getOutputPaths(outputSubPath)
-	for _, outputPath := range outputPaths {
-		// Reject any path that escapes the output directory (SEC-001).
-		if err := g.ensureWithinOutput(outputPath); err != nil {
+	for _, outputPath := range g.getOutputPaths(outputSubPath) {
+		if err := g.writePageAt(page, outputPath, templateName, data); err != nil {
 			return err
 		}
-		// What this page's output depends on, recorded for the next build
-		// whether or not this one is incremental (GO-094).
-		g.recordPageOutput(page, outputPath)
-		if g.skipUnchanged(outputPath) {
-			continue
-		}
-		outputDir := filepath.Dir(outputPath)
-		if err := g.ensureDir(outputDir); err != nil {
-			return err
-		}
-
-		// Copy co-located assets only to the directory-style path (avoid duplicates)
-		if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
-			if err := g.copyColocatedAssets(page.SourceDir, outputDir, page.Content); err != nil {
-				fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
-			}
-		}
-
-		// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
-		// single write (PERF-005).
-		if err := g.renderPageTemplate(templateName, outputPath, data, &page, false); err != nil {
-			// Fallback to page.html if custom template not found
-			if strings.Contains(err.Error(), "no such template") || strings.Contains(err.Error(), "is undefined") {
-				if err := g.renderPageTemplate(pageHTMLName, outputPath, data, &page, false); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-		g.writePageOutputs(page, outputPath)
 	}
 
 	if len(chunks) > 1 {
@@ -4121,6 +4088,55 @@ func (g *Generator) generatePage(page models.Page) error {
 	g.writeAliasStubs(page)
 	g.runPostPageHook(page)
 	return nil
+}
+
+// writePageAt renders one of a page's output paths, with the assets that sit
+// beside it. page_format: both gives a page two, which is why this is a loop's
+// body rather than the page's whole story.
+func (g *Generator) writePageAt(page models.Page, outputPath, templateName string, data map[string]interface{}) error {
+	// Reject any path that escapes the output directory (SEC-001).
+	if err := g.ensureWithinOutput(outputPath); err != nil {
+		return err
+	}
+	// What this page's output depends on, recorded for the next build whether
+	// or not this one is incremental (GO-094).
+	g.recordPageOutput(page, outputPath)
+	if g.skipUnchanged(outputPath) {
+		return nil
+	}
+	outputDir := filepath.Dir(outputPath)
+	if err := g.ensureDir(outputDir); err != nil {
+		return err
+	}
+
+	// Co-located assets go only to the directory-style path, to avoid duplicates.
+	if page.SourceDir != "" && strings.HasSuffix(outputPath, indexHTMLName) {
+		if err := g.copyColocatedAssets(page.SourceDir, outputDir, page.Content); err != nil {
+			fmt.Printf("   ⚠️  Warning: couldn't copy co-located assets for page %s: %v\n", page.Slug, err)
+		}
+	}
+
+	// Render + per-file transforms (SEO/math/relative/prettify/minify) in a
+	// single write (PERF-005).
+	if err := g.renderPageOrFallback(templateName, outputPath, data, page); err != nil {
+		return err
+	}
+	g.writePageOutputs(page, outputPath)
+	return nil
+}
+
+// renderPageOrFallback renders through the page's chosen template, falling back
+// to page.html when that template does not exist — a layout named in
+// frontmatter is a request, and a missing one should not lose the page.
+func (g *Generator) renderPageOrFallback(templateName, outputPath string, data map[string]interface{}, page models.Page) error {
+	err := g.renderPageTemplate(templateName, outputPath, data, &page, false)
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(err.Error(), "no such template") && !strings.Contains(err.Error(), "is undefined") {
+		return err
+	}
+	return g.renderPageTemplate(pageHTMLName, outputPath, data, &page, false)
 }
 
 // runPostPageHook runs post_page hooks for a rendered page (PLAT-001). Failures are
@@ -4758,49 +4774,66 @@ func (g *Generator) copyStaticDirOnly() error {
 // prefix in the output.
 func (g *Generator) copyStaticSources() error {
 	for _, src := range g.config.StaticSources {
-		path := strings.TrimSpace(src.Path)
-		if path == "" {
-			continue
-		}
-		info, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Printf("   ⚠️  static_sources: %s does not exist, skipping\n", path)
-				continue
-			}
+		if err := g.copyStaticSource(src); err != nil {
 			return err
-		}
-		// An entry names a thing to publish, so it keeps its own name by default:
-		// `path: xml` serves /xml/..., which is the point — those URLs already
-		// exist and must keep resolving. `dest:` places it somewhere else, and
-		// `dest: "."` spreads a directory's contents at the output root, the way
-		// static_dir behaves.
-		rel := strings.TrimSpace(src.Dest)
-		if rel == "" {
-			rel = filepath.Base(path)
-		}
-		dest := g.config.OutputDir
-		if d := models.SanitizeRelPath(rel); d != "" && d != "." {
-			dest = filepath.Join(dest, d)
-		}
-		if info.IsDir() {
-			if err := g.copyDir(path, dest); err != nil {
-				return err
-			}
-		} else {
-			if err := g.ensureParent(dest); err != nil {
-				return err
-			}
-			if err := g.copyFile(path, dest); err != nil {
-				return err
-			}
-		}
-		g.recordStaticSitemapEntry(src, dest)
-		if !g.config.Quiet {
-			fmt.Printf("   📦 Copied static source %s to output\n", path)
 		}
 	}
 	return nil
+}
+
+// copyStaticSource publishes one extra passthrough root.
+//
+// An entry names a thing to publish, so it keeps its own name by default:
+// `path: xml` serves /xml/..., which is the point — those URLs already exist
+// and must keep resolving. `dest:` places it somewhere else, and `dest: "."`
+// spreads a directory's contents at the output root, the way static_dir does.
+func (g *Generator) copyStaticSource(src models.StaticSource) error {
+	path := strings.TrimSpace(src.Path)
+	if path == "" {
+		return nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("   ⚠️  static_sources: %s does not exist, skipping\n", path)
+			return nil
+		}
+		return err
+	}
+	dest := g.staticSourceDest(src, path)
+	if err := g.copyInto(path, dest, info.IsDir()); err != nil {
+		return err
+	}
+	g.recordStaticSitemapEntry(src, dest)
+	if !g.config.Quiet {
+		fmt.Printf("   📦 Copied static source %s to output\n", path)
+	}
+	return nil
+}
+
+// staticSourceDest is where one entry lands in the output tree.
+func (g *Generator) staticSourceDest(src models.StaticSource, path string) string {
+	rel := strings.TrimSpace(src.Dest)
+	if rel == "" {
+		rel = filepath.Base(path)
+	}
+	dest := g.config.OutputDir
+	if d := models.SanitizeRelPath(rel); d != "" && d != "." {
+		dest = filepath.Join(dest, d)
+	}
+	return dest
+}
+
+// copyInto copies a directory or a single file to dest, making the parent for
+// the file case — a directory copy makes its own.
+func (g *Generator) copyInto(path, dest string, isDir bool) error {
+	if isDir {
+		return g.copyDir(path, dest)
+	}
+	if err := g.ensureParent(dest); err != nil {
+		return err
+	}
+	return g.copyFile(path, dest)
 }
 
 // copyDir copies a directory recursively

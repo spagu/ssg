@@ -96,7 +96,32 @@ func TestRelationsStayInExtra(t *testing.T) {
 // TestVersionsCanonicaliseToTheLatest: without this, a document's own old
 // revisions compete with it in search results.
 func TestVersionsCanonicaliseToTheLatest(t *testing.T) {
-	cfg := dimensionSite(t, nil)
+	pages := builtPagesBySlug(t, dimensionSite(t, nil))
+
+	latest := pages["api-auth-v4"]
+	if !latest.IsLatest || latest.Canonical != "" {
+		t.Errorf("the latest version should be canonical to itself: %q", latest.Canonical)
+	}
+	if len(latest.Versions) != 2 || latest.Versions[0].Slug != "api-auth-v4" {
+		t.Errorf("the chain should be newest first: %+v", latest.Versions)
+	}
+
+	old := pages["api-auth-v3"]
+	if old.IsLatest {
+		t.Error("version 3 is not the latest")
+	}
+	if !strings.HasSuffix(old.Canonical, "/api-auth-v4/") {
+		t.Errorf("canonical = %q", old.Canonical)
+	}
+	if old.Robots != "" {
+		t.Errorf("noindex is opt-in, got %q", old.Robots)
+	}
+}
+
+// builtPagesBySlug builds a site and returns its pages keyed by slug, which is
+// how every assertion here wants to reach them.
+func builtPagesBySlug(t *testing.T, cfg Config) map[string]models.Page {
+	t.Helper()
 	gen, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -104,28 +129,11 @@ func TestVersionsCanonicaliseToTheLatest(t *testing.T) {
 	if err := gen.Generate(); err != nil {
 		t.Fatal(err)
 	}
-	for i := range gen.siteData.Pages {
-		p := gen.siteData.Pages[i]
-		switch p.Slug {
-		case "api-auth-v4":
-			if !p.IsLatest || p.Canonical != "" {
-				t.Errorf("the latest version should be canonical to itself: %+v", p.Canonical)
-			}
-			if len(p.Versions) != 2 || p.Versions[0].Slug != "api-auth-v4" {
-				t.Errorf("the chain should be newest first: %+v", p.Versions)
-			}
-		case "api-auth-v3":
-			if p.IsLatest {
-				t.Error("version 3 is not the latest")
-			}
-			if !strings.HasSuffix(p.Canonical, "/api-auth-v4/") {
-				t.Errorf("canonical = %q", p.Canonical)
-			}
-			if p.Robots != "" {
-				t.Errorf("noindex is opt-in, got %q", p.Robots)
-			}
-		}
+	out := make(map[string]models.Page, len(gen.siteData.Pages))
+	for _, p := range gen.siteData.Pages {
+		out[p.Slug] = p
 	}
+	return out
 }
 
 // TestVersionsNoindexIsOptIn, and takes the page out of the sitemap through

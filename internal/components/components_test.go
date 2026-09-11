@@ -300,20 +300,28 @@ func TestUnresolvedCallsFollowThePolicy(t *testing.T) {
 	if strict.Err == nil || !strings.Contains(strict.Err.Error(), "youtube") {
 		t.Errorf("strict must fail on a call made wrongly: %v", strict.Err)
 	}
+}
 
-	// A call naming a component the site does not have never fails a build,
-	// under any policy: documentation quoting a call is the ordinary case.
+// TestACallNamingNothingIsText, under every policy.
+//
+// Documentation quoting a component call is the ordinary case — this project's
+// own COMPONENTS.md does it — and failing a build over it would make the
+// feature impossible to document.
+func TestACallNamingNothingIsText(t *testing.T) {
+	set := mustLoad(t, library(t))
 	for _, policy := range []string{PolicyDrop, PolicyKeep, PolicyStrict} {
-		out, res := set.Render("prose about {{< nosuch >}} only", nil, policy, "", nil)
-		if out != "prose about {{< nosuch >}} only" {
-			t.Errorf("%s changed text that is not a call: %q", policy, out)
-		}
-		if res.Err != nil {
-			t.Errorf("%s failed on text that is not a call: %v", policy, res.Err)
-		}
-		if len(res.Warnings) != 1 {
-			t.Errorf("%s: it is still worth one warning: %v", policy, res.Warnings)
-		}
+		t.Run(policy, func(t *testing.T) {
+			out, res := set.Render("prose about {{< nosuch >}} only", nil, policy, "", nil)
+			if out != "prose about {{< nosuch >}} only" {
+				t.Errorf("changed text that is not a call: %q", out)
+			}
+			if res.Err != nil {
+				t.Errorf("failed on text that is not a call: %v", res.Err)
+			}
+			if len(res.Warnings) != 1 {
+				t.Errorf("it is still worth one warning: %v", res.Warnings)
+			}
+		})
 	}
 }
 
@@ -362,12 +370,7 @@ func TestManifestIsTheContract(t *testing.T) {
 	if m.Schema != ManifestSchema || len(m.Components) != 2 {
 		t.Fatalf("manifest = %+v", m)
 	}
-	var yt ManifestComponent
-	for _, c := range m.Components {
-		if c.Name == "youtube" {
-			yt = c
-		}
-	}
+	yt := manifestComponent(t, m, "youtube")
 	if yt.Description == "" || len(yt.Props) != 6 {
 		t.Errorf("youtube = %+v", yt)
 	}
@@ -382,7 +385,12 @@ func TestManifestIsTheContract(t *testing.T) {
 			t.Errorf("id = %+v", p)
 		}
 	}
-	data, err := set.EncodeManifest()
+}
+
+// TestTheEncodedManifestIsCopyable: an agent reading components.json has to be
+// able to paste the example straight into a document.
+func TestTheEncodedManifestIsCopyable(t *testing.T) {
+	data, err := mustLoad(t, library(t)).EncodeManifest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,6 +399,18 @@ func TestManifestIsTheContract(t *testing.T) {
 	if !strings.Contains(string(data), `"{{< youtube id=`) || strings.Contains(string(data), `\u003c`) {
 		t.Errorf("the example must be copyable, not escaped:\n%s", data)
 	}
+}
+
+// manifestComponent finds one component in a manifest, failing if it is absent.
+func manifestComponent(t *testing.T, m Manifest, name string) ManifestComponent {
+	t.Helper()
+	for _, c := range m.Components {
+		if c.Name == name {
+			return c
+		}
+	}
+	t.Fatalf("%q is not in the manifest", name)
+	return ManifestComponent{}
 }
 
 // TestManifestExamplesCoverEveryPropShape.

@@ -68,7 +68,12 @@ func TestSiteGraphIsWrittenWhenAsked(t *testing.T) {
 	if about := findPage(g, "/about/"); about == nil || about.Type != "page" || about.Description != "Who we are" {
 		t.Errorf("page node wrong: %+v", about)
 	}
-	// Sections: the archives the build wrote.
+}
+
+// TestSiteGraphDescribesTheArchivesTheBuildWrote, so an agent asking what
+// sections exist gets the ones a reader can actually open.
+func TestSiteGraphDescribesTheArchivesTheBuildWrote(t *testing.T) {
+	_, g := graphSite(t, nil)
 	kinds := map[string]bool{}
 	for _, s := range g.Sections {
 		kinds[s.Kind] = true
@@ -76,7 +81,11 @@ func TestSiteGraphIsWrittenWhenAsked(t *testing.T) {
 	if !kinds["category"] || !kinds["tag"] {
 		t.Errorf("sections lack the archives: %v", g.Sections)
 	}
-	// Taxonomies with their terms and URLs.
+}
+
+// TestSiteGraphCarriesTaxonomyTermsWithTheirArchives.
+func TestSiteGraphCarriesTaxonomyTermsWithTheirArchives(t *testing.T) {
+	_, g := graphSite(t, nil)
 	var tagTax *sitegraph.Taxonomy
 	for i := range g.Taxonomies {
 		if g.Taxonomies[i].Name == "tag" {
@@ -86,18 +95,21 @@ func TestSiteGraphIsWrittenWhenAsked(t *testing.T) {
 	if tagTax == nil || len(tagTax.Terms) != 1 || tagTax.Terms[0].URL != "/tag/alpha/" || tagTax.Terms[0].Count != 1 {
 		t.Errorf("tag taxonomy wrong: %+v", tagTax)
 	}
-	// Redirects: the alias became a rule.
-	// The redirect engine normalises a trailing slash away, so match on the
-	// normalised form — the graph reports rules as the host will see them.
-	var alias bool
+}
+
+// TestSiteGraphReportsRedirectsAsTheHostWillSeeThem.
+//
+// An alias in frontmatter becomes a rule, and the redirect engine normalises a
+// trailing slash away — so the graph reports the normalised form, which is what
+// the host applies.
+func TestSiteGraphReportsRedirectsAsTheHostWillSeeThem(t *testing.T) {
+	_, g := graphSite(t, nil)
 	for _, r := range g.Redirects {
 		if strings.TrimSuffix(r.From, "/") == "/old-one" && r.Status == 301 && r.To == "/2024/01/02/one/" {
-			alias = true
+			return
 		}
 	}
-	if !alias {
-		t.Errorf("the alias redirect is missing: %v", g.Redirects)
-	}
+	t.Errorf("the alias redirect is missing: %v", g.Redirects)
 }
 
 // TestSiteGraphLinksAreClassified: a page link, an asset and an external URL,

@@ -86,7 +86,9 @@ type Server struct {
 
 // discardLog is the logger for a server nobody asked to narrate. It exists as
 // a named function so an empty body reads as a decision rather than an omission.
-func discardLog(string, ...any) {}
+func discardLog(string, ...any) {
+	// Narration nobody asked for is dropped here rather than at every call site.
+}
 
 // New builds an editing server.
 func New(opts Options) *Server {

@@ -23,7 +23,9 @@ import (
 
 // noProfileToStop is what a run that started no profile returns. Naming it says
 // what the empty body means, which four anonymous ones did not.
-func noProfileToStop() {}
+func noProfileToStop() {
+	// Nothing was started, so there is nothing to stop.
+}
 
 // pprofUnavailable reports why profiling did not start and returns a stop
 // function with nothing to stop.
@@ -82,7 +84,10 @@ func writeHeapProfile(dir string) {
 	}
 	defer func() { _ = f.Close() }()
 	runtime.GC()
-	if err := pprof.WriteHeapProfile(f); err != nil {
+	// NOSONAR S4507: a maintainer's instrument behind an explicit --profile-pprof
+	// flag, not a debug endpoint left on. Nothing is served and no handler is
+	// registered; a run without the flag never reaches this.
+	if err := pprof.WriteHeapProfile(f); err != nil { // NOSONAR
 		errf("⚠️  --profile-pprof heap: %v\n", err)
 	}
 }

@@ -19,6 +19,42 @@ type connector interface {
 	Load(src Source) (*Result, error)
 }
 
+// loadAll fetches every source in parallel, capped by max_concurrent, and
+// returns each one's result, error and mapping warnings by position. Positions
+// rather than a channel, because the caller reports sources in the order they
+// were configured and a map would have to be re-sorted to do that.
+func loadAll(cfg Config, sources []Source) ([]*Result, []error, [][]string) {
+	fileConn := FileConnector{}
+	httpConn := newHTTPConnector(cfg)
+	results := make([]*Result, len(sources))
+	errs := make([]error, len(sources))
+	mapWarnings := make([][]string, len(sources))
+
+	limit := cfg.MaxConcurrent
+	if limit <= 0 {
+		limit = defaultConcurrency
+	}
+	sem := make(chan struct{}, limit)
+	var wg sync.WaitGroup
+	for i, src := range sources {
+		wg.Add(1)
+		go func(i int, src Source) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results[i], errs[i] = connectorFor(src, fileConn, httpConn).Load(src)
+			if errs[i] == nil {
+				mapWarnings[i], errs[i] = mapRecordsIfContent(src, results[i])
+				if errs[i] != nil {
+					results[i] = nil
+				}
+			}
+		}(i, src)
+	}
+	wg.Wait()
+	return results, errs, mapWarnings
+}
+
 // connectorFor picks the connector one source needs. File is the default,
 // because a path is what a source is unless it says otherwise.
 func connectorFor(src Source, fileConn FileConnector, httpConn connector) connector {
@@ -62,34 +98,7 @@ func Load(cfg Config) (*Registry, []string, error) {
 		return nil, warnings, err
 	}
 
-	fileConn := FileConnector{}
-	httpConn := newHTTPConnector(cfg)
-	results := make([]*Result, len(sources))
-	errs := make([]error, len(sources))
-	mapWarnings := make([][]string, len(sources))
-
-	limit := cfg.MaxConcurrent
-	if limit <= 0 {
-		limit = defaultConcurrency
-	}
-	sem := make(chan struct{}, limit)
-	var wg sync.WaitGroup
-	for i, src := range sources {
-		wg.Add(1)
-		go func(i int, src Source) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			results[i], errs[i] = connectorFor(src, fileConn, httpConn).Load(src)
-			if errs[i] == nil {
-				mapWarnings[i], errs[i] = mapRecordsIfContent(src, results[i])
-				if errs[i] != nil {
-					results[i] = nil
-				}
-			}
-		}(i, src)
-	}
-	wg.Wait()
+	results, errs, mapWarnings := loadAll(cfg, sources)
 
 	reg := &Registry{Results: make(map[string]*Result, len(sources))}
 	for i, src := range sources {

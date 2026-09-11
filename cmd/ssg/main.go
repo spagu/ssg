@@ -909,8 +909,8 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.AutoReload = &v
 		return true
 	}
-	if arg == "--markdown-cache" || arg == "--no-markdown-cache" { // *bool: on by default (#270)
-		v := arg == "--markdown-cache"
+	if arg == markdownCacheFlag || arg == noMarkdownCacheFlag { // *bool, off by default (#270)
+		v := arg == markdownCacheFlag
 		cfg.MarkdownCache = &v
 		return true
 	}
@@ -1322,6 +1322,13 @@ func resolveListenURL(secure bool, hostPort string) string {
 	}
 	return (&neturl.URL{Scheme: scheme, Host: hostPort}).String()
 }
+
+// The between-builds conversion cache's flags (#270), named so the parser, the
+// known-flag list and any future caller all spell them the same way.
+const (
+	markdownCacheFlag   = "--markdown-cache"
+	noMarkdownCacheFlag = "--no-markdown-cache"
+)
 
 // plainScheme is the preview server's default. It is not a mistake and not a
 // setting a site inherits: this is a development server on loopback, and every
@@ -2060,7 +2067,7 @@ func knownFlagNames(cfg *config.Config) map[string]bool {
 // their own branch in parseBoolFlags/parseSpecialFlags.
 var standaloneFlagNames = []string{
 	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
-	"--markdown-cache", "--no-markdown-cache",
+	markdownCacheFlag, noMarkdownCacheFlag,
 	"--profile",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
 	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",

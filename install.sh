@@ -26,8 +26,8 @@ NC='\033[0m'
 
 log_info() { local message="$1"; echo -e "${BLUE}[INFO]${NC} ${message}"; }
 log_success() { local message="$1"; echo -e "${GREEN}[OK]${NC} ${message}"; }
-log_warn() { local message="$1"; echo -e "${YELLOW}[WARN]${NC} ${message}"; }
-log_error() { local message="$1"; echo -e "${RED}[ERROR]${NC} ${message}"; exit 1; }
+log_warn() { local message="$1"; echo -e "${YELLOW}[WARN]${NC} ${message}" >&2; }
+log_error() { local message="$1"; echo -e "${RED}[ERROR]${NC} ${message}" >&2; exit 1; }
 
 TMP_DIR=""
 cleanup() { if [[ -n "$TMP_DIR" ]]; then rm -rf "$TMP_DIR"; fi; }
