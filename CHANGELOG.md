@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.61] - 2026-09-11
+
 ### Added
 - ✏️ **`make site-edit`** serves this project's own documentation with the
   browser editor on (GO-102), beside `make site-watch`. The quickest way to see
