@@ -1,0 +1,24 @@
+{
+  "name": "ssg-ecommerce-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small shop for digital products beside a static SSG site. Runtime has no dependencies; everything below is tooling.",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "check:bare-imports": "node scripts/check-bare-imports.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "5.20260911.1",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11",
+    "wrangler": "4.131.1"
+  }
+}

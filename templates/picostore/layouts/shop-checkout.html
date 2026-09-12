@@ -1,0 +1,109 @@
+{{define "shop-checkout.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "Checkout — %s" (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" "Where you pay."
+    "Canonical" "/shop/checkout/"
+    "Robots" "noindex, nofollow"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content" data-checkout-page>
+    <h1>Checkout</h1>
+
+    <p class="ps-cart-empty" data-checkout-empty hidden>
+        There is nothing to pay for yet. <a href="/">Choose a book first</a>.
+    </p>
+
+    <div class="ps-note" data-checkout-note hidden></div>
+
+    <div class="ps-checkout">
+        {{/* No action: the basket only exists in this browser, so this form is
+             submitted by JavaScript with the lines attached. Buying a single
+             book without JavaScript is the "Buy now" button on its own page. */}}
+        <form id="ps-checkout-form">
+            <label>
+                Email address
+                <input type="email" name="email" autocomplete="email" required
+                       aria-describedby="email-help">
+            </label>
+            <small id="email-help">Your download links are sent here. Check it twice.</small>
+
+            <label>
+                Name (optional, appears on the invoice)
+                <input type="text" name="name" autocomplete="name" maxlength="120">
+            </label>
+
+            <label>
+                Country
+                <select name="country" required autocomplete="country">
+                    <option value="">Choose your country…</option>
+                    {{ range .Vars.shop_countries }}
+                    <option value="{{ .code }}">{{ .name }}</option>
+                    {{ end }}
+                </select>
+            </label>
+            <small>The country decides the VAT rate. It has to match your payment
+            details, which is a rule of the tax, not of this shop.</small>
+
+            <label>
+                VAT number (only if you are buying for a business)
+                <input type="text" name="vatId" maxlength="20" autocomplete="off"
+                       placeholder="DE123456789">
+            </label>
+
+            <fieldset class="ps-consent">
+                <legend>Before you pay</legend>
+                <label>
+                    <input type="checkbox" name="consentWaiver" required>
+                    I want the download straight away and accept that this ends my
+                    right to withdraw once the file has been delivered.
+                </label>
+                <label>
+                    <input type="checkbox" name="consentMarketing">
+                    Send me an email when there is a new book. (Optional.)
+                </label>
+            </fieldset>
+
+            {{ with .Vars.turnstile_site_key }}
+            <div class="cf-turnstile" data-sitekey="{{ . }}"></div>
+            <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+            {{ end }}
+
+            <p><small>By paying you accept the <a href="/shop/terms/">terms</a>
+            and the <a href="/shop/privacy/">privacy notice</a>.</small></p>
+        </form>
+
+        <aside class="ps-summary">
+            <h2>Your order</h2>
+            <ul data-summary-lines></ul>
+            <p class="ps-total ps-total-row">
+                <span>Total</span><span data-summary-total></span>
+            </p>
+            <p><small>The shop works out VAT from your country and shows the final
+            amount on the payment page.</small></p>
+
+            <div class="ps-gateways">
+                {{/* One button per provider. Which ones actually appear is the
+                     shop's decision (SHOP_GATEWAYS); a button for a provider
+                     that is not configured would simply fail. */}}
+                {{ range .Vars.shop_gateways }}
+                <button type="submit" form="ps-checkout-form" name="gateway" value="{{ .id }}"
+                        class="{{ if .secondary }}secondary{{ end }}">{{ .label }}</button>
+                {{ end }}
+            </div>
+            <p class="ps-spinner" data-checkout-busy hidden aria-live="polite">
+                <small>Talking to the payment provider…</small>
+            </p>
+        </aside>
+    </div>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

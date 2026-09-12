@@ -216,6 +216,44 @@ jobs:
         with:
           version: v2.13.1 # pinned for reproducible CI (OPS-013); first build on go1.27
 
+  # The ecommerce worker is TypeScript running in workerd, so `go test` says
+  # nothing about it. This job type-checks it, refuses a bare npm import (which
+  # Direct Upload cannot bundle and which therefore fails at request time, in
+  # production), and runs its suite against real local D1, R2 and KV at the same
+  # 96% floor the Go packages hold.
+  worker:
+    name: Shop Worker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: workers/ecommerce/package-lock.json
+
+      - name: Install tooling
+        working-directory: workers/ecommerce
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check
+        working-directory: workers/ecommerce
+        run: npm run typecheck
+
+      - name: Refuse npm imports in the deployed tree
+        working-directory: workers/ecommerce
+        run: npm run check:bare-imports
+
+      - name: Test in workerd, with coverage
+        working-directory: workers/ecommerce
+        run: npm run coverage
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -268,7 +306,7 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 20
-    needs: [test, lint, security]
+    needs: [test, lint, security, worker]
     # Tags only. This matrix ran on every PR and every push to main, building
     # eleven dev-versioned binaries nobody publishes — four full matrix runs
     # per release cycle before the one that ships. Cross-platform compile

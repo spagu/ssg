@@ -206,6 +206,23 @@ site-edit: build ## ✏️  Serve the documentation site with the browser editor
 	@echo "${BLUE}✏️  Editing docs/ in the browser — http://127.0.0.1:8888 (edits land on a branch)${RESET}"
 	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml --watch --http --edit
 
+shop: build ## 🛒 Build the example shop and serve it with its API (wrangler)
+	@echo "${BLUE}🛒 Building examples/ebook-shop and starting wrangler pages dev...${RESET}"
+	@echo "${YELLOW}   Storefront and API: http://localhost:8788   Panel: /ecommerce-admin/${RESET}"
+	@cd examples/ebook-shop && [ -f .dev.vars ] || cp .dev.vars.example .dev.vars
+	@cd examples/ebook-shop && ../../$(BUILD_DIR)/$(BINARY_NAME) --config ssg.yaml --watch --http --port 8899
+
+shop-seed: ## 🌱 Fill the running example shop with its two books
+	@sh examples/ebook-shop/scripts/seed.sh
+
+shop-test: ## 🧪 Test the ecommerce worker inside workerd (96% floor)
+	@echo "${BLUE}🧪 Testing workers/ecommerce...${RESET}"
+	@cd workers/ecommerce && npm install --no-audit --no-fund --silent \
+		&& npm run typecheck \
+		&& npm run check:bare-imports \
+		&& npm run coverage
+	@echo "${GREEN}✅ Worker tests passed${RESET}"
+
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"
 	@./$(BUILD_DIR)/$(BINARY_NAME) test-content krowy example.com --webp --zip

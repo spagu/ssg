@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img"
+     aria-label="Cover: Ten Thousand Words a Month by Maria Halloran">
+  <!-- A typographic cover: no stock photography, no icon set. The ruled lines
+       are the book's subject — a count you can see — drawn rather than
+       illustrated. -->
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#303F9F"/>
+      <stop offset="1" stop-color="#1A237E"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#paper)"/>
+  <g stroke="#5C6BC0" stroke-width="2">
+    <!-- Thirty short rules: one per day of a month. -->
+    <path d="M60 430h60M140 430h60M220 430h60M300 430h60M380 430h60M460 430h60
+             M60 470h60M140 470h60M220 470h60M300 470h60M380 470h60M460 470h60
+             M60 510h60M140 510h60M220 510h60M300 510h60M380 510h60M460 510h60
+             M60 550h60M140 550h60M220 550h60M300 550h60M380 550h60M460 550h60
+             M60 590h60M140 590h60M220 590h60M300 590h60M380 590h60M460 590h60"/>
+  </g>
+  <g fill="#ECEFF1" font-family="Georgia, 'Times New Roman', serif">
+    <text x="60" y="150" font-size="64" font-weight="700">Ten</text>
+    <text x="60" y="220" font-size="64" font-weight="700">Thousand</text>
+    <text x="60" y="290" font-size="64" font-weight="700">Words</text>
+    <text x="60" y="350" font-size="34" fill="#C5CAE9">a month</text>
+    <text x="60" y="700" font-size="26" fill="#C5CAE9">Maria Halloran</text>
+    <text x="60" y="740" font-size="18" fill="#9FA8DA">Paperless Press</text>
+  </g>
+</svg>

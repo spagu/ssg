@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop admin</title>
+<meta name="description" content="Products, orders, invoices and settings for this shop.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#263238" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<!-- No inline script and no inline style anywhere in this file: the panel is
+     meant to run under a strict Content-Security-Policy, and an inline
+     handler is the one thing such a policy cannot allow. -->
+<link rel="stylesheet" href="/ecommerce-admin/admin.css">
+<script type="module" src="/ecommerce-admin/admin.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <h1>Shop admin</h1>
+  <p class="mode" id="mode-badge" hidden></p>
+  <nav aria-label="Sections">
+    <ul class="tabs" id="tabs" hidden>
+      <li><button type="button" data-view="dashboard" aria-current="page">Overview</button></li>
+      <li><button type="button" data-view="products">Products</button></li>
+      <li><button type="button" data-view="orders">Orders</button></li>
+      <li><button type="button" data-view="settings">Settings</button></li>
+      <li><button type="button" data-view="vat">VAT</button></li>
+      <li><button type="button" data-view="log">Log</button></li>
+    </ul>
+  </nav>
+  <button type="button" id="logout" hidden>Sign out</button>
+</header>
+
+<main id="main">
+  <div class="notice" id="notice" hidden role="status"></div>
+
+  <!-- Sign in. Hidden entirely when the shop runs behind Cloudflare Access,
+       because then there is no password for anyone to guess. -->
+  <section id="view-login" class="view" hidden>
+    <h2>Sign in</h2>
+    <form id="login-form">
+      <label for="login-email">Email</label>
+      <input id="login-email" name="email" type="email" autocomplete="username" required>
+      <label for="login-password">Password</label>
+      <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="hint">The first sign-in with the bootstrap credentials creates the
+    owner account. Remove SHOP_ADMIN_BOOTSTRAP afterwards.</p>
+  </section>
+
+  <section id="view-dashboard" class="view" hidden>
+    <h2>Overview</h2>
+    <ul class="warnings" id="warnings"></ul>
+    <div class="cards" id="stats"></div>
+    <h3>Best sellers</h3>
+    <table class="grid"><caption class="visually-hidden">Products by revenue</caption>
+      <thead><tr><th scope="col">Product</th><th scope="col">Units</th><th scope="col">Revenue</th></tr></thead>
+      <tbody id="top-products"></tbody>
+    </table>
+    <h3>Where the buyers are</h3>
+    <table class="grid"><caption class="visually-hidden">Sales by country</caption>
+      <thead><tr><th scope="col">Country</th><th scope="col">Orders</th><th scope="col">Gross</th></tr></thead>
+      <tbody id="by-country"></tbody>
+    </table>
+  </section>
+
+  <section id="view-products" class="view" hidden>
+    <h2>Products</h2>
+    <form id="product-new" class="inline-form">
+      <label for="new-sku">Code</label>
+      <input id="new-sku" name="sku" required pattern="[A-Za-z0-9._\-]{1,64}" maxlength="64">
+      <label for="new-name">Name</label>
+      <input id="new-name" name="name" required maxlength="200">
+      <button type="submit">Add product</button>
+    </form>
+    <table class="grid"><caption class="visually-hidden">Every product, drafts included</caption>
+      <thead><tr>
+        <th scope="col">Code</th><th scope="col">Name</th><th scope="col">Status</th>
+        <th scope="col">Price</th><th scope="col">File</th><th scope="col">Edit</th>
+      </tr></thead>
+      <tbody id="product-rows"></tbody>
+    </table>
+    <div id="product-editor" hidden></div>
+  </section>
+
+  <section id="view-orders" class="view" hidden>
+    <h2>Orders</h2>
+    <form id="order-filter" class="inline-form">
+      <label for="filter-q">Search</label>
+      <input id="filter-q" name="q" type="search" placeholder="Order number or email" maxlength="254">
+      <label for="filter-status">Status</label>
+      <select id="filter-status" name="status">
+        <option value="">Any status</option>
+        <option value="pending">Pending</option>
+        <option value="paid">Paid</option>
+        <option value="fulfilled">Fulfilled</option>
+        <option value="needs_review">Needs review</option>
+        <option value="refunded">Refunded</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="failed">Failed</option>
+      </select>
+      <button type="submit">Filter</button>
+      <a id="export-orders" href="/api/shop/admin/export?type=orders" download>Export CSV</a>
+    </form>
+    <table class="grid"><caption class="visually-hidden">Orders, newest first</caption>
+      <thead><tr>
+        <th scope="col">Number</th><th scope="col">When</th><th scope="col">Customer</th>
+        <th scope="col">Total</th><th scope="col">Status</th><th scope="col">Open</th>
+      </tr></thead>
+      <tbody id="order-rows"></tbody>
+    </table>
+    <button type="button" id="orders-more" hidden>Load more</button>
+    <div id="order-detail" hidden></div>
+  </section>
+
+  <section id="view-settings" class="view" hidden>
+    <h2>Settings</h2>
+    <p class="hint">Who is selling, in what currency, under whose VAT number.
+    Keys and secrets are not here — they live in wrangler.</p>
+    <form id="settings-form"></form>
+  </section>
+
+  <section id="view-vat" class="view" hidden>
+    <h2>VAT rates</h2>
+    <p class="hint">Rates are in basis points: 2300 is 23%. A new rate does not
+    overwrite the old one, it supersedes it from a date, so an old invoice can
+    still explain itself.</p>
+    <form id="vat-new" class="inline-form">
+      <label for="vat-country">Country</label>
+      <input id="vat-country" name="country" maxlength="2" size="2" required pattern="[A-Za-z]{2}">
+      <label for="vat-kind">Kind</label>
+      <input id="vat-kind" name="kind" value="ebook" maxlength="32" required>
+      <label for="vat-rate">Rate (bp)</label>
+      <input id="vat-rate" name="rateBp" type="number" min="0" max="10000" required>
+      <label for="vat-from">From</label>
+      <input id="vat-from" name="validFrom" type="date">
+      <button type="submit">Set rate</button>
+    </form>
+    <table class="grid"><caption class="visually-hidden">The VAT rate table</caption>
+      <thead><tr>
+        <th scope="col">Country</th><th scope="col">Kind</th><th scope="col">Rate</th>
+        <th scope="col">From</th><th scope="col">Until</th><th scope="col">Remove</th>
+      </tr></thead>
+      <tbody id="vat-rows"></tbody>
+    </table>
+  </section>
+
+  <section id="view-log" class="view" hidden>
+    <h2>Log</h2>
+    <p class="hint">Who did what. Nothing here can be edited or cleared — a log
+    an administrator can rewrite answers no question.</p>
+    <h3>Queued messages</h3>
+    <table class="grid"><caption class="visually-hidden">The outbox</caption>
+      <thead><tr>
+        <th scope="col">Kind</th><th scope="col">To</th><th scope="col">Tries</th>
+        <th scope="col">Last error</th><th scope="col">Retry</th>
+      </tr></thead>
+      <tbody id="outbox-rows"></tbody>
+    </table>
+    <button type="button" id="outbox-drain">Send everything now</button>
+    <h3>Audit</h3>
+    <table class="grid"><caption class="visually-hidden">The audit log</caption>
+      <thead><tr>
+        <th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Detail</th>
+      </tr></thead>
+      <tbody id="audit-rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>The shop keeps nothing here that it would not show a customer who asked.
+  Download links are stored hashed, so this panel cannot hand one out — it can
+  only send a fresh one.</p>
+</footer>
+</body>
+</html>

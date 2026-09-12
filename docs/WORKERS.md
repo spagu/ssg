@@ -113,12 +113,19 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
 | `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
 | `rate-limit` | `functions/_middleware.ts` — a request budget for every Function in the project, including ones added later. Exact and free through the Workers Rate Limiting binding, KV as a fallback. See [its README](../workers/rate-limit/README.md) |
+| `ecommerce` | A shop for digital products: catalogue, checkout, Stripe and PayPal, VAT per country, invoices, expiring download links, an admin panel at `/ecommerce-admin/`. D1 + R2 + KV. See [its README](../workers/ecommerce/README.md), [openapi.yml](../workers/ecommerce/openapi.yml) and the working example in [`examples/ebook-shop`](../examples/ebook-shop/README.md) |
 
 ```sh
 ssg new worker stripe-checkout
 ```
 
 Each template ships a `README.md` listing the secrets it needs.
+
+`ecommerce` is the largest of them and the only one with a storefront to match:
+the [`picostore`](../templates/picostore/README.md) theme renders the catalogue,
+the product page, the basket and the checkout that talk to it. Build the two
+together with [`examples/ebook-shop`](../examples/ebook-shop/README.md), which
+runs locally with `ssg --watch` and no Cloudflare account.
 
 ### Bounding how often they can be called
 

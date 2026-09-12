@@ -79,5 +79,13 @@ examples/*/output/
 .wrangler/
 /wrangler.toml
 
+# Secrets for local worker development. .dev.vars.example is committed; the
+# file wrangler actually reads is not.
+.dev.vars
+
+# Worker tooling (the runtime itself has no dependencies)
+workers/*/node_modules/
+workers/*/coverage/
+
 # Build-throughput benchmark corpora (scripts/bench-build.sh, make bench)
 ssg-bench/

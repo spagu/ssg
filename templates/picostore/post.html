@@ -1,0 +1,40 @@
+{{define "post.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Post.Title (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" .Post.Excerpt
+    "Canonical" (printf "/%s/" .Post.Slug)
+    "Image" .Post.FeaturedImage
+    "OgType" "article"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <article data-ssg-edit="body">
+        <h1 data-ssg-edit="frontmatter:title">{{ .Post.Title }}</h1>
+        <p>
+            <small>
+                {{ if .Post.Date }}{{ .Post.Date.Format "2 January 2006" }} · {{ end }}
+                {{ .Post.ReadingTime }} min read
+            </small>
+        </p>
+        {{ .Post.Content | safeHTML }}
+    </article>
+
+    {{ if .Post.Tags }}
+    <nav aria-label="Tags">
+        <ul class="ps-nav">
+            {{ range .Post.Tags }}<li><a href="/tag/{{ . }}/">#{{ . }}</a></li>{{ end }}
+        </ul>
+    </nav>
+    {{ end }}
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

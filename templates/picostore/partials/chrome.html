@@ -1,0 +1,156 @@
+{{/*
+  picostore — shared chrome.
+
+  Three defines, callable from any role or layout template:
+
+      {{ template "ps-head"   (dict "Title" ... "Desc" ... "Canonical" "/x/" "Ctx" .) }}
+      {{ template "ps-header" . }}
+      {{ template "ps-footer" . }}
+
+  The head takes a dict because each role knows its own metadata; the header and
+  footer take the page context directly, because they only read site variables.
+*/}}
+
+{{define "ps-head"}}
+    {{/* <title> is written by the role template, not here: a page whose title
+         only exists inside a {{ template }} call reads as a page with no title
+         to anything that parses the HTML rather than the Go template. */}}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ .Desc }}">
+    {{ $canonical := .CanonicalURL }}{{ if and (not $canonical) .Canonical }}{{ $canonical = printf "https://%s%s" .Ctx.Domain .Canonical }}{{ end }}
+    <link rel="canonical" href="{{ $canonical }}">
+    <meta name="robots" content="{{ if .Robots }}{{ .Robots }}{{ else }}index, follow{{ end }}">
+    <meta name="generator" content="SSG">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#263238" media="(prefers-color-scheme: dark)">
+
+    <meta property="og:type" content="{{ if .OgType }}{{ .OgType }}{{ else }}website{{ end }}">
+    <meta property="og:site_name" content="{{ with .Ctx.Site.Marketing.OGSiteName }}{{ . }}{{ else }}{{ .Ctx.Domain }}{{ end }}">
+    <meta property="og:title" content="{{ .Title }}">
+    <meta property="og:description" content="{{ .Desc }}">
+    <meta property="og:url" content="{{ $canonical }}">
+    {{ $image := "" }}
+    {{ with .Image }}{{ $image = . }}{{ end }}
+    {{ if not $image }}{{ with .Ctx.Site.Marketing.OGImage }}{{ $image = . }}{{ end }}{{ end }}
+    {{ if and $image (not (hasPrefix $image "http")) }}
+      {{ $image = printf "https://%s/%s" .Ctx.Domain (trimPrefix $image "/") }}
+    {{ end }}
+    {{ if $image }}
+    <meta property="og:image" content="{{ $image }}">
+    <meta name="twitter:image" content="{{ $image }}">
+    <meta name="twitter:card" content="summary_large_image">
+    {{ else }}
+    <meta name="twitter:card" content="summary">
+    {{ end }}
+    <meta name="twitter:title" content="{{ .Title }}">
+    <meta name="twitter:description" content="{{ .Desc }}">
+
+    {{/* Product pages describe themselves to search engines as products. The
+         price comes from the page's own front matter, which is also what the
+         page shows before the live catalogue answers. */}}
+    {{ with .Product }}
+    <script type="application/ld+json">{{ . | toJSON }}</script>
+    {{ end }}
+
+    {{/* Inter is the one external request the theme makes. Delete this pair of
+         tags and the token stack falls back to system-ui — see the README. */}}
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/shop.css">
+
+    {{ with .Ctx.Vars.cookie_consent }}
+    <link rel="stylesheet" href="/cookie-consent.css">
+    <script id="ssg-consent-config" type="application/json">{{ . | toJSON }}</script>
+    <script src="/cookie-consent.js" defer></script>
+    {{ end }}
+
+    {{/* Google Tag Manager — rendered only when variables.gtm_id is set, so the
+         container belongs to the site rather than to the theme. With a consent
+         banner configured the loader ships as inert text and the banner starts
+         it once the visitor accepts; without one there is nothing to wait for.
+         Replace GTM-XXXXXXX in your site config with the real container. */}}
+    {{ with .Ctx.Vars.gtm_id }}
+    {{ if $.Ctx.Vars.cookie_consent }}
+    <script type="text/plain" data-consent-category="analytics">
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', '{{ . }}');
+    </script>
+    {{ else }}
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', '{{ . }}');
+    </script>
+    {{ end }}
+    {{ end }}
+
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('picostore-scheme');
+          if (t) { document.documentElement.dataset.theme = t; }
+        } catch (e) {
+          console.info('picostore: stored colour scheme unavailable', e.name);
+        }
+      })();
+    </script>
+    <script type="module" src="/js/shop.js"></script>
+    <script type="module" src="/js/main.js"></script>
+{{end}}
+
+{{define "ps-header"}}
+    <a href="#main-content" class="ps-skip">Skip to content</a>
+    <header class="ps-header">
+        <div class="container">
+            <a class="ps-brand" href="/">{{ with .Vars.shop_name }}{{ . }}{{ else }}{{ .Domain }}{{ end }}</a>
+            <nav aria-label="Main">
+                <ul class="ps-nav">
+                    {{ range .Vars.nav }}
+                    <li><a href="{{ .url }}">{{ .label }}</a></li>
+                    {{ end }}
+                    <li>
+                        <a class="ps-cart-link" href="/shop/cart/" aria-label="Basket">
+                            <span aria-hidden="true">🛒</span>
+                            <span class="ps-cart-count" data-cart-count>0</span>
+                        </a>
+                    </li>
+                    <li>
+                        <button class="secondary outline" id="ps-scheme" type="button"
+                                aria-label="Switch between light and dark">◐</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    {{/* Every "added to your basket" message lands here, so a screen reader
+         hears the change without the focus moving. */}}
+    <div class="visually-hidden" role="status" aria-live="polite" data-cart-live></div>
+{{end}}
+
+{{define "ps-footer"}}
+    <footer class="ps-footer">
+        <div class="container">
+            <p>
+                © {{ .BuildTime.Year }} {{ with .Vars.shop_name }}{{ . }}{{ else }}{{ .Domain }}{{ end }}.
+                {{ with .Vars.shop_legal }}{{ . }}{{ end }}
+            </p>
+            <nav aria-label="Legal">
+                <ul class="ps-nav">
+                    <li><a href="/shop/terms/">Terms</a></li>
+                    <li><a href="/shop/privacy/">Privacy</a></li>
+                    <li><a href="/shop/resend/">Lost your download?</a></li>
+                </ul>
+            </nav>
+        </div>
+    </footer>
+{{end}}

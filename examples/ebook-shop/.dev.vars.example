@@ -1,0 +1,31 @@
+# Copy to .dev.vars, which is gitignored. Everything here is a secret in
+# production and is set with `wrangler pages secret put <NAME>`.
+
+# Admin login. Generate a real one: openssl rand -base64 48
+SHOP_JWT_SECRET="change-me-to-at-least-32-random-bytes-aaaaaaaa"
+
+# Creates the first owner on the first login attempt with these credentials,
+# then should be removed. The panel keeps warning while it is set.
+SHOP_ADMIN_BOOTSTRAP="owner@example.com:correct-horse-battery-staple"
+
+# Without a salt no IP is stored at all — which is a valid choice, but the VAT
+# rules want a second piece of evidence for the customer's country.
+SHOP_IP_SALT="change-me-too"
+
+# Stripe test keys: https://dashboard.stripe.com/test/apikeys
+# The webhook secret comes from `stripe listen --forward-to
+# localhost:8788/api/shop/webhooks/stripe`.
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
+# PayPal sandbox: https://developer.paypal.com/dashboard/applications/sandbox
+PAYPAL_CLIENT_ID=""
+PAYPAL_CLIENT_SECRET=""
+PAYPAL_WEBHOOK_ID=""
+
+# Email. Any API that takes a JSON POST; without it the shop queues the mail and
+# tells you in the panel that it cannot send.
+# SHOP_MAIL_URL="https://api.resend.com/emails"
+# SHOP_MAIL_KEY="re_..."
+# SHOP_MAIL_FROM="shop@example.com"
+# SHOP_MAIL_ADMIN="owner@example.com"

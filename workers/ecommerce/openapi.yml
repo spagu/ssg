@@ -1,0 +1,1034 @@
+openapi: 3.1.0
+
+# The shop's HTTP API, as it is actually implemented.
+#
+# Two halves with very different audiences: everything under /api/shop/ that a
+# buyer's browser touches, and everything under /api/shop/admin/ that only the
+# seller does. The public half is deliberately small — a catalogue, a checkout,
+# a status, a download — because every public endpoint is an endpoint somebody
+# will probe.
+#
+# Keep this file in step with functions/api/shop/. The tests are the other
+# description of the same thing, and the two should never disagree.
+
+info:
+  title: SSG shop API
+  version: "0.1.0"
+  summary: Sells digital products from a static site.
+  description: |
+    Runs as Cloudflare Pages Functions beside a static site built by SSG.
+    Prices, tax and totals are decided by the server from its own database:
+    a request names products and quantities, never amounts.
+
+    Errors share one shape — `{ error, message, requestId? }` — so a client can
+    branch on `error` and show `message`. `requestId` is the Cloudflare ray, so
+    a support email can be matched to a log line.
+  license:
+    name: BSD-3-Clause
+  contact:
+    name: spagu/ssg
+    url: https://github.com/spagu/ssg
+
+servers:
+  - url: https://{host}
+    description: The site the shop is deployed beside.
+    variables:
+      host:
+        default: example.com
+
+tags:
+  - name: catalogue
+    description: What is for sale.
+  - name: buying
+    description: Turning a basket into a paid order.
+  - name: delivery
+    description: Getting the file to the buyer.
+  - name: webhooks
+    description: What the payment providers call.
+  - name: admin
+    description: The seller's own API, behind authentication.
+
+paths:
+  /api/shop/products:
+    get:
+      tags: [catalogue]
+      summary: The catalogue
+      description: |
+        Active products only, with their prices. Cached for a minute, so a price
+        change appears quickly without a query per visitor. Nothing about files,
+        keys or stock.
+      security: []
+      responses:
+        "200":
+          description: The catalogue.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shop, products]
+                properties:
+                  shop: { $ref: "#/components/schemas/ShopInfo" }
+                  products:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/products/{sku}:
+    get:
+      tags: [catalogue]
+      summary: One product
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Sku"
+      responses:
+        "200":
+          description: The product.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product: { $ref: "#/components/schemas/Product" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/checkout:
+    post:
+      tags: [buying]
+      summary: Turn a basket into an order and a payment URL
+      description: |
+        Accepts JSON or a form body, so a product page works without
+        JavaScript. The basket is a list of product codes and quantities;
+        everything about money comes from the database.
+
+        On success with `Accept: text/html` the answer is a 303 to the payment
+        page. Otherwise it is JSON carrying the order key — the secret the
+        thank-you page and the invoice link need, and the only copy of it.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckoutRequest" }
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/CheckoutRequest" }
+      responses:
+        "200":
+          description: The order was created and the provider gave us a payment URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orderId, orderKey, orderNumber, redirectUrl]
+                properties:
+                  orderId: { type: string, format: uuid }
+                  orderKey:
+                    type: string
+                    description: Kept only as a hash server-side. This is the only copy.
+                  orderNumber: { type: string, examples: ["O-2026-000001"] }
+                  redirectUrl: { type: string, format: uri }
+        "303":
+          description: A browser form post; follow `Location` to the payment page.
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403":
+          description: The anti-spam check did not pass.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: |
+            The basket could not be turned into an order. `error` says which
+            way: `invalid_basket`, `invalid_email`, `invalid_country`,
+            `invalid_vat_id`, `waiver_required`, `unknown_gateway`,
+            `unknown_sku`, `product_unavailable`, `price_not_available`,
+            `country_required`, `tax_rate_missing`, `country_not_served`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502":
+          description: |
+            The payment provider refused to start the payment. Nothing was
+            charged; the order stays pending with no provider reference.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/orders/{id}/status:
+    get:
+      tags: [buying]
+      summary: What the thank-you page waits on
+      description: |
+        The redirect back from a provider proves nothing — anyone can open that
+        URL. This reports the status the webhook wrote. A wrong key and an
+        unknown order give the same 404, so the endpoint cannot be used to
+        discover which order ids exist.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: k
+          in: query
+          required: true
+          description: The order key from the checkout answer or the email.
+          schema: { type: string }
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderStatus" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/download/{token}:
+    get:
+      tags: [delivery]
+      summary: The file
+      description: |
+        Streams from storage. Supports `Range`, and a ranged continuation
+        within ten minutes does not cost a second download — an ereader
+        fetching an EPUB in six pieces must not exhaust a limit of five.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: From the email. Stored only as a hash.
+          schema: { type: string, minLength: 20, maxLength: 200 }
+      responses:
+        "200":
+          description: The file.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+            Accept-Ranges:
+              schema: { type: string, examples: ["bytes"] }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: The requested range.
+        "400":
+          description: That is not the shape of a download link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: The order has not been paid for.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "410":
+          description: |
+            The link is over: `revoked`, `expired` or `exhausted`. Each says
+            which, because a buyer whose link aged out needs to know to ask for
+            a new one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/resend:
+    post:
+      tags: [delivery]
+      summary: Send the download links again
+      description: |
+        Always answers the same way, whether or not the address has ever bought
+        anything. An endpoint that says "no such order" tells a stranger which
+        addresses are customers.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                orderNumber: { type: string, maxLength: 40 }
+                turnstileToken: { type: string }
+      responses:
+        "200":
+          description: Accepted. Says nothing about whether anything was sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403":
+          description: The anti-spam check did not pass.
+        "422":
+          description: That is not an email address.
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/invoices/{number}:
+    get:
+      tags: [buying]
+      summary: The buyer's invoice, as printable HTML
+      description: |
+        Rendered from the snapshot frozen when it was issued: if the seller has
+        since changed their address or a price, this still says what it said on
+        the day. Knowing an invoice number is not authorisation — the order key
+        is.
+      security: []
+      parameters:
+        - name: number
+          in: path
+          required: true
+          description: URL-encoded; a default number contains slashes.
+          schema: { type: string, examples: ["FV%2F2026%2F000001"] }
+        - name: k
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            text/html:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/webhooks/stripe:
+    post:
+      tags: [webhooks]
+      summary: Stripe's callback
+      description: |
+        Verifies the signature before anything is written, refuses a signature
+        older than five minutes as a replay, and deduplicates on the event id.
+        A duplicate delivery, an unknown order and an event we do not act on
+        are all 200: providers retry, and a 500 makes them retry harder.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200":
+          description: Received.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: boolean }
+                  action:
+                    type: string
+                    description: |
+                      fulfilled, already-paid, duplicate, ignored, unknown-order,
+                      needs-review-amount, needs-review-currency, cancelled,
+                      failed, refunded, refunded-partial, error.
+        "400":
+          description: The signature did not verify. Nothing was written.
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/webhooks/paypal:
+    post:
+      tags: [webhooks]
+      summary: PayPal's callback
+      description: Same contract as the Stripe webhook; PayPal verifies its own signature.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: Received. }
+        "400": { description: The signature did not verify. }
+        "503": { $ref: "#/components/responses/NotConfigured" }
+
+  /api/shop/admin/auth/login:
+    post:
+      tags: [admin]
+      summary: Sign in
+      description: |
+        Only in password mode. With Cloudflare Access configured this endpoint
+        answers 404: there is no password to guess. A wrong password and an
+        unknown address give the same answer.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Signed in. The refresh token is set as a `__Host-` cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  role: { type: string, enum: [owner, staff] }
+                  email: { type: string }
+                  expiresIn: { type: integer, examples: [900] }
+        "401": { description: Those credentials do not match. }
+        "404": { description: This shop signs in through Cloudflare Access. }
+        "422": { description: An email address and a password are required. }
+        "429": { description: Too many attempts. Wait. }
+
+  /api/shop/admin/auth/refresh:
+    post:
+      tags: [admin]
+      summary: Rotate the session
+      description: |
+        Driven by the cookie alone, so the origin is checked. The old token is
+        spent as the new one is issued; presenting it again ends every session
+        for that account, because two parties hold it and there is no way to
+        tell which one is asking.
+      security: []
+      responses:
+        "200": { description: A new access token and a new cookie. }
+        "401": { description: No valid session. }
+        "403": { description: That request came from another site. }
+        "404": { description: This shop signs in through Cloudflare Access. }
+
+  /api/shop/admin/auth/logout:
+    post:
+      tags: [admin]
+      summary: End this session now
+      description: Consumes the refresh token and denies the access token's id for its remaining life.
+      responses:
+        "200": { description: Signed out. }
+
+  /api/shop/admin/me:
+    get:
+      tags: [admin]
+      summary: Who am I, and what does this shop still need
+      responses:
+        "200":
+          description: The identity, plus everything the owner should act on.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  admin: { $ref: "#/components/schemas/AdminIdentity" }
+                  authMode: { type: string, enum: [access, jwt, none] }
+                  testMode: { type: boolean }
+                  gateways: { type: array, items: { type: string } }
+                  warnings: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/shop/admin/stats:
+    get:
+      tags: [admin]
+      summary: The numbers the panel opens with
+      parameters:
+        - name: window
+          in: query
+          schema: { type: string, enum: ["7d", "30d", "365d"], default: "30d" }
+      responses:
+        "200":
+          description: Revenue, what needs attention, and what sells.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/shop/admin/products:
+    get:
+      tags: [admin]
+      summary: Every product, drafts included
+      responses:
+        "200": { description: The catalogue with prices and file details. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [admin]
+      summary: Create a product
+      description: Owner only. Created as a draft; it cannot go on sale until it has a file.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku, name]
+              properties:
+                sku: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+                name: { type: string, maxLength: 200 }
+                description: { type: string }
+                taxCategory: { type: string, default: ebook }
+                downloadLimit: { type: integer, minimum: 1, maximum: 100 }
+                downloadDays: { type: integer, minimum: 1, maximum: 3650 }
+      responses:
+        "201": { description: Created. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: That product code is taken. }
+        "422": { description: The code or the name is not usable. }
+
+  /api/shop/admin/products/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [admin]
+      summary: One product, with how many times it has sold
+      responses:
+        "200": { description: The product. }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [admin]
+      summary: Edit a product, set its prices
+      description: Owner only. Prices are in minor units; `null` removes that currency.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [draft, active, archived] }
+                taxCategory: { type: string }
+                downloadLimit: { type: integer }
+                downloadDays: { type: integer }
+                imageUrl: { type: string }
+                prices:
+                  type: object
+                  additionalProperties: { type: [integer, "null"] }
+      responses:
+        "200": { description: Saved. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: A price, a currency or the status was refused. }
+    delete:
+      tags: [admin]
+      summary: Delete a product, or archive one that has sold
+      description: |
+        Owner only. A product someone has bought is part of their order and
+        their invoice forever, so it is archived. One nobody has bought is
+        deleted along with its file.
+      responses:
+        "200":
+          description: Gone, one way or the other.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  archived: { type: boolean }
+                  deleted: { type: boolean }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/shop/admin/products/{id}/file:
+    post:
+      tags: [admin]
+      summary: Upload the file buyers receive
+      description: |
+        Owner only. The bytes are checked against what they claim to be — a PDF,
+        EPUB or MOBI — and stored under a key derived from their hash, so
+        replacing a file never overwrites what an existing order downloads.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fileName: { type: string }
+                  fileSize: { type: integer }
+                  sha256: { type: string }
+                  contentType: { type: string }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Larger than the configured cap. }
+        "422": { description: That does not look like a book. }
+        "503": { description: No file storage is bound. }
+
+  /api/shop/admin/orders:
+    get:
+      tags: [admin]
+      summary: Orders, newest first
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: cursor
+          in: query
+          description: From `nextCursor`. Carries a timestamp and an id.
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/OrderStatusName" }
+        - name: q
+          in: query
+          description: An order number or part of an email address.
+          schema: { type: string }
+      responses:
+        "200": { description: A page of orders. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { description: That is not an order status. }
+
+  /api/shop/admin/orders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [admin]
+      summary: One order in full
+      description: |
+        Lines, payments, invoices and the state of every download link. The
+        links themselves were never stored, only their hashes, so the panel can
+        show how a download is going but can never hand the link out again.
+      responses:
+        "200": { description: The order. }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [admin]
+      summary: Keep a private note
+      description: The only field a human may change here; amounts and status are decided by the payment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [notes]
+              properties:
+                notes: { type: string, maxLength: 4000 }
+      responses:
+        "200": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/shop/admin/orders/{id}/mark-paid:
+    post:
+      tags: [admin]
+      summary: A bank transfer arrived, or a webhook never did
+      description: |
+        Owner only. Runs the same fulfilment a webhook runs: invoice, links,
+        email. The audit entry records who decided it, because no provider
+        vouches for this one.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reference: { type: string, maxLength: 120 }
+      responses:
+        "200": { description: Paid and fulfilled. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: That order is not waiting for payment. }
+
+  /api/shop/admin/orders/{id}/refund:
+    post:
+      tags: [admin]
+      summary: Give the money back
+      description: |
+        Owner only. The refund is asked of the provider; the order changes when
+        the provider's webhook confirms it, so a refund started here and one
+        started in the provider's own dashboard take exactly the same path.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amountMinor:
+                  type: integer
+                  description: Defaults to whatever is left on the order.
+      responses:
+        "200": { description: The provider accepted the refund request. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Not refundable, or no payment is recorded. }
+        "422": { description: More than is left to refund. }
+        "502": { description: The provider refused. Its reason is in the audit log. }
+        "503": { description: That order's provider is not configured here. }
+
+  /api/shop/admin/orders/{id}/resend:
+    post:
+      tags: [admin]
+      summary: Send the download links again
+      description: Cancels the old links and issues fresh ones, because their plaintext was never kept.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200": { description: Queued. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Not paid, no customer, or no line has a file. }
+
+  /api/shop/admin/orders/{id}/cancel:
+    post:
+      tags: [admin]
+      summary: Put an abandoned basket to rest
+      description: Only an unpaid order. A paid one is refunded, never cancelled.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        "200": { description: Cancelled. }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: An order in that state cannot be cancelled. }
+
+  /api/shop/admin/settings:
+    get:
+      tags: [admin]
+      summary: What the shop is configured to do
+      description: Business settings only. Secrets and bindings live in wrangler and are never readable here.
+      responses:
+        "200": { description: The settings and the list of valid keys. }
+    put:
+      tags: [admin]
+      summary: Change some settings
+      description: Owner only. An unknown key is refused and nothing is written.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { description: A value would produce wrong invoices, or a key does not exist. }
+
+  /api/shop/admin/vat-rates:
+    get:
+      tags: [admin]
+      summary: The rate table
+      parameters:
+        - name: country
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 2 }
+      responses:
+        "200": { description: The rates, newest first. }
+    post:
+      tags: [admin]
+      summary: Add or supersede a rate
+      description: |
+        Owner only. Rates are dated, never overwritten: an invoice from March
+        must still be able to explain the rate it used after the rate changes in
+        July. Setting a rate closes off the one in force at that date.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [country, rateBp]
+              properties:
+                country: { type: string, minLength: 2, maxLength: 2 }
+                kind: { type: string, default: standard, examples: [ebook] }
+                rateBp:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                  description: Basis points. 2300 is 23%.
+                validFrom: { type: string, format: date-time }
+      responses:
+        "201": { description: Set. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { description: That is not a country, a rate or a date. }
+    delete:
+      tags: [admin]
+      summary: Remove one rate
+      parameters:
+        - name: country
+          in: query
+          required: true
+          schema: { type: string }
+        - name: kind
+          in: query
+          required: true
+          schema: { type: string }
+        - name: validFrom
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200": { description: Removed. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: country, kind and validFrom are all required. }
+
+  /api/shop/admin/outbox:
+    get:
+      tags: [admin]
+      summary: What is queued, and what is stuck
+      description: |
+        Shows what a message is and how it is going, never what it says: the
+        payload holds download links and the buyer's details.
+      parameters:
+        - name: stuck
+          in: query
+          schema: { type: string, enum: ["1"] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { description: The queue. }
+    post:
+      tags: [admin]
+      summary: Drain the queue now, or retry one message
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [drain] }
+                id: { type: string }
+      responses:
+        "200": { description: How many went out. }
+        "404": { description: No queued message with that id. }
+
+  /api/shop/admin/audit:
+    get:
+      tags: [admin]
+      summary: Who did what
+      description: Read-only. There is no endpoint that edits or clears this table.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: subject
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: A page of entries. }
+
+  /api/shop/admin/export:
+    get:
+      tags: [admin]
+      summary: A CSV for the accountant
+      description: |
+        Amounts as decimal strings in their own currency, a byte-order mark for
+        Excel, and every cell defused so a product name starting with `=` is not
+        a formula.
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [orders, invoices, vat], default: orders }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: The file.
+          content:
+            text/csv:
+              schema: { type: string }
+        "422": { description: That type or that date range is not understood. }
+
+components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The access token from `/api/shop/admin/auth/login`, valid for fifteen
+        minutes. Under Cloudflare Access there is no token: the request already
+        carries a verified identity in `Cf-Access-Jwt-Assertion`.
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Sku:
+      name: sku
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+
+  responses:
+    BadRequest:
+      description: The body could not be read.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Not signed in.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Signed in, but this needs the owner.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such thing, or not yours.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotConfigured:
+      description: A binding this endpoint needs is not configured.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: A stable code to branch on.
+        message:
+          type: string
+          description: A sentence to show. Never a stack trace, never SQL.
+        requestId:
+          type: string
+          description: The Cloudflare ray, for matching a report to a log line.
+
+    ShopInfo:
+      type: object
+      properties:
+        name: { type: string }
+        baseCurrency: { type: string, examples: ["EUR"] }
+        pricingMode: { type: string, enum: [gross, net] }
+        gateways: { type: array, items: { type: string } }
+        termsUrl: { type: string }
+        privacyUrl: { type: string }
+        digitalWaiver: { type: boolean }
+
+    Product:
+      type: object
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        kind: { type: string, examples: ["digital"] }
+        imageUrl: { type: [string, "null"] }
+        fileName: { type: [string, "null"] }
+        fileSize: { type: [integer, "null"] }
+        prices:
+          type: object
+          description: Currency code to minor units. 1999 EUR-minor is 19.99 €.
+          additionalProperties: { type: integer }
+
+    CheckoutRequest:
+      type: object
+      required: [email]
+      properties:
+        items:
+          type: array
+          description: The basket. Alternatively `sku` and `quantity` for one line.
+          maxItems: 20
+          items:
+            type: object
+            required: [sku]
+            properties:
+              sku: { type: string }
+              quantity: { type: integer, minimum: 1, maximum: 10 }
+        sku: { type: string }
+        quantity: { type: integer }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        gateway: { type: string, examples: ["stripe", "paypal"] }
+        email: { type: string, format: email }
+        name: { type: string, maxLength: 120 }
+        country:
+          type: string
+          description: Two letters. Decides the VAT rate.
+        vatId: { type: string, maxLength: 20 }
+        locale: { type: string, maxLength: 10 }
+        consentWaiver:
+          description: |
+            The buyer giving up the right to withdraw in exchange for immediate
+            delivery. Required unless the shop has turned the waiver off.
+          type: [boolean, string]
+        consentMarketing: { type: [boolean, string] }
+        turnstileToken: { type: string }
+
+    OrderStatusName:
+      type: string
+      enum: [pending, paid, fulfilled, refunded, cancelled, needs_review, failed]
+
+    OrderStatus:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/OrderStatusName" }
+        number: { type: string }
+        currency: { type: string }
+        totalMinor: { type: integer }
+        paidAt: { type: [string, "null"], format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku: { type: string }
+              name: { type: string }
+              quantity: { type: integer }
+              totalMinor: { type: integer }
+        downloads:
+          type: array
+          description: |
+            What is still available. `url` is always empty: the links are in the
+            email, because a page that shows them is a page that can be shared.
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              url: { type: string }
+              expiresAt: { type: string, format: date-time }
+              remaining: { type: integer }
+        linksSentByEmail: { type: boolean }
+
+    AdminIdentity:
+      type: object
+      properties:
+        sub: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [owner, staff] }
+        via: { type: string, enum: [access, jwt] }
+
+security:
+  - adminToken: []

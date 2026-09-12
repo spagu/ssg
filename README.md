@@ -22,7 +22,7 @@ documentation, company sites, portfolios and landing pages.
 
 - Fast, deterministic builds with a single Go binary
 - Markdown content with YAML frontmatter
-- Built-in `simple` and `krowy` themes
+- Built-in `simple` and `krowy` themes, and `picostore` for a shop
 - Go, Pongo2, Mustache and Handlebars template engines
 - Sitemap, robots.txt, Atom feeds, search index and SEO metadata
 - WebP conversion, responsive images, SCSS, minification and fingerprinting
@@ -366,7 +366,8 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Several projects at once | `ssg daemon` watches every project in `.ssg_projects` from one process; editing the file reloads the fleet in place, leaving untouched projects running ([docs/DAEMON.md](docs/DAEMON.md)) |
 | Staying current | Every build's first line names the binary that produced it; `ssg self-update-check` says whether a newer release is out and prints the upgrade command for **your** install — snap, Homebrew, apt, dnf, Docker or the releases page. It never self-updates and never contacts the network on its own ([docs/INSTALL.md](docs/INSTALL.md#staying-up-to-date)) |
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), **served by the built-in preview** so a rule can be checked before it ships, `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
-| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, rate limit, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Selling | `ssg new worker ecommerce` — a shop for digital products beside the static site: Stripe and PayPal, VAT per country, invoices, expiring download links, an admin panel. The `picostore` theme is the storefront for it; [`examples/ebook-shop`](examples/ebook-shop/README.md) is both, running locally in one command ([workers/ecommerce/README.md](workers/ecommerce/README.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |

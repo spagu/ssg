@@ -1,0 +1,73 @@
+# A working shop, small enough to read in one sitting.
+#
+# It builds a storefront (picostore theme) plus the shop's API (the ecommerce
+# worker), so `wrangler pages dev` serves both from one origin — which is what
+# the browser needs: the checkout posts to /api/shop/checkout on the same host.
+#
+#   ssg --config examples/ebook-shop/ssg.yaml
+#   npx wrangler pages dev examples/ebook-shop/output
+#
+# See examples/ebook-shop/README.md for the five commands that turn this into a
+# shop with a book in it.
+
+source: shop
+template: picostore
+templates_dir: ../../templates
+content_dir: content
+output_dir: output
+static_dir: static
+
+# One markdown file per post, rather than a folder per post. A shop this size
+# has no co-located images to keep beside a draft.
+flat_posts: true
+domain: example.com
+
+title: "Paperless Press"
+description: "A very small publisher of very practical books."
+
+# The shop's API. Its functions/ tree is copied into output/functions and every
+# path below is routed to it; everything else stays a static file.
+workers:
+  - name: shop
+    dir: ../../workers/ecommerce
+    # Only the API. The panel at /ecommerce-admin/ is plain static files —
+    # routing it through Functions would spend an invocation to serve HTML, and
+    # protect nothing: what guards the panel is the API's own authentication,
+    # or Cloudflare Access in front of both.
+    routes_include:
+      - /api/shop/*
+
+variables:
+  shop_name: "Paperless Press"
+  shop_tagline: "Books, delivered the moment you pay for them"
+  shop_intro: "Every title is a direct download — PDF and EPUB in one purchase. No account, no subscription."
+  shop_legal: "Paperless Press sp. z o.o., ul. Przykładowa 1, 00-001 Warszawa. VAT PL0000000000."
+
+  nav:
+    - { url: "/shop/", label: "Books" }
+    - { url: "/blog/", label: "Writing" }
+
+  # The buttons the checkout page offers. Which ones actually work is decided by
+  # SHOP_GATEWAYS and the secrets in wrangler.toml; a button for a provider that
+  # is not configured is refused with a clear message rather than a 500.
+  shop_gateways:
+    - { id: "stripe", label: "Pay by card" }
+    - { id: "paypal", label: "Pay with PayPal", secondary: true }
+
+  # The countries this demo sells to. A real shop lists the ones its VAT table
+  # covers — the API refuses the rest, so keep the two in step.
+  shop_countries:
+    - { code: "PL", name: "Poland" }
+    - { code: "DE", name: "Germany" }
+    - { code: "FR", name: "France" }
+    - { code: "ES", name: "Spain" }
+    - { code: "IT", name: "Italy" }
+    - { code: "NL", name: "Netherlands" }
+    - { code: "IE", name: "Ireland" }
+    - { code: "GB", name: "United Kingdom" }
+
+  # Uncomment once you have a Turnstile site key; the secret goes in wrangler.
+  # turnstile_site_key: "0x4AAAAAAA..."
+
+  # Your own container. The theme renders nothing when this is absent.
+  # gtm_id: "GTM-XXXXXXX"

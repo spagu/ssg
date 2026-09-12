@@ -1,0 +1,13 @@
+{
+  "title": "Paperless Press",
+  "description": "A very small publisher of very practical books.",
+  "url": "https://example.com",
+  "language": "en",
+  "categories": [
+    { "id": 1, "name": "Selling", "slug": "selling", "count": 2 }
+  ],
+  "users": [
+    { "id": 1, "name": "Paperless Press", "slug": "paperless-press" }
+  ],
+  "media": []
+}

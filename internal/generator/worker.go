@@ -357,8 +357,13 @@ func isWorkerSourceFile(path string) bool {
 // or export-from), even when the `import { … }` spans several lines — matching on
 // the `from` clause rather than the opening line is what avoids mis-reading a
 // bare `import {` as a package. sideEffectImportRE captures `import "spec"`.
+//
+// The leading `(^|[^\w"'])` is not decoration: without it, source that merely
+// contains the word from inside a string literal — `q.get("from")`, a query
+// parameter every export endpoint has — matched, and the build warned about an
+// npm package whose name was the rest of the line (#274).
 var (
-	importFromRE       = regexp.MustCompile(`\bfrom\s*["']([^"']+)["']`)
+	importFromRE       = regexp.MustCompile(`(^|[^\w"'])from\s*["']([^"']+)["']`)
 	sideEffectImportRE = regexp.MustCompile(`(?m)^\s*import\s*["']([^"']+)["']`)
 )
 
@@ -377,7 +382,7 @@ func bareModuleSpecs(content string) []string {
 		}
 	}
 	for _, m := range importFromRE.FindAllStringSubmatch(content, -1) {
-		add(m[1])
+		add(m[2]) // m[1] is the boundary character, m[2] the specifier
 	}
 	for _, m := range sideEffectImportRE.FindAllStringSubmatch(content, -1) {
 		add(m[1])

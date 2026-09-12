@@ -1,0 +1,77 @@
+# ecommerce — a small shop for digital products.
+#
+# Everything below is commented out: uncomment what this shop actually uses.
+# Once it runs, /ecommerce-admin/ lists whatever is still missing.
+
+# ── Database (required) ──────────────────────────────────────────────────────
+#   npx wrangler d1 create ssg-shop
+# [[d1_databases]]
+# binding = "SHOP_DB"
+# database_name = "ssg-shop"
+# database_id = "<paste-d1-database-id>"
+
+# ── Files the buyer downloads (required to deliver anything) ─────────────────
+#   npx wrangler r2 bucket create ssg-shop-files
+# [[r2_buckets]]
+# binding = "SHOP_FILES"
+# bucket_name = "ssg-shop-files"
+
+# ── Short-lived state: login throttling, revoked tokens, range windows ───────
+#   npx wrangler kv namespace create SHOP_KV
+# [[kv_namespaces]]
+# binding = "SHOP_KV"
+# id = "<paste-kv-namespace-id>"
+
+# ── Rate limiting (recommended) ─────────────────────────────────────────────
+# Without this binding the shop still works, but checkout, login and downloads
+# have no per-IP budget.
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# simple = { limit = 60, period = 60 }
+
+# [vars]
+# SHOP_GATEWAYS = "stripe,paypal"   # which providers to offer, in this order
+# SHOP_PAYPAL_ENV = "sandbox"       # "sandbox" until a real sale has been tested
+# SHOP_BASE_CURRENCY = "EUR"        # used when a request names no currency
+# SHOP_MAX_FILE_MB = "100"          # upload cap for a product file
+# SHOP_RETENTION_DAYS = "0"         # 0 = keep personal data until asked to erase it
+#
+# Outgoing mail — any HTTP API that accepts a JSON POST (Resend, Postmark, …).
+# Without it, buyers get no download email: the shop says so in the panel.
+# SHOP_MAIL_URL = "https://api.resend.com/emails"
+# SHOP_MAIL_FROM = "shop@example.com"
+# SHOP_MAIL_ADMIN = "owner@example.com"   # where "you sold something" goes
+#
+# Admin panel behind Cloudflare Access (recommended — no password to store).
+# Setting both of these switches the panel to Access and removes the login
+# endpoint entirely; put /ecommerce-admin/* and /api/shop/admin/* behind the
+# Access application first.
+# SHOP_ACCESS_TEAM = "myteam"
+# SHOP_ACCESS_AUD = "<application-aud>"
+# SHOP_ACCESS_OWNERS = "owner@example.com"  # these get the owner role; others are staff
+#
+# Server-side tracking (optional; no third-party script on the page):
+# GA4_MEASUREMENT_ID = "G-XXXXXXXXXX"
+# META_PIXEL_ID = "<pixel-id>"
+
+# ── Secrets ─────────────────────────────────────────────────────────────────
+# Never in this file. Set each with `wrangler pages secret put <NAME>`:
+#
+#   SHOP_JWT_SECRET        admin session signing key, 32+ random bytes.
+#                          Only for the password mode; leave unset with Access.
+#   SHOP_ADMIN_BOOTSTRAP   "email:password", used once to create the owner.
+#                          Delete it as soon as you have logged in.
+#   SHOP_IP_SALT           salt for stored IP hashes. Without it, no IP is kept.
+#   STRIPE_SECRET_KEY      sk_live_… / sk_test_…
+#   STRIPE_WEBHOOK_SECRET  whsec_… from the endpoint you add in Stripe, pointing
+#                          at https://<your-site>/api/shop/webhooks/stripe
+#   PAYPAL_CLIENT_ID       REST app client id
+#   PAYPAL_CLIENT_SECRET   REST app secret
+#   PAYPAL_WEBHOOK_ID      the id PayPal shows after you create the webhook at
+#                          https://<your-site>/api/shop/webhooks/paypal
+#   TURNSTILE_SECRET       (optional) anti-spam on checkout and resend
+#   SHOP_MAIL_KEY          bearer token for SHOP_MAIL_URL
+#   GA4_API_SECRET         (optional) GA4 Measurement Protocol secret
+#   META_ACCESS_TOKEN      (optional) Meta Conversions API token

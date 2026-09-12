@@ -1,0 +1,211 @@
+/* picostore — cart, checkout and status messages.
+ *
+ * Split from style.css because these only matter on four pages, and because a
+ * seller who wants to restyle the basket should not have to read past the
+ * header to find it.
+ */
+
+/* ── Cart ─────────────────────────────────────────────────────────────────── */
+
+.ps-cart-table {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+.ps-cart-table th {
+  text-align: left;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ps-fg-muted);
+}
+.ps-cart-table td {
+  vertical-align: middle;
+}
+.ps-cart-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ps-cart-thumb {
+  width: 3rem;
+  height: 4rem;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  background: var(--ps-bg-subtle);
+  flex: none;
+}
+.ps-qty {
+  width: 5rem;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+}
+.ps-remove {
+  --pico-color: var(--ps-danger);
+  background: none;
+  border: 0;
+  padding: 0.25rem;
+  width: auto;
+  color: var(--ps-danger);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ps-cart-total {
+  text-align: right;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.ps-cart-empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--ps-border-strong);
+  border-radius: var(--ps-radius);
+  color: var(--ps-fg-muted);
+}
+
+/* On a narrow screen a five-column table becomes a stack of labelled rows,
+ * which is what the data-label attributes in shop.js are for. */
+@media (max-width: 40rem) {
+  .ps-cart-table thead {
+    display: none;
+  }
+  .ps-cart-table tr {
+    display: block;
+    border: 1px solid var(--ps-border);
+    border-radius: var(--ps-radius);
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+  }
+  .ps-cart-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0;
+    padding: 0.35rem 0.25rem;
+  }
+  .ps-cart-table td::before {
+    content: attr(data-label);
+    color: var(--ps-fg-muted);
+    font-size: 0.85rem;
+  }
+  .ps-cart-table td:first-child::before {
+    content: none;
+  }
+}
+
+/* ── Checkout ─────────────────────────────────────────────────────────────── */
+
+.ps-checkout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+  gap: 2.5rem;
+  align-items: start;
+}
+@media (max-width: 52rem) {
+  .ps-checkout {
+    grid-template-columns: 1fr;
+  }
+}
+.ps-summary {
+  position: sticky;
+  top: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius);
+  background: var(--ps-bg-subtle);
+}
+.ps-summary ul {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.95rem;
+}
+.ps-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.35rem;
+}
+.ps-summary li + li {
+  border-top: 1px solid var(--ps-border);
+}
+.ps-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.ps-summary .ps-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-top: 2px solid var(--ps-border-strong);
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+}
+.ps-gateways {
+  display: grid;
+  gap: 0.6rem;
+}
+.ps-gateways button {
+  margin: 0;
+}
+.ps-gateways button.secondary {
+  --pico-background-color: transparent;
+}
+.ps-consent {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.ps-consent label {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+/* ── Messages ─────────────────────────────────────────────────────────────── */
+
+/* Never colour alone: each message carries a word as well (S-26 in the plan is
+ * about payments, this is the same instinct applied to the interface). */
+.ps-note {
+  padding: 0.85rem 1rem;
+  border-left: 4px solid var(--ps-border-strong);
+  border-radius: 0.25rem;
+  background: var(--ps-bg-subtle);
+  margin-block: 1rem;
+}
+.ps-note-error {
+  border-left-color: var(--ps-danger);
+}
+.ps-note-ok {
+  border-left-color: var(--ps-ok);
+}
+.ps-note-test {
+  border-left-color: #f9a825; /* Amber 800 */
+}
+.ps-note strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.ps-downloads {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.ps-downloads li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+}
+.ps-downloads small {
+  display: block;
+  color: var(--ps-fg-muted);
+}
+
+.ps-spinner[hidden] {
+  display: none !important;
+}

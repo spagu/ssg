@@ -1,0 +1,31 @@
+{{define "category.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Title (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" (printf "Everything filed under %s." .Title)
+    "CanonicalURL" .CanonicalURL
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <h1>{{ .Title }}</h1>
+    <ul class="ps-grid">
+        {{ range .Posts }}
+        <li class="ps-card">
+            <div class="ps-card-body">
+                <h3><a href="{{ .GetURL }}">{{ .Title }}</a></h3>
+                <p>{{ .Excerpt }}</p>
+            </div>
+        </li>
+        {{ end }}
+    </ul>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

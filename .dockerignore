@@ -45,3 +45,10 @@ build-profile.json
 # Build caches, including the dependency graph (--incremental)
 .ssg-cache/
 .ai-cache/
+
+# Worker tooling and local secrets — the image builds the Go binary, not the
+# workers, whose runtime has no dependencies anyway.
+workers/*/node_modules/
+workers/*/coverage/
+.dev.vars
+.wrangler/

@@ -1,0 +1,63 @@
+{{define "shop-cart.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "Your basket — %s" (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" "What you have chosen so far."
+    "Canonical" "/shop/cart/"
+    "Robots" "noindex, follow"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content" data-cart-page>
+    <h1>Your basket</h1>
+
+    {{/* The basket lives in this browser, not on the server: nothing is sent
+         anywhere until you check out. */}}
+    <p data-cart-empty class="ps-cart-empty" hidden>
+        Your basket is empty. <a href="/">Have a look at the books</a>.
+    </p>
+
+    <div class="ps-note ps-note-error" data-cart-warning hidden>
+        <strong>Two currencies in one basket.</strong>
+        A single payment can only be in one currency. Remove one of the books, or
+        buy them in two orders.
+    </div>
+
+    <table class="ps-cart-table" data-cart-table hidden>
+        <caption class="visually-hidden">The books in your basket</caption>
+        <thead>
+            <tr>
+                <th scope="col">Item</th>
+                <th scope="col">Price</th>
+                <th scope="col">Quantity</th>
+                <th scope="col">Total</th>
+                <th scope="col"><span class="visually-hidden">Remove</span></th>
+            </tr>
+        </thead>
+        <tbody data-cart-rows></tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="ps-cart-total">Total</td>
+                <td class="ps-cart-total" data-cart-total></td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="ps-buy" data-cart-actions hidden>
+        <button type="button" class="secondary outline" data-cart-clear>Empty the basket</button>
+        <a href="/shop/checkout/" role="button">Checkout</a>
+    </div>
+
+    <p><small>Prices are confirmed by the shop when you check out. VAT is worked
+    out from the country you give at that point.</small></p>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

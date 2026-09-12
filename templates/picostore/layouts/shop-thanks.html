@@ -1,0 +1,36 @@
+{{define "shop-thanks.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "Thank you — %s" (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" "Your order."
+    "Canonical" "/shop/thanks/"
+    "Robots" "noindex, nofollow"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content" data-thanks-page>
+    <h1>Thank you</h1>
+
+    {{/* Landing here is not proof of payment — anyone can open this URL. The
+         page asks the shop what the payment provider actually confirmed, and
+         says so until it knows. */}}
+    <p>Order <strong data-order-number>…</strong></p>
+    <p aria-live="polite" data-order-status>Checking with the payment provider…</p>
+
+    <div class="ps-note" data-checkout-note hidden></div>
+
+    <h2>Your downloads</h2>
+    <ul class="ps-downloads" data-order-downloads hidden></ul>
+    <p><small>The links themselves are in your email — they are personal to your
+    order, so the shop does not put them on a page that could be shared.
+    Nothing arrived? <a href="/shop/resend/">Have them sent again</a>.</small></p>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

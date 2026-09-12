@@ -1,0 +1,253 @@
+/* picostore — layout and components.
+ *
+ * Pico styles the elements; this file adds the six things a shop needs that a
+ * classless framework has no opinion about: the header, the product grid, the
+ * product page, the cart, the checkout summary and the status messages.
+ *
+ * Everything here is one class deep. A theme nobody can read is a theme nobody
+ * edits, and the point of this one is that a seller edits it.
+ */
+
+@import url("pico.min.css");
+@import url("tokens.css");
+
+body {
+  background: var(--ps-bg);
+  color: var(--ps-fg);
+}
+
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+
+.ps-skip {
+  position: absolute;
+  left: -9999px;
+}
+.ps-skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  background: var(--ps-bg);
+  border: 2px solid var(--ps-brand);
+  border-radius: var(--ps-radius);
+}
+
+/* Present to assistive technology, absent from the page. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ps-hero {
+  padding-block: 2.5rem 1.5rem;
+  max-width: var(--ps-measure);
+}
+.ps-hero h1 {
+  margin-bottom: 0.5rem;
+}
+.ps-hero p {
+  color: var(--ps-fg-muted);
+  font-size: 1.1rem;
+}
+
+.ps-header {
+  border-bottom: 1px solid var(--ps-border);
+  background: var(--ps-bg);
+}
+.ps-header > .container {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-gap);
+  flex-wrap: wrap;
+  padding-block: 0.75rem;
+}
+.ps-brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--ps-fg);
+  text-decoration: none;
+  margin-right: auto;
+}
+.ps-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-nav a {
+  color: var(--ps-fg);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 2px solid transparent;
+}
+.ps-nav a:hover,
+.ps-nav a[aria-current="page"] {
+  border-bottom-color: var(--ps-brand);
+}
+
+/* The basket count is announced, not just drawn: a badge that only changes
+ * colour tells a screen-reader user nothing. */
+.ps-cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ps-cart-count {
+  min-width: 1.6rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--ps-brand);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+:root[data-theme="dark"] .ps-cart-count,
+:root:not([data-theme="light"]) .ps-cart-count {
+  color: #1a237e; /* Indigo 900 on Indigo 200 — 8.4:1 */
+}
+
+.ps-footer {
+  margin-top: 4rem;
+  padding-block: 2rem;
+  border-top: 1px solid var(--ps-border);
+  color: var(--ps-fg-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Product grid ─────────────────────────────────────────────────────────── */
+
+.ps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+.ps-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+  background: var(--ps-bg);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ps-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow);
+}
+.ps-card-cover {
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  background: var(--ps-bg-subtle);
+}
+.ps-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  flex: 1;
+}
+.ps-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+.ps-card h3 a {
+  color: var(--ps-fg);
+  text-decoration: none;
+}
+.ps-card h3 a:hover {
+  color: var(--ps-brand);
+}
+.ps-card p {
+  margin: 0;
+  color: var(--ps-fg-muted);
+  font-size: 0.92rem;
+}
+.ps-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.ps-price {
+  font-weight: 700;
+  color: var(--ps-money);
+  font-size: 1.1rem;
+}
+.ps-price-note {
+  display: block;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--ps-fg-muted);
+}
+
+/* ── Product page ─────────────────────────────────────────────────────────── */
+
+.ps-product {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+@media (max-width: 48rem) {
+  .ps-product {
+    grid-template-columns: 1fr;
+  }
+}
+.ps-product-cover {
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--ps-radius);
+  box-shadow: var(--ps-shadow);
+}
+.ps-buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-block: 1.5rem;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius);
+  background: var(--ps-bg-subtle);
+}
+.ps-buy .ps-price {
+  font-size: 1.5rem;
+  margin-right: auto;
+}
+.ps-buy button {
+  margin: 0;
+  width: auto;
+}
+.ps-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.95rem;
+}
+.ps-facts dt {
+  color: var(--ps-fg-muted);
+}
+.ps-facts dd {
+  margin: 0;
+}

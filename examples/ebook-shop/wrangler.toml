@@ -1,0 +1,36 @@
+# The demo shop, wired for local development.
+#
+# Every id below is a placeholder. `wrangler pages dev` in local mode never
+# calls Cloudflare — it creates the D1 database, the R2 bucket and the KV
+# namespace on disk under .wrangler/ — so these only have to be present, not
+# real. Replace them with the ids from `wrangler d1 create` / `r2 bucket create`
+# / `kv namespace create` before deploying anything.
+#
+# SSG generates a starter like this one when a project has workers and no
+# wrangler config yet; this file exists so the example runs without that step.
+
+name = "example-com"
+pages_build_output_dir = "./output"
+compatibility_date = "2026-08-22"
+
+[[d1_databases]]
+binding = "SHOP_DB"
+database_name = "ssg-shop"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[r2_buckets]]
+binding = "SHOP_FILES"
+bucket_name = "ssg-shop-files"
+
+[[kv_namespaces]]
+binding = "SHOP_KV"
+id = "0000000000000000000000000000000f"
+
+[vars]
+SHOP_GATEWAYS = "stripe,paypal"
+SHOP_PAYPAL_ENV = "sandbox"
+SHOP_BASE_CURRENCY = "EUR"
+SHOP_MAX_FILE_MB = "50"
+
+# Secrets belong in .dev.vars locally (copy .dev.vars.example) and in
+# `wrangler pages secret put` in production — never in this file.
