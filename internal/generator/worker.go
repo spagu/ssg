@@ -361,7 +361,7 @@ func isWorkerSourceFile(path string) bool {
 // The leading `(^|[^\w"'])` is not decoration: without it, source that merely
 // contains the word from inside a string literal — `q.get("from")`, a query
 // parameter every export endpoint has — matched, and the build warned about an
-// npm package whose name was the rest of the line (#274).
+// npm package whose name was the rest of the line.
 var (
 	importFromRE       = regexp.MustCompile(`(^|[^\w"'])from\s*["']([^"']+)["']`)
 	sideEffectImportRE = regexp.MustCompile(`(?m)^\s*import\s*["']([^"']+)["']`)

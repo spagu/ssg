@@ -165,7 +165,7 @@ func TestBareModuleSpecs(t *testing.T) {
 		"import a from \"pkg\"\nimport { b } from \"pkg\"": {"pkg"},
 		// The word "from" inside a string literal is not an import clause. A
 		// query parameter named from — every date-range export has one — used to
-		// be reported as an npm package on every build (#274).
+		// be reported as an npm package on every build.
 		`const from = str(q.get("from"), 40);`: nil,
 		`label("valid from", x)`:               nil,
 	}
