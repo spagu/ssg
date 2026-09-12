@@ -206,8 +206,59 @@ function bindLogin() {
   });
 }
 
+/** The sidebar collapses to a rail of icons, and stays that way.
+ *
+ *  Remembered per browser: someone who works on a laptop and wants the width
+ *  should not have to say so on every visit. localStorage can throw — a private
+ *  window, blocked site data — so every touch of it is guarded and the panel
+ *  simply opens expanded when it cannot remember. */
+const NAV_KEY = "shop-admin-nav";
+
+function applyNavState(collapsed) {
+  const toggle = document.getElementById("nav-toggle");
+  document.body.dataset.nav = collapsed ? "collapsed" : "expanded";
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  const label = collapsed ? "Expand the menu" : "Collapse the menu";
+  toggle.setAttribute("aria-label", label);
+  toggle.title = label;
+
+  // With the words hidden, each button's accessible name has to come from
+  // somewhere: it comes from the same words.
+  for (const button of document.querySelectorAll("#nav button")) {
+    const text = button.querySelector(".navtext")?.textContent ?? "";
+    if (collapsed) {
+      button.setAttribute("aria-label", text);
+      button.title = text;
+    } else {
+      button.removeAttribute("aria-label");
+      button.removeAttribute("title");
+    }
+  }
+}
+
+function bindNavToggle() {
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem(NAV_KEY) === "collapsed";
+  } catch (e) {
+    console.info("shop admin: menu state not remembered", e.name);
+  }
+  applyNavState(collapsed);
+
+  document.getElementById("nav-toggle").addEventListener("click", () => {
+    collapsed = !collapsed;
+    applyNavState(collapsed);
+    try {
+      localStorage.setItem(NAV_KEY, collapsed ? "collapsed" : "expanded");
+    } catch {
+      // The choice holds for this visit, which is better than refusing it.
+    }
+  });
+}
+
 async function start() {
   bindLogin();
+  bindNavToggle();
   bindNewProductForm();
   bindOrders();
   bindVatForm();

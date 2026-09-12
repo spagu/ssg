@@ -151,10 +151,44 @@ body[data-state="in"] {
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.brandbar svg { width: 1.5rem; height: 1.5rem; color: var(--brand); flex: none; }
+.brandbar .brand-mark { width: 1.5rem; height: 1.5rem; color: var(--brand); flex: none; }
 .brandbar strong {
   font-size: 0.95rem; font-weight: 650;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.navtoggle {
+  margin-left: auto; padding: 0.35rem;
+  flex: none;
+}
+.navtoggle svg { width: 1.15rem; height: 1.15rem; }
+
+/* ── Collapsed sidebar ──────────────────────────────────────────────────────
+ *
+ * The rail keeps the icons and drops the words, rather than hiding the
+ * navigation altogether: a menu that has to be opened to see where you are is
+ * a menu you open constantly. The width is one token, so the whole grid
+ * follows it.
+ *
+ * The labels are hidden with `display: none` on the span, not with `hidden` or
+ * with width — the accessible name of each button comes from `aria-label`,
+ * which admin.js sets to the same words, so a screen reader still reads
+ * "Products" from a rail with no text in it. */
+body[data-nav="collapsed"] { --sidebar: 3.75rem; }
+body[data-nav="collapsed"] .brandbar { padding: 0 0.6rem; justify-content: center; }
+body[data-nav="collapsed"] .brandbar .brand-mark,
+body[data-nav="collapsed"] .brandbar strong { display: none; }
+body[data-nav="collapsed"] .navtoggle { margin: 0; }
+body[data-nav="collapsed"] .sidenav { padding: 0.75rem 0.5rem; }
+body[data-nav="collapsed"] .sidenav button { justify-content: center; padding: 0.55rem 0; }
+body[data-nav="collapsed"] .navtext { display: none; }
+body[data-nav="collapsed"] .sidenav .count {
+  position: absolute; transform: translate(0.9rem, -0.7rem);
+  margin: 0; padding: 0 0.3rem; font-size: 0.7rem;
+}
+body[data-nav="collapsed"] .sidenav li { position: relative; }
+
+@media (prefers-reduced-motion: no-preference) {
+  body[data-state="in"] { transition: grid-template-columns 0.15s ease; }
 }
 
 .topbar {
@@ -198,8 +232,14 @@ body[data-state="in"] {
 main {
   grid-area: main;
   padding: 1.5rem;
-  max-width: 78rem;
   width: 100%;
+  /* The content keeps a readable maximum width, and what is left over goes on
+   * the side the sidebar is not: `margin-left: auto` pushes the block to the
+   * right edge rather than leaving it pinned against the menu with the empty
+   * space trailing off to the right. On a screen narrower than the maximum
+   * there is nothing to distribute and this does nothing. */
+  max-width: 78rem;
+  margin-left: auto;
 }
 
 /* ── Page header ────────────────────────────────────────────────────────── */

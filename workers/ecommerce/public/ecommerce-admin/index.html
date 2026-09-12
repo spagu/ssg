@@ -28,13 +28,21 @@
 <!-- The shell. `data-state` on <body> switches between "out" — a centred
      sign-in screen with none of this visible — and "in". -->
 <div class="brandbar" id="brandbar" hidden>
-  <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+  <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
     <path d="M10 16h28l-2.6 22.2A4 4 0 0 1 31.4 42H16.6a4 4 0 0 1-4-3.8L10 16Z"
           fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
     <path d="M18 20v-4a6 6 0 0 1 12 0v4"
           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
   </svg>
   <strong id="brand-name">Shop admin</strong>
+  <!-- aria-expanded is the state; the label says what pressing it does. Both
+       are rewritten by admin.js when the sidebar collapses. -->
+  <button type="button" class="ghost navtoggle" id="nav-toggle"
+          aria-controls="nav" aria-expanded="true" aria-label="Collapse the menu" title="Collapse the menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+      <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/>
+    </svg>
+  </button>
 </div>
 
 <header class="topbar" id="topbar" hidden>
@@ -50,32 +58,32 @@
     <li><button type="button" data-view="dashboard" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M3 12h6v9H3zM9 3h6v18H9zM15 8h6v13h-6z" stroke-linejoin="round"/>
-      </svg>Overview</button></li>
+      </svg><span class="navtext">Overview</span></button></li>
     <li><button type="button" data-view="products">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 11h6" stroke-linejoin="round"/>
-      </svg>Products</button></li>
+      </svg><span class="navtext">Products</span></button></li>
     <li><button type="button" data-view="orders">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M6 3h12l1 18H5L6 3ZM9 7h6" stroke-linejoin="round"/>
-      </svg>Orders<span class="count" id="review-count" hidden>0</span></button></li>
+      </svg><span class="navtext">Orders</span><span class="count" id="review-count" hidden>0</span></button></li>
     <li><button type="button" data-view="modules">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke-linejoin="round"/>
-      </svg>Modules</button></li>
+      </svg><span class="navtext">Modules</span></button></li>
     <li><button type="button" data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <circle cx="12" cy="12" r="3"/>
         <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke-linecap="round"/>
-      </svg>Settings</button></li>
+      </svg><span class="navtext">Settings</span></button></li>
     <li><button type="button" data-view="vat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M6 18 18 6M8 8h.01M16 16h.01" stroke-linecap="round"/>
-      </svg>VAT</button></li>
+      </svg><span class="navtext">VAT</span></button></li>
     <li><button type="button" data-view="log">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3" stroke-linejoin="round" stroke-linecap="round"/>
-      </svg>Log</button></li>
+      </svg><span class="navtext">Log</span></button></li>
   </ul>
 </nav>
 
