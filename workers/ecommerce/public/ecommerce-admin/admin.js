@@ -1,7 +1,7 @@
 // The panel's entry point: sign in, switch screens, load what a screen needs.
 
 import { api, refresh, setSignedOutHandler, setToken } from "./api.js";
-import { el, money, notify, td } from "./dom.js";
+import { clearNotice, el, money, notify, td } from "./dom.js";
 import { bindNewProductForm, loadProducts, setBaseCurrency } from "./products.js";
 import { bindOrders, loadOrders } from "./orders.js";
 import { bindVatForm, loadSettings, loadVat } from "./settings.js";
@@ -44,7 +44,9 @@ async function openView(name) {
 }
 
 function signedIn(identity) {
-  document.getElementById("tabs").hidden = false;
+  document.body.dataset.state = "in";
+  document.getElementById("topbar").hidden = false;
+  document.getElementById("nav").hidden = false;
   document.getElementById("logout").hidden = false;
   document.getElementById("view-login").hidden = true;
   if (identity?.testMode) {
@@ -52,15 +54,42 @@ function signedIn(identity) {
     badge.textContent = "Test mode — no real money";
     badge.hidden = false;
   }
+  if (identity?.shopName) document.title = `${identity.shopName} — shop admin`;
   setBaseCurrency(identity?.baseCurrency);
   openView(window.location.hash.slice(1) || "dashboard");
 }
 
 function signedOut() {
-  document.getElementById("tabs").hidden = true;
+  // The whole shell goes, not just its contents: a navigation you cannot use is
+  // an invitation to click something that will answer 401.
+  document.body.dataset.state = "out";
+  document.getElementById("topbar").hidden = true;
+  document.getElementById("nav").hidden = true;
   document.getElementById("logout").hidden = true;
+  document.getElementById("mode-badge").hidden = true;
   for (const section of document.querySelectorAll(".view")) section.hidden = true;
   document.getElementById("view-login").hidden = false;
+  document.getElementById("login-email").focus();
+}
+
+/** What the sign-in screen can say before anyone has signed in.
+ *
+ *  The catalogue endpoint is public, so the card can carry the shop's own name
+ *  and warn that these are test keys — both of which a seller looking at a bare
+ *  "Shop admin" would have to guess at. It is decoration: a shop that cannot
+ *  answer leaves the defaults in place. */
+async function dressLoginScreen() {
+  try {
+    const res = await fetch("/api/shop/products", { headers: { accept: "application/json" } });
+    if (!res.ok) return;
+    const { shop } = await res.json();
+    if (shop?.name) {
+      document.getElementById("auth-shop").textContent = shop.name;
+      document.title = `${shop.name} — shop admin`;
+    }
+  } catch {
+    // Offline, or the API is not deployed yet. The card stands as written.
+  }
 }
 
 async function loadDashboard() {
@@ -104,9 +133,20 @@ async function loadDashboard() {
 
 function bindLogin() {
   const form = document.getElementById("login-form");
+  const submit = document.getElementById("login-submit");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    clearNotice();
     const data = new FormData(form);
+
+    // Disabled and labelled while the request is in flight: signing in involves
+    // 600 000 rounds of PBKDF2, so it is not instant, and a button that looks
+    // idle gets pressed again.
+    submit.disabled = true;
+    submit.setAttribute("aria-busy", "true");
+    const label = submit.textContent;
+    submit.textContent = "Signing in…";
+
     try {
       const body = await api.login(String(data.get("email")), String(data.get("password")));
       form.reset();
@@ -114,6 +154,12 @@ function bindLogin() {
       // The dashboard call fills in the rest; this only needs the session.
     } catch (err) {
       notify("error", err.message);
+      document.getElementById("login-password").value = "";
+      document.getElementById("login-password").focus();
+    } finally {
+      submit.disabled = false;
+      submit.removeAttribute("aria-busy");
+      submit.textContent = label;
     }
   });
 
@@ -136,7 +182,9 @@ async function start() {
     button.addEventListener("click", () => openView(button.dataset.view));
   }
   window.addEventListener("hashchange", () => {
-    if (!document.getElementById("tabs").hidden) openView(window.location.hash.slice(1) || "dashboard");
+    // A hash typed into the address bar must not open a screen for someone who
+    // is not signed in. It is remembered, and used once they are.
+    if (!document.getElementById("nav").hidden) openView(window.location.hash.slice(1) || "dashboard");
   });
 
   // Cloudflare Access mode has no login form: the request already carries a
@@ -159,6 +207,7 @@ async function start() {
     }
   }
   signedOut();
+  dressLoginScreen();
 }
 
 document.addEventListener("DOMContentLoaded", start);

@@ -206,6 +206,5 @@
   color: var(--ps-fg-muted);
 }
 
-.ps-spinner[hidden] {
-  display: none !important;
-}
+/* `.ps-spinner` needs no [hidden] rule of its own: style.css makes the
+ * attribute win everywhere. */

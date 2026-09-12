@@ -102,6 +102,43 @@ own "have I already done this": the move to `paid` names the states it may move
 from, the webhook inbox row is the lock (`INSERT OR IGNORE`), a download token
 is issued only where no live one exists. Two webhooks racing produce one email.
 
+### What bounds how often it can be called
+
+Turnstile raises the cost of abusing a public endpoint. It does not cap it, a
+solved token can be replayed inside its validity window, and it is optional in
+the first place — so every endpoint a stranger can reach has a budget:
+
+| Bucket | Default | Fails | What it protects |
+|---|---|---|---|
+| `checkout` | 10 / minute | closed | writing an order and calling a payment provider |
+| `resend` | 3 / 10 minutes | closed | sending email to an address the caller chose |
+| `download` | 60 / minute | open | streaming files; ranged continuations are already free |
+| `status` | 120 / minute | open | the thank-you page, which polls while it waits |
+| `admin` | 300 / minute | open | the panel, against a stolen token |
+
+Signing in is not in that table: it has a tighter throttle of its own, per
+address **and** per account, with a lockout.
+
+"Fails closed" is what happens when the backend itself errors. Open is right for
+a download — losing a buyer's book because KV had a bad minute costs more than
+serving one extra — and wrong for anything that writes or spends money.
+
+`SHOP_KV` is enough to enforce all of it; KV is eventually consistent, so a
+burst arriving at several points of presence at once can overshoot. A Workers
+rate-limiting binding is exact and free, and replaces the counters for whichever
+bucket has one (`RATE_LIMIT_CHECKOUT`, `RATE_LIMIT_RESEND`, … or a generic
+`RATE_LIMITER`) — see `wrangler.snippet.toml`. With neither bound nothing is
+enforced, and the panel says so rather than letting you assume otherwise.
+
+The provider webhooks are deliberately **not** capped: Stripe and PayPal
+legitimately burst, they retry on anything but a 200, and their requests are
+signature-verified before anything is written. A budget there would drop real
+payments.
+
+This is separate from `workers/rate-limit`, the project-wide middleware with one
+budget for everything under `/api/`. The two compose; they answer different
+questions.
+
 ### Authentication, two ways
 
 `SHOP_ACCESS_TEAM` + `SHOP_ACCESS_AUD` put the panel behind Cloudflare Access:

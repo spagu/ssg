@@ -10,6 +10,7 @@ import { shopOrigin } from "./_fulfil";
 import { fail, isValidEmail, json, readBody, str, verifyTurnstile } from "./_lib";
 import { resendMail } from "./_mail";
 import { drainOutbox, enqueue } from "./_outbox";
+import { guard } from "./_ratelimit";
 import { ensureSchema } from "./_schema";
 import { allSettings } from "./_settings";
 import type { CustomerRow, OrderItemRow, OrderRow, ProductRow } from "./_types";
@@ -24,6 +25,11 @@ interface ResendBody {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   if (!env.SHOP_DB) return fail(request, "not_configured", "The shop database is not bound.", 503);
   await ensureSchema(env);
+
+  // Three in ten minutes. This endpoint sends email to an address the caller
+  // chose, which is the shape of a mail-bombing tool if it is left uncapped.
+  const limited = await guard(env, request, "resend");
+  if (limited) return limited;
 
   const body = await readBody<ResendBody>(request);
   if (!body) return fail(request, "invalid_body", "The request body could not be read.", 400);

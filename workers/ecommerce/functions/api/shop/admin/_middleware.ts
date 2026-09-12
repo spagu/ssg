@@ -6,6 +6,7 @@
 import type { Env } from "../_env";
 import { requireAdmin } from "../_auth";
 import { drainInBackground } from "../_outbox";
+import { guard } from "../_ratelimit";
 import { ensureSchema } from "../_schema";
 import type { AdminIdentity } from "../_types";
 
@@ -27,8 +28,15 @@ export const onRequest: PagesFunction<Env, string, AdminData> = async (context) 
   }
   await ensureSchema(env);
 
-  // The auth endpoints are the way in, so they cannot require being in.
+  // The auth endpoints are the way in, so they cannot require being in. They
+  // carry their own, much tighter throttle — per address and per account, with
+  // a lockout — so the coarse budget below would add nothing but a read.
   if (url.pathname.startsWith("/api/shop/admin/auth/")) return next();
+
+  // Spent before the token is checked, so a stolen one cannot be used to walk
+  // the order list at machine speed.
+  const limited = await guard(env, request, "admin");
+  if (limited) return limited;
 
   const identity = await requireAdmin(request, env);
   if (identity instanceof Response) return identity;

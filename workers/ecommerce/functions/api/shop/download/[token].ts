@@ -6,6 +6,7 @@
 import type { Env } from "../_env";
 import { checkToken, inRangeWindow, openRangeWindow, spendUse } from "../_downloads";
 import { fail, ipHash, newId, nowISO, safeFilename, userAgent } from "../_lib";
+import { guard } from "../_ratelimit";
 import { ensureSchema } from "../_schema";
 import type { ProductRow } from "../_types";
 
@@ -13,6 +14,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params, w
   if (!env.SHOP_DB) return fail(request, "not_configured", "The shop database is not bound.", 503);
   if (!env.SHOP_FILES) return fail(request, "not_configured", "File storage is not bound. Bind SHOP_FILES.", 503);
   await ensureSchema(env);
+
+  // Before the token is looked up, so guessing costs the guesser as much as
+  // asking for a file they own.
+  const limited = await guard(env, request, "download");
+  if (limited) return limited;
 
   const token = String(params.token ?? "");
   if (token.length < 20 || token.length > 200) {

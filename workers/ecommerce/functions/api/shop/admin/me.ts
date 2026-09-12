@@ -6,6 +6,7 @@
 
 import { authMode, enabledGateways, isTestMode, type Env } from "../_env";
 import { json } from "../_lib";
+import { rateLimitingAvailable } from "../_ratelimit";
 import { allSettings, shopIsConfigured } from "../_settings";
 import type { AdminData } from "./_middleware";
 
@@ -24,6 +25,12 @@ export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ env,
     warnings.push("Email is not configured, so buyers will not receive their download links.");
   }
   if (!env.SHOP_KV) warnings.push("No KV namespace is bound; login throttling and range windows are off.");
+  if (!rateLimitingAvailable(env)) {
+    warnings.push(
+      "Nothing can enforce a request budget here: checkout, resend and downloads are uncapped. " +
+        "Bind SHOP_KV, or a Workers rate-limiting binding.",
+    );
+  }
   if (!env.SHOP_IP_SALT) warnings.push("SHOP_IP_SALT is not set, so no IP is recorded at all.");
   if (env.SHOP_ADMIN_BOOTSTRAP) {
     warnings.push("SHOP_ADMIN_BOOTSTRAP is still set. Delete it now that an owner exists.");

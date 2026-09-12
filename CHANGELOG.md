@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a download token is issued only where no live one exists. Two webhooks racing
   produce one email.
 
+  Every endpoint a stranger can reach carries a request budget: 10 checkouts a
+  minute per caller, 3 resends per ten minutes, 60 downloads, 120 status polls
+  (the thank-you page waits on that one), 300 admin calls. The two that write or
+  spend money fail **closed** when the limiter itself errors; the two a buyer is
+  waiting on fail open. Signing in has a tighter throttle of its own, per address
+  and per account. The provider webhooks are deliberately uncapped — they burst,
+  they retry on anything but a 200, and they are signature-verified before
+  anything is written.
+
   `ssg new worker ecommerce`, then see
   [its README](workers/ecommerce/README.md) and
   [openapi.yml](workers/ecommerce/openapi.yml).
@@ -43,6 +52,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builds it and starts `wrangler pages dev`, with D1, R2 and KV local.
 
 ### Fixed
+- 🙈 **The shop panel showed its navigation to someone who had not signed in.**
+  The tabs were marked `hidden`, and `.tabs { display: flex }` overrode the
+  browser's own `[hidden] { display: none }` — an author rule setting `display`
+  always does. The whole shell is hidden behind the sign-in screen now, and one
+  `[hidden] { display: none !important }` in each stylesheet stops the next
+  component from inheriting the same trap. The same bug was waiting in the theme,
+  where the basket's action row and the downloads list would have shown while
+  empty.
+
 - 📉 **The binary is 50 MB again, not 600 MB.** `//go:embed all:workers` swept
   `node_modules` into the binary the moment a worker grew a test suite — and
   `ssg new worker` would have copied it into the user's project. The workers are

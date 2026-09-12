@@ -22,13 +22,40 @@
 # binding = "SHOP_KV"
 # id = "<paste-kv-namespace-id>"
 
-# ── Rate limiting (recommended) ─────────────────────────────────────────────
-# Without this binding the shop still works, but checkout, login and downloads
-# have no per-IP budget.
+# ── Rate limiting ───────────────────────────────────────────────────────────
+# With SHOP_KV bound (above) the shop already enforces its own per-endpoint
+# budgets — 10 checkouts a minute per caller, 3 resends per ten minutes, and so
+# on. KV is eventually consistent, so a burst hitting several points of presence
+# can overshoot.
+#
+# These bindings are exact and free, and replace the KV counters for whichever
+# bucket has one. The limit lives here rather than in the code, so a bucket that
+# needs a different number needs a binding of its own — hence one per bucket
+# rather than one for everything.
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_CHECKOUT"
+# type = "ratelimit"
+# namespace_id = "1001"          # any number, unique within this account
+# simple = { limit = 10, period = 60 }
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_RESEND"
+# type = "ratelimit"
+# namespace_id = "1002"
+# simple = { limit = 3, period = 60 }   # period may be 10 or 60 seconds only
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_DOWNLOAD"
+# type = "ratelimit"
+# namespace_id = "1003"
+# simple = { limit = 60, period = 60 }
+#
+# A generic one covers every bucket without its own, at one shared limit:
 # [[unsafe.bindings]]
 # name = "RATE_LIMITER"
 # type = "ratelimit"
-# namespace_id = "1001"
+# namespace_id = "1000"
 # simple = { limit = 60, period = 60 }
 
 # [vars]

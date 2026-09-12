@@ -8,6 +8,11 @@
 // to bind, never an unhandled exception (a raw Cloudflare 500 tells the shop
 // owner nothing). The same rule the comments worker follows.
 
+/** Cloudflare's Workers Rate Limiting binding. */
+export interface RateLimitBinding {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   // ── Storage ──────────────────────────────────────────────────────────────
   /** D1: orders, products, invoices, everything durable. Required. */
@@ -16,8 +21,17 @@ export interface Env {
   SHOP_FILES?: R2Bucket;
   /** KV: sessions, token blacklists, download windows, login counters. */
   SHOP_KV?: KVNamespace;
-  /** Workers Rate Limiting binding, shared with the rate-limit middleware. */
-  RATE_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
+  /** Workers Rate Limiting binding, used for any bucket with no binding of its
+   *  own. Shared with the project-wide rate-limit middleware. */
+  RATE_LIMITER?: RateLimitBinding;
+  /** Per-bucket bindings. The binding's limit is configured in wrangler rather
+   *  than in the code, so one binding cannot serve two different budgets —
+   *  which is why these exist rather than one for everything (see _ratelimit). */
+  RATE_LIMIT_CHECKOUT?: RateLimitBinding;
+  RATE_LIMIT_RESEND?: RateLimitBinding;
+  RATE_LIMIT_DOWNLOAD?: RateLimitBinding;
+  RATE_LIMIT_STATUS?: RateLimitBinding;
+  RATE_LIMIT_ADMIN?: RateLimitBinding;
 
   // ── Shop behaviour (vars) ────────────────────────────────────────────────
   /** Comma-separated gateway names in button order, e.g. "stripe,paypal". */

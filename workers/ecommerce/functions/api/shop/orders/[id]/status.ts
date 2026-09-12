@@ -8,11 +8,18 @@ import type { Env } from "../../_env";
 import { fail, json } from "../../_lib";
 import { getOrder, getOrderItems, orderKeyMatches } from "../../_orders";
 import { drainInBackground } from "../../_outbox";
+import { guard } from "../../_ratelimit";
 import { ensureSchema } from "../../_schema";
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   if (!env.SHOP_DB) return fail(request, "not_configured", "The shop database is not bound.", 503);
   await ensureSchema(env);
+
+  // Generous, because the thank-you page polls this while it waits for the
+  // webhook — but not unlimited, because a wrong key answers 404 and that is a
+  // thing worth doing slowly.
+  const limited = await guard(env, request, "status");
+  if (limited) return limited;
 
   const id = String(params.id ?? "");
   const key = new URL(request.url).searchParams.get("k") ?? "";

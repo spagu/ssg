@@ -29,6 +29,7 @@ import {
   verifyTurnstile,
 } from "./_lib";
 import { createOrder, priceBasket, upsertCustomer, type BasketLine } from "./_orders";
+import { guard } from "./_ratelimit";
 import { ensureSchema } from "./_schema";
 import { getSettingString, shopIsConfigured } from "./_settings";
 import { isWellFormedVatId, taxContext } from "./_tax";
@@ -103,6 +104,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       503,
     );
   }
+
+  // Before anything is read or looked up: an order write and a call to a
+  // payment provider are the two most expensive things this shop does.
+  const limited = await guard(env, request, "checkout");
+  if (limited) return limited;
 
   const body = await readBody<CheckoutBody>(request);
   if (!body) return fail(request, "invalid_body", "The request body could not be read.", 400);

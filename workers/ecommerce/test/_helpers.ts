@@ -17,6 +17,17 @@ export const ORIGIN = "https://shop.example.com";
  *  The pool gives each test FILE its own storage, not each test, so a test that
  *  seeds an owner would collide with the previous test's owner. Clearing is
  *  cheaper and clearer than making every fixture unique. */
+/** Clears the rate-limit counters.
+ *
+ *  They live in KV, which the pool gives each test FILE rather than each test,
+ *  so without this the twentieth test to call checkout is refused for the
+ *  nineteen before it — all of them arriving from the same (absent) address. */
+export async function resetBudgets(): Promise<void> {
+  if (!env.SHOP_KV) return;
+  const { keys } = await env.SHOP_KV.list({ prefix: "rl:" });
+  await Promise.all(keys.map((k) => env.SHOP_KV!.delete(k.name)));
+}
+
 export async function emptyShop(): Promise<void> {
   const { results } = await env.SHOP_DB.prepare(
     `SELECT name FROM sqlite_master WHERE type = 'table'
@@ -33,6 +44,7 @@ export async function freshShop(overrides: Record<string, unknown> = {}): Promis
   invalidateSettings();
   await ensureSchema(env);
   await emptyShop();
+  await resetBudgets();
   // Emptying removed the migration bookkeeping and the seeded rates as well, so
   // the schema runs once more to put both back.
   resetSchemaCache();

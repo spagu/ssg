@@ -19,11 +19,17 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="topbar">
+<!-- `data-state` is what the stylesheet switches on: "out" is a centred sign-in
+     screen with no shell around it, "in" is the panel. Set by admin.js as soon
+     as it knows which one this is. -->
+<header class="topbar" id="topbar" hidden>
   <h1>Shop admin</h1>
   <p class="mode" id="mode-badge" hidden></p>
-  <nav aria-label="Sections">
-    <ul class="tabs" id="tabs" hidden>
+  <!-- Everything from here to the end of the header belongs to someone who has
+       signed in. Hidden on the element that holds it, so nothing of the shell
+       is on screen behind a login form. -->
+  <nav aria-label="Sections" id="nav" hidden>
+    <ul class="tabs" id="tabs">
       <li><button type="button" data-view="dashboard" aria-current="page">Overview</button></li>
       <li><button type="button" data-view="products">Products</button></li>
       <li><button type="button" data-view="orders">Orders</button></li>
@@ -40,17 +46,45 @@
 
   <!-- Sign in. Hidden entirely when the shop runs behind Cloudflare Access,
        because then there is no password for anyone to guess. -->
-  <section id="view-login" class="view" hidden>
-    <h2>Sign in</h2>
-    <form id="login-form">
-      <label for="login-email">Email</label>
-      <input id="login-email" name="email" type="email" autocomplete="username" required>
-      <label for="login-password">Password</label>
-      <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-      <button type="submit">Sign in</button>
-    </form>
-    <p class="hint">The first sign-in with the bootstrap credentials creates the
-    owner account. Remove SHOP_ADMIN_BOOTSTRAP afterwards.</p>
+  <section id="view-login" class="view auth" hidden>
+    <div class="auth-card">
+      <!-- Drawn inline rather than fetched: a sign-in screen should not depend
+           on a second request, and this way it inherits the brand colour. -->
+      <svg class="auth-mark" viewBox="0 0 48 48" role="img" aria-labelledby="mark-title" focusable="false">
+        <title id="mark-title">Shop</title>
+        <path d="M10 16h28l-2.6 22.2A4 4 0 0 1 31.4 42H16.6a4 4 0 0 1-4-3.8L10 16Z"
+              fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M18 20v-4a6 6 0 0 1 12 0v4"
+              fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+
+      <h1 class="auth-title" id="auth-shop">Shop admin</h1>
+      <p class="auth-sub">Sign in to manage products, orders and invoices.</p>
+
+      <form id="login-form" class="auth-form">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" autocomplete="username"
+                 autocapitalize="off" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="auth-submit" id="login-submit">Sign in</button>
+      </form>
+
+      <p class="auth-note">
+        The first sign-in with the bootstrap credentials creates the owner
+        account. Delete <code>SHOP_ADMIN_BOOTSTRAP</code> once you are in.
+      </p>
+    </div>
+
+    <p class="auth-foot">
+      This panel never holds a download link: they are stored hashed, so a lost
+      one is reissued, never retrieved.
+    </p>
   </section>
 
   <section id="view-dashboard" class="view" hidden>

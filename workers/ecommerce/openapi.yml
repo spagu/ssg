@@ -155,6 +155,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/NotConfigured" }
 
   /api/shop/orders/{id}/status:
@@ -184,6 +185,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OrderStatus" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/NotConfigured" }
 
   /api/shop/download/{token}:
@@ -233,6 +235,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/NotConfigured" }
 
   /api/shop/resend:
@@ -270,6 +273,7 @@ paths:
           description: The anti-spam check did not pass.
         "422":
           description: That is not an email address.
+        "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/NotConfigured" }
 
   /api/shop/invoices/{number}:
@@ -432,6 +436,7 @@ paths:
                   gateways: { type: array, items: { type: string } }
                   warnings: { type: array, items: { type: string } }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /api/shop/admin/stats:
     get:
@@ -909,6 +914,18 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotConfigured:
       description: A binding this endpoint needs is not configured.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: |
+        Over the budget for this endpoint. `error` is `rate_limited` and
+        `Retry-After` says how long to wait. Budgets are per caller and per
+        endpoint — exhausting the resend allowance does not stop the same person
+        buying something.
+      headers:
+        Retry-After:
+          schema: { type: integer }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }

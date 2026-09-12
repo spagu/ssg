@@ -16,6 +16,7 @@
   --border-strong: #78909c; /* 3.4:1 — AA for a UI boundary */
   --brand: #303f9f;         /* Indigo 700, on white 8.6:1 */
   --brand-ink: #ffffff;
+  --brand-wash: #e8eaf6;    /* Indigo 50, the sign-in ground */
   --ok: #2e7d32;            /* Green 800, on white 5.1:1 */
   --warn: #e65100;          /* Orange 900, on white 4.9:1 */
   --danger: #c62828;        /* Red 800, on white 6.4:1 */
@@ -35,6 +36,7 @@
     --border-strong: #90a4ae;
     --brand: #9fa8da;       /* Indigo 200 on #263238 — 5.7:1 */
     --brand-ink: #1a237e;
+    --brand-wash: #1a237e;  /* Indigo 900: a wash has to go darker here, not lighter */
     --ok: #a5d6a7;
     --warn: #ffcc80;
     --danger: #ef9a9a;
@@ -42,6 +44,15 @@
 }
 
 * { box-sizing: border-box; }
+
+/* The `hidden` attribute has to win.
+ *
+ * The browser hides it with `[hidden] { display: none }` in its own stylesheet,
+ * which any author rule setting `display` on the same element overrides — so
+ * `.tabs { display: flex }` left the whole navigation on screen for someone who
+ * had not signed in. This is one line rather than a rule per component,
+ * because the next component to be toggled will have a display of its own too. */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -176,4 +187,154 @@ a { color: var(--brand); }
   .grid tr { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.6rem; padding: 0.3rem; }
   .grid td { border: 0; display: flex; justify-content: space-between; gap: 1rem; }
   .grid td::before { content: attr(data-label); color: var(--fg-muted); font-size: 0.85rem; }
+}
+
+/* ── Sign in ────────────────────────────────────────────────────────────────
+ *
+ * The panel's front door, and for most sellers the only screen they will see
+ * without being logged in — so it is a screen rather than a form dropped into
+ * the top-left of an otherwise empty page. A centred card on a quiet ground is
+ * what every admin in this category does, and the reason is not fashion: with
+ * no navigation, no data and nothing else on the page, the eye needs somewhere
+ * to be sent.
+ *
+ * The whole shell (`.topbar`) is hidden behind it, so nothing suggests there is
+ * anything to click yet. */
+
+body[data-state="out"] {
+  /* A soft wash rather than the flat page background, so the card reads as
+   * raised without needing a heavy shadow to say so. */
+  background:
+    radial-gradient(60rem 40rem at 50% -10%, var(--brand-wash), transparent 70%),
+    var(--bg-subtle);
+}
+
+body[data-state="out"] main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 100svh;
+  padding: 2rem 1rem;
+  max-width: none;
+}
+
+.auth {
+  display: contents;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 24rem;
+  padding: 2rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(38 50 56 / 8%), 0 12px 32px rgb(38 50 56 / 10%);
+  text-align: center;
+}
+
+.auth-mark {
+  width: 3rem;
+  height: 3rem;
+  color: var(--brand);
+}
+
+.auth-title {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+}
+
+.auth-sub {
+  margin: 0 0 1.5rem;
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+}
+
+/* The form is left-aligned inside a centred card: a label above a field reads
+ * far better ranged left, whatever the card does. */
+.auth-form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: none;
+  text-align: left;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.field input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem; /* 16px, so iOS does not zoom the page on focus */
+}
+
+.auth-submit {
+  margin-top: 0.4rem;
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.auth-submit[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.auth-note {
+  margin: 1.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.auth-note code {
+  font-size: 0.95em;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+}
+
+.auth-foot {
+  max-width: 24rem;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* The error from a refused sign-in belongs inside the card, above the form,
+ * not at the top of a page the card is floating on. */
+body[data-state="out"] .notice {
+  width: 100%;
+  max-width: 24rem;
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-card {
+    animation: auth-in 0.25s ease-out;
+  }
+}
+
+@keyframes auth-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }

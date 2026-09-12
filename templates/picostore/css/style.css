@@ -16,6 +16,15 @@ body {
   color: var(--ps-fg);
 }
 
+/* The `hidden` attribute has to win.
+ *
+ * The browser hides it with `[hidden] { display: none }` in its own stylesheet,
+ * which any author rule setting `display` on the same element overrides. Both
+ * the basket's action row (`.ps-buy`, flex) and the downloads list
+ * (`.ps-downloads`, grid) are toggled by script and would otherwise sit on
+ * screen while empty. One line, rather than a rule per component. */
+[hidden] { display: none !important; }
+
 /* ── Chrome ───────────────────────────────────────────────────────────────── */
 
 .ps-skip {
