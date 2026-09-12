@@ -70,8 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings are grouped into sections, and the three keys that are enumerations —
   pricing mode, tax mode, rounding — are dropdowns rather than text boxes the
   API rejects on a typo. The sidebar collapses to a rail of icons and stays
-  collapsed, per browser; the content keeps a readable maximum width and sits
-  against the right edge rather than trailing empty space off to one side.
+  collapsed, per browser, with its items on the left edge in both states; the
+  content keeps a readable maximum width and sits against the menu.
 
 - 🙈 **The shop panel showed its navigation to someone who had not signed in.**
   The tabs were marked `hidden`, and `.tabs { display: flex }` overrode the

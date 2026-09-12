@@ -174,15 +174,18 @@ body[data-state="in"] {
  * which admin.js sets to the same words, so a screen reader still reads
  * "Products" from a rail with no text in it. */
 body[data-nav="collapsed"] { --sidebar: 3.75rem; }
-body[data-nav="collapsed"] .brandbar { padding: 0 0.6rem; justify-content: center; }
+body[data-nav="collapsed"] .brandbar { padding: 0 0.75rem; }
 body[data-nav="collapsed"] .brandbar .brand-mark,
 body[data-nav="collapsed"] .brandbar strong { display: none; }
 body[data-nav="collapsed"] .navtoggle { margin: 0; }
-body[data-nav="collapsed"] .sidenav { padding: 0.75rem 0.5rem; }
-body[data-nav="collapsed"] .sidenav button { justify-content: center; padding: 0.55rem 0; }
+body[data-nav="collapsed"] .sidenav { padding: 0.75rem; }
+/* Left, exactly as when the words are there: the icons stay on the line the
+ * eye already follows, rather than jumping to the middle when the menu
+ * narrows. */
+body[data-nav="collapsed"] .sidenav button { padding: 0.55rem 0.7rem; }
 body[data-nav="collapsed"] .navtext { display: none; }
 body[data-nav="collapsed"] .sidenav .count {
-  position: absolute; transform: translate(0.9rem, -0.7rem);
+  position: absolute; left: 1.5rem; top: 0.2rem;
   margin: 0; padding: 0 0.3rem; font-size: 0.7rem;
 }
 body[data-nav="collapsed"] .sidenav li { position: relative; }
@@ -215,6 +218,11 @@ body[data-nav="collapsed"] .sidenav li { position: relative; }
   font: inherit; font-size: 0.92rem; text-align: left;
   color: var(--fg); background: none; border: 0;
   border-radius: var(--radius-sm); cursor: pointer;
+  /* Not inherited from the generic button rule, which centres its contents
+   * because a button is usually a label in a box. A menu item is not: its icon
+   * and its word start at the same left edge as the row above it, and that
+   * edge is what the eye runs down. */
+  justify-content: flex-start;
 }
 .sidenav button:hover { background: var(--bg-subtle); }
 .sidenav button[aria-current="page"] {
@@ -233,13 +241,11 @@ main {
   grid-area: main;
   padding: 1.5rem;
   width: 100%;
-  /* The content keeps a readable maximum width, and what is left over goes on
-   * the side the sidebar is not: `margin-left: auto` pushes the block to the
-   * right edge rather than leaving it pinned against the menu with the empty
-   * space trailing off to the right. On a screen narrower than the maximum
-   * there is nothing to distribute and this does nothing. */
+  /* Left, against the menu, with a maximum width so a table row does not become
+   * a metre long on a wide monitor. This is where every admin panel of this
+   * kind puts it, and the reason is that the eye returns to the same left edge
+   * after every row. */
   max-width: 78rem;
-  margin-left: auto;
 }
 
 /* ── Page header ────────────────────────────────────────────────────────── */
