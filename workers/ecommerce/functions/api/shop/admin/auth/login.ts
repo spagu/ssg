@@ -56,6 +56,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return fail(request, "invalid_credentials", "Those details do not match.", 401);
   }
 
+  // A suspended account gets the same answer as a wrong password: whether an
+  // address still works here is not something a stranger needs told.
+  if (user.disabled === 1) {
+    await noteLoginFailure(env, ip, email);
+    return fail(request, "invalid_credentials", "Those details do not match.", 401);
+  }
+
   await clearLoginFailures(env, ip, email);
   await env.SHOP_DB.prepare(`UPDATE admin_users SET last_login_at = ? WHERE id = ?`)
     .bind(nowISO(), user.id)

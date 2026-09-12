@@ -128,6 +128,10 @@ export interface AdminUserRow {
   role: "owner" | "staff";
   created_at: string;
   last_login_at: string | null;
+  /** Shown in the panel and in the audit log, so entries read as people. */
+  name: string | null;
+  /** Suspended: the account exists, keeps its history, and cannot sign in. */
+  disabled: number;
 }
 
 /** What the admin middleware puts on a request for the handlers behind it. */

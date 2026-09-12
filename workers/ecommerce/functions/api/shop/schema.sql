@@ -233,3 +233,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_admin ON admin_sessions (admin_id);
 ALTER TABLE admin_sessions ADD COLUMN used_at TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_used ON admin_sessions (used_at);
+
+ALTER TABLE admin_users ADD COLUMN name TEXT;
+
+ALTER TABLE admin_users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;

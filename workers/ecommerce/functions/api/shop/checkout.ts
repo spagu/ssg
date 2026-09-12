@@ -10,9 +10,9 @@
 // reference — visible, sweepable, explainable — rather than a session open at
 // Stripe that nothing in our database knows about.
 
-import { enabledGateways, type Env } from "./_env";
+import type { Env } from "./_env";
 import { audit } from "./_audit";
-import { gateway } from "./_gateways";
+import { gateway, offeredGateways } from "./_gateways";
 import {
   COUNTRY_RE,
   CURRENCY_RE,
@@ -139,12 +139,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
   const currency = requested || (await getSettingString(env, "currency.base")) || "EUR";
 
-  const gateways = enabledGateways(env);
+  // The shop's own order, so the default here is the first button the buyer was
+  // shown rather than whichever the environment happened to list first.
+  const gateways = await offeredGateways(env);
   if (gateways.length === 0) {
     return fail(request, "no_gateway", "No payment provider is configured for this shop.", 503);
   }
   const gatewayName = str(body.gateway, 20).toLowerCase() || gateways[0]!;
-  const provider = gateway(env, gatewayName);
+  // Offered, not merely configured: a provider the seller has taken off the
+  // storefront must not still be reachable by posting its name.
+  const provider = gateways.includes(gatewayName) ? gateway(env, gatewayName) : null;
   if (!provider) return fail(request, "unknown_gateway", "That payment provider is not available here.", 422);
 
   // Selling a digital file usually means asking the buyer to waive the right to

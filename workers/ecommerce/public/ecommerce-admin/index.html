@@ -71,6 +71,15 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke-linejoin="round"/>
       </svg><span class="navtext">Modules</span></button></li>
+    <li><button type="button" data-view="payments">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M3 7h18v11H3zM3 11h18M7 15h3" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg><span class="navtext">Payments</span></button></li>
+    <li><button type="button" data-view="users">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <circle cx="9" cy="8" r="3"/>
+        <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4" stroke-linecap="round"/>
+      </svg><span class="navtext">Users</span></button></li>
     <li><button type="button" data-view="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
         <circle cx="12" cy="12" r="3"/>
@@ -350,6 +359,103 @@
       </div>
     </div>
     <div class="card"><div id="module-rows"></div></div>
+  </section>
+
+  <!-- ── Payments ──────────────────────────────────────────────────────── -->
+  <section id="view-payments" class="view" hidden>
+    <div class="page-head">
+      <div>
+        <h2>Payments</h2>
+        <p>Which providers a buyer is offered, in what order, and whether each
+           one is actually wired up — including the webhook, which is the half
+           that goes wrong quietly.</p>
+      </div>
+    </div>
+
+    <div class="notice" id="gateway-note"></div>
+    <div id="gateway-rows"></div>
+  </section>
+
+  <!-- ── Users ─────────────────────────────────────────────────────────── -->
+  <section id="view-users" class="view" hidden>
+    <div class="page-head">
+      <div>
+        <h2>Users</h2>
+        <p>Two roles. <strong>Staff</strong> do the day's work — read orders,
+           resend a download, take a note. Only an <strong>owner</strong> can
+           change prices, VAT, settings or these accounts, so the person who
+           answers the email does not hold the credentials that could change
+           your VAT number.</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="user-add" hidden>Add person</button>
+      </div>
+    </div>
+
+    <ul class="todo" id="user-alone" hidden>
+      <li>You are the only owner. If you lose this password there is nobody who
+          can let you back in — the shop would have to be reset from its
+          bootstrap secret. Consider adding a second owner.</li>
+    </ul>
+
+    <div class="card" id="user-new-card" hidden>
+      <header><h3>Add someone</h3><p>They sign in with the address and password you set here.</p></header>
+      <div class="card-body">
+        <form id="user-new">
+          <div class="fields two">
+            <div class="field">
+              <label for="new-user-email">Email</label>
+              <input id="new-user-email" name="email" type="email" required
+                     autocomplete="off" autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="new-user-name">Name</label>
+              <input id="new-user-name" name="name" maxlength="120" placeholder="Optional">
+              <small>Shown beside what they do in the log.</small>
+            </div>
+            <div class="field">
+              <label for="new-user-password">Password</label>
+              <input id="new-user-password" name="password" type="password"
+                     autocomplete="new-password" minlength="12" required>
+              <small>At least 12 characters. Tell them in person, or through
+                     something that is not email.</small>
+            </div>
+            <div class="field">
+              <label for="new-user-role">Role</label>
+              <select id="new-user-role" name="role">
+                <option value="staff">Staff — the day's work</option>
+                <option value="owner">Owner — everything, including money</option>
+              </select>
+            </div>
+          </div>
+          <div class="savebar">
+            <span class="spacer"></span>
+            <button type="button" class="secondary" id="user-new-cancel">Cancel</button>
+            <button type="submit">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">Everyone who can sign in</caption>
+          <thead><tr>
+            <th scope="col">Person</th>
+            <th scope="col">Role</th>
+            <th scope="col">State</th>
+            <th scope="col">Last signed in</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr></thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="user-editor" hidden></div>
+
+    <div class="card" id="own-password"></div>
   </section>
 
   <!-- ── Settings ──────────────────────────────────────────────────────── -->

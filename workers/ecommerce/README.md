@@ -187,6 +187,67 @@ This is separate from `workers/rate-limit`, the project-wide middleware with one
 budget for everything under `/api/`. The two compose; they answer different
 questions.
 
+### Who can get in
+
+Two roles, and the difference is the answer to one question: can this person
+change what the shop is or what it charges?
+
+| | Staff | Owner |
+|---|---|---|
+| Read orders, open one, take a note | ✓ | ✓ |
+| Resend a buyer's download links | ✓ | ✓ |
+| Products, prices, files | | ✓ |
+| Refund, mark paid, cancel | | ✓ |
+| Settings, VAT rates, modules, payment providers | | ✓ |
+| Accounts | | ✓ |
+
+Staff exists so the person who answers the email does not hold the credentials
+that could change your VAT number.
+
+An account can be **suspended** rather than deleted: its sessions end
+immediately — including the fifteen-minute token it is holding, which is checked
+on every request, not only at sign-in — and the audit entries it left keep its
+name, because "who did this" has to go on having an answer. Deleting works too,
+and the log still names them.
+
+The shop refuses to be left without an owner who can sign in: the last one
+cannot demote, suspend or delete themselves. Changing a password ends every
+session for that account, and an owner can reset a colleague's without knowing
+it; changing **your own** asks for the current one first, so a borrowed session
+cannot become a permanent one.
+
+### Payments, and where the keys are
+
+The panel has a payments screen. It does **not** have a box to paste an API key
+into, and that is the deliberate part.
+
+Magento, PrestaShop and WooCommerce all keep provider keys in the database
+behind an admin form. It is the obvious design, and it is why "database dump"
+and "stolen payment credentials" are so often the same incident: the keys are in
+every backup, readable by anything with a database connection, and the admin
+panel becomes the thing worth breaking into. Shopify sidesteps it by not having
+the keys — the platform is the payment provider.
+
+On Cloudflare there is a third option. Keys are wrangler **secrets**: encrypted
+at rest, injected into the running worker, and readable by nothing else — not
+the panel, not this API, not a database export, not a screen share. A test
+asserts that the payments endpoint's response contains no key material at all.
+
+What the screen does instead is the part sellers actually get stuck on:
+
+- whether each provider is configured, and **exactly which secret is missing**
+- whether the keys in use are test or live keys
+- the **exact webhook URL** to paste into the provider's dashboard, and the list
+  of events it must send — the half that fails quietly, because without it a
+  buyer pays and is never sent their book
+- whether a webhook has ever arrived, what it was, and when
+- how many payments each provider has actually taken
+- which providers are offered at checkout and in what order
+
+A provider with missing credentials cannot be offered: the button would take a
+buyer to a 502 at the last step of a purchase. One taken off the list is not
+reachable by posting its name either.
+
 ### Authentication, two ways
 
 `SHOP_ACCESS_TEAM` + `SHOP_ACCESS_AUD` put the panel behind Cloudflare Access:

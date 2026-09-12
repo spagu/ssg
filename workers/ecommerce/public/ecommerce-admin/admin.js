@@ -6,6 +6,7 @@ import { bindNewProductForm, bindProductFilter, loadProducts, setBaseCurrency } 
 import { bindOrders, loadOrders } from "./orders.js";
 import { bindVatForm, loadModules, loadSettings, loadVat } from "./settings.js";
 import { bindOutbox, loadAudit, loadOutbox } from "./log.js";
+import { bindUsers, loadGateways, loadUsers } from "./people.js";
 
 /** Each screen: what to load, and what to call it in the top bar. */
 const VIEWS = {
@@ -13,6 +14,8 @@ const VIEWS = {
   products: { title: "Products", load: () => loadProducts(true) },
   orders: { title: "Orders", load: () => loadOrders(true) },
   modules: { title: "Modules", load: loadModules },
+  payments: { title: "Payments", load: loadGateways },
+  users: { title: "Users", load: loadUsers },
   settings: { title: "Settings", load: loadSettings },
   vat: { title: "VAT rates", load: loadVat },
   log: { title: "Log", load: async () => {
@@ -261,6 +264,7 @@ async function start() {
   bindNavToggle();
   bindNewProductForm();
   bindProductFilter();
+  bindUsers();
   bindOrders();
   bindVatForm();
   bindOutbox();

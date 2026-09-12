@@ -33,6 +33,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they retry on anything but a 200, and they are signature-verified before
   anything is written.
 
+  **Two roles and real accounts.** Staff do the day's work — read orders, resend
+  a download, take a note; only an owner can change prices, VAT, settings,
+  payment providers or accounts, so the person answering the email does not hold
+  the credentials that could change your VAT number. An account can be suspended
+  rather than deleted, which ends its sessions immediately — including the token
+  it is holding, checked on every request rather than left to expire — and keeps
+  its name on everything it did. The shop refuses to be left without an owner who
+  can sign in.
+
+  **A payments screen with no box to paste a key into.** Magento, PrestaShop and
+  WooCommerce keep provider keys in the database behind an admin form, which is
+  why "database dump" and "stolen payment credentials" are so often the same
+  incident. Here they are wrangler secrets, so nothing — not the panel, not the
+  API, not a database export — can read one. The screen does the part sellers
+  actually get stuck on instead: which secret is missing, test keys or live, the
+  exact webhook URL and the events it needs, whether one has ever arrived, and
+  which providers are offered in what order.
+
   A **Modules** screen switches the optional parts on and off — invoices, buyer
   emails, owner notices, outgoing webhooks, server-side tracking, the anti-spam
   check, the public "lost my download" form. Each switch is read where the work

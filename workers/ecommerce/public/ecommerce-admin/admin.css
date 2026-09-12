@@ -519,6 +519,22 @@ form { display: grid; gap: 1rem; }
 .check label { cursor: pointer; }
 .check small { grid-column: 2; color: var(--fg-muted); font-size: 0.8rem; line-height: 1.45; }
 
+.rowactions { display: flex; gap: 0.35rem; justify-content: flex-end; flex-wrap: wrap; }
+button.ghost.danger { color: var(--danger); }
+button.ghost.danger:hover { background: var(--danger-wash); }
+
+/* A value meant to be copied rather than read: the webhook URL a provider's
+ * dashboard wants. Wrapping matters more than fitting. */
+.copyable {
+  display: inline-block; padding: 0.4rem 0.6rem;
+  background: var(--bg-sunken); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere; user-select: all;
+}
+
+h4 { margin: 1.5rem 0 0.4rem; font-size: 0.95rem; }
+.card-body > h4:first-child { margin-top: 0; }
+
 /* ── Modules ────────────────────────────────────────────────────────────── */
 
 .module {

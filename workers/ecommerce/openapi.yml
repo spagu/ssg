@@ -775,6 +775,163 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { description: An order in that state cannot be cancelled. }
 
+  /api/shop/admin/gateways:
+    get:
+      tags: [admin]
+      summary: What the shop can take money with
+      description: |
+        Whether each provider is configured and which secret is missing if not,
+        test keys or live, the webhook URL and the events it must be sent,
+        whether one has ever arrived, and how many payments it has taken.
+
+        There is no key in the answer and no endpoint that accepts one. Keys are
+        wrangler secrets, so a database export cannot contain them and this API
+        cannot read them — which is the trade against the usual design, where
+        the panel stores them in a table.
+      responses:
+        "200": { description: Every provider, with its state and its webhook details. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [admin]
+      summary: Choose which providers a buyer is offered, and in what order
+      description: |
+        Owner only. The first in the list is the default at checkout. A provider
+        with missing credentials is refused: its button would take a buyer to a
+        502 at the last step of a purchase.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order:
+                  type: array
+                  items: { type: string, enum: [stripe, paypal] }
+      responses:
+        "200": { description: The new order. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { description: Unknown provider, or one that has no credentials. }
+
+  /api/shop/admin/users:
+    get:
+      tags: [admin]
+      summary: Everyone who can sign in
+      description: |
+        Never a password hash: they are not sent to the browser at all, because
+        reading one is the first step to cracking it offline.
+      responses:
+        "200":
+          description: The accounts, who you are, and whether you may change any of it.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items: { $ref: "#/components/schemas/AdminUser" }
+                  you: { type: string }
+                  owners: { type: integer, description: Owners who could still sign in. }
+                  canManage: { type: boolean }
+                  minPasswordLength: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [admin]
+      summary: Add someone
+      description: Owner only. Staff unless an owner is asked for.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string, maxLength: 120 }
+                password: { type: string, minLength: 12 }
+                role: { type: string, enum: [staff, owner], default: staff }
+      responses:
+        "201": { description: Created. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Someone already signs in with that address. }
+        "422": { description: Not an address, or a password short enough to guess. }
+
+  /api/shop/admin/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [admin]
+      summary: Rename, change a role, suspend, or reset a password
+      description: |
+        Owner only. Suspending ends that account's sessions at once, and so does
+        setting a password — a password changed because somebody else may have
+        it is pointless if their session survives it.
+
+        The shop refuses to be left without an owner who can sign in: the last
+        one cannot be demoted or suspended.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 120 }
+                role: { type: string, enum: [staff, owner] }
+                disabled: { type: boolean }
+                password:
+                  type: string
+                  minLength: 12
+                  description: Omit to leave it alone. An owner resetting one does not need to know it.
+      responses:
+        "200": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: That would leave the shop with no owner who can sign in. }
+        "422": { description: A password short enough to guess. }
+    delete:
+      tags: [admin]
+      summary: Remove an account
+      description: |
+        Owner only. What they did stays in the audit log with their name on it;
+        only the account goes.
+      responses:
+        "200": { description: Deleted. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: The only owner. The shop would have nobody who can get in. }
+
+  /api/shop/admin/password:
+    post:
+      tags: [admin]
+      summary: Change your own password
+      description: |
+        Asks for the current one, which the owner-driven reset does not — an
+        owner resetting a colleague's does not know it. Every session is ended,
+        including this one, so a borrowed session cannot become a permanent one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 12 }
+      responses:
+        "200": { description: Changed, and every session signed out. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: That is not your current password. }
+        "404": { description: Under Cloudflare Access there is no password here to change. }
+        "422": { description: Too short, or the one already in use. }
+
   /api/shop/admin/settings:
     get:
       tags: [admin]
@@ -1140,6 +1297,20 @@ components:
         blockedBy:
           type: [string, "null"]
           description: What is missing, in words. Null when the module can run.
+
+    AdminUser:
+      type: object
+      description: An account. The password hash is never part of it.
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: [string, "null"] }
+        role: { type: string, enum: [owner, staff] }
+        disabled:
+          type: boolean
+          description: Suspended — the account keeps its history and cannot sign in.
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: [string, "null"], format: date-time }
 
     AdminIdentity:
       type: object

@@ -4,7 +4,7 @@
 // later is protected by existing, not by remembering.
 
 import type { Env } from "../_env";
-import { requireAdmin } from "../_auth";
+import { accountActive, requireAdmin } from "../_auth";
 import { drainInBackground } from "../_outbox";
 import { guard } from "../_ratelimit";
 import { ensureSchema } from "../_schema";
@@ -40,6 +40,15 @@ export const onRequest: PagesFunction<Env, string, AdminData> = async (context) 
 
   const identity = await requireAdmin(request, env);
   if (identity instanceof Response) return identity;
+
+  // Suspension takes effect now, not when the token they are holding expires.
+  if (identity.via === "jwt" && !(await accountActive(env, identity.sub))) {
+    return new Response(
+      JSON.stringify({ error: "account_disabled", message: "This account has been suspended." }),
+      { status: 403, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+    );
+  }
+
   data.admin = identity;
 
   // An open panel is the most reliable clock this shop has: every admin request

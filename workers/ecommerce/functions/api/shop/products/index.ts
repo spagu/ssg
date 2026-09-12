@@ -10,7 +10,8 @@
 // thousand books, and the earlier version both did that and looked their prices
 // up with one bind per product, which SQLite refuses past its variable limit.
 
-import { enabledGateways, type Env } from "../_env";
+import type { Env } from "../_env";
+import { offeredGateways } from "../_gateways";
 import { pricesFor } from "../_catalogue";
 import { cached, fail, SKU_RE, str } from "../_lib";
 import { drainInBackground } from "../_outbox";
@@ -93,7 +94,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       name: settings["shop.name"],
       baseCurrency: settings["currency.base"],
       pricingMode: settings["pricing.mode"],
-      gateways: enabledGateways(env),
+      gateways: await offeredGateways(env),
       termsUrl: settings["legal.terms_url"],
       privacyUrl: settings["legal.privacy_url"],
       digitalWaiver: Boolean(settings["legal.digital_waiver"]),

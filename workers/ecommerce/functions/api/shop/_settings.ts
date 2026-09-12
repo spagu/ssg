@@ -35,6 +35,10 @@ export const SETTING_DEFAULTS: Record<string, unknown> = {
   "legal.terms_url": "/shop/terms/",
   "legal.privacy_url": "/shop/privacy/",
   "webhooks.endpoints": [],
+  // Which payment providers to offer, and in what order the buttons appear.
+  // Empty means "whatever SHOP_GATEWAYS says", which is how a shop that has
+  // never opened the payments screen behaves.
+  "gateways.order": [],
 
   // ── Modules ───────────────────────────────────────────────────────────────
   //

@@ -293,6 +293,18 @@ export async function requireAdmin(request: Request, env: Env): Promise<AdminIde
 
 /** Owner-only actions: money moves, settings change, things get deleted. The
  *  check is here, on the server, not only hidden in the panel's markup (S-23). */
+/** Whether this account may still act. Checked on every admin request, not only
+ *  at sign-in: an account suspended at noon must not keep working until its
+ *  fifteen-minute token expires. */
+export async function accountActive(env: Env, id: string): Promise<boolean> {
+  const row = await env.SHOP_DB.prepare(`SELECT disabled FROM admin_users WHERE id = ?`)
+    .bind(id)
+    .first<{ disabled: number }>();
+  // No row means an account under Cloudflare Access, which this table does not
+  // hold — those are vouched for by the identity provider instead.
+  return !row || row.disabled !== 1;
+}
+
 export function requireOwner(request: Request, identity: AdminIdentity): Response | null {
   if (identity.role === "owner") return null;
   return fail(request, "forbidden", "Only an owner can do that.", 403);
@@ -319,6 +331,8 @@ export async function maybeBootstrap(env: Env): Promise<AdminUserRow | null> {
     role: "owner",
     created_at: nowISO(),
     last_login_at: null,
+    name: null,
+    disabled: 0,
   };
   await env.SHOP_DB.prepare(
     `INSERT OR IGNORE INTO admin_users (id, email_lc, pass_hash, role, created_at, last_login_at)

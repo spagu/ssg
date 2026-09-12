@@ -219,6 +219,15 @@ const MIGRATIONS: string[][] = [
     `ALTER TABLE admin_sessions ADD COLUMN used_at TEXT`,
     `CREATE INDEX IF NOT EXISTS idx_sessions_used ON admin_sessions (used_at)`,
   ],
+  // ── 3: more than one person ──────────────────────────────────────────────
+  //
+  // A name, so the audit log reads as people rather than as ids, and a way to
+  // suspend an account. Deleting one would orphan the entries that point at it,
+  // and "who did this" is the question the log exists to answer.
+  [
+    `ALTER TABLE admin_users ADD COLUMN name TEXT`,
+    `ALTER TABLE admin_users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0`,
+  ],
 ];
 
 /** The EU + UK standard and ebook rates, seeded once so a new shop is not
