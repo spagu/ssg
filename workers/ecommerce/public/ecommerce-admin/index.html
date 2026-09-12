@@ -220,19 +220,40 @@
     </div>
 
     <div class="card">
+      <form class="filters" id="product-filter">
+        <div class="field medium">
+          <label for="product-q">Search</label>
+          <input id="product-q" name="q" type="search" placeholder="Name or product code" maxlength="200">
+        </div>
+        <div class="field narrow">
+          <label for="product-status">Status</label>
+          <select id="product-status" name="status">
+            <option value="">Any</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+        <button type="submit" class="secondary">Filter</button>
+        <button type="reset" class="ghost" id="product-filter-clear">Clear</button>
+      </form>
+
       <div class="table-wrap">
-        <table class="grid">
+        <table class="grid" id="product-table">
           <caption class="visually-hidden">Every product, drafts included</caption>
           <thead><tr>
-            <th scope="col">Product</th>
-            <th scope="col">Status</th>
+            <th scope="col" data-sort="name" data-sort-dir="asc">Product</th>
+            <th scope="col" data-sort="status" data-sort-dir="asc">Status</th>
             <th scope="col" class="numeric">Price</th>
             <th scope="col">File</th>
+            <th scope="col" class="numeric" data-sort="updated" data-sort-dir="desc">Updated</th>
             <th scope="col"><span class="visually-hidden">Actions</span></th>
           </tr></thead>
           <tbody id="product-rows"></tbody>
         </table>
       </div>
+
+      <div class="pager" id="product-pager" hidden></div>
     </div>
    </div>
 
@@ -275,25 +296,44 @@
             <option value="failed">Failed</option>
           </select>
         </div>
+        <div class="field narrow">
+          <label for="filter-gateway">Provider</label>
+          <select id="filter-gateway" name="gateway">
+            <option value="">Any</option>
+            <option value="stripe">Stripe</option>
+            <option value="paypal">PayPal</option>
+            <option value="manual">By hand</option>
+          </select>
+        </div>
+        <div class="field narrow">
+          <label for="filter-from">From</label>
+          <input id="filter-from" name="from" type="date">
+        </div>
+        <div class="field narrow">
+          <label for="filter-to">To</label>
+          <input id="filter-to" name="to" type="date">
+        </div>
         <button type="submit" class="secondary">Filter</button>
+        <button type="reset" class="ghost" id="order-filter-clear">Clear</button>
       </form>
 
       <div class="table-wrap">
-        <table class="grid">
-          <caption class="visually-hidden">Orders, newest first</caption>
+        <table class="grid" id="order-table">
+          <caption class="visually-hidden">Orders</caption>
           <thead><tr>
-            <th scope="col">Order</th>
+            <th scope="col" data-sort="number" data-sort-dir="desc">Order</th>
             <th scope="col">Customer</th>
-            <th scope="col">Status</th>
-            <th scope="col" class="numeric">Total</th>
+            <th scope="col" data-sort="status" data-sort-dir="asc">Status</th>
+            <th scope="col" class="numeric" data-sort="total" data-sort-dir="desc">Total</th>
+            <th scope="col" class="numeric" data-sort="date" data-sort-dir="desc">Placed</th>
             <th scope="col"><span class="visually-hidden">Actions</span></th>
           </tr></thead>
           <tbody id="order-rows"></tbody>
         </table>
       </div>
-    </div>
 
-    <button type="button" class="secondary" id="orders-more" hidden>Load more</button>
+      <div class="pager" id="order-pager" hidden></div>
+    </div>
    </div>
 
    <div id="order-detail" hidden></div>
@@ -414,6 +454,7 @@
           <tbody id="outbox-rows"></tbody>
         </table>
       </div>
+      <div class="pager" id="outbox-pager" hidden></div>
     </div>
 
     <div class="card">
@@ -430,6 +471,7 @@
           <tbody id="audit-rows"></tbody>
         </table>
       </div>
+      <div class="pager" id="audit-pager" hidden></div>
     </div>
   </section>
 </main>

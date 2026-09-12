@@ -57,7 +57,24 @@ paths:
         Active products only, with their prices. Cached for a minute, so a price
         change appears quickly without a query per visitor. Nothing about files,
         keys or stock.
+
+        A storefront page shows a handful of products, so it should ask for
+        those by code — `?sku=A,B,C` — rather than download a catalogue to find
+        three prices. Without that it gets one page: a shop with five thousand
+        books does not answer with five thousand books.
       security: []
+      parameters:
+        - name: sku
+          in: query
+          description: Up to 50 product codes, comma-separated. Paging does not apply.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: cursor
+          in: query
+          description: From a previous answer's `nextCursor`.
+          schema: { type: string }
       responses:
         "200":
           description: The catalogue.
@@ -71,6 +88,8 @@ paths:
                   products:
                     type: array
                     items: { $ref: "#/components/schemas/Product" }
+                  total: { type: integer, description: Active products in the shop. }
+                  nextCursor: { type: [string, "null"] }
         "503": { $ref: "#/components/responses/NotConfigured" }
 
   /api/shop/products/{sku}:
@@ -455,9 +474,34 @@ paths:
     get:
       tags: [admin]
       summary: Every product, drafts included
+      description: |
+        Paged by cursor, like every list here. Prices are read for the page
+        rather than for the shop, which is what a catalogue of thousands
+        requires.
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          description: Part of a name or a product code.
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, active, archived] }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [updated, created, name, sku, status], default: updated }
+        - name: dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
       responses:
-        "200": { description: The catalogue with prices and file details. }
+        "200": { description: A page of the catalogue, with `total` and `nextCursor`. }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { description: That is not a status or a sort. }
     post:
       tags: [admin]
       summary: Create a product
@@ -594,10 +638,29 @@ paths:
           in: query
           description: An order number or part of an email address.
           schema: { type: string }
+        - name: gateway
+          in: query
+          schema: { type: string, examples: ["stripe", "paypal", "manual"] }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          description: Inclusive — a date alone means the end of that day.
+          schema: { type: string, format: date }
+        - name: sort
+          in: query
+          description: |
+            Sorting changes the cursor as well as the order, because the cursor
+            is the last row's value in the column being sorted on.
+          schema: { type: string, enum: [date, paid, total, number, status], default: date }
+        - name: dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
       responses:
-        "200": { description: A page of orders. }
+        "200": { description: A page of orders, with `total` and `nextCursor`. }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "422": { description: That is not an order status. }
+        "422": { description: That is not an order status, a sort, or a date range. }
 
   /api/shop/admin/orders/{id}:
     parameters:

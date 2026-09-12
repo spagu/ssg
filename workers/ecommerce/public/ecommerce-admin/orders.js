@@ -2,42 +2,71 @@
 
 import { api } from "./api.js";
 import { badge, confirmDestructive, el, money, notify, td, when } from "./dom.js";
+import { bindSortableHeaders, Pager, renderPager } from "./pager.js";
 
-let cursor = null;
-let query = { q: "", status: "" };
+/** One page of orders at a time, sorted by whichever column was asked for. */
+const pager = new Pager({
+  sort: "date",
+  dir: "desc",
+  fetchPage: async (params) => {
+    const body = await api.get(`/api/shop/admin/orders?${params}`);
+    drawRows(body.orders ?? []);
+    return { total: body.total, nextCursor: body.nextCursor, count: (body.orders ?? []).length };
+  },
+});
+
+function filtersFrom(form) {
+  const data = new FormData(form);
+  return {
+    q: String(data.get("q") ?? ""),
+    status: String(data.get("status") ?? ""),
+    gateway: String(data.get("gateway") ?? ""),
+    from: String(data.get("from") ?? ""),
+    to: String(data.get("to") ?? ""),
+  };
+}
 
 export function bindOrders() {
   const form = document.getElementById("order-filter");
-  form.addEventListener("submit", (event) => {
+  const redraw = () => afterLoad();
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const data = new FormData(form);
-    query = { q: String(data.get("q") ?? ""), status: String(data.get("status") ?? "") };
-    loadOrders(true);
+    await pager.reset(filtersFrom(form));
+    redraw();
   });
-  document.getElementById("orders-more").addEventListener("click", () => loadOrders(false));
+  // A reset button empties the fields after this handler, so the filters are
+  // read on the next frame rather than from the values still on screen.
+  form.addEventListener("reset", () => {
+    setTimeout(async () => {
+      await pager.reset({});
+      redraw();
+    });
+  });
+
+  bindSortableHeaders(document.getElementById("order-table"), pager, redraw);
+}
+
+function afterLoad() {
+  bindSortableHeaders(document.getElementById("order-table"), pager, afterLoad);
+  renderPager(document.getElementById("order-pager"), pager, afterLoad);
 }
 
 export async function loadOrders(reset = true) {
-  if (reset) cursor = null;
-  const params = new URLSearchParams({ limit: "25" });
-  if (query.q) params.set("q", query.q);
-  if (query.status) params.set("status", query.status);
-  if (cursor) params.set("cursor", cursor);
+  if (reset) await pager.reset(pager.filters);
+  else await pager.load();
+  afterLoad();
+}
 
-  const body = await api.get(`/api/shop/admin/orders?${params}`);
+function drawRows(orders) {
   const rows = document.getElementById("order-rows");
-  const made = (body.orders ?? []).map(orderRow);
-  if (reset) rows.replaceChildren(...made);
-  else rows.append(...made);
+  rows.replaceChildren(...orders.map(orderRow));
 
-  cursor = body.nextCursor;
-  document.getElementById("orders-more").hidden = !cursor;
-
-  if (rows.childElementCount === 0) {
-    const filtered = Boolean(query.q || query.status);
+  if (orders.length === 0) {
+    const filtered = Object.values(pager.filters).some(Boolean);
     rows.replaceChildren(
       el("tr", {},
-        el("td", { colspan: "5" },
+        el("td", { colspan: "6" },
           el("div", { class: "empty" },
             el("h3", { text: filtered ? "Nothing matches that" : "No orders yet" }),
             el("p", { text: filtered
@@ -54,12 +83,7 @@ function orderRow(order) {
   return el(
     "tr",
     {},
-    td("Order",
-      el("div", { class: "cell-title" },
-        el("strong", {}, el("code", { text: order.number })),
-        el("small", { text: when(order.createdAt) }),
-      ),
-    ),
+    td("Order", el("strong", {}, el("code", { text: order.number }))),
     td("Customer",
       el("div", { class: "cell-title" },
         el("strong", { text: order.email ?? "—" }),
@@ -68,6 +92,7 @@ function orderRow(order) {
     ),
     td("Status", badge(order.status)),
     td("Total", { class: "numeric" }, money(order.totalMinor, order.currency)),
+    td("Placed", { class: "numeric" }, el("span", { class: "muted", text: when(order.createdAt) })),
     td("", { class: "actions" },
       el("button", { type: "button", class: "secondary small", onClick: () => openOrder(order.id) }, "Open"),
     ),
@@ -222,7 +247,7 @@ function tokenList(tokens) {
 function actionCard(order) {
   const row = el("div", { class: "savebar" });
   const refresh = async () => {
-    await loadOrders(true);
+    await loadOrders(false); // stay on the page the reader was looking at
     closeOrder();
   };
 

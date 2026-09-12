@@ -56,7 +56,13 @@ async function refreshPrices() {
   const nodes = [...document.querySelectorAll("[data-price-for]")];
   if (nodes.length === 0) return;
   try {
-    const res = await fetch("/api/shop/products", { headers: { accept: "application/json" } });
+    // Ask for the codes this page shows, rather than downloading a catalogue to
+    // find three prices. It also means a shop with five thousand books answers
+    // this page as quickly as a shop with two — and that a book on page forty of
+    // the catalogue still gets its price.
+    const skus = [...new Set(nodes.map((n) => n.dataset.priceFor).filter(Boolean))];
+    const query = new URLSearchParams({ sku: skus.slice(0, 50).join(",") });
+    const res = await fetch(`/api/shop/products?${query}`, { headers: { accept: "application/json" } });
     if (!res.ok) return;
     const { products = [], shop = {} } = await res.json();
     const bySku = new Map(products.map((p) => [p.sku, p]));

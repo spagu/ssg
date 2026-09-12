@@ -1,7 +1,8 @@
 // The products screen: the list, and the editor that opens under it.
 
 import { api } from "./api.js";
-import { badge, confirmDestructive, el, money, notify, td } from "./dom.js";
+import { badge, confirmDestructive, el, money, notify, td, when } from "./dom.js";
+import { bindSortableHeaders, Pager, renderPager } from "./pager.js";
 
 let products = [];
 let baseCurrency = "EUR";
@@ -10,19 +11,69 @@ export function setBaseCurrency(currency) {
   if (currency) baseCurrency = currency;
 }
 
-export async function loadProducts() {
-  const body = await api.get("/api/shop/admin/products");
-  products = body.products ?? [];
-  render();
+/** One page at a time. A shop with five thousand products must not answer with
+ *  five thousand products, and the price lookup behind this is per page too —
+ *  one bind per product on screen rather than one per product that exists. */
+const pager = new Pager({
+  sort: "updated",
+  dir: "desc",
+  fetchPage: async (params) => {
+    const body = await api.get(`/api/shop/admin/products?${params}`);
+    products = body.products ?? [];
+    render();
+    return { total: body.total, nextCursor: body.nextCursor, count: products.length };
+  },
+});
+
+function afterLoad() {
+  bindSortableHeaders(document.getElementById("product-table"), pager, afterLoad);
+  renderPager(document.getElementById("product-pager"), pager, afterLoad);
+}
+
+export async function loadProducts(reset = false) {
+  if (reset) await pager.reset(pager.filters);
+  else await pager.load();
+  afterLoad();
+}
+
+export function bindProductFilter() {
+  const form = document.getElementById("product-filter");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    await pager.reset({ q: String(data.get("q") ?? ""), status: String(data.get("status") ?? "") });
+    afterLoad();
+  });
+  form.addEventListener("reset", () => {
+    setTimeout(async () => {
+      await pager.reset({});
+      afterLoad();
+    });
+  });
+  bindSortableHeaders(document.getElementById("product-table"), pager, afterLoad);
 }
 
 function render() {
   const rows = document.getElementById("product-rows");
 
   if (products.length === 0) {
+    const filtered = Object.values(pager.filters).some(Boolean);
+    if (filtered) {
+      rows.replaceChildren(
+        el("tr", {},
+          el("td", { colspan: "6" },
+            el("div", { class: "empty" },
+              el("h3", { text: "Nothing matches that" }),
+              el("p", { text: "Try a different search, or clear the filter to see everything." }),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     rows.replaceChildren(
       el("tr", {},
-        el("td", { colspan: "5" },
+        el("td", { colspan: "6" },
           el("div", { class: "empty" },
             el("h3", { text: "Nothing to sell yet" }),
             el("p", { text: "Add a product, give it a price and upload the file buyers receive. It goes on sale when it has all three." }),
@@ -63,6 +114,7 @@ function render() {
             ? el("span", { class: "muted", text: `${p.file_name} · ${Math.max(1, Math.round((p.file_size ?? 0) / 1024))} kB` })
             : el("span", { class: "muted", text: "none yet" }),
         ),
+        td("Updated", { class: "numeric" }, el("span", { class: "muted", text: when(p.updated_at) })),
         td("", { class: "actions" },
           el("button", { type: "button", class: "secondary small", onClick: () => openEditor(p.id) }, "Edit"),
         ),
@@ -100,7 +152,7 @@ export function bindNewProductForm() {
       form.reset();
       card.hidden = true;
       notify("ok", "Product created. Give it a price and a file before putting it on sale.");
-      await loadProducts();
+      await loadProducts(true);
       // Straight into the editor: creating a product is never the whole job.
       await openEditor(product.id);
     } catch (err) {

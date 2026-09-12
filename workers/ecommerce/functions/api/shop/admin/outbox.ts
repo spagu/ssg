@@ -13,16 +13,29 @@ import type { AdminData } from "./_middleware";
 export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ request, env }) => {
   const q = new URL(request.url).searchParams;
   const stuckOnly = q.get("stuck") === "1";
-  const limit = Math.min(100, Math.max(1, Number.parseInt(q.get("limit") ?? "50", 10) || 50));
+  const limit = Math.min(100, Math.max(1, Number.parseInt(q.get("limit") ?? "25", 10) || 25));
+  const cursor = str(q.get("cursor"), 120);
+
+  // Ordered by when each message is next due, so the cursor is that timestamp
+  // and the id breaks the tie between two queued in the same millisecond.
+  const where = ["done_at IS NULL"];
+  const binds: unknown[] = [];
+  if (stuckOnly) where.push("attempts >= 3");
+  if (cursor) {
+    const at = cursor.indexOf("|");
+    const [due, id] = at === -1 ? [cursor, ""] : [cursor.slice(0, at), cursor.slice(at + 1)];
+    where.push("(next_attempt > ? OR (next_attempt = ? AND id > ?))");
+    binds.push(due, due, id);
+  }
 
   const { results } = await env.SHOP_DB.prepare(
     `SELECT id, kind, target, attempts, next_attempt, last_error, done_at, created_at
        FROM outbox
-      WHERE done_at IS NULL ${stuckOnly ? "AND attempts >= 3" : ""}
-      ORDER BY next_attempt
+      WHERE ${where.join(" AND ")}
+      ORDER BY next_attempt, id
       LIMIT ?`,
   )
-    .bind(limit)
+    .bind(...binds, limit + 1)
     .all<Omit<OutboxRow, "payload_json">>();
 
   const counts = await env.SHOP_DB.prepare(
@@ -33,9 +46,18 @@ export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ requ
      FROM outbox`,
   ).first<{ pending: number; stuck: number; done: number }>();
 
+  const rows = results ?? [];
+  const page = rows.slice(0, limit);
+  const last = page.at(-1);
+
   // The payload can hold a download link and a buyer's address, so the list
   // shows what a message is and how it is going, never what it says (S-28).
-  return json({ messages: results ?? [], counts: counts ?? { pending: 0, stuck: 0, done: 0 } });
+  return json({
+    messages: page,
+    counts: counts ?? { pending: 0, stuck: 0, done: 0 },
+    total: stuckOnly ? (counts?.stuck ?? 0) : (counts?.pending ?? 0),
+    nextCursor: rows.length > limit && last ? `${last.next_attempt}|${last.id}` : null,
+  });
 };
 
 export const onRequestPost: PagesFunction<Env, string, AdminData> = async ({ request, env, data }) => {

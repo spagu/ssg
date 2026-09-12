@@ -371,6 +371,36 @@ form > .card { margin-bottom: 0; }
 }
 .cell-media { display: flex; align-items: center; gap: 0.75rem; }
 
+/* A sortable header is a button that looks like a header. The arrow is the same
+ * fact `aria-sort` carries, for readers who are not using a screen reader. */
+.grid th[data-sort] { padding: 0; }
+.sortbtn {
+  display: flex; align-items: center; gap: 0.35rem; width: 100%;
+  padding: 0.7rem 1.25rem;
+  font: inherit; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); background: none; border: 0;
+  border-radius: 0; cursor: pointer;
+  justify-content: flex-start;
+}
+.grid th.numeric .sortbtn { justify-content: flex-end; }
+.sortbtn:hover { background: var(--bg-sunken); color: var(--fg); }
+.sortbtn .arrow { font-size: 0.85rem; letter-spacing: 0; }
+.grid th[aria-sort="none"] .arrow { opacity: 0.35; }
+.grid th:not([aria-sort="none"]) .sortbtn { color: var(--fg); }
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+
+.pager {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.pager p { margin: 0; font-size: 0.85rem; }
+.pager .spacer { margin-left: auto; }
+.pager .pagenum { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 /* ── Badges ─────────────────────────────────────────────────────────────── */
 
 .badge {

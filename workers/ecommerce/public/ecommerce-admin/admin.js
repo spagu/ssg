@@ -2,7 +2,7 @@
 
 import { api, refresh, setSignedOutHandler, setToken } from "./api.js";
 import { clearNotice, el, money, notify, td } from "./dom.js";
-import { bindNewProductForm, loadProducts, setBaseCurrency } from "./products.js";
+import { bindNewProductForm, bindProductFilter, loadProducts, setBaseCurrency } from "./products.js";
 import { bindOrders, loadOrders } from "./orders.js";
 import { bindVatForm, loadModules, loadSettings, loadVat } from "./settings.js";
 import { bindOutbox, loadAudit, loadOutbox } from "./log.js";
@@ -10,7 +10,7 @@ import { bindOutbox, loadAudit, loadOutbox } from "./log.js";
 /** Each screen: what to load, and what to call it in the top bar. */
 const VIEWS = {
   dashboard: { title: "Overview", load: loadDashboard },
-  products: { title: "Products", load: loadProducts },
+  products: { title: "Products", load: () => loadProducts(true) },
   orders: { title: "Orders", load: () => loadOrders(true) },
   modules: { title: "Modules", load: loadModules },
   settings: { title: "Settings", load: loadSettings },
@@ -260,6 +260,7 @@ async function start() {
   bindLogin();
   bindNavToggle();
   bindNewProductForm();
+  bindProductFilter();
   bindOrders();
   bindVatForm();
   bindOutbox();

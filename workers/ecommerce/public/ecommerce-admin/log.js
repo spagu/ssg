@@ -2,9 +2,43 @@
 
 import { api } from "./api.js";
 import { el, notify, td, when } from "./dom.js";
+import { Pager, renderPager } from "./pager.js";
+
+/** The queue, a page at a time. */
+const outbox = new Pager({
+  fetchPage: async (params) => {
+    const body = await api.get(`/api/shop/admin/outbox?${params}`);
+    drawOutbox(body.messages ?? [], body.counts ?? { done: 0 });
+    return { total: body.total, nextCursor: body.nextCursor, count: (body.messages ?? []).length };
+  },
+});
+
+/** The audit log, likewise — but with no count.
+ *
+ *  Counting an append-only log means scanning it, on every page, to print a
+ *  number nobody acts on. "Showing 51–100" answers the question a reader
+ *  actually has, which is whether there is more. */
+const auditLog = new Pager({
+  fetchPage: async (params) => {
+    const body = await api.get(`/api/shop/admin/audit?${params}`);
+    drawAudit(body.entries ?? []);
+    return { nextCursor: body.nextCursor, count: (body.entries ?? []).length };
+  },
+});
 
 export async function loadOutbox() {
-  const { messages, counts } = await api.get("/api/shop/admin/outbox");
+  await outbox.reset(outbox.filters);
+  const redraw = () => renderPager(document.getElementById("outbox-pager"), outbox, redraw);
+  redraw();
+}
+
+export async function loadAudit() {
+  await auditLog.reset(auditLog.filters);
+  const redraw = () => renderPager(document.getElementById("audit-pager"), auditLog, redraw);
+  redraw();
+}
+
+function drawOutbox(messages, counts) {
   const rows = document.getElementById("outbox-rows");
   rows.replaceChildren(
     ...messages.map((m) =>
@@ -59,8 +93,7 @@ export function bindOutbox() {
   });
 }
 
-export async function loadAudit() {
-  const { entries } = await api.get("/api/shop/admin/audit?limit=100");
+function drawAudit(entries) {
   const rows = document.getElementById("audit-rows");
   rows.replaceChildren(
     ...entries.map((e) =>

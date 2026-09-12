@@ -102,6 +102,29 @@ own "have I already done this": the move to `paid` names the states it may move
 from, the webhook inbox row is the lock (`INSERT OR IGNORE`), a download token
 is issued only where no live one exists. Two webhooks racing produce one email.
 
+### Lists, at the size a shop actually reaches
+
+Every list — products, orders, the queue, the audit log — is filtered, sorted
+and paged by the API rather than in the browser. The paging is by **cursor**,
+not by offset: an offset page shifts under you as rows arrive, so page two skips
+the row page one pushed down and shows another twice. The cursor is the last
+row's sort value *and* its id, because two orders can share a timestamp — or,
+sorted by amount, a total — and a cursor that cannot break that tie loses rows.
+
+The panel remembers the cursor that started each page, which is what makes
+"previous" exact rather than arithmetic.
+
+Two things this fixed rather than improved:
+
+- The catalogue looked its prices up with `WHERE product_id IN (?, ?, …)` — one
+  bound parameter per product. **D1 refuses a statement with too many**, so the
+  page did not slow down as a shop grew; it stopped loading, at a size a demo
+  never reaches. Prices are read for one page at a time and in chunks even then
+  (`_catalogue.ts`).
+- The public catalogue answered with every active product. A storefront page
+  shows a handful, so it now asks for those by code — `/api/shop/products?sku=A,B`
+  — and gets a page otherwise.
+
 ### Modules
 
 What the shop **does**, as opposed to what it is configured with. Each switch is

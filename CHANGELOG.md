@@ -62,6 +62,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builds it and starts `wrangler pages dev`, with D1, R2 and KV local.
 
 ### Fixed
+- 🗂️ **A shop with more than a hundred products stopped loading.** The catalogue
+  read its prices with `WHERE product_id IN (?, ?, …)` — one bound parameter per
+  product — and D1 refuses a statement with too many. It did not degrade as a
+  shop grew; past the limit it failed outright, in both the public catalogue and
+  the panel, at a size a demo never reaches and a real shop passes in an
+  afternoon. Prices are now read a page at a time, in chunks even then, and a
+  test seeds far past the limit so it cannot come back.
+
+  Every list is paged, sorted and filtered by the API as a result: products by
+  name, code, status or when they changed; orders by number, status, total or
+  date, with a provider and a date range to filter on; the queue and the audit
+  log by page. Paging is by cursor rather than offset, so a page cannot repeat a
+  row that arrived while you were reading, and the cursor carries the row's id
+  as well as its sort value, because two orders can share a timestamp. The
+  public catalogue answers `?sku=A,B,C` so a storefront page fetches the prices
+  it shows rather than a catalogue to find them in.
+
 - 🎛️ **The shop panel is an admin panel now.** It was a column of tabs above a
   wall of inputs; it is a sidebar, page headers, cards, tables with aligned
   numerics and status pills, empty states that say what to do next, and a sticky
