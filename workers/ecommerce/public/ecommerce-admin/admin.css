@@ -267,6 +267,8 @@ main {
 
 /* ── Card ───────────────────────────────────────────────────────────────── */
 
+form > .card { margin-bottom: 0; }
+
 .card {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -427,13 +429,23 @@ button.small { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
 
 label { font-size: 0.88rem; font-weight: 600; }
 
-input, select, textarea {
+/* A checkbox is not a box you type in: giving it a border, a radius and 7px of
+ * padding turns a 16px control into a lopsided grey rectangle, which is what had
+ * happened to all five switches on the settings screen. The exclusion is on the
+ * rule rather than an override afterwards, so the next control of this kind
+ * cannot inherit it either. */
+input:not([type="checkbox"], [type="radio"]), select, textarea {
   font: inherit; font-size: 0.95rem;
   color: var(--fg); background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 0.45rem 0.6rem;
   max-width: 100%;
+}
+input[type="checkbox"], input[type="radio"] {
+  width: 1.05rem; height: 1.05rem;
+  margin: 0;
+  accent-color: var(--brand);
 }
 input:disabled { background: var(--bg-sunken); color: var(--fg-muted); }
 textarea { min-height: 6rem; resize: vertical; font-size: 0.9rem; }
@@ -445,7 +457,12 @@ textarea { min-height: 6rem; resize: vertical; font-size: 0.9rem; }
 .field.medium { max-width: 18rem; }
 
 .fields { display: grid; gap: 1rem; }
-.fields.two { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.fields.two {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  align-items: start;
+}
+/* A textarea is worth the whole row wherever the row has more than one column. */
+.fields.two > .field:has(textarea) { grid-column: 1 / -1; }
 
 form { display: grid; gap: 1rem; }
 
@@ -461,11 +478,16 @@ form { display: grid; gap: 1rem; }
 
 /* A checkbox belongs beside its label, not under it. */
 .check {
-  display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.65rem;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.15rem 0.7rem;
   align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
 }
-.check input { width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--brand); }
-.check small { grid-column: 2; color: var(--fg-muted); font-size: 0.8rem; }
+.check:has(input:checked) { border-color: var(--brand); background: var(--brand-wash); }
+.check label { cursor: pointer; }
+.check small { grid-column: 2; color: var(--fg-muted); font-size: 0.8rem; line-height: 1.45; }
 
 /* ── Modules ────────────────────────────────────────────────────────────── */
 
@@ -485,7 +507,10 @@ form { display: grid; gap: 1rem; }
 /* A switch, built from a checkbox so it is a checkbox to everything that is not
  * a pair of eyes: focusable, labelled, and announced as checked or not. */
 .switch { grid-row: span 2; position: relative; width: 2.6rem; height: 1.5rem; }
-.switch input {
+/* The switch is a checkbox wearing a different shape: invisible, stretched over
+ * the track, and still a checkbox to everything that is not a pair of eyes.
+ * `width`/`height` restate the size because the global checkbox rule fixes one. */
+.switch input[type="checkbox"] {
   position: absolute; inset: 0; width: 100%; height: 100%;
   margin: 0; opacity: 0; cursor: pointer;
 }
@@ -501,11 +526,11 @@ form { display: grid; gap: 1rem; }
   background: #fff; box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease;
 }
-.switch input:checked + span { background: var(--brand); }
-.switch input:checked + span::after { transform: translateX(1.1rem); }
-.switch input:disabled + span { opacity: 0.5; }
-.switch input:disabled { cursor: not-allowed; }
-.switch input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+.switch input[type="checkbox"]:checked + span { background: var(--brand); }
+.switch input[type="checkbox"]:checked + span::after { transform: translateX(1.1rem); }
+.switch input[type="checkbox"]:disabled + span { opacity: 0.5; }
+.switch input[type="checkbox"]:disabled { cursor: not-allowed; }
+.switch input[type="checkbox"]:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   .switch span, .switch span::after { transition: none; }
