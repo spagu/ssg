@@ -353,19 +353,21 @@ func isWorkerSourceFile(path string) bool {
 	return false
 }
 
-// importFromRE captures the specifier of any `… from "spec"` clause (import-from
-// or export-from), even when the `import { … }` spans several lines — matching on
-// the `from` clause rather than the opening line is what avoids mis-reading a
-// bare `import {` as a package. sideEffectImportRE captures `import "spec"`.
+// importRE captures the specifier of every shape an import takes: `import "x"`,
+// `import d from "x"`, `import { a, b } from "x"` (even across several lines)
+// and the `export … from "x"` re-export.
 //
-// The leading `(^|[^\w"'])` is not decoration: without it, source that merely
-// contains the word from inside a string literal — `q.get("from")`, a query
-// parameter every export endpoint has — matched, and the build warned about an
-// npm package whose name was the rest of the line.
-var (
-	importFromRE       = regexp.MustCompile(`(^|[^\w"'])from\s*["']([^"']+)["']`)
-	sideEffectImportRE = regexp.MustCompile(`(?m)^\s*import\s*["']([^"']+)["']`)
-)
+// It is anchored on the `import`/`export` keyword rather than on the `from`
+// clause. Anchoring on `from` was the obvious reading — it is what makes a
+// multi-line import findable — and it matched the word `from` wherever it
+// appeared: inside `q.get("from")`, a query parameter every date-range export
+// has, and inside an ordinary English sentence in a comment. Both produced a
+// warning naming the rest of the line as an npm package.
+//
+// `[^;'"]*?` between the keyword and the clause cannot cross a statement
+// boundary or a string literal, so a match cannot wander out of one statement
+// into another's text.
+var importRE = regexp.MustCompile(`(?s)\b(?:import|export)\s+(?:[^;'"]*?\bfrom\s+)?["']([^"']+)["']`)
 
 // bareModuleSpecs returns the distinct bare (npm) module specifiers a source file
 // imports. Relative ("./x", "../x"), absolute ("/x"), URL and runtime-builtin
@@ -381,10 +383,7 @@ func bareModuleSpecs(content string) []string {
 			out = append(out, spec)
 		}
 	}
-	for _, m := range importFromRE.FindAllStringSubmatch(content, -1) {
-		add(m[2]) // m[1] is the boundary character, m[2] the specifier
-	}
-	for _, m := range sideEffectImportRE.FindAllStringSubmatch(content, -1) {
+	for _, m := range importRE.FindAllStringSubmatch(content, -1) {
 		add(m[1])
 	}
 	return out

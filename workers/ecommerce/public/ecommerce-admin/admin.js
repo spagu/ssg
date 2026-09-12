@@ -4,40 +4,46 @@ import { api, refresh, setSignedOutHandler, setToken } from "./api.js";
 import { clearNotice, el, money, notify, td } from "./dom.js";
 import { bindNewProductForm, loadProducts, setBaseCurrency } from "./products.js";
 import { bindOrders, loadOrders } from "./orders.js";
-import { bindVatForm, loadSettings, loadVat } from "./settings.js";
+import { bindVatForm, loadModules, loadSettings, loadVat } from "./settings.js";
 import { bindOutbox, loadAudit, loadOutbox } from "./log.js";
 
+/** Each screen: what to load, and what to call it in the top bar. */
 const VIEWS = {
-  dashboard: loadDashboard,
-  products: loadProducts,
-  orders: () => loadOrders(true),
-  settings: loadSettings,
-  vat: loadVat,
-  log: async () => {
+  dashboard: { title: "Overview", load: loadDashboard },
+  products: { title: "Products", load: loadProducts },
+  orders: { title: "Orders", load: () => loadOrders(true) },
+  modules: { title: "Modules", load: loadModules },
+  settings: { title: "Settings", load: loadSettings },
+  vat: { title: "VAT rates", load: loadVat },
+  log: { title: "Log", load: async () => {
     await loadOutbox();
     await loadAudit();
-  },
+  } },
 };
 
 function show(name) {
   for (const section of document.querySelectorAll(".view")) {
     section.hidden = section.id !== `view-${name}`;
   }
-  for (const button of document.querySelectorAll("#tabs button")) {
+  for (const button of document.querySelectorAll("#nav button")) {
     if (button.dataset.view === name) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
+  document.getElementById("crumb").textContent = VIEWS[name]?.title ?? name;
   // The screen name is in the URL fragment, so a reload — and the browser's
   // back button — land where you were.
   if (window.location.hash !== `#${name}`) window.location.hash = name;
+  // A screen change means a new page as far as a reader is concerned.
+  document.getElementById("main").scrollTo?.({ top: 0 });
 }
 
 async function openView(name) {
-  const load = VIEWS[name];
-  if (!load) return;
+  const view = VIEWS[name];
+  if (!view) return;
   show(name);
+  clearNotice();
   try {
-    await load();
+    await view.load();
   } catch (err) {
     notify("error", err.message);
   }
@@ -45,16 +51,25 @@ async function openView(name) {
 
 function signedIn(identity) {
   document.body.dataset.state = "in";
-  document.getElementById("topbar").hidden = false;
-  document.getElementById("nav").hidden = false;
-  document.getElementById("logout").hidden = false;
+  for (const id of ["brandbar", "topbar", "nav"]) document.getElementById(id).hidden = false;
   document.getElementById("view-login").hidden = true;
+
   if (identity?.testMode) {
     const badge = document.getElementById("mode-badge");
-    badge.textContent = "Test mode — no real money";
+    badge.textContent = "Test mode";
+    badge.title = "These are test keys. No real money moves.";
     badge.hidden = false;
   }
-  if (identity?.shopName) document.title = `${identity.shopName} — shop admin`;
+  if (identity?.admin?.email) {
+    const who = document.getElementById("whoami");
+    who.textContent = identity.admin.email;
+    who.dataset.status = identity.admin.role === "owner" ? "on" : "draft";
+    who.hidden = false;
+  }
+  if (identity?.shopName) {
+    document.getElementById("brand-name").textContent = identity.shopName;
+    document.title = `${identity.shopName} — shop admin`;
+  }
   setBaseCurrency(identity?.baseCurrency);
   openView(window.location.hash.slice(1) || "dashboard");
 }
@@ -63,10 +78,9 @@ function signedOut() {
   // The whole shell goes, not just its contents: a navigation you cannot use is
   // an invitation to click something that will answer 401.
   document.body.dataset.state = "out";
-  document.getElementById("topbar").hidden = true;
-  document.getElementById("nav").hidden = true;
-  document.getElementById("logout").hidden = true;
-  document.getElementById("mode-badge").hidden = true;
+  for (const id of ["brandbar", "topbar", "nav", "mode-badge", "whoami"]) {
+    document.getElementById(id).hidden = true;
+  }
   for (const section of document.querySelectorAll(".view")) section.hidden = true;
   document.getElementById("view-login").hidden = false;
   document.getElementById("login-email").focus();
@@ -75,9 +89,8 @@ function signedOut() {
 /** What the sign-in screen can say before anyone has signed in.
  *
  *  The catalogue endpoint is public, so the card can carry the shop's own name
- *  and warn that these are test keys — both of which a seller looking at a bare
- *  "Shop admin" would have to guess at. It is decoration: a shop that cannot
- *  answer leaves the defaults in place. */
+ *  rather than a bare "Shop admin". Decoration: a shop that cannot answer
+ *  leaves the defaults in place. */
 async function dressLoginScreen() {
   try {
     const res = await fetch("/api/shop/products", { headers: { accept: "application/json" } });
@@ -101,39 +114,61 @@ async function loadDashboard() {
   const warnings = document.getElementById("warnings");
   warnings.replaceChildren(...(me.warnings ?? []).map((w) => el("li", { text: w })));
 
-  const cards = document.getElementById("stats");
+  // The count beside Orders is the one number worth carrying into every screen:
+  // an order stuck in review is a buyer waiting.
+  const badge = document.getElementById("review-count");
+  badge.textContent = String(stats.needsReview ?? 0);
+  badge.hidden = !stats.needsReview;
+
   const figures = [];
   for (const row of stats.byCurrency) {
-    figures.push([`Sales (30 days, ${row.currency})`, money(row.netMinor, row.currency)]);
+    figures.push([`Sales, 30 days (${row.currency})`, money(row.netMinor, row.currency)]);
     figures.push([`VAT collected (${row.currency})`, money(row.taxMinor, row.currency)]);
     figures.push([`Orders (${row.currency})`, String(row.orders)]);
   }
-  if (stats.byCurrency.length === 0) figures.push(["Sales (30 days)", "nothing yet"]);
+  if (stats.byCurrency.length === 0) figures.push(["Sales, 30 days", "nothing yet"]);
   figures.push(["Needs review", String(stats.needsReview)]);
   figures.push(["Stuck messages", String(stats.stuckMessages)]);
-  figures.push(["Signed in as", me.admin?.email ?? "—"]);
 
-  cards.replaceChildren(
+  document.getElementById("stats").replaceChildren(
     ...figures.map(([label, value]) =>
-      el("dl", { class: "card" }, el("dt", { text: label }), el("dd", { text: value })),
+      el("dl", { class: "stat" }, el("dt", { text: label }), el("dd", { text: value })),
     ),
   );
 
-  document.getElementById("top-products").replaceChildren(
+  const top = document.getElementById("top-products");
+  top.replaceChildren(
     ...stats.topProducts.map((p) =>
-      el("tr", {}, td("Product", p.name), td("Units", String(p.units)), td("Revenue", money(p.revenue, stats.baseCurrency))),
+      el("tr", {},
+        td("Product", p.name),
+        td("Units", { class: "numeric" }, String(p.units)),
+        td("Revenue", { class: "numeric" }, money(p.revenue, stats.baseCurrency)),
+      ),
     ),
   );
-  document.getElementById("by-country").replaceChildren(
+  if (stats.topProducts.length === 0) {
+    top.replaceChildren(el("tr", {}, el("td", { colspan: "3", class: "muted", text: "Nothing sold yet." })));
+  }
+
+  const countries = document.getElementById("by-country");
+  countries.replaceChildren(
     ...stats.byCountry.map((c) =>
-      el("tr", {}, td("Country", c.country), td("Orders", String(c.orders)), td("Gross", money(c.gross, stats.baseCurrency))),
+      el("tr", {},
+        td("Country", c.country),
+        td("Orders", { class: "numeric" }, String(c.orders)),
+        td("Gross", { class: "numeric" }, money(c.gross, stats.baseCurrency)),
+      ),
     ),
   );
+  if (stats.byCountry.length === 0) {
+    countries.replaceChildren(el("tr", {}, el("td", { colspan: "3", class: "muted", text: "No paid orders yet." })));
+  }
 }
 
 function bindLogin() {
   const form = document.getElementById("login-form");
   const submit = document.getElementById("login-submit");
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     clearNotice();
@@ -150,12 +185,13 @@ function bindLogin() {
     try {
       const body = await api.login(String(data.get("email")), String(data.get("password")));
       form.reset();
-      signedIn({ testMode: false, baseCurrency: null, admin: { email: body.email } });
+      signedIn({ admin: { email: body.email, role: body.role } });
       // The dashboard call fills in the rest; this only needs the session.
     } catch (err) {
       notify("error", err.message);
-      document.getElementById("login-password").value = "";
-      document.getElementById("login-password").focus();
+      const password = document.getElementById("login-password");
+      password.value = "";
+      password.focus();
     } finally {
       submit.disabled = false;
       submit.removeAttribute("aria-busy");
@@ -178,7 +214,7 @@ async function start() {
   bindOutbox();
   setSignedOutHandler(signedOut);
 
-  for (const button of document.querySelectorAll("#tabs button")) {
+  for (const button of document.querySelectorAll("#nav button")) {
     button.addEventListener("click", () => openView(button.dataset.view));
   }
   window.addEventListener("hashchange", () => {

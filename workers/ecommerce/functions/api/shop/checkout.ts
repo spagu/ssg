@@ -31,7 +31,7 @@ import {
 import { createOrder, priceBasket, upsertCustomer, type BasketLine } from "./_orders";
 import { guard } from "./_ratelimit";
 import { ensureSchema } from "./_schema";
-import { getSettingString, shopIsConfigured } from "./_settings";
+import { getSettingString, moduleOn, shopIsConfigured } from "./_settings";
 import { isWellFormedVatId, taxContext } from "./_tax";
 
 interface CheckoutBody {
@@ -163,7 +163,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const ip = request.headers.get("cf-connecting-ip");
   const token = str(body.turnstileToken ?? body["cf-turnstile-response"], 4096);
-  if (env.TURNSTILE_SECRET) {
+  // The secret being present is not the same as the check being wanted: a
+  // seller testing a storefront turns the module off and keeps the secret.
+  if (env.TURNSTILE_SECRET && (await moduleOn(env, "turnstile"))) {
     if (!token || !(await verifyTurnstile(env.TURNSTILE_SECRET, token, ip))) {
       return fail(request, "captcha_failed", "The anti-spam check did not pass. Please try again.", 403);
     }

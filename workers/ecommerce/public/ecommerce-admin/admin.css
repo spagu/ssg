@@ -1,45 +1,95 @@
-/* The panel's stylesheet. No framework: it is six screens of tables and forms,
- * and a framework would be larger than the thing it styles.
+/* The shop panel.
  *
- * Colour is from the Google Material palette and every pairing below is
- * measured against WCAG 2.2 AA — 4.5:1 for text, 3:1 for borders and large
- * text. Status is never colour alone: each badge carries its own word.
+ * Written as a small design system rather than a pile of per-screen rules,
+ * because six screens sharing three components stay consistent and six screens
+ * with their own styling do not. Tokens first, then the shell, then the six
+ * things every screen is built from: page header, card, table, form, badge,
+ * empty state.
+ *
+ * Colour is the Google Material palette, picked for contrast rather than for
+ * looks. Every pairing below is measured against WCAG 2.2 AA — 4.5:1 for body
+ * text, 3:1 for borders, icons and large text — and the figure is written
+ * beside it so the next person can check rather than trust. Status is never
+ * colour alone: every badge carries its own word.
+ *
+ * No framework. It is six screens of tables and forms, and a framework would
+ * be larger than the thing it styles.
  */
+
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
 
 :root {
   color-scheme: light;
-  --fg: #263238;            /* on white 13.7:1 */
-  --fg-muted: #546e7a;      /* on white 5.6:1 */
+
+  /* Ink. Blue Grey, which is warmer under artificial light than pure grey. */
+  --fg: #263238;              /* on white 13.7:1 — AAA */
+  --fg-muted: #546e7a;        /* on white 5.6:1 — AA */
+  --fg-faint: #78909c;        /* on white 3.4:1 — large text and icons only */
+
   --bg: #ffffff;
-  --bg-subtle: #eceff1;
-  --border: #b0bec5;
-  --border-strong: #78909c; /* 3.4:1 — AA for a UI boundary */
-  --brand: #303f9f;         /* Indigo 700, on white 8.6:1 */
-  --brand-ink: #ffffff;
-  --brand-wash: #e8eaf6;    /* Indigo 50, the sign-in ground */
-  --ok: #2e7d32;            /* Green 800, on white 5.1:1 */
-  --warn: #e65100;          /* Orange 900, on white 4.9:1 */
-  --danger: #c62828;        /* Red 800, on white 6.4:1 */
-  --radius: 6px;
-  --gap: 1rem;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg-subtle: #f4f6f7;       /* rows, wells, the page behind the cards */
+  --bg-sunken: #eceff1;
+  --border: #dde3e6;          /* hairlines between rows */
+  --border-strong: #b0bec5;   /* the edge of a control you can type in */
+
+  /* Indigo 700 / 50 / 900. */
+  --brand: #303f9f;           /* on white 8.6:1 — AAA */
+  --brand-hover: #283593;
+  --brand-ink: #ffffff;       /* on brand 8.6:1 */
+  --brand-wash: #e8eaf6;
+  --brand-deep: #1a237e;
+
+  /* Signals. Each is used as dark text on its own pale wash. */
+  --ok: #1b5e20;              /* Green 900, on its wash 7.4:1 */
+  --ok-wash: #e8f5e9;
+  --warn: #e65100;            /* Orange 900, on its wash 5.1:1 */
+  --warn-wash: #fff3e0;
+  --danger: #b71c1c;          /* Red 900, on its wash 8.1:1 */
+  --danger-wash: #ffebee;
+  --info-wash: #e1f5fe;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgb(38 50 56 / 6%);
+  --shadow: 0 1px 2px rgb(38 50 56 / 8%), 0 8px 24px rgb(38 50 56 / 8%);
+  --sidebar: 15rem;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 16px;
 }
 
+/* Dark is not a second palette: the surfaces walk down one ink ramp and the
+ * brand walks up the indigo ramp, because Indigo 700 on near-black is 2.1:1. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --fg: #eceff1;
-    --fg-muted: #b0bec5;
-    --bg: #263238;
-    --bg-subtle: #37474f;
-    --border: #546e7a;
-    --border-strong: #90a4ae;
-    --brand: #9fa8da;       /* Indigo 200 on #263238 — 5.7:1 */
-    --brand-ink: #1a237e;
-    --brand-wash: #1a237e;  /* Indigo 900: a wash has to go darker here, not lighter */
+
+    --fg: #eceff1;            /* on #263238 11.6:1 */
+    --fg-muted: #b0bec5;      /* 7.4:1 */
+    --fg-faint: #90a4ae;      /* 5.2:1 */
+
+    --bg: #2b3841;
+    --bg-subtle: #263238;
+    --bg-sunken: #1f292f;
+    --border: #3d4b54;
+    --border-strong: #607d8b;
+
+    --brand: #9fa8da;         /* Indigo 200 on #2b3841 — 5.4:1 */
+    --brand-hover: #c5cae9;
+    --brand-ink: #1a237e;     /* on Indigo 200 8.4:1 */
+    --brand-wash: #323f6b;
+    --brand-deep: #c5cae9;
+
     --ok: #a5d6a7;
+    --ok-wash: #1f3a22;
     --warn: #ffcc80;
+    --warn-wash: #3d2c15;
     --danger: #ef9a9a;
+    --danger-wash: #3d1f1f;
+    --info-wash: #1e3540;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px rgb(0 0 0 / 25%);
   }
 }
 
@@ -49,23 +99,28 @@
  *
  * The browser hides it with `[hidden] { display: none }` in its own stylesheet,
  * which any author rule setting `display` on the same element overrides — so
- * `.tabs { display: flex }` left the whole navigation on screen for someone who
- * had not signed in. This is one line rather than a rule per component,
+ * `.tabs { display: flex }` once left the whole navigation on screen for
+ * someone who had not signed in. One line, rather than a rule per component,
  * because the next component to be toggled will have a display of its own too. */
 [hidden] { display: none !important; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--bg-subtle);
   color: var(--fg);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
+
+h1, h2, h3 { letter-spacing: -0.011em; }
+
+a { color: var(--brand); }
 
 .skip { position: absolute; left: -9999px; }
 .skip:focus {
-  left: 1rem; top: 1rem; z-index: 10;
-  padding: 0.5rem 1rem; background: var(--bg);
-  border: 2px solid var(--brand); border-radius: var(--radius);
+  left: 1rem; top: 1rem; z-index: 30;
+  padding: 0.6rem 1rem; background: var(--bg);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
 }
 
 .visually-hidden {
@@ -73,268 +128,465 @@ body {
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* ── Top bar ──────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ── The shell ──────────────────────────────────────────────────────────── */
+
+body[data-state="in"] {
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "brand top" "nav main";
+  min-height: 100svh;
+}
+
+.brandbar {
+  grid-area: brand;
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0 1.25rem; height: 3.5rem;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.brandbar svg { width: 1.5rem; height: 1.5rem; color: var(--brand); flex: none; }
+.brandbar strong {
+  font-size: 0.95rem; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .topbar {
-  display: flex; align-items: center; gap: var(--gap); flex-wrap: wrap;
-  padding: 0.75rem 1.25rem;
+  grid-area: top;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0 1.5rem; height: 3.5rem;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
-  background: var(--bg-subtle);
 }
-.topbar h1 { font-size: 1.1rem; margin: 0; }
-.topbar nav { margin-right: auto; }
-.mode {
-  margin: 0; padding: 0.15rem 0.6rem; border-radius: 999px;
-  background: var(--warn); color: #000; font-size: 0.8rem; font-weight: 600;
+.topbar .spacer { margin-left: auto; }
+
+.crumb { font-size: 0.95rem; font-weight: 600; margin: 0; }
+
+.sidenav {
+  grid-area: nav;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.sidenav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.sidenav button {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%;
+  padding: 0.5rem 0.7rem;
+  font: inherit; font-size: 0.92rem; text-align: left;
+  color: var(--fg); background: none; border: 0;
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.sidenav button:hover { background: var(--bg-subtle); }
+.sidenav button[aria-current="page"] {
+  background: var(--brand-wash);
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+.sidenav svg { width: 1.15rem; height: 1.15rem; flex: none; }
+.sidenav .count {
+  margin-left: auto; padding: 0 0.4rem; border-radius: 999px;
+  background: var(--warn-wash); color: var(--warn);
+  font-size: 0.75rem; font-weight: 700;
 }
 
-.tabs { display: flex; gap: 0.25rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
-.tabs button {
-  background: none; border: 0; border-bottom: 2px solid transparent;
-  padding: 0.4rem 0.6rem; color: var(--fg); font: inherit; cursor: pointer;
+main {
+  grid-area: main;
+  padding: 1.5rem;
+  max-width: 78rem;
+  width: 100%;
 }
-.tabs button:hover { border-bottom-color: var(--border-strong); }
-.tabs button[aria-current="page"] { border-bottom-color: var(--brand); font-weight: 600; }
 
-/* ── Layout ───────────────────────────────────────────────────────────────── */
+/* ── Page header ────────────────────────────────────────────────────────── */
 
-main { padding: 1.25rem; max-width: 72rem; margin: 0 auto; }
-h2 { font-size: 1.25rem; }
-h3 { font-size: 1rem; margin-top: 1.75rem; }
-.hint { color: var(--fg-muted); font-size: 0.9rem; max-width: 62ch; }
-.foot { padding: 1.5rem 1.25rem; color: var(--fg-muted); font-size: 0.85rem; border-top: 1px solid var(--border); }
+.page-head {
+  display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.page-head h2 { margin: 0 0 0.15rem; font-size: 1.4rem; }
+/* The way back from a detail page, above its title where a reader looks. */
+.page-head .back {
+  margin: 0 0 0.35rem -0.5rem;
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--fg-muted);
+}
+.page-head .back:hover { color: var(--fg); }
+.page-head p { margin: 0; color: var(--fg-muted); font-size: 0.9rem; max-width: 62ch; }
+.page-head .actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+}
+.card > header {
+  display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.card > header h3 { margin: 0; font-size: 1rem; }
+.card > header p { margin: 0.2rem 0 0; color: var(--fg-muted); font-size: 0.85rem; max-width: 60ch; }
+.card > header .actions { margin-left: auto; display: flex; gap: 0.5rem; }
+.card-body { padding: 1.25rem; }
+.card-body > :first-child { margin-top: 0; }
+.card-body > :last-child { margin-bottom: 0; }
+
+/* ── Statistics ─────────────────────────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.stat {
+  margin: 0; padding: 1rem 1.1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.stat dt {
+  margin: 0; font-size: 0.78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+.stat dd {
+  margin: 0.35rem 0 0;
+  font-size: 1.5rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
 
 .notice {
-  padding: 0.75rem 1rem; margin-bottom: 1rem;
-  border-left: 4px solid var(--border-strong); border-radius: var(--radius);
+  padding: 0.8rem 1rem; margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--fg-faint);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.notice[data-kind="ok"] { border-left-color: var(--ok); background: var(--ok-wash); }
+.notice[data-kind="error"] { border-left-color: var(--danger); background: var(--danger-wash); }
+
+.todo { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; gap: 0.5rem; }
+.todo li {
+  padding: 0.7rem 0.9rem;
+  background: var(--warn-wash); color: var(--fg);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+/* The wrapper is what scrolls, so a wide table never widens the page. */
+.table-wrap { overflow-x: auto; }
+
+.grid { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.grid th, .grid td { padding: 0.7rem 1.25rem; text-align: left; vertical-align: middle; }
+.grid thead th {
+  position: sticky; top: 0; z-index: 1;
   background: var(--bg-subtle);
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
-.notice[data-kind="error"] { border-left-color: var(--danger); }
-.notice[data-kind="ok"] { border-left-color: var(--ok); }
-
-.warnings { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: 0.5rem; }
-.warnings li {
-  padding: 0.6rem 0.9rem; border-left: 4px solid var(--warn);
-  background: var(--bg-subtle); border-radius: var(--radius);
-}
-
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--gap); }
-.card {
-  padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius);
-}
-.card dt { color: var(--fg-muted); font-size: 0.85rem; margin: 0; }
-.card dd { margin: 0.2rem 0 0; font-size: 1.4rem; font-weight: 700; }
-
-/* ── Tables ───────────────────────────────────────────────────────────────── */
-
-.grid { width: 100%; border-collapse: collapse; margin-block: 0.75rem 1.5rem; }
-.grid th, .grid td {
-  text-align: left; padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border); vertical-align: top;
-}
-.grid th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); }
+.grid tbody tr { border-bottom: 1px solid var(--border); }
+.grid tbody tr:last-child { border-bottom: 0; }
 .grid tbody tr:hover { background: var(--bg-subtle); }
-.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.grid td.numeric, .grid th.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.grid td.actions { text-align: right; white-space: nowrap; }
+.grid .muted { color: var(--fg-muted); font-size: 0.85rem; }
+
+/* The first cell of a row carries the thing's name, and often a second line
+ * under it — a code, an address, a date. */
+.cell-title { display: grid; gap: 0.1rem; }
+.cell-title strong { font-weight: 600; }
+.cell-title small { color: var(--fg-muted); }
+
+.thumb {
+  width: 2.25rem; height: 3rem; border-radius: 4px; object-fit: cover;
+  background: var(--bg-sunken); flex: none;
+}
+.cell-media { display: flex; align-items: center; gap: 0.75rem; }
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
 
 .badge {
-  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
-  font-size: 0.8rem; font-weight: 600; border: 1px solid currentColor;
+  display: inline-block; padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem; font-weight: 650; white-space: nowrap;
+  background: var(--bg-sunken); color: var(--fg-muted);
 }
-.badge[data-status="paid"], .badge[data-status="fulfilled"], .badge[data-status="active"] { color: var(--ok); }
-.badge[data-status="pending"], .badge[data-status="draft"] { color: var(--fg-muted); }
-.badge[data-status="needs_review"] { color: var(--warn); }
-.badge[data-status="refunded"], .badge[data-status="failed"], .badge[data-status="cancelled"] { color: var(--danger); }
+.badge[data-status="paid"],
+.badge[data-status="fulfilled"],
+.badge[data-status="active"],
+.badge[data-status="on"] { background: var(--ok-wash); color: var(--ok); }
+.badge[data-status="needs_review"],
+.badge[data-status="pending"] { background: var(--warn-wash); color: var(--warn); }
+.badge[data-status="refunded"],
+.badge[data-status="failed"],
+.badge[data-status="cancelled"] { background: var(--danger-wash); color: var(--danger); }
+.badge[data-status="draft"],
+.badge[data-status="archived"],
+.badge[data-status="off"] { background: var(--bg-sunken); color: var(--fg-muted); }
+.badge[data-status="test"] { background: var(--warn-wash); color: var(--warn); }
 
-/* ── Forms and buttons ────────────────────────────────────────────────────── */
+/* ── Buttons ────────────────────────────────────────────────────────────── */
 
-form { display: grid; gap: 0.5rem; max-width: 34rem; }
-.inline-form {
-  display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; max-width: none;
-  margin-bottom: 1rem;
+button, .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font: inherit; font-size: 0.9rem; font-weight: 600; line-height: 1.4;
+  color: var(--brand-ink); background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  cursor: pointer; text-decoration: none;
 }
-label { font-size: 0.9rem; color: var(--fg-muted); }
-input, select, textarea {
-  font: inherit; color: var(--fg); background: var(--bg);
-  border: 1px solid var(--border-strong); border-radius: var(--radius);
-  padding: 0.4rem 0.55rem; max-width: 100%;
-}
-textarea { min-height: 6rem; }
-input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
-  outline: 3px solid var(--brand); outline-offset: 2px;
-}
-button {
-  font: inherit; cursor: pointer; padding: 0.45rem 0.9rem;
-  border: 1px solid var(--brand); border-radius: var(--radius);
-  background: var(--brand); color: var(--brand-ink);
-}
-button.quiet { background: none; color: var(--fg); border-color: var(--border-strong); }
-button.danger { background: none; color: var(--danger); border-color: var(--danger); }
+button:hover, .btn:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
-a { color: var(--brand); }
 
-.editor {
-  margin-top: 1rem; padding: 1rem;
-  border: 1px solid var(--border-strong); border-radius: var(--radius);
-  background: var(--bg-subtle);
+button.secondary, .btn.secondary {
+  color: var(--fg); background: var(--bg); border-color: var(--border-strong);
 }
-.editor form { max-width: none; }
-.row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
-.row > * { flex: 1 1 12rem; }
+button.secondary:hover, .btn.secondary:hover { background: var(--bg-subtle); }
 
-@media (max-width: 40rem) {
-  .grid, .grid thead, .grid tbody, .grid tr, .grid th, .grid td { display: block; }
-  .grid thead { position: absolute; left: -9999px; }
-  .grid tr { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.6rem; padding: 0.3rem; }
-  .grid td { border: 0; display: flex; justify-content: space-between; gap: 1rem; }
-  .grid td::before { content: attr(data-label); color: var(--fg-muted); font-size: 0.85rem; }
+button.ghost {
+  color: var(--fg-muted); background: none; border-color: transparent;
+  padding: 0.3rem 0.5rem;
+}
+button.ghost:hover { background: var(--bg-sunken); color: var(--fg); }
+
+button.danger {
+  color: var(--danger); background: var(--bg); border-color: var(--danger);
+}
+button.danger:hover { background: var(--danger-wash); }
+
+button.small { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+
+label { font-size: 0.88rem; font-weight: 600; }
+
+input, select, textarea {
+  font: inherit; font-size: 0.95rem;
+  color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  max-width: 100%;
+}
+input:disabled { background: var(--bg-sunken); color: var(--fg-muted); }
+textarea { min-height: 6rem; resize: vertical; font-size: 0.9rem; }
+
+.field { display: grid; gap: 0.3rem; }
+.field small { color: var(--fg-muted); font-size: 0.8rem; line-height: 1.45; }
+.field input, .field select, .field textarea { width: 100%; }
+.field.narrow { max-width: 9rem; }
+.field.medium { max-width: 18rem; }
+
+.fields { display: grid; gap: 1rem; }
+.fields.two { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+
+form { display: grid; gap: 1rem; }
+
+/* A filter bar sits above a table and reads as one row of controls. */
+.filters {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.filters .field { gap: 0.25rem; }
+.filters .spacer { margin-left: auto; }
+
+/* A checkbox belongs beside its label, not under it. */
+.check {
+  display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.65rem;
+  align-items: center;
+}
+.check input { width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--brand); }
+.check small { grid-column: 2; color: var(--fg-muted); font-size: 0.8rem; }
+
+/* ── Modules ────────────────────────────────────────────────────────────── */
+
+.module {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.module:last-child { border-bottom: 0; }
+.module h4 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; }
+.module p { grid-column: 1; margin: 0; color: var(--fg-muted); font-size: 0.85rem; max-width: 60ch; }
+.module .blocked { color: var(--warn); }
+
+/* A switch, built from a checkbox so it is a checkbox to everything that is not
+ * a pair of eyes: focusable, labelled, and announced as checked or not. */
+.switch { grid-row: span 2; position: relative; width: 2.6rem; height: 1.5rem; }
+.switch input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+.switch span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 1.125rem; height: 1.125rem; border-radius: 50%;
+  background: #fff; box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease;
+}
+.switch input:checked + span { background: var(--brand); }
+.switch input:checked + span::after { transform: translateX(1.1rem); }
+.switch input:disabled + span { opacity: 0.5; }
+.switch input:disabled { cursor: not-allowed; }
+.switch input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch span, .switch span::after { transition: none; }
 }
 
-/* ── Sign in ────────────────────────────────────────────────────────────────
- *
- * The panel's front door, and for most sellers the only screen they will see
- * without being logged in — so it is a screen rather than a form dropped into
- * the top-left of an otherwise empty page. A centred card on a quiet ground is
- * what every admin in this category does, and the reason is not fashion: with
- * no navigation, no data and nothing else on the page, the eye needs somewhere
- * to be sent.
- *
- * The whole shell (`.topbar`) is hidden behind it, so nothing suggests there is
- * anything to click yet. */
+/* ── Save bar ───────────────────────────────────────────────────────────── */
+
+/* Sticky, because a settings page is longer than a screen and a save button at
+ * the bottom of it is a save button nobody finds. */
+.savebar {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.savebar p { margin: 0; color: var(--fg-muted); font-size: 0.85rem; }
+.savebar .spacer { margin-left: auto; }
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+
+.empty {
+  padding: 3rem 1.5rem; text-align: center; color: var(--fg-muted);
+}
+.empty h3 { margin: 0 0 0.35rem; color: var(--fg); font-size: 1rem; }
+.empty p { margin: 0 auto 1rem; max-width: 40ch; font-size: 0.9rem; }
+
+/* ── Detail panel ───────────────────────────────────────────────────────── */
+
+.detail { margin-top: 1.25rem; }
+.detail dl.facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem; margin: 0 0 1.25rem;
+}
+.facts div { display: grid; gap: 0.15rem; }
+.facts dt { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); }
+.facts dd { margin: 0; font-weight: 600; font-size: 0.95rem; overflow-wrap: anywhere; }
+
+.list-plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; font-size: 0.9rem; }
+.list-plain li { padding: 0.6rem 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-sm); }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 0.05rem 0.3rem; border-radius: 4px;
+  background: var(--bg-sunken);
+}
+
+/* ── Sign in ────────────────────────────────────────────────────────────── */
 
 body[data-state="out"] {
-  /* A soft wash rather than the flat page background, so the card reads as
-   * raised without needing a heavy shadow to say so. */
   background:
     radial-gradient(60rem 40rem at 50% -10%, var(--brand-wash), transparent 70%),
     var(--bg-subtle);
 }
-
 body[data-state="out"] main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.25rem;
-  min-height: 100svh;
-  padding: 2rem 1rem;
-  max-width: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.25rem; min-height: 100svh; padding: 2rem 1rem; max-width: none;
 }
-
-.auth {
-  display: contents;
-}
-
+.auth { display: contents; }
 .auth-card {
-  width: 100%;
-  max-width: 24rem;
-  padding: 2rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgb(38 50 56 / 8%), 0 12px 32px rgb(38 50 56 / 10%);
+  width: 100%; max-width: 24rem; padding: 2rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow);
   text-align: center;
 }
-
-.auth-mark {
-  width: 3rem;
-  height: 3rem;
-  color: var(--brand);
-}
-
-.auth-title {
-  margin: 0.5rem 0 0.25rem;
-  font-size: 1.35rem;
-  letter-spacing: -0.01em;
-}
-
-.auth-sub {
-  margin: 0 0 1.5rem;
-  color: var(--fg-muted);
-  font-size: 0.92rem;
-}
-
-/* The form is left-aligned inside a centred card: a label above a field reads
- * far better ranged left, whatever the card does. */
-.auth-form {
-  display: grid;
-  gap: 0.9rem;
-  max-width: none;
-  text-align: left;
-}
-
-.field {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.field label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--fg);
-}
-
-.field input {
-  width: 100%;
-  padding: 0.6rem 0.7rem;
-  font-size: 1rem; /* 16px, so iOS does not zoom the page on focus */
-}
-
-.auth-submit {
-  margin-top: 0.4rem;
-  padding: 0.65rem 1rem;
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.auth-submit[aria-busy="true"] {
-  opacity: 0.7;
-  cursor: progress;
-}
-
+.auth-mark { width: 3rem; height: 3rem; color: var(--brand); }
+.auth-title { margin: 0.5rem 0 0.25rem; font-size: 1.35rem; }
+.auth-sub { margin: 0 0 1.5rem; color: var(--fg-muted); font-size: 0.92rem; }
+/* Labels above fields read better ranged left, whatever the card does. */
+.auth-form { text-align: left; gap: 0.9rem; }
+.auth-form .field input { padding: 0.6rem 0.7rem; font-size: 1rem; } /* 16px: no iOS zoom */
+.auth-submit { margin-top: 0.4rem; padding: 0.65rem 1rem; font-size: 1rem; }
+.auth-submit[aria-busy="true"] { opacity: 0.7; cursor: progress; }
 .auth-note {
-  margin: 1.5rem 0 0;
-  padding-top: 1.25rem;
+  margin: 1.5rem 0 0; padding-top: 1.25rem;
   border-top: 1px solid var(--border);
-  color: var(--fg-muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
-  text-align: left;
+  color: var(--fg-muted); font-size: 0.82rem; line-height: 1.5; text-align: left;
 }
-
-.auth-note code {
-  font-size: 0.95em;
-  padding: 0.05rem 0.3rem;
-  border-radius: 4px;
-  background: var(--bg-subtle);
-}
-
 .auth-foot {
-  max-width: 24rem;
-  margin: 0;
-  color: var(--fg-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
-  text-align: center;
+  max-width: 24rem; margin: 0; text-align: center;
+  color: var(--fg-muted); font-size: 0.8rem; line-height: 1.5;
 }
-
-/* The error from a refused sign-in belongs inside the card, above the form,
- * not at the top of a page the card is floating on. */
-body[data-state="out"] .notice {
-  width: 100%;
-  max-width: 24rem;
-  margin: 0;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--danger);
-}
+body[data-state="out"] .notice { width: 100%; max-width: 24rem; margin: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .auth-card {
-    animation: auth-in 0.25s ease-out;
-  }
+  .auth-card { animation: auth-in 0.25s ease-out; }
 }
-
 @keyframes auth-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
+}
+
+/* ── Narrow ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 60rem) {
+  body[data-state="in"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "brand" "top" "nav" "main";
+  }
+  .brandbar { border-right: 0; }
+  .sidenav { border-right: 0; border-bottom: 1px solid var(--border); padding: 0.5rem 0.75rem; }
+  .sidenav ul { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; gap: 0.25rem; }
+  .sidenav .count { margin-left: 0.35rem; }
+  main { padding: 1rem; }
+}
+
+/* A table below this width stops being a table and becomes a stack of labelled
+ * rows — which is why every cell carries its column name in data-label. */
+@media (max-width: 46rem) {
+  .grid, .grid thead, .grid tbody, .grid tr, .grid th, .grid td { display: block; }
+  .grid thead { position: absolute; left: -9999px; }
+  .grid tbody tr {
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .grid td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    padding: 0.3rem 1rem; text-align: right;
+  }
+  .grid td::before {
+    content: attr(data-label);
+    font-size: 0.78rem; font-weight: 600; color: var(--fg-muted);
+    text-align: left;
+  }
+  .grid td.actions { justify-content: flex-end; }
+  .cell-media { justify-content: flex-end; }
 }

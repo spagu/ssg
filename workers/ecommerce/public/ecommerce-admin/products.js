@@ -18,44 +18,105 @@ export async function loadProducts() {
 
 function render() {
   const rows = document.getElementById("product-rows");
+
+  if (products.length === 0) {
+    rows.replaceChildren(
+      el("tr", {},
+        el("td", { colspan: "5" },
+          el("div", { class: "empty" },
+            el("h3", { text: "Nothing to sell yet" }),
+            el("p", { text: "Add a product, give it a price and upload the file buyers receive. It goes on sale when it has all three." }),
+            el("button", { type: "button", onClick: () => openNewProduct() }, "Add product"),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
   rows.replaceChildren(
     ...products.map((p) =>
       el(
         "tr",
         {},
-        td("Code", el("code", { text: p.sku })),
-        td("Name", p.name),
+        td("Product",
+          el("div", { class: "cell-media" },
+            p.image_url
+              ? el("img", { class: "thumb", src: p.image_url, alt: "", loading: "lazy" })
+              : el("span", { class: "thumb" }),
+            el("div", { class: "cell-title" },
+              el("strong", { text: p.name }),
+              el("small", {}, el("code", { text: p.sku })),
+            ),
+          ),
+        ),
         td("Status", badge(p.status)),
-        td("Price", money(p.prices?.[baseCurrency], baseCurrency)),
+        td("Price", { class: "numeric" },
+          p.prices?.[baseCurrency] === undefined
+            ? el("span", { class: "muted", text: "no price" })
+            : money(p.prices[baseCurrency], baseCurrency),
+        ),
         // A product with no file cannot be sold, and this column is where the
         // owner finds that out — not the buyer.
-        td("File", p.file_name ? `${p.file_name} (${Math.round((p.file_size ?? 0) / 1024)} kB)` : "none yet"),
-        td("Edit", el("button", { class: "quiet", type: "button", onClick: () => openEditor(p.id) }, "Edit")),
+        td("File",
+          p.file_name
+            ? el("span", { class: "muted", text: `${p.file_name} · ${Math.max(1, Math.round((p.file_size ?? 0) / 1024))} kB` })
+            : el("span", { class: "muted", text: "none yet" }),
+        ),
+        td("", { class: "actions" },
+          el("button", { type: "button", class: "secondary small", onClick: () => openEditor(p.id) }, "Edit"),
+        ),
       ),
     ),
   );
-  if (products.length === 0) {
-    rows.replaceChildren(el("tr", {}, el("td", { colspan: "6", text: "No products yet." })));
-  }
+}
+
+// ── Creating one ────────────────────────────────────────────────────────────
+
+function openNewProduct() {
+  const card = document.getElementById("product-new-card");
+  card.hidden = false;
+  document.getElementById("new-sku").focus();
 }
 
 export function bindNewProductForm() {
+  const card = document.getElementById("product-new-card");
   const form = document.getElementById("product-new");
+
+  document.getElementById("product-add").addEventListener("click", openNewProduct);
+  document.getElementById("product-new-cancel").addEventListener("click", () => {
+    form.reset();
+    card.hidden = true;
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = new FormData(form);
     try {
-      await api.post("/api/shop/admin/products", {
+      const { product } = await api.post("/api/shop/admin/products", {
         sku: data.get("sku"),
         name: data.get("name"),
       });
       form.reset();
-      notify("ok", "Product created. Add a price and a file before putting it on sale.");
+      card.hidden = true;
+      notify("ok", "Product created. Give it a price and a file before putting it on sale.");
       await loadProducts();
+      // Straight into the editor: creating a product is never the whole job.
+      await openEditor(product.id);
     } catch (err) {
       notify("error", err.message);
     }
   });
+}
+
+// ── Editing one ─────────────────────────────────────────────────────────────
+
+/** Back to the list, from wherever the detail page was opened. */
+function closeEditor() {
+  document.getElementById("product-editor").hidden = true;
+  document.getElementById("products-list").hidden = false;
+  document.getElementById("crumb").textContent = "Products";
+  window.scrollTo({ top: 0 });
 }
 
 async function openEditor(id) {
@@ -68,7 +129,7 @@ async function openEditor(id) {
       onSubmit: async (event) => {
         event.preventDefault();
         const data = new FormData(form);
-        const price = data.get("price").toString().trim();
+        const price = String(data.get("price") ?? "").trim();
         try {
           await api.patch(`/api/shop/admin/products/${encodeURIComponent(id)}`, {
             name: data.get("name"),
@@ -84,18 +145,20 @@ async function openEditor(id) {
           });
           notify("ok", "Saved.");
           await loadProducts();
-          panel.hidden = true;
+          closeEditor();
         } catch (err) {
           notify("error", err.message);
         }
       },
     },
-    el("div", { class: "row" },
+    el("div", { class: "fields two" },
       field("Name", el("input", { name: "name", value: product.name, maxlength: "200", required: true })),
-      field("Code", el("input", { value: product.sku, disabled: true })),
+      field("Product code", el("input", { value: product.sku, disabled: true }),
+        "Fixed once created: it is on the invoices already issued."),
     ),
-    field("Description", el("textarea", { name: "description", maxlength: "20000" }, product.description ?? "")),
-    el("div", { class: "row" },
+    field("Description", el("textarea", { name: "description", maxlength: "20000" }, product.description ?? ""),
+      "Shown in the catalogue API. The storefront decides whether to use it."),
+    el("div", { class: "fields two" },
       field(
         `Price (${baseCurrency})`,
         el("input", {
@@ -105,57 +168,77 @@ async function openEditor(id) {
           value: product.prices?.[baseCurrency] !== undefined ? fromMinor(product.prices[baseCurrency], baseCurrency) : "",
           placeholder: "19.00",
         }),
+        "Whole units. Leave empty to keep the current price.",
       ),
-      field("Status", select("status", ["draft", "active", "archived"], product.status)),
-      field("Tax category", el("input", { name: "taxCategory", value: product.tax_category, maxlength: "32" })),
+      field("Status", select("status", ["draft", "active", "archived"], product.status),
+        "Only active products appear in the catalogue."),
+      field("Tax category", el("input", { name: "taxCategory", value: product.tax_category, maxlength: "32" }),
+        "Which VAT rate to look up. Falls back to the standard rate."),
     ),
-    el("div", { class: "row" },
-      field("Downloads allowed", el("input", { name: "downloadLimit", type: "number", min: "1", max: "100", value: String(product.download_limit) })),
-      field("Link valid for (days)", el("input", { name: "downloadDays", type: "number", min: "1", max: "3650", value: String(product.download_days) })),
+    el("div", { class: "fields two" },
+      field("Downloads allowed", el("input", { name: "downloadLimit", type: "number", min: "1", max: "100", value: String(product.download_limit) }),
+        "Per order. A ranged continuation does not count again."),
+      field("Link valid for", el("input", { name: "downloadDays", type: "number", min: "1", max: "3650", value: String(product.download_days) }),
+        "Days. A buyer can always ask for a fresh link."),
       field("Cover image URL", el("input", { name: "imageUrl", value: product.image_url ?? "", maxlength: "500" })),
     ),
-    el("div", { class: "row" },
-      el("button", { type: "submit" }, "Save"),
-      el("button", { type: "button", class: "quiet", onClick: () => (panel.hidden = true) }, "Close"),
+    el("div", { class: "savebar" },
+      el("p", { text: soldCount > 0
+        ? `Sold ${soldCount} time${soldCount === 1 ? "" : "s"}. It can be archived but not deleted: its orders and invoices refer to it.`
+        : "Not sold yet, so it can still be deleted outright." }),
+      el("span", { class: "spacer" }),
       el("button", {
         type: "button",
         class: "danger",
-        onClick: () => removeProduct(id, product.sku, soldCount, panel),
+        onClick: () => removeProduct(id, product.sku, soldCount),
       }, soldCount > 0 ? "Archive" : "Delete"),
+      el("button", { type: "button", class: "secondary", onClick: closeEditor }, "Discard"),
+      el("button", { type: "submit" }, "Save"),
     ),
   );
 
   panel.replaceChildren(
-    el("div", { class: "editor" },
-      el("h3", { text: product.name }),
-      el("p", { class: "hint", text: soldCount > 0
-        ? `Sold ${soldCount} time(s). It can be archived but not deleted: its orders and invoices refer to it.`
-        : "Not sold yet, so it can still be deleted outright." }),
-      form,
-      uploadForm(id, product),
+    // A page of its own, with the way back where a reader looks for it.
+    el("div", { class: "page-head" },
+      el("div", {},
+        el("button", { type: "button", class: "ghost back", onClick: closeEditor },
+          el("span", { "aria-hidden": "true", text: "←" }), " Products"),
+        el("h2", { text: product.name }),
+        el("p", {}, "Product code ", el("code", { text: product.sku }), " · ",
+          soldCount > 0 ? `sold ${soldCount} time${soldCount === 1 ? "" : "s"}` : "not sold yet"),
+      ),
+      el("div", { class: "actions" }, badge(product.status)),
     ),
+    el("div", { class: "card" },
+      el("header", {}, el("div", {}, el("h3", { text: "Details" }))),
+      el("div", { class: "card-body" }, form),
+    ),
+    uploadCard(id, product),
   );
+
+  document.getElementById("products-list").hidden = true;
   panel.hidden = false;
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  document.getElementById("crumb").textContent = product.name;
+  window.scrollTo({ top: 0 });
 }
 
-function uploadForm(id, product) {
-  const status = el("p", { class: "hint", text: product.file_name
-    ? `Current file: ${product.file_name}, SHA-256 ${String(product.file_sha256 ?? "").slice(0, 16)}…`
+function uploadCard(id, product) {
+  const status = el("p", { class: "muted", text: product.file_name
+    ? `${product.file_name} · ${Math.max(1, Math.round((product.file_size ?? 0) / 1024))} kB · SHA-256 ${String(product.file_sha256 ?? "").slice(0, 16)}…`
     : "No file yet. A product cannot go on sale without one." });
 
+  const input = el("input", { id: `file-${id}`, type: "file", accept: ".pdf,.epub,.mobi,.azw3" });
   const form = el(
     "form",
     {
       onSubmit: async (event) => {
         event.preventDefault();
-        const input = form.querySelector("input[type=file]");
         if (!input.files?.[0]) return;
         const data = new FormData();
         data.append("file", input.files[0]);
         try {
           const result = await api.upload(`/api/shop/admin/products/${encodeURIComponent(id)}/file`, data);
-          status.textContent = `Uploaded ${result.fileName} (${result.contentType}), SHA-256 ${result.sha256.slice(0, 16)}…`;
+          status.textContent = `${result.fileName} · ${result.contentType} · SHA-256 ${result.sha256.slice(0, 16)}…`;
           notify("ok", "File stored. Buyers of this product get this file from now on.");
           await loadProducts();
         } catch (err) {
@@ -163,14 +246,29 @@ function uploadForm(id, product) {
         }
       },
     },
-    el("label", { for: `file-${id}`, text: "Replace the file (PDF, EPUB or MOBI)" }),
-    el("input", { id: `file-${id}`, type: "file", accept: ".pdf,.epub,.mobi,.azw3" }),
-    el("button", { type: "submit" }, "Upload"),
+    el("div", { class: "field" },
+      el("label", { for: input.id, text: "Choose a file" }),
+      input,
+      el("small", { text: "PDF, EPUB or MOBI. Checked against its own first bytes, not its extension." }),
+    ),
+    el("div", { class: "savebar" },
+      el("span", { class: "spacer" }),
+      el("button", { type: "submit" }, "Upload"),
+    ),
   );
-  return el("div", {}, el("h3", { text: "The file buyers receive" }), status, form);
+
+  return el("div", { class: "card" },
+    el("header", {},
+      el("div", {},
+        el("h3", { text: "The file buyers receive" }),
+        el("p", { text: "Replacing it leaves the old one in place for orders whose links still work." }),
+      ),
+    ),
+    el("div", { class: "card-body" }, status, form),
+  );
 }
 
-async function removeProduct(id, sku, soldCount, panel) {
+async function removeProduct(id, sku, soldCount) {
   const question = soldCount > 0
     ? `Archive ${sku}? It stays on its existing orders and stops being for sale.`
     : `Delete ${sku} for good? This also deletes its file.`;
@@ -178,17 +276,24 @@ async function removeProduct(id, sku, soldCount, panel) {
   try {
     const result = await api.del(`/api/shop/admin/products/${encodeURIComponent(id)}`);
     notify("ok", result.deleted ? "Deleted." : "Archived.");
-    panel.hidden = true;
     await loadProducts();
+    closeEditor();
   } catch (err) {
     notify("error", err.message);
   }
 }
 
-function field(label, control) {
-  const id = `f-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  control.id = control.id || id;
-  return el("div", {}, el("label", { for: control.id, text: label }), control);
+// ── Small builders ──────────────────────────────────────────────────────────
+
+let fieldSeq = 0;
+
+function field(label, control, help) {
+  control.id = control.id || `f-${++fieldSeq}`;
+  return el("div", { class: "field" },
+    el("label", { for: control.id, text: label }),
+    control,
+    help ? el("small", { text: help }) : null,
+  );
 }
 
 function select(name, options, current) {

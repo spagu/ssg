@@ -12,7 +12,7 @@ import { resendMail } from "./_mail";
 import { drainOutbox, enqueue } from "./_outbox";
 import { guard } from "./_ratelimit";
 import { ensureSchema } from "./_schema";
-import { allSettings } from "./_settings";
+import { allSettings, moduleOn } from "./_settings";
 import type { CustomerRow, OrderItemRow, OrderRow, ProductRow } from "./_types";
 
 interface ResendBody {
@@ -26,6 +26,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   if (!env.SHOP_DB) return fail(request, "not_configured", "The shop database is not bound.", 503);
   await ensureSchema(env);
 
+  // Switched off, this endpoint does not exist rather than refusing politely:
+  // a shop that does not offer the form should not be advertising that it has
+  // one to anyone probing.
+  if (!(await moduleOn(env, "resend"))) {
+    return fail(request, "not_found", "This shop does not offer that.", 404);
+  }
+
   // Three in ten minutes. This endpoint sends email to an address the caller
   // chose, which is the shape of a mail-bombing tool if it is left uncapped.
   const limited = await guard(env, request, "resend");
@@ -37,7 +44,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   const email = str(body.email, 254);
   if (!isValidEmail(email)) return fail(request, "invalid_email", "A valid email address is required.", 422);
 
-  if (env.TURNSTILE_SECRET) {
+  if (env.TURNSTILE_SECRET && (await moduleOn(env, "turnstile"))) {
     const token = str(body.turnstileToken ?? body["cf-turnstile-response"], 4096);
     const ip = request.headers.get("cf-connecting-ip");
     if (!token || !(await verifyTurnstile(env.TURNSTILE_SECRET, token, ip))) {

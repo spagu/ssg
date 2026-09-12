@@ -61,6 +61,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       termsUrl: settings["legal.terms_url"],
       privacyUrl: settings["legal.privacy_url"],
       digitalWaiver: Boolean(settings["legal.digital_waiver"]),
+      // So a theme does not link to a form this shop has switched off.
+      resend: settings["modules.resend"] !== false,
     },
     products: products.map(
       (p): PublicProduct => ({

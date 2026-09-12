@@ -33,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they retry on anything but a 200, and they are signature-verified before
   anything is written.
 
+  A **Modules** screen switches the optional parts on and off — invoices, buyer
+  emails, owner notices, outgoing webhooks, server-side tracking, the anti-spam
+  check, the public "lost my download" form. Each switch is read where the work
+  happens rather than only where it is drawn, so turning emails off stops them
+  being queued at all. A module has three states, not two: on, off, and
+  unavailable — switched on but missing the secret it needs, which the API
+  refuses rather than leaving the panel claiming something that is not
+  happening. Tracking is off by default: a shop should not start sending
+  purchases to Google because somebody set a measurement id.
+
   `ssg new worker ecommerce`, then see
   [its README](workers/ecommerce/README.md) and
   [openapi.yml](workers/ecommerce/openapi.yml).
@@ -52,6 +62,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builds it and starts `wrangler pages dev`, with D1, R2 and KV local.
 
 ### Fixed
+- 🎛️ **The shop panel is an admin panel now.** It was a column of tabs above a
+  wall of inputs; it is a sidebar, page headers, cards, tables with aligned
+  numerics and status pills, empty states that say what to do next, and a sticky
+  save bar. A product or an order opens as its own page with the way back above
+  the title, rather than as a form appended under the table it was opened from.
+  Settings are grouped into sections, and the three keys that are enumerations —
+  pricing mode, tax mode, rounding — are dropdowns rather than text boxes the
+  API rejects on a typo.
+
 - 🙈 **The shop panel showed its navigation to someone who had not signed in.**
   The tabs were marked `hidden`, and `.tabs { display: flex }` overrode the
   browser's own `[hidden] { display: none }` — an author rule setting `display`
@@ -68,9 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when tooling creeps back in.
 
 - ⚠️ **A worker source is no longer reported as importing an npm package it does
-  not import.** The scan for bare imports matched the word `from` inside a string
-  literal, so `q.get("from")` — a query parameter every date-range export has —
-  produced a warning naming the rest of the line as a package.
+  not import.** The scan for bare imports was anchored on the `from` clause,
+  which is what makes a multi-line import findable — and which matched the word
+  `from` wherever it appeared: in `q.get("from")`, a query parameter every
+  date-range export has, and in an ordinary English sentence in a comment. It is
+  anchored on the `import`/`export` keyword now, which costs nothing and ends
+  both.
 
 ## [1.8.61] - 2026-09-11
 

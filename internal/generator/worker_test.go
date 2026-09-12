@@ -163,11 +163,16 @@ func TestBareModuleSpecs(t *testing.T) {
 		`const z = 1`:                                                            nil,
 		// Distinct specifiers are de-duplicated.
 		"import a from \"pkg\"\nimport { b } from \"pkg\"": {"pkg"},
-		// The word "from" inside a string literal is not an import clause. A
-		// query parameter named from — every date-range export has one — used to
-		// be reported as an npm package on every build.
-		`const from = str(q.get("from"), 40);`: nil,
-		`label("valid from", x)`:               nil,
+		// The word "from" outside an import statement is not an import clause.
+		// A query parameter named from — every date-range export has one — and
+		// an ordinary sentence in a comment were both reported as npm packages.
+		`const from = str(q.get("from"), 40);`:                 nil,
+		`label("valid from", x)`:                               nil,
+		`// Separating "off" from "cannot work" is the point.`: nil,
+		"/* reads a value from \"somewhere\" else */":          nil,
+		// Re-exports are imports as far as the deployed tree is concerned.
+		`export { gateway } from "./_gateway";`: nil,
+		`export { thing } from "some-package";`: {"some-package"},
 	}
 	for src, want := range cases {
 		got := bareModuleSpecs(src)

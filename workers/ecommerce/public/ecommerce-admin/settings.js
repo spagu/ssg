@@ -1,60 +1,138 @@
-// Settings and the VAT rate table.
+// Settings, the modules, and the VAT rate table.
 
 import { api } from "./api.js";
-import { confirmDestructive, el, notify, td, when } from "./dom.js";
+import { badge, confirmDestructive, el, notify, td, when } from "./dom.js";
 
-/** Labels and help for the keys that are not self-explanatory. A key with no
- *  entry here is rendered from its own name. */
+/** A settings key, as the panel presents it.
+ *
+ *  `help` is the sentence that stops a seller guessing; `type` is what the key
+ *  actually is, which matters because three of them are enumerations that the
+ *  API rejects on a typo and which therefore have no business being text
+ *  boxes. */
 const FIELDS = {
-  "seller.name": ["Your name or company", "Goes on every invoice."],
-  "seller.address": ["Address", "One per line, as it should print."],
-  "seller.country": ["Country", "Two letters. Decides your own VAT position."],
-  "seller.vat_id": ["Your VAT number", "Leave empty if you are not registered."],
-  "seller.email": ["Contact email", "Printed on invoices; where buyers write."],
-  "seller.registry": ["Registry entry", "KRS/company number, if your law wants it on the invoice."],
-  "shop.name": ["Shop name", "Appears in emails and on the payment page."],
-  "shop.url": ["Shop address", "https://… — used in emails when no request tells us."],
-  "shop.countries_allowed": ["Countries you sell to", "Comma-separated codes. Empty means everywhere the VAT table covers."],
-  "currency.base": ["Currency", "Three letters. Prices are entered in this."],
-  "pricing.mode": ["Prices are", "gross = tax included in the shown price; net = added at checkout."],
-  "tax.mode": ["Tax handling", "table = this shop's own rates; stripe = let Stripe decide; none = no tax."],
-  "tax.rounding": ["Rounding", "half_up, which is what tax authorities mean by rounded."],
-  "invoice.format": ["Invoice number format", "{series}, {year} and {n:06} are filled in. Must contain {n}, and {series} unless credit notes are to collide with invoices."],
-  "invoice.series": ["Invoice series", "The prefix for ordinary invoices."],
-  "invoice.credit_series": ["Credit note series", "The prefix for corrections."],
-  "invoice.separate_email": ["Invoice in its own email", "Otherwise it goes with the download links."],
-  "invoice.vat_in_local": ["Show VAT in your own currency", "Some tax offices want this on cross-currency invoices."],
-  "downloads.renew_on_resend": ["Renew links on request", "A buyer who lost the email gets fresh links rather than nothing."],
-  "legal.digital_waiver": ["Ask for the withdrawal waiver", "Required to deliver immediately in the EU and UK."],
-  "legal.terms_url": ["Terms page", "Linked from checkout and from emails."],
-  "legal.privacy_url": ["Privacy page", "Linked from checkout and from emails."],
-  "webhooks.endpoints": ["Outgoing webhooks", "JSON: [{\"url\":\"https://…\",\"events\":[\"order.paid\"],\"secret\":\"…\"}]"],
+  "seller.name": { label: "Name or company", help: "Goes on every invoice.", width: "" },
+  "seller.address": { label: "Address", help: "One line per line, as it should print.", type: "textarea" },
+  "seller.country": { label: "Country", help: "Two letters. Decides your own VAT position.", width: "narrow" },
+  "seller.vat_id": { label: "VAT number", help: "Leave empty if you are not registered — the shop then charges none.", width: "medium" },
+  "seller.email": { label: "Contact email", help: "Printed on invoices; where buyers write.", type: "email" },
+  "seller.registry": { label: "Registry entry", help: "Company or court register number, if your law wants it on the invoice." },
+
+  "shop.name": { label: "Shop name", help: "Appears in emails and on the payment page." },
+  "shop.url": { label: "Shop address", help: "https://… Used in emails when no request can say.", type: "url" },
+  "shop.countries_allowed": {
+    label: "Countries you sell to",
+    help: "Comma-separated codes. Empty means everywhere the VAT table covers.",
+  },
+
+  "currency.base": { label: "Currency", help: "Three letters. Prices are entered in this.", width: "narrow" },
+  "pricing.mode": {
+    label: "Prices are",
+    help: "Gross: the shown price includes tax and the share differs by country. Net: tax is added at checkout.",
+    options: [["gross", "tax included"], ["net", "tax added at checkout"]],
+    width: "medium",
+  },
+  "tax.mode": {
+    label: "Tax handling",
+    help: "Table: this shop's own rates. Stripe: let Stripe Tax decide. None: charge no tax at all.",
+    options: [["table", "this shop's rate table"], ["stripe", "Stripe Tax"], ["none", "no tax"]],
+    width: "medium",
+  },
+  "tax.rounding": {
+    label: "Rounding",
+    help: "Half up, which is what a tax authority means by rounded.",
+    options: [["half_up", "half up"]],
+    width: "medium",
+  },
+
+  "invoice.format": { label: "Number format", help: "{series}, {year} and {n:06} are filled in. Must contain {n}, and {series} unless credit notes are to collide with invoices.", width: "medium" },
+  "invoice.series": { label: "Invoice series", help: "The prefix for ordinary invoices.", width: "narrow" },
+  "invoice.credit_series": { label: "Credit note series", help: "The prefix for corrections.", width: "narrow" },
+  "invoice.separate_email": { label: "Send the invoice in its own email", help: "Otherwise it goes with the download links.", type: "check" },
+  "invoice.vat_in_local": { label: "Show VAT in your own currency", help: "Some tax offices want this on a cross-currency invoice.", type: "check" },
+
+  "downloads.renew_on_resend": {
+    label: "Issue fresh links when a buyer asks",
+    help: "Someone who lost the email a month later gets working links rather than nothing.",
+    type: "check",
+  },
+
+  "legal.digital_waiver": {
+    label: "Ask for the withdrawal waiver",
+    help: "Required to deliver immediately in the EU and the UK. Without it you would have to wait out the 14 days.",
+    type: "check",
+  },
+  "legal.terms_url": { label: "Terms page", help: "Linked from checkout and from emails.", type: "url" },
+  "legal.privacy_url": { label: "Privacy page", help: "Linked from checkout and from emails.", type: "url" },
+
+  "webhooks.endpoints": {
+    label: "Endpoints",
+    help: 'JSON: [{"url":"https://…","events":["order.paid"],"secret":"…"}]. An endpoint naming no events receives none.',
+    type: "json",
+  },
 };
+
+/** The screen, in the order a seller fills it in. */
+const SECTIONS = [
+  {
+    title: "Who is selling",
+    blurb: "Frozen into every invoice at the moment it is issued, so changing it later does not rewrite history.",
+    keys: ["seller.name", "seller.address", "seller.country", "seller.vat_id", "seller.email", "seller.registry"],
+  },
+  {
+    title: "The shop",
+    blurb: "How it introduces itself, and where it will sell.",
+    keys: ["shop.name", "shop.url", "shop.countries_allowed"],
+  },
+  {
+    title: "Money and tax",
+    blurb: "The two decisions everything else follows from.",
+    keys: ["currency.base", "pricing.mode", "tax.mode", "tax.rounding"],
+  },
+  {
+    title: "Invoices",
+    blurb: "Numbering runs without gaps and cannot be edited afterwards; a correction is a credit note.",
+    keys: ["invoice.format", "invoice.series", "invoice.credit_series", "invoice.separate_email", "invoice.vat_in_local"],
+  },
+  { title: "Delivery", blurb: "", keys: ["downloads.renew_on_resend"] },
+  {
+    title: "Legal",
+    blurb: "Both pages are linked from the checkout, so both had better exist.",
+    keys: ["legal.terms_url", "legal.privacy_url", "legal.digital_waiver"],
+  },
+  {
+    title: "Outgoing webhooks",
+    blurb: "Signed the way Stripe signs its own, so a recipient that already integrates Stripe knows the format.",
+    keys: ["webhooks.endpoints"],
+  },
+];
 
 export async function loadSettings() {
   const { settings, keys } = await api.get("/api/shop/admin/settings");
   const form = document.getElementById("settings-form");
 
-  const controls = keys.map((key) => {
-    const [label, help] = FIELDS[key] ?? [key, ""];
-    const value = settings[key];
-    const control = controlFor(key, value);
-    return el("div", {},
-      el("label", { for: control.id, text: label }),
-      control,
-      help ? el("small", { class: "hint", text: help }) : null,
-    );
-  });
+  // Anything declared by the API and not placed in a section still has to be
+  // editable: a new setting must not be invisible until someone updates this
+  // file.
+  const placed = new Set(SECTIONS.flatMap((s) => s.keys));
+  const strays = keys.filter((k) => !placed.has(k) && !k.startsWith("modules."));
+  const sections = strays.length
+    ? [...SECTIONS, { title: "Other", blurb: "Declared by this shop's API and not yet given a home here.", keys: strays }]
+    : SECTIONS;
 
   form.replaceChildren(
-    ...controls,
-    el("button", { type: "submit" }, "Save settings"),
+    ...sections.map((section) => renderSection(section, settings)),
+    el("div", { class: "savebar" },
+      el("p", { text: "Saved settings apply within a few seconds. Nothing here is a secret — those live in wrangler." }),
+      el("span", { class: "spacer" }),
+      el("button", { type: "submit" }, "Save settings"),
+    ),
   );
 
   form.onsubmit = async (event) => {
     event.preventDefault();
     const patch = {};
     for (const key of keys) {
+      if (key.startsWith("modules.")) continue; // the Modules screen owns those
       const control = form.querySelector(`[name="${CSS.escape(key)}"]`);
       if (!control) continue;
       patch[key] = readControl(key, control, settings[key]);
@@ -68,22 +146,68 @@ export async function loadSettings() {
   };
 }
 
-function controlFor(key, value) {
-  const id = `s-${key.replace(/\W+/g, "-")}`;
-  if (typeof value === "boolean") {
-    return el("input", { id, name: key, type: "checkbox", checked: value });
+function renderSection(section, settings) {
+  const checks = section.keys.filter((k) => FIELDS[k]?.type === "check");
+  const inputs = section.keys.filter((k) => FIELDS[k]?.type !== "check");
+
+  return el("div", { class: "card" },
+    el("header", {},
+      el("div", {},
+        el("h3", { text: section.title }),
+        section.blurb ? el("p", { text: section.blurb }) : null,
+      ),
+    ),
+    el("div", { class: "card-body" },
+      inputs.length
+        ? el("div", { class: "fields two" }, ...inputs.map((key) => renderField(key, settings[key])))
+        : null,
+      checks.length ? el("div", { class: "fields" }, ...checks.map((key) => renderCheck(key, settings[key]))) : null,
+    ),
+  );
+}
+
+function renderField(key, value) {
+  const spec = FIELDS[key] ?? { label: key };
+  const control = controlFor(key, value, spec);
+  control.id = `s-${key.replace(/\W+/g, "-")}`;
+  return el("div", { class: `field ${spec.width ?? ""}`.trim() },
+    el("label", { for: control.id, text: spec.label }),
+    control,
+    spec.help ? el("small", { text: spec.help }) : null,
+  );
+}
+
+function renderCheck(key, value) {
+  const spec = FIELDS[key] ?? { label: key };
+  const input = el("input", {
+    id: `s-${key.replace(/\W+/g, "-")}`,
+    name: key,
+    type: "checkbox",
+    checked: Boolean(value),
+  });
+  return el("div", { class: "check" },
+    input,
+    el("label", { for: input.id, text: spec.label }),
+    spec.help ? el("small", { text: spec.help }) : null,
+  );
+}
+
+function controlFor(key, value, spec) {
+  if (spec.options) {
+    return el("select", { name: key },
+      ...spec.options.map(([v, label]) => el("option", { value: v, selected: v === value }, label)),
+    );
+  }
+  if (spec.type === "textarea") return el("textarea", { name: key }, String(value ?? ""));
+  if (spec.type === "json") {
+    return el("textarea", { name: key, "data-shape": "json", spellcheck: "false" },
+      JSON.stringify(Array.isArray(value) ? value : [], null, 2));
   }
   if (Array.isArray(value)) {
-    // Two shapes behind one control: a list of country codes is comfortable as
-    // text, a list of webhook objects has to stay JSON.
-    const isSimple = value.every((v) => typeof v === "string");
-    return el("textarea", { id, name: key, "data-shape": isSimple ? "csv" : "json" },
-      isSimple ? value.join(", ") : JSON.stringify(value, null, 2));
+    // A list of country codes is comfortable as text; a list of objects is not.
+    return el("input", { name: key, "data-shape": "csv", value: value.join(", ") });
   }
-  if (key === "seller.address") {
-    return el("textarea", { id, name: key }, String(value ?? ""));
-  }
-  return el("input", { id, name: key, value: String(value ?? ""), maxlength: "500" });
+  return el("input", { name: key, type: spec.type ?? "text", value: String(value ?? ""), maxlength: "500" });
 }
 
 function readControl(key, control, previous) {
@@ -96,8 +220,8 @@ function readControl(key, control, previous) {
       return JSON.parse(control.value || "[]");
     } catch {
       // Unparseable JSON must not be sent as a string: it would be stored and
-      // then read back as something nothing understands. The old value stands
-      // and the message says why.
+      // read back as something nothing understands. The old value stands, and
+      // the message says why.
       notify("error", `${key} is not valid JSON, so it was left as it was.`);
       return previous;
     }
@@ -105,26 +229,118 @@ function readControl(key, control, previous) {
   return control.value;
 }
 
+// ── Modules ─────────────────────────────────────────────────────────────────
+
+/** What each module is, in a sentence a seller can act on. */
+const MODULES = {
+  invoices: {
+    title: "Invoices",
+    text: "Issue a numbered invoice for every paid order, and a credit note for every refund. Off if your accountant issues the paperwork elsewhere — orders are still paid and still delivered, they simply have no invoice of ours.",
+  },
+  emails: {
+    title: "Buyer emails",
+    text: "The “here is your book” email, with the download links. With this off the buyer is left with the thank-you page and nothing in their inbox.",
+  },
+  admin_notices: {
+    title: "Owner notices",
+    text: "A line to you when something sells or needs a decision. It carries the order number and the amount, never the buyer's details.",
+  },
+  webhooks: {
+    title: "Outgoing webhooks",
+    text: "Tell your own systems when an order is paid, refunded or flagged. Signed the way Stripe signs its own.",
+  },
+  tracking: {
+    title: "Server-side tracking",
+    text: "Send the purchase to GA4 or Meta from the server, after the payment clears — no third-party script on your pages. Only ever for a buyer who ticked the marketing box.",
+  },
+  turnstile: {
+    title: "Anti-spam check",
+    text: "Turnstile on checkout and on the “lost my download” form. Switch it off to test a storefront without solving a challenge each time.",
+  },
+  resend: {
+    title: "Public “lost my download”",
+    text: "The form a buyer uses to have their links sent again. With it off the endpoint does not exist, and the theme stops linking to it.",
+  },
+};
+
+export async function loadModules() {
+  const { modules, settings } = await api.get("/api/shop/admin/settings");
+  const host = document.getElementById("module-rows");
+
+  host.replaceChildren(...modules.map((m) => moduleRow(m, settings)));
+}
+
+function moduleRow(state, settings) {
+  const spec = MODULES[state.name] ?? { title: state.name, text: "" };
+  const blocked = Boolean(state.blockedBy);
+
+  const input = el("input", {
+    type: "checkbox",
+    id: `m-${state.name}`,
+    checked: state.on && !blocked,
+    // A switch offered for something with nothing behind it is a switch that
+    // lies: it is shown, disabled, beside the reason.
+    disabled: blocked,
+    onChange: () => toggle(state.name, input, settings),
+  });
+
+  return el("div", { class: "module" },
+    el("h4", {},
+      el("label", { for: input.id, text: spec.title }),
+      // Three states, not two: a module can be switched off, or switched on and
+      // unable to run. Calling the second one "off" would blame the seller for
+      // a missing secret.
+      blocked
+        ? el("span", { class: "badge", "data-status": "needs_review", text: "unavailable" })
+        : badge(state.on ? "on" : "off"),
+    ),
+    el("p", {},
+      spec.text,
+      blocked ? el("span", { class: "blocked", text: ` Needs ${state.blockedBy}.` }) : null,
+    ),
+    el("div", { class: "switch" }, input, el("span", { "aria-hidden": "true" })),
+  );
+}
+
+async function toggle(name, input, settings) {
+  const wanted = input.checked;
+  try {
+    await api.put("/api/shop/admin/settings", { [`modules.${name}`]: wanted });
+    settings[`modules.${name}`] = wanted;
+    notify("ok", `${MODULES[name]?.title ?? name} switched ${wanted ? "on" : "off"}.`);
+    await loadModules();
+  } catch (err) {
+    // Put the switch back where it was: it shows what the shop does, and the
+    // shop did not change.
+    input.checked = !wanted;
+    notify("error", err.message);
+  }
+}
+
 // ── VAT ─────────────────────────────────────────────────────────────────────
 
 export async function loadVat() {
   const { rates } = await api.get("/api/shop/admin/vat-rates");
   const rows = document.getElementById("vat-rows");
+
   rows.replaceChildren(
     ...rates.map((r) =>
       el("tr", {},
-        td("Country", r.country),
+        td("Country", el("strong", { text: r.country })),
         td("Kind", r.kind),
-        td("Rate", `${(r.rate_bp / 100).toFixed(2)}%`),
-        td("From", when(r.valid_from)),
-        td("Until", r.valid_to ? when(r.valid_to) : "still current"),
-        td("Remove", el("button", {
-          type: "button", class: "danger",
-          onClick: () => removeRate(r),
-        }, "Remove")),
+        td("Rate", { class: "numeric" }, `${(r.rate_bp / 100).toFixed(2)}%`),
+        td("In force", r.valid_to
+          ? `${when(r.valid_from)} — ${when(r.valid_to)}`
+          : el("span", {}, `${when(r.valid_from)} — `, el("strong", { text: "now" }))),
+        td("", { class: "actions" },
+          el("button", { type: "button", class: "ghost", onClick: () => removeRate(r) }, "Remove"),
+        ),
       ),
     ),
   );
+  if (rates.length === 0) {
+    rows.replaceChildren(el("tr", {}, el("td", { colspan: "5", class: "muted", text: "No rates. The shop cannot price a taxable sale." })));
+  }
 }
 
 async function removeRate(rate) {
@@ -154,7 +370,7 @@ export function bindVatForm() {
         // is published.
         validFrom: validFrom ? `${validFrom}T00:00:00.000Z` : undefined,
       });
-      notify("ok", "Rate set. The old one is closed off at that date.");
+      notify("ok", "Rate set. The one it replaces is closed off at that date.");
       await loadVat();
     } catch (err) {
       notify("error", err.message);

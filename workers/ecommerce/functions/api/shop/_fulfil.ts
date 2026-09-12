@@ -23,7 +23,7 @@ import { adminNoticeMail, orderPaidMail, type DownloadLink } from "./_mail";
 import { currencyDecimals } from "./_money";
 import { getOrderItems } from "./_orders";
 import { enqueue } from "./_outbox";
-import { allSettings, getSettingString } from "./_settings";
+import { allSettings, getSettingString, moduleOn } from "./_settings";
 import { enabledTrackers } from "./_tracking";
 import type { CustomerRow, OrderRow, ProductRow } from "./_types";
 
@@ -76,12 +76,20 @@ export async function fulfilOrder(env: Env, order: OrderRow, ctx: FulfilContext)
     : null;
 
   // Step 2. The invoice, with the note explaining the tax treatment frozen in.
+  //
+  // A seller whose accountant issues the paperwork elsewhere can switch this
+  // off; the order is still paid and still delivered, it simply has no invoice
+  // of ours. Switching it back on does not retrospectively number the orders
+  // that went through while it was off, which is the honest behaviour: an
+  // invoice sequence with a hole backfilled later is worse than no sequence.
   const { taxNote } = await import("./_tax");
   const note = taxNote(
     { note: fresh.reverse_charge === 1 ? "reverse_charge" : "standard" },
     fresh.locale ?? "en",
   );
-  const invoice = await issueInvoice(env, fresh, items, customer, note);
+  const invoice = (await moduleOn(env, "invoices"))
+    ? await issueInvoice(env, fresh, items, customer, note)
+    : null;
 
   // Step 3. Download tokens for every line that has a file behind it.
   const products = new Map<string, ProductRow>();
@@ -97,7 +105,7 @@ export async function fulfilOrder(env: Env, order: OrderRow, ctx: FulfilContext)
   // provider cannot turn a successful payment into a failed webhook response.
   let queued = 0;
   if (changed) {
-    queued = await queueOutgoing(env, fresh, customer, invoice.number, tokens.map((t) => ({
+    queued = await queueOutgoing(env, fresh, customer, invoice?.number ?? null, tokens.map((t) => ({
       name: t.productName,
       url: `${ctx.origin}/api/shop/download/${t.token}`,
       expiresAt: t.expiresAt,
@@ -107,18 +115,18 @@ export async function fulfilOrder(env: Env, order: OrderRow, ctx: FulfilContext)
       number: fresh.number,
       total: fresh.total_minor,
       currency: fresh.currency,
-      invoice: invoice.number,
+      invoice: invoice?.number ?? null,
     });
   }
 
-  return { changed, invoiceNumber: invoice.number, tokensIssued: tokens.length, queued };
+  return { changed, invoiceNumber: invoice?.number, tokensIssued: tokens.length, queued };
 }
 
 async function queueOutgoing(
   env: Env,
   order: OrderRow,
   customer: CustomerRow | null,
-  invoiceNumber: string,
+  invoiceNumber: string | null,
   downloads: DownloadLink[],
   items: Array<{ sku: string; name: string; quantity: number; total_minor: number }>,
   ctx: FulfilContext,
@@ -128,7 +136,7 @@ async function queueOutgoing(
   const sellerEmail = String(settings["seller.email"] ?? "");
   let queued = 0;
 
-  if (customer?.email) {
+  if (customer?.email && settings["modules.emails"] !== false) {
     const mail = orderPaidMail({
       locale: order.locale ?? "en",
       shopName,
@@ -136,9 +144,10 @@ async function queueOutgoing(
       totalMinor: order.total_minor,
       currency: order.currency,
       downloads,
-      invoiceUrl: ctx.orderKey
-        ? `${ctx.origin}/api/shop/invoices/${invoiceNumberToPath(invoiceNumber)}?k=${encodeURIComponent(ctx.orderKey)}`
-        : undefined,
+      invoiceUrl:
+        ctx.orderKey && invoiceNumber
+          ? `${ctx.origin}/api/shop/invoices/${invoiceNumberToPath(invoiceNumber)}?k=${encodeURIComponent(ctx.orderKey)}`
+          : undefined,
       resendUrl: `${ctx.origin}/shop/resend/`,
       replyTo: sellerEmail || undefined,
     });
@@ -146,7 +155,7 @@ async function queueOutgoing(
     queued++;
   }
 
-  if (env.SHOP_MAIL_ADMIN) {
+  if (env.SHOP_MAIL_ADMIN && settings["modules.admin_notices"] !== false) {
     const notice = adminNoticeMail("paid", {
       orderNumber: order.number,
       totalMinor: order.total_minor,
@@ -161,7 +170,7 @@ async function queueOutgoing(
 
   // Tracking runs only with the buyer's marketing consent, recorded on the
   // order at checkout (S-16 in the plan, GDPR in practice).
-  if (order.consent_marketing === 1 && customer?.email) {
+  if (order.consent_marketing === 1 && customer?.email && settings["modules.tracking"] === true) {
     const factor = 10 ** currencyDecimals(order.currency);
     const payload = {
       orderId: order.id,
@@ -186,7 +195,8 @@ async function queueOutgoing(
     }
   }
 
-  for (const endpoint of await endpointsFor(env, "order.paid")) {
+  const listeners = settings["modules.webhooks"] === false ? [] : await endpointsFor(env, "order.paid");
+  for (const endpoint of listeners) {
     await enqueue(env, "webhook", endpoint.url, {
       id: newId(),
       type: "order.paid",
@@ -232,7 +242,7 @@ export async function markNeedsReview(
     .run();
   await audit(env, ctx.actor, "order.needs_review", order.id, { reason, number: order.number });
 
-  if (env.SHOP_MAIL_ADMIN) {
+  if (env.SHOP_MAIL_ADMIN && (await moduleOn(env, "admin_notices"))) {
     const notice = adminNoticeMail("needs_review", {
       orderNumber: order.number,
       totalMinor: order.total_minor,
@@ -245,7 +255,10 @@ export async function markNeedsReview(
     await enqueue(env, "email", env.SHOP_MAIL_ADMIN, notice as unknown as Record<string, unknown>);
   }
 
-  for (const endpoint of await endpointsFor(env, "order.needs_review")) {
+  const listeners = (await moduleOn(env, "webhooks"))
+    ? await endpointsFor(env, "order.needs_review")
+    : [];
+  for (const endpoint of listeners) {
     await enqueue(env, "webhook", endpoint.url, {
       id: newId(),
       type: "order.needs_review",

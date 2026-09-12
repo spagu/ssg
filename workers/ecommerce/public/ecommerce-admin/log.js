@@ -9,22 +9,31 @@ export async function loadOutbox() {
   rows.replaceChildren(
     ...messages.map((m) =>
       el("tr", {},
-        td("Kind", m.kind),
         // The target is an address or a URL, never the message body: the body
         // holds download links and the buyer's details.
-        td("To", m.target),
-        td("Tries", `${m.attempts}, next ${when(m.next_attempt)}`),
-        td("Last error", m.last_error ?? "—"),
-        td("Retry", el("button", {
-          type: "button", class: "quiet",
+        td("Message",
+          el("div", { class: "cell-title" },
+            el("strong", { text: m.target }),
+            el("small", { text: m.kind }),
+          ),
+        ),
+        td("Tries", { class: "numeric" },
+          el("div", { class: "cell-title" },
+            el("strong", { text: String(m.attempts) }),
+            el("small", { text: `next ${when(m.next_attempt)}` }),
+          ),
+        ),
+        td("Last error", el("span", { class: "muted", text: m.last_error ?? "—" })),
+        td("", { class: "actions" }, el("button", {
+          type: "button", class: "secondary small",
           onClick: () => retry(m.id),
         }, "Retry now")),
       ),
     ),
   );
   if (messages.length === 0) {
-    rows.replaceChildren(el("tr", {}, el("td", { colspan: "5", text:
-      `Nothing waiting. ${counts.done} message(s) sent so far.` })));
+    rows.replaceChildren(el("tr", {}, el("td", { colspan: "4", class: "muted", text:
+      `Nothing waiting. ${counts.done} message${counts.done === 1 ? "" : "s"} sent so far.` })));
   }
 }
 
@@ -56,14 +65,14 @@ export async function loadAudit() {
   rows.replaceChildren(
     ...entries.map((e) =>
       el("tr", {},
-        td("When", when(e.created_at)),
+        td("When", el("span", { class: "muted", text: when(e.created_at) })),
         td("Who", e.actor),
-        td("What", e.action),
-        td("Detail", e.detail ? JSON.stringify(e.detail) : "—"),
+        td("What", el("code", { text: e.action })),
+        td("Detail", el("span", { class: "muted", text: e.detail ? JSON.stringify(e.detail) : "—" })),
       ),
     ),
   );
   if (entries.length === 0) {
-    rows.replaceChildren(el("tr", {}, el("td", { colspan: "4", text: "Nothing logged yet." })));
+    rows.replaceChildren(el("tr", {}, el("td", { colspan: "4", class: "muted", text: "Nothing logged yet." })));
   }
 }

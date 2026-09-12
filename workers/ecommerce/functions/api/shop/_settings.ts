@@ -35,6 +35,24 @@ export const SETTING_DEFAULTS: Record<string, unknown> = {
   "legal.terms_url": "/shop/terms/",
   "legal.privacy_url": "/shop/privacy/",
   "webhooks.endpoints": [],
+
+  // ── Modules ───────────────────────────────────────────────────────────────
+  //
+  // What this shop does, as opposed to what it is configured with. A module
+  // that is off is off even when its secrets are present — that is the whole
+  // point of a switch, and it is how a seller stops the shop emailing anyone
+  // while they test, or stops it invoicing while their accountant decides how
+  // they want it done.
+  //
+  // Every one of these is read where the work happens, not only where it is
+  // drawn. A toggle that changes nothing is worse than no toggle.
+  "modules.invoices": true, // issue an invoice and a credit note per order
+  "modules.emails": true, // the buyer's own "here is your book" email
+  "modules.admin_notices": true, // "you sold something", to the owner
+  "modules.webhooks": true, // the outgoing webhooks in webhooks.endpoints
+  "modules.tracking": false, // server-side GA4 / Meta, off until asked for
+  "modules.turnstile": true, // the anti-spam check, when a secret is set
+  "modules.resend": true, // the public "I lost my download" form
 };
 
 interface CacheEntry {
@@ -84,6 +102,58 @@ export async function getSettingString(env: Env, key: string): Promise<string> {
 
 export async function getSettingBool(env: Env, key: string): Promise<boolean> {
   return Boolean(await getSetting(env, key));
+}
+
+/** Whether a module is switched on. Unknown module: off, because a name nobody
+ *  declared is a typo, and a typo must not turn something on. */
+export async function moduleOn(env: Env, name: string): Promise<boolean> {
+  const key = `modules.${name}`;
+  if (!(key in SETTING_DEFAULTS)) return false;
+  return Boolean(await getSetting(env, key));
+}
+
+/** The modules, with what each one needs in order to be usable at all.
+ *
+ *  Separating "off" from "cannot work" is the point: a switch offered for
+ *  something with no credentials behind it is a switch that lies. */
+export interface ModuleState {
+  name: string;
+  on: boolean;
+  /** Null when the module can run; otherwise what is missing, in words. */
+  blockedBy: string | null;
+}
+
+export async function moduleStates(env: Env): Promise<ModuleState[]> {
+  const s = await allSettings(env);
+  const on = (name: string): boolean => Boolean(s[`modules.${name}`]);
+  const mail = env.SHOP_MAIL_URL && env.SHOP_MAIL_FROM ? null : "SHOP_MAIL_URL and SHOP_MAIL_FROM";
+
+  return [
+    { name: "invoices", on: on("invoices"), blockedBy: null },
+    { name: "emails", on: on("emails"), blockedBy: mail },
+    {
+      name: "admin_notices",
+      on: on("admin_notices"),
+      blockedBy: mail ?? (env.SHOP_MAIL_ADMIN ? null : "SHOP_MAIL_ADMIN"),
+    },
+    {
+      name: "webhooks",
+      on: on("webhooks"),
+      blockedBy: Array.isArray(s["webhooks.endpoints"]) && s["webhooks.endpoints"].length > 0
+        ? null
+        : "an endpoint in webhooks.endpoints",
+    },
+    {
+      name: "tracking",
+      on: on("tracking"),
+      blockedBy:
+        (env.GA4_MEASUREMENT_ID && env.GA4_API_SECRET) || (env.META_PIXEL_ID && env.META_ACCESS_TOKEN)
+          ? null
+          : "GA4 or Meta credentials",
+    },
+    { name: "turnstile", on: on("turnstile"), blockedBy: env.TURNSTILE_SECRET ? null : "TURNSTILE_SECRET" },
+    { name: "resend", on: on("resend"), blockedBy: null },
+  ];
 }
 
 /** Writes settings, refusing keys nobody declared.

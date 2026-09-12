@@ -10,11 +10,18 @@ import { audit } from "../_audit";
 import { requireOwner } from "../_auth";
 import { fail, json, readJson } from "../_lib";
 import { isKnownCurrency } from "../_money";
-import { allSettings, putSettings, SETTING_DEFAULTS } from "../_settings";
+import { allSettings, moduleStates, putSettings, SETTING_DEFAULTS } from "../_settings";
 import type { AdminData } from "./_middleware";
 
 export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ env }) => {
-  return json({ settings: await allSettings(env), keys: Object.keys(SETTING_DEFAULTS).sort() });
+  return json({
+    settings: await allSettings(env),
+    keys: Object.keys(SETTING_DEFAULTS).sort(),
+    // The modules are settings like any other — they are written through the
+    // PUT below — but the panel needs to know which of them *could* run at all,
+    // and that depends on bindings and secrets it is never shown.
+    modules: await moduleStates(env),
+  });
 };
 
 /** Checks the settings whose wrong value would show up as a wrong invoice
@@ -67,6 +74,21 @@ export const onRequestPut: PagesFunction<Env, string, AdminData> = async ({ requ
 
   const problem = validate(patch);
   if (problem) return fail(request, "invalid_setting", problem, 422);
+
+  // Switching a module on that has nothing behind it would leave the panel
+  // showing "on" and the shop doing nothing — the exact confusion the module
+  // list exists to end.
+  const states = await moduleStates(env);
+  for (const state of states) {
+    if (patch[`modules.${state.name}`] === true && state.blockedBy) {
+      return fail(
+        request,
+        "module_unavailable",
+        `${state.name} cannot be switched on until you set ${state.blockedBy}.`,
+        422,
+      );
+    }
+  }
 
   const unknown = await putSettings(env, patch);
   if (unknown.length > 0) {

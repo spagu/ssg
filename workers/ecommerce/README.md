@@ -102,6 +102,31 @@ own "have I already done this": the move to `paid` names the states it may move
 from, the webhook inbox row is the lock (`INSERT OR IGNORE`), a download token
 is issued only where no live one exists. Two webhooks racing produce one email.
 
+### Modules
+
+What the shop **does**, as opposed to what it is configured with. Each switch is
+read where the work happens, not only where it is drawn — turning emails off
+stops them being queued at all — and the panel has a screen for them.
+
+| Module | Default | Off means |
+|---|---|---|
+| `invoices` | on | orders are still paid and delivered, with no invoice of ours |
+| `emails` | on | the buyer gets the thank-you page and nothing in their inbox |
+| `admin_notices` | on | no "you sold something" line to the owner |
+| `webhooks` | on | your own systems are not told |
+| `tracking` | **off** | nothing is sent to GA4 or Meta |
+| `turnstile` | on | no anti-spam challenge, even with a secret set |
+| `resend` | on | the public "lost my download" endpoint does not exist |
+
+Two states are not enough to describe them, so there are three: on, off, and
+**unavailable** — switched on but unable to run because a secret or a binding is
+missing. The API refuses to switch on a module in that state and says what it
+needs, rather than leaving the panel showing "on" and the shop doing nothing.
+
+`tracking` is off by default on purpose. A shop should not start sending
+purchases to Google because somebody happened to set a measurement id; and even
+switched on, it only ever fires for a buyer who ticked the marketing box.
+
 ### What bounds how often it can be called
 
 Turnstile raises the cost of abusing a public endpoint. It does not cap it, a

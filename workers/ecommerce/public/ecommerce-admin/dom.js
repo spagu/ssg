@@ -25,9 +25,37 @@ export function el(tag, attrs = {}, ...children) {
 }
 
 /** A table cell carrying its own column name, which is what makes the table
- *  readable when it stacks on a narrow screen. */
-export function td(label, ...children) {
-  return el("td", { "data-label": label }, ...children);
+ *  readable when it stacks into rows on a narrow screen.
+ *
+ *  An optional attribute object may follow the label — `td("Total",
+ *  { class: "numeric" }, "24.00")` — because a column of money has to be
+ *  right-aligned and tabular whatever the screen is doing. */
+export function td(label, attrsOrChild, ...children) {
+  const hasAttrs =
+    attrsOrChild !== null &&
+    typeof attrsOrChild === "object" &&
+    !(attrsOrChild instanceof Node) &&
+    !Array.isArray(attrsOrChild);
+  const attrs = hasAttrs ? attrsOrChild : {};
+  const rest = hasAttrs ? children : [attrsOrChild, ...children];
+  return el("td", { "data-label": label, ...attrs }, ...rest);
+}
+
+/** A row that says why a table is empty, rather than a table that is simply
+ *  blank. `colspan` has to match the header or the row does not span. */
+export function emptyRow(columns, message) {
+  return el("tr", {}, el("td", { colspan: String(columns), class: "muted", text: message }));
+}
+
+/** The first cell of a row: a name, and under it the thing that identifies it. */
+export function titleCell(label, title, subtitle) {
+  return td(
+    label,
+    el("div", { class: "cell-title" },
+      el("strong", { text: title }),
+      subtitle ? el("small", { text: subtitle }) : null,
+    ),
+  );
 }
 
 export function badge(status) {

@@ -111,13 +111,55 @@ describe("fulfilling an order", () => {
 
   it("tracks a purchase only with the buyer's consent", async () => {
     const tracked = { ...env, GA4_MEASUREMENT_ID: "G-1", GA4_API_SECRET: "s" };
+    await putSettings(env, { "modules.tracking": true });
 
     await fulfilOrder(tracked, await order({ consentMarketing: false }), { origin: ORIGIN, actor: "test" });
     expect(await queued("tracking")).toBe(0);
 
     await freshShop();
+    await putSettings(env, { "modules.tracking": true });
     await fulfilOrder(tracked, await order({ consentMarketing: true }), { origin: ORIGIN, actor: "test" });
     expect(await queued("tracking")).toBe(1);
+  });
+
+  it("tracks nothing at all while the module is off, consent or no consent", async () => {
+    // Off is the default: a shop does not start sending purchases to Google
+    // because someone happened to set a measurement id.
+    const tracked = { ...env, GA4_MEASUREMENT_ID: "G-1", GA4_API_SECRET: "s" };
+    await fulfilOrder(tracked, await order({ consentMarketing: true }), { origin: ORIGIN, actor: "test" });
+    expect(await queued("tracking")).toBe(0);
+  });
+
+  it("issues no invoice while that module is off, and still delivers", async () => {
+    await putSettings(env, { "modules.invoices": false });
+    const result = await fulfilOrder(env, await order(), { origin: ORIGIN, actor: "test" });
+
+    expect(result.changed).toBe(true);
+    expect(result.tokensIssued).toBe(1);
+    expect(result.invoiceNumber).toBeUndefined();
+
+    const invoices = await env.SHOP_DB.prepare(`SELECT COUNT(*) AS n FROM invoices`).first<{ n: number }>();
+    expect(invoices?.n).toBe(0);
+    // The buyer still gets their book; the email simply carries no invoice link.
+    const mail = await env.SHOP_DB.prepare(`SELECT payload_json FROM outbox WHERE kind = 'email'`)
+      .first<{ payload_json: string }>();
+    expect(mail?.payload_json).not.toContain("/api/shop/invoices/");
+  });
+
+  it("sends the buyer nothing while the email module is off", async () => {
+    await putSettings(env, { "modules.emails": false });
+    const result = await fulfilOrder(env, await order(), { origin: ORIGIN, actor: "test" });
+    expect(result.changed).toBe(true);
+    expect(await queued("email")).toBe(0);
+  });
+
+  it("calls no webhooks while that module is off", async () => {
+    await putSettings(env, {
+      "webhooks.endpoints": [{ url: "https://listener.example/hook", events: ["order.paid"] }],
+      "modules.webhooks": false,
+    });
+    await fulfilOrder(env, await order(), { origin: ORIGIN, actor: "test" });
+    expect(await queued("webhook")).toBe(0);
   });
 
   it("calls the shop's own webhooks", async () => {

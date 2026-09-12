@@ -12,8 +12,6 @@ export function bindOrders() {
     event.preventDefault();
     const data = new FormData(form);
     query = { q: String(data.get("q") ?? ""), status: String(data.get("status") ?? "") };
-    document.getElementById("export-orders").href =
-      `/api/shop/admin/export?type=orders`;
     loadOrders(true);
   });
   document.getElementById("orders-more").addEventListener("click", () => loadOrders(false));
@@ -34,8 +32,21 @@ export async function loadOrders(reset = true) {
 
   cursor = body.nextCursor;
   document.getElementById("orders-more").hidden = !cursor;
+
   if (rows.childElementCount === 0) {
-    rows.replaceChildren(el("tr", {}, el("td", { colspan: "6", text: "No orders match that." })));
+    const filtered = Boolean(query.q || query.status);
+    rows.replaceChildren(
+      el("tr", {},
+        el("td", { colspan: "5" },
+          el("div", { class: "empty" },
+            el("h3", { text: filtered ? "Nothing matches that" : "No orders yet" }),
+            el("p", { text: filtered
+              ? "Try a different search, or clear the filter to see everything."
+              : "An order appears here the moment someone reaches the payment page — paid or not." }),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -43,13 +54,32 @@ function orderRow(order) {
   return el(
     "tr",
     {},
-    td("Number", el("code", { text: order.number })),
-    td("When", when(order.createdAt)),
-    td("Customer", order.email ?? "—"),
-    td("Total", money(order.totalMinor, order.currency)),
+    td("Order",
+      el("div", { class: "cell-title" },
+        el("strong", {}, el("code", { text: order.number })),
+        el("small", { text: when(order.createdAt) }),
+      ),
+    ),
+    td("Customer",
+      el("div", { class: "cell-title" },
+        el("strong", { text: order.email ?? "—" }),
+        el("small", { text: [order.name, order.country].filter(Boolean).join(" · ") || "—" }),
+      ),
+    ),
     td("Status", badge(order.status)),
-    td("Open", el("button", { class: "quiet", type: "button", onClick: () => openOrder(order.id) }, "Open")),
+    td("Total", { class: "numeric" }, money(order.totalMinor, order.currency)),
+    td("", { class: "actions" },
+      el("button", { type: "button", class: "secondary small", onClick: () => openOrder(order.id) }, "Open"),
+    ),
   );
+}
+
+/** Back to the list, from wherever the order was opened. */
+function closeOrder() {
+  document.getElementById("order-detail").hidden = true;
+  document.getElementById("orders-list").hidden = false;
+  document.getElementById("crumb").textContent = "Orders";
+  window.scrollTo({ top: 0 });
 }
 
 async function openOrder(id) {
@@ -58,30 +88,61 @@ async function openOrder(id) {
   const { order, customer, items, payments, invoices, tokens } = data;
 
   panel.replaceChildren(
-    el("div", { class: "editor" },
-      el("h3", {}, "Order ", el("code", { text: order.number }), " ", badge(order.status)),
-      summary(order, customer),
-      el("h3", { text: "Lines" }),
+    el("div", { class: "page-head" },
+      el("div", {},
+        el("button", { type: "button", class: "ghost back", onClick: closeOrder },
+          el("span", { "aria-hidden": "true", text: "←" }), " Orders"),
+        el("h2", {}, "Order ", el("code", { text: order.number })),
+        el("p", { text: `Placed ${when(order.created_at)}${order.paid_at ? ` · paid ${when(order.paid_at)}` : ""}` }),
+      ),
+      el("div", { class: "actions" }, badge(order.status)),
+    ),
+
+    el("div", { class: "card" },
+      el("header", {}, el("div", {}, el("h3", { text: "Summary" }))),
+      el("div", { class: "card-body" }, facts(order, customer)),
+    ),
+
+    el("div", { class: "card" },
+      el("header", {}, el("div", {}, el("h3", { text: "Lines" }))),
       lineTable(items, order.currency),
-      el("h3", { text: "Payments" }),
-      paymentList(payments),
-      el("h3", { text: "Invoices" }),
-      invoiceList(invoices),
-      el("h3", { text: "Download links" }),
-      tokenList(tokens),
-      el("h3", { text: "Actions" }),
-      actions(order, panel),
-      noteForm(order),
+    ),
+
+    el("div", { class: "card" },
+      el("header", {}, el("div", {},
+        el("h3", { text: "Payments and invoices" }),
+        el("p", { text: "What the provider confirmed, and the documents that followed." }),
+      )),
+      el("div", { class: "card-body" },
+        paymentList(payments),
+        invoiceList(invoices),
+      ),
+    ),
+
+    el("div", { class: "card" },
+      el("header", {}, el("div", {},
+        el("h3", { text: "Download links" }),
+        el("p", { text: "The links themselves were never stored, only their hashes — so this shows how a download is going, and can never hand one out." }),
+      )),
+      el("div", { class: "card-body" }, tokenList(tokens)),
+    ),
+
+    actionCard(order),
+
+    el("div", { class: "card" },
+      el("header", {}, el("div", {}, el("h3", { text: "Private note" }))),
+      el("div", { class: "card-body" }, noteForm(order)),
     ),
   );
+
+  document.getElementById("orders-list").hidden = true;
   panel.hidden = false;
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  document.getElementById("crumb").textContent = `Order ${order.number}`;
+  window.scrollTo({ top: 0 });
 }
 
-function summary(order, customer) {
-  const facts = [
-    ["Placed", when(order.created_at)],
-    ["Paid", when(order.paid_at)],
+function facts(order, customer) {
+  const rows = [
     ["Customer", customer?.email ?? "—"],
     ["Name", customer?.name ?? "—"],
     ["VAT number", customer?.vat_id ?? "—"],
@@ -91,95 +152,105 @@ function summary(order, customer) {
     ["Net", money(order.subtotal_minor, order.currency)],
     ["VAT", money(order.tax_minor, order.currency)],
     ["Total", money(order.total_minor, order.currency)],
+    // The evidence the tax decision rested on: the thing an auditor asks about
+    // and the thing an owner otherwise never sees.
+    ["Tax evidence", order.taxEvidence
+      ? Object.entries(order.taxEvidence).map(([k, v]) => `${k}: ${v}`).join(", ")
+      : "none recorded"],
   ];
-  // The evidence the tax decision rested on, shown because it is the thing an
-  // auditor asks about and the thing an owner otherwise never sees.
-  const evidence = order.taxEvidence
-    ? Object.entries(order.taxEvidence).map(([k, v]) => `${k}: ${v}`).join(", ")
-    : "none recorded";
-  facts.push(["Tax evidence", evidence]);
-
-  return el("div", { class: "cards" },
-    ...facts.map(([label, value]) =>
-      el("dl", { class: "card" }, el("dt", { text: label }), el("dd", { text: String(value) })),
+  return el("dl", { class: "facts" },
+    ...rows.map(([label, value]) =>
+      el("div", {}, el("dt", { text: label }), el("dd", { text: String(value) })),
     ),
   );
 }
 
 function lineTable(items, currency) {
-  return el("table", { class: "grid" },
-    el("thead", {}, el("tr", {},
-      el("th", { scope: "col", text: "Product" }),
-      el("th", { scope: "col", text: "Qty" }),
-      el("th", { scope: "col", text: "Unit" }),
-      el("th", { scope: "col", text: "VAT" }),
-      el("th", { scope: "col", text: "Total" }),
-    )),
-    el("tbody", {}, ...items.map((i) =>
-      el("tr", {},
-        td("Product", i.name),
-        td("Qty", String(i.quantity)),
-        td("Unit", money(i.unit_minor, currency)),
-        td("VAT", `${(i.tax_rate_bp / 100).toFixed(2)}% · ${money(i.tax_minor, currency)}`),
-        td("Total", money(i.total_minor, currency)),
-      ),
-    )),
+  return el("div", { class: "table-wrap" },
+    el("table", { class: "grid" },
+      el("thead", {}, el("tr", {},
+        el("th", { scope: "col", text: "Product" }),
+        el("th", { scope: "col", class: "numeric", text: "Qty" }),
+        el("th", { scope: "col", class: "numeric", text: "Unit" }),
+        el("th", { scope: "col", text: "VAT" }),
+        el("th", { scope: "col", class: "numeric", text: "Total" }),
+      )),
+      el("tbody", {}, ...items.map((i) =>
+        el("tr", {},
+          td("Product",
+            el("div", { class: "cell-title" },
+              el("strong", { text: i.name }),
+              el("small", {}, el("code", { text: i.sku })),
+            ),
+          ),
+          td("Qty", { class: "numeric" }, String(i.quantity)),
+          td("Unit", { class: "numeric" }, money(i.unit_minor, currency)),
+          td("VAT", `${(i.tax_rate_bp / 100).toFixed(2)}% · ${money(i.tax_minor, currency)}`),
+          td("Total", { class: "numeric" }, money(i.total_minor, currency)),
+        ),
+      )),
+    ),
   );
 }
 
 function paymentList(payments) {
-  if (payments.length === 0) return el("p", { class: "hint", text: "Nothing recorded yet." });
-  return el("ul", {}, ...payments.map((p) =>
+  if (payments.length === 0) return el("p", { class: "muted", text: "Nothing recorded yet." });
+  return el("ul", { class: "list-plain" }, ...payments.map((p) =>
     el("li", {}, `${p.kind} ${p.status} · ${money(p.amount_minor, p.currency)} · ${p.gateway} ${p.gateway_ref} · ${when(p.created_at)}`),
   ));
 }
 
 function invoiceList(invoices) {
-  if (invoices.length === 0) return el("p", { class: "hint", text: "None issued yet." });
-  return el("ul", {}, ...invoices.map((inv) =>
+  if (invoices.length === 0) return el("p", { class: "muted", text: "None issued." });
+  return el("ul", { class: "list-plain" }, ...invoices.map((inv) =>
     el("li", {}, `${inv.kind === "credit_note" ? "Credit note" : "Invoice"} ${inv.number} · ${when(inv.issued_at)} · ${money(inv.total_minor, inv.currency)}`),
   ));
 }
 
 function tokenList(tokens) {
-  if (tokens.length === 0) return el("p", { class: "hint", text: "No links issued." });
-  return el("ul", {},
+  if (tokens.length === 0) return el("p", { class: "muted", text: "No links issued." });
+  return el("ul", { class: "list-plain" },
     ...tokens.map((t) =>
       el("li", {}, `${t.uses} of ${t.max_uses} downloads used · expires ${when(t.expires_at)}${t.revoked ? " · revoked" : ""}`),
     ),
-    // Said plainly, because the first thing an owner tries is to copy the link
+    // Said plainly, because the first thing an owner tries is to copy a link
     // out of the panel and paste it into an email.
-    el("li", { class: "hint", text: "The links themselves were never stored — only their hashes. Use “Send the links again” to issue fresh ones." }),
+    el("li", { class: "muted", text: "Use “Send the links again” to issue fresh ones." }),
   );
 }
 
-function actions(order, panel) {
-  const row = el("div", { class: "row" });
+function actionCard(order) {
+  const row = el("div", { class: "savebar" });
   const refresh = async () => {
-    panel.hidden = true;
     await loadOrders(true);
+    closeOrder();
   };
 
   if (["paid", "fulfilled"].includes(order.status)) {
     row.append(
-      el("button", { type: "button", class: "quiet", onClick: () => act(`resend`, order, refresh, "Links sent.") }, "Send the links again"),
+      el("button", { type: "button", class: "secondary", onClick: () => act("resend", order, refresh, "Links sent.") }, "Send the links again"),
       el("button", { type: "button", class: "danger", onClick: () => refund(order, refresh) }, "Refund"),
     );
   }
   if (["pending", "needs_review"].includes(order.status)) {
-    row.append(
-      el("button", { type: "button", onClick: () => markPaid(order, refresh) }, "Mark as paid"),
-    );
+    row.append(el("button", { type: "button", onClick: () => markPaid(order, refresh) }, "Mark as paid"));
   }
   if (["pending", "failed"].includes(order.status)) {
-    row.append(
-      el("button", { type: "button", class: "quiet", onClick: () => act("cancel", order, refresh, "Cancelled.") }, "Cancel"),
+    row.append(el("button", { type: "button", class: "secondary", onClick: () => act("cancel", order, refresh, "Cancelled.") }, "Cancel"));
+  }
+
+  if (row.childElementCount === 0) {
+    return el("div", { class: "card" },
+      el("div", { class: "card-body" },
+        el("p", { class: "muted", text: `Nothing to do from here for an order that is ${order.status}.` }),
+      ),
     );
   }
-  if (row.childElementCount === 0) {
-    row.append(el("p", { class: "hint", text: "Nothing to do from here for an order in this state." }));
-  }
-  return row;
+  row.prepend(el("span", { class: "spacer" }));
+  return el("div", { class: "card" },
+    el("header", {}, el("div", {}, el("h3", { text: "Actions" }))),
+    el("div", { class: "card-body" }, row),
+  );
 }
 
 async function act(action, order, after, okMessage, body = {}) {
@@ -216,7 +287,7 @@ function markPaid(order, after) {
 }
 
 function noteForm(order) {
-  const input = el("textarea", { name: "notes", maxlength: "4000" }, order.notes ?? "");
+  const input = el("textarea", { id: "order-note", name: "notes", maxlength: "4000" }, order.notes ?? "");
   return el(
     "form",
     {
@@ -230,8 +301,14 @@ function noteForm(order) {
         }
       },
     },
-    el("label", { for: "order-note", text: "Private note (never shown to the buyer)" }),
-    Object.assign(input, { id: "order-note" }),
-    el("button", { type: "submit" }, "Save note"),
+    el("div", { class: "field" },
+      el("label", { for: "order-note", text: "Private note" }),
+      input,
+      el("small", { text: "Never shown to the buyer, and never sent anywhere." }),
+    ),
+    el("div", { class: "savebar" },
+      el("span", { class: "spacer" }),
+      el("button", { type: "submit", class: "secondary" }, "Save note"),
+    ),
   );
 }

@@ -716,9 +716,26 @@ paths:
     get:
       tags: [admin]
       summary: What the shop is configured to do
-      description: Business settings only. Secrets and bindings live in wrangler and are never readable here.
+      description: |
+        Business settings only. Secrets and bindings live in wrangler and are
+        never readable here.
+
+        `modules` reports each optional part of the shop with whether it is on
+        and, when it cannot run, what it is missing — which depends on bindings
+        the panel is never shown.
       responses:
-        "200": { description: The settings and the list of valid keys. }
+        "200":
+          description: The settings, the list of valid keys, and the modules.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings: { type: object, additionalProperties: true }
+                  keys: { type: array, items: { type: string } }
+                  modules:
+                    type: array
+                    items: { $ref: "#/components/schemas/ModuleState" }
     put:
       tags: [admin]
       summary: Change some settings
@@ -732,7 +749,11 @@ paths:
         "200": { description: Saved. }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "422": { description: A value would produce wrong invoices, or a key does not exist. }
+        "422":
+          description: |
+            A value would produce wrong invoices, a key does not exist, or a
+            module was switched on that cannot run — `module_unavailable`, whose
+            message names what it needs.
 
   /api/shop/admin/vat-rates:
     get:
@@ -955,6 +976,9 @@ components:
         termsUrl: { type: string }
         privacyUrl: { type: string }
         digitalWaiver: { type: boolean }
+        resend:
+          type: boolean
+          description: Whether the "lost my download" form exists, so a theme does not link to a 404.
 
     Product:
       type: object
@@ -1038,6 +1062,21 @@ components:
               expiresAt: { type: string, format: date-time }
               remaining: { type: integer }
         linksSentByEmail: { type: boolean }
+
+    ModuleState:
+      type: object
+      description: |
+        Three states, not two: a module can be off, or on and unable to run.
+        Calling the second one "off" would blame the seller for a missing
+        secret.
+      properties:
+        name:
+          type: string
+          enum: [invoices, emails, admin_notices, webhooks, tracking, turnstile, resend]
+        on: { type: boolean }
+        blockedBy:
+          type: [string, "null"]
+          description: What is missing, in words. Null when the module can run.
 
     AdminIdentity:
       type: object

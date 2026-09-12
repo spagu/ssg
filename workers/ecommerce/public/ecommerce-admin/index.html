@@ -1,45 +1,83 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shop admin</title>
 <meta name="description" content="Products, orders, invoices and settings for this shop.">
-<meta name="robots" content="noindex, nofollow">
+<!-- Nothing here should ever be indexed, followed or archived: it is one
+     seller's till. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#263238" media="(prefers-color-scheme: dark)">
-<meta name="referrer" content="no-referrer">
 <!-- No inline script and no inline style anywhere in this file: the panel is
-     meant to run under a strict Content-Security-Policy, and an inline
-     handler is the one thing such a policy cannot allow. -->
+     meant to run under a strict Content-Security-Policy, and an inline handler
+     is the one thing such a policy cannot allow.
+
+     No analytics either, and that is a decision rather than an omission. This
+     page shows a seller their customers' names and addresses; nothing
+     third-party belongs on it. -->
 <link rel="stylesheet" href="/ecommerce-admin/admin.css">
 <script type="module" src="/ecommerce-admin/admin.js"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<!-- `data-state` is what the stylesheet switches on: "out" is a centred sign-in
-     screen with no shell around it, "in" is the panel. Set by admin.js as soon
-     as it knows which one this is. -->
+<!-- The shell. `data-state` on <body> switches between "out" — a centred
+     sign-in screen with none of this visible — and "in". -->
+<div class="brandbar" id="brandbar" hidden>
+  <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path d="M10 16h28l-2.6 22.2A4 4 0 0 1 31.4 42H16.6a4 4 0 0 1-4-3.8L10 16Z"
+          fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M18 20v-4a6 6 0 0 1 12 0v4"
+          fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <strong id="brand-name">Shop admin</strong>
+</div>
+
 <header class="topbar" id="topbar" hidden>
-  <h1>Shop admin</h1>
-  <p class="mode" id="mode-badge" hidden></p>
-  <!-- Everything from here to the end of the header belongs to someone who has
-       signed in. Hidden on the element that holds it, so nothing of the shell
-       is on screen behind a login form. -->
-  <nav aria-label="Sections" id="nav" hidden>
-    <ul class="tabs" id="tabs">
-      <li><button type="button" data-view="dashboard" aria-current="page">Overview</button></li>
-      <li><button type="button" data-view="products">Products</button></li>
-      <li><button type="button" data-view="orders">Orders</button></li>
-      <li><button type="button" data-view="settings">Settings</button></li>
-      <li><button type="button" data-view="vat">VAT</button></li>
-      <li><button type="button" data-view="log">Log</button></li>
-    </ul>
-  </nav>
-  <button type="button" id="logout" hidden>Sign out</button>
+  <p class="crumb" id="crumb">Overview</p>
+  <span class="spacer"></span>
+  <span class="badge" data-status="test" id="mode-badge" hidden></span>
+  <span class="badge" id="whoami" hidden></span>
+  <button type="button" class="secondary small" id="logout">Sign out</button>
 </header>
+
+<nav class="sidenav" id="nav" aria-label="Sections" hidden>
+  <ul>
+    <li><button type="button" data-view="dashboard" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M3 12h6v9H3zM9 3h6v18H9zM15 8h6v13h-6z" stroke-linejoin="round"/>
+      </svg>Overview</button></li>
+    <li><button type="button" data-view="products">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M4 7h16v13H4zM4 7l2-3h12l2 3M9 11h6" stroke-linejoin="round"/>
+      </svg>Products</button></li>
+    <li><button type="button" data-view="orders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M6 3h12l1 18H5L6 3ZM9 7h6" stroke-linejoin="round"/>
+      </svg>Orders<span class="count" id="review-count" hidden>0</span></button></li>
+    <li><button type="button" data-view="modules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke-linejoin="round"/>
+      </svg>Modules</button></li>
+    <li><button type="button" data-view="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke-linecap="round"/>
+      </svg>Settings</button></li>
+    <li><button type="button" data-view="vat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M6 18 18 6M8 8h.01M16 16h.01" stroke-linecap="round"/>
+      </svg>VAT</button></li>
+    <li><button type="button" data-view="log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+        <path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>Log</button></li>
+  </ul>
+</nav>
 
 <main id="main">
   <div class="notice" id="notice" hidden role="status"></div>
@@ -87,130 +125,305 @@
     </p>
   </section>
 
+  <!-- ── Overview ──────────────────────────────────────────────────────── -->
   <section id="view-dashboard" class="view" hidden>
-    <h2>Overview</h2>
-    <ul class="warnings" id="warnings"></ul>
-    <div class="cards" id="stats"></div>
-    <h3>Best sellers</h3>
-    <table class="grid"><caption class="visually-hidden">Products by revenue</caption>
-      <thead><tr><th scope="col">Product</th><th scope="col">Units</th><th scope="col">Revenue</th></tr></thead>
-      <tbody id="top-products"></tbody>
-    </table>
-    <h3>Where the buyers are</h3>
-    <table class="grid"><caption class="visually-hidden">Sales by country</caption>
-      <thead><tr><th scope="col">Country</th><th scope="col">Orders</th><th scope="col">Gross</th></tr></thead>
-      <tbody id="by-country"></tbody>
-    </table>
+    <div class="page-head">
+      <div>
+        <h2>Overview</h2>
+        <p>The last thirty days, and anything waiting for you.</p>
+      </div>
+    </div>
+
+    <ul class="todo" id="warnings"></ul>
+    <div class="stats" id="stats"></div>
+
+    <div class="card">
+      <header><h3>Best sellers</h3><p>By revenue, over the same thirty days.</p></header>
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">Products by revenue</caption>
+          <thead><tr>
+            <th scope="col">Product</th>
+            <th scope="col" class="numeric">Units</th>
+            <th scope="col" class="numeric">Revenue</th>
+          </tr></thead>
+          <tbody id="top-products"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <header>
+        <h3>Where the buyers are</h3>
+        <p>Which country's rate applied, and to how much — the figure an OSS
+           return is filled in from.</p>
+      </header>
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">Sales by country</caption>
+          <thead><tr>
+            <th scope="col">Country</th>
+            <th scope="col" class="numeric">Orders</th>
+            <th scope="col" class="numeric">Gross</th>
+          </tr></thead>
+          <tbody id="by-country"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
+  <!-- ── Products ──────────────────────────────────────────────────────── -->
   <section id="view-products" class="view" hidden>
-    <h2>Products</h2>
-    <form id="product-new" class="inline-form">
-      <label for="new-sku">Code</label>
-      <input id="new-sku" name="sku" required pattern="[A-Za-z0-9._\-]{1,64}" maxlength="64">
-      <label for="new-name">Name</label>
-      <input id="new-name" name="name" required maxlength="200">
-      <button type="submit">Add product</button>
-    </form>
-    <table class="grid"><caption class="visually-hidden">Every product, drafts included</caption>
-      <thead><tr>
-        <th scope="col">Code</th><th scope="col">Name</th><th scope="col">Status</th>
-        <th scope="col">Price</th><th scope="col">File</th><th scope="col">Edit</th>
-      </tr></thead>
-      <tbody id="product-rows"></tbody>
-    </table>
-    <div id="product-editor" hidden></div>
+   <div id="products-list">
+    <div class="page-head">
+      <div>
+        <h2>Products</h2>
+        <p>A product goes on sale once it has a price and a file. Until then it
+           is a draft, and the catalogue does not show it.</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="product-add">Add product</button>
+      </div>
+    </div>
+
+    <div class="card" id="product-new-card" hidden>
+      <header><h3>New product</h3><p>A code and a name. Everything else is editable straight after.</p></header>
+      <div class="card-body">
+        <form id="product-new">
+          <div class="fields two">
+            <div class="field">
+              <label for="new-sku">Product code</label>
+              <input id="new-sku" name="sku" required pattern="[A-Za-z0-9._\-]{1,64}" maxlength="64"
+                     autocapitalize="characters" spellcheck="false" placeholder="EBOOK-1">
+              <small>Letters, digits, dot, dash and underscore. It appears on invoices.</small>
+            </div>
+            <div class="field">
+              <label for="new-name">Name</label>
+              <input id="new-name" name="name" required maxlength="200" placeholder="The One-Person Shop">
+            </div>
+          </div>
+          <div class="savebar">
+            <span class="spacer"></span>
+            <button type="button" class="secondary" id="product-new-cancel">Cancel</button>
+            <button type="submit">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">Every product, drafts included</caption>
+          <thead><tr>
+            <th scope="col">Product</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="numeric">Price</th>
+            <th scope="col">File</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr></thead>
+          <tbody id="product-rows"></tbody>
+        </table>
+      </div>
+    </div>
+   </div>
+
+   <!-- Editing a product is a page of its own, reached from the list and left
+        by the same route. A form appended under the table it was opened from
+        leaves you scrolling to find out whether anything happened. -->
+   <div id="product-editor" hidden></div>
   </section>
 
+  <!-- ── Orders ────────────────────────────────────────────────────────── -->
   <section id="view-orders" class="view" hidden>
-    <h2>Orders</h2>
-    <form id="order-filter" class="inline-form">
-      <label for="filter-q">Search</label>
-      <input id="filter-q" name="q" type="search" placeholder="Order number or email" maxlength="254">
-      <label for="filter-status">Status</label>
-      <select id="filter-status" name="status">
-        <option value="">Any status</option>
-        <option value="pending">Pending</option>
-        <option value="paid">Paid</option>
-        <option value="fulfilled">Fulfilled</option>
-        <option value="needs_review">Needs review</option>
-        <option value="refunded">Refunded</option>
-        <option value="cancelled">Cancelled</option>
-        <option value="failed">Failed</option>
-      </select>
-      <button type="submit">Filter</button>
-      <a id="export-orders" href="/api/shop/admin/export?type=orders" download>Export CSV</a>
-    </form>
-    <table class="grid"><caption class="visually-hidden">Orders, newest first</caption>
-      <thead><tr>
-        <th scope="col">Number</th><th scope="col">When</th><th scope="col">Customer</th>
-        <th scope="col">Total</th><th scope="col">Status</th><th scope="col">Open</th>
-      </tr></thead>
-      <tbody id="order-rows"></tbody>
-    </table>
-    <button type="button" id="orders-more" hidden>Load more</button>
-    <div id="order-detail" hidden></div>
+   <div id="orders-list">
+    <div class="page-head">
+      <div>
+        <h2>Orders</h2>
+        <p>Newest first. An order marked <em>needs review</em> was paid an amount
+           that did not match, and is waiting for a decision.</p>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" id="export-orders" href="/api/shop/admin/export?type=orders" download>Export CSV</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <form class="filters" id="order-filter">
+        <div class="field medium">
+          <label for="filter-q">Search</label>
+          <input id="filter-q" name="q" type="search" placeholder="Order number or email" maxlength="254">
+        </div>
+        <div class="field narrow">
+          <label for="filter-status">Status</label>
+          <select id="filter-status" name="status">
+            <option value="">Any</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+            <option value="fulfilled">Fulfilled</option>
+            <option value="needs_review">Needs review</option>
+            <option value="refunded">Refunded</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        <button type="submit" class="secondary">Filter</button>
+      </form>
+
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">Orders, newest first</caption>
+          <thead><tr>
+            <th scope="col">Order</th>
+            <th scope="col">Customer</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="numeric">Total</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr></thead>
+          <tbody id="order-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <button type="button" class="secondary" id="orders-more" hidden>Load more</button>
+   </div>
+
+   <div id="order-detail" hidden></div>
   </section>
 
+  <!-- ── Modules ───────────────────────────────────────────────────────── -->
+  <section id="view-modules" class="view" hidden>
+    <div class="page-head">
+      <div>
+        <h2>Modules</h2>
+        <p>What this shop does, as opposed to what it is configured with. Each
+           switch is read where the work happens, not only here: turning emails
+           off stops them being queued at all.</p>
+      </div>
+    </div>
+    <div class="card"><div id="module-rows"></div></div>
+  </section>
+
+  <!-- ── Settings ──────────────────────────────────────────────────────── -->
   <section id="view-settings" class="view" hidden>
-    <h2>Settings</h2>
-    <p class="hint">Who is selling, in what currency, under whose VAT number.
-    Keys and secrets are not here — they live in wrangler.</p>
+    <div class="page-head">
+      <div>
+        <h2>Settings</h2>
+        <p>Who is selling, in what currency, under whose VAT number. Keys and
+           secrets are not here — they live in wrangler, and this panel cannot
+           read them.</p>
+      </div>
+    </div>
     <form id="settings-form"></form>
   </section>
 
+  <!-- ── VAT ───────────────────────────────────────────────────────────── -->
   <section id="view-vat" class="view" hidden>
-    <h2>VAT rates</h2>
-    <p class="hint">Rates are in basis points: 2300 is 23%. A new rate does not
-    overwrite the old one, it supersedes it from a date, so an old invoice can
-    still explain itself.</p>
-    <form id="vat-new" class="inline-form">
-      <label for="vat-country">Country</label>
-      <input id="vat-country" name="country" maxlength="2" size="2" required pattern="[A-Za-z]{2}">
-      <label for="vat-kind">Kind</label>
-      <input id="vat-kind" name="kind" value="ebook" maxlength="32" required>
-      <label for="vat-rate">Rate (bp)</label>
-      <input id="vat-rate" name="rateBp" type="number" min="0" max="10000" required>
-      <label for="vat-from">From</label>
-      <input id="vat-from" name="validFrom" type="date">
-      <button type="submit">Set rate</button>
-    </form>
-    <table class="grid"><caption class="visually-hidden">The VAT rate table</caption>
-      <thead><tr>
-        <th scope="col">Country</th><th scope="col">Kind</th><th scope="col">Rate</th>
-        <th scope="col">From</th><th scope="col">Until</th><th scope="col">Remove</th>
-      </tr></thead>
-      <tbody id="vat-rows"></tbody>
-    </table>
+    <div class="page-head">
+      <div>
+        <h2>VAT rates</h2>
+        <p>Rates are in basis points: 2300 is 23%. A new rate does not overwrite
+           the old one — it supersedes it from a date, so an invoice from March
+           can still explain the rate it used after the rate changes in July.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <header><h3>Set a rate</h3></header>
+      <div class="card-body">
+        <form id="vat-new">
+          <div class="fields two">
+            <div class="field narrow">
+              <label for="vat-country">Country</label>
+              <input id="vat-country" name="country" maxlength="2" required pattern="[A-Za-z]{2}"
+                     autocapitalize="characters" spellcheck="false" placeholder="DE">
+            </div>
+            <div class="field">
+              <label for="vat-kind">Kind</label>
+              <input id="vat-kind" name="kind" value="ebook" maxlength="32" required>
+              <small>The product's tax category. <code>standard</code> is the fallback.</small>
+            </div>
+            <div class="field narrow">
+              <label for="vat-rate">Rate</label>
+              <input id="vat-rate" name="rateBp" type="number" min="0" max="10000" required placeholder="700">
+              <small>Basis points.</small>
+            </div>
+            <div class="field medium">
+              <label for="vat-from">In force from</label>
+              <input id="vat-from" name="validFrom" type="date">
+              <small>Today, if left empty.</small>
+            </div>
+          </div>
+          <div class="savebar"><span class="spacer"></span><button type="submit">Set rate</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">The VAT rate table</caption>
+          <thead><tr>
+            <th scope="col">Country</th>
+            <th scope="col">Kind</th>
+            <th scope="col" class="numeric">Rate</th>
+            <th scope="col">In force</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr></thead>
+          <tbody id="vat-rows"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
+  <!-- ── Log ───────────────────────────────────────────────────────────── -->
   <section id="view-log" class="view" hidden>
-    <h2>Log</h2>
-    <p class="hint">Who did what. Nothing here can be edited or cleared — a log
-    an administrator can rewrite answers no question.</p>
-    <h3>Queued messages</h3>
-    <table class="grid"><caption class="visually-hidden">The outbox</caption>
-      <thead><tr>
-        <th scope="col">Kind</th><th scope="col">To</th><th scope="col">Tries</th>
-        <th scope="col">Last error</th><th scope="col">Retry</th>
-      </tr></thead>
-      <tbody id="outbox-rows"></tbody>
-    </table>
-    <button type="button" id="outbox-drain">Send everything now</button>
-    <h3>Audit</h3>
-    <table class="grid"><caption class="visually-hidden">The audit log</caption>
-      <thead><tr>
-        <th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Detail</th>
-      </tr></thead>
-      <tbody id="audit-rows"></tbody>
-    </table>
+    <div class="page-head">
+      <div>
+        <h2>Log</h2>
+        <p>Who did what, and what the shop is still trying to send. Nothing here
+           can be edited or cleared: a log an administrator can rewrite answers
+           no question.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <header>
+        <h3>Queued messages</h3>
+        <p>The target and the state, never the contents — a payload holds
+           download links and the buyer's details.</p>
+        <div class="actions"><button type="button" class="secondary" id="outbox-drain">Send now</button></div>
+      </header>
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">The outbox</caption>
+          <thead><tr>
+            <th scope="col">Message</th>
+            <th scope="col" class="numeric">Tries</th>
+            <th scope="col">Last error</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th>
+          </tr></thead>
+          <tbody id="outbox-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <header><h3>Audit</h3></header>
+      <div class="table-wrap">
+        <table class="grid">
+          <caption class="visually-hidden">The audit log</caption>
+          <thead><tr>
+            <th scope="col">When</th>
+            <th scope="col">Who</th>
+            <th scope="col">What</th>
+            <th scope="col">Detail</th>
+          </tr></thead>
+          <tbody id="audit-rows"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 </main>
-
-<footer class="foot">
-  <p>The shop keeps nothing here that it would not show a customer who asked.
-  Download links are stored hashed, so this panel cannot hand one out — it can
-  only send a fresh one.</p>
-</footer>
 </body>
 </html>
