@@ -126,17 +126,17 @@ func TestJSStringEscapes(t *testing.T) {
 }
 
 func TestMarketingSummary(t *testing.T) {
-	s := marketingSummary(sampleMarketing, map[string]string{"gtm": "GTM-1"}, false)
+	s := marketingSummary(sampleMarketing, map[string]string{"gtm": "GTM-1"}, nil)
 	for _, want := range []string{"icons", "social defaults", "1 social profile(s)",
 		"1 verification token(s)", "analytics: true"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("summary missing %q: %s", want, s)
 		}
 	}
-	if s := marketingSummary(sampleMarketing, map[string]string{"gtm": "GTM-1"}, true); !strings.Contains(s, "rendered") {
+	if s := marketingSummary(sampleMarketing, map[string]string{"gtm": "GTM-1"}, map[string]string{"gtm": "GTM-1"}); !strings.Contains(s, "rendered") {
 		t.Errorf("enabled state must say so: %s", s)
 	}
-	if s := marketingSummary(models.Marketing{}, nil, false); s != "" {
+	if s := marketingSummary(models.Marketing{}, nil, nil); s != "" {
 		t.Errorf("nothing found → no line, got %q", s)
 	}
 }

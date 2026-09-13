@@ -143,11 +143,11 @@ func TestFeedAutodiscoverySkipsUnusable(t *testing.T) {
 		{Title: "no path"},
 		{Path: "/x.xml", Format: "sitemap"},
 	}
-	if links := g.feedAutodiscoveryLinks(); links != "" {
+	if links := g.feedAutodiscoveryLinks(""); links != "" {
 		t.Errorf("unusable feeds must not be advertised, got:\n%s", links)
 	}
 	page := `<html><head><title>H</title></head><body>x</body></html>`
-	if got := g.injectFeedLinks(page); got != page {
+	if got := g.injectFeedLinks(page, ""); got != page {
 		t.Errorf("empty link set must inject nothing, got:\n%s", got)
 	}
 }

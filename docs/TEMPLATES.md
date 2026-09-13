@@ -467,7 +467,7 @@ never shows last year's footer without anyone editing anything.
 | `.SeriesPrevURL`, `.SeriesPrevTitle` | Previous series item |
 | `.SeriesNextURL`, `.SeriesNextTitle` | Next series item |
 | `.Lang`, `.Languages`, `.DefaultLanguage` | Language state |
-| `.Translations`, `.Hreflang` | Language switching/alternate links |
+| `.Translations`, `.Hreflang` | Language switching/alternate links. Each translation carries `.IsCurrent` for the page being rendered, as `.Page.Translations` does |
 
 The `models.Page` struct is also available as a nested value — but the key differs
 by content type: **`.Page` in `page.html`, `.Post` in `post.html`.** A post

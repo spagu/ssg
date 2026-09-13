@@ -273,3 +273,45 @@ func TestI18nHelperEdges(t *testing.T) {
 		t.Errorf("languagePages = %+v", got)
 	}
 }
+
+// TestRootTranslationsMarkTheCurrentLanguage — #275. A switcher written as
+// {{range .Translations}} used to mark nothing, because the root value was the
+// group's shared slice; .Page.Translations, set per page, did. Both spellings
+// must now agree, and flagging one page's copy must not leak into the shared
+// slice another page reads.
+func TestRootTranslationsMarkTheCurrentLanguage(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", Languages: []string{"pl", "en"}, DefaultLanguage: "pl", I18n: ssgi18n.Config{Enabled: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.siteData.Pages = []models.Page{
+		{Title: "O nas", Slug: "o-nas", Lang: "pl", TranslationKey: "about", Type: "page", SourceFile: "about.pl.md"},
+		{Title: "About", Slug: "about", Lang: "en", TranslationKey: "about", Type: "page", SourceFile: "about.en.md"},
+	}
+	if err := g.finalizeLoadedContent(); err != nil {
+		t.Fatal(err)
+	}
+	for _, page := range g.siteData.Pages {
+		root, ok := g.pageToTemplateData(page, false)["Translations"].([]Translation)
+		if !ok || len(root) != 2 {
+			t.Fatalf("%s: root Translations = %#v", page.Lang, root)
+		}
+		for i, tr := range root {
+			if tr.IsCurrent != page.Translations[i].IsCurrent {
+				t.Errorf("%s: .Translations[%s].IsCurrent = %v, .Page.Translations says %v",
+					page.Lang, tr.Lang, tr.IsCurrent, page.Translations[i].IsCurrent)
+			}
+			if tr.IsCurrent != (tr.Lang == page.Lang) {
+				t.Errorf("%s: %s marked current = %v", page.Lang, tr.Lang, tr.IsCurrent)
+			}
+		}
+	}
+	for _, tr := range g.translationsFor(g.siteData.Pages[0]) {
+		if tr.IsCurrent {
+			t.Error("the shared translation slice was modified")
+		}
+	}
+	if got := g.currentTranslations(models.Page{Slug: "nothing", TranslationKey: "none"}); len(got) != 0 {
+		t.Errorf("a page with no translations got %#v", got)
+	}
+}

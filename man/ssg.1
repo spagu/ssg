@@ -494,7 +494,7 @@ Explicit dart-sass binary; default is \fBsass\fR resolved from PATH.
 .TP
 .BR \-\-paginate =\fIN
 Posts per index page; adds \fB/page/N/\fR pages and a \fB.Pager\fR context. 0 disables
-pagination (default).
+pagination (default). The config key is \fBpaginate\fR, not \fBposts_per_page\fR.
 .TP
 .B \-\-lastmod\-from\-git
 Derive sitemap \fB<lastmod>\fR from each source file's last git commit (fallback:
@@ -545,6 +545,12 @@ Maximum items per feed (default: 20).
 .TP
 .BR \-\-check\-links "[=" \fIstrict ]
 Validate internal links against the output; \fBstrict\fR fails the build on a dead link.
+.TP
+.B \-\-strict
+Escalate soft build problems into failures: \fBcontent_schemas\fR violations,
+internal links (checked even without \fB\-\-check\-links\fR), and Markdown whose
+frontmatter is not valid YAML \(em a colon inside an unquoted value is the usual
+cause. Without it those files are listed with the cause and left out.
 .TP
 .B \-\-edit
 Turn the preview server into an editor: a region a theme marked with

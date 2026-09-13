@@ -161,3 +161,44 @@ func TestTheCopyIsEscaped(t *testing.T) {
 		t.Errorf("the body was not escaped:\n%s", got)
 	}
 }
+
+// TestThe404SpeaksTheDefaultLanguageNotTheLastRendered — #283. The 404 is
+// written once, after every language has rendered, and it used to read the
+// language the loop happened to finish on: a Polish site with a Romanian
+// translation served its Polish visitors a Romanian 404. "ro" sorts after "pl",
+// which is exactly the order that exposed it.
+func TestThe404SpeaksTheDefaultLanguageNotTheLastRendered(t *testing.T) {
+	tmp := polishSite(t, map[string]string{
+		"not_found.title": "404 — nie znaleziono strony",
+		"not_found.body":  "Ta strona nie istnieje w serwisie {{site}}.",
+		"not_found.home":  "Przejdź na stronę główną",
+	})
+	mustWrite(t, filepath.Join(tmp, "content", "site", "pages", "despre.md"),
+		"---\ntitle: Despre\nslug: despre\nstatus: publish\ntype: page\nlang: ro\n---\n\nText.\n")
+	mustWrite(t, filepath.Join(tmp, "i18n", "ro.yaml"),
+		"not_found:\n  title: \"404 — pagina nu a fost găsită\"\n  body: \"Această pagină nu se află pe {{site}}.\"\n  home: \"Pagina principală\"\n")
+	cfg := Config{
+		Source: "site", Template: "scaffold404", Domain: "example.com",
+		DefaultLanguage: "pl", Languages: []string{"pl", "ro"},
+		I18n:       ssgi18n.Config{Enabled: true, TranslationsDir: filepath.Join(tmp, "i18n")},
+		ContentDir: filepath.Join(tmp, "content"), TemplatesDir: filepath.Join(tmp, "templates"),
+		OutputDir: filepath.Join(tmp, "output"), Quiet: true,
+	}
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if gen.currentLang != "ro" {
+		t.Fatalf("fixture no longer finishes on ro (currentLang=%q), so it proves nothing", gen.currentLang)
+	}
+	page := mustRead(t, filepath.Join(tmp, "output", "404.html"))
+	if !strings.Contains(page, `<html lang="pl">`) || !strings.Contains(page, "nie znaleziono strony") {
+		t.Errorf("the 404 must speak the default language:\n%s", page)
+	}
+	if strings.Contains(page, "găsită") {
+		t.Error("the 404 took the language of the last render")
+	}
+}

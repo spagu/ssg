@@ -172,3 +172,42 @@ func TestThemeSuppliedTrackingIsNotDuplicated(t *testing.T) {
 		t.Errorf("the theme already wired it; the generator should not add a second:\n%s", got)
 	}
 }
+
+// TestAPlaceholderIDIsNotRendered — #276. A committed GTM-XXXXXXX waiting for a
+// human must not inject a container that does not exist into every page, from
+// the config or from a crawl.
+func TestAPlaceholderIDIsNotRendered(t *testing.T) {
+	got := gtmSite(t, func(cfg *Config) {
+		cfg.AnalyticsIDs = map[string]string{"gtm": "GTM-XXXXXXX", "ga4": "G-REAL12345"}
+	})
+	if strings.Contains(got, "GTM-XXXXXXX") {
+		t.Errorf("a placeholder container was injected:\n%s", got)
+	}
+	if !strings.Contains(got, "G-REAL12345") {
+		t.Errorf("a real id beside the placeholder must still render:\n%s", got)
+	}
+	g := &Generator{config: Config{Analytics: true}}
+	g.siteData = newTestGen(t, "").siteData
+	g.siteData.Analytics = map[string]string{"gtm": "gtm-xxxxxxx"}
+	if ids := g.analyticsIDs(); len(ids) != 0 {
+		t.Errorf("a crawled placeholder must not render either, got %v", ids)
+	}
+}
+
+// TestTheSummarySaysWhatTheBuildDoes — #276. A declared id renders on its own,
+// and the line used to tell the operator to set `analytics: true` for it.
+func TestTheSummarySaysWhatTheBuildDoes(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.AnalyticsIDs = map[string]string{"gtm": "GTM-ABC1234", "ga4": "G-XXXXXXXXXX"}
+	g.siteData.Analytics = map[string]string{"gtm": "GTM-ABC1234", "ga4": "G-XXXXXXXXXX", "matomo": "7"}
+	s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.analyticsIDs())
+	for _, want := range []string{
+		"gtm (rendered)",
+		"ga4 (placeholder id, replace it to render)",
+		"matomo (set `analytics: true` to render)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("summary missing %q: %s", want, s)
+		}
+	}
+}

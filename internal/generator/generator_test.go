@@ -1010,8 +1010,11 @@ func TestLoadMetadata(t *testing.T) {
 	}
 }
 
+// TestLoadMetadataNotFound: an absent metadata.json is an empty set, not a
+// failure — a hand-made site has nothing to put in it (#277).
 func TestLoadMetadataNotFound(t *testing.T) {
 	gen := &Generator{
+		config: Config{Quiet: true},
 		siteData: &models.SiteData{
 			Categories: make(map[int]models.Category),
 			Media:      make(map[int]models.MediaItem),
@@ -1019,9 +1022,11 @@ func TestLoadMetadataNotFound(t *testing.T) {
 		},
 	}
 
-	err := gen.loadMetadata("/nonexistent/metadata.json")
-	if err == nil {
-		t.Error("Expected error for nonexistent file")
+	if err := gen.loadMetadata("/nonexistent/metadata.json"); err != nil {
+		t.Errorf("a missing metadata.json must build as empty metadata, got %v", err)
+	}
+	if len(gen.siteData.Categories) != 0 || len(gen.siteData.Authors) != 0 {
+		t.Error("empty metadata must leave the site with no categories or authors")
 	}
 }
 
@@ -2774,7 +2779,7 @@ func TestLoadContentMetadataError(t *testing.T) {
 		t.Fatalf("Failed to create pages dir: %v", err)
 	}
 
-	// No metadata.json - should fail
+	// No source directory at all — a mistyped `source:` — still fails (#277).
 	gen := &Generator{
 		config: Config{
 			Source:     "test-source",
@@ -2787,9 +2792,10 @@ func TestLoadContentMetadataError(t *testing.T) {
 		},
 	}
 
+	gen.config.Source = "no-such-source"
 	err := gen.loadContent()
-	if err == nil {
-		t.Error("Expected error when metadata.json is missing")
+	if err == nil || !strings.Contains(err.Error(), "check `source:`") {
+		t.Errorf("a missing source directory must name the key to check, got %v", err)
 	}
 }
 

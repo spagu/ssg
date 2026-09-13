@@ -106,3 +106,20 @@ func TestUnknownFieldName(t *testing.T) {
 		t.Error("unrelated error parsed as an unknown-field complaint")
 	}
 }
+
+// TestAKeyNamedElsewhereNamesTheRealOne — #278. posts_per_page is spelled
+// correctly; it is simply another generator's name for paginate.
+func TestAKeyNamedElsewhereNamesTheRealOne(t *testing.T) {
+	path := writeConfig(t, ".ssg.yaml", "template: simple\ndomain: example.com\nposts_per_page: 9\n")
+	out := captureStderr(t, func() {
+		if _, err := Load(path); err != nil {
+			t.Errorf("Load: %v", err)
+		}
+	})
+	if !strings.Contains(out, `unknown configuration key "posts_per_page" — ignored. The key is "paginate"`) {
+		t.Errorf("stderr does not name paginate: %q", out)
+	}
+	if strings.Contains(out, "Check the spelling") {
+		t.Errorf("the spelling was right; the advice must not say otherwise: %q", out)
+	}
+}

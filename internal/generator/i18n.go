@@ -74,6 +74,28 @@ func (g *Generator) translationURL(lang string, value any) string {
 	return ""
 }
 
+// currentTranslations is a page's language variants with the one being
+// rendered marked current (#275).
+//
+// translationsFor hands back the group's shared slice, built once for every
+// member, so it cannot know which page is asking — every entry came back with
+// IsCurrent false, and a switcher built from root .Translations marked nothing,
+// while .Page.Translations, set per page, did. The two read as the same value,
+// so they now are: a copy, flagged with the rule .Page.Translations uses. A
+// copy, because the shared slice is read concurrently by the render pool.
+func (g *Generator) currentTranslations(p models.Page) []Translation {
+	shared := g.translationsFor(p)
+	if len(shared) == 0 {
+		return shared
+	}
+	out := make([]Translation, len(shared))
+	for i, tr := range shared {
+		tr.IsCurrent = tr.Lang == p.Lang
+		out[i] = tr
+	}
+	return out
+}
+
 func (g *Generator) languageURL(lang string) string {
 	prefix := ssgi18n.Prefix(lang, g.config.DefaultLanguage, g.config.I18n)
 	if prefix == "" {

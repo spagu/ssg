@@ -300,6 +300,20 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 `trimPrefix`/`trimSuffix` exist because testing for an affix without being able
 to remove one left no way to strip an extension inside a template (#103).
 
+### `upper`, `lower`, `title` — letter case
+
+```gotemplate
+{{ range .Page.Translations }}<a href="{{ .URL }}" hreflang="{{ .Lang }}">{{ upper .Lang }}</a>{{ end }}
+{{ lower "PL" }}              {{/* pl */}}
+{{ title "hello wide world" }} {{/* Hello Wide World */}}
+```
+
+Named as Hugo names them, so a theme ports over. `title` applies no language's
+special rules, because a template does not say which language a string is in.
+Available in shortcode templates too. CSS `text-transform` is not a substitute:
+it changes the glyphs, not the accessible name, and it cannot reach an attribute
+(#280).
+
 ### `toJSON` — a value as inline JSON
 
 ```gotemplate
@@ -519,7 +533,8 @@ theme actually needs (column splits, "page N of M", index offsets).
   every helper above.
 - **Shortcode templates**: the safe, deterministic subset — `slice`, `append`, `in`,
   `notIn`, `contains`, `startsWith`, `endsWith`, `hasPrefix`, `hasSuffix`,
-  `matches`, `isNil`, `isEmpty`, `ternary` — plus the image helpers
+  `trimPrefix`, `trimSuffix`, `matches`, `isNil`, `isEmpty`, `ternary`, `upper`,
+  `lower`, `title` — plus the image helpers
   (`imageResize`, `imageSrcSet`, …) and the read-only external-source helpers
   (`getExternal`, `getExternalMeta`). Collection helpers that walk site-wide
   data stay theme-only.

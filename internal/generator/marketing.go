@@ -100,20 +100,33 @@ func (g *Generator) analyticsSnippet(existing string) string {
 // `analytics_ids:` are the owner asking for them, so they render on their own.
 // Ids a migration's crawl recorded still need `analytics: true`, because
 // nobody chose those — they are what the old site happened to be running.
+//
+// A placeholder id is never emitted, from either source (#276): a committed
+// `GTM-XXXXXXX` waiting for a human to replace it would otherwise inject a
+// container that does not exist into every page.
 func (g *Generator) analyticsIDs() map[string]string {
+	source := g.config.AnalyticsIDs
 	if g.config.Analytics {
-		return g.siteData.Analytics
+		source = g.siteData.Analytics
 	}
-	if len(g.config.AnalyticsIDs) == 0 {
+	if len(source) == 0 {
 		return nil
 	}
-	declared := make(map[string]string, len(g.config.AnalyticsIDs))
-	for vendor, id := range g.config.AnalyticsIDs {
-		if strings.TrimSpace(id) != "" {
-			declared[vendor] = id
+	out := make(map[string]string, len(source))
+	for vendor, id := range source {
+		if strings.TrimSpace(id) != "" && !isPlaceholderID(id) {
+			out[vendor] = id
 		}
 	}
-	return declared
+	return out
+}
+
+// isPlaceholderID reports an id that is a stand-in rather than a container:
+// the vendor docs' own `GTM-XXXXXXX` / `G-XXXXXXXXXX`, which is also the form
+// the bundled ssgtheme ships inert. Four X in a row does not occur in a real
+// id by accident.
+func isPlaceholderID(id string) bool {
+	return strings.Contains(strings.ToUpper(id), "XXXX")
 }
 
 // injectAnalytics places both halves of the tracking snippets: the scripts in
@@ -183,7 +196,12 @@ func jsString(s string) string {
 
 // marketingSummary describes what a build inherited from the source site, so
 // the operator sees it once instead of discovering it in the page source.
-func marketingSummary(m models.Marketing, analytics map[string]string, analyticsOn bool) string {
+//
+// found is every id the build knows of; rendered is the set analyticsIDs will
+// actually emit. The line used to derive its verdict from `analytics: true`
+// alone, so an id declared in `analytics_ids:` — which renders on its own — was
+// reported as waiting for the flag (#276).
+func marketingSummary(m models.Marketing, found, rendered map[string]string) string {
 	var parts []string
 	if m.Favicon != "" || m.AppleTouchIcon != "" {
 		parts = append(parts, "icons")
@@ -197,15 +215,37 @@ func marketingSummary(m models.Marketing, analytics map[string]string, analytics
 	if len(m.Verification) > 0 {
 		parts = append(parts, fmt.Sprintf("%d verification token(s)", len(m.Verification)))
 	}
-	if len(analytics) > 0 {
-		state := "set `analytics: true` to render"
-		if analyticsOn {
-			state = "rendered"
-		}
-		parts = append(parts, fmt.Sprintf("%s (%s)", strings.Join(sortedKeys(analytics), "+"), state))
-	}
+	parts = append(parts, analyticsStates(found, rendered)...)
 	if len(parts) == 0 {
 		return ""
 	}
 	return strings.Join(parts, ", ")
+}
+
+// analyticsStates groups the vendors by what the build does with their ids:
+// rendered, held back as a placeholder, or waiting for `analytics: true`.
+func analyticsStates(found, rendered map[string]string) []string {
+	const (
+		stateRendered    = "rendered"
+		statePlaceholder = "placeholder id, replace it to render"
+		stateGated       = "set `analytics: true` to render"
+	)
+	byState := map[string][]string{}
+	for _, vendor := range sortedKeys(found) {
+		state := stateGated
+		switch {
+		case rendered[vendor] != "":
+			state = stateRendered
+		case isPlaceholderID(found[vendor]):
+			state = statePlaceholder
+		}
+		byState[state] = append(byState[state], vendor)
+	}
+	var out []string
+	for _, state := range []string{stateRendered, statePlaceholder, stateGated} {
+		if vendors := byState[state]; len(vendors) > 0 {
+			out = append(out, fmt.Sprintf("%s (%s)", strings.Join(vendors, "+"), state))
+		}
+	}
+	return out
 }

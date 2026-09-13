@@ -9,6 +9,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.62] - 2026-09-13
 
+Eleven reports from building one three-language site by hand. None of them
+broke a build outright; each one cost time because the build said nothing, or
+said something that was not true.
+
+### Added
+- 🔠 **`upper`, `lower` and `title` template helpers** (#280), named as Hugo
+  names them, in page and shortcode templates. A language switcher renders
+  `EN PL RO` from the codes themselves instead of carrying an if/else per
+  language, which is the hardcoding the i18n config exists to avoid. CSS
+  `text-transform` was never a substitute: it changes the glyphs, not the
+  accessible name, and it cannot reach an attribute.
+- 🧭 **An unknown `posts_per_page` names the key it meant** (#278). The warning
+  said "check the spelling", and the spelling was right: it is another
+  generator's name for `paginate`, which the configuration table did not list
+  beside `posts_page`. It does now, and `per_page`, `pagination` and
+  `pager_size` get the same answer.
+
+### Fixed
+- 🔇 **A page dropped for a missing `status:` is named** (#274). Files with
+  frontmatter but no status line were drafts by rule and dropped in silence: ten
+  pages on disk, "Loaded 0 pages", nothing else. The build now lists them per
+  directory after the counts. A status deliberately set to `draft` stays quiet,
+  because that one was a decision; nothing about what is published changes.
+- 🧾 **Unparseable frontmatter names its cause, and fails under `strict`**
+  (#279). A description with a colon in it — natural to write, invalid unquoted
+  YAML — dropped the page with YAML's "mapping values are not allowed in this
+  context" and a build that exited 0. The file is now listed with the likely
+  cause and the fix (quote the value), and `strict: true` fails the build on it.
+  Outside strict the page is still left out, as before.
+- 📂 **A site without `metadata.json` builds** (#277). A hand-made site has no
+  categories, authors or exported media, and its first build failed with a raw
+  `open …: no such file or directory`. A missing file is now an empty set, with
+  one line naming the file and the empty JSON that silences it. A `source:` that
+  names no directory still fails, and now says which key to check, rather than
+  building an empty site.
+- 🌐 **Root `.Translations` marks the current language** (#275). It was the
+  translation group's shared slice, so every entry had `IsCurrent: false` and a
+  switcher built from it highlighted nothing, while `.Page.Translations`
+  worked. Both spellings now agree.
+- 🗺️ **The sitemap carries language alternates for the front pages and the post
+  listings** (#281). On an `en`/`pl`/`ro` site these were the six entries
+  without `xhtml:link`, while the front page's own HTML listed all three
+  languages. A front page takes the alternates of the page that resolves there;
+  `/blog/`, `/pl/blog/` and `/ro/blog/` are each other's.
+- 📰 **Feed autodiscovery follows the page's language, under the site's name**
+  (#282). Every page advertised `/feed.xml`, so subscribing from `/pl/` got the
+  English posts — and with `prefix_default_language` a file that was never
+  written. A page now offers its own language's feed. The built-in feed and its
+  link are titled after `title:` where the site sets one, instead of the domain.
+- 🗣️ **The generated 404 speaks the default language** (#283). It used whichever
+  language the build rendered last, so a UK site with Polish and Romanian
+  translations served British visitors a Romanian 404, and adding a language
+  could change it again.
+- 🔗 **A page slugged `404` addresses `/404.html`** (#284). It was written there,
+  but its canonical, `og:url` and hreflang named `/404/`, a directory nobody
+  wrote, so `check_links: strict` failed the build on the page's own head. A
+  `link:` in frontmatter still wins.
+- 📊 **The analytics line says what the build does** (#276). An id declared in
+  `analytics_ids:` renders on its own, as documented, but the log told the
+  operator to set `analytics: true` for it. The line now reports each id as
+  rendered, a placeholder, or waiting for the flag. A placeholder — four `X` in
+  a row, as in `GTM-XXXXXXX` — is no longer injected into every page, so a
+  config can commit the key before the real container exists.
+
+### Changed
+- ⚠️ **Behaviour changes to check before upgrading.** A missing `metadata.json`
+  no longer fails a build. `strict: true` now also fails on unparseable
+  frontmatter. An `analytics_ids` value containing `XXXX` is no longer
+  rendered. The built-in feed's title uses `title:` rather than the domain when
+  one is set, which is what a subscriber's reader shows.
+- 📖 CONFIGURATION.md documents `paginate` beside `posts_page`, the placeholder
+  rule for analytics ids, that a declared `static_dir` which does not exist is
+  skipped, and the per-language autodiscovery link. CONTENT.md, I18N.md,
+  TEMPLATES.md, TEMPLATE_HELPERS.md and the manpage (`--strict`) follow.
+
 ## [1.8.61] - 2026-09-11
 
 ### Added

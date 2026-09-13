@@ -51,6 +51,13 @@ func englishNotFound(domain string) notFoundCopy {
 // lines, one English one and `lang="pl"` is worse than a wholly English page:
 // the mislabelled part is the part a screen reader gets wrong, and nobody
 // proof-reads a 404.
+//
+// The language is the site's own, never the one currently rendering (#283).
+// generateNotFound runs once, after every language's render, so currentLang
+// still held whichever language the loop reached last: a UK site with Polish
+// and Romanian translations served its British visitors a Romanian 404, and
+// adding a fourth language would have changed it again. One root 404.html
+// answers every unmatched path, so it speaks the language the site declares.
 func (g *Generator) notFoundText() notFoundCopy {
 	// The old body said "This site" when no domain was configured; keep that,
 	// so a scaffolded project does not serve a sentence with a hole in it.
@@ -59,10 +66,7 @@ func (g *Generator) notFoundText() notFoundCopy {
 		site = "This site"
 	}
 	fallback := englishNotFound(site)
-	lang := g.currentLang
-	if lang == "" {
-		lang = g.config.DefaultLanguage
-	}
+	lang := g.config.DefaultLanguage
 	if g.catalog == nil || lang == "" {
 		return fallback
 	}

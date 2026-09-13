@@ -189,7 +189,7 @@ func TestFeedAutodiscoveryLinks(t *testing.T) {
 		{Path: "/blog/rss.xml", Title: "Blog", Format: "rss"},
 		{Path: "/all.json", Title: "All", Format: "json"},
 	}
-	links := g.feedAutodiscoveryLinks()
+	links := g.feedAutodiscoveryLinks("")
 	for _, want := range []string{
 		`type="application/atom+xml" title="ex.com" href="/feed.xml"`,
 		`type="application/atom+xml" title="Blog" href="/blog/feed.xml"`,
@@ -204,7 +204,7 @@ func TestFeedAutodiscoveryLinks(t *testing.T) {
 	// Injection lands in <head> on any page, including one with no page context —
 	// the homepage, which the SEO block never covered.
 	page := `<html><head><title>Home</title></head><body>x</body></html>`
-	got := g.injectFeedLinks(page)
+	got := g.injectFeedLinks(page, "")
 	if strings.Count(got, `rel="alternate"`) != 4 {
 		t.Errorf("expected four feed links in the head, got:\n%s", got)
 	}
@@ -214,13 +214,13 @@ func TestFeedAutodiscoveryLinks(t *testing.T) {
 
 	// A theme that advertises its own feed is left alone.
 	own := `<html><head><link rel="alternate" type="application/rss+xml" href="/mine.xml"></head></html>`
-	if g.injectFeedLinks(own) != own {
+	if g.injectFeedLinks(own, "") != own {
 		t.Error("a theme's own feed link must not be duplicated")
 	}
 
 	// Nothing configured ⇒ nothing injected.
 	g.config.Feed, g.config.Feeds = false, nil
-	if got := g.injectFeedLinks(page); got != page {
+	if got := g.injectFeedLinks(page, ""); got != page {
 		t.Errorf("no feeds configured must inject nothing, got:\n%s", got)
 	}
 }
@@ -250,18 +250,18 @@ func TestFeedAutodiscoveryCanBeDisabled(t *testing.T) {
 	g.config.Feeds = []models.FeedSpec{{Path: "/rss.xml", Format: "rss"}}
 	page := `<html><head><title>H</title></head><body>x</body></html>`
 
-	if got := g.injectFeedLinks(page); !strings.Contains(got, `rel="alternate"`) {
+	if got := g.injectFeedLinks(page, ""); !strings.Contains(got, `rel="alternate"`) {
 		t.Fatal("links should be injected by default")
 	}
 	off := false
 	g.config.FeedAutodiscovery = &off
-	if got := g.injectFeedLinks(page); got != page {
+	if got := g.injectFeedLinks(page, ""); got != page {
 		t.Errorf("feed_autodiscovery: false must inject nothing, got:\n%s", got)
 	}
 	// Explicit true is the default, not a third state.
 	on := true
 	g.config.FeedAutodiscovery = &on
-	if got := g.injectFeedLinks(page); !strings.Contains(got, `rel="alternate"`) {
+	if got := g.injectFeedLinks(page, ""); !strings.Contains(got, `rel="alternate"`) {
 		t.Error("feed_autodiscovery: true must inject")
 	}
 }
