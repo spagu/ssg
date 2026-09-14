@@ -455,8 +455,9 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #     status: 410
 # alias_stubs: true             # also write meta-refresh stub pages for aliases (default true)
 
-# Custom _headers blocks (GO-064). A pattern here replaces that default block;
-# unknown patterns are appended. Empty = the built-in security/cache defaults.
+# Custom _headers blocks (GO-064). A pattern matching a default block is merged
+# into it header by header — "" removes a header (#287); unknown patterns are
+# appended. Empty = the built-in security/cache defaults.
 # headers:
 #   /*:
 #     Content-Security-Policy: "default-src 'self'"

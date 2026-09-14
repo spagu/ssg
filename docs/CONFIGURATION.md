@@ -1054,7 +1054,10 @@ despite having asked for it, and a site with both on still had an untracked
 front page.
 
 Nothing is emitted while a value is empty, and a theme that already wires the
-same id keeps its own snippet rather than getting a second one.
+same id keeps its own snippet rather than getting a second one. Wiring means
+the id inside a `<script>` element, in its `src` or its body; a page that only
+mentions the id — a cookie notice listing the `_ga_<id>` cookie — still gets
+the tag.
 
 **A placeholder is not an id.** A value with four `X` in a row — the vendors'
 own `GTM-XXXXXXX` and `G-XXXXXXXXXX` — is held back from every page, so a
@@ -1100,7 +1103,7 @@ implemented.
 | `analytics_ids` | empty | — | Tracking ids this site declares, by vendor: `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Declaring one is its own consent. See [Analytics](#analytics) |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
-| `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
+| `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links: `href`/`src` in HTML, and `url()`/`@import` in stylesheets, reported with the stylesheet and line |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
@@ -2062,7 +2065,7 @@ and GitHub Action inputs are in [DEPLOYMENT.md](DEPLOYMENT.md).
 |---|---:|---|
 | `redirects` | empty | list of `{from, to, status, force}` rules |
 | `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` (`false` = 301 only; per-page frontmatter `alias_stubs` overrides) |
-| `headers` | empty | map of `path pattern → {header: value}` overrides |
+| `headers` | empty | map of `path pattern → {header: value}` overrides, merged into a built-in block header by header; `""` removes a header ([DEPLOYMENT.md](DEPLOYMENT.md#overriding-_headers)) |
 | `headers_defaults_off` | `false` | drop the built-in security/cache blocks |
 
 `redirects:` generates a real `_redirects` file: exact paths, `/old/*` splats

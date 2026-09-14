@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.62] - 2026-09-13
 
-Eleven reports from building one three-language site by hand. None of them
-broke a build outright; each one cost time because the build said nothing, or
-said something that was not true.
+Fourteen reports, eleven of them from building one three-language site by hand.
+None of them broke a build outright; each one cost time because the build said
+nothing, or said something that was not true.
 
 ### Added
 - 🔠 **`upper`, `lower` and `title` template helpers** (#280), named as Hugo
@@ -25,6 +25,13 @@ said something that was not true.
   generator's name for `paginate`, which the configuration table did not list
   beside `posts_page`. It does now, and `per_page`, `pagination` and
   `pager_size` get the same answer.
+- 🎨 **`check_links` follows `url()` and `@import` in stylesheets** (#286).
+  Rename a self-hosted font and the build stayed green while every page fell
+  back to another face — a missing `@font-face` source is not an error in any
+  browser. Every `.css` file in the output is now read, its references resolved
+  against the stylesheet as a browser resolves them, and a missing one reported
+  as `broken link in css/site.css:12 → /fonts/inter.woff2`. `data:`, external
+  URLs and `#fragment` filters are skipped, as in HTML.
 
 ### Fixed
 - 🔇 **A page dropped for a missing `status:` is named** (#274). Files with
@@ -72,17 +79,36 @@ said something that was not true.
   rendered, a placeholder, or waiting for the flag. A placeholder — four `X` in
   a row, as in `GTM-XXXXXXX` — is no longer injected into every page, so a
   config can commit the key before the real container exists.
+- 🍪 **A page that mentions a tracking id still gets the tag** (#285). The
+  "already wired by the theme" test looked for the id anywhere in the page, so
+  a cookie notice listing GA4's `_ga_<id>` cookie — the page that documents the
+  tracking — was the one page shipped without it. Only an id inside a
+  `<script>` element counts as wiring now.
+- 📍 **`Permissions-Policy` no longer disables geolocation, camera and
+  microphone for the site itself** (#287). `geolocation=()` refused
+  `navigator.geolocation` on the site's own pages without ever showing the
+  visitor a prompt, in `ssg --http` and in production alike, and nothing in the
+  build pointed at the header. The default is now `(self)`, which still blocks
+  every framed third party.
+- 🧱 **A `headers:` override merges into the built-in block** (#287). It used to
+  replace it, so changing one policy meant restating four security headers, and
+  forgetting one dropped `X-Frame-Options` silently. A header you name takes
+  your value, `""` removes it, the rest keep their defaults.
 
 ### Changed
-- ⚠️ **Behaviour changes to check before upgrading.** A missing `metadata.json`
-  no longer fails a build. `strict: true` now also fails on unparseable
-  frontmatter. An `analytics_ids` value containing `XXXX` is no longer
-  rendered. The built-in feed's title uses `title:` rather than the domain when
-  one is set, which is what a subscriber's reader shows.
+- ⚠️ **Behaviour changes to check before upgrading** — each is in
+  docs/UPGRADING.md. A missing `metadata.json` no longer fails a build.
+  `strict: true` now also fails on unparseable frontmatter, and `check_links`
+  strict on a stylesheet naming a missing file. An `analytics_ids` value
+  containing `XXXX` is no longer rendered. `Permissions-Policy` defaults to
+  `(self)`. A `headers:` override that left a header out to remove it now keeps
+  it — use `""`. The built-in feed's title uses `title:` rather than the domain
+  when one is set.
 - 📖 CONFIGURATION.md documents `paginate` beside `posts_page`, the placeholder
   rule for analytics ids, that a declared `static_dir` which does not exist is
   skipped, and the per-language autodiscovery link. CONTENT.md, I18N.md,
-  TEMPLATES.md, TEMPLATE_HELPERS.md and the manpage (`--strict`) follow.
+  TEMPLATES.md, TEMPLATE_HELPERS.md, DEPLOYMENT.md, UPGRADING.md and the
+  manpage (`--strict`, `--check-links`) follow.
 
 ## [1.8.61] - 2026-09-11
 

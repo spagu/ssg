@@ -74,7 +74,7 @@ func (g *Generator) analyticsSnippet(existing string) string {
 	var b strings.Builder
 	for _, vendor := range sortedKeys(ids) {
 		id := strings.TrimSpace(ids[vendor])
-		if id == "" || strings.Contains(existing, id) { // already wired by the theme
+		if id == "" || scriptMentions(existing, id) { // already wired by the theme
 			continue
 		}
 		switch strings.ToLower(vendor) {
@@ -92,6 +92,33 @@ func (g *Generator) analyticsSnippet(existing string) string {
 		}
 	}
 	return b.String()
+}
+
+// scriptMentions reports whether id appears inside a <script> element of page
+// — in its src or its body — which is where a theme that wired the tag itself
+// has it (#285).
+//
+// The test used to be the whole document, so a page that merely named the id
+// lost the tag: a cookie notice has to list GA4's `_ga_<id>` cookie, and the
+// one page documenting the tracking shipped without it, silently. Text, a
+// table cell or an attribute elsewhere is not wiring.
+func scriptMentions(page, id string) bool {
+	lower := strings.ToLower(page)
+	for from := 0; ; {
+		open := strings.Index(lower[from:], "<script")
+		if open < 0 {
+			return false
+		}
+		open += from
+		end := strings.Index(lower[open:], "</script")
+		if end < 0 {
+			end = len(lower) - open
+		}
+		if strings.Contains(page[open:open+end], id) {
+			return true
+		}
+		from = open + end
+	}
 }
 
 // analyticsIDs is the set of tracking ids this build will emit.
