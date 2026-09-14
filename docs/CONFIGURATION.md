@@ -155,13 +155,14 @@ keys, while the CLI is the project owner's own tool and edits anything.
 | `description` | empty | config only | Site tagline → `.Site.Description` |
 | `colors` | empty | config only | Palette by role → `.Site.Colors.<role>` and `--ssg-color-<role>` |
 | `posts_page` | empty | config only | Where the post listing goes, e.g. `blog` → `/blog/` |
+| `paginate` | `0` | `--paginate` | Posts per page of the post listing and archives, continued at `/page/2/`; `0` puts them all on one page. Other generators call this `posts_per_page` |
 | `content_dir` | `content` | `--content-dir` | Parent of local sources |
 | `content_sources` | empty | `--content-source` (repeatable) | Extra Markdown roots merged into the site; see [CONTENT.md](CONTENT.md#extra-sources-content_sources) |
 | `auto_excerpt` | `false` | `--auto-excerpt` | Derive a missing excerpt from the opening paragraph |
 | `flat_posts` | `false` | — | Load Markdown sitting directly in `posts/` as posts, not only from folders under it |
 | `templates_dir` | `templates` | `--templates-dir` | Parent of themes |
 | `output_dir` | `output` | `--output-dir` | Generated site destination |
-| `static_dir` | `static` | `--static-dir` | Verbatim passthrough files |
+| `static_dir` | `static` | `--static-dir` | Verbatim passthrough files. A declared directory that does not exist is skipped, not an error |
 | `static_sources` | empty | config only | Extra verbatim passthrough roots, each keeping its own name |
 | `data_dir` | `data` | `--data-dir` | YAML/JSON data for `.Data` |
 | `pages_path` | `pages` | config only | Pages directory inside a source |
@@ -221,6 +222,14 @@ reported, not silent:
 move its listing off the root. In multilingual builds the language prefix comes
 first (`/pl/blog/`), and each language has its own front page.
 
+The two are usually set together with `paginate`, which decides how many posts
+each page of the listing holds:
+
+```yaml
+posts_page: blog
+paginate: 9          # /blog/, /blog/page/2/, … — 0 (the default) is one page
+```
+
 ### Extra feeds (`feeds`)
 
 `feed: true` publishes one Atom feed of every post at `/feed.xml`, plus one per
@@ -264,9 +273,10 @@ feeds:
 
 Two things worth knowing even if you only ever want Atom:
 
-- **`feed: true` names the feed after the bare hostname.** A declared feed takes a
-  `title`, so it can be called what it actually is. That alone is a reason to
-  declare one rather than rely on `feed: true`.
+- **`feed: true` names the feed after the site's `title`**, and after the bare
+  hostname only when there is none; under i18n each language's feed adds the
+  language name, `Magna Valor (Polski)`. A declared feed takes a `title` of its
+  own, so it can be called what it actually is.
 - **SSG injects the autodiscovery `<link>` tags itself**, for every feed, into
   every page — so a theme should *not* hand-write them or the page ships
   duplicates. Turn injection off with `feed_autodiscovery: false` if the theme
@@ -354,6 +364,11 @@ Every published feed gets its own `<link rel="alternate">` with the correct MIME
 type and title, injected into **every page including the homepage** — a reader
 offering a choice reads exactly those links, so one Atom link would hide the rest.
 A theme that advertises its own feed is left alone.
+
+On a multilingual site the `feed: true` link follows the page's language: a page
+under `/pl/` offers `/pl/feed.xml`, the feed of the posts it is written in,
+rather than the default language's `/feed.xml`. A page in a language the site
+does not declare keeps the root feed.
 
 Set `feed_autodiscovery: false` to keep the feeds but **stop the injection into
 your HTML** — for a theme that wants control over the links' order, their titles,
@@ -1039,7 +1054,23 @@ despite having asked for it, and a site with both on still had an untracked
 front page.
 
 Nothing is emitted while a value is empty, and a theme that already wires the
-same id keeps its own snippet rather than getting a second one. Every bundled
+same id keeps its own snippet rather than getting a second one. Wiring means
+the id inside a `<script>` element, in its `src` or its body; a page that only
+mentions the id — a cookie notice listing the `_ga_<id>` cookie — still gets
+the tag.
+
+**A placeholder is not an id.** A value with four `X` in a row — the vendors'
+own `GTM-XXXXXXX` and `G-XXXXXXXXXX` — is held back from every page, so a
+config can commit the key with a stand-in for someone to fill in later without
+injecting a container that does not exist. The build says which ids it is doing
+what with:
+
+```text
+   🎯 Site metadata: gtm (rendered), ga4 (placeholder id, replace it to render)
+```
+
+An id a migration recorded and nobody declared reads
+``set `analytics: true` to render``. Every bundled
 theme carries a comment in its head pointing here, so there is no theme edit to
 make.
 
@@ -1072,7 +1103,7 @@ implemented.
 | `analytics_ids` | empty | — | Tracking ids this site declares, by vendor: `gtm: GTM-XXXXXXX`, `ga4: G-XXXXXXX`. Declaring one is its own consent. See [Analytics](#analytics) |
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
-| `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links |
+| `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links: `href`/`src` in HTML, and `url()`/`@import` in stylesheets, reported with the stylesheet and line |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
@@ -1084,7 +1115,7 @@ implemented.
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
 | `content_exclude` | empty | — | Globs for Markdown under `content_dir` that is **not** a page |
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
-| `strict` | `false` | `--strict` | Escalate schema violations and link checks to build failures |
+| `strict` | `false` | `--strict` | Escalate schema violations, link checks and unparseable frontmatter to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
 | `profile` | `` | `--profile[=json]` | Report where the build's time went; `json` also writes `build-profile.json` |
 | `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
@@ -1433,9 +1464,10 @@ resolve automatically; any other name is read from the page's custom frontmatter
 
 Violations **warn** by default so a site can adopt schemas incrementally. Turn on
 `strict` (or `--strict`) to make them — and internal link checking — **hard build
-failures**: a renamed slug that orphans a link, or a post missing a required
-field, then fails the build instead of shipping. `strict` enables link checking
-even when `check_links` is unset.
+failures**: a renamed slug that orphans a link, a post missing a required
+field, or a Markdown file whose frontmatter is not valid YAML then fails the
+build instead of shipping. `strict` enables link checking even when
+`check_links` is unset.
 
 ### Validating the built output
 
@@ -2033,7 +2065,7 @@ and GitHub Action inputs are in [DEPLOYMENT.md](DEPLOYMENT.md).
 |---|---:|---|
 | `redirects` | empty | list of `{from, to, status, force}` rules |
 | `alias_stubs` | `true` | also write meta-refresh stub pages for `aliases:` (`false` = 301 only; per-page frontmatter `alias_stubs` overrides) |
-| `headers` | empty | map of `path pattern → {header: value}` overrides |
+| `headers` | empty | map of `path pattern → {header: value}` overrides, merged into a built-in block header by header; `""` removes a header ([DEPLOYMENT.md](DEPLOYMENT.md#overriding-_headers)) |
 | `headers_defaults_off` | `false` | drop the built-in security/cache blocks |
 
 `redirects:` generates a real `_redirects` file: exact paths, `/old/*` splats

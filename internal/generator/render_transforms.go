@@ -176,11 +176,11 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 // prettify or minify. Pages pass their models.Page for SEO; page-less HTML
 // (index, archives, alias stubs) passes nil.
 func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) string {
+	lang := g.currentLang
+	if page != nil && page.Lang != "" {
+		lang = page.Lang
+	}
 	if g.config.I18n.Enabled {
-		lang := g.currentLang
-		if page != nil && page.Lang != "" {
-			lang = page.Lang
-		}
 		if lang != "" {
 			htmlLang := regexp.MustCompile(`(?i)<html([^>]*?)\s+lang=(?:"[^"]*"|'[^']*')`)
 			if htmlLang.MatchString(s) {
@@ -229,7 +229,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// context. The SEO block runs only for posts and pages, so the site homepage
 	// — the first place a reader or a subscription tool looks — never advertised
 	// a feed at all (#86).
-	s = g.injectFeedLinks(s)
+	s = g.injectFeedLinks(s, lang)
 	if g.config.Math {
 		s = mathHTMLString(s)
 	}

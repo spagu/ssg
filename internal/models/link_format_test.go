@@ -41,3 +41,27 @@ func TestHasPageExtension(t *testing.T) {
 		}
 	}
 }
+
+// TestThe404PageAddressesTheFileWritten covers #284: a page whose path is
+// "404" is written to /404.html under every page_format, so its address must
+// name that file rather than a /404/ directory nobody wrote. A language
+// prefix, a post's date path or an explicit link: are not the special case.
+func TestThe404PageAddressesTheFileWritten(t *testing.T) {
+	cases := []struct {
+		name string
+		page Page
+		want string
+	}{
+		{"directory", Page{Type: "page", Slug: "404", PageFormat: "directory"}, "/404.html"},
+		{"both", Page{Type: "page", Slug: "404", PageFormat: "both"}, "/404.html"},
+		{"flat", Page{Type: "page", Slug: "404", PageFormat: "flat"}, "/404.html"},
+		{"link wins", Page{Type: "page", Slug: "404", Link: "/not-found/", PageFormat: "directory"}, "/not-found/"},
+		{"language prefix", Page{Type: "page", Slug: "404", LangPrefix: "pl", PageFormat: "directory"}, "/pl/404/"},
+		{"a slug that only contains 404", Page{Type: "page", Slug: "error-404", PageFormat: "directory"}, "/error-404/"},
+	}
+	for _, c := range cases {
+		if got := c.page.GetURL(); got != c.want {
+			t.Errorf("%s: GetURL() = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

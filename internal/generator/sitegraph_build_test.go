@@ -256,7 +256,7 @@ func TestWriteSiteGraphReportsAnUnwritableOutput(t *testing.T) {
 // of kind "listing"; the root one is the home page, not a section.
 func TestGraphSectionsListsPostListings(t *testing.T) {
 	g := newTestGen(t, "")
-	g.postsListings = map[string]bool{"": true, "pl/blog": true, "blog": true}
+	g.postsListings = map[string]string{"": "", "pl/blog": "pl", "blog": "en"}
 	got := g.graphSections()
 	if len(got) != 2 || got[0].Path != "/blog/" || got[1].Path != "/pl/blog/" || got[0].Kind != "listing" {
 		t.Errorf("sections = %+v", got)

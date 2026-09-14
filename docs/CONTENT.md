@@ -75,8 +75,12 @@ content/
 
 The loader follows these rules:
 
-1. `metadata.json` is required for a local source. Unknown JSON fields are
-   ignored, which allows direct use of larger export metadata files.
+1. `metadata.json` is optional. Without it the site has no categories,
+   authors, tags or exported media, and the build says so in one line naming
+   the file; a site written by hand has nothing to put in it. Unknown JSON
+   fields are ignored, which allows direct use of larger export metadata files.
+   The source directory itself must exist: a mistyped `source:` fails the build
+   and names the key to check, rather than building an empty site.
 2. Pages are loaded recursively from `pages/`.
 3. Posts must be below at least one directory inside `posts/`. A Markdown file
    placed directly in `posts/` is ignored — but the build now names it rather
@@ -100,7 +104,15 @@ The `pages/` and `posts/` names can be changed with `pages_path` and
 
 ## metadata.json
 
-The metadata file supplies categories, authors and exported media records:
+The metadata file supplies categories, authors and exported media records. A
+site with none of those can leave it out; the empty form, which also silences
+the build's note about the missing file, is:
+
+```json
+{"categories":[],"users":[],"tags":[],"media":[]}
+```
+
+A populated one looks like this:
 
 ```json
 {
@@ -182,6 +194,32 @@ The full Markdown article starts here.
 
 Files with frontmatter are included only when `status` is exactly `publish`.
 Any other value, including an omitted status, is treated as a draft.
+
+An omitted status is the one draft nobody chose, so the build names those files
+after the load counts — a deliberate `status: draft` stays quiet:
+
+```text
+   ⚠️  2 Markdown file(s) in content/my-blog/pages were parsed but not published — they have no `status: publish` line: about.md, terms.md
+```
+
+Frontmatter that is not valid YAML keeps the file out of the site too, and is
+listed with YAML's reason and, where there is one, the usual cause. The
+commonest is a colon inside an unquoted value:
+
+```text
+   ⚠️  1 Markdown file(s) were not published — their frontmatter could not be parsed:
+        content/my-blog/pages/shop.md: yaml: line 3: mapping values are not allowed in this context
+          an unquoted ":" inside a value? Wrap the whole value in double quotes.
+```
+
+```yaml
+description: "Sensors that feed verdicts: humidity and a GSM relay."
+```
+
+With `strict: true` an unparseable file fails the build instead, so a site
+missing a whole section cannot ship with exit status 0. A Markdown file that is
+data rather than content belongs in `content_exclude`, which is checked before
+parsing.
 
 A plain `.md` file without frontmatter is accepted and treated as published.
 Frontmatter is still recommended for anything other than imported plain

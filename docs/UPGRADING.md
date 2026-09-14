@@ -57,6 +57,8 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.61">1.8.61 — 2026-09-11</option>
+      <option value="1.8.60">1.8.60 — 2026-09-10</option>
       <option value="1.8.59">1.8.59 — 2026-09-08</option>
       <option value="1.8.58">1.8.58 — 2026-09-08</option>
       <option value="1.8.57">1.8.57 — 2026-09-07</option>
@@ -193,6 +195,58 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.62">
+
+### 1.8.62 — a header allows your own origin, overrides merge, and checks see more
+
+**`Permissions-Policy` allows the site itself.** The default `/*` block now
+sends `geolocation=(self), microphone=(self), camera=(self)` where it sent
+`()`. The empty list disabled those APIs for your own pages too, so a "use my
+location" button was refused without the visitor ever seeing a prompt. Framed
+third parties are still blocked, and the browser still asks. If you want the old
+policy, set it back:
+
+```yaml
+headers:
+  /*:
+    Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+```
+
+**A `headers:` override merges into the default block instead of replacing
+it.** The example above now changes one header and keeps the other four. If you
+had restated all of them, the output is the same. If you left a header out *to
+remove it*, it now stays: give it an empty value (`X-XSS-Protection: ""`) to
+remove it.
+
+**`check_links` reads stylesheets.** `url()` and `@import` in every `.css` file
+of the output are checked like an `href`, resolved against the stylesheet. A
+site with `check_links: strict` or `strict: true` whose CSS names a file that
+does not exist now fails, with the stylesheet and line in the report. The
+bundled themes pass.
+
+**`strict: true` also fails on frontmatter that is not valid YAML.** Such a file
+was always left out of the site; it is now listed with the likely cause in every
+build, and fails a strict one. The usual fix is quoting a value that contains a
+colon.
+
+**A missing `metadata.json` no longer fails a build.** It is treated as empty
+and the build says so in one line. A `source:` that names no directory still
+fails.
+
+**Analytics.** An `analytics_ids` value containing `XXXX` (a placeholder such as
+`GTM-XXXXXXX`) is no longer rendered. And a page that merely *mentions* an id —
+a cookie notice listing `_ga_<id>` — now gets the tag; only an id inside a
+`<script>` counts as the theme having wired it.
+
+**Output that changes without a config change**, all fixes: sitemap alternates
+for front pages and post listings on multilingual sites; the feed
+autodiscovery link names the page's language feed and the built-in feed takes
+`title:` as its name; the generated 404 uses the default language; a page
+slugged `404` has `/404.html` as its canonical; root `.Translations` sets
+`IsCurrent`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.60">
 

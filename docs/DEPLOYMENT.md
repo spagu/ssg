@@ -121,7 +121,15 @@ Security headers, applied to `/*`:
 | `X-Frame-Options` | `DENY` |
 | `X-XSS-Protection` | `1; mode=block` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
+| `Permissions-Policy` | `geolocation=(self), microphone=(self), camera=(self)` |
+
+`Permissions-Policy` allows the site's own origin and nothing else: framed
+third-party content cannot ask for the location, microphone or camera, and the
+site's own pages can, with the browser's prompt. Before 1.8.62 the lists were
+empty, which disabled those APIs for the site itself — a page calling
+`navigator.geolocation` was refused with no prompt, in `ssg --http` and in
+production alike. A site that uses none of them and wants them off everywhere
+sets `Permissions-Policy: "geolocation=(), microphone=(), camera=()"`.
 
 Cache policy:
 
@@ -239,17 +247,25 @@ dropped — Cloudflare's `_redirects` cannot express them anyway.
 #### Overriding `_headers`
 
 The `headers:` config section overrides or extends the generated blocks per
-path pattern. A pattern that appears in `headers:` replaces that block's
-headers; unknown patterns are appended. `headers_defaults_off: true` drops the
-built-in security/cache blocks entirely.
+path pattern. A pattern that matches a built-in block is **merged into it**,
+header by header: a header you name takes your value, an empty value removes
+it, and a header the block lacks is added. The headers you do not mention keep
+their defaults — changing one policy does not mean restating the other
+security headers, or losing one by forgetting it. Unknown patterns are
+appended. `headers_defaults_off: true` drops the built-in security/cache
+blocks entirely.
 
 ```yaml
 headers:
   /*:
-    Content-Security-Policy: "default-src 'self'"
+    Content-Security-Policy: "default-src 'self'"   # added beside the defaults
+    X-XSS-Protection: ""                            # removed
   /api/*:
     Access-Control-Allow-Origin: "*"
 ```
+
+Header names match case-insensitively, as HTTP matches them. Before 1.8.62 a
+pattern in `headers:` replaced the whole block.
 
 With an empty `headers:` the file is byte-for-byte what SSG has always
 generated.

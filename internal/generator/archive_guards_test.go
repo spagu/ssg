@@ -6,6 +6,7 @@ package generator
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,22 +70,22 @@ func TestGenerateDateArchivesNoPosts(t *testing.T) {
 	}
 }
 
-// TestLoadMetadataFailures: a source without metadata.json, and one whose file
-// is not JSON, both surface as errors the caller reports — silently building a
-// site with no categories or authors would be worse.
+// TestLoadMetadataFailures: a metadata.json that is not JSON surfaces as an
+// error naming the file. A missing one no longer does — it is an empty set,
+// announced in the log rather than silent (#277).
 func TestLoadMetadataFailures(t *testing.T) {
 	g := newTestGen(t, "")
 	dir := t.TempDir()
 
-	if err := g.loadMetadata(filepath.Join(dir, "metadata.json")); err == nil {
-		t.Fatal("a missing metadata.json must be reported")
+	if err := g.loadMetadata(filepath.Join(dir, "metadata.json")); err != nil {
+		t.Fatalf("a missing metadata.json must build as empty metadata: %v", err)
 	}
 	broken := filepath.Join(dir, "broken.json")
 	if err := os.WriteFile(broken, []byte("{not json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.loadMetadata(broken); err == nil {
-		t.Fatal("unparseable metadata must be reported")
+	if err := g.loadMetadata(broken); err == nil || !strings.Contains(err.Error(), "broken.json") {
+		t.Fatalf("unparseable metadata must be reported with its path, got %v", err)
 	}
 }
 

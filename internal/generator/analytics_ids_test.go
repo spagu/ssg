@@ -172,3 +172,88 @@ func TestThemeSuppliedTrackingIsNotDuplicated(t *testing.T) {
 		t.Errorf("the theme already wired it; the generator should not add a second:\n%s", got)
 	}
 }
+
+// TestAPlaceholderIDIsNotRendered — #276. A committed GTM-XXXXXXX waiting for a
+// human must not inject a container that does not exist into every page, from
+// the config or from a crawl.
+func TestAPlaceholderIDIsNotRendered(t *testing.T) {
+	got := gtmSite(t, func(cfg *Config) {
+		cfg.AnalyticsIDs = map[string]string{"gtm": "GTM-XXXXXXX", "ga4": "G-REAL12345"}
+	})
+	if strings.Contains(got, "GTM-XXXXXXX") {
+		t.Errorf("a placeholder container was injected:\n%s", got)
+	}
+	if !strings.Contains(got, "G-REAL12345") {
+		t.Errorf("a real id beside the placeholder must still render:\n%s", got)
+	}
+	g := &Generator{config: Config{Analytics: true}}
+	g.siteData = newTestGen(t, "").siteData
+	g.siteData.Analytics = map[string]string{"gtm": "gtm-xxxxxxx"}
+	if ids := g.analyticsIDs(); len(ids) != 0 {
+		t.Errorf("a crawled placeholder must not render either, got %v", ids)
+	}
+}
+
+// TestTheSummarySaysWhatTheBuildDoes — #276. A declared id renders on its own,
+// and the line used to tell the operator to set `analytics: true` for it.
+func TestTheSummarySaysWhatTheBuildDoes(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.AnalyticsIDs = map[string]string{"gtm": "GTM-ABC1234", "ga4": "G-XXXXXXXXXX"}
+	g.siteData.Analytics = map[string]string{"gtm": "GTM-ABC1234", "ga4": "G-XXXXXXXXXX", "matomo": "7"}
+	s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.analyticsIDs())
+	for _, want := range []string{
+		"gtm (rendered)",
+		"ga4 (placeholder id, replace it to render)",
+		"matomo (set `analytics: true` to render)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("summary missing %q: %s", want, s)
+		}
+	}
+}
+
+// TestAnIDNamedInTextStillGetsTheTag — #285. A cookie notice lists GA4's
+// `_ga_<id>` cookie by name; that page used to be the one shipped without the
+// tag, because the id appeared anywhere in it.
+func TestAnIDNamedInTextStillGetsTheTag(t *testing.T) {
+	cfg := newSiteFixture(t, `{"categories":[],"media":[],"users":[]}`, map[string]string{
+		"pages/privacy.md": "---\ntitle: Privacy\nslug: privacy\nstatus: publish\ntype: page\n---\n\nThe `_ga_G-REAL12345` cookie distinguishes visitors.\n",
+	}, func(name string) string {
+		body := ""
+		if name == "page.html" {
+			body = "{{.Content}}"
+		}
+		return `<html><head><title>x</title></head><body><table><tr><td>_ga_G-REAL12345</td></tr></table>` +
+			`<a href="/x" data-id="GTM-ABC1234">x</a>` + body + `</body></html>`
+	})
+	cfg.AnalyticsIDs = map[string]string{"ga4": "G-REAL12345", "gtm": "GTM-ABC1234"}
+	buildSiteFixture(t, cfg)
+	got := mustRead(t, cfg.OutputDir+"/privacy/index.html")
+	if !strings.Contains(got, "googletagmanager.com/gtag/js?id=G-REAL12345") {
+		t.Errorf("an id named in text suppressed the GA4 tag:\n%s", got)
+	}
+	if !strings.Contains(got, "googletagmanager.com/gtm.js") {
+		t.Errorf("an id in an attribute suppressed the GTM tag:\n%s", got)
+	}
+}
+
+// TestScriptMentions pins where wiring counts: a script's src or body, in any
+// case of the tag name, including an unterminated element.
+func TestScriptMentions(t *testing.T) {
+	cases := []struct {
+		page string
+		want bool
+	}{
+		{`<script async src="https://www.googletagmanager.com/gtag/js?id=G-1"></script>`, true},
+		{`<SCRIPT>gtag('config','G-1')</SCRIPT>`, true},
+		{`<p>G-1</p><script>other()</script>`, false},
+		{`<script>other()</script><td>G-1</td>`, false},
+		{`<script>gtag('config','G-1')`, true},
+		{`no scripts at all, G-1`, false},
+	}
+	for _, c := range cases {
+		if got := scriptMentions(c.page, "G-1"); got != c.want {
+			t.Errorf("%q: got %v, want %v", c.page, got, c.want)
+		}
+	}
+}

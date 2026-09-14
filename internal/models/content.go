@@ -218,11 +218,19 @@ func (p Page) GetURL() string {
 	}
 
 	basePath := p.getBasePath()
-	if p.PageFormat == "flat" {
+	// The generator writes a page whose path is "404" to /404.html whatever
+	// page_format says, because that flat file is what static hosts serve for
+	// an unmatched path. The address has to say the same, or the canonical,
+	// og:url and hreflang name a /404/ directory that was never written — and
+	// strict link checking fails the build on the page's own head (#284).
+	if p.PageFormat == "flat" || basePath == notFoundBasePath {
 		return basePath + ".html"
 	}
 	return basePath + "/"
 }
+
+// notFoundBasePath is the base path the generator writes as the root 404.html.
+const notFoundBasePath = "/404"
 
 // getBasePath returns the base URL path without trailing slash or extension,
 // applying any language prefix (PLAT-005).

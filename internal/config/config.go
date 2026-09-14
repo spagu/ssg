@@ -1183,10 +1183,27 @@ func warnUnknownKeys(path string, data []byte, ext string) {
 		if !ok {
 			continue
 		}
+		if known, ok := keyNamedElsewhere[key]; ok {
+			fmt.Fprintf(os.Stderr,
+				"⚠️  %s: unknown configuration key %q — ignored. The key is %q (%s).\n",
+				filepath.Base(path), key, known, docsURL)
+			continue
+		}
 		fmt.Fprintf(os.Stderr,
 			"⚠️  %s: unknown configuration key %q — ignored. Check the spelling, or upgrade ssg if the key is newer than this build (%s).\n",
 			filepath.Base(path), key, docsURL)
 	}
+}
+
+// keyNamedElsewhere maps the names other generators give a setting to the one
+// ssg reads. "Check the spelling" does not help when the spelling is right and
+// the name is not: `posts_per_page` is what WordPress calls it, and finding
+// `paginate` took a reader of config.go (#278).
+var keyNamedElsewhere = map[string]string{
+	"posts_per_page": "paginate",
+	"per_page":       "paginate",
+	"pagination":     "paginate",
+	"pager_size":     "paginate",
 }
 
 // ApplyWorkerWatchDefaults makes `worker:` the single source of truth for the

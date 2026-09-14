@@ -485,9 +485,14 @@ type Generator struct {
 	// under — "" for the site root, "blog" for posts_page: blog. The listing is
 	// a rendered, indexable document that belongs to none of the page or post
 	// collections, so nothing else in the build can tell the sitemap it exists
-	// (#244). A set rather than a list: a watch-mode rebuild records the same
-	// listing again.
-	postsListings map[string]bool
+	// (#244). A map rather than a list: a watch-mode rebuild records the same
+	// listing again. The value is the listing's language under i18n ("" without
+	// it), which is what lets the sitemap group the listings as translations of
+	// one another (#281).
+	postsListings map[string]string
+	// skipped is what the last content load read and did not publish, reported
+	// once every source has loaded (#274, #279).
+	skipped contentSkips
 	// seriesSlugs is series name → slug, for the sitemap (#261). Series is a
 	// folded built-in like tag, and needed the same record for the same reason.
 	seriesSlugs map[string]string
@@ -1313,6 +1318,8 @@ func (g *Generator) minifyAssetByExt(path string) error {
 
 // loadContent loads all content from the source directory or mddb
 func (g *Generator) loadContent() error {
+	// A watch-mode rebuild reuses the generator; last build's skips are not this one's.
+	g.skipped = contentSkips{}
 	// Check if mddb is enabled
 	var err error
 	if g.config.Mddb.Enabled {
@@ -1328,6 +1335,9 @@ func (g *Generator) loadContent() error {
 	// docs/ folder elsewhere in the repository is treated like native content
 	// (CONTENT-002).
 	if err := g.loadExtraContentSources(); err != nil {
+		return err
+	}
+	if err := g.reportSkippedContent(); err != nil {
 		return err
 	}
 
@@ -1889,6 +1899,9 @@ func (g *Generator) loadContentFromFiles() error {
 		return nil
 	}
 	sourcePath := filepath.Join(g.config.ContentDir, g.config.Source)
+	if err := sourceDirError(sourcePath); err != nil {
+		return err
+	}
 
 	// Load metadata.json
 	metadataPath := filepath.Join(sourcePath, "metadata.json")
@@ -2086,14 +2099,8 @@ func (g *Generator) logContentStats() {
 
 // loadMetadata loads the metadata.json file
 func (g *Generator) loadMetadata(path string) error {
-	file, err := os.Open(path) // #nosec G304 -- CLI tool reads user's content files
+	metadata, err := g.readMetadata(path)
 	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
-
-	var metadata models.Metadata
-	if err := json.NewDecoder(file).Decode(&metadata); err != nil {
 		return err
 	}
 
@@ -2150,7 +2157,7 @@ func (g *Generator) loadMetadata(path string) error {
 	// (#128).
 	applySiteIdentity(g.siteData, metadata, g.config)
 	g.loadComments(filepath.Join(filepath.Dir(path), "comments.json"))
-	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.config.Analytics); s != "" {
+	if s := marketingSummary(g.siteData.Marketing, g.siteData.Analytics, g.analyticsIDs()); s != "" {
 		g.log("   🎯 Site metadata: " + s)
 	}
 
@@ -2235,8 +2242,13 @@ func (g *Generator) loadMarkdownEntry(dir string, entry os.DirEntry) (models.Pag
 
 		page, err := parser.ParseMarkdownFile(entryPath)
 		if err != nil {
-			fmt.Printf("   ⚠️  Warning: failed to parse %s: %v\n", entry.Name(), err)
+			g.skipped.recordUnparsed(entryPath, err)
 			return models.Page{}, false
+		}
+		// Frontmatter with no status line is a draft by rule, and the one draft
+		// nobody chose — so it is named rather than dropped in silence (#274).
+		if page.Status == "" {
+			g.skipped.recordNoStatus(dir, entry.Name())
 		}
 		if page.Status == "publish" {
 			page.SourceDir = dir
@@ -2775,6 +2787,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	mergeTemplateFuncs(funcs, g.relationFuncs())
 	// Related-posts helpers (related/relatedFromMddb), #1.8.16.
 	mergeTemplateFuncs(funcs, g.relatedFuncs())
+	// Letter case: upper/lower/title (#280).
+	mergeTemplateFuncs(funcs, stringCaseFuncs())
 	return funcs
 }
 
@@ -3400,6 +3414,8 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 	for name, fn := range g.externalFuncs() {
 		funcs[name] = fn
 	}
+	// The same case helpers a page template has (#280).
+	mergeTemplateFuncs(funcs, stringCaseFuncs())
 	return funcs
 }
 
@@ -3901,9 +3917,13 @@ func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) er
 // paginated tail is deliberately left out of the sitemap, the hub page is not.
 func (g *Generator) recordPostsListing(prefix string) {
 	if g.postsListings == nil {
-		g.postsListings = make(map[string]bool)
+		g.postsListings = make(map[string]string)
 	}
-	g.postsListings[strings.Trim(prefix, "/")] = true
+	lang := ""
+	if g.config.I18n.Enabled {
+		lang = g.currentLang
+	}
+	g.postsListings[strings.Trim(prefix, "/")] = lang
 }
 
 // pageURLWithPrefix returns the URL for paginated index page n under prefix
@@ -4587,7 +4607,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// i18n (PLAT-005)
 		"Languages":       g.config.Languages,
 		"DefaultLanguage": g.config.DefaultLanguage,
-		"Translations":    g.translationsFor(page),
+		"Translations":    g.currentTranslations(page),
 		"Hreflang":        g.hreflangTags(page),
 		// Standard Page fields
 		"ID":       page.ID,
@@ -5338,10 +5358,12 @@ func (g *Generator) collectSitemapEntries() []sitemapEntry {
 	// was actually written: if it was suppressed, nothing has claimed the root.
 	claimed := map[string]bool{}
 	if !skipHomepage {
-		for _, loc := range g.homepageLocs() {
-			claimed[loc] = true
+		homes := g.homepageLocs()
+		for _, home := range homes {
+			claimed[home.href] = true
 			entries = append(entries, sitemapEntry{
-				loc: loc, changefreq: "daily", priority: "1.0", kind: kindHome,
+				loc: home.href, alternates: g.homeAlternates(home, homes),
+				changefreq: "daily", priority: "1.0", kind: kindHome,
 			})
 		}
 	}
@@ -5390,19 +5412,6 @@ func (g *Generator) collectSitemapEntries() []sitemapEntry {
 	return entries
 }
 
-// homepageLocs is every address the front-page entry claims: one per language
-// under i18n, the site root otherwise.
-func (g *Generator) homepageLocs() []string {
-	if !g.config.I18n.Enabled {
-		return []string{fmt.Sprintf("https://%s/", g.config.Domain)}
-	}
-	locs := make([]string, 0, len(g.siteData.Languages))
-	for _, lang := range g.siteData.Languages {
-		locs = append(locs, fmt.Sprintf("https://%s%s", g.config.Domain, g.languageURL(lang.Code)))
-	}
-	return locs
-}
-
 // documentEntries turns pages or posts into entries, skipping the ones excluded
 // by their own output and the ones another section already claimed.
 func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool, priority string, kind sitemapKind) []sitemapEntry {
@@ -5429,52 +5438,6 @@ func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool,
 // path — which is what a category with its own link has (#143).
 func (g *Generator) archivePathEntry(path string, kind sitemapKind) sitemapEntry {
 	return archiveEntry(fmt.Sprintf("https://%s/%s/", g.config.Domain, strings.Trim(path, "/")), kind)
-}
-
-// postsListingEntries names each language's post listing, when it was written
-// somewhere other than the site root.
-//
-// Priority sits between the home page and an ordinary page: the listing is the
-// entry point for the whole blog section, and on the site found by this bug it
-// was the most internally-linked page after the home page. Only the first page
-// is listed — a paginated tail is left out on purpose — and a listing whose own
-// output marks itself noindex keeps itself out, the same rule every other
-// document follows.
-func (g *Generator) postsListingEntries(claimed map[string]bool) []sitemapEntry {
-	prefixes := make([]string, 0, len(g.postsListings))
-	for prefix := range g.postsListings {
-		if prefix == "" {
-			continue // the site root, already claimed by the front-page entry
-		}
-		prefixes = append(prefixes, prefix)
-	}
-	sort.Strings(prefixes)
-	out := make([]sitemapEntry, 0, len(prefixes))
-	for _, prefix := range prefixes {
-		loc := g.servedURL(httpsScheme + g.config.Domain + "/" + prefix + "/")
-		if claimed[loc] || g.renderedExcludesItself(models.Page{}, prefix) {
-			continue
-		}
-		claimed[loc] = true
-		out = append(out, sitemapEntry{
-			loc: loc, changefreq: "daily", priority: "0.9", kind: kindListing,
-		})
-	}
-	return out
-}
-
-func (g *Generator) sitemapAlternates(page models.Page) string {
-	if !g.config.I18n.Enabled {
-		return ""
-	}
-	var sb strings.Builder
-	for _, tr := range page.Translations {
-		fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Lang), stdhtml.EscapeString(tr.Canonical))
-		if tr.Lang == g.config.DefaultLanguage {
-			fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", stdhtml.EscapeString(tr.Canonical))
-		}
-	}
-	return sb.String()
 }
 
 // writeSitemapCategories appends the category archive entries, skipping the
@@ -5579,14 +5542,14 @@ func (g *Generator) generateFeeds() error {
 				rel = filepath.Join(prefix, feedFileName)
 				rootURL = "/" + prefix + "/"
 			}
-			if err := g.writeFeed(rel, g.config.Domain+" ("+lang.Name+")", base+rootURL, posts, limit); err != nil {
+			if err := g.writeFeed(rel, g.builtinFeedTitle(lang.Name), base+rootURL, posts, limit); err != nil {
 				return err
 			}
 		}
 		return g.generateTaxonomyFeeds(limit)
 	}
 
-	if err := g.writeFeed(feedFileName, g.config.Domain, base+"/", g.siteData.Posts, limit); err != nil {
+	if err := g.writeFeed(feedFileName, g.builtinFeedTitle(""), base+"/", g.siteData.Posts, limit); err != nil {
 		return err
 	}
 

@@ -55,6 +55,13 @@ func (g *Generator) checkLinksIfRequested() error {
 	if err != nil {
 		return err
 	}
+	// A stylesheet's url() and @import are links too, and the ones whose
+	// breakage no browser reports (#286).
+	cssBroken, err := g.checkCSSLinks()
+	if err != nil {
+		return err
+	}
+	broken = append(broken, cssBroken...)
 	for _, b := range broken {
 		fmt.Printf("   ⚠️  broken link in %s → %s\n", b.from, b.href)
 	}

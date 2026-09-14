@@ -356,7 +356,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 
 | Area | Available capabilities |
 |---|---|
-| Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization |
+| Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization; a file dropped for a missing `status:` or unparseable frontmatter is named with the likely cause (`strict: true` fails the build on the latter) ([docs/CONTENT.md](docs/CONTENT.md#markdown-and-frontmatter)) |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
@@ -370,7 +370,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |
-| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default`, per-language feeds and search, `language_sections:` to assign a language to a whole directory ([docs/I18N.md](docs/I18N.md)) |
+| Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default` in the head and in the sitemap (front pages and post listings included), per-language feeds each advertised on its own language's pages, search, `language_sections:` to assign a language to a whole directory, `upper`/`lower`/`title` for a switcher's labels ([docs/I18N.md](docs/I18N.md)) |
 | Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |

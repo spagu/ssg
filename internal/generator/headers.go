@@ -21,8 +21,8 @@ type headerBlock struct {
 	Headers [][2]string // ordered name/value pairs
 }
 
-// defaultHeaderBlocks returns the built-in _headers blocks — the exact content
-// SSG has always generated, so an empty `headers:` config changes nothing.
+// defaultHeaderBlocks returns the built-in _headers blocks. An empty `headers:`
+// config writes exactly these.
 func defaultHeaderBlocks() []headerBlock {
 	cacheYear := [2]string{"Cache-Control", "public, max-age=31536000, immutable"}
 	cacheHour := [2]string{"Cache-Control", "public, max-age=3600"}
@@ -35,7 +35,13 @@ func defaultHeaderBlocks() []headerBlock {
 				{"X-Frame-Options", "DENY"},
 				{"X-XSS-Protection", "1; mode=block"},
 				{"Referrer-Policy", "strict-origin-when-cross-origin"},
-				{"Permissions-Policy", "geolocation=(), microphone=(), camera=()"},
+				// (self), not (): the empty allowlist disabled the API for the
+				// site's own pages too, so a "use my location" button was refused
+				// without the visitor ever seeing a prompt — in preview and in
+				// production alike, with nothing in the build to point at the
+				// header (#287). (self) still blocks every framed third party,
+				// which is what the policy is for; the browser still asks.
+				{"Permissions-Policy", "geolocation=(self), microphone=(self), camera=(self)"},
 			},
 		},
 		{Comment: "Cache static assets for 1 year", Pattern: "/css/*", Headers: [][2]string{cacheYear}},
@@ -48,10 +54,16 @@ func defaultHeaderBlocks() []headerBlock {
 }
 
 // mergeHeaderBlocks merges config overrides over the default blocks. A pattern
-// present in overrides replaces that default block's headers entirely (keeping
-// its position); unknown patterns are appended, sorted alphabetically. Header
-// names inside override blocks are sorted too — YAML maps carry no order, and
-// the output must be reproducible. defaultsOff drops the defaults entirely.
+// present in overrides is merged header by header into that default block,
+// keeping its position (#287): a header it names takes the new value, an empty
+// value removes the header, and one the default lacks is added after the rest,
+// sorted. Unknown patterns are appended, sorted alphabetically, with their
+// headers sorted too — YAML maps carry no order, and the output must be
+// reproducible. defaultsOff drops the defaults entirely.
+//
+// The override used to replace the block, so changing one Permissions-Policy
+// meant restating four unrelated security headers — and forgetting one dropped
+// X-Frame-Options without a word.
 func mergeHeaderBlocks(defaults []headerBlock, overrides map[string]map[string]string, defaultsOff bool) []headerBlock {
 	var blocks []headerBlock
 	used := make(map[string]bool, len(overrides))
@@ -59,7 +71,7 @@ func mergeHeaderBlocks(defaults []headerBlock, overrides map[string]map[string]s
 		for _, b := range defaults {
 			if hdrs, ok := overrides[b.Pattern]; ok {
 				used[b.Pattern] = true
-				blocks = append(blocks, headerBlock{Pattern: b.Pattern, Headers: sortedHeaderPairs(hdrs)})
+				blocks = append(blocks, headerBlock{Comment: b.Comment, Pattern: b.Pattern, Headers: mergeHeaderPairs(b.Headers, hdrs)})
 				continue
 			}
 			blocks = append(blocks, b)
@@ -76,6 +88,34 @@ func mergeHeaderBlocks(defaults []headerBlock, overrides map[string]map[string]s
 		blocks = append(blocks, headerBlock{Pattern: pattern, Headers: sortedHeaderPairs(overrides[pattern])})
 	}
 	return blocks
+}
+
+// mergeHeaderPairs applies overrides to a default block's pairs. Header names
+// match case-insensitively, as HTTP matches them; the override's spelling wins.
+func mergeHeaderPairs(defaults [][2]string, overrides map[string]string) [][2]string {
+	byName := make(map[string]string, len(overrides)) // lower-case name → override key
+	for name := range overrides {
+		byName[strings.ToLower(name)] = name
+	}
+	merged := make([][2]string, 0, len(defaults)+len(overrides))
+	for _, pair := range defaults {
+		name, overridden := byName[strings.ToLower(pair[0])]
+		if !overridden {
+			merged = append(merged, pair)
+			continue
+		}
+		delete(byName, strings.ToLower(pair[0]))
+		if value := overrides[name]; strings.TrimSpace(value) != "" {
+			merged = append(merged, [2]string{name, value})
+		}
+	}
+	added := make(map[string]string, len(byName))
+	for _, name := range byName {
+		if strings.TrimSpace(overrides[name]) != "" {
+			added[name] = overrides[name]
+		}
+	}
+	return append(merged, sortedHeaderPairs(added)...)
 }
 
 // sortedHeaderPairs flattens a header map into name/value pairs sorted by name.
