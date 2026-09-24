@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.63] - 2026-09-24
+
 ## [1.8.62] - 2026-09-13
 
 Fourteen reports, eleven of them from building one three-language site by hand.
