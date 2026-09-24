@@ -37,11 +37,13 @@ const defaultHeadersFile = `# Cloudflare Pages Headers
 /css/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Cache HTML pages for 1 hour
+# HTML pages revalidate on every request
 /*.html
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=0, must-revalidate
+/*/
+  Cache-Control: public, max-age=0, must-revalidate
 /
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=0, must-revalidate
 `
 
 // TestAPatternAddsItsHeaders: the plain case, on the file the build writes.
@@ -61,22 +63,30 @@ func TestAPatternAddsItsHeaders(t *testing.T) {
 	}
 }
 
-// TestASuffixGlobMatches: `/*.html` is a wildcard in the middle of a pattern,
-// which a naive prefix matcher gets wrong.
+// TestASuffixGlobMatches: `/*.html` and `/*/` are wildcards in the middle of a
+// pattern, which a naive prefix matcher gets wrong.
 func TestASuffixGlobMatches(t *testing.T) {
 	resetLiveRules(t)
 	h, _ := publishHeaderText(t, defaultHeadersFile)
+	const revalidate = "public, max-age=0, must-revalidate"
 
-	if got := getPath(h, "/about.html").Header().Get("Cache-Control"); got != "public, max-age=3600" {
+	if got := getPath(h, "/about.html").Header().Get("Cache-Control"); got != revalidate {
 		t.Errorf("/about.html Cache-Control = %q", got)
 	}
-	// A directory URL is not an .html path and must not pick that block up.
-	if got := getPath(h, "/about/").Header().Get("Cache-Control"); got != "" {
-		t.Errorf("/about/ Cache-Control = %q, want none from the file", got)
+	// A directory-format page is requested as /about/, and that is the URL the
+	// policy has to reach (#290) — at any depth.
+	for _, path := range []string{"/about/", "/tag/go/", "/blog/2026/09/post/"} {
+		if got := getPath(h, path).Header().Get("Cache-Control"); got != revalidate {
+			t.Errorf("%s Cache-Control = %q, want %q", path, got, revalidate)
+		}
 	}
 	// The bare `/` block is exact, so it applies to the root and nowhere else.
-	if got := getPath(h, "/").Header().Get("Cache-Control"); got != "public, max-age=3600" {
+	if got := getPath(h, "/").Header().Get("Cache-Control"); got != revalidate {
 		t.Errorf("root Cache-Control = %q", got)
+	}
+	// An asset is neither shape and keeps its year.
+	if got := getPath(h, "/css/site.css").Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("/css/site.css Cache-Control = %q", got)
 	}
 }
 

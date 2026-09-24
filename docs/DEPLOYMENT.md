@@ -136,7 +136,7 @@ Cache policy:
 | Path | `Cache-Control` |
 |---|---|
 | `/css/*`, `/js/*`, `/images/*`, `/media/*` | `public, max-age=31536000, immutable` |
-| `/*.html` and `/` | `public, max-age=3600` |
+| `/*.html`, `/*/` and `/` | `public, max-age=0, must-revalidate` |
 
 The one-year `immutable` on assets assumes their filenames change when their
 contents do. That is exactly what `--fingerprint` and the image pipeline's
@@ -144,6 +144,25 @@ content-addressed names guarantee. **Without fingerprinting, a CSS or JS file
 edited in place keeps its name and can be served from a browser cache for a
 year** — enable `fingerprint: true` for any site that deploys more than once,
 or override the policy with `headers:` (below).
+
+Pages are matched by the path a visitor requests, so the HTML rule comes in
+three shapes: `/*.html` for `page_format: flat`, `/*/` for
+`page_format: directory` (where `/blog/` is requested, never
+`/blog/index.html`), and the bare `/` for the front page. Before 1.8.63 only
+`/*.html` and `/` were written, which on a directory site covered the front page
+alone and left every other page to whatever the platform or zone defaulted to.
+The value is `max-age=0, must-revalidate` because a deploy is atomic: a cached
+page is only worth a conditional request, and anything longer keeps a
+correction or a withdrawn page in front of readers for that long.
+
+**Taking a page down is two steps.** A build without the page and a deploy
+removes it from the site; it does not remove copies already cached. If the zone
+has a Cache Rule or an Edge Cache TTL for HTML (a `s-maxage` in the response
+that `_headers` never wrote is the sign), the old page keeps answering `200`
+until that TTL runs out. Purge the URL after the deploy — in Cloudflare,
+*Caching → Configuration → Purge Cache → Custom Purge* — and check it with a
+plain request, not one with a cache-busting query string, which bypasses the
+very cache you are checking.
 
 None of this applies while a preview is running. `--watch --http` and
 `ssg mcp --http` serve **every** response `Cache-Control: no-cache` and drop the
@@ -219,8 +238,9 @@ is why the block order in the generated file is deliberate. **The file wins over
 the server's own security headers**: that is what the deployed site would serve,
 and a preview whose headers differ from production is the gap this closes.
 
-One consequence worth stating: the default `_headers` caches `/` and `/*.html`
-for an hour, so the preview now says so too. Pages carrying the live-reload
+One consequence worth stating: the preview now sends the default `_headers`
+HTML policy too (`public, max-age=0, must-revalidate` since 1.8.63; an hour
+before it). Pages carrying the live-reload
 script are exempted — a reload served from the cache would show the previous
 build.
 
