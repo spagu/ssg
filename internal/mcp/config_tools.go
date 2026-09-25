@@ -144,14 +144,14 @@ func (s *Server) configSet(args map[string]any) toolResult {
 	if err != nil {
 		return errResult("could not update " + path + ": " + err.Error())
 	}
-	if err := os.WriteFile(path, updated, 0o644); err != nil { // #nosec G306 -- project config file
+	if err := os.WriteFile(path, updated, 0o644); err != nil { // #nosec G306 G703 -- the project config file this run was given
 		return errResult("could not write " + path + ": " + err.Error())
 	}
 	// A setting that leaves the file unloadable is rolled back, so the designer
 	// can never strand the project on a broken config.
 	if s.opts.ValidateConfig != nil {
 		if verr := s.opts.ValidateConfig(path); verr != nil {
-			_ = os.WriteFile(path, before, 0o644) // #nosec G306 -- restoring the previous file
+			_ = os.WriteFile(path, before, 0o644) // #nosec G306 G703 -- restoring the config file this run was given
 			return errResult(fmt.Sprintf("%s = %s was rolled back: it makes the configuration invalid: %v", key, value, verr))
 		}
 	}

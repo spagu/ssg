@@ -11,7 +11,9 @@ package webp
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -24,21 +26,30 @@ var alreadyPictured = regexp.MustCompile(`(?is)<picture\b[^>]*>.*?</picture>`)
 
 // EmitPicture wraps every <img> whose .webp has an .avif sibling in a <picture>
 // offering the AVIF first. Files with no AVIF are left untouched.
+//
+// The pass reads and rewrites files through an os.Root on dir: a symlinked
+// page is skipped rather than followed, so a link in the output tree can never
+// make the build rewrite a file outside it.
 func EmitPicture(dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || !strings.EqualFold(filepath.Ext(path), ".html") {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	return fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() || !strings.EqualFold(path.Ext(rel), ".html") {
 			return err
 		}
-		content, err := os.ReadFile(path) // #nosec G304 -- CLI reads its own output
+		content, err := root.ReadFile(rel)
 		if err != nil {
 			return err
 		}
-		out := wrapImagesInPicture(string(content), dir, path)
+		out := wrapImagesInPicture(string(content), dir, filepath.Join(dir, filepath.FromSlash(rel)))
 		if out == string(content) {
 			return nil
 		}
 		// #nosec G306 -- web content must be world-readable
-		return os.WriteFile(path, []byte(out), 0644)
+		return root.WriteFile(rel, []byte(out), 0644)
 	})
 }
 

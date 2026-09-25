@@ -11,6 +11,7 @@ import (
 	stdhtml "html"
 	"html/template"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -4947,7 +4948,8 @@ func (g *Generator) copyStrippedJPEG(src, dst string) error {
 	if len(cleaned) != len(data) {
 		g.recordStrippedImage()
 	}
-	// #nosec G306 -- Web content files need to be world-readable
+	// #nosec G306 G703 -- Web content files need to be world-readable; dst is
+	// the build's own output path for a file from the site's content tree.
 	return os.WriteFile(dst, cleaned, 0644)
 }
 
@@ -6025,35 +6027,43 @@ var fingerprintedName = regexp.MustCompile(`\.[0-9a-f]{8}\.(css|js)$`)
 // every historical hash of every asset forever. Only files the manifest claims
 // are removed — the name pattern alone is not proof of authorship, so it skips
 // rather than deletes.
+//
+// Deletion goes through an os.Root on the output directory, and symlinks are
+// skipped, so a manifest entry can never remove a file outside the output.
 func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
 	stale := g.previousFingerprints()
-	err = filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
-		if err != nil || fi.IsDir() {
+	root, err := os.OpenRoot(g.config.OutputDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = root.Close() }()
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() {
 			return err
 		}
-		ext := strings.ToLower(filepath.Ext(path))
+		ext := strings.ToLower(filepath.Ext(rel))
 		if ext != ".js" && ext != ".css" {
 			return nil
 		}
-		rel, _ := filepath.Rel(g.config.OutputDir, path)
 		// The manifest is authoritative: it names exactly what the last build
 		// wrote, so those files are safe to delete.
-		if stale[filepath.ToSlash(rel)] {
-			_ = os.Remove(path)
+		if stale[rel] {
+			_ = root.Remove(rel)
 			return nil
 		}
+		full := filepath.Join(g.config.OutputDir, filepath.FromSlash(rel))
 		// Without a manifest the name pattern is all there is, and it can be
 		// wrong: a theme may legitimately ship app.deadbeef.js. So this only
 		// skips — never deletes. Skipping is enough to stop the double-hash,
 		// and leaving the file alone means references to it still resolve,
 		// whichever of the two it turns out to be.
-		if fingerprintedName.MatchString(path) {
+		if fingerprintedName.MatchString(full) {
 			return nil
 		}
 		if ext == ".js" {
-			js = append(js, path)
+			js = append(js, full)
 		} else {
-			css = append(css, path)
+			css = append(css, full)
 		}
 		return nil
 	})

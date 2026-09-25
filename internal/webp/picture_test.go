@@ -225,6 +225,33 @@ func TestEmitPictureEdgeCases(t *testing.T) {
 	}
 }
 
+// TestEmitPictureNeverWritesThroughASymlink: the pass rewrites pages through
+// an os.Root on the output, so a symlinked page is skipped and the file it
+// points at — outside the output — is never rewritten.
+func TestEmitPictureNeverWritesThroughASymlink(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "img"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "img", "a.avif"), []byte("avif"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const page = `<body><img src="/img/a.webp"></body>`
+	outside := filepath.Join(t.TempDir(), "source.html")
+	if err := os.WriteFile(outside, []byte(page), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "linked.html")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := EmitPicture(root); err != nil {
+		t.Fatal(err)
+	}
+	if got := mustReadFile(t, outside); got != page {
+		t.Errorf("a file outside the output was rewritten: %s", got)
+	}
+}
+
 // TestReplaceAllIndexedGivesTheOffset, which is what tells an <img> already
 // inside a <picture> from one that is not.
 func TestReplaceAllIndexed(t *testing.T) {

@@ -169,7 +169,7 @@ type mcpNetFlags struct {
 // The name is not a new invention: docs/MCP_TRANSPORTS.md has always spelled the
 // network deployment `--token="$SSG_MCP_TOKEN"`, so operators are already
 // training the variable — it just was never read by anything (#183).
-const mcpTokenEnv = "SSG_MCP_TOKEN"
+const mcpTokenEnv = "SSG_MCP_TOKEN" // #nosec G101 -- the name of a variable, not a credential
 
 // newMCPToken mints a bearer token. A variable rather than a direct call so the
 // failure path — a machine whose entropy source will not read — can be exercised

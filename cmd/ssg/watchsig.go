@@ -82,7 +82,7 @@ func fileSignature(path string) string {
 	if path == "" {
 		return ""
 	}
-	f, err := os.Open(path) // #nosec G304 -- CLI hashes the config file it was given
+	f, err := os.Open(path) // #nosec G304 G703 -- CLI hashes the config file it was given
 	if err != nil {
 		return ""
 	}
