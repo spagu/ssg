@@ -66,6 +66,13 @@ jobs:
             - name: Refresh the apt index
               run: sudo apt-get update -qq
 
+            # The same limit as the Go build-snap below, for the cwebp part's
+            # build-packages: snapcraft runs as `runner` and cannot apt-get
+            # install ("Cannot install all requested build packages"). Keep this
+            # list equal to parts.cwebp.build-packages in snapcraft.yaml.
+            - name: Install the cwebp build-packages
+              run: sudo apt-get install -y -qq --no-install-recommends cmake git libjpeg-dev libpng-dev
+
             # Destructive mode builds on the runner itself instead of inside a
             # fresh LXD container. On the amd64 pool the container has no working
             # route to archive.ubuntu.com at all — every fetch times out on port

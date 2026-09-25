@@ -105,8 +105,11 @@ parts:
     source: https://github.com/webmproject/libwebp.git
     source-tag: v1.6.0
     source-depth: 1
+    # Mirrored in .github/workflows/snap.yml, which installs them itself: in
+    # destructive mode snapcraft runs unprivileged and cannot.
     build-packages:
       - cmake
+      - git
       - libjpeg-dev
       - libpng-dev
     stage-packages:
