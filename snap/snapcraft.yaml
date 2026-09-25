@@ -64,12 +64,10 @@ parts:
     source-type: local
     build-snaps:
       - go/latest/stable
-    # Bundle cwebp so `webp: true` works under strict confinement, where
-    # exec.LookPath only sees the snap's own rootfs — the host's /usr/bin/cwebp
-    # is invisible. `webp` puts cwebp in $SNAP/usr/bin, which is on the app PATH
-    # (#114). avifenc (libavif-bin) does the same for AVIF output.
+    # Bundle avifenc so AVIF output works under strict confinement, where
+    # exec.LookPath only sees the snap's own rootfs — the host's binaries are
+    # invisible (#114). cwebp comes from the `cwebp` part below.
     stage-packages:
-      - webp
       - libavif-bin
     build-environment:
       - GOTOOLCHAIN: auto
@@ -90,3 +88,45 @@ parts:
       # so it always picks up wpexporter's newest tagged release.
       GOBIN="$SNAPCRAFT_PART_INSTALL/bin" go install -ldflags "-s -w" \
         github.com/tradik/wpexporter/cmd/wpexporter@latest
+
+  # cwebp, built from source instead of staging Ubuntu's `webp` package. That
+  # package also ships vwebp, an OpenGL viewer, and its dependencies pulled 50
+  # packages into the snap — freeglut, Mesa, LLVM 20, ICU and libxml2 — none of
+  # which cwebp uses. The Snap Store's security notices then reported libxml2 and
+  # the rest as outdated packages in a static site generator. ssg hands cwebp
+  # only JPEG and PNG, so GIF input is left out (TIFF is never searched for).
+  # libpng and libjpeg are linked shared, from the two staged packages, not
+  # from the static archives libwebp's CMake prefers: a statically linked copy
+  # is invisible to the Store's scan, and its fixes would reach nobody unnoticed.
+  # The tag is pinned by hand (Dependabot cannot see it): take the newest
+  # vX.Y.Z from https://github.com/webmproject/libwebp/tags.
+  cwebp:
+    plugin: nil
+    source: https://github.com/webmproject/libwebp.git
+    source-tag: v1.6.0
+    source-depth: 1
+    build-packages:
+      - cmake
+      - libjpeg-dev
+      - libpng-dev
+    stage-packages:
+      - libjpeg-turbo8
+      - libpng16-16t64
+    override-build: |
+      cmake -S "$CRAFT_PART_SRC" -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DWEBP_BUILD_CWEBP=ON \
+        -DWEBP_BUILD_DWEBP=OFF \
+        -DWEBP_BUILD_GIF2WEBP=OFF \
+        -DWEBP_BUILD_IMG2WEBP=OFF \
+        -DWEBP_BUILD_VWEBP=OFF \
+        -DWEBP_BUILD_WEBPINFO=OFF \
+        -DWEBP_BUILD_WEBPMUX=OFF \
+        -DWEBP_BUILD_EXTRAS=OFF \
+        -DWEBP_BUILD_ANIM_UTILS=OFF \
+        -DCMAKE_DISABLE_FIND_PACKAGE_GIF=ON \
+        -DPNG_LIBRARY_RELEASE="/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libpng.so" \
+        -DJPEG_LIBRARY_RELEASE="/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libjpeg.so"
+      cmake --build build --target cwebp --parallel "$CRAFT_PARALLEL_BUILD_COUNT"
+      install -D -m 0755 build/cwebp "$CRAFT_PART_INSTALL/usr/bin/cwebp"
