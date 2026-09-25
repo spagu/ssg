@@ -25,7 +25,11 @@ type headerBlock struct {
 // config writes exactly these.
 func defaultHeaderBlocks() []headerBlock {
 	cacheYear := [2]string{"Cache-Control", "public, max-age=31536000, immutable"}
-	cacheHour := [2]string{"Cache-Control", "public, max-age=3600"}
+	// Pages revalidate on every request (#290). A deploy is atomic, so a copy
+	// of a page is only ever worth a conditional request: an hour of max-age
+	// kept a withdrawn post or a correction in front of readers for that hour,
+	// and on the edge for as long as the zone liked.
+	cacheHTML := [2]string{"Cache-Control", "public, max-age=0, must-revalidate"}
 	return []headerBlock{
 		{
 			Comment: "Security headers for all pages",
@@ -48,8 +52,13 @@ func defaultHeaderBlocks() []headerBlock {
 		{Pattern: "/js/*", Headers: [][2]string{cacheYear}},
 		{Pattern: "/images/*", Headers: [][2]string{cacheYear}},
 		{Pattern: "/media/*", Headers: [][2]string{cacheYear}},
-		{Comment: "Cache HTML pages for 1 hour", Pattern: "/*.html", Headers: [][2]string{cacheHour}},
-		{Pattern: "/", Headers: [][2]string{cacheHour}},
+		{Comment: "HTML pages revalidate on every request", Pattern: "/*.html", Headers: [][2]string{cacheHTML}},
+		// A page_format: directory site is requested as /blog/, not
+		// /blog/index.html, and patterns match the request path: without this
+		// block the rule above covered the front page and nothing else (#290).
+		// It overlaps no asset block, so the year above is untouched.
+		{Pattern: "/*/", Headers: [][2]string{cacheHTML}},
+		{Pattern: "/", Headers: [][2]string{cacheHTML}},
 	}
 }
 

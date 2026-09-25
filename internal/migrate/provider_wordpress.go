@@ -109,14 +109,7 @@ func (p wordpressProvider) Fetch(rawURL string, opts Options) (*Report, error) {
 		return nil, err
 	}
 	if runErr := opts.run(bin, args); runErr != nil {
-		// The likeliest cause of an immediate failure is an engine older than
-		// 1.8.1, which rejects --ssg-sections as an unknown flag; say so
-		// instead of leaving the operator with a bare exit status.
-		return nil, fmt.Errorf("wpexporter failed: %w\n"+
-			"   The engine reported %s; ssg migrate is built against %s or newer.\n"+
-			"   If the failure names an unknown flag, upgrade it: snap refresh\n"+
-			"   static-site-generator, or go install .../cmd/wpexporter@latest",
-			runErr, engineLabel(bin, banner), engineVersionString(minimumEngine))
+		return nil, engineFailure(runErr, engineLabel(bin, banner))
 	}
 
 	rep := &Report{Provider: p.Name() + "@" + p.Version(), Skipped: skipped,

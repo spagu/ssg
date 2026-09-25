@@ -97,6 +97,41 @@ func TestASplatCarriesTheRemainderIntoTheDestination(t *testing.T) {
 	}
 }
 
+// TestASplatCannotLeaveTheSite: the splat is the request's own text, so a
+// doubled slash must not turn a site-relative destination into another host —
+// `//evil.example/` is protocol-relative, and a browser follows it off the site.
+// A rule that names a host keeps it.
+func TestASplatCannotLeaveTheSite(t *testing.T) {
+	resetLiveRules(t)
+	h, _ := publishRules(t, "/old/* /:splat 301\n/go/* https://example.com/:splat 302\n")
+
+	for path, want := range map[string]string{
+		"/old//evil.example/x": "/evil.example/x",
+		`/old/\evil.example/`:  "/evil.example/",
+		"/old/fine/page/":      "/fine/page/",
+		"/go/docs/":            "https://example.com/docs/",
+		"/go//docs/":           "https://example.com//docs/",
+	} {
+		if got := getPath(h, path).Header().Get("Location"); got != want {
+			t.Errorf("%s → Location %q, want %q", path, got, want)
+		}
+	}
+}
+
+func TestKeepOnSite(t *testing.T) {
+	for _, tc := range []struct{ to, dest, want string }{
+		{"/:splat", "//evil.example", "/evil.example"},
+		{"/:splat", `/\evil.example`, "/evil.example"},
+		{"/a/:splat", "/a/b", "/a/b"},
+		{"//cdn.example/:splat", "//cdn.example/x", "//cdn.example/x"},
+		{"https://example.com/:splat", "https://example.com//x", "https://example.com//x"},
+	} {
+		if got := keepOnSite(tc.to, tc.dest); got != tc.want {
+			t.Errorf("keepOnSite(%q, %q) = %q, want %q", tc.to, tc.dest, got, tc.want)
+		}
+	}
+}
+
 // TestAPlaceholderCapturesOneSegment: the `:placeholder` form the generator's
 // own RedirectRule documents, so the preview does not diverge from what the
 // build was willing to write.

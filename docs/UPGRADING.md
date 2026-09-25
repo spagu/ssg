@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.62">1.8.62 — 2026-09-13</option>
       <option value="1.8.61">1.8.61 — 2026-09-11</option>
       <option value="1.8.60">1.8.60 — 2026-09-10</option>
       <option value="1.8.59">1.8.59 — 2026-09-08</option>
@@ -195,6 +196,40 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.63">
+
+### 1.8.63 — HTML pages revalidate, on every URL shape
+
+**The default `_headers` HTML rule changed value and reach.** Pages are now sent
+`Cache-Control: public, max-age=0, must-revalidate` instead of
+`public, max-age=3600`, and a new `/*/` block applies it to the URLs a
+`page_format: directory` site actually serves (`/blog/`, `/tag/go/`). Until now
+those URLs matched no cache rule at all, so they got whatever the platform or
+the zone defaulted to. A correction or a takedown now shows on the next request
+after a deploy. To keep the hour, override the three blocks:
+
+```yaml
+headers:
+  /*.html: { Cache-Control: "public, max-age=3600" }
+  /*/:     { Cache-Control: "public, max-age=3600" }
+  /:       { Cache-Control: "public, max-age=3600" }
+```
+
+**`ssg migrate` names the engine's own error.** A failed run now ends with
+wpexporter's `Error:` line (a DNS failure, a refused connection) instead of
+advice to upgrade an engine that is already current. The upgrade advice appears
+only when the engine rejected a flag. A script that matched the old
+`If the failure names an unknown flag` text should match `wpexporter failed:`.
+
+**Symlinks in the output directory are skipped.** The `<picture>` pass, the
+output checks (`check_images`, `check_meta` and the rest) and fingerprinting now
+work through the output directory without following symlinks. A symlinked page
+used to be rewritten *at its target*, which could be outside the output. ssg
+never writes symlinks itself, so this only matters if you add them to the output
+by hand.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.62">
 

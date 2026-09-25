@@ -191,7 +191,7 @@ func convertOneAVIF(src string, opts AVIFOptions) int {
 
 // fileExists is the cheap existence check the conversion loop needs.
 func fileExists(p string) bool {
-	_, err := os.Stat(p)
+	_, err := os.Stat(p) // #nosec G703 -- a path inside the build's own output, derived from its image list
 	return err == nil
 }
 

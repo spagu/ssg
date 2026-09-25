@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.63] - 2026-09-24
+
+Two reports, a security pass and a snap that shipped a graphics stack. The
+Snap Store flagged libxml2 in a package that never parses XML. The cause was
+cwebp: Ubuntu's `webp` package brings an OpenGL viewer with it, and that
+viewer brought in Mesa, LLVM and libxml2.
+
+### Fixed
+- 🗂️ **Directory-format pages get a cache policy, and it revalidates** (#290).
+  The default `_headers` HTML rule matched `/*.html` and `/`, but patterns match
+  the request path, and a `page_format: directory` site is requested as
+  `/blog/`. Only the front page was covered; every other page took whatever the
+  platform or zone chose, and on one site a withdrawn post kept answering `200`
+  from the edge for a week. A `/*/` block now covers directory URLs, and all
+  three blocks send `public, max-age=0, must-revalidate` instead of an hour. A
+  deploy is atomic, so a cached page is only worth a conditional request.
+  DEPLOYMENT.md now covers the second half of a takedown: purging the cache.
+- 🧯 **`ssg migrate` reports the engine's real error** (#289). Every wpexporter
+  failure ended with advice to upgrade the engine, including DNS failures and
+  refused connections, on engines newer than required. The cause was a screen
+  earlier, above cobra's usage dump. The run's output is now kept (quietly too).
+  The failure ends with the engine's own `Error:` line, and the upgrade advice
+  appears only when the engine rejected a flag.
+
+### Security
+- 🔀 **The preview's redirect replay can no longer send a visitor off the
+  site.** The splat is the request's own text, so `/old/* /:splat` asked for
+  `/old//evil.example/` built the protocol-relative `//evil.example/`. A
+  destination the rule wrote as site-relative now stays site-relative. A rule
+  that names a host keeps it. (gosec G710)
+- 🔗 **Output walks go through `os.Root`.** The `<picture>` pass, the output
+  checks and the fingerprint cleanup used to follow symlinks in the output tree.
+  So a symlinked page was rewritten at its target outside the output, and a
+  manifest entry could delete there. They now skip symlinks and cannot leave the
+  output directory. (gosec G122)
+- 🛡️ **gosec is a gate.** The 12 findings the tree carried are fixed (above) or
+  annotated with why they do not apply: paths the operator passed on the command
+  line, and the name of an environment variable. CI now fails on a new finding
+  instead of only reporting it.
+- 📦 **The snap no longer bundles Mesa, LLVM, ICU or libxml2.** cwebp is built
+  from libwebp 1.6.0 with only JPEG and PNG input, instead of staging Ubuntu's
+  `webp` package. That package's OpenGL viewer pulled in 50 packages, which the
+  Snap Store then reported as outdated. The snap workflow now fails if any of
+  them come back, and checks that cwebp, avifenc and ssg run.
+
+### Changed
+- 🔁 **The weekly snap rebuild publishes.** It exists to pick up a newer
+  wpexporter and patched Ubuntu packages, but it built and discarded the result,
+  so the store kept outdated libraries until the next release. It now rebuilds
+  the latest release tag and publishes that. It also refreshes the apt index
+  first: the 2026-09-21 run failed on both architectures fetching a package the
+  archive had already replaced.
+- ⚠️ **Behaviour changes to check before upgrading** — each is in
+  docs/UPGRADING.md. HTML pages are sent `max-age=0, must-revalidate` instead
+  of an hour, and the new `/*/` block extends that to directory URLs. A failed
+  migration is worded differently. Output walks skip symlinked files.
+- ⬆️ Dependencies: `google.golang.org/grpc` 1.83.2 → 1.84.0 (#299),
+  `github.com/quic-go/quic-go` 0.62.0 → 0.63.0, and the `alpine:3.24` runtime
+  image digest (#294).
+
 ## [1.8.62] - 2026-09-13
 
 Fourteen reports, eleven of them from building one three-language site by hand.

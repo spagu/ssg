@@ -140,7 +140,7 @@ func (r redirectRule) match(path string) (string, bool) {
 	captures := map[string]string{}
 	for i, seg := range fromSegs {
 		if seg == "*" { // a splat is always last and swallows the remainder
-			return substituteRedirect(r.to, captures, strings.Join(pathSegs[min(i, len(pathSegs)):], "/")), true
+			return keepOnSite(r.to, substituteRedirect(r.to, captures, strings.Join(pathSegs[min(i, len(pathSegs)):], "/"))), true
 		}
 		if i >= len(pathSegs) {
 			return "", false
@@ -159,7 +159,21 @@ func (r redirectRule) match(path string) (string, bool) {
 	if len(pathSegs) != len(fromSegs) {
 		return "", false
 	}
-	return substituteRedirect(r.to, captures, ""), true
+	return keepOnSite(r.to, substituteRedirect(r.to, captures, "")), true
+}
+
+// keepOnSite stops a request path from turning a site-relative destination
+// into another host. The splat is the request's own text, so `/old/* /:splat`
+// asked for `/old//evil.example/` built `//evil.example/`, which a browser
+// follows off the site — an open redirect in the preview. A destination the
+// rule wrote as site-relative stays site-relative: leading slashes and
+// backslashes collapse to one. A rule that names a host is left alone; sending
+// visitors there is what it says.
+func keepOnSite(to, dest string) string {
+	if !strings.HasPrefix(to, "/") || strings.HasPrefix(to, "//") {
+		return dest
+	}
+	return "/" + strings.TrimLeft(dest, `/\`)
 }
 
 // substituteRedirect fills `:splat` and `:name` into a destination. Longer names
@@ -198,6 +212,8 @@ func liveRedirectHandler(next http.Handler) http.Handler {
 					http.Error(w, "410 Gone", http.StatusGone)
 					return
 				}
+				// #nosec G710 -- dest is the site's own rule; keepOnSite keeps a
+				// site-relative one on the site whatever the request path held.
 				http.Redirect(w, r, dest, rule.status)
 				return
 			}
