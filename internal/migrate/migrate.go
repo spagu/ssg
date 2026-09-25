@@ -10,6 +10,7 @@ package migrate
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -96,17 +97,24 @@ func (o Options) run(name string, args []string) error {
 }
 
 // runStreaming executes the fetched tool, streaming its progress to the
-// terminal so a live migration shows what is being pulled.
+// terminal so a live migration shows what is being pulled. The tail of its
+// output is kept, even when quiet, so a failure can name the engine's own
+// reason instead of a bare exit status (#289).
 func runStreaming(name string, args []string, quiet bool) error {
 	// #nosec G204 -- name is the LookPath-resolved path of a fixed tool name
 	// (e.g. "wpexporter") and args are built internally from a validated URL
 	// and known flags; nothing is passed through a shell.
 	cmd := exec.Command(name, args...)
+	tail := &tailBuffer{}
+	cmd.Stdout, cmd.Stderr = tail, tail
 	if !quiet {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stdout = io.MultiWriter(os.Stdout, tail)
+		cmd.Stderr = io.MultiWriter(os.Stderr, tail)
 	}
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return &engineRunError{err: err, output: tail.String()}
+	}
+	return nil
 }
 
 // Report is a provider's honest summary: what landed on disk, what was
