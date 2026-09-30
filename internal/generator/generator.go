@@ -188,6 +188,9 @@ type Config struct {
 	PostURLFormat     string       // Post URL format: "date" (/YYYY/MM/DD/slug/) or "slug" (/slug/)
 	PageFormat        string       // Page output format: "directory" (slug/index.html), "flat" (slug.html), "both"
 	RelativeLinks     bool         // Convert absolute URLs to relative links
+	BasePath          string       // Path the site is served under, "" at the root (#306); see config.ResolveBasePath
+	NoAutolinkLists   bool         // Leave list items that match a page title alone (#305)
+	NoHostFiles       bool         // Write no _headers/_redirects (#308)
 	Shortcodes        []Shortcode  // Shortcodes definitions
 	ShortcodeBrackets bool         // Also match [shortcode] syntax
 	MinifyHTML        bool         // Minify HTML output
@@ -884,17 +887,54 @@ func (headingIDTransformer) Transform(doc *ast.Document, reader text.Reader, _ g
 		return ast.WalkContinue, nil
 	})
 	for _, h := range affected {
-		id := slugify(nodeText(h, reader.Source()))
-		if id == "" {
-			id = "heading"
-		}
-		base := id
-		for i := 1; used[id]; i++ {
-			id = fmt.Sprintf("%s-%d", base, i)
-		}
-		used[id] = true
+		text := nodeText(h, reader.Source())
+		id := uniqueHeadingID(plainHeadingID(text), used)
 		h.SetAttributeString("id", []byte(id))
+		// 1.8.6 to 1.8.63 slugified these headings instead, so `[1.2.0] - date`
+		// was 1-2-0-date. Links to that anchor exist; an empty element keeps
+		// them landing on the heading (#310).
+		if legacy := slugify(text); legacy != "" && legacy != id && !used[legacy] {
+			used[legacy] = true
+			anchor := ast.NewString([]byte(`<span id="` + stdhtml.EscapeString(legacy) + `"></span>`))
+			anchor.SetCode(true) // written verbatim, not escaped
+			h.InsertBefore(h, h.FirstChild(), anchor)
+		}
 	}
+}
+
+// plainHeadingID derives an id from a heading's visible text with goldmark's
+// own rule — the one every plain heading gets: ASCII letters and digits
+// lower-cased, spaces, "-" and "_" as "-", everything else dropped. So a
+// heading with a link in it gets the id it would have without the link, and
+// `## [1.2.0] - 2026-09-30` is 120---2026-09-30, as on GitHub (#310). It
+// used to be slugified instead, which kept the dots as dashes.
+func plainHeadingID(text string) string {
+	var b strings.Builder
+	for _, r := range strings.TrimSpace(text) {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r + 'a' - 'A')
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ', r == '\t', r == '\n', r == '-', r == '_':
+			b.WriteByte('-')
+		}
+	}
+	if b.Len() == 0 {
+		return "heading"
+	}
+	return b.String()
+}
+
+// uniqueHeadingID suffixes id with -1, -2… until it is unused, as goldmark
+// does, and reserves it.
+func uniqueHeadingID(id string, used map[string]bool) string {
+	base := id
+	for i := 1; used[id]; i++ {
+		id = fmt.Sprintf("%s-%d", base, i)
+	}
+	used[id] = true
+	return id
 }
 
 // headingHasMarkup reports whether a heading contains a node whose raw source
@@ -1125,6 +1165,11 @@ func (g *Generator) assetPhase() error {
 	// minification so hashes reflect final byte content (ASSET-001).
 	if err := g.fingerprintIfRequested(); err != nil {
 		return err
+	}
+	// After fingerprinting, so hashed names are final, and before the checks,
+	// so check_links validates what the host will serve (#306).
+	if err := g.applyBasePath(); err != nil {
+		return fmt.Errorf("applying base_path: %w", err)
 	}
 	// Validation runs last, over the final output tree: links (SEO-005), image alt
 	// attributes (#75) and page metadata (#76). Each reports everything it finds
@@ -2863,7 +2908,9 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 			s = processWPShortcodesWith(s, protect) // [youtube]/[embed] iframes (GO-037)
 		}
 		s = cleanMarkdownArtifacts(s)
-		s = autolinkListItems(s, pageLinks)
+		if !g.config.NoAutolinkLists {
+			s = autolinkListItems(s, pageLinks)
+		}
 		s = g.replaceTOCMarker(s)
 		s = g.convertMarkdownToHTML(s)
 		s = fixMediaPaths(s, g.siteData.Media)
@@ -2932,10 +2979,17 @@ func cleanMarkdownArtifacts(s string) string {
 	return mdBoldRe.ReplaceAllString(s, "<strong>$1</strong>")
 }
 
-// autolinkListItems converts list items matching page titles to links
+// autolinkListItems converts list items matching page titles to links. Lines
+// inside fenced or indented code blocks are never touched: a changelog quoting
+// `- Documentation` in a YAML example had it turned into a Markdown link, which
+// the code block then displayed literally (#305).
 func autolinkListItems(s string, pageLinks map[string]string) string {
 	lines := strings.Split(s, "\n")
+	code := codeBlockLines(lines)
 	for i, line := range lines {
+		if code[i] {
+			continue
+		}
 		content := extractListItemContent(line)
 		if content != "" {
 			lines[i] = linkifyListItem(line, content, pageLinks)
@@ -5776,6 +5830,12 @@ func (g *Generator) generateNotFound() error {
 // generateCloudflareFiles creates _headers and _redirects files for Cloudflare
 // Pages: configurable headers (GO-064) and the redirects engine (GO-063).
 func (g *Generator) generateCloudflareFiles() error {
+	// host_files: false (#308). Cloudflare Pages and Netlify read these two
+	// files; every other host publishes them as ordinary files anyone can
+	// fetch, which is noise at best and a map of the site's rules at worst.
+	if g.config.NoHostFiles {
+		return g.generateWorkerFiles()
+	}
 	if err := g.generateHeadersFile(); err != nil {
 		return err
 	}
@@ -5982,11 +6042,14 @@ func (g *Generator) fingerprintAssets() error {
 	manifest := make(map[string]string) // original rel path → hashed rel path
 	byBasename := make(map[string]string)
 
-	// JS first (independent), then CSS ordered so @import leaves are hashed first.
-	sort.SliceStable(cssFiles, func(i, j int) bool {
-		return atImportCount(cssFiles[i]) < atImportCount(cssFiles[j])
-	})
-	for _, path := range append(jsFiles, cssFiles...) {
+	// Every asset after the assets it references — JS imports and CSS @import
+	// and url() alike — so each reference is rewritten to a name that already
+	// exists (#309).
+	ordered, err := g.fingerprintOrder(append(jsFiles, cssFiles...))
+	if err != nil {
+		return err
+	}
+	for _, path := range ordered {
 		if err := g.fingerprintOne(path, manifest, byBasename); err != nil {
 			return err
 		}
@@ -6144,15 +6207,6 @@ func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
 		// #nosec G306,G703,G122 -- CLI writes its own output; path from local Walk
 		return os.WriteFile(path, []byte(out), 0644)
 	})
-}
-
-// atImportCount counts @import statements in a CSS file (best-effort, for ordering).
-func atImportCount(path string) int {
-	content, err := os.ReadFile(path) // #nosec G304 -- CLI tool reads user's output files
-	if err != nil {
-		return 0
-	}
-	return strings.Count(string(content), "@import")
 }
 
 // assetRefRewriter holds precompiled basename regexes so the fingerprint walk

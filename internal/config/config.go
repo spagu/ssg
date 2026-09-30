@@ -246,10 +246,23 @@ type Config struct {
 	PostURLFormat string `yaml:"post_url_format" toml:"post_url_format" json:"post_url_format"` // "date" (default) or "slug"
 	PageFormat    string `yaml:"page_format" toml:"page_format" json:"page_format"`             // "directory" (default), "flat", or "both"
 	RelativeLinks bool   `yaml:"relative_links" toml:"relative_links" json:"relative_links"`    // Convert absolute URLs to relative
-	MinifyAll     bool   `yaml:"minify_all" toml:"minify_all" json:"minify_all"`
-	MinifyHTML    bool   `yaml:"minify_html" toml:"minify_html" json:"minify_html"`
-	MinifyCSS     bool   `yaml:"minify_css" toml:"minify_css" json:"minify_css"`
-	MinifyJS      bool   `yaml:"minify_js" toml:"minify_js" json:"minify_js"`
+	// BasePath is the path the site is served under, e.g. "/docs-site" for a
+	// GitHub project page at https://user.github.io/docs-site/ (#306). Every
+	// root-relative URL the build writes is prefixed with it, and check_links and
+	// the preview server understand it. Empty takes the path of `domain`, so
+	// `domain: user.github.io/docs-site` is enough; "/" forces the host's root.
+	BasePath string `yaml:"base_path" toml:"base_path" json:"base_path"`
+	// AutolinkListItems turns a list item whose whole text is a page title into
+	// a link to that page. On unless set to false (#305).
+	AutolinkListItems *bool `yaml:"autolink_list_items" toml:"autolink_list_items" json:"autolink_list_items"`
+	// HostFiles writes _headers and _redirects, which Cloudflare Pages and
+	// Netlify read and every other host serves as ordinary public files. On
+	// unless set to false (#308).
+	HostFiles  *bool `yaml:"host_files" toml:"host_files" json:"host_files"`
+	MinifyAll  bool  `yaml:"minify_all" toml:"minify_all" json:"minify_all"`
+	MinifyHTML bool  `yaml:"minify_html" toml:"minify_html" json:"minify_html"`
+	MinifyCSS  bool  `yaml:"minify_css" toml:"minify_css" json:"minify_css"`
+	MinifyJS   bool  `yaml:"minify_js" toml:"minify_js" json:"minify_js"`
 	// SourceMap emits v3 source maps (*.js.map / *.css.map) alongside minified
 	// JS/CSS, embedding the original source; minification is line-preserving so
 	// the mapping stays exact (GO-004 / BLOG-007). Requires the matching minify_*.

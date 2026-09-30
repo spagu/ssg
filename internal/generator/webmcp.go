@@ -86,6 +86,12 @@ return text({navigated:true,url:d.url})})}});
 // a page must read the one in its own language or the agent gets the site in a
 // language the reader did not ask for.
 func (g *Generator) webmcpIndexURL(page *models.Page) string {
+	// The URL sits in a script, where the output pass cannot see it (#306).
+	return withBasePath(g.webmcpIndexPath(page), g.config.BasePath)
+}
+
+// webmcpIndexPath is the index's path within the site, before any base path.
+func (g *Generator) webmcpIndexPath(page *models.Page) string {
 	if !g.config.I18n.Enabled {
 		return "/search-index.json"
 	}

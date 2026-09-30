@@ -52,8 +52,8 @@ func (g *Generator) checkCSSLinks() ([]brokenLink, error) {
 			return err
 		}
 		for _, ref := range cssRefs(string(data)) {
-			target := g.stripOwnDomain(ref.target)
-			if !isInternalRef(target) || g.refResolves(target, filepath.Dir(path)) {
+			target, underBase := g.siteRelativeRef(ref.target)
+			if !isInternalRef(target) || (underBase && g.refResolves(target, filepath.Dir(path))) {
 				continue
 			}
 			broken = append(broken, brokenLink{
