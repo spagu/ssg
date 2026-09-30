@@ -624,6 +624,9 @@ fingerprinted assets.
 | `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence |
 | `pretty_html` | `false` | `--pretty-html` | Remove blank lines from HTML |
 | `relative_links` | `false` | `--relative-links` | Convert absolute site links to relative links |
+| `base_path` | path of `domain` | config only | Path the site is served under (`/<repo>` for a GitHub project page); prefixes every root-relative URL, and `check_links` and `ssg --http` follow it. `/` forces the root. See [DEPLOYMENT.md](DEPLOYMENT.md#sites-served-under-a-path) |
+| `host_files` | `true` | config only | Write `_headers` and `_redirects`. `false` for hosts other than Cloudflare Pages and Netlify, which serve them as public files |
+| `autolink_list_items` | `true` | config only | Link a list item whose whole text is a page title to that page. Code blocks are never touched; `false` turns it off |
 | `post_url_format` | `date` behaviour | `--post-url-format` | `date` or `slug` |
 | `page_format` | `directory` behaviour | `--page-format` | `directory`, `flat` or `both` |
 | `permalinks.post` | empty | `--permalink-post` | Tokenised post URL pattern |
@@ -669,6 +672,12 @@ code blocks are left alone, and the source `.md` files are never modified.
 links to repository files that the site never publishes. It maps an href prefix
 to its replacement, longest match first, so one rule can cover a folder and
 another override a single file:
+
+**List items that name a page become links.** A list item whose entire text is
+the title of a page — `- Documentation` on a site with a page titled
+"Documentation" — is written as a link to that page. Lines inside fenced and indented code blocks are never touched (before 1.8.64
+they were, so a YAML example containing `- Documentation` rendered a Markdown
+link inside the code). `autolink_list_items: false` turns it off.
 
 ```yaml
 link_rewrites:

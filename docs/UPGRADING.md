@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.63">1.8.63 — 2026-09-25</option>
       <option value="1.8.62">1.8.62 — 2026-09-13</option>
       <option value="1.8.61">1.8.61 — 2026-09-11</option>
       <option value="1.8.60">1.8.60 — 2026-09-10</option>
@@ -196,6 +197,33 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.64">
+
+### 1.8.64 — a `domain` with a path moves the links too, and linked headings get GitHub's ids
+
+**A `domain` with a path now prefixes every link.** If your `domain` is
+`<host>/<path>`, the canonical URLs, sitemap and robots.txt already used that
+path, and now every root-relative link, image, stylesheet and `url()` in the
+output does too. This is what a site served under that path needs. If yours is
+served from the root and the path in `domain` was only for canonicals, set
+`base_path: /` to keep the links as they were. A site whose `domain` is a bare
+host is unaffected.
+
+**Headings that contain a link, code or inline HTML get a new id.** It is now
+the id the heading would have without the markup, which is what GitHub
+computes: `## [1.2.0] - 2026-09-30` is `#120---2026-09-30`, not
+`#1-2-0-2026-09-30`. The old id is kept on an empty `<span>` at the start of the
+heading, so links to it still land. Plain headings are unchanged.
+
+**`_headers`: the HTML blocks start with `! Cache-Control`.** It removes the
+asset policy from a page whose URL sits under `/css/`, `/js/`, `/images/` or
+`/media/`, which Cloudflare used to send joined to the page policy. With
+`deploy: netlify` the line is not written.
+
+**List items inside code blocks are no longer turned into links.**
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.63">
 
