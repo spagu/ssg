@@ -12,14 +12,22 @@ import (
 	"strings"
 )
 
-// headerBlock is one pattern block in the generated _headers file. Order
-// matters twice: Cloudflare applies the first matching value per header, and
-// the rendered file must be deterministic across builds.
+// headerBlock is one pattern block in the generated _headers file. When several
+// blocks match one URL and set the same header, Cloudflare joins their values
+// with ", " (#304); a header written "! Name" with an empty value removes what
+// other matching blocks set. The rendered file must be deterministic.
 type headerBlock struct {
 	Comment string      // optional comment line rendered above the pattern
 	Pattern string      // path pattern, e.g. "/*", "/css/*"
 	Headers [][2]string // ordered name/value pairs
 }
+
+// detachCacheControl is the "! Cache-Control" line an HTML block starts with.
+// A page whose URL sits under an asset prefix — a "Media" page at /media/ —
+// matches /media/* too, and Cloudflare would join the two values into
+// "public, max-age=31536000, immutable, public, max-age=0, must-revalidate"
+// (#304). Detaching first leaves the page the HTML policy alone.
+var detachCacheControl = [2]string{"! Cache-Control", ""}
 
 // defaultHeaderBlocks returns the built-in _headers blocks. An empty `headers:`
 // config writes exactly these.
@@ -52,12 +60,12 @@ func defaultHeaderBlocks() []headerBlock {
 		{Pattern: "/js/*", Headers: [][2]string{cacheYear}},
 		{Pattern: "/images/*", Headers: [][2]string{cacheYear}},
 		{Pattern: "/media/*", Headers: [][2]string{cacheYear}},
-		{Comment: "HTML pages revalidate on every request", Pattern: "/*.html", Headers: [][2]string{cacheHTML}},
+		{Comment: "HTML pages revalidate on every request", Pattern: "/*.html", Headers: [][2]string{detachCacheControl, cacheHTML}},
 		// A page_format: directory site is requested as /blog/, not
 		// /blog/index.html, and patterns match the request path: without this
 		// block the rule above covered the front page and nothing else (#290).
 		// It overlaps no asset block, so the year above is untouched.
-		{Pattern: "/*/", Headers: [][2]string{cacheHTML}},
+		{Pattern: "/*/", Headers: [][2]string{detachCacheControl, cacheHTML}},
 		{Pattern: "/", Headers: [][2]string{cacheHTML}},
 	}
 }
@@ -152,6 +160,10 @@ func renderHeadersFile(blocks []headerBlock) string {
 		}
 		b.WriteString(block.Pattern + "\n")
 		for _, h := range block.Headers {
+			if strings.HasPrefix(h[0], "!") && h[1] == "" {
+				b.WriteString("  " + h[0] + "\n") // a detach line has no value
+				continue
+			}
 			b.WriteString("  " + h[0] + ": " + h[1] + "\n")
 		}
 	}
@@ -160,7 +172,11 @@ func renderHeadersFile(blocks []headerBlock) string {
 
 // generateHeadersFile writes the merged _headers file into the output root.
 func (g *Generator) generateHeadersFile() error {
-	blocks := mergeHeaderBlocks(defaultHeaderBlocks(), g.config.Headers, g.config.HeadersDefaultsOff)
+	defaults := defaultHeaderBlocks()
+	if strings.EqualFold(strings.TrimSpace(g.config.Deploy), "netlify") {
+		defaults = withoutDetachLines(defaults)
+	}
+	blocks := mergeHeaderBlocks(defaults, g.config.Headers, g.config.HeadersDefaultsOff)
 	content := renderHeadersFile(blocks)
 	headersPath := filepath.Join(g.config.OutputDir, "_headers")
 	// #nosec G306 -- Web content files need to be world-readable
@@ -168,4 +184,21 @@ func (g *Generator) generateHeadersFile() error {
 		return fmt.Errorf("writing _headers: %w", err)
 	}
 	return nil
+}
+
+// withoutDetachLines drops "! Name" lines, which are Cloudflare syntax: Netlify
+// documents no way to remove a header, and a line without a colon is not a
+// header there.
+func withoutDetachLines(blocks []headerBlock) []headerBlock {
+	out := make([]headerBlock, len(blocks))
+	for i, b := range blocks {
+		kept := make([][2]string, 0, len(b.Headers))
+		for _, h := range b.Headers {
+			if !strings.HasPrefix(h[0], "!") {
+				kept = append(kept, h)
+			}
+		}
+		out[i] = headerBlock{Comment: b.Comment, Pattern: b.Pattern, Headers: kept}
+	}
+	return out
 }

@@ -109,9 +109,20 @@ does not require Wrangler.
 ### Generated `_headers` and `_redirects`
 
 **Every build** writes `_headers` and `_redirects` into the output directory,
-whether or not you deploy to Cloudflare Pages — they are inert anywhere else.
-Pages applies them verbatim, so their content is the site's security and
-caching policy, and worth knowing before a page appears to go stale.
+whether or not you deploy to Cloudflare Pages. Cloudflare Pages and Netlify
+apply them verbatim, so their content is the site's security and caching policy,
+and worth knowing before a page appears to go stale. Every other host (GitHub
+Pages, S3, nginx) serves them as ordinary files anyone can fetch;
+`host_files: false` (1.8.64+) stops writing them. Alias stub pages, which carry
+the redirects there, are still written.
+
+When several blocks match one URL and set the same header, Cloudflare **joins**
+the values with `, ` rather than taking the first. A line `! Name` in a block
+removes that header as set by the other matching blocks. The HTML blocks below
+start with `! Cache-Control`: without it a page at `/media/` matched `/media/*`
+as well and was sent both the one-year and the revalidate policy, joined. With
+`deploy: netlify` the `!` lines are left out, since Netlify has no such syntax.
+The preview (`ssg --http`) applies the file the same way.
 
 Security headers, applied to `/*`:
 
@@ -369,6 +380,133 @@ For HTTPS remotes, `GITHUB_TOKEN` is passed as an HTTP authorization header and
 is not embedded in the remote URL. SSH remotes use the normal Git/SSH setup.
 The `git` executable must be available.
 
+### From GitHub Actions, without a `gh-pages` branch
+
+GitHub's current flow builds in one job, uploads the site as a Pages artifact
+and deploys it from a second job. Nothing is pushed to a branch, so no job
+needs `contents: write`, and `pages: write` / `id-token: write` sit on the
+deploy job alone, which is what scanners such as SonarCloud (githubactions:S8233)
+ask for. In the repository settings, set **Pages → Source** to **GitHub
+Actions** first.
+
+```yaml
+# .github/workflows/site.yml
+name: Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # A pinned release and the SHA-256 of its linux-amd64 archive, copied from
+  # that release's checksums.sha256. Update both together.
+  SSG_VERSION: "1.8.64"
+  SSG_SHA256: "<sha256 of ssg-linux-amd64.tar.gz from checksums.sha256>"
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install ssg
+        run: |
+          set -euo pipefail
+          archive="ssg-linux-amd64.tar.gz"
+          curl --proto '=https' --fail -sSL \
+            "https://github.com/spagu/ssg/releases/download/v${SSG_VERSION}/${archive}" \
+            -o "${RUNNER_TEMP}/${archive}"
+          echo "${SSG_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" ssg
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+
+      - name: Build
+        run: ssg --config ssg.yaml --check-links=strict
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: output
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+```
+
+`uses: spagu/ssg@v1` can replace the install step; the pinned archive with
+its checksum is for a workflow that should not change when a new release is
+tagged. `path:` is the output directory your config writes (`output_dir`).
+
+The matching `ssg.yaml` for a **project page** — one served at
+`https://<user>.github.io/<repo>/` — names the path in `domain`, and turns off
+the two Cloudflare/Netlify files GitHub Pages would publish as ordinary files:
+
+```yaml
+domain: <user>.github.io/<repo>   # base_path /<repo> is taken from here
+host_files: false                 # no _headers / _redirects on GitHub Pages
+```
+
+A user or organisation page (`https://<user>.github.io/`) or a custom domain
+needs neither: it is served from the root. See
+[Sites served under a path](#sites-served-under-a-path).
+
+## Sites served under a path
+
+A GitHub project page, a site behind a reverse proxy at `/docs/`, or any other
+site that does not own the root of its host is served under a **base path**.
+Every root-relative URL the build writes has to start with it: a link to
+`/about/` on `https://<user>.github.io/<repo>/` leaves the site.
+
+Set the path in `domain` or in `base_path`:
+
+```yaml
+domain: <user>.github.io/<repo>   # base_path is /<repo>
+# or, when the canonical host is elsewhere:
+base_path: /<repo>
+```
+
+`base_path` wins when both are set; `base_path: /` serves from the root even
+when `domain` carries a path. With a base path (1.8.64+):
+
+- every root-relative `href`, `src`, `srcset`, `action` and `poster` in the
+  output, every `url()` in stylesheets and `<style>` blocks, and the target of
+  alias redirect pages is prefixed — whether it came from Markdown, a template,
+  a list autolink or a rewritten `.md` link;
+- the search index and the WebMCP script carry the prefixed URLs;
+- canonical URLs, the sitemap, feeds and `robots.txt` already used `domain`
+  with its path, and still do;
+- `check_links` resolves `/<repo>/about/` against the output, and reports a
+  root-relative link *outside* the base path as broken, because the host will
+  not serve it from this site;
+- `ssg --http` serves the site under the path too, redirects `/` there and
+  answers 404 for anything outside it, as the host will.
+
+URLs built in JavaScript at runtime (`fetch("/data.json")`) cannot be seen by
+the build. Write them relative to the page, or read the base path from a
+`<link>` or `data-` attribute the build has already prefixed.
+
 ## Netlify
 
 ```bash
@@ -564,7 +702,7 @@ added to the command argument array.
 Example artifact upload:
 
 ```yaml
-- uses: actions/upload-pages-artifact@v4
+- uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
   with:
     path: ${{ steps.ssg.outputs.output-path }}
 ```

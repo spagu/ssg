@@ -213,6 +213,10 @@ func logServerStart(cfg *config.Config, url, mode string, exposed bool) {
 		scheme = "HTTPS"
 		url = resolveListenURL(true, strings.TrimPrefix(url, plainScheme+"://"))
 	}
+	// The site lives under its base path; the root only redirects there (#306).
+	if base := config.ResolveBasePath(cfg.BasePath, cfg.Domain); base != "" {
+		url = strings.TrimSuffix(url, "/") + base + "/"
+	}
 	fmt.Printf("🌐 Starting %s server at %s\n", scheme, url)
 	if mode == "auto" {
 		fmt.Printf("   🔐 Let's Encrypt for %s (needs public :80/:443)\n", cfg.TLSDomain)
@@ -294,6 +298,9 @@ func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
 	// touching the listener (#180).
 	publishEndpoints(cfg, files)
 	h := liveEndpointHandler(files)
+	// Inside the security and cache layers, so a redirect to the base path and
+	// a 404 outside it carry the same headers as any other response (#306).
+	h = basePathHandler(h, config.ResolveBasePath(cfg.BasePath, cfg.Domain))
 	h = cacheControlMiddleware(h)
 	// A preview must never cache: the policy above and the `_headers` rules
 	// below it are both written for a published site, and either one will serve

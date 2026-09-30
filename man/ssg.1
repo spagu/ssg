@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.63" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.64" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -958,6 +958,19 @@ For example \fBhref="AUTHENTICATION.md"\fR becomes
 Relative path prefixes (\fB./\fR, \fB../dir/\fR) are stripped — only the base
 filename is matched. Unknown \fB.md\fR links are left untouched. The feature is
 opt-in to avoid breaking sites that intentionally serve raw \fB.md\fR files.
+.SH SITES SERVED UNDER A PATH
+A site served under a path, such as a GitHub project page at
+\fBhttps://<user>.github.io/<repo>/\fR, names the path in \fBdomain\fR
+(\fBdomain: <user>.github.io/<repo>\fR) or in \fBbase_path\fR. Every
+root-relative URL in the output is prefixed with it, \fBcheck_links\fR
+resolves links through it, and \fB\-\-http\fR serves the site under it.
+\fBbase_path: /\fR forces the root. \fBhost_files: false\fR skips
+\fB_headers\fR and \fB_redirects\fR on hosts other than Cloudflare Pages
+and Netlify.
+.SH LIST ITEM AUTOLINKS
+A list item whose entire text is a page title becomes a link to that page.
+Lines in code blocks are never changed. \fBautolink_list_items: false\fR
+turns it off.
 .SH EXTERNAL SOURCES
 The config-only \fBexternal_sources\fR block feeds templates from local files
 (YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client, shared disk

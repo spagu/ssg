@@ -17,13 +17,23 @@ func TestHeadingIDFromVisibleText(t *testing.T) {
 	}
 	md := "### [Ian Zane](/authors/ian-zane/) — Generalist\n\n## Our Team\n\n## Our Team\n"
 	html := g.convertMarkdownToHTML(md)
+	// The id is the one the heading would get without the link, by goldmark's
+	// rule, as GitHub computes it (#310); the 1.8.6–1.8.63 slug stays as an
+	// empty anchor so links made to it still land.
 	wantContains(t, "headings", html,
-		`<h3 id="ian-zane-generalist">`, `<h2 id="our-team">`, `<h2 id="our-team-1">`)
+		`<h3 id="ian-zane--generalist"><span id="ian-zane-generalist"></span>`, `<h2 id="our-team">`, `<h2 id="our-team-1">`)
 	if strings.Contains(html, "authorsian-zane") {
 		t.Fatalf("href leaked into heading id: %s", html)
 	}
 	toc := string(g.tocHTML(md))
-	wantContains(t, "toc", toc, `href="#ian-zane-generalist"`, `href="#our-team"`, `href="#our-team-1"`)
+	wantContains(t, "toc", toc, `href="#ian-zane--generalist"`, `>Ian Zane — Generalist<`, `href="#our-team"`, `href="#our-team-1"`)
+
+	// #310: the Keep a Changelog heading, with its reference definition, gets
+	// GitHub's id — the same one it gets without the definition.
+	withRef := g.convertMarkdownToHTML("## [1.2.0] - 2026-09-30\n\ntext\n\n[1.2.0]: https://example.com/v1.2.0\n")
+	withoutRef := g.convertMarkdownToHTML("## [1.2.0] - 2026-09-30\n\ntext\n")
+	wantContains(t, "changelog heading with a link", withRef, `<h2 id="120---2026-09-30"><span id="1-2-0-2026-09-30"></span>`)
+	wantContains(t, "changelog heading without a link", withoutRef, `<h2 id="120---2026-09-30">`)
 
 	// Empty-text heading falls back to a stable id.
 	html = g.convertMarkdownToHTML("## ![](/img/logo.png)\n")

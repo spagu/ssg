@@ -104,8 +104,12 @@ func (g *Generator) checkLinks() ([]brokenLink, error) {
 			// exempted exactly the reference three production sites shipped
 			// broken: a theme hardcoding /category/ into canonicals it stamped
 			// on tag and author archives too (#229).
-			ref = g.stripOwnDomain(ref)
+			ref, underBase := g.siteRelativeRef(ref)
 			if !isInternalRef(ref) {
+				continue
+			}
+			if !underBase {
+				broken = append(broken, brokenLink{from: rel, href: ref})
 				continue
 			}
 			if !g.refResolves(ref, htmlDir) {
@@ -178,6 +182,22 @@ func (g *Generator) stripOwnDomain(ref string) string {
 		}
 	}
 	return ref
+}
+
+// siteRelativeRef turns a reference into the path within the site that the
+// checker resolves against the output tree: an absolute URL on the site's own
+// domain loses the origin (and with it the base path the domain carries), and
+// a root-relative one loses the base path (#306). The second result is false
+// for a root-relative reference outside the base path — on a site served
+// under /docs-site, /css/x.css asks the host for a file this site does not own.
+func (g *Generator) siteRelativeRef(ref string) (string, bool) {
+	if stripped := g.stripOwnDomain(ref); stripped != ref {
+		return stripped, true
+	}
+	if !strings.HasPrefix(ref, "/") || strings.HasPrefix(ref, "//") {
+		return ref, true
+	}
+	return cutBasePath(ref, g.config.BasePath)
 }
 
 // isInternalRef reports whether a reference points inside the generated site.
@@ -363,7 +383,7 @@ func (g *Generator) pageRecord(page models.Page) map[string]interface{} {
 func (g *Generator) searchRecord(p models.Page) map[string]interface{} {
 	record := map[string]interface{}{
 		"title":           p.Title,
-		"url":             p.GetURL(),
+		"url":             withBasePath(p.GetURL(), g.config.BasePath),
 		"lang":            p.Lang,
 		"locale":          p.Locale,
 		"translation_key": p.TranslationKey,

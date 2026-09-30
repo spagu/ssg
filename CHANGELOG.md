@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.64] - 2026-09-30
+
+Six reports from building two real sites, one of them a GitHub project page,
+and the header question 1.8.63 left open. Most were workarounds somebody had
+already shipped: a page retitled so a changelog line stopped becoming a link,
+fingerprinting turned off because a module import 404ed, release reference
+links deleted so anchors matched GitHub.
+
+### Added
+- 📁 **`base_path`: sites served under a path** (#306). A GitHub project page at
+  `https://<user>.github.io/<repo>/` put the path into canonicals, the sitemap
+  and robots.txt through `domain`, while every link in the pages still pointed
+  at the host's root. `check_links: strict` reported 338 false breaks on one such
+  site. The base path is now taken from `domain`, or set with `base_path`, and
+  one pass over the finished output prefixes every root-relative `href`, `src`,
+  `srcset`, `action`, `poster`, alias-redirect target and CSS `url()`. The search
+  index and the WebMCP script carry prefixed URLs. `check_links` resolves
+  through the base path and reports a root-relative link outside it as broken.
+  `ssg --http` serves the site under the path, redirects `/` there, and prints
+  that address.
+- 🧾 **`host_files: false`** (#308) stops writing `_headers` and `_redirects`,
+  which every host other than Cloudflare Pages and Netlify serves as ordinary
+  public files.
+- 🚀 **A complete GitHub Pages recipe** in DEPLOYMENT.md (#307): a pinned ssg
+  release with its checksum verified, a build job with `contents: read`,
+  `upload-pages-artifact` v5, and a deploy job holding `pages: write` and
+  `id-token: write` alone.
+
+### Fixed
+- 🧩 **Fingerprinting orders assets by what they import** (#309). A file is
+  rewritten with the hashed names known when it is hashed, and JS was hashed in
+  path order, so `playground.js` importing `presets.js` shipped
+  `import … from "./presets.js"`, a 404. Assets are now hashed dependencies
+  first, for JS imports and CSS `@import`/`url()` alike, at any depth. A
+  reference cycle is named in the build log.
+- #️⃣ **Headings with a link get GitHub's id** (#310). `## [1.2.0] - 2026-09-30`
+  with a reference definition got `1-2-0-2026-09-30`; without the definition,
+  `120---2026-09-30`, as on GitHub. A heading with a link, code or inline HTML
+  now gets the id it would have without the markup. The old id stays on an
+  empty anchor inside the heading, so existing links still land.
+- 📝 **List-item autolinks leave code blocks alone** (#305). `- Documentation`
+  inside a fenced or indented code block became `[Documentation](/docs/)`,
+  which the block then showed literally. It is now documented, and
+  `autolink_list_items: false` turns it off.
+- 🧷 **The preview joins repeated headers, as Cloudflare does** (#304). When two
+  `_headers` blocks match and set one header, Cloudflare sends both values
+  joined with `, `; the preview sent the first. It now joins them and honours
+  `! Name` detach lines.
+- 🗂️ **A page under an asset prefix gets one Cache-Control** (#304). A page at
+  `/media/` matched `/media/*` as well as `/*/`, and was sent the one-year
+  `immutable` policy joined to the revalidate one. The HTML blocks now start with
+  `! Cache-Control`. With `deploy: netlify` that line is left out, since Netlify
+  has no such syntax.
+
+### Changed
+- ⚠️ **Behaviour changes to check before upgrading** are in
+  docs/UPGRADING.md. A `domain` that carries a path now prefixes every link in
+  the output with it. Headings containing a link, code or inline HTML get a new
+  id, and the old one is kept on an anchor. `_headers` HTML blocks carry
+  `! Cache-Control`.
+- ⬆️ Dependencies: `modernc.org/sqlite` 1.59.0 → 1.60.1, `modernc.org/libc`
+  1.75.7 → 1.77.1, `dlclark/regexp2/v2` 2.2.1 → 2.8.0, `dustin/go-humanize`
+  1.1.0, `klauspost/cpuid/v2` 2.4.0, `ncruces/go-strftime` 1.1.0, genproto
+  2026-09-28; the `golang:1.27.1-alpine` builder image digest.
+
 ## [1.8.63] - 2026-09-24
 
 Two reports, a security pass and a snap that shipped a graphics stack. The

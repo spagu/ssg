@@ -159,17 +159,3 @@ func TestWriteBundleMissingSource(t *testing.T) {
 		t.Errorf("bundle missing present source: %s", out)
 	}
 }
-
-func TestAtImportCount(t *testing.T) {
-	dir := t.TempDir()
-	p := filepath.Join(dir, "s.css")
-	if err := os.WriteFile(p, []byte("@import 'a';\n@import 'b';\nbody{}"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if n := atImportCount(p); n != 2 {
-		t.Errorf("atImportCount = %d, want 2", n)
-	}
-	if n := atImportCount(filepath.Join(dir, "nope.css")); n != 0 {
-		t.Errorf("missing file count = %d, want 0", n)
-	}
-}
