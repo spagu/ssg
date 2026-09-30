@@ -9,10 +9,12 @@ package main
 //
 // Semantics follow the file the generator writes (renderHeadersFile): a pattern
 // on its own line, its headers indented beneath it. Patterns are exact paths or
-// globs — the defaults alone use `/*`, `/css/*`, `/*.html` and a bare `/` — and
-// Cloudflare applies the **first** matching value for a given header name, which
-// is why the merge order in headers.go is deliberate and why it is preserved
-// here rather than re-sorted.
+// globs — the defaults alone use `/*`, `/css/*`, `/*.html`, `/*/` and a bare
+// `/`. When several blocks match and set the same header, Cloudflare **joins**
+// the values with ", " in file order, and a `! Name` line removes the header
+// that other matching blocks set (#304). This replay used to apply only the
+// first value, so the preview showed one Cache-Control where production sent
+// two.
 //
 // The file wins over the server's own security-header middleware. That is not a
 // preference: it is what the deployed platform would serve, and a preview whose
@@ -24,10 +26,12 @@ import (
 	"sync/atomic"
 )
 
-// headerRule is one pattern block: the pattern, and its headers in file order.
+// headerRule is one pattern block: the pattern, its headers in file order, and
+// the headers it detaches from other matching blocks (`! Name`).
 type headerRule struct {
 	pattern string
 	headers [][2]string
+	detach  []string
 }
 
 // headerTable is the parsed file. Immutable once published.
@@ -50,6 +54,11 @@ func parseHeadersFile(text string, warn func(string, ...any)) headerTable {
 			table = append(table, headerRule{pattern: trimmed})
 			continue
 		}
+		if detached, ok := strings.CutPrefix(trimmed, "!"); ok && strings.TrimSpace(detached) != "" && len(table) > 0 {
+			last := len(table) - 1
+			table[last].detach = append(table[last].detach, http.CanonicalHeaderKey(strings.TrimSpace(detached)))
+			continue
+		}
 		name, value, ok := strings.Cut(trimmed, ":")
 		if !ok || strings.TrimSpace(name) == "" {
 			warn("⚠️  _headers:%d: expected `Name: value` — line skipped: %s", n+1, trimmed)
@@ -66,25 +75,43 @@ func parseHeadersFile(text string, warn func(string, ...any)) headerTable {
 	return table
 }
 
-// apply sets every header the matching blocks declare for path, first match
-// winning per header name — Cloudflare's rule, and the reason block order is
-// preserved rather than sorted.
+// apply sets every header the matching blocks declare for path, as Cloudflare
+// does: values of a header set by more than one block are joined with ", " in
+// file order, and a header one matching block detaches is dropped from every
+// other matching block — the detaching block's own value stays.
 func (t headerTable) apply(h http.Header, path string) {
-	var set map[string]bool
+	var matched []headerRule
 	for _, rule := range t {
-		if !matchHeaderPattern(rule.pattern, path) {
-			continue
+		if matchHeaderPattern(rule.pattern, path) {
+			matched = append(matched, rule)
 		}
+	}
+	detachedBy := map[string]int{} // header → index of the matched rule detaching it
+	for i, rule := range matched {
+		for _, name := range rule.detach {
+			detachedBy[name] = i
+		}
+	}
+	values := map[string][]string{}
+	var order []string
+	for i, rule := range matched {
 		for _, kv := range rule.headers {
 			key := http.CanonicalHeaderKey(kv[0])
-			if set[key] {
+			if by, ok := detachedBy[key]; ok && by != i {
 				continue
 			}
-			if set == nil {
-				set = map[string]bool{}
+			if _, seen := values[key]; !seen {
+				order = append(order, key)
 			}
-			set[key] = true
-			h.Set(key, kv[1])
+			values[key] = append(values[key], kv[1])
+		}
+	}
+	for _, key := range order {
+		h.Set(key, strings.Join(values[key], ", "))
+	}
+	for key := range detachedBy {
+		if _, set := values[key]; !set {
+			h.Del(key)
 		}
 	}
 }
