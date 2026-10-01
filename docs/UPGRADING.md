@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.64">1.8.64 — 2026-09-30</option>
       <option value="1.8.63">1.8.63 — 2026-09-25</option>
       <option value="1.8.62">1.8.62 — 2026-09-13</option>
       <option value="1.8.61">1.8.61 — 2026-09-11</option>
@@ -197,6 +198,16 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.65">
+
+### 1.8.65 — nothing to do
+
+Reading articles aloud (`listen:` and `tts:`) is off until you turn it on. The
+Go-template themes that ship with ssg now call `{{ listen .Post }}`, which
+renders nothing while both are off, so their output is unchanged.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.64">
 

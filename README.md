@@ -358,6 +358,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 |---|---|
 | Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization; a file dropped for a missing `status:` or unparseable frontmatter is named with the likely cause (`strict: true` fails the build on the latter) ([docs/CONTENT.md](docs/CONTENT.md#markdown-and-frontmatter)) |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
+| Read aloud | A "Listen" button with the visitor's own browser voice, and/or an MP3 per article from a TTS API at build time — cached, with a jingle, a fallback when the API is down, a podcast feed, and a self-hostable Docker TTS server ([docs/AUDIO.md](docs/AUDIO.md)) |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
 | Site migration | `ssg migrate wordpress <url>` — scaffold + content pull (wpexporter) + build in one command; completes `title`/`description`/`timezone`/`colors` from the source site; pages, posts, media, a theme's own post types and reader comments; `--watch --http` migrates live in the browser ([docs/MIGRATE.md](docs/MIGRATE.md)) |
@@ -576,6 +577,7 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
+| [docs/AUDIO.md](docs/AUDIO.md) | Articles read aloud: the browser button, build-time MP3 through a TTS API, the podcast feed |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |

@@ -68,6 +68,20 @@ relative_links: false # Convert absolute URLs to relative links
 # base_path: /my-repo   # Served under a path (GitHub project page); default: the path of `domain`
 # host_files: true      # Write _headers/_redirects (Cloudflare Pages, Netlify); false elsewhere
 # autolink_list_items: true # Link list items whose text is a page title (never inside code blocks)
+
+# Articles read aloud — see docs/AUDIO.md
+# listen:
+#   enabled: true            # browser "Listen" button (Web Speech API)
+#   label: "Listen"
+# tts:
+#   enabled: true            # MP3 per article at build time
+#   provider: generic        # generic | openai | elevenlabs | google
+#   api_url: http://localhost:8080/v1/speech   # services/tts-server
+#   api_key: $TTS_API_KEY
+#   voice: en_US-lessac-medium
+#   jingle_url: ""
+#   on_failure: stale        # stale | skip | fail
+#   feed: true               # podcast.xml
 post_url_format: ""  # Post URL format: "date" (default: /YYYY/MM/DD/slug/) or "slug" (/slug/)
 page_format: ""      # Page output: "directory" (slug/index.html), "flat" (slug.html), "both"
 minify_all: false    # Minify HTML, CSS, and JS

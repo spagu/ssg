@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.65] - 2026-10-01
 
+Articles you can listen to, two ways: with the reader's own browser voice, or
+as an MP3 made once at build time by a text-to-speech API.
+
+### Added
+- 🔊 **`listen:` — a "Listen" button** that reads the article with the
+  visitor's browser voice (Web Speech API). It costs nothing and nothing leaves
+  the device. It reads one paragraph at a time (Chrome stops one long utterance
+  after about 15 seconds), toggles stop with `aria-pressed`, and stays hidden
+  where the API is missing. `sections` picks posts, pages or both.
+- 🎙️ **`tts:` — an MP3 of each article at build time** through `generic` (ssg's
+  own contract), `openai`, `elevenlabs` or `google`. Code blocks are not read.
+  Long articles are split under the provider's limit and joined. A `jingle_url`
+  is fetched once and played first. Every MP3 is cached in `.ssg-cache/tts` by
+  provider, voice, language, jingle and text, so a rebuild pays only for
+  articles whose words changed.
+- 🛡️ **When the TTS API is down**: per-request `timeout`, `retries` with
+  exponential backoff and `Retry-After` (429/5xx/network only), and a `breaker`
+  that stops calling the API for the rest of the build after N failures in a
+  row. `on_failure` then gives the page its last good MP3 (`stale`, default),
+  nothing (`skip`), or stops the build (`fail`, also under `strict`). A page
+  without audio still gets the browser button.
+- 📻 **`tts.feed: true`** writes `podcast.xml`: RSS 2.0 with enclosures and
+  iTunes tags, for podcast apps.
+- 🧩 **`{{ listen .Post }}`** renders the player, or the button, or nothing. The
+  Go-template themes that ship with ssg (simple, ssgtheme, krowy, imd) call it
+  under the title; pages of any other theme get it
+  after their first `</h1>` unless `listen.auto: false`. `.AudioURL` and
+  `.AudioLength` are on every page.
+- 🐳 **`services/tts-server/`**: a self-hostable TTS API in Go with Docker,
+  docker compose and Swagger UI. It implements the `generic` contract, so a site
+  can be tested against it locally.
+- `ssg cache` lists and cleans the new `tts` namespace.
+
+See [docs/AUDIO.md](docs/AUDIO.md).
+
 ## [1.8.64] - 2026-09-30
 
 Six reports from building two real sites, one of them a GitHub project page,
