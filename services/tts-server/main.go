@@ -104,7 +104,7 @@ func healthcheck(ctx context.Context, addr string) int {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	url := "http://" + net.JoinHostPort(host, port) + "/healthz"
+	url := "http://" + net.JoinHostPort(host, port) + "/healthz" // NOSONAR go:S5332 -- loopback probe inside the container; the server speaks plain HTTP behind its proxy
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 1

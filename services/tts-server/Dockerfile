@@ -38,7 +38,7 @@ RUN set -eu; \
       arm64) arch=aarch64; sum="${PIPER_SHA256_ARM64}" ;; \
       *) echo "unsupported arch ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL --retry 3 -o /tmp/piper.tgz \
+    curl --proto "=https" --proto-redir "=https" -fsSL --retry 3 -o /tmp/piper.tgz \
       "https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_${arch}.tar.gz"; \
     echo "${sum}  /tmp/piper.tgz" | sha256sum -c -; \
     tar -xzf /tmp/piper.tgz -C /opt; \
@@ -53,7 +53,7 @@ RUN set -eu; mkdir -p /voices; \
       [ "$(echo "$lines" | grep -c .)" -eq 2 ] || { echo "voice ${id} is not listed in voices.sha256" >&2; exit 1; }; \
       echo "$lines" | while read -r sum path; do \
         file="/voices/$(basename "$path")"; \
-        curl -fsSL --retry 3 -o "$file" \
+        curl --proto "=https" --proto-redir "=https" -fsSL --retry 3 -o "$file" \
           "https://huggingface.co/rhasspy/piper-voices/resolve/${PIPER_VOICES_REV}/${path}"; \
         echo "${sum}  ${file}" | sha256sum -c -; \
       done; \

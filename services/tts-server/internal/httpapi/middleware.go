@@ -44,9 +44,17 @@ func withCommon(log *slog.Logger, next http.Handler) http.Handler {
 				log.Error("panic", "path", r.URL.Path, "panic", p)
 				writeError(sw, http.StatusInternalServerError, codeInternal, "internal error")
 			}
+			// Successful probes are not logged: the container healthcheck asks
+			// every 30 s and would bury real traffic. A failing probe still is.
+			if isProbe(r.URL.Path) && sw.status < 400 {
+				return
+			}
 			log.Info("request", "method", r.Method, "path", r.URL.Path, "status", sw.status,
 				"bytes", sw.bytes, "durationMs", time.Since(start).Milliseconds(), "client", remoteIP(r))
 		}()
 		next.ServeHTTP(sw, r)
 	})
 }
+
+// isProbe reports a liveness or readiness path.
+func isProbe(path string) bool { return path == "/healthz" || path == "/readyz" }

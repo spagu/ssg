@@ -128,5 +128,7 @@ func (g *Generator) podcastFeed(pages []models.Page) podcastRSS {
 		}
 		ch.Items = append(ch.Items, item)
 	}
-	return podcastRSS{Version: "2.0", ITunes: "http://www.itunes.com/dtds/podcast-1.0.dtd", Channel: ch}
+	// The namespace is an identifier, not a link: podcast apps match this exact
+	// http:// string, and https:// would not be recognised.
+	return podcastRSS{Version: "2.0", ITunes: "http://www.itunes.com/dtds/podcast-1.0.dtd", Channel: ch} // NOSONAR go:S5332
 }
