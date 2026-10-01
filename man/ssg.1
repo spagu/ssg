@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.64" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.65" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -971,6 +971,14 @@ and Netlify.
 A list item whose entire text is a page title becomes a link to that page.
 Lines in code blocks are never changed. \fBautolink_list_items: false\fR
 turns it off.
+.SH ARTICLES READ ALOUD
+\fBlisten.enabled: true\fR adds a "Listen" button that reads the article with
+the visitor's browser voice. \fBtts.enabled: true\fR makes an MP3 of each
+article at build time through a TTS API (\fBprovider\fR generic, openai,
+elevenlabs or google), cached in \fB.ssg-cache/tts\fR, with an optional
+\fBjingle_url\fR. When the API fails, \fBon_failure\fR chooses stale (the
+page's last MP3), skip or fail; \fBtts.feed: true\fR writes podcast.xml.
+The block is placed after the first </h1>; a theme may call \fB{{ listen .Post }}\fR instead. See docs/AUDIO.md.
 .SH EXTERNAL SOURCES
 The config-only \fBexternal_sources\fR block feeds templates from local files
 (YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client, shared disk

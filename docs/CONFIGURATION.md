@@ -988,6 +988,8 @@ shortcode_errors: strict
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
+| `listen` | off | config only | "Listen" button that reads the article with the visitor's browser voice (Web Speech API). See [docs/AUDIO.md](AUDIO.md) |
+| `tts` | off | config only | An MP3 of each article made at build time by a TTS API (generic, OpenAI, ElevenLabs, Google), cached, with a jingle, a fallback when the API is down, and a podcast feed. See [docs/AUDIO.md](AUDIO.md) |
 | `webmcp` | `false` | `--webmcp` | Declare the site's tools to a browser agent via `navigator.modelContext` ([WebMCP](AI-AGENTS.md#webmcp)). Turns `search_index` on, which its tools read |
 
 Pagination writes page 1 at the site root and pages 2 onward under `/page/N/`.

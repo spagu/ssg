@@ -38,7 +38,8 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
         site site-watch site-edit golden golden-update bench determinism \
-        clean install uninstall release test-action
+        clean install uninstall release test-action \
+        tts-server-build tts-server-up tts-server-down tts-server-test
 
 # Default target
 all: deps lint test build ## 🚀 Run all: deps, lint, test, build
@@ -211,6 +212,28 @@ deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@./$(BUILD_DIR)/$(BINARY_NAME) test-content krowy example.com --webp --zip
 	@echo "${GREEN}✅ Deployment package created: example.com.zip${RESET}"
 	@echo "${YELLOW}📤 Upload example.com.zip to Cloudflare Pages${RESET}"
+
+# Self-hosted TTS server (services/tts-server, its own Go module)
+TTS_DIR=services/tts-server
+
+tts-server-build: ## 🗣️  Build the tts-server Docker image (WITH_VOICES=en_US-lessac-medium,... to bake Piper voices)
+	@echo "${BLUE}🗣️  Building tts-server image...${RESET}"
+	@cd $(TTS_DIR) && docker compose build
+	@echo "${GREEN}✅ tts-server image built${RESET}"
+
+tts-server-up: ## ▶️  Start tts-server on 127.0.0.1:8080 (docker compose, reads services/tts-server/.env)
+	@cd $(TTS_DIR) && docker compose up -d --build
+	@echo "${GREEN}✅ tts-server running — http://127.0.0.1:8080/docs${RESET}"
+
+tts-server-down: ## ⏹️  Stop tts-server (volumes with voices and cache are kept)
+	@cd $(TTS_DIR) && docker compose down
+	@echo "${GREEN}✅ tts-server stopped${RESET}"
+
+tts-server-test: ## 🧪 Test, vet and lint tts-server (coverage per package)
+	@echo "${BLUE}🧪 Testing tts-server...${RESET}"
+	@cd $(TTS_DIR) && gofmt -l . | (! grep .) && $(GO) vet ./... && $(GO) test -race -cover ./...
+	@cd $(TTS_DIR) && golangci-lint run ./... && gosec -quiet ./...
+	@echo "${GREEN}✅ tts-server checks passed${RESET}"
 
 # Clean
 clean: ## 🗑️  Clean build artifacts

@@ -288,6 +288,19 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 
 ---
 
+## Page helpers
+
+### `listen` — the article read aloud
+
+```go-html-template
+{{ listen .Post }}
+```
+
+Renders the page's MP3 player when `tts` made one, otherwise the "Listen"
+button when `listen` is on, otherwise nothing. Without it, ssg places the same
+block after the page's first `</h1>`. `.AudioURL` and `.AudioLength` are there for a theme that
+builds its own player. See [AUDIO.md](AUDIO.md).
+
 ## String helpers
 
 `hasPrefix`, `hasSuffix`, `startsWith`, `endsWith`, `matches`, `trimPrefix` and

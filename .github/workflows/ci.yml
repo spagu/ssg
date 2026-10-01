@@ -216,6 +216,42 @@ jobs:
         with:
           version: v2.13.1 # pinned for reproducible CI (OPS-013); first build on go1.27
 
+  # services/tts-server is its own Go module (1.8.65), so the root `./...`
+  # above never reaches it: it gets its own tests, coverage floor and lint.
+  tts-server:
+    name: TTS server
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/tts-server
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: services/tts-server/go.sum
+
+      - name: Test with the coverage floor
+        run: |
+          go test -race -coverprofile=coverage.out ./...
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
+          echo "tts-server coverage: ${pct}%"
+          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 96) }' \
+            || { echo "::error::tts-server coverage ${pct}% is below the 96% floor"; exit 1; }
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.13.1 # same pin as the root lint job
+          working-directory: services/tts-server
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

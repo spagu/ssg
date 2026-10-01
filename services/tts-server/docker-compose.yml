@@ -1,0 +1,60 @@
+# tts-server — self-hosted text-to-speech for ssg.
+#
+#   cp .env.example .env   # set TTS_API_KEYS / TTS_ADMIN_KEYS
+#   docker compose up -d --build
+#   curl -s localhost:8080/readyz
+#
+# The port is published on 127.0.0.1 only. To reach it from elsewhere put a
+# reverse proxy or a cloudflared tunnel in front instead of opening the port.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  tts:
+    build:
+      context: .
+      args:
+        # Comma-separated Piper voices listed in voices.sha256, baked into the
+        # image and copied into the voices volume when it is first created.
+        WITH_VOICES: ${WITH_VOICES:-}
+    image: tts-server:local
+    container_name: tts-server
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:${TTS_PORT:-8080}:8080"
+    volumes:
+      - tts-voices:/voices
+      - tts-cache:/cache
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/tts-server", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "${TTS_CPUS:-2}"
+          memory: 2g
+        reservations:
+          cpus: "0.5"
+          memory: 256m
+    logging: *logging
+
+volumes:
+  tts-voices:
+  tts-cache:

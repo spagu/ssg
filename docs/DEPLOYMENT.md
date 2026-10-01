@@ -43,9 +43,10 @@ output tree and can be uploaded manually to any static host.
 ## Build cache in CI
 
 Every SSG disk cache lives under one root, `.ssg-cache/` — processed images,
-external-source payloads and AI answers. Persisting that directory between CI
-runs skips WebP/AVIF reconversion, re-fetching remote data inside its TTL and
-re-querying AI models. With GitHub Actions this is one step, no SSG
+external-source payloads, AI answers and articles read aloud (`tts`). Persisting
+that directory between CI runs skips WebP/AVIF reconversion, re-fetching remote
+data inside its TTL, re-querying AI models and re-sending every article to a
+paid text-to-speech API ([docs/AUDIO.md](AUDIO.md)). With GitHub Actions this is one step, no SSG
 configuration at all:
 
 ```yaml

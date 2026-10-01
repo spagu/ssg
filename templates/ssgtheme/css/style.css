@@ -513,6 +513,43 @@ a:hover {
   color: var(--color-fg-primary);
 }
 
+/* ── Listen: the article read aloud (1.8.65) ────────────────────────────── */
+
+/* The browser button and the build-time MP3 player share a place under the
+   title. The button's colours are the accent on the page background, 7.78:1,
+   and its 44px height meets the WCAG 2.2 target size. */
+.ssg-listen {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-block: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-fg-accent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-fg-accent);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.ssg-listen:hover,
+.ssg-listen[aria-pressed="true"] {
+  background: var(--color-fg-accent);
+  color: var(--color-bg-canvas);
+}
+
+.ssg-listen:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.ssg-audio {
+  display: block;
+  width: 100%;
+  margin-block: var(--space-2) var(--space-4);
+}
+
 /* ── Article ────────────────────────────────────────────────────────────── */
 
 .article {

@@ -1,0 +1,29 @@
+# Copy into the voices directory as voices.yaml (optional).
+# Unknown keys are rejected, so typos fail loudly at startup.
+
+# Voice used when a request gives only `lang`. Keys match the exact tag first,
+# then its primary subtag (en-GB -> en).
+defaults:
+  en: en_US-lessac-medium
+  pl: pl_PL-gosia-medium
+
+voices:
+  # Override a discovered Piper model (model defaults to <id>.onnx).
+  - id: pl_PL-gosia-medium
+    engine: piper
+    speed: 1.05
+
+  # A Piper voice whose files have another name.
+  - id: lessac
+    engine: piper
+    model: en_US-lessac-medium.onnx
+    lang: en-US
+    gender: male
+
+  # An espeak-ng variant: voice name + variant, pitch 0-99.
+  - id: pl-robot
+    engine: espeak
+    lang: pl
+    espeakVoice: pl+f3
+    pitch: 60
+    speed: 1.1

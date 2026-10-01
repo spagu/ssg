@@ -45,3 +45,7 @@ build-profile.json
 # Build caches, including the dependency graph (--incremental)
 .ssg-cache/
 .ai-cache/
+
+# Self-hosted TTS server: separate Go module with its own Docker build
+# context; keeps a local .env (API keys) and voice models out of the ssg image build.
+services/tts-server/

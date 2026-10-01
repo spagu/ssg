@@ -216,6 +216,9 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// contains, and then forgets which those were: the marker is bookkeeping,
 	// not content (GO-093).
 	s = g.injectComponentAssets(s)
+	// The article read aloud: the MP3 player or the browser button, where the
+	// theme did not place one, and the button's script (1.8.65).
+	s = g.listenHTMLString(s, page)
 	// Tracking runs on every page, not only the ones with a page context and
 	// not only when `seo:` happens to be on (FE-001).
 	//

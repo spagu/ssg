@@ -77,6 +77,10 @@ type Page struct {
 	PageFormat    string        `yaml:"-"` // Page output format: "directory", "flat", or "both" (set by generator)
 	SourceDir     string        `yaml:"-"` // Source directory path (for co-located asset copying)
 	SourceFile    string        `yaml:"-"` // Source filename (e.g. "AUTHENTICATION.md") for .md link rewriting
+	// AudioURL is the site-relative URL of the article read aloud, and
+	// AudioLength its size in bytes, when tts produced one (1.8.65).
+	AudioURL    string `yaml:"-" json:"-"`
+	AudioLength int64  `yaml:"-" json:"-"`
 
 	// SEO and metadata fields
 	Description    string            `yaml:"description"`
