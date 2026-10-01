@@ -425,3 +425,24 @@ func TestAnImageAddedBesideAPageIsSeen(t *testing.T) {
 		t.Errorf("an image that appeared later was never copied: %q", got)
 	}
 }
+
+// TestTheBinaryIsAnInput: the ssg executable is recorded as a config-kind
+// input, so a different release forces a full build instead of serving pages
+// the previous one rendered ("Incremental: nothing changed" after an upgrade).
+func TestTheBinaryIsAnInput(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Skipf("no executable path: %v", err)
+	}
+	g := &Generator{config: Config{}, siteData: &models.SiteData{}, graph: depgraph.New()}
+	g.recordContentInputs()
+	id := g.graphID(exe)
+	node, ok := g.graph.Nodes[id]
+	if !ok || node.Kind != depgraph.KindConfig || node.Hash == "" {
+		t.Fatalf("binary node = %+v (present %v), want a hashed config input", node, ok)
+	}
+	plan := g.graph.PlanFor([]string{id})
+	if !plan.Full {
+		t.Errorf("a changed binary must plan a full build, got %+v", plan)
+	}
+}
