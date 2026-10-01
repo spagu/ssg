@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.66">1.8.66 — 2026-10-02</option>
       <option value="1.8.65">1.8.65 — 2026-10-01</option>
       <option value="1.8.64">1.8.64 — 2026-09-30</option>
       <option value="1.8.63">1.8.63 — 2026-09-25</option>
@@ -199,6 +200,15 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.67">
+
+### 1.8.67 — nothing to do
+
+The first `--watch` or `--incremental` build after the upgrade is a full one,
+because the dependency graph is now tied to the ssg binary that wrote it.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.66">
 
