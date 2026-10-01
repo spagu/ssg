@@ -296,9 +296,12 @@ Duplicate keys and empty keys are **errors** (no silent overwrites).
 {{ listen .Post }}
 ```
 
-Renders the page's MP3 player when `tts` made one, otherwise the "Listen"
-button when `listen` is on, otherwise nothing. Without it, ssg places the same
-block after the page's first `</h1>`. `.AudioURL` and `.AudioLength` are there for a theme that
+Renders the compact "Listen" button — which plays the page's MP3 when `tts`
+made one and reads the page with the browser voice otherwise — or the `<audio>`
+bar with `listen.player: full`, or nothing. Without the function, ssg fills a
+`<span data-ssg-listen-slot></span>` in the theme, else places the block after
+the first `</h1>`; a slot is the way to choose the spot that also works with
+older ssg releases. `.AudioURL` and `.AudioLength` are there for a theme that
 builds its own player. See [AUDIO.md](AUDIO.md).
 
 ## String helpers

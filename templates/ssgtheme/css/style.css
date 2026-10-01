@@ -515,22 +515,29 @@ a:hover {
 
 /* ── Listen: the article read aloud (1.8.65) ────────────────────────────── */
 
-/* The browser button and the build-time MP3 player share a place under the
-   title. The button's colours are the accent on the page background, 7.78:1,
-   and its 44px height meets the WCAG 2.2 target size. */
+/* A small control that sits in the meta line next to the reading time. Accent
+   on the page background is 7.78:1; 1.75rem (28px) clears the WCAG 2.2
+   minimum target size of 24px. */
 .ssg-listen {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
-  margin-block: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  gap: 0.35em;
+  min-height: 1.75rem;
+  padding: 0 0.65em;
   border: 1px solid var(--color-fg-accent);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-fg-accent);
   font: inherit;
-  font-size: var(--font-size-sm);
+  line-height: 1;
   cursor: pointer;
+  vertical-align: middle;
+}
+
+.ssg-listen-icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
 }
 
 .ssg-listen:hover,
@@ -544,6 +551,7 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* listen.player: full — the browser's own audio bar, under the title. */
 .ssg-audio {
   display: block;
   width: 100%;

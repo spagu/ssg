@@ -56,7 +56,7 @@ func writeAudioSite(t *testing.T) string {
 	for _, name := range []string{"base.html", "index.html", "category.html"} {
 		mustWrite(t, filepath.Join(dir, name), `{{define "`+name+`"}}<html><body>x</body></html>{{end}}`)
 	}
-	mustWrite(t, filepath.Join(dir, "post.html"), `{{define "post.html"}}<html><body><article><h1>{{.Post.Title}}</h1>{{listen .Post}}{{.Post.Content | safeHTML}}</article></body></html>{{end}}`)
+	mustWrite(t, filepath.Join(dir, "post.html"), `{{define "post.html"}}<html><body><article><h1>{{.Post.Title}}</h1><span class="meta">{{.Post.Date.Format "2006-01-02"}}<span data-ssg-listen-slot></span></span>{{.Post.Content | safeHTML}}</article></body></html>{{end}}`)
 	mustWrite(t, filepath.Join(dir, "page.html"), `{{define "page.html"}}<html><body><article><h1>{{.Page.Title}}</h1>{{.Page.Content | safeHTML}}</article></body></html>{{end}}`)
 	return tmp
 }
@@ -108,8 +108,17 @@ func TestAudioBuildCacheAndFeed(t *testing.T) {
 		t.Errorf("mp3 = %q, want the jingle then the speech", mp3)
 	}
 	post := readAudioOut(t, out, "2026/09/30/hello/index.html")
-	if !strings.Contains(post, `<audio class="ssg-audio" data-ssg-listen controls preload="none" src="/audio/2026-09-30-hello.mp3">`) {
-		t.Errorf("post lacks the player:\n%s", post)
+	// The compact button plays the MP3, in the theme's slot, with an MP3 link
+	// for readers without JavaScript; the empty slot itself is gone.
+	for _, want := range []string{`data-audio-src="/audio/2026-09-30-hello.mp3"`, "data-ssg-listen-script",
+		`<noscript><a class="ssg-listen-link" href="/audio/2026-09-30-hello.mp3">Listen (MP3)</a></noscript>`,
+		`<span class="meta">2026-09-30<button type="button" class="ssg-listen"`} {
+		if !strings.Contains(post, want) {
+			t.Errorf("post lacks %s:\n%s", want, post)
+		}
+	}
+	if strings.Contains(post, "data-ssg-listen-slot") {
+		t.Error("the slot must be replaced by the block")
 	}
 	feed := readAudioOut(t, out, "podcast.xml")
 	for _, want := range []string{`<title>Spoken</title>`, `url="https://example.com/audio/2026-09-30-hello.mp3"`,
@@ -158,7 +167,7 @@ func TestAudioWhenTheAPIIsDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := readAudioOut(t, out, "2026/09/30/hello/index.html")
-	if strings.Contains(page, "<audio") || !strings.Contains(page, ">Read &lt;aloud&gt;</button>") || !strings.Contains(page, "data-ssg-listen-script") {
+	if strings.Contains(page, `data-audio-src="`) || !strings.Contains(page, ">Read &lt;aloud&gt;</span></button>") || !strings.Contains(page, "data-ssg-listen-script") {
 		t.Errorf("skip must leave the browser button and its script:\n%s", page)
 	}
 
@@ -188,7 +197,7 @@ func TestAudioPagesAndJingleFailure(t *testing.T) {
 	srv := newTTSServer(t)
 	tmp := writeAudioSite(t)
 	out, err := buildAudioSite(t, tmp, AudioOptions{Client: audioClient(t, srv.URL), CacheRoot: filepath.Join(tmp, "cache"),
-		Sections: []string{"pages"}, Dir: "/listen/", JingleURL: "ftp://nope"}, ListenOptions{}, false)
+		Sections: []string{"pages"}, Dir: "/listen/", JingleURL: "ftp://nope"}, ListenOptions{FullPlayer: true}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,8 +205,8 @@ func TestAudioPagesAndJingleFailure(t *testing.T) {
 		t.Errorf("page mp3 = %q", mp3)
 	}
 	page := readAudioOut(t, out, "about/index.html")
-	if !strings.Contains(page, `</h1>`+"\n"+`<audio class="ssg-audio"`) {
-		t.Errorf("a theme without the helper gets the player after the title:\n%s", page)
+	if !strings.Contains(page, `</h1>`+"\n"+`<audio class="ssg-audio" data-ssg-listen controls preload="none" src="/listen/about.mp3">`) {
+		t.Errorf("player: full, with no slot, goes after the title:\n%s", page)
 	}
 	if _, err := os.Stat(filepath.Join(out, "audio")); !os.IsNotExist(err) {
 		t.Error("posts were not selected and must have no audio")
@@ -237,7 +246,7 @@ func TestListenBlock(t *testing.T) {
 	g := &Generator{config: Config{Listen: ListenOptions{Enabled: true}}, siteData: &models.SiteData{
 		Posts: []models.Page{{Link: "/p/"}}}}
 	post, page := models.Page{Link: "/p/"}, models.Page{Link: "/about/"}
-	if got := string(g.listenBlock(post)); !strings.Contains(got, `aria-pressed="false" hidden>Listen</button>`) {
+	if got := string(g.listenBlock(post)); !strings.Contains(got, `aria-hidden="true"`) || !strings.Contains(got, `<span class="ssg-listen-label">Listen</span></button>`) {
 		t.Errorf("post button = %s", got)
 	}
 	if g.listenBlock(page) != "" {
@@ -269,5 +278,25 @@ func TestListenBlock(t *testing.T) {
 	g.config.Listen.Enabled = false
 	if g.listenBlock(post) != "" {
 		t.Error("disabled means nothing")
+	}
+}
+
+// TestListenHelperAndEmptySlot: {{ listen }} still renders the block where a
+// theme calls it, and a slot nothing goes into is removed, so a site with the
+// feature off is byte-identical to one whose theme has no slot.
+func TestListenHelperAndEmptySlot(t *testing.T) {
+	g := &Generator{config: Config{}, siteData: &models.SiteData{}}
+	page := models.Page{Link: "/p/"}
+	in := "<html><body><h1>T</h1><p>" + listenSlot + "</p></body></html>"
+	if got := g.listenHTMLString(in, &page); got != "<html><body><h1>T</h1><p></p></body></html>" {
+		t.Errorf("empty slot = %s", got)
+	}
+	if got := placeListenBlock("<p>no title</p>", "<b>x</b>"); got != "<p>no title</p>" {
+		t.Errorf("no slot and no h1 leaves the page alone: %s", got)
+	}
+	audio := models.Page{Link: "/p/", AudioURL: "/audio/p.mp3"}
+	g.config.Listen.FullPlayer = true
+	if got := string(g.listenBlock(audio)); !strings.HasPrefix(got, `<audio class="ssg-audio"`) {
+		t.Errorf("full player = %s", got)
 	}
 }

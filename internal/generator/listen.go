@@ -8,10 +8,13 @@ package generator
 //     voice (Web Speech API) — free, nothing to host, nothing leaves the device,
 //     and the voice is whatever the device has.
 //
-// {{ listen .Page }} renders whichever applies: the player when the page has
-// audio, else the button when listen is on, else nothing. A theme that does
-// not call it gets it after the first </h1> of a post, unless listen.auto is
-// false.
+// {{ listen .Page }} renders whichever applies: a compact "Listen" button that
+// plays the page's MP3 when it has one and reads it with the browser voice when
+// it does not (or the full <audio> player with listen.player: full), else
+// nothing. Without the function, ssg puts the same block into the theme's
+// <span data-ssg-listen-slot></span> — next to the reading time in the bundled
+// themes — or after the first </h1>, unless listen.auto is false. A slot that
+// gets nothing is removed, so a site with the feature off is unchanged.
 
 import (
 	"fmt"
@@ -29,65 +32,54 @@ type ListenOptions struct {
 	Voice    string   // preferred browser voice, matched by name ("Natural", "Google UK English Female")
 	NoAuto   bool     // do not place it on pages whose theme did not
 	Sections []string // posts (default), pages
+	// FullPlayer renders an MP3 as the browser's <audio controls> bar instead
+	// of the compact button (listen.player: full).
+	FullPlayer bool
 }
 
 // listenMarker is the attribute every block carries, so the auto placement
-// and the script injection can tell the theme already placed one.
+// and the script injection can tell the theme already placed one. It is
+// always followed by a space in the markup, which tells it apart from
+// listenSlot.
 const listenMarker = "data-ssg-listen"
 
-// listenScript reads the article with speechSynthesis. It speaks paragraph
-// by paragraph, because Chrome stops a single long utterance after about 15
-// seconds; the button toggles between play and stop, reports its state with
-// aria-pressed, and stays hidden where the API is missing.
-//
-// It picks the voice instead of taking the browser's default, which is
-// usually the oldest and most robotic one installed. Among the voices for the
-// page language it prefers, in order: a name containing the configured
-// data-voice, then neural voices (Edge "Natural"/"Online", Chrome "Google",
-// Apple "Premium"/"Enhanced"/"Siri"), then an exact language-region match.
-const listenScript = `<script data-ssg-listen-script>(function(){` +
-	`var s=window.speechSynthesis;if(!s||!window.SpeechSynthesisUtterance)return;` +
-	`s.getVoices();` + // Chrome loads the list lazily; asking early fills it before the first click
-	`function pick(lang,want){var p=(lang||'').toLowerCase(),base=p.split('-')[0],best=null,top=-1;` +
-	`s.getVoices().forEach(function(x){var l=(x.lang||'').toLowerCase().replace('_','-');` +
-	`if(base&&l.split('-')[0]!==base)return;var n=x.name,sc=0;` +
-	`if(want&&n.toLowerCase().indexOf(want.toLowerCase())>=0)sc+=100;` +
-	`if(/natural|neural|online/i.test(n))sc+=50;if(/google/i.test(n))sc+=40;` +
-	`if(/premium|enhanced|siri/i.test(n))sc+=30;if(l===p)sc+=10;` +
-	`if(sc>top){top=sc;best=x;}});return best;}` +
-	`document.querySelectorAll('button[data-ssg-listen]').forEach(function(b){` +
-	`b.hidden=false;var label=b.textContent,stopText=b.getAttribute('data-stop')||'Stop';` +
-	`function reset(){b.setAttribute('aria-pressed','false');b.textContent=label;}` +
-	`b.addEventListener('click',function(){if(s.speaking){s.cancel();reset();return;}` +
-	`var root=b.closest('article')||document.querySelector('main')||document.body;` +
-	`var parts=[].map.call(root.querySelectorAll('h1,h2,h3,h4,p,li,blockquote,td'),function(e){return e.innerText.trim();}).filter(Boolean);` +
-	`var lang=document.documentElement.lang||'',v=pick(lang,b.getAttribute('data-voice')||'');` +
-	`parts.forEach(function(t,i){var u=new SpeechSynthesisUtterance(t);if(lang)u.lang=lang;if(v)u.voice=v;` +
-	`if(i===parts.length-1){u.onend=reset;u.onerror=reset;}s.speak(u);});` +
-	`b.setAttribute('aria-pressed','true');b.textContent=stopText;});});` +
-	`window.addEventListener('pagehide',function(){s.cancel();});})();</script>`
+// listenSlot is the empty element a theme leaves where the block belongs.
+const listenSlot = `<span data-ssg-listen-slot></span>`
+
+// listenIcon is a speaker, decorative: the label says what the button does.
+const listenIcon = `<svg class="ssg-listen-icon" aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24">` +
+	`<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>`
 
 // listenBlock is the HTML {{ listen .Page }} renders for a page.
 func (g *Generator) listenBlock(p models.Page) template.HTML {
-	if p.AudioURL != "" {
+	if p.AudioURL != "" && g.config.Listen.FullPlayer {
 		// #nosec G203 -- the URL is built by publishAudio from a sanitised name
 		return template.HTML(fmt.Sprintf(`<audio class="ssg-audio" %s controls preload="none" src="%s"></audio>`,
 			listenMarker, stdhtml.EscapeString(p.AudioURL)))
 	}
-	if !g.config.Listen.Enabled || !g.listenSelected(g.isPost(p)) {
+	attrs := ""
+	switch {
+	case p.AudioURL != "":
+		attrs = ` data-audio-src="` + stdhtml.EscapeString(p.AudioURL) + `"`
+	case !g.config.Listen.Enabled || !g.listenSelected(g.isPost(p)):
 		return ""
+	}
+	if v := strings.TrimSpace(g.config.Listen.Voice); v != "" {
+		attrs += ` data-voice="` + stdhtml.EscapeString(v) + `"`
 	}
 	label := strings.TrimSpace(g.config.Listen.Label)
 	if label == "" {
 		label = "Listen"
 	}
-	voice := ""
-	if v := strings.TrimSpace(g.config.Listen.Voice); v != "" {
-		voice = ` data-voice="` + stdhtml.EscapeString(v) + `"`
+	button := `<button type="button" class="ssg-listen" ` + listenMarker + attrs + ` aria-pressed="false" hidden>` +
+		listenIcon + `<span class="ssg-listen-label">` + stdhtml.EscapeString(label) + `</span></button>`
+	if p.AudioURL != "" {
+		// Without JavaScript the button stays hidden; the MP3 is still a link.
+		button += `<noscript><a class="ssg-listen-link" href="` + stdhtml.EscapeString(p.AudioURL) + `">` +
+			stdhtml.EscapeString(label) + ` (MP3)</a></noscript>`
 	}
-	// #nosec G203 -- the label and the voice name are HTML-escaped above
-	return template.HTML(`<button type="button" class="ssg-listen" ` + listenMarker + voice +
-		` aria-pressed="false" hidden>` + stdhtml.EscapeString(label) + `</button>`)
+	// #nosec G203 -- every value in it is HTML-escaped above
+	return template.HTML(button)
 }
 
 // listenSelected reports whether a page is in the listen sections.
@@ -124,20 +116,31 @@ func (g *Generator) isPost(p models.Page) bool {
 	return g.postURLs[p.GetURL()]
 }
 
-// listenHTMLString places the block on a page whose theme did not, and adds
-// the script where a button needs it.
+// listenHTMLString places the block on a page whose theme did not — into the
+// theme's slot, else after the first </h1> — removes a slot left empty, and
+// adds the script where a button needs it.
 func (g *Generator) listenHTMLString(s string, page *models.Page) string {
-	if page != nil && !strings.Contains(s, listenMarker) && !g.config.Listen.NoAuto {
+	if page != nil && !strings.Contains(s, " "+listenMarker+" ") && !g.config.Listen.NoAuto {
 		if block := string(g.listenBlock(*page)); block != "" {
-			if i := strings.Index(s, "</h1>"); i >= 0 {
-				s = s[:i+5] + "\n" + block + s[i+5:]
-			}
+			s = placeListenBlock(s, block)
 		}
 	}
+	s = strings.ReplaceAll(s, listenSlot, "")
 	if strings.Contains(s, `<button type="button" class="ssg-listen"`) && !strings.Contains(s, "data-ssg-listen-script") {
 		if i := strings.LastIndex(s, "</body>"); i >= 0 {
 			s = s[:i] + listenScript + s[i:]
 		}
+	}
+	return s
+}
+
+// placeListenBlock puts block into the first slot, or after the first </h1>.
+func placeListenBlock(s, block string) string {
+	if i := strings.Index(s, listenSlot); i >= 0 {
+		return s[:i] + block + s[i+len(listenSlot):]
+	}
+	if i := strings.Index(s, "</h1>"); i >= 0 {
+		return s[:i+5] + "\n" + block + s[i+5:]
 	}
 	return s
 }

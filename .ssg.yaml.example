@@ -73,6 +73,7 @@ relative_links: false # Convert absolute URLs to relative links
 # listen:
 #   enabled: true            # browser "Listen" button (Web Speech API)
 #   label: "Listen"
+#   player: compact          # compact: the button plays the MP3; full: <audio> bar
 # tts:
 #   enabled: true            # MP3 per article at build time
 #   provider: generic        # generic | openai | elevenlabs | google

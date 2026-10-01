@@ -24,7 +24,7 @@
                 <time data-ssg-edit="frontmatter:date" datetime="{{ .Post.Date.Format "2006-01-02" }}">
                     {{ .Post.Date.Format "2 January 2006" }}
                 </time>
-                <span>{{ .Post.ReadingTime }} min read</span>
+                <span>{{ .Post.ReadingTime }} min read</span><span data-ssg-listen-slot></span>
                 {{ with index .Site.Authors .Post.Author }}<span>{{ .Name }}</span>{{ end }}
             </p>
             {{ if .Post.Tags }}

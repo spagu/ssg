@@ -1446,6 +1446,10 @@ type ListenConfig struct {
 	// ("Natural", "Google UK English Female"); the best available is used
 	// when none matches.
 	Voice string `yaml:"voice" toml:"voice" json:"voice"`
+	// Player is how an article's MP3 is offered: "compact" (default) — the
+	// same small Listen button, which plays the file — or "full", the
+	// browser's <audio> bar with a seek control.
+	Player string `yaml:"player" toml:"player" json:"player"`
 	// Auto places the button on post pages whose theme does not place it
 	// with {{ listen .Page }}. On unless set to false.
 	Auto *bool `yaml:"auto" toml:"auto" json:"auto"`

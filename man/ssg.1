@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.65" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.66" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -978,7 +978,9 @@ article at build time through a TTS API (\fBprovider\fR generic, openai,
 elevenlabs or google), cached in \fB.ssg-cache/tts\fR, with an optional
 \fBjingle_url\fR. When the API fails, \fBon_failure\fR chooses stale (the
 page's last MP3), skip or fail; \fBtts.feed: true\fR writes podcast.xml.
-The block is placed after the first </h1>; a theme may call \fB{{ listen .Post }}\fR instead. See docs/AUDIO.md.
+Both appear as one compact Listen button, placed in the theme's
+\fB<span data-ssg-listen-slot></span>\fR or after the first </h1>;
+\fBlisten.player: full\fR shows the <audio> bar for an MP3 instead. See docs/AUDIO.md.
 .SH EXTERNAL SOURCES
 The config-only \fBexternal_sources\fR block feeds templates from local files
 (YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client, shared disk

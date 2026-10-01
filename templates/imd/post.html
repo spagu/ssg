@@ -24,7 +24,7 @@
                     <div class="post-meta">
                         <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                             {{.Post.Date.Format "2 January 2006"}}
-                        </time>
+                        </time><span data-ssg-listen-slot></span>
                         {{if hasValidCategories .Post}}
                         <div class="post-categories">
                             {{range .Post.Categories}}
