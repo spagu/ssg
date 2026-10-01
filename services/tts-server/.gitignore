@@ -1,7 +1,7 @@
 # Local secrets and runtime data of the TTS server
 .env
-voices/
-cache/
+/voices/
+/cache/
 *.onnx
 *.onnx.json
 coverage*
