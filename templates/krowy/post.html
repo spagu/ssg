@@ -31,7 +31,7 @@
                             <div class="post-meta">
                                 <time class="post-date" datetime="{{.Post.Date.Format "2006-01-02"}}">
                                     {{formatDatePL .Post.Date}}
-                                </time>
+                                </time><span data-ssg-listen-slot></span>
                                 {{$authorName := getAuthorName .Post.Author}}
                                 {{if $authorName}}
                                 <span class="post-author">przez <strong>{{$authorName}}</strong></span>
