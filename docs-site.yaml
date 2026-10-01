@@ -108,6 +108,11 @@ pretty_html: true
 sitemap_off: false
 robots_off: false
 search_index: true
+# Blog posts can be listened to with the reader's own browser voice (1.8.65).
+# Build-time MP3 (tts:) needs a TTS endpoint reachable from CI; see docs/AUDIO.md.
+listen:
+  enabled: true
+  sections: [posts]
 
 # Markdown for agents (GO-085): publish index.md + page.md next to every page,
 # a text/markdown <head> alternate, and a root llms.txt. Agents and LLMs that
