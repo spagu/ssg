@@ -22,6 +22,7 @@ listen.
 listen:
   enabled: true
   label: "Listen"        # button text
+  voice: ""              # preferred browser voice, by name: "Natural", "Google UK English Female"
   sections: [posts]      # posts (default), pages, or both
   auto: true             # place it where the theme did not; default true
 ```
@@ -33,7 +34,13 @@ article finish. Pressing it again stops. It reports its state with
 `aria-pressed`, and it stays hidden in browsers without the API and when
 JavaScript is off, so nobody sees a button that does nothing.
 
-Voice quality depends on the device. Recent macOS, iOS, Android and Windows
+The voice is chosen, not left to the browser's default, which is usually the
+oldest one installed. Among the voices for the page's language the button
+prefers one whose name contains `listen.voice`, then neural voices (Edge
+"Natural"/"Online", Chrome "Google", Apple "Premium"/"Enhanced"/"Siri"), then an
+exact language-and-region match.
+
+Voice quality still depends on the device. Recent macOS, iOS, Android and Windows
 ship good neural voices for major languages; a minimal Linux desktop may have
 only a robotic one, or none.
 

@@ -6120,8 +6120,19 @@ func (g *Generator) collectFingerprintAssets() (js, css []string, err error) {
 	}
 	defer func() { _ = root.Close() }()
 	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
-		if err != nil || !d.Type().IsRegular() {
+		if err != nil {
 			return err
+		}
+		// A hidden directory is a tool's, not the site's: `wrangler pages
+		// dev`, started by --watch, keeps its bundles in <output>/.wrangler and
+		// rewrites them while the build runs. Hashing them published nothing,
+		// and one vanishing mid-walk failed the rebuild halfway, leaving every
+		// page linking the unhashed stylesheet.
+		if d.IsDir() && rel != "." && strings.HasPrefix(d.Name(), ".") {
+			return fs.SkipDir
+		}
+		if !d.Type().IsRegular() {
+			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(rel))
 		if ext != ".js" && ext != ".css" {

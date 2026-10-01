@@ -26,6 +26,7 @@ import (
 type ListenOptions struct {
 	Enabled  bool
 	Label    string   // default "Listen"
+	Voice    string   // preferred browser voice, matched by name ("Natural", "Google UK English Female")
 	NoAuto   bool     // do not place it on pages whose theme did not
 	Sections []string // posts (default), pages
 }
@@ -38,16 +39,30 @@ const listenMarker = "data-ssg-listen"
 // by paragraph, because Chrome stops a single long utterance after about 15
 // seconds; the button toggles between play and stop, reports its state with
 // aria-pressed, and stays hidden where the API is missing.
+//
+// It picks the voice instead of taking the browser's default, which is
+// usually the oldest and most robotic one installed. Among the voices for the
+// page language it prefers, in order: a name containing the configured
+// data-voice, then neural voices (Edge "Natural"/"Online", Chrome "Google",
+// Apple "Premium"/"Enhanced"/"Siri"), then an exact language-region match.
 const listenScript = `<script data-ssg-listen-script>(function(){` +
 	`var s=window.speechSynthesis;if(!s||!window.SpeechSynthesisUtterance)return;` +
+	`s.getVoices();` + // Chrome loads the list lazily; asking early fills it before the first click
+	`function pick(lang,want){var p=(lang||'').toLowerCase(),base=p.split('-')[0],best=null,top=-1;` +
+	`s.getVoices().forEach(function(x){var l=(x.lang||'').toLowerCase().replace('_','-');` +
+	`if(base&&l.split('-')[0]!==base)return;var n=x.name,sc=0;` +
+	`if(want&&n.toLowerCase().indexOf(want.toLowerCase())>=0)sc+=100;` +
+	`if(/natural|neural|online/i.test(n))sc+=50;if(/google/i.test(n))sc+=40;` +
+	`if(/premium|enhanced|siri/i.test(n))sc+=30;if(l===p)sc+=10;` +
+	`if(sc>top){top=sc;best=x;}});return best;}` +
 	`document.querySelectorAll('button[data-ssg-listen]').forEach(function(b){` +
 	`b.hidden=false;var label=b.textContent,stopText=b.getAttribute('data-stop')||'Stop';` +
 	`function reset(){b.setAttribute('aria-pressed','false');b.textContent=label;}` +
 	`b.addEventListener('click',function(){if(s.speaking){s.cancel();reset();return;}` +
 	`var root=b.closest('article')||document.querySelector('main')||document.body;` +
 	`var parts=[].map.call(root.querySelectorAll('h1,h2,h3,h4,p,li,blockquote,td'),function(e){return e.innerText.trim();}).filter(Boolean);` +
-	`var lang=document.documentElement.lang||'';` +
-	`parts.forEach(function(t,i){var u=new SpeechSynthesisUtterance(t);if(lang)u.lang=lang;` +
+	`var lang=document.documentElement.lang||'',v=pick(lang,b.getAttribute('data-voice')||'');` +
+	`parts.forEach(function(t,i){var u=new SpeechSynthesisUtterance(t);if(lang)u.lang=lang;if(v)u.voice=v;` +
 	`if(i===parts.length-1){u.onend=reset;u.onerror=reset;}s.speak(u);});` +
 	`b.setAttribute('aria-pressed','true');b.textContent=stopText;});});` +
 	`window.addEventListener('pagehide',function(){s.cancel();});})();</script>`
@@ -67,7 +82,11 @@ func (g *Generator) listenBlock(p models.Page) template.HTML {
 		label = "Listen"
 	}
 	// #nosec G203 -- the label is escaped
-	return template.HTML(`<button type="button" class="ssg-listen" ` + listenMarker +
+	voice := ""
+	if v := strings.TrimSpace(g.config.Listen.Voice); v != "" {
+		voice = ` data-voice="` + stdhtml.EscapeString(v) + `"`
+	}
+	return template.HTML(`<button type="button" class="ssg-listen" ` + listenMarker + voice +
 		` aria-pressed="false" hidden>` + stdhtml.EscapeString(label) + `</button>`)
 }
 

@@ -15,7 +15,9 @@ as an MP3 made once at build time by a text-to-speech API.
 ### Added
 - 🔊 **`listen:` — a "Listen" button** that reads the article with the
   visitor's browser voice (Web Speech API). It costs nothing and nothing leaves
-  the device. It reads one paragraph at a time (Chrome stops one long utterance
+  the device. It picks the most natural voice the browser has for the page's
+  language (Edge "Natural", Chrome "Google", Apple "Enhanced") instead of the
+  default, and `listen.voice` names a preferred one. It reads one paragraph at a time (Chrome stops one long utterance
   after about 15 seconds), toggles stop with `aria-pressed`, and stays hidden
   where the API is missing. `sections` picks posts, pages or both.
 - 🎙️ **`tts:` — an MP3 of each article at build time** through `generic` (ssg's
@@ -44,6 +46,13 @@ as an MP3 made once at build time by a text-to-speech API.
 - `ssg cache` lists and cleans the new `tts` namespace.
 
 See [docs/AUDIO.md](docs/AUDIO.md).
+
+### Fixed
+- 🔏 **Fingerprinting skips hidden directories in the output.** `--watch` starts
+  `wrangler pages dev`, which keeps its bundles in `<output>/.wrangler` and
+  rewrites them during the build. They were hashed too, and one vanishing
+  mid-walk failed the rebuild halfway, so the preview served pages linking an
+  unhashed stylesheet that no longer existed.
 
 ## [1.8.64] - 2026-09-30
 

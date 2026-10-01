@@ -75,3 +75,19 @@ func TestOrderAssetsByReferencesCycle(t *testing.T) {
 		t.Error("an unreadable asset must be reported")
 	}
 }
+
+// TestFingerprintSkipsHiddenDirectories: a tool's working directory inside the
+// output (wrangler's .wrangler/) is not the site's, and is never hashed.
+func TestFingerprintSkipsHiddenDirectories(t *testing.T) {
+	out := t.TempDir()
+	mustWrite(t, filepath.Join(out, ".wrangler", "tmp", "bundle.js"), "x")
+	mustWrite(t, filepath.Join(out, "js", "app.js"), "y")
+	g := &Generator{config: Config{OutputDir: out, Fingerprint: true, Quiet: true}}
+	js, _, err := g.collectFingerprintAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(js) != 1 || !strings.HasSuffix(js[0], filepath.Join("js", "app.js")) {
+		t.Errorf("js = %v, want only js/app.js", js)
+	}
+}

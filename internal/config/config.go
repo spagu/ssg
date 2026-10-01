@@ -1442,6 +1442,10 @@ func (c *Config) applyOutputsSpec() {
 type ListenConfig struct {
 	Enabled bool   `yaml:"enabled" toml:"enabled" json:"enabled"`
 	Label   string `yaml:"label" toml:"label" json:"label"` // button text; default "Listen"
+	// Voice is a preferred browser voice, matched against voice names
+	// ("Natural", "Google UK English Female"); the best available is used
+	// when none matches.
+	Voice string `yaml:"voice" toml:"voice" json:"voice"`
 	// Auto places the button on post pages whose theme does not place it
 	// with {{ listen .Page }}. On unless set to false.
 	Auto *bool `yaml:"auto" toml:"auto" json:"auto"`

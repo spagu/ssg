@@ -258,6 +258,10 @@ func TestListenBlock(t *testing.T) {
 	if again := g.listenHTMLString(html, &post); again != html {
 		t.Error("placement and script must not repeat")
 	}
+	g.config.Listen.Voice = `Google "UK"`
+	if got := string(g.listenBlock(post)); !strings.Contains(got, `data-voice="Google &#34;UK&#34;"`) {
+		t.Errorf("voice preference = %s", got)
+	}
 	g.config.Listen.NoAuto = true
 	if got := g.listenHTMLString("<html><body><h1>T</h1></body></html>", &post); strings.Contains(got, "<button") {
 		t.Errorf("auto: false must not place it: %s", got)

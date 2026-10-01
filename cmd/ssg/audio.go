@@ -45,7 +45,7 @@ func buildAudioOptions(cfg *config.Config) generator.AudioOptions {
 
 // buildListenOptions turns `listen:` into generator options.
 func buildListenOptions(l config.ListenConfig) generator.ListenOptions {
-	return generator.ListenOptions{Enabled: l.Enabled, Label: l.Label,
+	return generator.ListenOptions{Enabled: l.Enabled, Label: l.Label, Voice: l.Voice,
 		NoAuto: l.Auto != nil && !*l.Auto, Sections: l.Sections}
 }
 
