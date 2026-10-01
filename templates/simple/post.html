@@ -16,7 +16,7 @@
                         </div>
                         {{end}}
                     </div>
-                </header>
+                </header>{{listen .Post}}
                 <div class="post-body" id="post-body" data-ssg-edit="body">
                     {{.Post.Content | safeHTML}}
                 </div>

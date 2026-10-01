@@ -33,7 +33,7 @@
             </p>
             {{ end }}
 
-            {{ .Post.Content | safeHTML }}
+            {{ listen .Post }}{{ .Post.Content | safeHTML }}
 
             {{ if or .Post.SeriesPrevURL .Post.SeriesNextURL }}
             <nav class="pager" aria-label="Series">

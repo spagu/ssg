@@ -378,6 +378,10 @@ type Config struct {
 	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
 	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
 	BuildWorkers int
+	// Audio makes an MP3 of each selected article through a TTS API, and
+	// Listen adds the browser read-aloud button (1.8.65).
+	Audio  AudioOptions
+	Listen ListenOptions
 	// AI answers [ai …] content shortcodes at build time (cached). nil = the
 	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
 	AI *ai.Client
@@ -640,6 +644,10 @@ type Generator struct {
 	// profile measures this build when config.Profile asks for it, and is nil
 	// otherwise; every method on it accepts a nil receiver (GO-097).
 	profile *Profile
+
+	// postURLs is the set of post URLs, built once (listen.go isPost).
+	postURLsOnce sync.Once
+	postURLs     map[string]bool
 	// components is the site's typed content components, or nil when it has
 	// none (GO-093). componentMu guards the per-build bookkeeping beside it:
 	// content renders on a worker pool.
@@ -1049,6 +1057,11 @@ func (g *Generator) Generate() error {
 	// so the ifs guard sees full page context (#1.8.16).
 	_ = g.profile.Measure("AI content", func() error { g.resolveAIContent(); return nil })
 
+	// Before rendering, so a template can link each page's MP3.
+	if err := g.profile.Measure("Audio", g.generateAudio); err != nil {
+		return err
+	}
+
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
 	}
@@ -1087,6 +1100,9 @@ func (g *Generator) Generate() error {
 
 	if err := g.profile.Measure("Feeds", func() error {
 		if err := g.generateDeclaredFeeds(); err != nil {
+			return err
+		}
+		if err := g.generatePodcastFeed(); err != nil {
 			return err
 		}
 		return g.generateFeeds()
@@ -2734,6 +2750,9 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 	g.renderContentFn = g.tmplSafeHTML(pageLinks, mdLinkMap)
 	funcs := template.FuncMap{
 		"safeHTML": g.safeHTMLValue,
+		// {{ listen .Page }}: the article's MP3 player, or the browser
+		// read-aloud button, or nothing (1.8.65).
+		"listen": g.listenBlock,
 		// raw emits a string as HTML with no processing at all — the plain
 		// template.HTML cast. safeHTML is NOT that: in a page template it renders
 		// Markdown, which is right for .Content and wrong for markup coming from

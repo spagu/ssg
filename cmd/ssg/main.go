@@ -756,6 +756,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		EditMode:               cfg.Edit,
 		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
 		AI:                     buildAIClient(cfg.AI),
+		Audio:                  buildAudioOptions(cfg),
+		Listen:                 buildListenOptions(cfg.Listen),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
 		PostsPage:              cfg.PostsPage,

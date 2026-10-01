@@ -829,6 +829,14 @@ type Config struct {
 	// are stable across builds and re-queried only when the question/model changes.
 	AI AIConfig `yaml:"ai" toml:"ai" json:"ai"`
 
+	// Listen adds a "Listen" button that reads the article aloud with the
+	// visitor's own browser speech engine (Web Speech API): no service, no
+	// audio files, nothing leaves the device (1.8.65).
+	Listen ListenConfig `yaml:"listen" toml:"listen" json:"listen"`
+	// TTS renders each article to an MP3 at build time through a
+	// text-to-speech API, caches it, and can publish a podcast feed (1.8.65).
+	TTS TTSConfig `yaml:"tts" toml:"tts" json:"tts"`
+
 	// Notifications POST each newly published (or changed) post to user-defined
 	// webhook destinations (point them at a social API, an automation service, or
 	// your own endpoint). Only fires with --notify; a committed state file
@@ -1428,4 +1436,50 @@ func (c *Config) applyOutputsSpec() {
 	if len(c.OutputsSpec.PerType) > 0 {
 		c.OutputsPerType = c.OutputsSpec.PerType
 	}
+}
+
+// ListenConfig is the browser read-aloud button.
+type ListenConfig struct {
+	Enabled bool   `yaml:"enabled" toml:"enabled" json:"enabled"`
+	Label   string `yaml:"label" toml:"label" json:"label"` // button text; default "Listen"
+	// Auto places the button on post pages whose theme does not place it
+	// with {{ listen .Page }}. On unless set to false.
+	Auto *bool `yaml:"auto" toml:"auto" json:"auto"`
+	// Sections limits the button to posts, pages, or both ("posts" by default).
+	Sections []string `yaml:"sections" toml:"sections" json:"sections"`
+}
+
+// TTSConfig is the build-time MP3 generation through an external API.
+type TTSConfig struct {
+	Enabled  bool    `yaml:"enabled" toml:"enabled" json:"enabled"`
+	Provider string  `yaml:"provider" toml:"provider" json:"provider"` // generic | openai | elevenlabs | google
+	APIURL   string  `yaml:"api_url" toml:"api_url" json:"api_url"`
+	APIKey   string  `yaml:"api_key" toml:"api_key" json:"api_key"` // use $ENV, never a literal
+	Voice    string  `yaml:"voice" toml:"voice" json:"voice"`
+	Lang     string  `yaml:"lang" toml:"lang" json:"lang"` // default: the page language
+	Model    string  `yaml:"model" toml:"model" json:"model"`
+	Speed    float64 `yaml:"speed" toml:"speed" json:"speed"`
+	// Instructions steer delivery on providers that accept them (openai).
+	Instructions string `yaml:"instructions" toml:"instructions" json:"instructions"`
+	// JingleURL is an MP3 played before every article, fetched once and cached.
+	JingleURL string `yaml:"jingle_url" toml:"jingle_url" json:"jingle_url"`
+	Timeout   string `yaml:"timeout" toml:"timeout" json:"timeout"` // per request, e.g. "60s"
+	Retries   int    `yaml:"retries" toml:"retries" json:"retries"` // extra attempts; default 2, -1 none
+	MaxChars  int    `yaml:"max_chars" toml:"max_chars" json:"max_chars"`
+	// Breaker: failed articles in a row before the API is skipped for the rest
+	// of the build. Default 3; -1 never.
+	Breaker int `yaml:"breaker" toml:"breaker" json:"breaker"`
+	// OnFailure is what a page gets when its audio cannot be made: "stale"
+	// (default) the last good MP3 of that page, else nothing; "skip" nothing;
+	// "fail" the build stops. strict: true turns stale and skip into fail.
+	OnFailure string   `yaml:"on_failure" toml:"on_failure" json:"on_failure"`
+	Sections  []string `yaml:"sections" toml:"sections" json:"sections"` // posts (default), pages
+	Dir       string   `yaml:"dir" toml:"dir" json:"dir"`                // output directory; default "audio"
+	// Feed writes a podcast RSS feed (RSS 2.0 + iTunes tags) of the audio.
+	Feed       bool   `yaml:"feed" toml:"feed" json:"feed"`
+	FeedPath   string `yaml:"feed_path" toml:"feed_path" json:"feed_path"` // default "podcast.xml"
+	FeedTitle  string `yaml:"feed_title" toml:"feed_title" json:"feed_title"`
+	FeedAuthor string `yaml:"feed_author" toml:"feed_author" json:"feed_author"`
+	FeedImage  string `yaml:"feed_image" toml:"feed_image" json:"feed_image"`
+	FeedLimit  int    `yaml:"feed_limit" toml:"feed_limit" json:"feed_limit"` // default 50
 }
