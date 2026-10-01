@@ -107,7 +107,7 @@ A page without audio still gets the browser button when `listen` is on.
 `generic` is ssg's own contract: `POST api_url` with JSON
 `{"text", "voice", "lang", "speed", "format": "mp3"}` and
 `Authorization: Bearer <api_key>`, answered with `audio/mpeg`. The self-hosted
-server in [`services/tts-server/`](../services/tts-server/README.md) implements
+server in [`services/tts-server/`](https://github.com/spagu/ssg/tree/main/services/tts-server) implements
 it, and so can any small adapter you write in front of another engine.
 
 | Provider | Endpoint (default) | Auth | Per request | Notes |
