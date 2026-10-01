@@ -1,0 +1,350 @@
+openapi: 3.1.0
+info:
+  title: tts-server
+  version: 1.0.0
+  summary: Self-hosted text-to-speech API (espeak-ng + Piper) used by ssg's generic TTS provider.
+  description: |
+    Turns text into MP3 or WAV. Voices come from espeak-ng (100+ languages,
+    always installed) and from Piper neural models placed in the voices
+    directory or uploaded through `POST /v1/voices`.
+
+    Authentication: when the server runs with `TTS_API_KEYS`, every `/v1`
+    request needs `Authorization: Bearer <key>`. Voice management needs a key
+    from `TTS_ADMIN_KEYS`; admin keys are accepted wherever an API key is.
+  license:
+    name: BSD-3-Clause
+    identifier: BSD-3-Clause
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: speech
+  - name: voices
+  - name: health
+paths:
+  /v1/speech:
+    post:
+      tags: [speech]
+      operationId: synthesizeSpeech
+      summary: Synthesize speech
+      description: |
+        Long text is split into sentence chunks and the audio is joined.
+        Results are cached; the `ETag` identifies a rendering, and a request
+        whose `If-None-Match` matches it gets `304 Not Modified` without any
+        synthesis.
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          schema: { type: string }
+          example: '"3f1a0c…"'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SpeechRequest' }
+            examples:
+              english:
+                summary: English, default voice
+                value: { text: "Most websites are documents.", lang: en }
+              polish:
+                summary: Polish, explicit Piper voice, a bit faster
+                value: { text: "Dzień dobry, to jest test.", voice: pl_PL-gosia-medium, speed: 1.1 }
+              wav:
+                summary: espeak-ng voice, WAV output
+                value: { text: "Guten Tag.", voice: "espeak:de", format: wav }
+      responses:
+        '200':
+          description: Audio
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-TTS-Voice:
+              description: Id of the voice that spoke.
+              schema: { type: string }
+            X-TTS-Cache:
+              description: Whether the audio came from the cache.
+              schema: { type: string, enum: [hit, miss] }
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+            audio/wav:
+              schema: { type: string, format: binary }
+        '304':
+          description: The `If-None-Match` tag matches; reuse your copy.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/EngineFailure' }
+        '503': { $ref: '#/components/responses/Busy' }
+        '504': { $ref: '#/components/responses/Timeout' }
+  /v1/voices:
+    get:
+      tags: [voices]
+      operationId: listVoices
+      summary: List installed voices
+      parameters:
+        - name: lang
+          in: query
+          description: Only voices of this language (`pl` matches `pl` and `pl-pl`).
+          schema: { type: string }
+          example: pl
+        - name: engine
+          in: query
+          schema: { type: string, enum: [piper, espeak] }
+      responses:
+        '200':
+          description: Voices, Piper first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceList' }
+              example:
+                count: 2
+                voices:
+                  - id: pl_PL-gosia-medium
+                    engine: piper
+                    lang: pl-pl
+                    name: gosia
+                    quality: medium
+                    sampleRate: 22050
+                    default: true
+                    defaults: { speed: 1, lengthScale: 1 }
+                  - id: "espeak:pl"
+                    engine: espeak
+                    lang: pl
+                    name: Polish
+                    gender: male
+                    quality: low
+                    sampleRate: 22050
+                    default: false
+                    defaults: { speed: 1 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    post:
+      tags: [voices]
+      operationId: uploadVoice
+      summary: Upload a Piper voice (admin)
+      description: |
+        Multipart upload of a Piper model and its config. The id defaults to
+        the model file name without `.onnx`. Files are written into the voices
+        directory as `<id>.onnx` and `<id>.onnx.json`.
+      security:
+        - adminAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [model, config]
+              properties:
+                id:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_.-]{1,64}$'
+                model:
+                  type: string
+                  format: binary
+                  description: The `.onnx` model (size limit `TTS_MAX_UPLOAD_MB`).
+                config:
+                  type: string
+                  format: binary
+                  description: The matching `.onnx.json` (max 4 MiB).
+      responses:
+        '201':
+          description: Voice installed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Voice' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: A voice with this id already exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '503': { $ref: '#/components/responses/Busy' }
+  /v1/voices/{id}:
+    delete:
+      tags: [voices]
+      operationId: deleteVoice
+      summary: Delete an uploaded or discovered Piper voice (admin)
+      security:
+        - adminAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: No such voice.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /healthz:
+    get:
+      tags: [health]
+      operationId: liveness
+      summary: Liveness
+      security: []
+      responses:
+        '200':
+          description: The process is serving.
+          content:
+            application/json:
+              example: { status: ok }
+  /readyz:
+    get:
+      tags: [health]
+      operationId: readiness
+      summary: Readiness
+      description: Ready when espeak-ng and lame are installed and at least one voice is loaded.
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              example: { status: ready, voices: 144 }
+        '503':
+          description: Not ready.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: A key from TTS_API_KEYS (or TTS_ADMIN_KEYS).
+    adminAuth:
+      type: http
+      scheme: bearer
+      description: A key from TTS_ADMIN_KEYS.
+  headers:
+    ETag:
+      description: Strong tag of this rendering (hash of voice, revision, lang, speed, format and text).
+      schema: { type: string }
+  schemas:
+    SpeechRequest:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: Plain UTF-8 text, at most TTS_MAX_CHARS characters (default 20000).
+        voice:
+          type: string
+          description: Voice id from /v1/voices. Wins over lang.
+          examples: [en_US-lessac-medium, "espeak:pl"]
+        lang:
+          type: string
+          description: BCP-47 tag; picks the default voice for the language. Defaults to TTS_DEFAULT_LANG.
+          examples: [en, pl, en-GB]
+        speed:
+          type: number
+          minimum: 0.25
+          maximum: 4
+          default: 1
+        format:
+          type: string
+          enum: [mp3, wav]
+          default: mp3
+    Voice:
+      type: object
+      required: [id, engine, lang, default, defaults]
+      properties:
+        id: { type: string }
+        engine: { type: string, enum: [piper, espeak] }
+        lang: { type: string, description: Normalised language tag (lower case, '-' separated). }
+        name: { type: string }
+        gender: { type: string, enum: [male, female] }
+        quality: { type: string, examples: [low, medium, high, x_low] }
+        sampleRate: { type: integer }
+        default: { type: boolean, description: Picked when a request names only this voice's language. }
+        defaults:
+          type: object
+          properties:
+            speed: { type: number }
+            pitch: { type: integer }
+            speaker: { type: integer }
+            lengthScale: { type: number }
+    VoiceList:
+      type: object
+      required: [voices, count]
+      properties:
+        voices:
+          type: array
+          items: { $ref: '#/components/schemas/Voice' }
+        count: { type: integer }
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          enum: [bad_request, text_too_long, unknown_voice, unknown_lang, unauthorized, forbidden,
+                 not_found, conflict, payload_too_large, rate_limited, busy, engine_failure,
+                 timeout, not_ready, internal_error]
+  responses:
+    BadRequest:
+      description: Invalid input, unknown voice or language, or text too long.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: "text has 25000 characters; the limit is 20000", code: text_too_long }
+    Unauthorized:
+      description: Missing or invalid bearer key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: missing or invalid bearer key, code: unauthorized }
+    Forbidden:
+      description: Voice management is disabled (no TTS_ADMIN_KEYS).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooLarge:
+      description: Request body over the limit.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Per-key (or per-IP) token bucket is empty.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Busy:
+      description: Every engine slot is taken and the queue is full, or the engine is not installed.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: all engine slots are busy; retry later, code: busy }
+    EngineFailure:
+      description: The engine or encoder failed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Timeout:
+      description: Synthesis exceeded TTS_TIMEOUT.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

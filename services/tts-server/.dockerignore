@@ -1,0 +1,21 @@
+# Only the Go sources, go.mod/go.sum, voices.sha256 and the embedded docs are
+# needed to build the image.
+.git
+.env
+.env.*
+*.md
+!internal/**/*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore
+Makefile
+coverage*
+*.out
+*.html
+!internal/httpapi/docs.html
+*_test.go
+voices/
+cache/
+*.onnx
+*.onnx.json
+tts-server

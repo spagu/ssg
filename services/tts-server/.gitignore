@@ -1,0 +1,9 @@
+# Local secrets and runtime data of the TTS server
+.env
+voices/
+cache/
+*.onnx
+*.onnx.json
+coverage*
+*.out
+/tts-server
