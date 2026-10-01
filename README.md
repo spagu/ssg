@@ -578,6 +578,7 @@ Development workflow and review requirements are in
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
 | [docs/AUDIO.md](docs/AUDIO.md) | Articles read aloud: the browser button, build-time MP3 through a TTS API, the podcast feed |
+| [services/tts-server/README.md](services/tts-server/README.md) | Self-hosted TTS API (Docker, Swagger, espeak-ng and Piper voices) that ssg's `generic` provider talks to |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |

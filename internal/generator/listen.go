@@ -81,11 +81,11 @@ func (g *Generator) listenBlock(p models.Page) template.HTML {
 	if label == "" {
 		label = "Listen"
 	}
-	// #nosec G203 -- the label is escaped
 	voice := ""
 	if v := strings.TrimSpace(g.config.Listen.Voice); v != "" {
 		voice = ` data-voice="` + stdhtml.EscapeString(v) + `"`
 	}
+	// #nosec G203 -- the label and the voice name are HTML-escaped above
 	return template.HTML(`<button type="button" class="ssg-listen" ` + listenMarker + voice +
 		` aria-pressed="false" hidden>` + stdhtml.EscapeString(label) + `</button>`)
 }
