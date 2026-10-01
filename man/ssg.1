@@ -978,7 +978,7 @@ article at build time through a TTS API (\fBprovider\fR generic, openai,
 elevenlabs or google), cached in \fB.ssg-cache/tts\fR, with an optional
 \fBjingle_url\fR. When the API fails, \fBon_failure\fR chooses stale (the
 page's last MP3), skip or fail; \fBtts.feed: true\fR writes podcast.xml.
-Templates call \fB{{ listen .Post }}\fR. See docs/AUDIO.md.
+The block is placed after the first </h1>; a theme may call \fB{{ listen .Post }}\fR instead. See docs/AUDIO.md.
 .SH EXTERNAL SOURCES
 The config-only \fBexternal_sources\fR block feeds templates from local files
 (YAML/JSON/TOML/CSV/XML), remote HTTP APIs (hardened client, shared disk

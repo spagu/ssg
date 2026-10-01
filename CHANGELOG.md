@@ -32,10 +32,11 @@ as an MP3 made once at build time by a text-to-speech API.
   without audio still gets the browser button.
 - 📻 **`tts.feed: true`** writes `podcast.xml`: RSS 2.0 with enclosures and
   iTunes tags, for podcast apps.
-- 🧩 **`{{ listen .Post }}`** renders the player, or the button, or nothing. The
-  Go-template themes that ship with ssg (simple, ssgtheme, krowy, imd) call it
-  under the title; pages of any other theme get it
-  after their first `</h1>` unless `listen.auto: false`. `.AudioURL` and
+- 🧩 **Placement**: the block goes after the first `</h1>` of each selected
+  page, in any theme, unless `listen.auto: false`. A theme that wants it
+  elsewhere calls `{{ listen .Post }}`, which renders the player, the button or
+  nothing. The bundled themes rely on the automatic placement, so they still
+  work with older ssg releases that do not know the function. `.AudioURL` and
   `.AudioLength` are on every page.
 - 🐳 **`services/tts-server/`**: a self-hostable TTS API in Go with Docker,
   docker compose and Swagger UI. It implements the `generic` contract, so a site

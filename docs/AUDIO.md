@@ -127,10 +127,11 @@ adapter in front.
 ### Templates
 
 `{{ listen .Post }}` (or `.Page`) renders the player when the page has an MP3,
-otherwise the button when `listen` is on, otherwise nothing. The Go-template
-themes that ship with ssg (simple, ssgtheme, krowy, imd) call it under the post
-title. A theme that does not call it gets the block after
-the first `</h1>` of each selected page, unless `listen.auto` is `false`.
+otherwise the button when `listen` is on, otherwise nothing. A theme that does
+not call it gets the block after the first `</h1>` of each selected page,
+unless `listen.auto` is `false`. The bundled themes rely on that placement
+rather than calling the function, so a copy of them still builds with an ssg
+release older than 1.8.65.
 
 The page also exposes `.AudioURL` (site-relative, e.g. `/audio/2026-10-01-hello.mp3`)
 and `.AudioLength` (bytes), for a theme that wants its own player.

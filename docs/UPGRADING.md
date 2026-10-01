@@ -203,9 +203,8 @@ which is a longer read but never a wrong one.
 
 ### 1.8.65 — nothing to do
 
-Reading articles aloud (`listen:` and `tts:`) is off until you turn it on. The
-Go-template themes that ship with ssg now call `{{ listen .Post }}`, which
-renders nothing while both are off, so their output is unchanged.
+Reading articles aloud (`listen:` and `tts:`) is off until you turn it on, and
+the output of every site is unchanged until then.
 
 </div>
 
