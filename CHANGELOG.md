@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.65] - 2026-10-01
+
 ## [1.8.64] - 2026-09-30
 
 Six reports from building two real sites, one of them a GitHub project page,
