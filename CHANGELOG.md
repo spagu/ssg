@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.66] - 2026-10-02
 
+### Changed
+- 🔈 **One small Listen button for both ways, next to the reading time.** The
+  MP3 player used to be the browser's full-width `<audio>` bar under the title.
+  Now an article with an MP3 gets the same compact speaker-icon button as one
+  read by the browser voice, and the button plays the file. The bundled themes
+  hold a `<span data-ssg-listen-slot></span>` beside the date or reading time
+  and ssg fills it. A slot that gets nothing is removed, so output is unchanged
+  with the feature off, and older ssg releases just leave the empty span.
+  `listen.player: full` brings the `<audio>` bar back. Without JavaScript, a
+  page with an MP3 shows a "Listen (MP3)" link.
+
 ## [1.8.65] - 2026-10-01
 
 Articles you can listen to, two ways: with the reader's own browser voice, or

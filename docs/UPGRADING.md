@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.65">1.8.65 — 2026-10-01</option>
       <option value="1.8.64">1.8.64 — 2026-09-30</option>
       <option value="1.8.63">1.8.63 — 2026-09-25</option>
       <option value="1.8.62">1.8.62 — 2026-09-13</option>
@@ -198,6 +199,25 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.66">
+
+### 1.8.66 — the MP3 player becomes the Listen button
+
+If you use `tts:`, an article's MP3 is now offered through the same compact
+Listen button as the browser voice, next to the date or reading time, instead
+of the full-width `<audio>` bar under the title. To keep the bar:
+
+```yaml
+listen:
+  player: full
+```
+
+A theme of your own can mark where the button goes with
+`<span data-ssg-listen-slot></span>`. Without a slot it still goes after the
+first `</h1>`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.65">
 

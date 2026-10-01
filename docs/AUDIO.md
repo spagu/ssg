@@ -11,8 +11,9 @@ ssg can make an article listenable in two ways. They work alone or together.
 | Needs JavaScript | Yes | No: a plain `<audio>` element |
 | Leaves the device | Nothing | The article text goes to the API at build time |
 
-When both are on, a page with an MP3 shows the player and a page without one
-shows the button. That includes a page whose MP3 could not be made because the
+Both appear as the same small **Listen** button with a speaker icon, next to
+the reading time in the bundled themes. On a page with an MP3 it plays the file;
+on a page without one it reads the text with the browser's voice. That includes a page whose MP3 could not be made because the
 API was down, so a failed build-time call still leaves the reader a way to
 listen.
 
@@ -23,6 +24,7 @@ listen:
   enabled: true
   label: "Listen"        # button text
   voice: ""              # preferred browser voice, by name: "Natural", "Google UK English Female"
+  player: compact        # compact (default): the button plays the MP3; full: the browser's <audio> bar
   sections: [posts]      # posts (default), pages, or both
   auto: true             # place it where the theme did not; default true
 ```
@@ -133,15 +135,24 @@ adapter in front.
 
 ### Templates
 
-`{{ listen .Post }}` (or `.Page`) renders the player when the page has an MP3,
-otherwise the button when `listen` is on, otherwise nothing. A theme that does
-not call it gets the block after the first `</h1>` of each selected page,
-unless `listen.auto` is `false`. The bundled themes rely on that placement
-rather than calling the function, so a copy of them still builds with an ssg
-release older than 1.8.65.
+The block is placed automatically:
 
-The page also exposes `.AudioURL` (site-relative, e.g. `/audio/2026-10-01-hello.mp3`)
-and `.AudioLength` (bytes), for a theme that wants its own player.
+1. into `<span data-ssg-listen-slot></span>`, if the theme has one. The
+   bundled themes put it next to the date or the reading time;
+2. otherwise after the first `</h1>` of each selected page.
+
+`listen.auto: false` turns automatic placement off. A slot that receives nothing
+is removed, so a site with both features off is byte-for-byte unchanged. An ssg
+older than 1.8.66 leaves the empty `<span>` in place, which is harmless. That is
+why the bundled themes use a slot rather than a template function.
+
+`{{ listen .Post }}` (or `.Page`) renders the same block where a theme calls
+it: the button, or the `<audio>` bar with `player: full`, or nothing. The page
+also exposes `.AudioURL` (site-relative, e.g. `/audio/2026-10-01-hello.mp3`)
+and `.AudioLength` (bytes), for a theme that builds its own player.
+
+Without JavaScript the button stays hidden. On a page with an MP3, a plain
+"Listen (MP3)" link takes its place.
 
 ### The podcast feed
 
