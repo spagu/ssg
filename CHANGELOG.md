@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.67] - 2026-10-02
+
+### Fixed
+- 🧩 **An upgrade makes the next incremental build full.** The dependency graph
+  checked only its own format, so after installing a new ssg, `--watch`
+  reported "Incremental: nothing changed" and kept serving every page as the
+  previous release had rendered it. A new feature, such as 1.8.66's Listen
+  button, stayed invisible until a content or template file changed. The ssg
+  binary is now a recorded input, so a different binary, release or
+  development build, plans a full build. The graph format moves to schema 2, so
+  graphs written by older releases are discarded once.
+
 ## [1.8.66] - 2026-10-02
 
 ### Changed

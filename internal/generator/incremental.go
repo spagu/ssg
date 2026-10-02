@@ -265,6 +265,13 @@ func (g *Generator) recordContentInputs() {
 	g.recordTreeInputs(filepath.Join(g.config.TemplatesDir, g.config.Template), depgraph.KindTemplate)
 	g.recordTreeInputs(g.config.DataDir, depgraph.KindData)
 	g.recordInput(g.config.ConfigPath, depgraph.KindConfig)
+	// The binary is an input too: a new ssg renders the same sources
+	// differently. Without it, --watch after an upgrade reported "nothing
+	// changed" and served every page as the previous release had written it.
+	// Config kind, so a change makes the build full.
+	if exe, err := os.Executable(); err == nil {
+		g.recordInput(exe, depgraph.KindConfig)
+	}
 
 	// A build whose content did not come from files cannot be compared against
 	// files next time.

@@ -32,7 +32,9 @@ import (
 
 // Schema versions the persisted graph. A graph written by another version is
 // not read — it is discarded and the build is full, which is the safe answer.
-const Schema = 1
+// 2 (1.8.67) records the ssg binary itself as an input; a graph without it
+// cannot tell that pages were rendered by a different release.
+const Schema = 2
 
 // FileName is the persisted graph, under the shared cache root (GO-091).
 const FileName = "graph.json"

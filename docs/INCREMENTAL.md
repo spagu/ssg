@@ -81,6 +81,7 @@ not appear in the count.
 | No previous build, or a graph from an older `ssg` | Nothing to compare against |
 | A template or a partial changed | The graph does not model which pages a partial reaches, so it will not guess |
 | The configuration file changed | A setting can change anything |
+| The `ssg` binary changed | A new release can render the same sources differently (1.8.67+) |
 | A file appeared that the last build never saw | A new page reaches archives, feeds, tag listings and the sitemap, and none of those edges exist yet |
 | `--clean` | The output directory is emptied, so there is nothing left to keep |
 | Content comes from MDDB | The graph cannot hash a remote collection |
@@ -113,8 +114,12 @@ happens after that check says something did.
 delete it and the next build is full. `ssg cache --namespace=graph --dry` lists
 it; `.gitignore` already excludes `.ssg-cache/`.
 
-The file records a schema version. A graph written by a different version of
-`ssg` is discarded rather than read, which makes an upgrade cost one full build.
+The file records a schema version, and the `ssg` binary itself is one of the
+recorded inputs. A graph in another format is discarded, and a graph written by
+a different binary marks the binary as changed. Either way an upgrade, or a
+rebuilt development binary, costs one full build. Before 1.8.67 only the format
+was checked, so `--watch` after an upgrade could report "nothing changed" and
+keep serving pages the previous release had rendered.
 
 ## Further reading
 
