@@ -6192,7 +6192,7 @@ func (g *Generator) fingerprintOne(path string, manifest, byBasename map[string]
 	if err != nil {
 		return err
 	}
-	s := rewriteAssetRefs(string(content), byBasename)
+	s := rewriteAssetRefs(string(content), byBasename, siteHosts(g.config.Domain))
 
 	sum := sha256.Sum256([]byte(s))
 	hash := hex.EncodeToString(sum[:])[:8]
@@ -6221,7 +6221,7 @@ func (g *Generator) fingerprintOne(path string, manifest, byBasename map[string]
 // The rewriter (and its regexes) is built once for the whole walk instead of
 // once per file per asset (PERF-003).
 func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
-	rw := newAssetRefRewriter(byBasename)
+	rw := newAssetRefRewriter(byBasename, siteHosts(g.config.Domain))
 	return filepath.Walk(g.config.OutputDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || fi.IsDir() || !strings.EqualFold(filepath.Ext(path), ".html") {
 			return err
@@ -6230,7 +6230,7 @@ func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
 		if e != nil {
 			return e
 		}
-		out := rw.rewrite(string(content))
+		out := rw.rewriteHTML(string(content))
 		if out == string(content) {
 			return nil
 		}
@@ -6242,21 +6242,23 @@ func (g *Generator) rewriteHTMLAssetRefs(byBasename map[string]string) error {
 // assetRefRewriter holds precompiled basename regexes so the fingerprint walk
 // compiles each pattern once instead of per file per asset (PERF-003).
 type assetRefRewriter struct {
-	res  []*regexp.Regexp
-	repl []string
+	res      []*regexp.Regexp
+	repl     []string
+	ownHosts []string // the site's hosts; an absolute URL elsewhere is never rewritten (#316)
 }
 
 // newAssetRefRewriter compiles one regex per known asset basename, longest-first
 // for deterministic, non-overlapping replacement (ASSET-001).
-func newAssetRefRewriter(byBasename map[string]string) *assetRefRewriter {
+func newAssetRefRewriter(byBasename map[string]string, ownHosts []string) *assetRefRewriter {
 	bases := make([]string, 0, len(byBasename))
 	for b := range byBasename {
 		bases = append(bases, b)
 	}
 	sort.Slice(bases, func(i, j int) bool { return len(bases[i]) > len(bases[j]) })
 	rw := &assetRefRewriter{
-		res:  make([]*regexp.Regexp, 0, len(bases)),
-		repl: make([]string, 0, len(bases)),
+		res:      make([]*regexp.Regexp, 0, len(bases)),
+		repl:     make([]string, 0, len(bases)),
+		ownHosts: ownHosts,
 	}
 	for _, base := range bases {
 		rw.res = append(rw.res, regexp.MustCompile(`([/"'(=])`+regexp.QuoteMeta(base)+`([)"'?#\s])`))
@@ -6270,18 +6272,40 @@ func newAssetRefRewriter(byBasename map[string]string) *assetRefRewriter {
 // attributes, CSS url() and @import.
 func (rw *assetRefRewriter) rewrite(s string) string {
 	for i, re := range rw.res {
-		s = re.ReplaceAllString(s, rw.repl[i])
+		s = rw.replaceOwn(s, re, rw.repl[i])
 	}
 	return s
 }
 
+// replaceOwn replaces every match of re that is not part of an absolute URL
+// on another host (#316).
+func (rw *assetRefRewriter) replaceOwn(s string, re *regexp.Regexp, repl string) string {
+	matches := re.FindAllStringSubmatchIndex(s, -1)
+	if len(matches) == 0 {
+		return s
+	}
+	var b strings.Builder
+	last := 0
+	for _, m := range matches {
+		// m[3] is the end of the leading delimiter, where the name starts.
+		if rw.foreignURLAt(s, m[3]) {
+			continue
+		}
+		b.WriteString(s[last:m[0]])
+		b.Write(re.ExpandString(nil, repl, s, m))
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
 // rewriteAssetRefs is the one-shot form used while hashing assets, where the
 // basename map still grows between calls.
-func rewriteAssetRefs(s string, byBasename map[string]string) string {
+func rewriteAssetRefs(s string, byBasename map[string]string, ownHosts []string) string {
 	if len(byBasename) == 0 {
 		return s
 	}
-	return newAssetRefRewriter(byBasename).rewrite(s)
+	return newAssetRefRewriter(byBasename, ownHosts).rewrite(s)
 }
 
 // mermaidVersion pins the mermaid release injected for diagram pages (GO-073).

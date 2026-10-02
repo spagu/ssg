@@ -63,7 +63,7 @@ func TestPageURL(t *testing.T) {
 func TestRewriteAssetRefs(t *testing.T) {
 	by := map[string]string{"style.css": "style.abcd1234.css", "app.js": "app.deadbeef.js"}
 	in := `<link href="/css/style.css"><script src="app.js"></script>`
-	out := rewriteAssetRefs(in, by)
+	out := rewriteAssetRefs(in, by, nil)
 	if !strings.Contains(out, "style.abcd1234.css") || !strings.Contains(out, "app.deadbeef.js") {
 		t.Errorf("refs not rewritten: %s", out)
 	}
