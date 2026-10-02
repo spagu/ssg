@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.68] - 2026-10-02
 
+### Fixed
+- 🔏 **Fingerprinting rewrites references, not text** (#316). A fingerprinted
+  file name was replaced wherever it appeared in a page: in prose ("the bundle
+  (dist/app.js) is…"), in a `<pre>` snippet, and in URLs on other hosts that
+  merely end in the same name. A copyable jsDelivr one-liner then pointed at
+  `app.c9c8999c.js`, which exists only on the site, and readers copied a 404.
+  In HTML, names are now rewritten only in URL attributes, `<style>` and
+  `<script>` blocks, and anywhere, including inside CSS and JS, an absolute URL
+  on another host is left alone. Unquoted attribute values (`href=js/app.js`)
+  are now rewritten too.
+
 ## [1.8.67] - 2026-10-02
 
 ### Fixed

@@ -724,7 +724,12 @@ in `output/` after a build.
 
 Bundles are created before minification and fingerprinting. Fingerprinting
 renames CSS/JS to `name.<hash8>.ext`, emits `assets-manifest.json`, and rewrites
-HTML/CSS references in dependency order. Source maps require corresponding CSS
+HTML/CSS references in dependency order. In HTML only references are rewritten:
+URL attributes (`src`, `href`, `srcset`, `poster`, `data-*`, `style`), `<style>`
+and `<script>` blocks. Page text, `<pre>`/`<code>` samples and comments keep the
+original name. Anywhere, an absolute URL on another host keeps its name too, so
+a CDN snippet such as `https://cdn.example.org/pkg/app.js` stays copyable
+(1.8.68+). Source maps require corresponding CSS
 or JavaScript minification. SCSS is removed from final output after compilation;
 if Dart Sass is missing, the step is skipped with a warning.
 
