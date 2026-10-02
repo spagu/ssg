@@ -29,7 +29,7 @@ import "strings"
 // break a deliberate configuration to fix an accidental one.
 func NormalizeDomain(domain string) (normalized string, changed bool) {
 	out := strings.TrimSpace(domain)
-	for _, scheme := range []string{"https://", "http://"} {
+	for _, scheme := range []string{"https://", "http://"} { // NOSONAR go:S5332 -- schemes to strip from what the user typed; nothing is requested
 		if len(out) >= len(scheme) && strings.EqualFold(out[:len(scheme)], scheme) {
 			out = out[len(scheme):]
 			break
