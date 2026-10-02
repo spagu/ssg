@@ -47,7 +47,7 @@ func deployFTP(ctx context.Context, o Options) (string, error) {
 			return "", fmt.Errorf("storing %s: %w", remote, err)
 		}
 	}
-	return "ftp://" + u.Host + "/" + base, nil
+	return "ftp://" + u.Host + "/" + base, nil // NOSONAR go:S5332 -- the location the user's own deploy=ftp target names; sftp is offered alongside
 }
 
 // ftpMakeDirs creates each ancestor directory of a remote path, remembering which
