@@ -956,7 +956,7 @@
               ],
               "source": {
                 "file": "src/textkit/lexer.py",
-                "line": 100
+                "line": 101
               },
               "doc": {
                 "summary": "Tokenizes text.",

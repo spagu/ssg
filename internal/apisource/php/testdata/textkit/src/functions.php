@@ -33,6 +33,6 @@ $closure = function ($x) use ($text) {
     return $x;
 };
 
-if (true) {
+if (!function_exists('conditional')) {
     function conditional() {}
 }

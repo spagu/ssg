@@ -1123,7 +1123,7 @@
               ],
               "source": {
                 "file": "src/view.php",
-                "line": 10
+                "line": 11
               },
               "doc": {
                 "summary": "Renders the view."

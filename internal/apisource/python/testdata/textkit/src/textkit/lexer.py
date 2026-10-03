@@ -94,7 +94,8 @@ class Lexer(Iterable[Token]):
 
     def _helper(self): pass
 
-    def __iter__(self): ...
+    def __iter__(self):
+        return iter(())
 
 
 def tokenize(text: str, *, keep_space: bool = False) -> list[Token]:
