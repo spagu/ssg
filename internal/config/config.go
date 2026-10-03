@@ -596,6 +596,10 @@ type Config struct {
 	// crawler a hop, and one such link in shared chrome multiplies across every
 	// page. Requires pretty_urls to know what the host does (#87).
 	CheckRedirects string `yaml:"check_redirects" toml:"check_redirects" json:"check_redirects"`
+	// CheckAPI reports documentation problems in api_docs packages: exports
+	// without a description, @param tags that do not match the signature,
+	// unresolved links (GO-110). "" (off), "warn" or "strict".
+	CheckAPI string `yaml:"check_api" toml:"check_api" json:"check_api"`
 
 	// PrettyURLs describes how the host serves URLs: it strips a ".html"
 	// extension and appends a trailing slash to a directory, answering the
@@ -836,6 +840,9 @@ type Config struct {
 	// TTS renders each article to an MP3 at build time through a
 	// text-to-speech API, caches it, and can publish a podcast feed (1.8.65).
 	TTS TTSConfig `yaml:"tts" toml:"tts" json:"tts"`
+	// APIDocs documents JavaScript/TypeScript code as pages of the site, one
+	// entry per package (1.8.69, GO-107). See docs/API_DOCS.md.
+	APIDocs []APIDocsConfig `yaml:"api_docs" toml:"api_docs" json:"api_docs"`
 
 	// Notifications POST each newly published (or changed) post to user-defined
 	// webhook destinations (point them at a social API, an automation service, or
@@ -1490,4 +1497,36 @@ type TTSConfig struct {
 	FeedAuthor string `yaml:"feed_author" toml:"feed_author" json:"feed_author"`
 	FeedImage  string `yaml:"feed_image" toml:"feed_image" json:"feed_image"`
 	FeedLimit  int    `yaml:"feed_limit" toml:"feed_limit" json:"feed_limit"` // default 50
+}
+
+// APIDocsConfig is one package to document from code.
+type APIDocsConfig struct {
+	Name    string   `yaml:"name" toml:"name" json:"name"`          // package name; default from package.json
+	Root    string   `yaml:"root" toml:"root" json:"root"`          // directory with package.json and sources
+	Entry   []string `yaml:"entry" toml:"entry" json:"entry"`       // entry files; default from package.json
+	Include []string `yaml:"include" toml:"include" json:"include"` // globs relative to root
+	Exclude []string `yaml:"exclude" toml:"exclude" json:"exclude"`
+	URL     string   `yaml:"url" toml:"url" json:"url"` // page prefix; default /api/<name>/
+	// Visibility: public (default) hides @internal symbols, internal shows
+	// them, all shows everything.
+	Visibility string   `yaml:"visibility" toml:"visibility" json:"visibility"`
+	Stability  []string `yaml:"stability" toml:"stability" json:"stability"` // beta, alpha, experimental to show; empty = all
+	// Readme shows the package README on its index page. On unless false.
+	Readme *bool `yaml:"readme" toml:"readme" json:"readme"`
+	// SourceURL links each definition to its code: {path}, {line} and {ref}
+	// are filled in, e.g. https://example.com/repo/blob/{ref}/{path}#L{line}.
+	SourceURL string `yaml:"source_url" toml:"source_url" json:"source_url"`
+	// SourceRef is the {ref}: a tag, branch or commit; "auto" (default) is the
+	// commit git reports for the root.
+	SourceRef string `yaml:"source_ref" toml:"source_ref" json:"source_ref"`
+	// Playground is the package as an ES module URL (a CDN build, or a file
+	// the site publishes with CORS); set, JavaScript examples run in the
+	// browser (GO-116).
+	Playground string `yaml:"playground" toml:"playground" json:"playground"`
+	// OpenAPI documents a REST API from an OpenAPI 3.x file (YAML or JSON)
+	// instead of code (GO-117); root, entry, include and exclude are unused.
+	OpenAPI string `yaml:"openapi" toml:"openapi" json:"openapi"`
+	// TryIt adds the "Try it" console to every operation of an openapi
+	// entry. On unless false (GO-118).
+	TryIt *bool `yaml:"try_it" toml:"try_it" json:"try_it"`
 }

@@ -25,6 +25,8 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/spagu/ssg/internal/ai"
+	"github.com/spagu/ssg/internal/apimodel"
+	"github.com/spagu/ssg/internal/apisource"
 	"github.com/spagu/ssg/internal/components"
 	"github.com/spagu/ssg/internal/depgraph"
 	"github.com/spagu/ssg/internal/engine"
@@ -382,6 +384,10 @@ type Config struct {
 	// Listen adds the browser read-aloud button (1.8.65).
 	Audio  AudioOptions
 	Listen ListenOptions
+	// APIDocs documents JavaScript/TypeScript packages as pages (GO-107);
+	// CheckAPI reports documentation problems: "", warn or strict (GO-110).
+	APIDocs  []APIDocsOptions
+	CheckAPI string
 	// AI answers [ai …] content shortcodes at build time (cached). nil = the
 	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
 	AI *ai.Client
@@ -644,6 +650,13 @@ type Generator struct {
 	// profile measures this build when config.Profile asks for it, and is nil
 	// otherwise; every method on it accepts a nil receiver (GO-097).
 	profile *Profile
+
+	// The documented code API (apidocs.go): the model for api.json, what the
+	// extractors could not read, and how many pages it added.
+	apiModel       *apimodel.API
+	apiDiagnostics []apisource.Diagnostic
+	apiPageCount   int
+	apiHref        func(id string) string // symbol ID → URL, set by loadAPIDocs
 
 	// postURLs is the set of post URLs, built once (listen.go isPost).
 	postURLsOnce sync.Once
@@ -1098,6 +1111,10 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("writing route manifest: %w", err)
 	}
 
+	if err := g.writeAPIModel(); err != nil {
+		return fmt.Errorf("writing %s: %w", apiDocsFile, err)
+	}
+
 	if err := g.profile.Measure("Feeds", func() error {
 		if err := g.generateDeclaredFeeds(); err != nil {
 			return err
@@ -1146,6 +1163,10 @@ func (g *Generator) loadPhase() error {
 	}
 	if err := g.runStep("🔄 Loading content...", g.loadContent, "loading content"); err != nil {
 		return err
+	}
+	// Before data and taxonomies, so the API pages are pages like any other.
+	if err := g.loadAPIDocs(); err != nil {
+		return fmt.Errorf("reading code for API docs: %w", err)
 	}
 	if err := g.runStep("🗂️  Loading data files...", g.loadData, "loading data files"); err != nil {
 		return err
@@ -1218,6 +1239,9 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkSchemaIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkAPIIfRequested(); err != nil {
 		return err
 	}
 	if err := g.checkOrphansIfRequested(); err != nil {
@@ -2753,6 +2777,9 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		// {{ listen .Page }}: the article's MP3 player, or the browser
 		// read-aloud button, or nothing (1.8.65).
 		"listen": g.listenBlock,
+		// API pages from code (GO-109), for themes of your own.
+		"apiHref": g.tmplAPIHref,
+		"apiType": g.tmplAPIType,
 		// raw emits a string as HTML with no processing at all — the plain
 		// template.HTML cast. safeHTML is NOT that: in a page template it renders
 		// Markdown, which is right for .Content and wrong for markup coming from
@@ -5840,7 +5867,7 @@ func (g *Generator) generateNotFound() error {
 	// purpose is that the reader wanted something else. A site providing its
 	// own 404 rendered through the pipeline and already has it.
 	if g.config.WebMCP {
-		doc = injectWebMCP(doc, g.webmcpIndexURL(nil))
+		doc = injectWebMCP(doc, g.webmcpIndexURL(nil), g.webmcpAPIURL())
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(path, []byte(doc), 0644)

@@ -1,0 +1,42 @@
+/* Live examples and the REST console (GO-116, GO-118). Colours come from the
+   theme where it defines them (--ssg-api-*), else from the page's own text and
+   background, so the tools read correctly in any theme, light or dark. */
+.ssg-playground,.ssg-tryit{margin:1rem 0;border:1px solid var(--ssg-api-border,color-mix(in srgb,currentColor 25%,transparent));border-radius:8px;padding:.75rem}
+.ssg-playground-editor,.ssg-tryit textarea,.ssg-tryit input,.ssg-tryit select{width:100%;box-sizing:border-box;font:inherit;font-family:var(--ssg-api-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);font-size:.875rem;color:inherit;background:var(--ssg-api-field,transparent);border:1px solid var(--ssg-api-border,color-mix(in srgb,currentColor 35%,transparent));border-radius:6px;padding:.5rem}
+.ssg-playground-editor,.ssg-playground-output,.ssg-tryit pre,.ssg-tryit textarea{font-variant-ligatures:none}
+.ssg-playground-editor{min-height:6rem;resize:vertical;tab-size:2;white-space:pre}
+.ssg-playground-bar,.ssg-tryit-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin:.5rem 0}
+.ssg-playground button,.ssg-tryit button{font:inherit;font-size:.875rem;min-height:44px;min-width:44px;padding:.4rem 1rem;border-radius:6px;cursor:pointer;color:inherit;background:transparent;border:1px solid var(--ssg-api-border,color-mix(in srgb,currentColor 45%,transparent))}
+.ssg-playground .ssg-playground-run,.ssg-tryit .ssg-tryit-send{color:var(--ssg-api-on-accent,#fff);background:var(--ssg-api-accent,#1a5fb4);border-color:var(--ssg-api-accent,#1a5fb4)}
+.ssg-playground button:focus-visible,.ssg-tryit button:focus-visible,.ssg-tryit input:focus-visible,.ssg-tryit select:focus-visible,.ssg-tryit textarea:focus-visible,.ssg-playground-editor:focus-visible{outline:3px solid var(--ssg-api-focus,#e66100);outline-offset:2px}
+.ssg-playground button:disabled,.ssg-tryit button:disabled{opacity:.6;cursor:progress}
+.ssg-playground-output,.ssg-tryit-response pre{margin:0;max-height:24rem;overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:var(--ssg-api-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);font-size:.8125rem;padding:.5rem;border-radius:6px;background:var(--ssg-api-code,color-mix(in srgb,currentColor 7%,transparent))}
+.ssg-playground-error{color:var(--ssg-api-error,#c01c28)}
+.ssg-playground-warn{color:var(--ssg-api-warn,#9c4f00)}
+@media (prefers-color-scheme:dark){.ssg-playground-error{color:var(--ssg-api-error,#ff7b72)}.ssg-playground-warn{color:var(--ssg-api-warn,#f0b45a)}}
+.ssg-tryit[hidden],.ssg-tryit-panel[hidden]{display:none}
+.ssg-tryit-panel{display:grid;gap:.75rem;margin-top:.5rem}
+.ssg-tryit fieldset{border:0;margin:0;padding:0;display:grid;gap:.5rem}
+.ssg-tryit legend{font-weight:600;margin-bottom:.25rem}
+.ssg-tryit label{display:grid;gap:.25rem;font-size:.875rem}
+.ssg-tryit label small{opacity:.8}
+.ssg-tryit-status{font-weight:600}
+.ssg-tryit-note{font-size:.875rem;margin:0}
+.ssg-rest-endpoint{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.25rem 0 1rem}
+.ssg-method{display:inline-block;min-width:4.5em;padding:.15em .5em;border-radius:4px;font:700 .75rem/1.4 var(--ssg-api-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);text-align:center;letter-spacing:.04em;color:#fff;background:#5f6368}
+.ssg-method-get{background:var(--ssg-api-get,#137333)}
+.ssg-method-post{background:var(--ssg-api-post,#1967d2)}
+.ssg-method-put,.ssg-method-patch{background:var(--ssg-api-put,#9a4b00)}
+.ssg-method-delete{background:var(--ssg-api-delete,#c5221f)}
+:root[data-theme="dark"] .ssg-method{color:#202124;background:#bdc1c6}
+:root[data-theme="dark"] .ssg-method-get{background:var(--ssg-api-get,#81c995)}
+:root[data-theme="dark"] .ssg-method-post{background:var(--ssg-api-post,#8ab4f8)}
+:root[data-theme="dark"] :is(.ssg-method-put,.ssg-method-patch){background:var(--ssg-api-put,#fcad70)}
+:root[data-theme="dark"] .ssg-method-delete{background:var(--ssg-api-delete,#f28b82)}
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .ssg-method{color:#202124;background:#bdc1c6}
+:root:not([data-theme="light"]) .ssg-method-get{background:var(--ssg-api-get,#81c995)}
+:root:not([data-theme="light"]) .ssg-method-post{background:var(--ssg-api-post,#8ab4f8)}
+:root:not([data-theme="light"]) :is(.ssg-method-put,.ssg-method-patch){background:var(--ssg-api-put,#fcad70)}
+:root:not([data-theme="light"]) .ssg-method-delete{background:var(--ssg-api-delete,#f28b82)}
+}

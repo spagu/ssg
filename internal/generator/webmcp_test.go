@@ -4,6 +4,7 @@ package generator
 
 import (
 	"encoding/json"
+	"github.com/spagu/ssg/internal/apimodel"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,7 +166,7 @@ func TestWebMCPSurvivesMinification(t *testing.T) {
 // keeps them. Two registrations of the same name is the failure this prevents.
 func TestWebMCPLeavesAThemeSRegistrationAlone(t *testing.T) {
 	own := `<html><body><script>navigator.modelContext.registerTool({name:"mine"})</script></body></html>`
-	if got := injectWebMCP(own, "/search-index.json"); got != own {
+	if got := injectWebMCP(own, "/search-index.json", ""); got != own {
 		t.Errorf("a document with its own registration was modified:\n%s", got)
 	}
 }
@@ -173,11 +174,11 @@ func TestWebMCPLeavesAThemeSRegistrationAlone(t *testing.T) {
 // TestWebMCPGoesBeforeTheClosingBody, and lands at the end even when there is
 // no </body> to aim at — a partial or a fragment must not lose the script.
 func TestWebMCPGoesBeforeTheClosingBody(t *testing.T) {
-	got := injectWebMCP(`<html><body><p>x</p></body></html>`, "/search-index.json")
+	got := injectWebMCP(`<html><body><p>x</p></body></html>`, "/search-index.json", "")
 	if !strings.Contains(got, "</script>\n</body>") {
 		t.Errorf("registration is not at the </body> seam:\n%s", got)
 	}
-	fragment := injectWebMCP(`<p>x</p>`, "/search-index.json")
+	fragment := injectWebMCP(`<p>x</p>`, "/search-index.json", "")
 	if !strings.Contains(fragment, "navigator.modelContext") {
 		t.Error("a document without </body> lost the registration")
 	}
@@ -212,7 +213,7 @@ func TestWebMCPIndexURLFollowsTheDocumentSLanguage(t *testing.T) {
 // TestWebMCPIndexURLIsAJavaScriptLiteral: the URL is interpolated into inline
 // script source, so anything that could close the literal must not survive.
 func TestWebMCPIndexURLIsAJavaScriptLiteral(t *testing.T) {
-	got := injectWebMCP(`<html><body></body></html>`, `/a";alert(1);//search-index.json`)
+	got := injectWebMCP(`<html><body></body></html>`, `/a";alert(1);//search-index.json`, "")
 	// The unescaped sequence would close the literal and start a statement.
 	// Its escaped form is /a\";alert(1), which does not contain this.
 	if strings.Contains(got, `/a";alert`) {
@@ -222,7 +223,27 @@ func TestWebMCPIndexURLIsAJavaScriptLiteral(t *testing.T) {
 		t.Errorf("the quote was not escaped as expected:\n%s", got)
 	}
 	// A newline would end the statement even with the quote handled.
-	if strings.Contains(injectWebMCP(`<html><body></body></html>`, "/a\nalert(1)"), "\nalert(1)") {
+	if strings.Contains(injectWebMCP(`<html><body></body></html>`, "/a\nalert(1)", ""), "\nalert(1)") {
 		t.Error("a newline in the index URL survived into the script")
+	}
+}
+
+// TestWebMCPAPITools: a site documenting code also gets findSymbol and
+// getSymbol, reading api.json; one that does not, does not.
+func TestWebMCPAPITools(t *testing.T) {
+	with := injectWebMCP(`<html><body></body></html>`, "/search-index.json", "/docs/api.json")
+	if !strings.Contains(with, `name:"findSymbol"`) || !strings.Contains(with, `var API="/docs/api.json"`) {
+		t.Errorf("api tools missing:\n%s", with)
+	}
+	if strings.Contains(injectWebMCP(`<html><body></body></html>`, "/search-index.json", ""), "findSymbol") {
+		t.Error("no API, no API tools")
+	}
+	g := &Generator{config: Config{BasePath: "/docs"}}
+	if g.webmcpAPIURL() != "" {
+		t.Error("no model, no URL")
+	}
+	g.apiModel = &apimodel.API{}
+	if g.webmcpAPIURL() != "/docs/api.json" {
+		t.Errorf("api url = %q", g.webmcpAPIURL())
 	}
 }

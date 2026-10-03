@@ -219,6 +219,8 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// The article read aloud: the MP3 player or the browser button, where the
 	// theme did not place one, and the button's script (1.8.65).
 	s = g.listenHTMLString(s, page)
+	// Live examples and the REST console, where a page has them (GO-116/118).
+	s = injectAPITools(s)
 	// Tracking runs on every page, not only the ones with a page context and
 	// not only when `seo:` happens to be on (FE-001).
 	//
@@ -243,7 +245,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// with every other absolute path rather than staying rooted at / on a site
 	// served from a subdirectory (#224).
 	if g.config.WebMCP {
-		s = injectWebMCP(s, g.webmcpIndexURL(page))
+		s = injectWebMCP(s, g.webmcpIndexURL(page), g.webmcpAPIURL())
 	}
 	if g.config.RelativeLinks && g.config.Domain != "" {
 		s = relativizeHTMLString(s, g.config.Domain)

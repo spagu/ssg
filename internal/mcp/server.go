@@ -79,6 +79,8 @@ type Server struct {
 	// graphs caches the last site graph read, invalidated by the artifact's
 	// mtime (GO-095).
 	graphs graphCache
+	// apis caches the decoded api.json the same way (GO-111).
+	apis   apiCache
 	opts   Options
 	tools  []tool
 	byName map[string]tool

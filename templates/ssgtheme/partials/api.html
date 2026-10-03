@@ -1,0 +1,59 @@
+{{/*
+  API reference pages generated from code (api_docs, 1.8.69). The page body is
+  .Page.Content — the reference as Markdown, rendered like any page — and
+  .Page.Extra.api carries the model plus a precomputed navigation tree and
+  breadcrumb trail. Only functions every ssg release knows are used here: a
+  theme in this repository is also built by older releases.
+*/}}
+{{define "sc-api-page"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title .Domain) }}
+    <title>{{ $title }}</title>
+{{ template "sc-head" (dict
+    "Title" $title
+    "Desc" .Page.Excerpt
+    "Canonical" (printf "/%s/" .Page.Slug)
+    "Image" .Page.FeaturedImage
+    "OgType" "article"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "sc-header" . }}
+{{ $api := .Page.Extra.api }}
+{{ $here := .Page.GetURL }}
+<main class="main-content" id="main-content">
+    <div class="container docs-layout">
+        <nav class="docs-nav api-nav" aria-label="API reference">
+            <p class="docs-nav__title">{{ $api.package.Name }} API</p>
+            <ul class="docs-nav__list">
+                {{ range $api.nav }}
+                <li>
+                    <a href="{{ .URL }}" class="docs-nav__link{{ if eq .URL $here }} is-current{{ end }}"
+                       {{ if eq .URL $here }}aria-current="page"{{ end }}>{{ if eq .Kind "module" }}<code>{{ .Title }}</code>{{ else }}{{ .Title }}{{ end }}</a>
+                    {{ if .Children }}
+                    <ul class="api-nav__children">
+                        {{ range .Children }}
+                        <li><a href="{{ .URL }}" class="docs-nav__link{{ if eq .URL $here }} is-current{{ end }}"
+                               {{ if eq .URL $here }}aria-current="page"{{ end }}>{{ .Title }}</a></li>
+                        {{ end }}
+                    </ul>
+                    {{ end }}
+                </li>
+                {{ end }}
+            </ul>
+        </nav>
+        <article class="article prose api-page" id="api-{{ .Page.Slug }}">
+            <nav class="api-crumbs" aria-label="Breadcrumb">
+                <ol>{{ range $i, $c := $api.crumbs }}<li>{{ if eq $c.URL $here }}<span aria-current="page">{{ $c.Title }}</span>{{ else }}<a href="{{ $c.URL }}">{{ $c.Title }}</a>{{ end }}</li>{{ end }}</ol>
+            </nav>
+            <p class="eyebrow">API reference</p>
+            <h1>{{ .Page.Title }}</h1>
+            {{ .Page.Content | safeHTML }}
+        </article>
+    </div>
+</main>
+
+{{ template "sc-footer" . }}
+</body>
+</html>{{end}}
