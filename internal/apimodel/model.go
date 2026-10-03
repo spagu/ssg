@@ -20,10 +20,14 @@ type API struct {
 // Package is one documented library — a package.json, or one entry of
 // api_docs in the configuration.
 type Package struct {
-	Name    string    `json:"name"`
-	Version string    `json:"version,omitempty"`
-	Readme  string    `json:"readme,omitempty"` // Markdown, shown as the package's front page
-	Modules []*Module `json:"modules"`
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+	// Language is what the package is written in: javascript, typescript,
+	// go, php or python. Empty means JavaScript or TypeScript (schema 1 as
+	// first published). Pages show declarations in this language's syntax.
+	Language string    `json:"language,omitempty"`
+	Readme   string    `json:"readme,omitempty"` // Markdown, shown as the package's front page
+	Modules  []*Module `json:"modules"`
 }
 
 // Module is one importable entry point or file, e.g. "index" or "parser/lex".
@@ -67,6 +71,10 @@ type Symbol struct {
 	Flags      Flags        `json:"flags,omitzero"`
 	Source     *Source      `json:"source,omitempty"`
 	Doc        *Doc         `json:"doc,omitempty"`
+	// Code is the declaration as written in the package's language, for a
+	// symbol that is not callable ("type Mode int", "class Lexer(Base)").
+	// Empty: pages render one from Type.
+	Code string `json:"code,omitempty"`
 }
 
 // Flags are the modifiers a symbol carries.
@@ -98,6 +106,10 @@ type Signature struct {
 	Params     []*Param     `json:"params,omitempty"`
 	Returns    *TypeRef     `json:"returns,omitempty"`
 	Doc        *Doc         `json:"doc,omitempty"` // per-overload documentation
+	// Code is this signature as written in the package's language
+	// ("func Parse(src string) (*Doc, error)"). Empty: pages render a
+	// TypeScript-style one from the parameters.
+	Code string `json:"code,omitempty"`
 }
 
 // Param is one parameter of a signature.

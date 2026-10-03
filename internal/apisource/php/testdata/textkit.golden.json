@@ -1,0 +1,1137 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "textkit",
+      "version": "2.1.0",
+      "language": "php",
+      "readme": "# textkit\n\nSplits text into tokens.\n",
+      "modules": [
+        {
+          "id": "textkit/Acme/Textkit",
+          "path": "Acme/Textkit",
+          "symbols": [
+            {
+              "id": "textkit/Acme/Textkit#Doc",
+              "name": "Doc",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit#Doc.empty",
+                  "name": "empty",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "self",
+                        "ref": "textkit/Acme/Textkit#Doc"
+                      },
+                      "code": "public static function empty(): self"
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 32
+                  },
+                  "doc": {
+                    "summary": "Makes an empty document.",
+                    "deprecated": "Use {@link Doc::of()} instead."
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Doc.heading",
+                  "name": "heading",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "code": "public function heading(): string"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 38
+                  },
+                  "doc": {
+                    "deprecated": "use title instead"
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Doc.kinds",
+                  "name": "kinds",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "array"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 21
+                  },
+                  "doc": {
+                    "summary": "The kinds found."
+                  },
+                  "code": "public array $kinds"
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Doc.lexer",
+                  "name": "lexer",
+                  "kind": "property",
+                  "type": {
+                    "kind": "union",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "L",
+                        "ref": "textkit/Acme/Textkit/Lexer#Lexer"
+                      },
+                      {
+                        "kind": "name",
+                        "name": "null"
+                      }
+                    ]
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 23
+                  },
+                  "code": "public private(set) ?L $lexer = null"
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Doc.of",
+                  "name": "of",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "lx",
+                          "type": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "L",
+                                "ref": "textkit/Acme/Textkit/Lexer#Lexer"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "null"
+                              }
+                            ]
+                          },
+                          "optional": true,
+                          "default": "null",
+                          "doc": "The lexer, if any."
+                        },
+                        {
+                          "name": "parts",
+                          "type": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "int"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "string"
+                              }
+                            ]
+                          },
+                          "rest": true
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "static",
+                        "ref": "textkit/Acme/Textkit#Doc"
+                      },
+                      "code": "public static function of(?L $lx = null, int|string ...$parts): static"
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 48
+                  },
+                  "doc": {
+                    "summary": "A document from a lexer."
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Doc.title",
+                  "name": "title",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 22
+                  },
+                  "doc": {
+                    "summary": "Shown as the heading."
+                  },
+                  "code": "public string $title = 'Untitled'"
+                }
+              ],
+              "flags": {
+                "internal": true
+              },
+              "source": {
+                "file": "src/Doc.php",
+                "line": 12
+              },
+              "doc": {
+                "summary": "A parsed document."
+              },
+              "code": "readonly class Doc"
+            },
+            {
+              "id": "textkit/Acme/Textkit#Options",
+              "name": "Options",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit#Options.$name",
+                  "name": "name",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 64
+                  },
+                  "code": "public string $name = 'a'"
+                },
+                {
+                  "id": "textkit/Acme/Textkit#Options.name",
+                  "name": "name",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "code": "public function name(): string"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Doc.php",
+                    "line": 66
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/Doc.php",
+                "line": 62
+              },
+              "doc": {
+                "summary": "Settings for {@link Doc}."
+              },
+              "code": "final class Options"
+            },
+            {
+              "id": "textkit/Acme/Textkit#VERSION",
+              "name": "VERSION",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/functions.php",
+                "line": 7
+              },
+              "doc": {
+                "summary": "Version of the library."
+              },
+              "code": "const VERSION = '2.1.0'"
+            },
+            {
+              "id": "textkit/Acme/Textkit#lexer",
+              "name": "lexer",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "Lexer",
+                    "ref": "textkit/Acme/Textkit/Lexer#Lexer"
+                  },
+                  "code": "function lexer(string $text): Lexer"
+                }
+              ],
+              "source": {
+                "file": "src/functions.php",
+                "line": 27
+              },
+              "doc": {
+                "summary": "Makes a lexer."
+              }
+            },
+            {
+              "id": "textkit/Acme/Textkit#tokenize",
+              "name": "tokenize",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "The text."
+                    },
+                    {
+                      "name": "keepSpace",
+                      "type": {
+                        "kind": "name",
+                        "name": "bool"
+                      },
+                      "optional": true,
+                      "default": "false",
+                      "doc": "Whether to keep the spaces."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "array"
+                  },
+                  "code": "function tokenize(string $text, bool $keepSpace = false): array"
+                }
+              ],
+              "source": {
+                "file": "src/functions.php",
+                "line": 16
+              },
+              "doc": {
+                "summary": "Splits text into words.",
+                "returns": "The words."
+              }
+            }
+          ]
+        },
+        {
+          "id": "textkit/Acme/Textkit/Lexer",
+          "path": "Acme/Textkit/Lexer",
+          "symbols": [
+            {
+              "id": "textkit/Acme/Textkit/Lexer#Base",
+              "name": "Base",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Base.BUFFER",
+                  "name": "BUFFER",
+                  "kind": "variable",
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 20
+                  },
+                  "doc": {
+                    "summary": "Default size of the read buffer."
+                  },
+                  "code": "public const BUFFER = 4096"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Base.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Kind",
+                            "ref": "textkit/Acme/Textkit/Token#Kind"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "null"
+                          }
+                        ]
+                      },
+                      "code": "abstract public function next(): ?Kind"
+                    }
+                  ],
+                  "flags": {
+                    "abstract": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 27
+                  },
+                  "doc": {
+                    "summary": "Reads the next kind of token.",
+                    "returns": "The kind, or null at the end."
+                  }
+                }
+              ],
+              "flags": {
+                "abstract": true
+              },
+              "source": {
+                "file": "src/Lexer.php",
+                "line": 17
+              },
+              "doc": {
+                "summary": "The common ground of every lexer.",
+                "see": [
+                  "Lexer"
+                ]
+              },
+              "code": "abstract class Base"
+            },
+            {
+              "id": "textkit/Acme/Textkit/Lexer#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Base",
+                  "ref": "textkit/Acme/Textkit/Lexer#Base"
+                }
+              ],
+              "implements": [
+                {
+                  "kind": "name",
+                  "name": "Countable"
+                },
+                {
+                  "kind": "name",
+                  "name": "Tokenizer",
+                  "ref": "textkit/Acme/Textkit/Token#Tokenizer"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.$words",
+                  "name": "words",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "array"
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 54
+                  },
+                  "doc": {
+                    "summary": "Words seen so far."
+                  },
+                  "code": "public array $words = []"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.MAX",
+                  "name": "MAX",
+                  "kind": "variable",
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 49
+                  },
+                  "code": "const MAX = 32"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.MIN",
+                  "name": "MIN",
+                  "kind": "variable",
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 49
+                  },
+                  "code": "const MIN = 1"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.__construct",
+                  "name": "__construct",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        },
+                        {
+                          "name": "key",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "optional": true,
+                          "default": "''"
+                        },
+                        {
+                          "name": "offset",
+                          "type": {
+                            "kind": "name",
+                            "name": "int"
+                          },
+                          "optional": true,
+                          "default": "0"
+                        },
+                        {
+                          "name": "plain",
+                          "type": {
+                            "kind": "name",
+                            "name": "bool"
+                          },
+                          "optional": true,
+                          "default": "false"
+                        }
+                      ],
+                      "code": "public function __construct(public readonly string $source, private string $key = '', protected int $offset = 0, bool $plain = false)"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 67
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.count",
+                  "name": "count",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "int"
+                      },
+                      "code": "public function count(): int"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 97
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.depth",
+                  "name": "depth",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 59
+                  },
+                  "doc": {
+                    "summary": "How deep the lexer is nested."
+                  },
+                  "code": "public static int $depth = 0"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.first",
+                  "name": "first",
+                  "kind": "property",
+                  "type": {
+                    "kind": "union",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Kind",
+                        "ref": "textkit/Acme/Textkit/Token#Kind"
+                      },
+                      {
+                        "kind": "name",
+                        "name": "null"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 61
+                  },
+                  "code": "public ?Kind $first = null"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.last",
+                  "name": "last",
+                  "kind": "property",
+                  "type": {
+                    "kind": "union",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Kind",
+                        "ref": "textkit/Acme/Textkit/Token#Kind"
+                      },
+                      {
+                        "kind": "name",
+                        "name": "null"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 61
+                  },
+                  "code": "public ?Kind $last = null"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.legacy",
+                  "name": "legacy",
+                  "kind": "property",
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 65
+                  },
+                  "code": "var $legacy = '}'"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Kind",
+                            "ref": "textkit/Acme/Textkit/Token#Kind"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "null"
+                          }
+                        ]
+                      },
+                      "code": "public function next(): ?Kind"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 92
+                  },
+                  "doc": {
+                    "summary": "Reads the next kind."
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.parse",
+                  "name": "parse",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "src",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "The text to read."
+                        },
+                        {
+                          "name": "opts",
+                          "type": {
+                            "kind": "name",
+                            "name": "array"
+                          },
+                          "optional": true,
+                          "default": "[]",
+                          "doc": "Options, by name."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "static",
+                        "ref": "textkit/Acme/Textkit/Lexer#Lexer"
+                      },
+                      "code": "public static function parse(string $src, array $opts = []): static"
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 110
+                  },
+                  "doc": {
+                    "summary": "Parses source text.",
+                    "returns": "A lexer over the text.",
+                    "throws": [
+                      "\\InvalidArgumentException When the text is empty."
+                    ]
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.reference",
+                  "name": "reference",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "k",
+                          "type": {
+                            "kind": "intersection",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "Kind",
+                                "ref": "textkit/Acme/Textkit/Token#Kind"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "Countable"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "b",
+                          "type": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "Acme\\Textkit\\Lexer\\Base",
+                                "ref": "textkit/Acme/Textkit/Lexer#Base"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "int"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "null"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "self",
+                        "ref": "textkit/Acme/Textkit/Lexer#Lexer"
+                      },
+                      "code": "final public function &reference(Kind&Countable $k, \\Acme\\Textkit\\Lexer\\Base|int|null $b): self"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 128
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.source",
+                  "name": "source",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 68
+                  },
+                  "code": "public readonly string $source"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Lexer#Lexer.words",
+                  "name": "words",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "limit",
+                          "type": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "int"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "null"
+                              }
+                            ]
+                          },
+                          "doc": "Most words to return."
+                        },
+                        {
+                          "name": "skip",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "rest": true,
+                          "doc": "Words to leave out."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        ]
+                      },
+                      "code": "public function words($limit, string &...$skip)"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Lexer.php",
+                    "line": 123
+                  },
+                  "doc": {
+                    "summary": "Returns the words."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/Lexer.php",
+                "line": 45
+              },
+              "doc": {
+                "summary": "Splits source text into tokens.",
+                "body": "Use {@link Base::next()} to step through them, or read {@link Kind}.",
+                "examples": [
+                  "```php\n$lx = new Lexer('a b');\necho count($lx);\n```"
+                ],
+                "since": "2.0.0"
+              },
+              "code": "final class Lexer extends Base implements Countable, Tokenizer"
+            }
+          ]
+        },
+        {
+          "id": "textkit/Acme/Textkit/Token",
+          "path": "Acme/Textkit/Token",
+          "symbols": [
+            {
+              "id": "textkit/Acme/Textkit/Token#Kind",
+              "name": "Kind",
+              "kind": "enum",
+              "implements": [
+                {
+                  "kind": "name",
+                  "name": "JsonSerializable"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit/Token#Kind.DEFAULT",
+                  "name": "DEFAULT",
+                  "kind": "variable",
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Token/Kind.php",
+                    "line": 13
+                  },
+                  "code": "const DEFAULT = self::Word"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Kind.Space",
+                  "name": "Space",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/Token/Kind.php",
+                    "line": 11
+                  },
+                  "code": "case Space = ' '"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Kind.Word",
+                  "name": "Word",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/Token/Kind.php",
+                    "line": 10
+                  },
+                  "doc": {
+                    "summary": "A word."
+                  },
+                  "code": "case Word = 'W'"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Kind.hasText",
+                  "name": "hasText",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "bool"
+                      },
+                      "code": "public function hasText(): bool"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Token/Kind.php",
+                    "line": 18
+                  },
+                  "doc": {
+                    "summary": "Tells whether the kind carries text."
+                  }
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Kind.jsonSerialize",
+                  "name": "jsonSerialize",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "mixed"
+                      },
+                      "code": "public function jsonSerialize(): mixed"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Token/Kind.php",
+                    "line": 23
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/Token/Kind.php",
+                "line": 7
+              },
+              "doc": {
+                "summary": "What a token is."
+              },
+              "code": "enum Kind: string implements \\JsonSerializable"
+            },
+            {
+              "id": "textkit/Acme/Textkit/Token#Positioned",
+              "name": "Positioned",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit/Token#Positioned.line",
+                  "name": "line",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "source": {
+                    "file": "src/Token/Tokenizer.php",
+                    "line": 25
+                  },
+                  "code": "public int $line = 1"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Positioned.position",
+                  "name": "position",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "int"
+                      },
+                      "code": "public function position(): int"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Token/Tokenizer.php",
+                    "line": 27
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/Token/Tokenizer.php",
+                "line": 23
+              },
+              "doc": {
+                "summary": "Remembers where a token was found.",
+                "tags": [
+                  {
+                    "name": "trait"
+                  }
+                ]
+              },
+              "code": "trait Positioned"
+            },
+            {
+              "id": "textkit/Acme/Textkit/Token#Tokenizer",
+              "name": "Tokenizer",
+              "kind": "interface",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Countable"
+                },
+                {
+                  "kind": "name",
+                  "name": "Stringable"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/Acme/Textkit/Token#Tokenizer.SEPARATOR",
+                  "name": "SEPARATOR",
+                  "kind": "variable",
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/Token/Tokenizer.php",
+                    "line": 12
+                  },
+                  "doc": {
+                    "summary": "Separator between tokens."
+                  },
+                  "code": "const SEPARATOR = ' '"
+                },
+                {
+                  "id": "textkit/Acme/Textkit/Token#Tokenizer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Kind",
+                            "ref": "textkit/Acme/Textkit/Token#Kind"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "null"
+                          }
+                        ]
+                      },
+                      "code": "function next(): ?Kind"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/Token/Tokenizer.php",
+                    "line": 17
+                  },
+                  "doc": {
+                    "summary": "Reads the next kind."
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/Token/Tokenizer.php",
+                "line": 9
+              },
+              "doc": {
+                "summary": "Anything that yields tokens."
+              },
+              "code": "interface Tokenizer extends \\Countable, \\Stringable"
+            }
+          ]
+        },
+        {
+          "id": "textkit/global",
+          "path": "global",
+          "symbols": [
+            {
+              "id": "textkit/global#render_view",
+              "name": "render_view",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "data",
+                      "type": {
+                        "kind": "name",
+                        "name": "mixed"
+                      },
+                      "doc": "What to show."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "code": "function render_view($data): string"
+                }
+              ],
+              "source": {
+                "file": "src/view.php",
+                "line": 10
+              },
+              "doc": {
+                "summary": "Renders the view."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -16,6 +16,7 @@
       "properties": {
         "name": { "type": "string" },
         "version": { "type": "string" },
+        "language": { "enum": ["javascript", "typescript", "go", "php", "python"], "description": "absent: JavaScript or TypeScript" },
         "readme": { "type": "string", "description": "Markdown" },
         "modules": { "type": "array", "items": { "$ref": "#/$defs/module" } }
       }
@@ -45,7 +46,8 @@
         "members": { "type": "array", "items": { "$ref": "#/$defs/symbol" } },
         "flags": { "$ref": "#/$defs/flags" },
         "source": { "$ref": "#/$defs/source" },
-        "doc": { "$ref": "#/$defs/doc" }
+        "doc": { "$ref": "#/$defs/doc" },
+        "code": { "type": "string", "description": "the declaration as written in the package's language" }
       }
     },
     "flags": {
@@ -67,7 +69,8 @@
         "typeParams": { "type": "array", "items": { "$ref": "#/$defs/typeParam" } },
         "params": { "type": "array", "items": { "$ref": "#/$defs/param" } },
         "returns": { "$ref": "#/$defs/typeRef" },
-        "doc": { "$ref": "#/$defs/doc" }
+        "doc": { "$ref": "#/$defs/doc" },
+        "code": { "type": "string", "description": "this signature as written in the package's language" }
       }
     },
     "param": {

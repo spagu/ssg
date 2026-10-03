@@ -248,3 +248,44 @@ func TestExtractorChoice(t *testing.T) {
 		}
 	}
 }
+
+// TestPackageLanguage: the configured language wins, then the marker files,
+// then the code itself; JavaScript when nothing says.
+func TestPackageLanguage(t *testing.T) {
+	dir := func(files ...string) string {
+		root := t.TempDir()
+		for _, f := range files {
+			mustWrite(t, filepath.Join(root, f), "x")
+		}
+		return root
+	}
+	for _, tt := range []struct {
+		cfg  apisource.Config
+		want string
+	}{
+		{apisource.Config{Language: "golang", Root: dir()}, "go"},
+		{apisource.Config{Language: "php", Root: dir("package.json")}, "php"},
+		{apisource.Config{Root: dir("package.json", "go.mod")}, "javascript"},
+		{apisource.Config{Root: dir("go.mod")}, "go"},
+		{apisource.Config{Root: dir("composer.json")}, "php"},
+		{apisource.Config{Root: dir("setup.cfg")}, "python"},
+		{apisource.Config{Root: dir("main.go")}, "go"},
+		{apisource.Config{Root: dir("index.php")}, "php"},
+		{apisource.Config{Root: dir("pkg/__init__.py")}, "python"},
+		{apisource.Config{Root: dir("README.md")}, "javascript"},
+	} {
+		if got := packageLanguage(tt.cfg); got != tt.want {
+			t.Errorf("packageLanguage(%+v) = %s, want %s", tt.cfg, got, tt.want)
+		}
+	}
+}
+
+// TestExtractEachLanguage reads the example packages in every language.
+func TestExtractEachLanguage(t *testing.T) {
+	for dir, lang := range map[string]string{"go": "go", "php": "php", "python": "python"} {
+		pkg, _, err := extractPackage(apisource.Config{Root: filepath.Join("..", "..", "examples", "api-docs", dir)})
+		if err != nil || pkg.Language != lang || len(pkg.Modules) == 0 {
+			t.Errorf("%s: %v %+v", dir, err, pkg)
+		}
+	}
+}

@@ -9,7 +9,7 @@ import (
 func TestBuildAPIDocsOptions(t *testing.T) {
 	off := false
 	got := buildAPIDocsOptions([]config.APIDocsConfig{
-		{Name: "core", Root: "packages/core", Entry: []string{"src/index.js"}, URL: "/ref/", Visibility: " Internal ",
+		{Name: "core", Root: "packages/core", Language: " Go ", Entry: []string{"src/index.js"}, URL: "/ref/", Visibility: " Internal ",
 			Readme: &off, SourceURL: "https://example.com/{ref}/{path}#L{line}", SourceRef: "v1.0.0",
 			Playground: " https://cdn.example.com/core.js ", TryIt: &off},
 		{OpenAPI: " api/openapi.yaml "},
@@ -18,7 +18,7 @@ func TestBuildAPIDocsOptions(t *testing.T) {
 		t.Fatalf("len = %d", len(got))
 	}
 	a, b := got[0], got[1]
-	if a.Source.Root != "packages/core" || a.Source.Name != "core" || a.URL != "/ref/" || a.Visibility != "internal" ||
+	if a.Source.Root != "packages/core" || a.Source.Name != "core" || a.URL != "/ref/" || a.Visibility != "internal" || a.Source.Language != "go" ||
 		a.Readme || a.SourceRef != "v1.0.0" || len(a.Source.Entries) != 1 || a.Playground != "https://cdn.example.com/core.js" || a.TryIt {
 		t.Errorf("first = %+v", a)
 	}

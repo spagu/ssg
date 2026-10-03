@@ -16,3 +16,28 @@ func TestDiagnosticString(t *testing.T) {
 		}
 	}
 }
+
+func TestFilter(t *testing.T) {
+	tests := []struct {
+		glob, file string
+		want       bool
+	}{
+		{"src/*.js", "src/a.js", true},
+		{"src/*.js", "src/x/a.js", false},
+		{"src/**", "src/x/a.js", true},
+		{"**/a.js", "a.js", true},
+		{"./src/**/*.js", "src/x/y/a.js", true},
+		{"src/**/b.js", "src/x/a.js", false},
+		{"src", "src/a.js", false},
+		{"src/[", "src/[", false},
+	}
+	for _, tt := range tests {
+		if got := globMatch(tt.glob, tt.file); got != tt.want {
+			t.Errorf("globMatch(%q, %q) = %v", tt.glob, tt.file, got)
+		}
+	}
+	f := Config{Include: []string{"src/**"}, Exclude: []string{"**/*.test.js"}}.Filter()
+	if !f.Allows("src/a.js") || f.Allows("src/a.test.js") || f.Allows("lib/a.js") || !(Filter{}).Allows("x") {
+		t.Error("Allows")
+	}
+}

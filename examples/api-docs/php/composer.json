@@ -1,0 +1,6 @@
+{
+  "name": "example/textkit",
+  "description": "Tokenize and format text.",
+  "version": "1.0.0",
+  "autoload": { "psr-4": { "Textkit\\": "src/" } }
+}

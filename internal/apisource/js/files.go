@@ -31,7 +31,7 @@ type file struct {
 // loader reads and parses the files of one package, once each.
 type loader struct {
 	root   *os.Root
-	filter filter
+	filter apisource.Filter
 	files  map[string]*file     // nil = read and failed
 	specs  map[[2]string]string // (from, specifier) → resolved path, "" = external
 	diags  []apisource.Diagnostic
@@ -87,7 +87,7 @@ func (ld *loader) resolveSpec(from, spec string) string {
 		return ""
 	}
 	for _, c := range candidates(joined) {
-		if ld.filter.allows(c) && ld.exists(c) {
+		if ld.filter.Allows(c) && ld.exists(c) {
 			return c
 		}
 	}

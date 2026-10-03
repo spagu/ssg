@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spagu/ssg/internal/apicheck"
 )
@@ -30,6 +31,8 @@ func (g *Generator) checkAPIIfRequested() error {
 		}
 	}
 	sortFindings(findings)
+	// A symbol listed by two modules is checked twice; report it once.
+	findings = slices.CompactFunc(findings, func(a, b finding) bool { return a.file == b.file && a.detail == b.detail })
 	return g.report(findings, mode, "API documentation", "API documentation complete",
 		"%d API documentation problem(s)")
 }

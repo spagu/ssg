@@ -1501,12 +1501,15 @@ type TTSConfig struct {
 
 // APIDocsConfig is one package to document from code.
 type APIDocsConfig struct {
-	Name    string   `yaml:"name" toml:"name" json:"name"`          // package name; default from package.json
-	Root    string   `yaml:"root" toml:"root" json:"root"`          // directory with package.json and sources
-	Entry   []string `yaml:"entry" toml:"entry" json:"entry"`       // entry files; default from package.json
-	Include []string `yaml:"include" toml:"include" json:"include"` // globs relative to root
-	Exclude []string `yaml:"exclude" toml:"exclude" json:"exclude"`
-	URL     string   `yaml:"url" toml:"url" json:"url"` // page prefix; default /api/<name>/
+	Name string `yaml:"name" toml:"name" json:"name"` // package name; default from package.json
+	Root string `yaml:"root" toml:"root" json:"root"` // directory with the package and its sources
+	// Language is javascript, typescript, go, php or python; empty detects it
+	// from the root (package.json, go.mod, composer.json, pyproject.toml).
+	Language string   `yaml:"language" toml:"language" json:"language"`
+	Entry    []string `yaml:"entry" toml:"entry" json:"entry"`       // entry files; default from package.json
+	Include  []string `yaml:"include" toml:"include" json:"include"` // globs relative to root
+	Exclude  []string `yaml:"exclude" toml:"exclude" json:"exclude"`
+	URL      string   `yaml:"url" toml:"url" json:"url"` // page prefix; default /api/<name>/
 	// Visibility: public (default) hides @internal symbols, internal shows
 	// them, all shows everything.
 	Visibility string   `yaml:"visibility" toml:"visibility" json:"visibility"`

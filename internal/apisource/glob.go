@@ -1,26 +1,26 @@
-package js
+package apisource
 
 import (
 	"path"
 	"strings"
 )
 
-// filter decides which files may be read, from the Include and Exclude
+// Filter decides which files may be read, from the Include and Exclude
 // globs of the configuration. Globs are slash paths relative to the root;
 // "*" matches within one path segment and "**" matches any number of
 // segments, none included.
-type filter struct {
-	include []string
-	exclude []string
+type Filter struct {
+	Include []string
+	Exclude []string
 }
 
-// allows reports whether a file may be read: it matches an include glob
+// Allows reports whether a file may be read: it matches an include glob
 // (or there are none) and no exclude glob.
-func (f filter) allows(file string) bool {
-	if len(f.include) > 0 && !matchAny(f.include, file) {
+func (f Filter) Allows(file string) bool {
+	if len(f.Include) > 0 && !matchAny(f.Include, file) {
 		return false
 	}
-	return !matchAny(f.exclude, file)
+	return !matchAny(f.Exclude, file)
 }
 
 // matchAny reports whether any glob matches the path.
@@ -61,3 +61,6 @@ func matchSegments(glob, file []string) bool {
 	}
 	return len(file) == 0
 }
+
+// Filter is the configuration's Include and Exclude globs as a Filter.
+func (c Config) Filter() Filter { return Filter{Include: c.Include, Exclude: c.Exclude} }

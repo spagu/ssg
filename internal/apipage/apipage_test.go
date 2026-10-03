@@ -109,7 +109,7 @@ func TestBuildPages(t *testing.T) {
 	for _, want := range []string{"Module [`src/lex`](/api/core/src/lex/)", "Extends `Base`", "Implements `Iterable`",
 		`<h2 id="kind-constructor">Constructor</h2>`, `<h3 id="constructor"><code>constructor()</code></h3>`, "```ts\nconstructor(src: string)\n```", "| `src` | `string` | the text |", `<h2 id="kind-properties">Properties</h2>`, "`readonly` `optional`",
 		"```ts\npos?: number\n```", `<h3 id="next"><code>next()</code></h3>`, "> **Deprecated.** use `scan`", "*Since 0.2.*", "**Example**",
-		"next(n?: number, ...rest: string): Token", "| `n? = 1` |", "| `...rest` |", "**Returns** `Token`", "`async`",
+		"next(n?: number, ...rest: string): Token", "| `n = 1` |", "| `...rest` |", "**Returns** `Token`", "`async`",
 		"See also: [Lexer](/api/core/src/lex/Lexer/)", "[Source: src/lex.js:3](https://example.com/blob/main/src/lex.js#L3)"} {
 		if !strings.Contains(class.Markdown, want) {
 			t.Errorf("class page lacks %q:\n%s", want, class.Markdown)
@@ -283,5 +283,91 @@ func TestRunnable(t *testing.T) {
 		if runnable(ex) != want {
 			t.Errorf("runnable(%q) = %v", ex, !want)
 		}
+	}
+}
+
+func TestLanguageCode(t *testing.T) {
+	pkg := &apimodel.Package{Name: "kit", Language: "go", Modules: []*apimodel.Module{{ID: "kit/kit", Path: "kit", Symbols: []*apimodel.Symbol{
+		{ID: "kit/kit#Parse", Name: "Parse", Kind: apimodel.KindFunction, Doc: &apimodel.Doc{Summary: "Parses."},
+			Signatures: []*apimodel.Signature{{Code: "func Parse(src string) (*Doc, error)"}}},
+		{ID: "kit/kit#Mode", Name: "Mode", Kind: apimodel.KindType, Code: "type Mode int", Doc: &apimodel.Doc{Summary: "M."}},
+	}}}}
+	var md strings.Builder
+	for _, p := range Build(pkg, Options{Base: "/api/kit/"}) {
+		md.WriteString(p.Markdown)
+	}
+	for _, want := range []string{"```go\nfunc Parse(src string) (*Doc, error)\n```", "```go\ntype Mode int\n```"} {
+		if !strings.Contains(md.String(), want) {
+			t.Errorf("lacks %q:\n%s", want, md.String())
+		}
+	}
+	for lang, fence := range map[string]string{"": "ts", "javascript": "ts", "php": "php", "python": "python"} {
+		w := &writer{opts: &Options{language: lang}}
+		if w.fence() != fence {
+			t.Errorf("fence(%q) = %q", lang, w.fence())
+		}
+	}
+}
+
+func TestResolveEnumMember(t *testing.T) {
+	enum := func(mod, typ, member string) *apimodel.Symbol {
+		id := apimodel.SymbolID(mod, typ)
+		return &apimodel.Symbol{ID: id, Name: typ, Kind: apimodel.KindEnum,
+			Members: []*apimodel.Symbol{{ID: apimodel.MemberID(id, member), Name: member, Kind: apimodel.KindEnumMember}}}
+	}
+	r := NewResolver(&apimodel.API{Packages: []*apimodel.Package{{Name: "p", Modules: []*apimodel.Module{
+		{ID: "p/a", Symbols: []*apimodel.Symbol{enum("p/a", "Style", "Title"), enum("p/a", "Level", "Debug")}},
+		{ID: "p/b", Symbols: []*apimodel.Symbol{enum("p/b", "Mode", "Title")}},
+	}}}})
+	for _, tt := range []struct{ from, target, want string }{
+		{"p/a", "Title", "p/a#Style.Title"},
+		{"p/b", "Title", "p/b#Mode.Title"},
+		{"p/b", "Debug", "p/a#Level.Debug"},
+		{"p/c", "Title", ""},
+	} {
+		if got, _ := r.Resolve(tt.from, tt.target); got != tt.want {
+			t.Errorf("Resolve(%s, %s) = %q, want %q", tt.from, tt.target, got, tt.want)
+		}
+	}
+}
+
+func TestResolveWithinPackage(t *testing.T) {
+	lexer := func(pkg string) *apimodel.Module {
+		mod := pkg + "/lex"
+		return &apimodel.Module{ID: mod, Symbols: []*apimodel.Symbol{{ID: apimodel.SymbolID(mod, "Lexer"), Name: "Lexer", Kind: apimodel.KindClass}}}
+	}
+	r := NewResolver(&apimodel.API{Packages: []*apimodel.Package{
+		{Name: "go", Modules: []*apimodel.Module{lexer("go"), {ID: "go/root"}}},
+		{Name: "py", Modules: []*apimodel.Module{lexer("py")}},
+	}})
+	if id, ok := r.Resolve("go/root", "Lexer"); !ok || id != "go/lex#Lexer" {
+		t.Errorf("own package: %q", id)
+	}
+	if _, ok := r.Resolve("", "Lexer"); ok {
+		t.Error("ambiguous without a package")
+	}
+}
+
+func TestPythonTypeText(t *testing.T) {
+	w := &writer{opts: &Options{language: "python"}}
+	tok := apimodel.Named("Token", "")
+	for want, typ := range map[string]*apimodel.TypeRef{
+		"list[Token]":            apimodel.Named("list", "", tok),
+		"Token | None":           {Kind: apimodel.TypeUnion, Args: []*apimodel.TypeRef{tok, apimodel.Named("None", "")}},
+		"tuple[Token, int]":      {Kind: apimodel.TypeTuple, Args: []*apimodel.TypeRef{tok, apimodel.Named("int", "")}},
+		"list[Token]#array":      {Kind: apimodel.TypeArray, Args: []*apimodel.TypeRef{tok}},
+		"\"on\"":                 {Kind: apimodel.TypeLiteral, Name: `"on"`},
+		"dict[str, list[Token]]": apimodel.Named("dict", "", apimodel.Named("str", ""), apimodel.Named("list", "", tok)),
+	} {
+		want, _, _ = strings.Cut(want, "#")
+		if got := w.typeText(typ); got != want {
+			t.Errorf("typeText = %q, want %q", got, want)
+		}
+	}
+	if (&writer{opts: &Options{}}).typeText(apimodel.Named("Array", "", tok)) != "Array<Token>" {
+		t.Error("TypeScript keeps angle brackets")
+	}
+	if paramLabel(&apimodel.Param{Name: "x", Optional: true, Default: "1"}) != "x = 1" || paramLabel(&apimodel.Param{Name: "x", Optional: true}) != "x?" {
+		t.Error("paramLabel")
 	}
 }

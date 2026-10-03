@@ -29,7 +29,7 @@ func Extract(cfg apisource.Config) (*apimodel.Package, []apisource.Diagnostic, e
 		return nil, nil, fmt.Errorf("api docs: %w", err)
 	}
 	defer func() { _ = root.Close() }()
-	ld := &loader{root: root, filter: filter{include: cfg.Include, exclude: cfg.Exclude}, files: map[string]*file{},
+	ld := &loader{root: root, filter: cfg.Filter(), files: map[string]*file{},
 		specs: map[[2]string]string{}}
 	pj := ld.packageJSON()
 	pkg := &apimodel.Package{Name: packageName(cfg, pj), Version: pj.Version, Readme: ld.readme(), Modules: []*apimodel.Module{}}

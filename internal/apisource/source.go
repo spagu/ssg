@@ -6,11 +6,12 @@ package apisource
 
 // Config is one package to document, from the api_docs configuration.
 type Config struct {
-	Name    string   // package name, the first segment of every ID
-	Root    string   // directory holding package.json and the sources
-	Entries []string // entry files relative to Root; empty = from package.json
-	Include []string // globs relative to Root; empty = everything reachable from the entries
-	Exclude []string // globs relative to Root
+	Name     string   // package name, the first segment of every ID
+	Language string   // javascript, typescript, go, php, python; "" = detect
+	Root     string   // directory holding package.json and the sources
+	Entries  []string // entry files relative to Root; empty = from package.json
+	Include  []string // globs relative to Root; empty = everything reachable from the entries
+	Exclude  []string // globs relative to Root
 }
 
 // Severity says whether a diagnostic stops a strict build.

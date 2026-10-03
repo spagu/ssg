@@ -28,9 +28,12 @@ type Finding struct {
 func Check(a *apimodel.API) []Finding {
 	var out []Finding
 	for _, p := range a.Packages {
+		// Go documents parameters in the function's own sentences, never
+		// one by one: asking for each would flag every function in Go.
+		params := p.Language != "go"
 		for _, m := range p.Modules {
 			apimodel.Walk(m.Symbols, func(s, parent *apimodel.Symbol) {
-				out = append(out, checkSymbol(s, parent)...)
+				out = append(out, checkSymbol(s, parent, params)...)
 			})
 		}
 	}
@@ -44,7 +47,7 @@ func Check(a *apimodel.API) []Finding {
 }
 
 // checkSymbol applies the rules to one symbol.
-func checkSymbol(s, parent *apimodel.Symbol) []Finding {
+func checkSymbol(s, parent *apimodel.Symbol, params bool) []Finding {
 	var out []Finding
 	add := func(msg string) {
 		out = append(out, Finding{ID: s.ID, Where: where(s), Message: s.Name + ": " + msg})
@@ -63,6 +66,9 @@ func checkSymbol(s, parent *apimodel.Symbol) []Finding {
 		}
 	}
 	for _, sig := range s.Signatures {
+		if !params {
+			break
+		}
 		for _, p := range sig.Params {
 			if strings.TrimSpace(p.Doc) == "" && s.Doc != nil {
 				add("parameter " + p.Name + " has no description")

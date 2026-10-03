@@ -16,6 +16,48 @@ type writer struct {
 	module string // the page's module ID, for link resolution
 }
 
+// typeText is a type as the package's language writes it. Extractors for Go
+// and PHP keep the source text in the name; Python's type arguments go in
+// brackets (list[Token]), where TypeScript uses angle brackets.
+func (w *writer) typeText(t *apimodel.TypeRef) string {
+	if w.opts.language != "python" || t == nil {
+		return t.String()
+	}
+	switch t.Kind {
+	case apimodel.TypeName:
+		if len(t.Args) == 0 {
+			return t.Name
+		}
+		return t.Name + "[" + w.typeList(t.Args, ", ") + "]"
+	case apimodel.TypeUnion:
+		return w.typeList(t.Args, " | ")
+	case apimodel.TypeTuple:
+		return "tuple[" + w.typeList(t.Args, ", ") + "]"
+	case apimodel.TypeArray:
+		return "list[" + w.typeList(t.Args, ", ") + "]"
+	}
+	return t.String()
+}
+
+// typeList renders types with a separator, in the package's language.
+func (w *writer) typeList(ts []*apimodel.TypeRef, sep string) string {
+	parts := make([]string, len(ts))
+	for i, t := range ts {
+		parts[i] = w.typeText(t)
+	}
+	return strings.Join(parts, sep)
+}
+
+// fence is the code-block language of declarations: the package's own, or
+// TypeScript for JavaScript and TypeScript packages.
+func (w *writer) fence() string {
+	switch w.opts.language {
+	case "go", "php", "python":
+		return w.opts.language
+	}
+	return "ts"
+}
+
 // links rewrites inline links as written in the page's module.
 func (w *writer) links(md string) string { return w.opts.links(md, w.module) }
 
@@ -97,21 +139,24 @@ func runnable(ex string) bool {
 // signature writes one callable shape: the declaration, parameters, returns
 // and throws. A constructor returns nothing worth saying.
 func (w *writer) signature(name string, sig *apimodel.Signature) {
-	decl := sig.Declaration(name)
-	if name == "constructor" && sig.Returns == nil {
-		decl = strings.TrimSuffix(decl, ": unknown")
+	decl := sig.Code
+	if decl == "" {
+		decl = sig.Declaration(name)
+		if name == "constructor" && sig.Returns == nil {
+			decl = strings.TrimSuffix(decl, ": unknown")
+		}
 	}
-	w.line("```ts\n%s\n```\n", decl)
+	w.line("```%s\n%s\n```\n", w.fence(), decl)
 	w.doc(sig.Doc)
 	if len(sig.Params) > 0 {
 		w.line("| Parameter | Type | Description |\n|---|---|---|")
 		for _, p := range sig.Params {
-			w.line("| `%s` | `%s` | %s |", paramLabel(p), cell(p.Type.String()), cell(w.links(p.Doc)))
+			w.line("| `%s` | `%s` | %s |", paramLabel(p), cell(w.typeText(p.Type)), cell(w.links(p.Doc)))
 		}
 		w.line("")
 	}
 	if sig.Returns != nil {
-		w.line("**Returns** `%s`\n", sig.Returns.String())
+		w.line("**Returns** `%s`\n", w.typeText(sig.Returns))
 	}
 }
 
@@ -121,7 +166,7 @@ func paramLabel(p *apimodel.Param) string {
 	if p.Rest {
 		s = "..." + s
 	}
-	if p.Optional {
+	if p.Optional && p.Default == "" {
 		s += "?"
 	}
 	if p.Default != "" {
@@ -160,8 +205,10 @@ func (w *writer) symbol(level int, s *apimodel.Symbol) {
 		for _, sig := range s.Signatures {
 			w.signature(s.Name, sig)
 		}
+	case s.Code != "":
+		w.line("```%s\n%s\n```\n", w.fence(), s.Code)
 	case s.Type != nil:
-		w.line("```ts\n%s\n```\n", declaration(s))
+		w.line("```%s\n%s\n```\n", w.fence(), declaration(s))
 	}
 	w.docOutro(s.Doc)
 	if s.Kind == apimodel.KindEnum {

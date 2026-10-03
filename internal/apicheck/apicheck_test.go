@@ -44,6 +44,16 @@ func TestCheck(t *testing.T) {
 	}
 }
 
+func TestGoParamsNeedNoWords(t *testing.T) {
+	api := &apimodel.API{Packages: []*apimodel.Package{{Name: "g", Language: "go", Modules: []*apimodel.Module{{ID: "g/g", Symbols: []*apimodel.Symbol{
+		{ID: "g/g#F", Name: "F", Kind: apimodel.KindFunction, Doc: &apimodel.Doc{Summary: "F reads src."},
+			Signatures: []*apimodel.Signature{{Params: []*apimodel.Param{{Name: "src"}}}}},
+	}}}}}}
+	if f := Check(api); len(f) != 0 {
+		t.Errorf("findings: %+v", f)
+	}
+}
+
 func TestItoa(t *testing.T) {
 	if itoa(0) != "0" || itoa(-3) != "0" || itoa(1203) != "1203" {
 		t.Error("itoa")

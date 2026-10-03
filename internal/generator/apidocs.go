@@ -16,7 +16,10 @@ import (
 	"github.com/spagu/ssg/internal/apipage"
 	"github.com/spagu/ssg/internal/apisource"
 	dtsapi "github.com/spagu/ssg/internal/apisource/dts"
+	goapi "github.com/spagu/ssg/internal/apisource/golang"
 	jsapi "github.com/spagu/ssg/internal/apisource/js"
+	phpapi "github.com/spagu/ssg/internal/apisource/php"
+	pyapi "github.com/spagu/ssg/internal/apisource/python"
 	"github.com/spagu/ssg/internal/depgraph"
 	"github.com/spagu/ssg/internal/models"
 )
@@ -42,16 +45,61 @@ const apiDocsFile = "api.json"
 // can feed a model directly.
 var extractAPIPackage = extractPackage
 
-// extractPackage picks the reader: TypeScript declarations when the package
-// ships them (package.json "types", an "exports" types condition, an
-// index.d.ts) or an entry names a .d.ts; its JavaScript otherwise. A
-// TypeScript project publishes declarations when it builds, so documenting
-// those reads exactly what its users get.
+// extractPackage picks the reader for the package's language (GO-119..121):
+// the configured one, or the one its root shows. For JavaScript and
+// TypeScript, declarations are read when the package ships them
+// (package.json "types", an "exports" types condition, an index.d.ts) or an
+// entry names a .d.ts, and its JavaScript otherwise: a TypeScript project
+// publishes declarations when it builds, so documenting those reads exactly
+// what its users get.
 func extractPackage(cfg apisource.Config) (*apimodel.Package, []apisource.Diagnostic, error) {
+	switch packageLanguage(cfg) {
+	case "go":
+		return goapi.Extract(cfg)
+	case "php":
+		return phpapi.Extract(cfg)
+	case "python":
+		return pyapi.Extract(cfg)
+	}
 	if usesDeclarations(cfg) {
 		return dtsapi.Extract(cfg)
 	}
 	return jsapi.Extract(cfg)
+}
+
+// languageMarkers are the files that say what a package root holds, in the
+// order they are trusted: a package.json wins in a mixed repository, since
+// a JavaScript package with a Go or Python helper beside it is common.
+var languageMarkers = []struct{ file, language string }{
+	{"package.json", "javascript"}, {"go.mod", "go"}, {"composer.json", "php"},
+	{"pyproject.toml", "python"}, {"setup.py", "python"}, {"setup.cfg", "python"},
+}
+
+// packageLanguage is the configured language, else the first marker file
+// found in the root, else whatever code the root holds; JavaScript when
+// nothing says.
+func packageLanguage(cfg apisource.Config) string {
+	switch cfg.Language {
+	case "golang":
+		return "go"
+	case "":
+	default:
+		return cfg.Language
+	}
+	for _, m := range languageMarkers {
+		if _, err := os.Stat(filepath.Join(cfg.Root, m.file)); err == nil {
+			return m.language
+		}
+	}
+	switch {
+	case goapi.Detect(cfg.Root):
+		return "go"
+	case phpapi.Detect(cfg.Root):
+		return "php"
+	case pyapi.Detect(cfg.Root):
+		return "python"
+	}
+	return "javascript"
 }
 
 // usesDeclarations reports whether a package is read from .d.ts files.
@@ -216,7 +264,12 @@ func (g *Generator) writeAPIModel() error {
 
 // codeExtensions are the files an api_docs package is read from.
 var codeExtensions = map[string]bool{".js": true, ".mjs": true, ".cjs": true, ".jsx": true,
-	".ts": true, ".mts": true, ".cts": true, ".tsx": true, ".json": true, ".md": true}
+	".ts": true, ".mts": true, ".cts": true, ".tsx": true, ".json": true, ".md": true,
+	".go": true, ".mod": true, ".php": true, ".py": true, ".toml": true, ".cfg": true}
+
+// skippedCodeDirs hold other people's code or build output, never the
+// package's own sources.
+var skippedCodeDirs = map[string]bool{"node_modules": true, "vendor": true, "__pycache__": true}
 
 // recordCodeInputs registers every source file of every api_docs package as a
 // config-kind input of the dependency graph (GO-112): a change to the code a
@@ -234,7 +287,7 @@ func (g *Generator) recordCodeInputs() {
 				return nil //nolint:nilerr // an unreadable entry is not a build failure
 			}
 			if d.IsDir() {
-				if path != opt.Source.Root && (d.Name() == "node_modules" || strings.HasPrefix(d.Name(), ".")) {
+				if path != opt.Source.Root && (skippedCodeDirs[d.Name()] || strings.HasPrefix(d.Name(), ".")) {
 					return filepath.SkipDir
 				}
 				return nil

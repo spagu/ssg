@@ -27,7 +27,8 @@ type Options struct {
 	// JavaScript @example becomes editable and runnable in the browser (GO-116).
 	Playground string
 
-	pkgName string // set by Build: the import name the playground maps
+	pkgName  string // set by Build: the import name the playground maps
+	language string // set by Build: the package's language, for code blocks
 }
 
 // links applies the configured link rewriter for a module.
@@ -63,6 +64,7 @@ type Page struct {
 func Build(pkg *apimodel.Package, opts Options) []Page {
 	pkg = Visible(pkg, opts.Visibility, opts.Stability)
 	opts.pkgName = pkg.Name
+	opts.language = pkg.Language
 	ix := apimodel.NewIndex(&apimodel.API{Packages: []*apimodel.Package{pkg}})
 	urls := NewURLs(opts.Base, ix)
 	pages := []Page{indexPage(pkg, &opts, urls)}
@@ -86,12 +88,17 @@ func indexPage(pkg *apimodel.Package, opts *Options, urls *URLs) Page {
 		title += " " + pkg.Version
 	}
 	if opts.Readme {
+		// No module of its own, but the README's links mean this package.
+		w.module = pkg.Name + "/"
 		w.text(stripFirstHeading(pkg.Readme))
 	}
 	w.line("## Modules\n")
 	for _, m := range pkg.Modules {
+		// A module's summary links the way it would on the module's own page.
+		w.module = m.ID
 		w.line("- [`%s`](%s)%s", m.Path, urls.Module(m.ID), docSuffix(w, m.Doc))
 	}
+	w.module = ""
 	return Page{URL: urls.Index(), Title: title + " API", Summary: "API reference for " + title + ".",
 		Markdown: w.b.String(), Layout: LayoutIndex}
 }

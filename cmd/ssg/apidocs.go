@@ -22,8 +22,9 @@ func buildAPIDocsOptions(entries []config.APIDocsConfig) []generator.APIDocsOpti
 			root = "."
 		}
 		out = append(out, generator.APIDocsOptions{
-			Source: apisource.Config{Name: e.Name, Root: root, Entries: e.Entry, Include: e.Include, Exclude: e.Exclude},
-			URL:    e.URL, Visibility: strings.ToLower(strings.TrimSpace(e.Visibility)), Stability: e.Stability,
+			Source: apisource.Config{Name: e.Name, Root: root, Entries: e.Entry, Include: e.Include, Exclude: e.Exclude,
+				Language: strings.ToLower(strings.TrimSpace(e.Language))},
+			URL: e.URL, Visibility: strings.ToLower(strings.TrimSpace(e.Visibility)), Stability: e.Stability,
 			Readme:    e.Readme == nil || *e.Readme,
 			SourceURL: e.SourceURL, SourceRef: sourceRef(e.SourceRef, root),
 			Playground: strings.TrimSpace(e.Playground),

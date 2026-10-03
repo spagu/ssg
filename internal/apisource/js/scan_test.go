@@ -77,27 +77,6 @@ func TestMemberCursorEdges(t *testing.T) {
 	}
 }
 
-func TestGlobMatch(t *testing.T) {
-	tests := []struct {
-		glob, file string
-		want       bool
-	}{
-		{"src/*.js", "src/a.js", true},
-		{"src/*.js", "src/x/a.js", false},
-		{"src/**", "src/x/a.js", true},
-		{"**/a.js", "a.js", true},
-		{"./src/**/*.js", "src/x/y/a.js", true},
-		{"src/**/b.js", "src/x/a.js", false},
-		{"src", "src/a.js", false},
-		{"src/[", "src/[", false},
-	}
-	for _, tt := range tests {
-		if got := globMatch(tt.glob, tt.file); got != tt.want {
-			t.Errorf("globMatch(%q, %q) = %v", tt.glob, tt.file, got)
-		}
-	}
-}
-
 func TestSortDiags(t *testing.T) {
 	d := apisource.Diagnostic{File: "a", Line: 1, Message: "m"}
 	got := sortDiags([]apisource.Diagnostic{{File: "b"}, d, {File: "a", Line: 2}, d, {File: "a", Line: 1, Message: "l"}})

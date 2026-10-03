@@ -1,4 +1,4 @@
-# Documentation from code and from an OpenAPI file (docs/API_DOCS.md), in the
+# Documentation from code (JavaScript, Go, PHP, Python) and from an OpenAPI file (docs/API_DOCS.md), in the
 # documentation theme. Build from the repository root:
 #   ssg --config examples/api-docs/ssg.yaml
 source: site
@@ -43,6 +43,18 @@ api_docs:
     # The package as an ES module: @example blocks get Run in the browser.
     # A CDN build works as is; a file this site serves needs CORS.
     playground: https://cdn.example.com/npm/textkit@1.0.0/+esm
+  # The same library in Go, PHP and Python: each read from its own code and
+  # comments, with the language detected from go.mod, composer.json and
+  # pyproject.toml. Pure Go readers, nothing to install.
+  - root: examples/api-docs/go
+    name: textkit-go
+    url: /api/go/
+  - root: examples/api-docs/php
+    name: textkit-php
+    url: /api/php/
+  - root: examples/api-docs/python
+    name: textkit-py
+    url: /api/python/
   # The hosted service, read from its OpenAPI file, with Try it.
   - openapi: examples/api-docs/openapi.yaml
     url: /api/service/

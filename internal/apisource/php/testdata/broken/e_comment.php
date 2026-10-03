@@ -1,0 +1,2 @@
+<?php
+/* never closed

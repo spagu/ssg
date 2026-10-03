@@ -1,0 +1,1029 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "textkit",
+      "language": "go",
+      "readme": "# textkit\n\nText tools.\n",
+      "modules": [
+        {
+          "id": "textkit/internal/wrap",
+          "path": "internal/wrap",
+          "doc": {
+            "summary": "Package wrap breaks lines."
+          },
+          "symbols": [
+            {
+              "id": "textkit/internal/wrap#Width",
+              "name": "Width",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "int"
+              },
+              "flags": {
+                "internal": true
+              },
+              "source": {
+                "file": "internal/wrap/wrap.go",
+                "line": 5
+              },
+              "doc": {
+                "summary": "Width is the line width."
+              },
+              "code": "type Width int"
+            },
+            {
+              "id": "textkit/internal/wrap#Wrap",
+              "name": "Wrap",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    },
+                    {
+                      "name": "w",
+                      "type": {
+                        "kind": "name",
+                        "name": "Width",
+                        "ref": "textkit/internal/wrap#Width"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "code": "func Wrap(text string, w Width) string"
+                }
+              ],
+              "flags": {
+                "internal": true
+              },
+              "source": {
+                "file": "internal/wrap/wrap.go",
+                "line": 8
+              },
+              "doc": {
+                "summary": "Wrap breaks text at width."
+              }
+            }
+          ]
+        },
+        {
+          "id": "textkit/lexer",
+          "path": "lexer",
+          "doc": {
+            "summary": "Package lexer holds the tokens."
+          },
+          "symbols": [
+            {
+              "id": "textkit/lexer#Back",
+              "name": "Back",
+              "kind": "function",
+              "signatures": [
+                {
+                  "returns": {
+                    "kind": "name",
+                    "name": "*tk.Lexer",
+                    "ref": "textkit/textkit#Lexer"
+                  },
+                  "code": "func Back() *tk.Lexer"
+                }
+              ],
+              "source": {
+                "file": "lexer/token.go",
+                "line": 16
+              },
+              "doc": {
+                "summary": "Back returns the lexer, see {@link textkit#Lexer | tk.Lexer}."
+              }
+            },
+            {
+              "id": "textkit/lexer#Kind",
+              "name": "Kind",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "string"
+              },
+              "source": {
+                "file": "lexer/token.go",
+                "line": 13
+              },
+              "doc": {
+                "summary": "Kind is what a token is."
+              },
+              "code": "type Kind string"
+            },
+            {
+              "id": "textkit/lexer#Token",
+              "name": "Token",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/lexer#Token.Kind",
+                  "name": "Kind",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "Kind",
+                    "ref": "textkit/lexer#Kind"
+                  },
+                  "source": {
+                    "file": "lexer/token.go",
+                    "line": 9
+                  },
+                  "code": "Kind Kind"
+                },
+                {
+                  "id": "textkit/lexer#Token.Text",
+                  "name": "Text",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "source": {
+                    "file": "lexer/token.go",
+                    "line": 8
+                  },
+                  "code": "Text string"
+                }
+              ],
+              "source": {
+                "file": "lexer/token.go",
+                "line": 7
+              },
+              "doc": {
+                "summary": "Token is one piece of text."
+              },
+              "code": "type Token struct"
+            }
+          ]
+        },
+        {
+          "id": "textkit/textkit",
+          "path": "textkit",
+          "doc": {
+            "summary": "Package textkit splits text into tokens and formats them again.",
+            "body": "Start with {@link NewLexer} and call {@link Lexer.Next}; see {@link lexer#Token | lexer.Token} for what comes out, and [io.Reader](https://pkg.go.dev/io#Reader) for the input.",
+            "examples": [
+              "```go\nfmt.Println(\"textkit\")\n// Output: textkit\n```"
+            ]
+          },
+          "symbols": [
+            {
+              "id": "textkit/textkit#Any",
+              "name": "Any",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "interface{}"
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 110
+              },
+              "doc": {
+                "summary": "Any is an alias of an interface."
+              },
+              "code": "type Any = interface{}"
+            },
+            {
+              "id": "textkit/textkit#DefaultLevel",
+              "name": "DefaultLevel",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "Level",
+                "ref": "textkit/textkit#Level"
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 72
+              },
+              "doc": {
+                "summary": "DefaultLevel is used when none is set."
+              },
+              "code": "var DefaultLevel Level"
+            },
+            {
+              "id": "textkit/textkit#Doc",
+              "name": "Doc",
+              "kind": "class",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "*Lexer",
+                  "ref": "textkit/textkit#Lexer"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit#Doc.Index",
+                  "name": "Index",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "map[string][]*Lexer",
+                    "ref": "textkit/textkit#Lexer"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 103
+                  },
+                  "code": "Index map[string][]*Lexer"
+                },
+                {
+                  "id": "textkit/textkit#Doc.Tokens",
+                  "name": "Tokens",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "chan lexer.Token",
+                    "ref": "textkit/lexer#Token"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 102
+                  },
+                  "code": "Tokens chan lexer.Token"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 100
+              },
+              "doc": {
+                "summary": "Doc embeds a lexer."
+              },
+              "code": "type Doc struct"
+            },
+            {
+              "id": "textkit/textkit#ErrClosed",
+              "name": "ErrClosed",
+              "kind": "variable",
+              "source": {
+                "file": "textkit.go",
+                "line": 19
+              },
+              "doc": {
+                "summary": "Errors the lexer returns."
+              },
+              "code": "var ErrClosed = errors.New(\"textkit: the lexer is closed and cannot be read again by anyone at …"
+            },
+            {
+              "id": "textkit/textkit#ErrLimit",
+              "name": "ErrLimit",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "error"
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 21
+              },
+              "doc": {
+                "summary": "ErrLimit means MaxDepth was reached."
+              },
+              "code": "var ErrLimit error"
+            },
+            {
+              "id": "textkit/textkit#Join",
+              "name": "Join",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "words",
+                      "type": {
+                        "kind": "name",
+                        "name": "[]string"
+                      }
+                    },
+                    {
+                      "name": "_",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "code": "func Join(words []string, _ string) string"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 129
+              },
+              "doc": {
+                "summary": "Join puts words together.",
+                "body": "```go\nJoin([]string{\"a\", \"b\"}, \" \") // \"a b\"\n```\n\n### Notes\n\nIt panics on lexer errors; see [the tokens](https://example.com/tokens) and [errors.New](https://pkg.go.dev/errors#New)."
+              }
+            },
+            {
+              "id": "textkit/textkit#Level",
+              "name": "Level",
+              "kind": "enum",
+              "type": {
+                "kind": "name",
+                "name": "int"
+              },
+              "members": [
+                {
+                  "id": "textkit/textkit#Level.Loud",
+                  "name": "Loud",
+                  "kind": "enumMember",
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 68
+                  },
+                  "code": "const Loud Level"
+                },
+                {
+                  "id": "textkit/textkit#Level.Normal",
+                  "name": "Normal",
+                  "kind": "enumMember",
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 67
+                  },
+                  "doc": {
+                    "summary": "the default"
+                  },
+                  "code": "const Normal Level"
+                },
+                {
+                  "id": "textkit/textkit#Level.Quiet",
+                  "name": "Quiet",
+                  "kind": "enumMember",
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 66
+                  },
+                  "doc": {
+                    "summary": "Quiet reports nothing."
+                  },
+                  "code": "const Quiet Level = iota"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 61
+              },
+              "doc": {
+                "summary": "Level is how much the lexer reports."
+              },
+              "code": "type Level int"
+            },
+            {
+              "id": "textkit/textkit#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/textkit#Lexer.Close",
+                  "name": "Close",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "error"
+                      },
+                      "code": "func (l Lexer) Close() error"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 42
+                  },
+                  "doc": {
+                    "summary": "Close stops the lexer."
+                  }
+                },
+                {
+                  "id": "textkit/textkit#Lexer.Column",
+                  "name": "Column",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 30
+                  },
+                  "doc": {
+                    "summary": "position of the next token"
+                  },
+                  "code": "Column int"
+                },
+                {
+                  "id": "textkit/textkit#Lexer.Last",
+                  "name": "Last",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "lexer.Token",
+                    "ref": "textkit/lexer#Token"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 31
+                  },
+                  "code": "Last lexer.Token"
+                },
+                {
+                  "id": "textkit/textkit#Lexer.Line",
+                  "name": "Line",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 30
+                  },
+                  "doc": {
+                    "summary": "position of the next token"
+                  },
+                  "code": "Line int"
+                },
+                {
+                  "id": "textkit/textkit#Lexer.Next",
+                  "name": "Next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "lexer.Token",
+                        "ref": "textkit/lexer#Token"
+                      },
+                      "code": "func (l *Lexer) Next() lexer.Token"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 39
+                  },
+                  "doc": {
+                    "summary": "Next returns the next token.",
+                    "examples": [
+                      "```go\nl := textkit.NewLexer(strings.NewReader(\"a\"))\n// the first token\nfmt.Println(l.Next().Text)\n// Output:\n// a\n```"
+                    ]
+                  }
+                },
+                {
+                  "id": "textkit/textkit#Lexer.Src",
+                  "name": "Src",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "io.Reader"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 29
+                  },
+                  "doc": {
+                    "summary": "Src is the input."
+                  },
+                  "code": "Src io.Reader"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 27
+              },
+              "doc": {
+                "summary": "Lexer reads tokens from a source.",
+                "body": "It is not safe for concurrent use."
+              },
+              "code": "type Lexer struct"
+            },
+            {
+              "id": "textkit/textkit#MaxDepth",
+              "name": "MaxDepth",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 15
+              },
+              "doc": {
+                "summary": "MaxDepth is how deep nested blocks may go."
+              },
+              "code": "const MaxDepth = 32"
+            },
+            {
+              "id": "textkit/textkit#Mode",
+              "name": "Mode",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "Level",
+                "ref": "textkit/textkit#Level"
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 113
+              },
+              "doc": {
+                "summary": "Mode is the old name of Level."
+              },
+              "code": "type Mode = Level"
+            },
+            {
+              "id": "textkit/textkit#NewLexer",
+              "name": "NewLexer",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "src",
+                      "type": {
+                        "kind": "name",
+                        "name": "io.Reader"
+                      }
+                    },
+                    {
+                      "name": "opts",
+                      "type": {
+                        "kind": "name",
+                        "name": "Option",
+                        "ref": "textkit/textkit#Option"
+                      },
+                      "rest": true
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "*Lexer",
+                    "ref": "textkit/textkit#Lexer"
+                  },
+                  "code": "func NewLexer(src io.Reader, opts ...Option) *Lexer"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 36
+              },
+              "doc": {
+                "summary": "NewLexer returns a lexer reading src.",
+                "examples": [
+                  "```go\nl := textkit.NewLexer(strings.NewReader(\"a b\"))\n_ = l\n```"
+                ]
+              }
+            },
+            {
+              "id": "textkit/textkit#Number",
+              "name": "Number",
+              "kind": "interface",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "~int | ~float64"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 75
+              },
+              "doc": {
+                "summary": "Number is a type set."
+              },
+              "code": "type Number interface"
+            },
+            {
+              "id": "textkit/textkit#Option",
+              "name": "Option",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "func(*Lexer)"
+              },
+              "members": [
+                {
+                  "id": "textkit/textkit#Option.Apply",
+                  "name": "Apply",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "l",
+                          "type": {
+                            "kind": "name",
+                            "name": "*Lexer",
+                            "ref": "textkit/textkit#Lexer"
+                          }
+                        }
+                      ],
+                      "code": "func (o Option) Apply(l *Lexer)"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 50
+                  },
+                  "doc": {
+                    "summary": "Apply runs the option."
+                  }
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 47
+              },
+              "doc": {
+                "summary": "Option configures a {@link Lexer}."
+              },
+              "code": "type Option func(*Lexer)"
+            },
+            {
+              "id": "textkit/textkit#Pair",
+              "name": "Pair",
+              "kind": "class",
+              "typeParams": [
+                {
+                  "name": "K",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "comparable"
+                  }
+                },
+                {
+                  "name": "V",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "any"
+                  }
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit#Pair.Key",
+                  "name": "Key",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "K"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 92
+                  },
+                  "code": "Key K"
+                },
+                {
+                  "id": "textkit/textkit#Pair.Swap",
+                  "name": "Swap",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "tuple",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "V"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "K"
+                          }
+                        ]
+                      },
+                      "code": "func (p Pair[K, V]) Swap() (V, K)"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 97
+                  },
+                  "doc": {
+                    "summary": "Swap returns the pair reversed."
+                  }
+                },
+                {
+                  "id": "textkit/textkit#Pair.Value",
+                  "name": "Value",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "V"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 93
+                  },
+                  "code": "Value V"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 91
+              },
+              "doc": {
+                "summary": "Pair holds two values."
+              },
+              "code": "type Pair[K comparable, V any] struct"
+            },
+            {
+              "id": "textkit/textkit#Pipe",
+              "name": "Pipe",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "_",
+                      "type": {
+                        "kind": "name",
+                        "name": "chan<- int"
+                      }
+                    },
+                    {
+                      "name": "_",
+                      "type": {
+                        "kind": "name",
+                        "name": "<-chan int"
+                      }
+                    }
+                  ],
+                  "code": "func Pipe(chan<- int, <-chan int)"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 132
+              },
+              "doc": {
+                "summary": "Pipe connects two lexers."
+              }
+            },
+            {
+              "id": "textkit/textkit#Point",
+              "name": "Point",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "struct{ X, Y int }"
+              },
+              "source": {
+                "file": "textkit.go",
+                "line": 107
+              },
+              "doc": {
+                "summary": "Point is an alias of a struct."
+              },
+              "code": "type Point = struct{ X, Y int }"
+            },
+            {
+              "id": "textkit/textkit#Set",
+              "name": "Set",
+              "kind": "class",
+              "typeParams": [
+                {
+                  "name": "T",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "comparable"
+                  }
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit#Set.Add",
+                  "name": "Add",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "v",
+                          "type": {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        }
+                      ],
+                      "code": "func (s *Set[T]) Add(v T)"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 88
+                  },
+                  "doc": {
+                    "summary": "Add puts v in the set."
+                  }
+                },
+                {
+                  "id": "textkit/textkit#Set.Items",
+                  "name": "Items",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "map[T]struct{}"
+                  },
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 84
+                  },
+                  "code": "Items map[T]struct{}"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 83
+              },
+              "doc": {
+                "summary": "Set is a set of comparable values."
+              },
+              "code": "type Set[T comparable] struct"
+            },
+            {
+              "id": "textkit/textkit#Source",
+              "name": "Source",
+              "kind": "interface",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "io.Reader"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit#Source.Name",
+                  "name": "Name",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "code": "Name() string"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 56
+                  },
+                  "doc": {
+                    "summary": "Name says where the text comes from."
+                  }
+                },
+                {
+                  "id": "textkit/textkit#Source.Peek",
+                  "name": "Peek",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "n",
+                          "type": {
+                            "kind": "name",
+                            "name": "int"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "tuple",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "[]byte"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "error"
+                          }
+                        ]
+                      },
+                      "code": "Peek(n int) ([]byte, error)"
+                    }
+                  ],
+                  "source": {
+                    "file": "textkit.go",
+                    "line": 57
+                  }
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 53
+              },
+              "doc": {
+                "summary": "Source is anything a lexer can read."
+              },
+              "code": "type Source interface"
+            },
+            {
+              "id": "textkit/textkit#Split",
+              "name": "Split",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "[]string"
+                  },
+                  "code": "func Split(text string) []string"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 118
+              },
+              "doc": {
+                "summary": "Split cuts text into words.",
+                "deprecated": "use {@link Lexer.Next} instead."
+              }
+            },
+            {
+              "id": "textkit/textkit#Sum",
+              "name": "Sum",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "Number",
+                        "ref": "textkit/textkit#Number"
+                      }
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "values",
+                      "type": {
+                        "kind": "name",
+                        "name": "T"
+                      },
+                      "rest": true
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "T"
+                  },
+                  "code": "func Sum[T Number](values ...T) (total T)"
+                }
+              ],
+              "source": {
+                "file": "textkit.go",
+                "line": 80
+              },
+              "doc": {
+                "summary": "Sum adds up values."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
