@@ -1,0 +1,11 @@
+{
+  "name": "lib",
+  "version": "1.2.3",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./util": { "import": { "types": "./util.d.ts", "default": "./util.js" } },
+    "./*": "./*.js"
+  }
+}

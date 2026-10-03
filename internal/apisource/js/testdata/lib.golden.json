@@ -1,0 +1,1030 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "lexkit",
+      "version": "1.2.0",
+      "readme": "# lexkit\n\nA small tokenizer used as the fixture of the JavaScript extractor tests.\n",
+      "modules": [
+        {
+          "id": "lexkit/src/index",
+          "path": "src/index",
+          "doc": {
+            "summary": "The public entry point of lexkit."
+          },
+          "symbols": [
+            {
+              "id": "lexkit/src/index#COLORS",
+              "name": "COLORS",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/util.js",
+                "line": 22
+              },
+              "doc": {
+                "summary": "Colour codes by name."
+              }
+            },
+            {
+              "id": "lexkit/src/index#CYCLE",
+              "name": "CYCLE",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "boolean"
+              },
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/cycle.js",
+                "line": 4
+              },
+              "doc": {
+                "summary": "Proves a cycle ends."
+              }
+            },
+            {
+              "id": "lexkit/src/index#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "lexkit/src/index#Lexer.VERSION",
+                  "name": "VERSION",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 31
+                  },
+                  "doc": {
+                    "summary": "The lexer's version."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.constructor",
+                  "name": "constructor",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "The text to split."
+                        },
+                        {
+                          "name": "options",
+                          "type": {
+                            "kind": "name",
+                            "name": "Object"
+                          },
+                          "optional": true,
+                          "default": "{}",
+                          "doc": "Settings."
+                        }
+                      ]
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 41
+                  },
+                  "doc": {
+                    "summary": "Creates a lexer."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.debug",
+                  "name": "debug",
+                  "kind": "method",
+                  "signatures": [
+                    {}
+                  ],
+                  "flags": {
+                    "internal": true
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 74
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.done",
+                  "name": "done",
+                  "kind": "accessor",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 51
+                  },
+                  "doc": {
+                    "summary": "Whether the end was reached."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.from",
+                  "name": "from",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lexkit/src/index#Lexer"
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 84
+                  },
+                  "doc": {
+                    "summary": "Builds a lexer."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.position",
+                  "name": "position",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 28
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#Lexer.tokens",
+                  "name": "tokens",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "AsyncGenerator",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Token",
+                            "ref": "lexkit/src/index#Token"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "async": true
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 64
+                  },
+                  "doc": {
+                    "summary": "Yields the tokens one by one.",
+                    "tags": [
+                      {
+                        "name": "generator"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.js",
+                "line": 26
+              },
+              "doc": {
+                "summary": "Splits source text into tokens.",
+                "examples": [
+                  "```js\nconst lx = new Lexer('a b');\n```"
+                ]
+              }
+            },
+            {
+              "id": "lexkit/src/index#MAX_DEPTH",
+              "name": "MAX_DEPTH",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "number"
+              },
+              "flags": {
+                "readonly": true,
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 116
+              },
+              "doc": {
+                "summary": "The deepest nesting the lexer follows."
+              }
+            },
+            {
+              "id": "lexkit/src/index#Token",
+              "name": "Token",
+              "kind": "type",
+              "type": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "type",
+                    "type": {
+                      "kind": "name",
+                      "name": "string"
+                    },
+                    "doc": "The kind of token."
+                  },
+                  {
+                    "name": "value",
+                    "type": {
+                      "kind": "name",
+                      "name": "string"
+                    },
+                    "doc": "The text it covers."
+                  },
+                  {
+                    "name": "line",
+                    "type": {
+                      "kind": "name",
+                      "name": "number"
+                    },
+                    "optional": true,
+                    "default": "1",
+                    "doc": "Where it starts."
+                  }
+                ]
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 1
+              },
+              "doc": {
+                "summary": "A token produced by the lexer."
+              }
+            },
+            {
+              "id": "lexkit/src/index#TokenHandler",
+              "name": "TokenHandler",
+              "kind": "type",
+              "type": {
+                "kind": "function",
+                "signature": {
+                  "params": [
+                    {
+                      "name": "token",
+                      "type": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lexkit/src/index#Token"
+                      },
+                      "doc": "The token just read."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "boolean"
+                  }
+                }
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 10
+              },
+              "doc": {
+                "summary": "Called once for every token.",
+                "returns": "False to stop."
+              }
+            },
+            {
+              "id": "lexkit/src/index#TokenStream",
+              "name": "TokenStream",
+              "kind": "class",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Lexer",
+                  "ref": "lexkit/src/index#Lexer"
+                }
+              ],
+              "members": [
+                {
+                  "id": "lexkit/src/index#TokenStream.tokens",
+                  "name": "tokens",
+                  "kind": "property",
+                  "type": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lexkit/src/index#Token"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "file": "src/lexer.js",
+                    "line": 96
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 94
+              },
+              "doc": {
+                "summary": "A lexer that keeps every token."
+              }
+            },
+            {
+              "id": "lexkit/src/index#TokenType",
+              "name": "TokenType",
+              "kind": "type",
+              "type": {
+                "kind": "union",
+                "args": [
+                  {
+                    "kind": "literal",
+                    "name": "'word'"
+                  },
+                  {
+                    "kind": "literal",
+                    "name": "'space'"
+                  },
+                  {
+                    "kind": "literal",
+                    "name": "'number'"
+                  }
+                ]
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 18
+              }
+            },
+            {
+              "id": "lexkit/src/index#clamp",
+              "name": "clamp",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "value",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "doc": "The number."
+                    },
+                    {
+                      "name": "min",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "optional": true,
+                      "default": "0",
+                      "doc": "The lower bound."
+                    },
+                    {
+                      "name": "max",
+                      "optional": true,
+                      "default": "Infinity"
+                    },
+                    {
+                      "name": "rest",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "rest": true,
+                      "doc": "Ignored."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "number"
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/util.js",
+                "line": 17
+              },
+              "doc": {
+                "summary": "Keeps a number within bounds."
+              }
+            },
+            {
+              "id": "lexkit/src/index#counter",
+              "name": "counter",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "number"
+              },
+              "source": {
+                "file": "src/util.js",
+                "line": 25
+              },
+              "doc": {
+                "summary": "How many times clamp ran."
+              }
+            },
+            {
+              "id": "lexkit/src/index#createLexer",
+              "name": "createLexer",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "source",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "The text."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "Lexer",
+                    "ref": "lexkit/src/index#Lexer"
+                  }
+                }
+              ],
+              "flags": {
+                "default": true
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 143
+              },
+              "doc": {
+                "summary": "Creates a lexer.",
+                "returns": "A new lexer."
+              }
+            },
+            {
+              "id": "lexkit/src/index#debugDump",
+              "name": "debugDump",
+              "kind": "function",
+              "signatures": [
+                {}
+              ],
+              "flags": {
+                "internal": true
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 135
+              },
+              "doc": {
+                "summary": "Dumps the state."
+              }
+            },
+            {
+              "id": "lexkit/src/index#first",
+              "name": "first",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T"
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "items",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      },
+                      "doc": "The list."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "union",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "T"
+                      },
+                      {
+                        "kind": "name",
+                        "name": "undefined"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.js",
+                "line": 125
+              },
+              "doc": {
+                "summary": "Returns the first item.",
+                "returns": "Its first item."
+              }
+            },
+            {
+              "id": "lexkit/src/index#isWhitespace",
+              "name": "isWhitespace",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "c",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "One character."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "boolean"
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/util.js",
+                "line": 7
+              },
+              "doc": {
+                "summary": "Reports whether a character is white space."
+              }
+            },
+            {
+              "id": "lexkit/src/index#legacy",
+              "name": "legacy",
+              "kind": "namespace",
+              "members": [
+                {
+                  "id": "lexkit/src/index#legacy.VERSION",
+                  "name": "VERSION",
+                  "kind": "variable",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "source": {
+                    "file": "src/legacy.cjs",
+                    "line": 16
+                  },
+                  "doc": {
+                    "summary": "The format version."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#legacy.extra",
+                  "name": "extra",
+                  "kind": "function",
+                  "signatures": [
+                    {}
+                  ],
+                  "source": {
+                    "file": "src/legacy.cjs",
+                    "line": 28
+                  },
+                  "doc": {
+                    "summary": "An extra export."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#legacy.helper",
+                  "name": "helper",
+                  "kind": "function",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "n",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "source": {
+                    "file": "src/legacy.cjs",
+                    "line": 22
+                  },
+                  "doc": {
+                    "summary": "Helps."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#legacy.legacyParse",
+                  "name": "legacyParse",
+                  "kind": "function",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "text",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "The input."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/legacy.cjs",
+                    "line": 9
+                  },
+                  "doc": {
+                    "summary": "Parses the old format."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/legacy.cjs",
+                "line": 1
+              }
+            },
+            {
+              "id": "lexkit/src/index#self",
+              "name": "self",
+              "kind": "namespace",
+              "members": [
+                {
+                  "id": "lexkit/src/index#self.COLORS",
+                  "name": "COLORS",
+                  "kind": "variable",
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/util.js",
+                    "line": 22
+                  },
+                  "doc": {
+                    "summary": "Colour codes by name."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#self.clamp",
+                  "name": "clamp",
+                  "kind": "function",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "value",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          },
+                          "doc": "The number."
+                        },
+                        {
+                          "name": "min",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          },
+                          "optional": true,
+                          "default": "0",
+                          "doc": "The lower bound."
+                        },
+                        {
+                          "name": "max",
+                          "optional": true,
+                          "default": "Infinity"
+                        },
+                        {
+                          "name": "rest",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          },
+                          "rest": true,
+                          "doc": "Ignored."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "number"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/util.js",
+                    "line": 17
+                  },
+                  "doc": {
+                    "summary": "Keeps a number within bounds."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#self.counter",
+                  "name": "counter",
+                  "kind": "variable",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "source": {
+                    "file": "src/util.js",
+                    "line": 25
+                  },
+                  "doc": {
+                    "summary": "How many times clamp ran."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#self.isWhitespace",
+                  "name": "isWhitespace",
+                  "kind": "function",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "c",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "One character."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "boolean"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/util.js",
+                    "line": 7
+                  },
+                  "doc": {
+                    "summary": "Reports whether a character is white space."
+                  }
+                },
+                {
+                  "id": "lexkit/src/index#self.self",
+                  "name": "self",
+                  "kind": "namespace",
+                  "source": {
+                    "file": "src/util.js",
+                    "line": 1
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/util.js",
+                "line": 1
+              }
+            },
+            {
+              "id": "lexkit/src/index#tokenise",
+              "name": "tokenise",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "source",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "The text."
+                    },
+                    {
+                      "name": "handler",
+                      "type": {
+                        "kind": "name",
+                        "name": "TokenHandler",
+                        "ref": "lexkit/src/index#TokenHandler"
+                      },
+                      "optional": true,
+                      "doc": "Called for each token."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "Promise",
+                    "args": [
+                      {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Token",
+                            "ref": "lexkit/src/index#Token"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "flags": {
+                "async": true
+              },
+              "source": {
+                "file": "src/lexer.js",
+                "line": 106
+              },
+              "doc": {
+                "summary": "Splits a whole text at once.",
+                "returns": "Every token."
+              }
+            }
+          ]
+        },
+        {
+          "id": "lexkit/src/util",
+          "path": "src/util",
+          "symbols": [
+            {
+              "id": "lexkit/src/util#COLORS",
+              "name": "COLORS",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/util.js",
+                "line": 22
+              },
+              "doc": {
+                "summary": "Colour codes by name."
+              }
+            },
+            {
+              "id": "lexkit/src/util#clamp",
+              "name": "clamp",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "value",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "doc": "The number."
+                    },
+                    {
+                      "name": "min",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "optional": true,
+                      "default": "0",
+                      "doc": "The lower bound."
+                    },
+                    {
+                      "name": "max",
+                      "optional": true,
+                      "default": "Infinity"
+                    },
+                    {
+                      "name": "rest",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "rest": true,
+                      "doc": "Ignored."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "number"
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/util.js",
+                "line": 17
+              },
+              "doc": {
+                "summary": "Keeps a number within bounds."
+              }
+            },
+            {
+              "id": "lexkit/src/util#counter",
+              "name": "counter",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "number"
+              },
+              "source": {
+                "file": "src/util.js",
+                "line": 25
+              },
+              "doc": {
+                "summary": "How many times clamp ran."
+              }
+            },
+            {
+              "id": "lexkit/src/util#isWhitespace",
+              "name": "isWhitespace",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "c",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "One character."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "boolean"
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/util.js",
+                "line": 7
+              },
+              "doc": {
+                "summary": "Reports whether a character is white space."
+              }
+            },
+            {
+              "id": "lexkit/src/util#self",
+              "name": "self",
+              "kind": "namespace",
+              "source": {
+                "file": "src/util.js",
+                "line": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
