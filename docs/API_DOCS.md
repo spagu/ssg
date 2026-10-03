@@ -163,12 +163,19 @@ variables:
   title: textkit                       # name in the header and titles
   tagline: Tokenize and format text.   # the front page's lead
   start: {url: /getting-started/, label: Get started}
-  nav: [{url: /changelog/, label: Changelog}]
+  nav:                                 # your header links; icon shows a mark
+    - {url: /changelog/, label: Changelog}
+    - {url: "https://npm.example.com/package/core", label: npm, icon: npm}
+  repository_url: https://github.com/example/core   # repo icon in the header
   docs_nav_order: [getting-started, configuration]   # guide slugs, in order
   gtm_id: GTM-XXXXXXX                  # optional Google Tag Manager
+  ssg_credit: false                    # hide "Built with SSG" in the footer
 ```
 
-Its colours, type and contrast ratios are in
+The logo, favicon and social profiles come from `marketing:` (`logo`,
+`favicon`, `social_profiles`), and brand colours from `colors:` (`primary`,
+`primary_dark`). Its colours, type, contrast ratios and every branding setting
+are in
 [templates/apidoc/README.md](../templates/apidoc/README.md).
 
 Every API page is a normal page whose body is the reference written as

@@ -72,8 +72,15 @@ documentation theme, `apidoc`.
   in one sidebar with the current package's tree, search over
   `search-index.json` (`/`), an "On this page" column, breadcrumbs, and light
   and dark schemes. Google palette, Public Sans and JetBrains Mono, WCAG 2.2
-  AA, with measured ratios in its README. `examples/api-docs` now uses it and
-  documents a library and its REST service side by side.
+  AA, with measured ratios in its README. Branding comes from settings every
+  theme reads:
+  - the logo, favicon and social profiles, with their marks, from `marketing:`;
+  - brand colours from `colors:`;
+  - your own header links (`variables.nav`, optionally with an icon);
+  - a repository icon (`repository_url`).
+  The footer says "Built with SSG" with a link, and `ssg_credit: false`
+  removes it. `examples/api-docs` now uses the theme and documents a library
+  and its REST service side by side.
 
 See [docs/API_DOCS.md](docs/API_DOCS.md) and
 [docs/REST_API_DOCS.md](docs/REST_API_DOCS.md).

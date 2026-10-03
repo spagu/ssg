@@ -21,6 +21,25 @@ without copying anything. See [docs/API_DOCS.md](../../docs/API_DOCS.md) and
 The pages work without JavaScript: the table of contents stays hidden, search
 is inert, and the sidebar is reached from the front page.
 
+## Branding
+
+| Setting | Use |
+|---|---|
+| `marketing.logo` (or `variables.logo`) | the mark beside the name in the header; `variables.logo_only: true` drops the name |
+| `marketing.favicon`, `marketing.og_site_name`, `marketing.og_image` | the browser icon and social cards (ssg adds them to the head) |
+| `marketing.social_profiles` | `{github: url, mastodon: url, …}`: links with their marks in the footer |
+| `colors.primary`, `colors.link` | brand colours in the light scheme (buttons, links, current item) |
+| `colors.primary_dark`, `colors.link_dark` | the same in the dark scheme |
+
+Check a brand colour's contrast against the backgrounds below before using it:
+4.5:1 for links, and for white text on buttons.
+
+Marks known by name, for `social_profiles`, `nav` icons and `repository_icon`:
+github, gitlab, codeberg, x (or twitter), mastodon, bluesky, threads, youtube,
+discord, npm, stackoverflow, telegram, reddit, matrix, facebook, instagram.
+Any other name gets a plain link mark. The marks come from Simple Icons
+(CC0 1.0).
+
 ## Variables
 
 | Variable | Use |
@@ -28,11 +47,15 @@ is inert, and the sidebar is reached from the front page.
 | `title` | name in the header, titles and footer |
 | `tagline` | the front page's lead and description (else the site description) |
 | `start` | `{url, label}`: the front page's main button |
-| `nav` | `[{url, label}]`: header links |
+| `nav` | `[{url, label, icon}]`: your header links, in order; with `icon` the link shows that mark |
+| `repository_url` | the repository: an icon in the header (GitHub, GitLab, Codeberg by host) and a Source link in the footer |
+| `repository_icon` | the header mark for the repository, when the host does not tell it |
+| `footer_links` | `[{url, label}]`: extra links in the footer |
+| `copyright` | the footer's first line instead of "© name" |
 | `docs_nav_order` | guide slugs in reading order; others follow by title |
-| `repository_url` | a Source link in the footer |
 | `version` | shown in the footer |
 | `gtm_id` | Google Tag Manager container (`GTM-XXXXXXX`); nothing loads without it |
+| `ssg_credit` | `false` removes "Built with SSG" from the footer |
 
 ## Type
 
@@ -92,6 +115,7 @@ least 44×44 px, and motion stops under `prefers-reduced-motion`.
 | `layouts/api-*.html` | reference pages, through `partials/api.html` |
 | `partials/head.html` | meta tags, fonts, stylesheets, GTM, scheme |
 | `partials/chrome.html` | header, sidebar, "on this page", footer |
+| `partials/icons.html` | the brand marks |
 | `partials/doc.html` | one document: sidebar, article, contents |
 | `css/tokens.css`, `layout.css`, `content.css` | tokens, frame, article |
 | `js/main.js` | scheme switch, drawer, contents, search |

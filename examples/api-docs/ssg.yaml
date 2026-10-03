@@ -9,11 +9,31 @@ output_dir: examples/api-docs/output
 search_index: true
 check_links: strict
 check_api: warn
+static_dir: examples/api-docs/static
+
+# Branding: the logo, social profiles and favicon are site-wide marketing
+# settings every theme can read; colors become --ssg-color-* properties.
+marketing:
+  logo: /logo.svg
+  favicon: /logo.svg
+  social_profiles:
+    github: https://github.com/example/textkit
+    mastodon: https://mastodon.example.com/@textkit
+    discord: https://discord.example.com/textkit
+colors:
+  primary: "#1967d2"
+  primary_dark: "#8ab4f8"
 
 variables:
   title: textkit
   tagline: Tokenize and format text — the library and the hosted service.
   start: {url: /getting-started/, label: Get started}
+  # Header links: your own, in order; an icon shows a mark instead of text.
+  nav:
+    - {label: Guide, url: /getting-started/}
+    - {label: npm, url: "https://npm.example.com/package/textkit", icon: npm}
+  repository_url: https://github.com/example/textkit   # the repo icon in the header
+  # ssg_credit: false   # hides "Built with SSG" in the footer
 
 api_docs:
   # The JavaScript library, read from its code and comments.

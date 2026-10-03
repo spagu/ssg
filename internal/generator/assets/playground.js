@@ -110,6 +110,9 @@
       out.textContent = '';
       out.hidden = true;
     });
+    editor.addEventListener('input', function () {
+      editor.rows = Math.min(editor.value.split('\n').length + 1, 24);
+    });
     editor.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
