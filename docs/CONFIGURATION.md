@@ -994,6 +994,7 @@ shortcode_errors: strict
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 | `api_docs` | empty | config only | Document JavaScript/TypeScript packages as pages of the site, with `api.json`. See [docs/API_DOCS.md](API_DOCS.md) |
+| `api_docs[].language` | detected | config only | `javascript`, `typescript`, `go`, `php` or `python`; detected from `package.json`, `go.mod`, `composer.json`, `pyproject.toml` when empty. See [docs/API_LANGUAGES.md](API_LANGUAGES.md) |
 | `api_docs[].playground` | `""` | config only | The package as an ES module URL: JavaScript `@example` blocks become runnable in the browser |
 | `api_docs[].openapi` | `""` | config only | An OpenAPI 3.0/3.1 file (YAML or JSON) to document as a REST API instead of code. See [docs/REST_API_DOCS.md](REST_API_DOCS.md) |
 | `api_docs[].try_it` | `true` | config only | The "Try it" console on every operation of an `openapi` entry |

@@ -49,6 +49,20 @@ documentation theme, `apidoc`.
   `search-index.json`, `llms.txt` and `markdown_publish`.
 - `{{ apiHref }}` and `{{ apiType }}` template functions for themes of your own;
   `examples/api-docs`, also a golden corpus.
+- 🐹 **Go, PHP and Python** (GO-119..GO-121): `api_docs` reads them too,
+  with nothing to install. Go uses the standard library's parser and doc
+  reader: packages, types with methods, enums from typed constants, generics,
+  `[Name]` links, and `Example` functions. PHP and Python have built-in
+  declaration scanners:
+  - PHP: namespaces, classes, traits, enums, PHPDoc, `use` resolution;
+  - Python: `__all__`, decorators, dataclasses, enums, and Google, NumPy and
+    reST docstrings.
+  The language comes from `language:` or from `go.mod`, `composer.json` or
+  `pyproject.toml`. Declarations are shown in the language's own syntax
+  (`func Parse(src string) error`, `def tokenize(text: str) -> list[Token]`).
+  A link resolves within its own package first when several packages share a
+  name, and a Go enum constant resolves by its own name. The include/exclude
+  glob filter is now shared by every reader.
 - ▶️ **Live examples** (GO-116): with `playground:` set to the package as an
   ES module, every JavaScript `@example` gets an editor with Run and Reset.
   The code runs in a sandboxed frame with its own origin, so it cannot read

@@ -302,6 +302,7 @@ variables:
     - workers
     - mcp
     - api_docs         # reference from code
+    - api_languages    # Go, PHP, Python
     - rest_api_docs    # reference from OpenAPI
     - deployment       # then ship it
     - upgrading        # and keep it current

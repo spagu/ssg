@@ -6,6 +6,9 @@ the same theme, search, sitemap, `llms.txt`, MCP tools and link checking as the
 guides you write by hand. A guide can link to a symbol and a symbol to a guide;
 one build checks both.
 
+Go, PHP and Python packages are read the same way, without installing
+anything: see [API_LANGUAGES.md](API_LANGUAGES.md).
+
 A REST API described in OpenAPI gets the same treatment, with a "Try it"
 console on every operation: see [REST_API_DOCS.md](REST_API_DOCS.md).
 
@@ -41,6 +44,7 @@ count: ssg then reads the JavaScript.
 api_docs:
   - name: core                   # default: "name" in package.json
     root: packages/core
+    language: javascript         # default: detected; or typescript, go, php, python
     entry: [src/index.js]        # default: from package.json
     include: ["src/**"]          # which files may be read (globs, relative to root)
     exclude: ["**/*.test.*"]

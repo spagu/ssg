@@ -977,7 +977,10 @@ package.json) to document. Their exports and doc comments become pages under
 \fB/api/<name>/\fR, with cross-links and source links, and the whole model is
 written to \fBapi.json\fR. \fBcheck_api: warn|strict\fR reports undocumented
 exports and dead links. \fBplayground\fR (the package as an ES module URL)
-makes JavaScript examples runnable in the browser. See docs/API_DOCS.md.
+makes JavaScript examples runnable in the browser. Go, PHP and Python
+packages are read too (\fBlanguage\fR, detected from go.mod, composer.json or
+pyproject.toml), with readers built into ssg. See docs/API_DOCS.md and
+docs/API_LANGUAGES.md.
 .PP
 An entry with \fBopenapi\fR (an OpenAPI 3.0/3.1 file) documents a REST API
 instead: endpoints by tag, schemas, and a "Try it" console on each operation

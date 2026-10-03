@@ -4,8 +4,8 @@ slug: "api-reference-next-to-the-guides"
 status: publish
 type: post
 date: 2026-10-03
-tags: [release, documentation, api, openapi]
-excerpt: "1.8.69 reads JavaScript, TypeScript declarations and OpenAPI files into pages of the same site as your guides, with examples that run in the browser and a Try it console for every endpoint."
+tags: [release, documentation, api, openapi, go, php, python]
+excerpt: "1.8.69 reads JavaScript, TypeScript declarations, Go, PHP, Python and OpenAPI files into pages of the same site as your guides, with examples that run in the browser and a Try it console for every endpoint."
 ---
 
 Most projects publish their documentation twice. The guides live on one site,
@@ -53,6 +53,41 @@ The pages are ordinary pages. They show up in the site search, the sitemap,
 `{@link Lexer}` in a comment the same way it checks a link in a guide.
 `check_api` adds what a reference tends to miss: exports nobody described,
 parameters with no words, `@deprecated` with no replacement.
+
+## Go, PHP and Python too
+
+The same `api_docs` entry reads three more languages, and there is still
+nothing to install. Go is read with the standard library's own parser.
+PHP and Python have scanners built into ssg that read declarations and
+comments and skip everything else. Python is never run, and neither is PHP.
+
+```yaml
+api_docs:
+  - root: services/billing     # go.mod: read as Go
+  - root: plugins/textkit      # composer.json: read as PHP
+  - root: tools/textkit        # pyproject.toml: read as Python
+```
+
+Each language keeps its own habits. Go's `[Name]` links and `Example`
+functions, PHPDoc's `@param Type $name`, and Python's Google, NumPy and reST
+docstrings are all understood. Declarations are shown the way the language
+writes them:
+
+```go
+func Tokenize(text string, keepSpace bool) []lexer.Token
+```
+
+```php
+public function next(): ?Token
+```
+
+```python
+def tokenize(text: str, *, keep_space: bool = False) -> list[Token]
+```
+
+Each scanner has limits. A PHP function declared inside an `if`, or a
+Python import under `if TYPE_CHECKING:`, is not seen.
+[API docs: languages](/api_languages/) lists every one.
 
 ## Examples you can run
 
@@ -160,8 +195,9 @@ show them too.
 
 ## Try it locally
 
-The repository has a working example: a small text library and the REST
-service built on it, documented side by side.
+The repository has a working example: a small text library in JavaScript, Go,
+PHP and Python, and the REST service built on it, all documented side by side
+in one site.
 
 ```bash
 ssg --config examples/api-docs/ssg.yaml --http --watch

@@ -72,6 +72,7 @@ relative_links: false # Convert absolute URLs to relative links
 # API docs from JS/TS code — see docs/API_DOCS.md
 # api_docs:
 #   - root: packages/core      # package.json + code; entry points from "exports"/"main"
+#     language: javascript       # or typescript, go, php, python; detected when empty
 #     url: /api/core/
 #     source_url: https://example.com/repo/blob/{ref}/{path}#L{line}
 #     playground: https://cdn.example.com/npm/core@1/+esm  # runnable @example blocks
