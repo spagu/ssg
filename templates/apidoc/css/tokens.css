@@ -1,0 +1,82 @@
+/* apidoc — design tokens. Colours follow the Google palette (blue 600/700,
+   grey 50–900). Every text/background pair meets WCAG 2.2 AA (4.5:1 for text,
+   3:1 for borders of controls and focus indicators); docs/STYLES.md lists
+   the measured ratios. Change a value here and every rule follows. */
+:root {
+  --ad-font: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ad-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ad-bg: #ffffff;
+  --ad-surface: #f8f9fa;
+  --ad-text: #202124;
+  --ad-muted: #5f6368;
+  --ad-border: #dadce0;
+  --ad-control: #80868b;
+  --ad-accent: #1967d2;
+  --ad-link: #1967d2;
+  --ad-on-accent: #ffffff;
+  --ad-focus: #e8710a;
+  --ad-code-bg: #f1f3f4;
+  --ad-current: #e8f0fe;
+  --ad-get: #137333;
+  --ad-post: #1967d2;
+  --ad-put: #9a4b00;
+  --ad-delete: #c5221f;
+  --ad-header-h: 3.5rem;
+  --ad-sidebar-w: 17rem;
+  --ad-toc-w: 14rem;
+  --ad-radius: 8px;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --ad-bg: #1f1f1f;
+  --ad-surface: #28292a;
+  --ad-text: #e8eaed;
+  --ad-muted: #bdc1c6;
+  --ad-border: #3c4043;
+  --ad-control: #9aa0a6;
+  --ad-accent: #8ab4f8;
+  --ad-link: #8ab4f8;
+  --ad-on-accent: #202124;
+  --ad-focus: #fdd663;
+  --ad-code-bg: #2d2e30;
+  --ad-current: #233554;
+  --ad-get: #81c995;
+  --ad-post: #8ab4f8;
+  --ad-put: #fcad70;
+  --ad-delete: #f28b82;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ad-bg: #1f1f1f;
+    --ad-surface: #28292a;
+    --ad-text: #e8eaed;
+    --ad-muted: #bdc1c6;
+    --ad-border: #3c4043;
+    --ad-control: #9aa0a6;
+    --ad-accent: #8ab4f8;
+    --ad-link: #8ab4f8;
+    --ad-on-accent: #202124;
+    --ad-focus: #fdd663;
+    --ad-code-bg: #2d2e30;
+    --ad-current: #233554;
+    --ad-get: #81c995;
+    --ad-post: #8ab4f8;
+    --ad-put: #fcad70;
+    --ad-delete: #f28b82;
+    color-scheme: dark;
+  }
+}
+/* The live examples and the REST console take the theme's colours. */
+:root {
+  --ssg-api-accent: var(--ad-accent);
+  --ssg-api-on-accent: var(--ad-on-accent);
+  --ssg-api-border: var(--ad-control);
+  --ssg-api-focus: var(--ad-focus);
+  --ssg-api-code: var(--ad-code-bg);
+  --ssg-api-mono: var(--ad-mono);
+  --ssg-api-get: var(--ad-get);
+  --ssg-api-post: var(--ad-post);
+  --ssg-api-put: var(--ad-put);
+  --ssg-api-delete: var(--ad-delete);
+}

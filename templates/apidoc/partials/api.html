@@ -1,0 +1,17 @@
+{{/*
+  ad-api — a generated reference page (api_docs: code or OpenAPI). The body is
+  .Page.Content; .Page.Extra.api carries the package, the precomputed tree
+  (nav) and the breadcrumb trail (crumbs). The sidebar opens the tree.
+*/}}
+{{define "ad-api"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title (or .Vars.title .Domain)) }}
+    <title>{{ $title }}</title>
+{{ template "ad-head" (dict "Title" $title "Desc" .Page.Excerpt "Canonical" (printf "/%s/" .Page.Slug) "OgType" "article" "Ctx" .) }}
+</head>
+<body class="ad-api">
+{{ template "ad-doc" (dict "Ctx" . "Here" .Page.GetURL "Title" .Page.Title "Eyebrow" "API reference"
+    "API" .Page.Extra.api "Crumbs" .Page.Extra.api.crumbs "Body" (.Page.Content | safeHTML)) }}
+</body>
+</html>{{end}}

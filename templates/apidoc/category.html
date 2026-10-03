@@ -1,0 +1,32 @@
+{{define "category.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Name (or .Vars.title .Domain)) }}
+    <title>{{ $title }}</title>
+{{ template "ad-head" (dict "Title" $title
+    "Desc" (printf "Everything filed under %s in the %s documentation, newest first, with a short summary of each entry." .Name .Domain)
+    "CanonicalURL" .CanonicalURL "Ctx" .) }}
+</head>
+<body>
+{{ template "ad-header" . }}
+<div class="ad-shell">
+    {{ template "ad-sidebar" (dict "Ctx" .) }}
+    <main class="ad-main" id="main">
+        <article class="ad-article">
+            <p class="ad-eyebrow">{{ .Kind }}</p>
+            <h1>{{ .Name }}</h1>
+            <ul class="ad-list">
+                {{ range .Posts }}
+                <li>
+                    <a href="{{ .GetURL }}">{{ .Title }}</a>
+                    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 January 2006" }}</time>
+                    {{ with .Excerpt }}<p>{{ . }}</p>{{ end }}
+                </li>
+                {{ end }}
+            </ul>
+        </article>
+        {{ template "ad-footer" . }}
+    </main>
+</div>
+</body>
+</html>{{end}}

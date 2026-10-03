@@ -1,0 +1,12 @@
+{{define "page.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title (or .Vars.title .Domain)) }}
+    <title>{{ $title }}</title>
+{{ template "ad-head" (dict "Title" $title "Desc" .Page.Excerpt "Canonical" (printf "/%s/" .Page.Slug) "OgType" "article" "Ctx" .) }}
+</head>
+<body>
+{{ $meta := "" }}{{ if .Page.Modified }}{{ $meta = printf "Updated %s" (.Page.Modified.Format "2 January 2006") }}{{ end }}
+{{ template "ad-doc" (dict "Ctx" . "Here" .Page.GetURL "Title" .Page.Title "Eyebrow" "Guide" "Meta" $meta "Body" (.Page.Content | safeHTML)) }}
+</body>
+</html>{{end}}

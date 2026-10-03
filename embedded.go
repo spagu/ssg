@@ -5,12 +5,12 @@ package ssg
 
 import "embed"
 
-// EmbeddedThemes carries the bundled starter themes (templates/simple and
-// templates/krowy), scaffolded on first use when the requested theme has no
+// EmbeddedThemes carries the bundled starter themes (templates/simple,
+// templates/krowy and templates/apidoc), scaffolded on first use when the requested theme has no
 // local template files — this is what makes `ssg my-blog simple example.com`
 // work without a checkout of the repository.
 //
-//go:embed templates/simple templates/krowy
+//go:embed templates/simple templates/krowy templates/apidoc
 var EmbeddedThemes embed.FS
 
 // EmbeddedWorkers carries the batteries-included Cloudflare Pages Functions

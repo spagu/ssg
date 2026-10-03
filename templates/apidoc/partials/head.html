@@ -1,0 +1,63 @@
+{{/*
+  apidoc — the document head, shared by every role template.
+
+  Takes a dict so each role passes its own metadata:
+
+      {{ template "ad-head" (dict "Title" $title "Desc" ... "Canonical" "/path/" "Ctx" .) }}
+
+  Canonical is site-relative ("/guide/"); an archive passes CanonicalURL, the
+  absolute URL the generator wrote it to. The role template writes <title>
+  itself and passes the same string here for Open Graph.
+
+  Only template functions every ssg release knows are used in this theme: it
+  ships inside the binary and is also built by older releases.
+*/}}
+{{define "ad-head"}}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{ .Desc }}">
+    {{ $canonical := .CanonicalURL }}{{ if and (not $canonical) .Canonical }}{{ $canonical = printf "https://%s%s" .Ctx.Domain .Canonical }}{{ end }}
+    <link rel="canonical" href="{{ $canonical }}">
+    <meta name="robots" content="index, follow">
+    <meta name="generator" content="SSG">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1f1f1f" media="(prefers-color-scheme: dark)">
+    <meta property="og:type" content="{{ if .OgType }}{{ .OgType }}{{ else }}website{{ end }}">
+    <meta property="og:site_name" content="{{ with .Ctx.Vars.title }}{{ . }}{{ else }}{{ .Ctx.Domain }}{{ end }}">
+    <meta property="og:title" content="{{ .Title }}">
+    <meta property="og:description" content="{{ .Desc }}">
+    <meta property="og:url" content="{{ $canonical }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ .Title }}">
+    <meta name="twitter:description" content="{{ .Desc }}">
+
+    {{/* Public Sans for text, JetBrains Mono for code. Delete these two tags
+         to make no external request: the stacks fall back to system fonts. */}}
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Public+Sans:ital,wght@0,400..700;1,400&display=swap">
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/content.css">
+
+    {{/* Google Tag Manager: set variables.gtm_id (GTM-XXXXXXX) to load it. */}}
+    {{ with .Ctx.Vars.gtm_id }}
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', '{{ . }}');
+    </script>
+    {{ end }}
+    {{/* The stored colour scheme, applied before paint so the page never flashes. */}}
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('apidoc-scheme');
+          if (t === 'light' || t === 'dark') { document.documentElement.dataset.theme = t; }
+        } catch (e) { /* storage blocked: the system preference applies */ }
+      })();
+    </script>
+{{end}}
