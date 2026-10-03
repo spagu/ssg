@@ -1,0 +1,58 @@
+{{/*
+  The documentation's front page: what the project is (site description, or
+  variables.tagline), where to start (variables.start: {url, label}), then
+  every guide and every reference, each with its summary.
+*/}}
+{{define "index.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $name := or .Vars.title .Domain }}
+{{ $title := printf "%s documentation" $name }}
+    <title>{{ $title }}</title>
+{{ template "ad-head" (dict "Title" $title "Desc" (or .Vars.tagline .Site.Description (printf "Guides and API reference for %s." $name)) "Canonical" "/" "Ctx" .) }}
+</head>
+<body>
+{{ template "ad-header" . }}
+<div class="ad-shell">
+    {{ template "ad-sidebar" (dict "Ctx" .) }}
+    <main class="ad-main" id="main">
+        <section class="ad-hero">
+            <p class="ad-eyebrow">Documentation</p>
+            <h1>{{ $name }}</h1>
+            {{ with or .Vars.tagline .Site.Description }}<p class="ad-lead">{{ . }}</p>{{ end }}
+            {{ with .Vars.start }}<p><a class="ad-button" href="{{ .url }}">{{ .label }}</a></p>{{ end }}
+        </section>
+        <section aria-labelledby="ad-guides">
+            <h2 id="ad-guides">Guides</h2>
+            <ul class="ad-grid">
+                {{ range .Site.Pages }}{{ if and (not .Extra.api) (not .Extra.hide_from_lists) }}
+                <li><a class="ad-card" href="{{ .GetURL }}"><span class="ad-card__title">{{ .Title }}</span>
+                    {{ with .Excerpt }}<span class="ad-card__text">{{ . }}</span>{{ end }}</a></li>
+                {{ end }}{{ end }}
+            </ul>
+        </section>
+        <section aria-labelledby="ad-reference">
+            <h2 id="ad-reference">Reference</h2>
+            <ul class="ad-grid">
+                {{ range .Site.Pages }}{{ if and .Extra.api (eq .Layout "api-index") }}
+                <li><a class="ad-card" href="{{ .GetURL }}"><span class="ad-card__title"><code>{{ .Extra.api.package.Name }}</code></span>
+                    {{ with .Excerpt }}<span class="ad-card__text">{{ . }}</span>{{ end }}</a></li>
+                {{ end }}{{ end }}
+            </ul>
+        </section>
+        {{ if .Site.Posts }}
+        <section aria-labelledby="ad-news">
+            <h2 id="ad-news">News</h2>
+            <ul class="ad-list">
+                {{ range $i, $p := .Site.Posts }}{{ if lt $i 5 }}
+                <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a>
+                    <time datetime="{{ $p.Date.Format "2006-01-02" }}">{{ $p.Date.Format "2 January 2006" }}</time></li>
+                {{ end }}{{ end }}
+            </ul>
+        </section>
+        {{ end }}
+        {{ template "ad-footer" . }}
+    </main>
+</div>
+</body>
+</html>{{end}}

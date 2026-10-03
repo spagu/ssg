@@ -993,6 +993,11 @@ shortcode_errors: strict
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
+| `api_docs` | empty | config only | Document JavaScript/TypeScript packages as pages of the site, with `api.json`. See [docs/API_DOCS.md](API_DOCS.md) |
+| `api_docs[].language` | detected | config only | `javascript`, `typescript`, `go`, `php` or `python`; detected from `package.json`, `go.mod`, `composer.json`, `pyproject.toml` when empty. See [docs/API_LANGUAGES.md](API_LANGUAGES.md) |
+| `api_docs[].playground` | `""` | config only | The package as an ES module URL: JavaScript `@example` blocks become runnable in the browser |
+| `api_docs[].openapi` | `""` | config only | An OpenAPI 3.0/3.1 file (YAML or JSON) to document as a REST API instead of code. See [docs/REST_API_DOCS.md](REST_API_DOCS.md) |
+| `api_docs[].try_it` | `true` | config only | The "Try it" console on every operation of an `openapi` entry |
 | `listen` | off | config only | "Listen" button that reads the article with the visitor's browser voice (Web Speech API). See [docs/AUDIO.md](AUDIO.md) |
 | `tts` | off | config only | An MP3 of each article made at build time by a TTS API (generic, OpenAI, ElevenLabs, Google), cached, with a jingle, a fallback when the API is down, and a podcast feed. See [docs/AUDIO.md](AUDIO.md) |
 | `webmcp` | `false` | `--webmcp` | Declare the site's tools to a browser agent via `navigator.modelContext` ([WebMCP](AI-AGENTS.md#webmcp)). Turns `search_index` on, which its tools read |
@@ -1126,6 +1131,7 @@ implemented.
 | `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
+| `check_api` | `""` | config only | Report documentation problems in `api_docs` entries: undocumented exports, dead `{@link}`s, unreadable code, broken OpenAPI `$ref`s and operations. `warn` or `strict` |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |

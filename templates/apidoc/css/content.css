@@ -1,0 +1,39 @@
+/* apidoc — the article: headings, prose, code, tables, and what the API
+   pages emit (signatures, badges, method labels, the breadcrumb). */
+.ad-eyebrow { margin: 0 0 .25rem; font-size: .8125rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ad-muted); }
+.ad-article h1, .ad-hero h1 { margin: 0 0 .5rem; font-size: clamp(1.75rem, 1.4rem + 1.5vw, 2.5rem); line-height: 1.2; letter-spacing: -.01em; }
+.ad-meta { margin: 0 0 1.5rem; color: var(--ad-muted); font-size: .9375rem; }
+.ad-lead { font-size: 1.25rem; color: var(--ad-muted); max-width: 40rem; }
+.ad-prose h2 { margin: 2.5rem 0 .75rem; padding-top: 1rem; font-size: 1.5rem; line-height: 1.3; border-top: 1px solid var(--ad-border); }
+.ad-prose h3 { margin: 2rem 0 .5rem; font-size: 1.1875rem; line-height: 1.35; }
+.ad-prose h4 { margin: 1.5rem 0 .5rem; font-size: 1rem; }
+.ad-prose :is(h2, h3, h4) code { font-size: .95em; }
+.ad-prose p, .ad-prose ul, .ad-prose ol { margin: 0 0 1rem; }
+.ad-prose blockquote { margin: 1rem 0; padding: .5rem 1rem; border-left: 4px solid var(--ad-put); background: var(--ad-surface); border-radius: 0 var(--ad-radius) var(--ad-radius) 0; }
+.ad-prose blockquote p:last-child { margin: 0; }
+code, pre, kbd { font-family: var(--ad-mono); font-variant-ligatures: none; }
+:not(pre) > code { padding: .1em .35em; font-size: .875em; background: var(--ad-code-bg); border-radius: 4px; }
+pre { margin: 0 0 1rem; padding: 1rem; overflow-x: auto; font-size: .875rem; line-height: 1.55; background: var(--ad-code-bg); border: 1px solid var(--ad-border); border-radius: var(--ad-radius); }
+pre code { background: none; padding: 0; }
+.ad-prose table { display: block; width: 100%; max-width: 100%; overflow-x: auto; margin: 0 0 1.25rem; border-collapse: collapse; font-size: .9375rem; }
+.ad-prose th, .ad-prose td { padding: .5rem .75rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ad-border); }
+.ad-prose th { font-weight: 700; background: var(--ad-surface); }
+.ad-prose td code { white-space: nowrap; }
+.ad-prose img { max-width: 100%; height: auto; }
+
+.ad-crumbs ol { display: flex; flex-wrap: wrap; gap: .25rem; margin: 0 0 1rem; padding: 0; list-style: none; font-size: .875rem; color: var(--ad-muted); }
+.ad-crumbs li + li::before { content: "/"; margin-right: .25rem; }
+.ad-crumbs a { color: var(--ad-muted); }
+
+.ad-button { display: inline-block; min-height: 44px; padding: .6rem 1.25rem; font-weight: 600; color: var(--ad-on-accent); background: var(--ad-accent); border-radius: var(--ad-radius); text-decoration: none; }
+.ad-hero { padding: 1rem 0 1.5rem; }
+.ad-main > section > h2 { margin: 2rem 0 1rem; font-size: 1.25rem; }
+.ad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.ad-card { display: block; height: 100%; padding: 1rem; color: var(--ad-text); text-decoration: none; background: var(--ad-surface); border: 1px solid var(--ad-border); border-radius: var(--ad-radius); }
+.ad-card:hover { border-color: var(--ad-accent); }
+.ad-card__title { display: block; font-weight: 700; margin-bottom: .25rem; }
+.ad-card__text { display: block; color: var(--ad-muted); font-size: .9375rem; }
+.ad-list { margin: 0; padding: 0; list-style: none; }
+.ad-list li { padding: .75rem 0; border-bottom: 1px solid var(--ad-border); }
+.ad-list time { display: block; color: var(--ad-muted); font-size: .875rem; }
+.ad-list p { margin: .25rem 0 0; }

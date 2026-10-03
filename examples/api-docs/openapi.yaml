@@ -1,0 +1,118 @@
+openapi: 3.1.0
+info:
+  title: textkit service
+  version: 1.0.0
+  summary: textkit over HTTP — tokenize and format text without installing anything.
+  description: |
+    The hosted textkit service runs the same lexer and formatter as the
+    library. Every request needs an API key; send it in the `X-API-Key` header.
+servers:
+  - url: https://api.example.com/textkit/v1
+    description: Production
+tags:
+  - name: Text
+    description: Tokenizing and formatting.
+  - name: Service
+    description: Health and limits.
+security:
+  - apiKey: []
+paths:
+  /tokens:
+    post:
+      tags: [Text]
+      operationId: tokenize
+      summary: Split text into tokens
+      description: Runs the lexer over the text and returns every token in order.
+      parameters:
+        - name: keepSpace
+          in: query
+          description: Return whitespace tokens too.
+          schema: {type: boolean, default: false}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TextInput'}
+            example: {text: "Hello, world"}
+      responses:
+        "200":
+          description: The tokens, in the order they appear.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Token'}
+              example:
+                - {kind: word, text: Hello, start: 0}
+                - {kind: punct, text: ",", start: 5}
+                - {kind: word, text: world, start: 7}
+        "400": {$ref: '#/components/responses/BadRequest'}
+  /format:
+    post:
+      tags: [Text]
+      operationId: formatText
+      summary: Format text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/TextInput'}
+              properties:
+                style:
+                  type: string
+                  enum: [title, sentence, upper]
+                  default: sentence
+      responses:
+        "200":
+          description: The formatted text.
+          content:
+            text/plain:
+              example: Hello, World
+        "400": {$ref: '#/components/responses/BadRequest'}
+  /health:
+    get:
+      tags: [Service]
+      operationId: health
+      summary: Check the service is up
+      security: []
+      responses:
+        "200":
+          description: The service answers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string, example: ok}
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Issued in the account settings.
+  responses:
+    BadRequest:
+      description: The body is not valid JSON or has no text.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    TextInput:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string, maxLength: 100000, description: The text to process.}
+    Token:
+      type: object
+      description: One token of the input.
+      properties:
+        kind: {type: string, enum: [word, number, punct, space]}
+        text: {type: string}
+        start: {type: integer, minimum: 0, description: Offset of the first character.}
+    Error:
+      type: object
+      properties:
+        message: {type: string}

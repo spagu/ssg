@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "core",
+      "version": "1.2.0",
+      "readme": "# core",
+      "modules": [
+        {
+          "id": "core/src/index",
+          "path": "src/index",
+          "symbols": [
+            {
+              "id": "core/src/index#parse",
+              "name": "parse",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "core/src/lex#Token"
+                      }
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "src",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    },
+                    {
+                      "name": "opts",
+                      "type": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "strict",
+                            "type": {
+                              "kind": "name",
+                              "name": "boolean"
+                            },
+                            "optional": true
+                          }
+                        ]
+                      },
+                      "optional": true
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "Promise",
+                    "args": [
+                      {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "typeParams": [
+                {
+                  "name": "T",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "core/src/lex#Token"
+                  }
+                }
+              ],
+              "flags": {
+                "async": true,
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/index.ts",
+                "line": 12
+              },
+              "doc": {
+                "summary": "Parses source.",
+                "examples": [
+                  "```js\nparse(\"a\")\n```"
+                ],
+                "tags": [
+                  {
+                    "name": "remarks",
+                    "text": "fast"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "core/src/lex",
+          "path": "src/lex",
+          "symbols": [
+            {
+              "id": "core/src/lex#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "implements": [
+                {
+                  "kind": "name",
+                  "name": "Iterable",
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "Token",
+                      "ref": "core/src/lex#Token"
+                    }
+                  ]
+                }
+              ],
+              "members": [
+                {
+                  "id": "core/src/lex#Lexer.constructor",
+                  "name": "constructor",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "src",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "core/src/lex#Lexer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "core/src/lex#Token"
+                      }
+                    },
+                    {
+                      "params": [
+                        {
+                          "name": "n",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Token",
+                            "ref": "core/src/lex#Token"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "core/src/lex#Lexer.old",
+                  "name": "old",
+                  "kind": "method",
+                  "doc": {
+                    "deprecated": "use Lexer.next"
+                  }
+                },
+                {
+                  "id": "core/src/lex#Lexer.pos",
+                  "name": "pos",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "flags": {
+                    "readonly": true
+                  }
+                }
+              ]
+            },
+            {
+              "id": "core/src/lex#Mode",
+              "name": "Mode",
+              "kind": "enum",
+              "members": [
+                {
+                  "id": "core/src/lex#Mode.Strict",
+                  "name": "Strict",
+                  "kind": "enumMember"
+                }
+              ]
+            },
+            {
+              "id": "core/src/lex#Token",
+              "name": "Token",
+              "kind": "type",
+              "type": {
+                "kind": "union",
+                "args": [
+                  {
+                    "kind": "literal",
+                    "name": "\"word\""
+                  },
+                  {
+                    "kind": "literal",
+                    "name": "\"space\""
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

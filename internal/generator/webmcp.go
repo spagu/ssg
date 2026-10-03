@@ -81,6 +81,41 @@ location.href=d.url;
 return text({navigated:true,url:d.url})})}});
 })();`
 
+// webmcpAPIRuntime adds two tools on a site that documents code (GO-111):
+// find a symbol by name and read one by id, from api.json, fetched on first
+// use like the index. __SSG_API__ is replaced with its URL.
+const webmcpAPIRuntime = `(function(){
+var mc=navigator.modelContext;
+if(!mc||typeof mc.registerTool!=="function"){return}
+var API=__SSG_API__,pending=null;
+function load(){
+if(pending){return pending}
+pending=fetch(API).then(function(r){
+if(!r.ok){throw new Error("api.json unavailable: "+r.status)}
+return r.json()}).then(function(d){var all=[];
+(d.packages||[]).forEach(function(p){(p.modules||[]).forEach(function(m){
+(function walk(list){(list||[]).forEach(function(s){all.push(s);walk(s.members)})})(m.symbols)})});
+return all});
+return pending}
+function text(v){return{content:[{type:"text",text:JSON.stringify(v)}]}}
+function entry(s){return{id:s.id,kind:s.kind,name:s.name,summary:(s.doc&&s.doc.summary)||""}}
+mc.registerTool({name:"findSymbol",
+description:"Find a documented code symbol (class, function, type…) of this site's API by name.",
+inputSchema:{type:"object",properties:{query:{type:"string"},limit:{type:"integer"}},required:["query"]},
+execute:function(a){return load().then(function(all){
+var q=String(a.query||"").toLowerCase();
+return text(all.filter(function(s){return s.name.toLowerCase().indexOf(q)>=0})
+.slice(0,a.limit>0?a.limit:20).map(entry))})}});
+mc.registerTool({name:"getSymbol",
+description:"Read one documented code symbol by id: signatures, types, documentation; members as a list.",
+inputSchema:{type:"object",properties:{id:{type:"string"}},required:["id"]},
+execute:function(a){return load().then(function(all){
+var s=all.filter(function(x){return x.id===a.id})[0];
+if(!s){return text(null)}
+var v=JSON.parse(JSON.stringify(s));v.members=(s.members||[]).map(entry);
+return text(v)})}});
+})();`
+
 // webmcpIndexURL is the search index the script reads for a given page. Without
 // i18n there is one index at the root; with it, each language has its own, and
 // a page must read the one in its own language or the agent gets the site in a
@@ -109,7 +144,9 @@ func (g *Generator) webmcpIndexPath(page *models.Page) string {
 // injectWebMCP splices the runtime in before </body>, the same seam mermaid and
 // KaTeX use. A document already carrying it is left alone, so a theme that
 // ships its own registration keeps it rather than getting two.
-func injectWebMCP(html, indexURL string) string {
+//
+// apiURL, when not empty, adds the API tools (GO-111) reading api.json there.
+func injectWebMCP(html, indexURL, apiURL string) string {
 	if strings.Contains(html, "navigator.modelContext") {
 		return html
 	}
@@ -117,8 +154,20 @@ func injectWebMCP(html, indexURL string) string {
 	// escape <, > and & along with the obvious characters, which is what makes
 	// a value safe to inline into script source.
 	body := `<script>` + strings.Replace(webmcpRuntime, "__SSG_INDEX__", jsStringLiteral(indexURL), 1) + `</script>`
+	if apiURL != "" {
+		body += `<script>` + strings.Replace(webmcpAPIRuntime, "__SSG_API__", jsStringLiteral(apiURL), 1) + `</script>`
+	}
 	if i := strings.LastIndex(html, "</body>"); i >= 0 {
 		return html[:i] + body + "\n" + html[i:]
 	}
 	return html + body
+}
+
+// webmcpAPIURL is where the API tools read the model, or "" on a site that
+// documents no code.
+func (g *Generator) webmcpAPIURL() string {
+	if g.apiModel == nil {
+		return ""
+	}
+	return withBasePath("/"+apiDocsFile, g.config.BasePath)
 }

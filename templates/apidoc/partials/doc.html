@@ -1,0 +1,27 @@
+{{/*
+  ad-doc — one documentation page: header, sidebar, the article, the
+  "on this page" column. Every role that shows a single document calls it with
+  a dict: Ctx (the page context), Here (its URL), Title, Eyebrow, Body
+  (rendered HTML), and optionally API (.Page.Extra.api), Crumbs and Meta.
+*/}}
+{{define "ad-doc"}}
+{{ template "ad-header" .Ctx }}
+<div class="ad-shell">
+    {{ template "ad-sidebar" (dict "Ctx" .Ctx "Here" .Here "API" .API) }}
+    <main class="ad-main" id="main">
+        <article class="ad-article">
+            {{ with .Crumbs }}
+            <nav class="ad-crumbs" aria-label="Breadcrumb">
+                <ol>{{ range . }}<li>{{ if eq .URL $.Here }}<span aria-current="page">{{ .Title }}</span>{{ else }}<a href="{{ .URL }}">{{ .Title }}</a>{{ end }}</li>{{ end }}</ol>
+            </nav>
+            {{ end }}
+            {{ with .Eyebrow }}<p class="ad-eyebrow">{{ . }}</p>{{ end }}
+            <h1>{{ .Title }}</h1>
+            {{ with .Meta }}<p class="ad-meta">{{ . }}</p>{{ end }}
+            <div class="ad-prose">{{ .Body }}</div>
+        </article>
+        {{ template "ad-footer" .Ctx }}
+    </main>
+    {{ template "ad-toc" . }}
+</div>
+{{end}}

@@ -289,8 +289,11 @@ jobs:
       - name: Install gosec
         run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0 # NOSONAR S8545: pinned exact version (OPS-013)
 
+      # testdata/ holds parser fixtures that are broken on purpose (the API
+      # docs readers report syntax errors); gosec counts their type errors as
+      # a failed run even with no finding, and none of it is shipped code.
       - name: Run gosec
-        run: gosec -fmt sarif -out gosec.sarif ./...
+        run: gosec -exclude-dir=testdata -fmt sarif -out gosec.sarif ./...
 
       - name: Upload gosec results
         if: always()

@@ -1,0 +1,60 @@
+# Documentation from code (JavaScript, Go, PHP, Python) and from an OpenAPI file (docs/API_DOCS.md), in the
+# documentation theme. Build from the repository root:
+#   ssg --config examples/api-docs/ssg.yaml
+source: site
+template: apidoc
+domain: example.com
+content_dir: examples/api-docs/content
+output_dir: examples/api-docs/output
+search_index: true
+check_links: strict
+check_api: warn
+static_dir: examples/api-docs/static
+
+# Branding: the logo, social profiles and favicon are site-wide marketing
+# settings every theme can read; colors become --ssg-color-* properties.
+marketing:
+  logo: /logo.svg
+  favicon: /logo.svg
+  social_profiles:
+    github: https://github.com/example/textkit
+    mastodon: https://mastodon.example.com/@textkit
+    discord: https://discord.example.com/textkit
+colors:
+  primary: "#1967d2"
+  primary_dark: "#8ab4f8"
+
+variables:
+  title: textkit
+  tagline: Tokenize and format text — the library and the hosted service.
+  start: {url: /getting-started/, label: Get started}
+  # Header links: your own, in order; an icon shows a mark instead of text.
+  nav:
+    - {label: Guide, url: /getting-started/}
+    - {label: npm, url: "https://npm.example.com/package/textkit", icon: npm}
+  repository_url: https://github.com/example/textkit   # the repo icon in the header
+  # ssg_credit: false   # hides "Built with SSG" in the footer
+
+api_docs:
+  # The JavaScript library, read from its code and comments.
+  - root: examples/api-docs/lib
+    source_url: https://code.example.org/textkit/blob/{ref}/{path}#L{line}
+    source_ref: main
+    # The package as an ES module: @example blocks get Run in the browser.
+    # A CDN build works as is; a file this site serves needs CORS.
+    playground: https://cdn.example.com/npm/textkit@1.0.0/+esm
+  # The same library in Go, PHP and Python: each read from its own code and
+  # comments, with the language detected from go.mod, composer.json and
+  # pyproject.toml. Pure Go readers, nothing to install.
+  - root: examples/api-docs/go
+    name: textkit-go
+    url: /api/go/
+  - root: examples/api-docs/php
+    name: textkit-php
+    url: /api/php/
+  - root: examples/api-docs/python
+    name: textkit-py
+    url: /api/python/
+  # The hosted service, read from its OpenAPI file, with Try it.
+  - openapi: examples/api-docs/openapi.yaml
+    url: /api/service/

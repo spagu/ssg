@@ -15,6 +15,12 @@ background (audit FE-002).
 
 ## Themes
 
+### `apidoc` — documentation, Google palette
+
+Light and dark, Public Sans and JetBrains Mono. The tokens, every measured
+contrast ratio and the method label colours are in
+[templates/apidoc/README.md](../templates/apidoc/README.md).
+
 ### `krowy` — light, natural green
 
 | Token | Value | Notes |

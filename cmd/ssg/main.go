@@ -770,6 +770,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckSchema:            cfg.CheckSchema,
 		CheckOrphans:           cfg.CheckOrphans,
 		CheckRedirects:         cfg.CheckRedirects,
+		CheckAPI:               cfg.CheckAPI,
+		APIDocs:                buildAPIDocsOptions(cfg.APIDocs),
 		PrettyURLs:             cfg.PrettyURLs,
 		ContentExclude:         cfg.ContentExclude,
 		SitemapPruneCanonical:  cfg.SitemapPruneCanonical,

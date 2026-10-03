@@ -1,0 +1,16 @@
+{
+    "name": "acme/textkit",
+    "version": "2.1.0",
+    "description": "Text tools used to test the PHP extractor.",
+    "autoload": {
+        "psr-4": {
+            "Acme\\Textkit\\": "src/"
+        },
+        "files": ["src/functions.php"]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Acme\\Textkit\\Tests\\": "tests/"
+        }
+    }
+}

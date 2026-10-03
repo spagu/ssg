@@ -1,0 +1,2886 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "lib",
+      "version": "1.2.3",
+      "readme": "# lib\n\nA small lexer used to test the declaration extractor.\n",
+      "modules": [
+        {
+          "id": "lib/index",
+          "path": "index",
+          "doc": {
+            "summary": "Tokens and the lexer that reads them."
+          },
+          "symbols": [
+            {
+              "id": "lib/index#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "typeParams": [
+                {
+                  "name": "T",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  },
+                  "default": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  }
+                }
+              ],
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Base"
+                }
+              ],
+              "implements": [
+                {
+                  "kind": "name",
+                  "name": "Iterable",
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "name",
+                  "name": "Disposable"
+                }
+              ],
+              "members": [
+                {
+                  "id": "lib/index#Lexer.[Symbol.iterator]",
+                  "name": "[Symbol.iterator]",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "Iterator",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 125
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.buffer",
+                  "name": "buffer",
+                  "kind": "property",
+                  "type": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 99
+                  },
+                  "doc": {
+                    "tags": [
+                      {
+                        "name": "protected"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.constructor",
+                  "name": "constructor",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "the text"
+                        }
+                      ],
+                      "doc": {
+                        "summary": "Creates a lexer."
+                      }
+                    },
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        },
+                        {
+                          "name": "options",
+                          "type": {
+                            "kind": "name",
+                            "name": "Options",
+                            "ref": "lib/index#Options"
+                          }
+                        }
+                      ],
+                      "doc": {
+                        "summary": "Creates a lexer with options."
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 87
+                  },
+                  "doc": {
+                    "summary": "Creates a lexer."
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.count",
+                  "name": "count",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 95
+                  },
+                  "doc": {
+                    "summary": "Number of tokens read."
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.create",
+                  "name": "create",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 127
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.debug",
+                  "name": "debug",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "internal": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 105
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.done",
+                  "name": "done",
+                  "kind": "accessor",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 111
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "undefined"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 121
+                  },
+                  "doc": {
+                    "summary": "Reads the next token.",
+                    "returns": "the token, or undefined at the end"
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.peek",
+                  "name": "peek",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "typeParams": [
+                        {
+                          "name": "K",
+                          "constraint": {
+                            "kind": "verbatim",
+                            "name": "keyof T"
+                          }
+                        }
+                      ],
+                      "params": [
+                        {
+                          "name": "key",
+                          "type": {
+                            "kind": "name",
+                            "name": "K"
+                          }
+                        },
+                        {
+                          "name": "rest",
+                          "type": {
+                            "kind": "array",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "K"
+                              }
+                            ]
+                          },
+                          "rest": true
+                        }
+                      ],
+                      "returns": {
+                        "kind": "verbatim",
+                        "name": "T[K]"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 123
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.position",
+                  "name": "position",
+                  "kind": "accessor",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 107
+                  }
+                },
+                {
+                  "id": "lib/index#Lexer.version",
+                  "name": "version",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 97
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 75
+              },
+              "doc": {
+                "summary": "Splits text into tokens."
+              }
+            },
+            {
+              "id": "lib/index#MainLexer",
+              "name": "MainLexer",
+              "kind": "class",
+              "typeParams": [
+                {
+                  "name": "T",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  },
+                  "default": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  }
+                }
+              ],
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Base"
+                }
+              ],
+              "implements": [
+                {
+                  "kind": "name",
+                  "name": "Iterable",
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "name",
+                  "name": "Disposable"
+                }
+              ],
+              "members": [
+                {
+                  "id": "lib/index#MainLexer.[Symbol.iterator]",
+                  "name": "[Symbol.iterator]",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "Iterator",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 125
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.buffer",
+                  "name": "buffer",
+                  "kind": "property",
+                  "type": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 99
+                  },
+                  "doc": {
+                    "tags": [
+                      {
+                        "name": "protected"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.constructor",
+                  "name": "constructor",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "doc": "the text"
+                        }
+                      ],
+                      "doc": {
+                        "summary": "Creates a lexer."
+                      }
+                    },
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        },
+                        {
+                          "name": "options",
+                          "type": {
+                            "kind": "name",
+                            "name": "Options",
+                            "ref": "lib/index#Options"
+                          }
+                        }
+                      ],
+                      "doc": {
+                        "summary": "Creates a lexer with options."
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 87
+                  },
+                  "doc": {
+                    "summary": "Creates a lexer."
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.count",
+                  "name": "count",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 95
+                  },
+                  "doc": {
+                    "summary": "Number of tokens read."
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.create",
+                  "name": "create",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "source",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 127
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.debug",
+                  "name": "debug",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "internal": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 105
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.done",
+                  "name": "done",
+                  "kind": "accessor",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 111
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "undefined"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 121
+                  },
+                  "doc": {
+                    "summary": "Reads the next token.",
+                    "returns": "the token, or undefined at the end"
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.peek",
+                  "name": "peek",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "typeParams": [
+                        {
+                          "name": "K",
+                          "constraint": {
+                            "kind": "verbatim",
+                            "name": "keyof T"
+                          }
+                        }
+                      ],
+                      "params": [
+                        {
+                          "name": "key",
+                          "type": {
+                            "kind": "name",
+                            "name": "K"
+                          }
+                        },
+                        {
+                          "name": "rest",
+                          "type": {
+                            "kind": "array",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "K"
+                              }
+                            ]
+                          },
+                          "rest": true
+                        }
+                      ],
+                      "returns": {
+                        "kind": "verbatim",
+                        "name": "T[K]"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 123
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.position",
+                  "name": "position",
+                  "kind": "accessor",
+                  "type": {
+                    "kind": "name",
+                    "name": "number"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 107
+                  }
+                },
+                {
+                  "id": "lib/index#MainLexer.version",
+                  "name": "version",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 97
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "beta"
+              },
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 75
+              },
+              "doc": {
+                "summary": "Splits text into tokens."
+              }
+            },
+            {
+              "id": "lib/index#Mode",
+              "name": "Mode",
+              "kind": "type",
+              "type": {
+                "kind": "union",
+                "args": [
+                  {
+                    "kind": "literal",
+                    "name": "\"fast\""
+                  },
+                  {
+                    "kind": "literal",
+                    "name": "\"safe\""
+                  }
+                ]
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 28
+              }
+            },
+            {
+              "id": "lib/index#Options",
+              "name": "Options",
+              "kind": "interface",
+              "members": [
+                {
+                  "id": "lib/index#Options.strict",
+                  "name": "strict",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "optional": true
+                  },
+                  "source": {
+                    "file": "util.d.ts",
+                    "line": 6
+                  },
+                  "doc": {
+                    "summary": "Treat errors as fatal."
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 4
+              },
+              "doc": {
+                "summary": "Options for the lexer."
+              }
+            },
+            {
+              "id": "lib/index#Pair",
+              "name": "Pair",
+              "kind": "type",
+              "type": {
+                "kind": "tuple",
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "A"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "B"
+                  }
+                ]
+              },
+              "typeParams": [
+                {
+                  "name": "A"
+                },
+                {
+                  "name": "B",
+                  "default": {
+                    "kind": "name",
+                    "name": "A"
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 27
+              }
+            },
+            {
+              "id": "lib/index#Shape",
+              "name": "Shape",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "lib/index#Shape.area",
+                  "name": "area",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "number"
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "abstract": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 137
+                  }
+                }
+              ],
+              "flags": {
+                "abstract": true
+              },
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 135
+              },
+              "doc": {
+                "summary": "A shape with an area."
+              }
+            },
+            {
+              "id": "lib/index#Token",
+              "name": "Token",
+              "kind": "interface",
+              "typeParams": [
+                {
+                  "name": "V",
+                  "default": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "doc": "the value type"
+                }
+              ],
+              "members": [
+                {
+                  "id": "lib/index#Token.[extra: string]",
+                  "name": "[extra: string]",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "unknown"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 35
+                  }
+                },
+                {
+                  "id": "lib/index#Token.kind",
+                  "name": "kind",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "TokenKind",
+                    "ref": "lib/index#TokenKind"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 31
+                  }
+                },
+                {
+                  "id": "lib/index#Token.value",
+                  "name": "value",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "V"
+                  },
+                  "flags": {
+                    "optional": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 33
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 29
+              },
+              "doc": {
+                "summary": "One token."
+              }
+            },
+            {
+              "id": "lib/index#TokenKind",
+              "name": "TokenKind",
+              "kind": "enum",
+              "members": [
+                {
+                  "id": "lib/index#TokenKind.Ident",
+                  "name": "Ident",
+                  "kind": "enumMember",
+                  "type": {
+                    "kind": "literal",
+                    "name": "1"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 11
+                  },
+                  "doc": {
+                    "summary": "A name."
+                  }
+                },
+                {
+                  "id": "lib/index#TokenKind.Number",
+                  "name": "Number",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 13
+                  }
+                },
+                {
+                  "id": "lib/index#TokenKind.Str",
+                  "name": "Str",
+                  "kind": "enumMember",
+                  "type": {
+                    "kind": "literal",
+                    "name": "\"string\""
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 15
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 7
+              },
+              "doc": {
+                "summary": "The kinds of token."
+              }
+            },
+            {
+              "id": "lib/index#VERSION",
+              "name": "VERSION",
+              "kind": "variable",
+              "type": {
+                "kind": "literal",
+                "name": "\"1.2.3\""
+              },
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 32
+              }
+            },
+            {
+              "id": "lib/index#Visitor",
+              "name": "Visitor",
+              "kind": "interface",
+              "typeParams": [
+                {
+                  "name": "T",
+                  "constraint": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  },
+                  "default": {
+                    "kind": "name",
+                    "name": "Token",
+                    "ref": "lib/index#Token"
+                  }
+                }
+              ],
+              "members": [
+                {
+                  "id": "lib/index#Visitor.()",
+                  "name": "()",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "token",
+                          "type": {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        },
+                        {
+                          "name": "index",
+                          "type": {
+                            "kind": "name",
+                            "name": "number"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "boolean"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 47
+                  },
+                  "doc": {
+                    "summary": "Called for each token."
+                  }
+                },
+                {
+                  "id": "lib/index#Visitor.constructor",
+                  "name": "constructor",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "opts",
+                          "type": {
+                            "kind": "name",
+                            "name": "Options",
+                            "ref": "lib/index#Options"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Visitor",
+                        "ref": "lib/index#Visitor",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 49
+                  }
+                },
+                {
+                  "id": "lib/index#Visitor.done",
+                  "name": "done",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "void"
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "optional": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 51
+                  }
+                },
+                {
+                  "id": "lib/index#Visitor.label",
+                  "name": "label",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 53
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 43
+              },
+              "doc": {
+                "summary": "Visits tokens."
+              }
+            },
+            {
+              "id": "lib/index#experimental",
+              "name": "experimental",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "optional": true
+                    }
+                  ],
+                  "returns": {
+                    "kind": "verbatim",
+                    "name": "asserts x is number"
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "alpha"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 36
+              }
+            },
+            {
+              "id": "lib/index#level",
+              "name": "level",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "number"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 33
+              }
+            },
+            {
+              "id": "lib/index#lexers",
+              "name": "lexers",
+              "kind": "namespace",
+              "members": [
+                {
+                  "id": "lib/index#lexers.all",
+                  "name": "all",
+                  "kind": "variable",
+                  "type": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      }
+                    ]
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 147
+                  }
+                },
+                {
+                  "id": "lib/index#lexers.deep",
+                  "name": "deep",
+                  "kind": "namespace",
+                  "members": [
+                    {
+                      "id": "lib/index#lexers.deep.Id",
+                      "name": "Id",
+                      "kind": "type",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 153
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 151
+                  }
+                },
+                {
+                  "id": "lib/index#lexers.make",
+                  "name": "make",
+                  "kind": "function",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "kind",
+                          "type": {
+                            "kind": "name",
+                            "name": "TokenKind",
+                            "ref": "lib/index#TokenKind"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 149
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 145
+              },
+              "doc": {
+                "summary": "Lexers by name."
+              }
+            },
+            {
+              "id": "lib/index#lexing",
+              "name": "lexing",
+              "kind": "namespace",
+              "members": [
+                {
+                  "id": "lib/index#lexing.Lexer",
+                  "name": "Lexer",
+                  "kind": "class",
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      },
+                      "default": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    }
+                  ],
+                  "extends": [
+                    {
+                      "kind": "name",
+                      "name": "Base"
+                    }
+                  ],
+                  "implements": [
+                    {
+                      "kind": "name",
+                      "name": "Iterable",
+                      "args": [
+                        {
+                          "kind": "name",
+                          "name": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "name",
+                      "name": "Disposable"
+                    }
+                  ],
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.Lexer.[Symbol.iterator]",
+                      "name": "[Symbol.iterator]",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "name",
+                            "name": "Iterator",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 125
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.buffer",
+                      "name": "buffer",
+                      "kind": "property",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 99
+                      },
+                      "doc": {
+                        "tags": [
+                          {
+                            "name": "protected"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.constructor",
+                      "name": "constructor",
+                      "kind": "constructor",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              },
+                              "doc": "the text"
+                            }
+                          ],
+                          "doc": {
+                            "summary": "Creates a lexer."
+                          }
+                        },
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              }
+                            },
+                            {
+                              "name": "options",
+                              "type": {
+                                "kind": "name",
+                                "name": "Options",
+                                "ref": "lib/index#Options"
+                              }
+                            }
+                          ],
+                          "doc": {
+                            "summary": "Creates a lexer with options."
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 87
+                      },
+                      "doc": {
+                        "summary": "Creates a lexer."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.count",
+                      "name": "count",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 95
+                      },
+                      "doc": {
+                        "summary": "Number of tokens read."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.create",
+                      "name": "create",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "Lexer",
+                            "ref": "lib/index#Lexer"
+                          }
+                        }
+                      ],
+                      "flags": {
+                        "static": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 127
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.debug",
+                      "name": "debug",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "boolean"
+                      },
+                      "flags": {
+                        "internal": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 105
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.done",
+                      "name": "done",
+                      "kind": "accessor",
+                      "type": {
+                        "kind": "name",
+                        "name": "boolean"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 111
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.next",
+                      "name": "next",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "T"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "undefined"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 121
+                      },
+                      "doc": {
+                        "summary": "Reads the next token.",
+                        "returns": "the token, or undefined at the end"
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.peek",
+                      "name": "peek",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "typeParams": [
+                            {
+                              "name": "K",
+                              "constraint": {
+                                "kind": "verbatim",
+                                "name": "keyof T"
+                              }
+                            }
+                          ],
+                          "params": [
+                            {
+                              "name": "key",
+                              "type": {
+                                "kind": "name",
+                                "name": "K"
+                              }
+                            },
+                            {
+                              "name": "rest",
+                              "type": {
+                                "kind": "array",
+                                "args": [
+                                  {
+                                    "kind": "name",
+                                    "name": "K"
+                                  }
+                                ]
+                              },
+                              "rest": true
+                            }
+                          ],
+                          "returns": {
+                            "kind": "verbatim",
+                            "name": "T[K]"
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 123
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.position",
+                      "name": "position",
+                      "kind": "accessor",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 107
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Lexer.version",
+                      "name": "version",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "flags": {
+                        "static": true,
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "stability": "beta"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 75
+                  },
+                  "doc": {
+                    "summary": "Splits text into tokens."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.Shape",
+                  "name": "Shape",
+                  "kind": "class",
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.Shape.area",
+                      "name": "area",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "name",
+                            "name": "number"
+                          }
+                        }
+                      ],
+                      "flags": {
+                        "abstract": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "abstract": true
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 135
+                  },
+                  "doc": {
+                    "summary": "A shape with an area."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.Token",
+                  "name": "Token",
+                  "kind": "interface",
+                  "typeParams": [
+                    {
+                      "name": "V",
+                      "default": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "the value type"
+                    }
+                  ],
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.Token.[extra: string]",
+                      "name": "[extra: string]",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "unknown"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 35
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Token.kind",
+                      "name": "kind",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "TokenKind",
+                        "ref": "lib/index#TokenKind"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 31
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Token.value",
+                      "name": "value",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "V"
+                      },
+                      "flags": {
+                        "optional": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 33
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 29
+                  },
+                  "doc": {
+                    "summary": "One token."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.TokenKind",
+                  "name": "TokenKind",
+                  "kind": "enum",
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.TokenKind.Ident",
+                      "name": "Ident",
+                      "kind": "enumMember",
+                      "type": {
+                        "kind": "literal",
+                        "name": "1"
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 11
+                      },
+                      "doc": {
+                        "summary": "A name."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.TokenKind.Number",
+                      "name": "Number",
+                      "kind": "enumMember",
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 13
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.TokenKind.Str",
+                      "name": "Str",
+                      "kind": "enumMember",
+                      "type": {
+                        "kind": "literal",
+                        "name": "\"string\""
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 15
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 7
+                  },
+                  "doc": {
+                    "summary": "The kinds of token."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.Visitor",
+                  "name": "Visitor",
+                  "kind": "interface",
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      },
+                      "default": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    }
+                  ],
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.Visitor.()",
+                      "name": "()",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "token",
+                              "type": {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            },
+                            {
+                              "name": "index",
+                              "type": {
+                                "kind": "name",
+                                "name": "number"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "boolean"
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 47
+                      },
+                      "doc": {
+                        "summary": "Called for each token."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Visitor.constructor",
+                      "name": "constructor",
+                      "kind": "constructor",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "opts",
+                              "type": {
+                                "kind": "name",
+                                "name": "Options",
+                                "ref": "lib/index#Options"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "Visitor",
+                            "ref": "lib/index#Visitor",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 49
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Visitor.done",
+                      "name": "done",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "name",
+                            "name": "void"
+                          }
+                        }
+                      ],
+                      "flags": {
+                        "optional": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 51
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.Visitor.label",
+                      "name": "label",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 53
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 43
+                  },
+                  "doc": {
+                    "summary": "Visits tokens."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.default",
+                  "name": "default",
+                  "kind": "class",
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      },
+                      "default": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    }
+                  ],
+                  "extends": [
+                    {
+                      "kind": "name",
+                      "name": "Base"
+                    }
+                  ],
+                  "implements": [
+                    {
+                      "kind": "name",
+                      "name": "Iterable",
+                      "args": [
+                        {
+                          "kind": "name",
+                          "name": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "name",
+                      "name": "Disposable"
+                    }
+                  ],
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.default.[Symbol.iterator]",
+                      "name": "[Symbol.iterator]",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "name",
+                            "name": "Iterator",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 125
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.buffer",
+                      "name": "buffer",
+                      "kind": "property",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "string"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 99
+                      },
+                      "doc": {
+                        "tags": [
+                          {
+                            "name": "protected"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.constructor",
+                      "name": "constructor",
+                      "kind": "constructor",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              },
+                              "doc": "the text"
+                            }
+                          ],
+                          "doc": {
+                            "summary": "Creates a lexer."
+                          }
+                        },
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              }
+                            },
+                            {
+                              "name": "options",
+                              "type": {
+                                "kind": "name",
+                                "name": "Options",
+                                "ref": "lib/index#Options"
+                              }
+                            }
+                          ],
+                          "doc": {
+                            "summary": "Creates a lexer with options."
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 87
+                      },
+                      "doc": {
+                        "summary": "Creates a lexer."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.count",
+                      "name": "count",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 95
+                      },
+                      "doc": {
+                        "summary": "Number of tokens read."
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.create",
+                      "name": "create",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "source",
+                              "type": {
+                                "kind": "name",
+                                "name": "string"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "Lexer",
+                            "ref": "lib/index#Lexer"
+                          }
+                        }
+                      ],
+                      "flags": {
+                        "static": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 127
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.debug",
+                      "name": "debug",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "boolean"
+                      },
+                      "flags": {
+                        "internal": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 105
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.done",
+                      "name": "done",
+                      "kind": "accessor",
+                      "type": {
+                        "kind": "name",
+                        "name": "boolean"
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 111
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.next",
+                      "name": "next",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "returns": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "T"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "undefined"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 121
+                      },
+                      "doc": {
+                        "summary": "Reads the next token.",
+                        "returns": "the token, or undefined at the end"
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.peek",
+                      "name": "peek",
+                      "kind": "method",
+                      "signatures": [
+                        {
+                          "typeParams": [
+                            {
+                              "name": "K",
+                              "constraint": {
+                                "kind": "verbatim",
+                                "name": "keyof T"
+                              }
+                            }
+                          ],
+                          "params": [
+                            {
+                              "name": "key",
+                              "type": {
+                                "kind": "name",
+                                "name": "K"
+                              }
+                            },
+                            {
+                              "name": "rest",
+                              "type": {
+                                "kind": "array",
+                                "args": [
+                                  {
+                                    "kind": "name",
+                                    "name": "K"
+                                  }
+                                ]
+                              },
+                              "rest": true
+                            }
+                          ],
+                          "returns": {
+                            "kind": "verbatim",
+                            "name": "T[K]"
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 123
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.position",
+                      "name": "position",
+                      "kind": "accessor",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 107
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.default.version",
+                      "name": "version",
+                      "kind": "property",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "flags": {
+                        "static": true,
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "flags": {
+                    "stability": "beta"
+                  },
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 75
+                  },
+                  "doc": {
+                    "summary": "Splits text into tokens."
+                  }
+                },
+                {
+                  "id": "lib/index#lexing.lexers",
+                  "name": "lexers",
+                  "kind": "namespace",
+                  "members": [
+                    {
+                      "id": "lib/index#lexing.lexers.all",
+                      "name": "all",
+                      "kind": "variable",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Lexer",
+                            "ref": "lib/index#Lexer"
+                          }
+                        ]
+                      },
+                      "flags": {
+                        "readonly": true
+                      },
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 147
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.lexers.deep",
+                      "name": "deep",
+                      "kind": "namespace",
+                      "members": [
+                        {
+                          "id": "lib/index#lexing.lexers.deep.Id",
+                          "name": "Id",
+                          "kind": "type",
+                          "type": {
+                            "kind": "name",
+                            "name": "string"
+                          },
+                          "source": {
+                            "file": "src/lexer.ts",
+                            "line": 153
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 151
+                      }
+                    },
+                    {
+                      "id": "lib/index#lexing.lexers.make",
+                      "name": "make",
+                      "kind": "function",
+                      "signatures": [
+                        {
+                          "params": [
+                            {
+                              "name": "kind",
+                              "type": {
+                                "kind": "name",
+                                "name": "TokenKind",
+                                "ref": "lib/index#TokenKind"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "Lexer",
+                            "ref": "lib/index#Lexer"
+                          }
+                        }
+                      ],
+                      "source": {
+                        "file": "src/lexer.ts",
+                        "line": 149
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "src/lexer.ts",
+                    "line": 145
+                  },
+                  "doc": {
+                    "summary": "Lexers by name."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/lexer.ts",
+                "line": 1
+              }
+            },
+            {
+              "id": "lib/index#map",
+              "name": "map",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "doc": "the input"
+                    },
+                    {
+                      "name": "U",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "object"
+                      },
+                      "default": {
+                        "kind": "object"
+                      }
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "items",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "fn",
+                      "type": {
+                        "kind": "function",
+                        "signature": {
+                          "params": [
+                            {
+                              "name": "item",
+                              "type": {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "U"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "U"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 25
+              },
+              "doc": {
+                "summary": "Maps values."
+              }
+            },
+            {
+              "id": "lib/index#parse",
+              "name": "parse",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "src",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "the text"
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "Lexer",
+                    "ref": "lib/index#Lexer"
+                  }
+                }
+              ],
+              "flags": {
+                "default": true
+              },
+              "source": {
+                "file": "index.d.ts",
+                "line": 17
+              },
+              "doc": {
+                "summary": "Parses text with the default lexer."
+              }
+            },
+            {
+              "id": "lib/index#tokenize",
+              "name": "tokenize",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "the source"
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    ]
+                  },
+                  "doc": {
+                    "summary": "Tokenizes text.",
+                    "returns": "the tokens"
+                  }
+                },
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    },
+                    {
+                      "name": "lexer",
+                      "type": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      },
+                      "doc": "the lexer to use"
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    ]
+                  },
+                  "doc": {
+                    "summary": "Tokenizes with a lexer."
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 14
+              },
+              "doc": {
+                "summary": "Tokenizes text.",
+                "returns": "the tokens"
+              }
+            },
+            {
+              "id": "lib/index#verbose",
+              "name": "verbose",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "boolean"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 33
+              }
+            }
+          ]
+        },
+        {
+          "id": "lib/plugins",
+          "path": "plugins",
+          "symbols": [
+            {
+              "id": "lib/plugins#Plugin",
+              "name": "Plugin",
+              "kind": "interface",
+              "members": [
+                {
+                  "id": "lib/plugins#Plugin.apply",
+                  "name": "apply",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "lexer",
+                          "type": {
+                            "kind": "name",
+                            "name": "Lexer",
+                            "ref": "lib/index#Lexer"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "void"
+                      }
+                    }
+                  ],
+                  "source": {
+                    "file": "index.d.ts",
+                    "line": 25
+                  }
+                },
+                {
+                  "id": "lib/plugins#Plugin.name",
+                  "name": "name",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "string"
+                  },
+                  "source": {
+                    "file": "index.d.ts",
+                    "line": 24
+                  }
+                }
+              ],
+              "source": {
+                "file": "index.d.ts",
+                "line": 23
+              },
+              "doc": {
+                "summary": "A plugin."
+              }
+            }
+          ]
+        },
+        {
+          "id": "lib/util",
+          "path": "util",
+          "symbols": [
+            {
+              "id": "lib/util#Mode",
+              "name": "Mode",
+              "kind": "type",
+              "type": {
+                "kind": "union",
+                "args": [
+                  {
+                    "kind": "literal",
+                    "name": "\"fast\""
+                  },
+                  {
+                    "kind": "literal",
+                    "name": "\"safe\""
+                  }
+                ]
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 28
+              }
+            },
+            {
+              "id": "lib/util#Options",
+              "name": "Options",
+              "kind": "interface",
+              "members": [
+                {
+                  "id": "lib/util#Options.strict",
+                  "name": "strict",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "boolean"
+                  },
+                  "flags": {
+                    "optional": true
+                  },
+                  "source": {
+                    "file": "util.d.ts",
+                    "line": 6
+                  },
+                  "doc": {
+                    "summary": "Treat errors as fatal."
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 4
+              },
+              "doc": {
+                "summary": "Options for the lexer."
+              }
+            },
+            {
+              "id": "lib/util#Pair",
+              "name": "Pair",
+              "kind": "type",
+              "type": {
+                "kind": "tuple",
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "A"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "B"
+                  }
+                ]
+              },
+              "typeParams": [
+                {
+                  "name": "A"
+                },
+                {
+                  "name": "B",
+                  "default": {
+                    "kind": "name",
+                    "name": "A"
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 27
+              }
+            },
+            {
+              "id": "lib/util#VERSION",
+              "name": "VERSION",
+              "kind": "variable",
+              "type": {
+                "kind": "literal",
+                "name": "\"1.2.3\""
+              },
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 32
+              }
+            },
+            {
+              "id": "lib/util#experimental",
+              "name": "experimental",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "kind": "name",
+                        "name": "number"
+                      },
+                      "optional": true
+                    }
+                  ],
+                  "returns": {
+                    "kind": "verbatim",
+                    "name": "asserts x is number"
+                  }
+                }
+              ],
+              "flags": {
+                "stability": "alpha"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 36
+              }
+            },
+            {
+              "id": "lib/util#level",
+              "name": "level",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "number"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 33
+              }
+            },
+            {
+              "id": "lib/util#map",
+              "name": "map",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T",
+                      "doc": "the input"
+                    },
+                    {
+                      "name": "U",
+                      "constraint": {
+                        "kind": "name",
+                        "name": "object"
+                      },
+                      "default": {
+                        "kind": "object"
+                      }
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "items",
+                      "type": {
+                        "kind": "array",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "fn",
+                      "type": {
+                        "kind": "function",
+                        "signature": {
+                          "params": [
+                            {
+                              "name": "item",
+                              "type": {
+                                "kind": "name",
+                                "name": "T"
+                              }
+                            }
+                          ],
+                          "returns": {
+                            "kind": "name",
+                            "name": "U"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "U"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 25
+              },
+              "doc": {
+                "summary": "Maps values."
+              }
+            },
+            {
+              "id": "lib/util#tokenize",
+              "name": "tokenize",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      },
+                      "doc": "the source"
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    ]
+                  },
+                  "doc": {
+                    "summary": "Tokenizes text.",
+                    "returns": "the tokens"
+                  }
+                },
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "string"
+                      }
+                    },
+                    {
+                      "name": "lexer",
+                      "type": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "lib/index#Lexer"
+                      },
+                      "doc": "the lexer to use"
+                    }
+                  ],
+                  "returns": {
+                    "kind": "array",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "lib/index#Token"
+                      }
+                    ]
+                  },
+                  "doc": {
+                    "summary": "Tokenizes with a lexer."
+                  }
+                }
+              ],
+              "source": {
+                "file": "util.d.ts",
+                "line": 14
+              },
+              "doc": {
+                "summary": "Tokenizes text.",
+                "returns": "the tokens"
+              }
+            },
+            {
+              "id": "lib/util#verbose",
+              "name": "verbose",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "boolean"
+              },
+              "source": {
+                "file": "util.d.ts",
+                "line": 33
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

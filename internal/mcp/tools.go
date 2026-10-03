@@ -34,6 +34,7 @@ func (s *Server) buildTools() []tool {
 	// the site contains is a precondition of editing any of it (GO-095).
 	if s.opts.OutputDir != "" {
 		tools = append(tools, s.siteTools()...)
+		tools = append(tools, s.apiTools()...)
 	}
 	// Dependencies come from the build's cache rather than its output, so the
 	// tool is present whenever the server knows where the project is — a site

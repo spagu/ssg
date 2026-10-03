@@ -1,0 +1,1225 @@
+{
+  "schema": 1,
+  "packages": [
+    {
+      "name": "textkit",
+      "version": "1.0.0",
+      "language": "python",
+      "readme": "# textkit\n\nA small text processing toolkit, used as a fixture.\n",
+      "modules": [
+        {
+          "id": "textkit/textkit",
+          "path": "textkit",
+          "doc": {
+            "summary": "Text processing toolkit.",
+            "body": "Import what you need from here: {@link Lexer} reads text."
+          },
+          "symbols": []
+        },
+        {
+          "id": "textkit/textkit/formats",
+          "path": "textkit/formats",
+          "doc": {
+            "summary": "Output formats.",
+            "body": "Formats decide how tokens are rendered."
+          },
+          "symbols": [
+            {
+              "id": "textkit/textkit/formats#Base",
+              "name": "Base",
+              "kind": "class",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "ABC"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit/formats#Base.run",
+                  "name": "run",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "None"
+                      },
+                      "code": "def run(self) -> None"
+                    }
+                  ],
+                  "flags": {
+                    "abstract": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 46
+                  },
+                  "doc": {
+                    "summary": "Runs."
+                  }
+                }
+              ],
+              "flags": {
+                "abstract": true
+              },
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 42
+              },
+              "doc": {
+                "summary": "An abstract base."
+              },
+              "code": "class Base(ABC)"
+            },
+            {
+              "id": "textkit/textkit/formats#Options",
+              "name": "Options",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/textkit/formats#Options.__init__",
+                  "name": "__init__",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "width",
+                          "type": {
+                            "kind": "name",
+                            "name": "int"
+                          },
+                          "optional": true,
+                          "default": "80",
+                          "doc": "Line width."
+                        },
+                        {
+                          "name": "style",
+                          "type": {
+                            "kind": "name",
+                            "name": "Style",
+                            "ref": "textkit/textkit/formats#Style"
+                          },
+                          "optional": true,
+                          "default": "Style.PLAIN",
+                          "doc": "The style."
+                        },
+                        {
+                          "name": "tags",
+                          "type": {
+                            "kind": "name",
+                            "name": "list",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "str"
+                              }
+                            ]
+                          },
+                          "optional": true,
+                          "default": "field(default_factory=list)"
+                        }
+                      ],
+                      "code": "def __init__(self, width: int = 80, style: Style = Style.PLAIN, tags: list[str] = field(default_factory=list)) -> None"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 51
+                  }
+                },
+                {
+                  "id": "textkit/textkit/formats#Options.cache",
+                  "name": "cache",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "dict"
+                  },
+                  "flags": {
+                    "static": true,
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 65
+                  },
+                  "code": "cache: ClassVar[dict] = {}"
+                },
+                {
+                  "id": "textkit/textkit/formats#Options.secret",
+                  "name": "secret",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 66
+                  },
+                  "code": "secret: int = field(init=False, default=0)"
+                },
+                {
+                  "id": "textkit/textkit/formats#Options.style",
+                  "name": "style",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "Style",
+                    "ref": "textkit/textkit/formats#Style"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 63
+                  },
+                  "doc": {
+                    "summary": "The style."
+                  },
+                  "code": "style: Style = Style.PLAIN"
+                },
+                {
+                  "id": "textkit/textkit/formats#Options.tags",
+                  "name": "tags",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "list",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "str"
+                      }
+                    ]
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 64
+                  },
+                  "code": "tags: list[str] = field(default_factory=list)"
+                },
+                {
+                  "id": "textkit/textkit/formats#Options.width",
+                  "name": "width",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 62
+                  },
+                  "doc": {
+                    "summary": "Line width."
+                  },
+                  "code": "width: int = 80"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 51
+              },
+              "doc": {
+                "summary": "Rendering options."
+              },
+              "code": "class Options"
+            },
+            {
+              "id": "textkit/textkit/formats#Renderer",
+              "name": "Renderer",
+              "kind": "interface",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Protocol"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit/formats#Renderer.render",
+                  "name": "render",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "text",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "doc": "The text to render."
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "str"
+                      },
+                      "code": "def render(self, text: str) -> str"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 26
+                  },
+                  "doc": {
+                    "summary": "Renders text.",
+                    "returns": "The rendered text."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 23
+              },
+              "doc": {
+                "summary": "Something that renders tokens."
+              },
+              "code": "class Renderer(Protocol)"
+            },
+            {
+              "id": "textkit/textkit/formats#Style",
+              "name": "Style",
+              "kind": "enum",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Enum"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit/formats#Style.ANSI",
+                  "name": "ANSI",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 17
+                  },
+                  "code": "ANSI = auto()"
+                },
+                {
+                  "id": "textkit/textkit/formats#Style.HTML",
+                  "name": "HTML",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 16
+                  },
+                  "code": "HTML = \"html\""
+                },
+                {
+                  "id": "textkit/textkit/formats#Style.PLAIN",
+                  "name": "PLAIN",
+                  "kind": "enumMember",
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 14
+                  },
+                  "doc": {
+                    "summary": "No markup."
+                  },
+                  "code": "PLAIN = 1"
+                },
+                {
+                  "id": "textkit/textkit/formats#Style.describe",
+                  "name": "describe",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "str"
+                      },
+                      "code": "def describe(self) -> str"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/formats.py",
+                    "line": 19
+                  },
+                  "doc": {
+                    "summary": "Describes the style."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 11
+              },
+              "doc": {
+                "summary": "Rendering styles."
+              },
+              "code": "class Style(Enum)"
+            },
+            {
+              "id": "textkit/textkit/formats#parse",
+              "name": "parse",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "kind": "name",
+                        "name": "int"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "code": "def parse(x: int) -> int"
+                },
+                {
+                  "params": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "kind": "name",
+                        "name": "str"
+                      }
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "code": "def parse(x: str) -> str"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 109
+              },
+              "doc": {
+                "summary": "Parses x."
+              }
+            },
+            {
+              "id": "textkit/textkit/formats#render",
+              "name": "render",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "str"
+                      },
+                      "doc": "The text."
+                    },
+                    {
+                      "name": "options",
+                      "type": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "Options",
+                            "ref": "textkit/textkit/formats#Options"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "None"
+                          }
+                        ]
+                      },
+                      "optional": true,
+                      "default": "None",
+                      "doc": "How to render."
+                    },
+                    {
+                      "name": "extra",
+                      "type": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "int"
+                          }
+                        ]
+                      },
+                      "rest": true,
+                      "doc": "Extra parts."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "code": "def render(text, options: Optional[Options] = None, *extra: Union[str, int])"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/formats.py",
+                "line": 69
+              },
+              "doc": {
+                "summary": "Renders text with options.",
+                "returns": "The rendered text.",
+                "throws": [
+                  "ValueError: If the options are invalid."
+                ],
+                "examples": [
+                  "```python\n>>> render(\"a\")\n'a'\n```"
+                ],
+                "deprecated": "Since 1.2. Use {@link render_all} instead.",
+                "see": [
+                  "{@link tokenize}: Splits text."
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "textkit/textkit/lexer",
+          "path": "textkit/lexer",
+          "doc": {
+            "summary": "Lexical analysis for textkit.",
+            "body": "The lexer turns text into {@link Token} values."
+          },
+          "symbols": [
+            {
+              "id": "textkit/textkit/lexer#FAKE",
+              "name": "FAKE",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 15
+              },
+              "code": "FAKE = \"def fake(): pass\""
+            },
+            {
+              "id": "textkit/textkit/lexer#Lexer",
+              "name": "Lexer",
+              "kind": "class",
+              "extends": [
+                {
+                  "kind": "name",
+                  "name": "Iterable",
+                  "args": [
+                    {
+                      "kind": "name",
+                      "name": "Token",
+                      "ref": "textkit/textkit/lexer#Token"
+                    }
+                  ]
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit/lexer#Lexer.__init__",
+                  "name": "__init__",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "text",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "doc": "The source text."
+                        },
+                        {
+                          "name": "style",
+                          "type": {
+                            "kind": "union",
+                            "args": [
+                              {
+                                "kind": "name",
+                                "name": "Style",
+                                "ref": "textkit/textkit/formats#Style"
+                              },
+                              {
+                                "kind": "name",
+                                "name": "None"
+                              }
+                            ]
+                          },
+                          "optional": true,
+                          "default": "None",
+                          "doc": "How to render tokens."
+                        },
+                        {
+                          "name": "strict",
+                          "type": {
+                            "kind": "name",
+                            "name": "bool"
+                          },
+                          "optional": true,
+                          "default": "False"
+                        }
+                      ],
+                      "code": "def __init__(self, text: str, style: Style | None = None, *, strict: bool = False) -> None"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 54
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.fetch",
+                  "name": "fetch",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "url",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          }
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "bytes"
+                      },
+                      "code": "async def fetch(self, url: str) -> bytes"
+                    }
+                  ],
+                  "flags": {
+                    "async": true
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 92
+                  },
+                  "doc": {
+                    "summary": "Fetches remote text."
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.from_file",
+                  "name": "from_file",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "path",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          }
+                        },
+                        {
+                          "name": "args",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "rest": true
+                        },
+                        {
+                          "name": "kwargs",
+                          "type": {
+                            "kind": "name",
+                            "name": "int"
+                          },
+                          "rest": true
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "Lexer",
+                        "ref": "textkit/textkit/lexer#Lexer"
+                      },
+                      "code": "def from_file(cls, path: str, *args: str, **kwargs: int) -> \"Lexer\""
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 89
+                  },
+                  "doc": {
+                    "summary": "Reads a lexer from a file.",
+                    "tags": [
+                      {
+                        "name": "classmethod"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.next",
+                  "name": "next",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "textkit/textkit/lexer#Token"
+                      },
+                      "code": "def next(self) -> Token"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 72
+                  },
+                  "doc": {
+                    "summary": "Returns the next token.",
+                    "returns": "The token at the current\nposition.",
+                    "throws": [
+                      "StopIteration: At the end of the input."
+                    ]
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.position",
+                  "name": "position",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 59
+                  },
+                  "doc": {
+                    "summary": "The current offset."
+                  },
+                  "code": "position: int"
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.split",
+                  "name": "split",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "text",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          }
+                        },
+                        {
+                          "name": "sep",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "optional": true,
+                          "default": "\" \""
+                        }
+                      ],
+                      "returns": {
+                        "kind": "name",
+                        "name": "list",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "str"
+                          }
+                        ]
+                      },
+                      "code": "def split(text: str, /, sep: str = \" \") -> list[str]"
+                    }
+                  ],
+                  "flags": {
+                    "static": true
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 84
+                  },
+                  "doc": {
+                    "summary": "Splits text on a separator."
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Lexer.text",
+                  "name": "text",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "flags": {
+                    "readonly": true
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 68
+                  },
+                  "doc": {
+                    "summary": "The source text, read-only."
+                  },
+                  "code": "text: str"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 41
+              },
+              "doc": {
+                "summary": "Splits text into tokens.",
+                "examples": [
+                  "```python\n>>> lx = Lexer(\"a b\")\n>>> [t.text for t in lx]\n['a', 'b']\n```"
+                ]
+              },
+              "code": "class Lexer(Iterable[Token])"
+            },
+            {
+              "id": "textkit/textkit/lexer#MAX_DEPTH",
+              "name": "MAX_DEPTH",
+              "kind": "variable",
+              "type": {
+                "kind": "name",
+                "name": "int"
+              },
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 12
+              },
+              "doc": {
+                "summary": "How deep nested groups may go."
+              },
+              "code": "MAX_DEPTH: int = 32"
+            },
+            {
+              "id": "textkit/textkit/lexer#TEMPLATE",
+              "name": "TEMPLATE",
+              "kind": "variable",
+              "flags": {
+                "readonly": true
+              },
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 19
+              },
+              "code": "TEMPLATE = \"\"\"\nclass X:\n    def method(self): ...\n\"\"\""
+            },
+            {
+              "id": "textkit/textkit/lexer#Token",
+              "name": "Token",
+              "kind": "class",
+              "members": [
+                {
+                  "id": "textkit/textkit/lexer#Token.__init__",
+                  "name": "__init__",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "kind",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "doc": "The token kind."
+                        },
+                        {
+                          "name": "text",
+                          "type": {
+                            "kind": "name",
+                            "name": "str"
+                          },
+                          "optional": true,
+                          "default": "\"\"",
+                          "doc": "The token text."
+                        }
+                      ],
+                      "code": "def __init__(self, kind: str, text: str = \"\") -> None"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 36
+                  }
+                },
+                {
+                  "id": "textkit/textkit/lexer#Token.kind",
+                  "name": "kind",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 33
+                  },
+                  "doc": {
+                    "summary": "The token kind."
+                  },
+                  "code": "kind: str"
+                },
+                {
+                  "id": "textkit/textkit/lexer#Token.text",
+                  "name": "text",
+                  "kind": "property",
+                  "type": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "source": {
+                    "file": "src/textkit/lexer.py",
+                    "line": 34
+                  },
+                  "doc": {
+                    "summary": "The token text."
+                  },
+                  "code": "text: str = \"\""
+                }
+              ],
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 25
+              },
+              "doc": {
+                "summary": "One token of the input."
+              },
+              "code": "class Token"
+            },
+            {
+              "id": "textkit/textkit/lexer#tokenize",
+              "name": "tokenize",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "text",
+                      "type": {
+                        "kind": "name",
+                        "name": "str"
+                      },
+                      "doc": "The text to split."
+                    },
+                    {
+                      "name": "keep_space",
+                      "type": {
+                        "kind": "name",
+                        "name": "bool"
+                      },
+                      "optional": true,
+                      "default": "False",
+                      "doc": "Keep whitespace\ntokens."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "list",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "Token",
+                        "ref": "textkit/textkit/lexer#Token"
+                      }
+                    ]
+                  },
+                  "code": "def tokenize(text: str, *, keep_space: bool = False) -> list[Token]"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/lexer.py",
+                "line": 101
+              },
+              "doc": {
+                "summary": "Tokenizes text.",
+                "returns": "The tokens, in order.",
+                "throws": [
+                  "ValueError: If text is not a string."
+                ],
+                "examples": [
+                  "```python\n>>> tokenize(\"a b\")\n[Token('word', 'a'), Token('word', 'b')]\n```"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "textkit/textkit/util",
+          "path": "textkit/util",
+          "doc": {
+            "summary": "Utilities.",
+            "body": "See {@link textkit} and {@link Lexer} for more."
+          },
+          "symbols": [
+            {
+              "id": "textkit/textkit/util#Box",
+              "name": "Box",
+              "kind": "class",
+              "typeParams": [
+                {
+                  "name": "T"
+                }
+              ],
+              "members": [
+                {
+                  "id": "textkit/textkit/util#Box.__init__",
+                  "name": "__init__",
+                  "kind": "constructor",
+                  "signatures": [
+                    {
+                      "params": [
+                        {
+                          "name": "value",
+                          "type": {
+                            "kind": "name",
+                            "name": "T"
+                          },
+                          "doc": "The value."
+                        }
+                      ],
+                      "code": "def __init__(self, value: T)"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/util.py",
+                    "line": 50
+                  },
+                  "doc": {
+                    "summary": "Makes a box."
+                  }
+                },
+                {
+                  "id": "textkit/textkit/util#Box.get",
+                  "name": "get",
+                  "kind": "method",
+                  "signatures": [
+                    {
+                      "returns": {
+                        "kind": "name",
+                        "name": "T"
+                      },
+                      "code": "def get(self) -> T"
+                    }
+                  ],
+                  "source": {
+                    "file": "src/textkit/util.py",
+                    "line": 56
+                  },
+                  "doc": {
+                    "summary": "Returns the value. See {@link Box.get}."
+                  }
+                }
+              ],
+              "source": {
+                "file": "src/textkit/util.py",
+                "line": 44
+              },
+              "doc": {
+                "summary": "A box holding one value of type `T`.",
+                "since": "1.1"
+              },
+              "code": "class Box[T]"
+            },
+            {
+              "id": "textkit/textkit/util#Number",
+              "name": "Number",
+              "kind": "type",
+              "type": {
+                "kind": "union",
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "int"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "float"
+                  }
+                ]
+              },
+              "source": {
+                "file": "src/textkit/util.py",
+                "line": 13
+              },
+              "code": "Number: TypeAlias = int | float"
+            },
+            {
+              "id": "textkit/textkit/util#Pair",
+              "name": "Pair",
+              "kind": "type",
+              "type": {
+                "kind": "name",
+                "name": "tuple",
+                "args": [
+                  {
+                    "kind": "name",
+                    "name": "T"
+                  },
+                  {
+                    "kind": "name",
+                    "name": "T"
+                  }
+                ]
+              },
+              "typeParams": [
+                {
+                  "name": "T"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/util.py",
+                "line": 15
+              },
+              "code": "type Pair[T] = tuple[T, T]"
+            },
+            {
+              "id": "textkit/textkit/util#first",
+              "name": "first",
+              "kind": "function",
+              "signatures": [
+                {
+                  "typeParams": [
+                    {
+                      "name": "T"
+                    }
+                  ],
+                  "params": [
+                    {
+                      "name": "items",
+                      "type": {
+                        "kind": "name",
+                        "name": "list",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          }
+                        ]
+                      },
+                      "doc": "The items."
+                    },
+                    {
+                      "name": "default",
+                      "type": {
+                        "kind": "union",
+                        "args": [
+                          {
+                            "kind": "name",
+                            "name": "T"
+                          },
+                          {
+                            "kind": "name",
+                            "name": "None"
+                          }
+                        ]
+                      },
+                      "optional": true,
+                      "default": "None",
+                      "doc": "What to return for no items."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "union",
+                    "args": [
+                      {
+                        "kind": "name",
+                        "name": "T"
+                      },
+                      {
+                        "kind": "name",
+                        "name": "None"
+                      }
+                    ]
+                  },
+                  "code": "def first[T](items: list[T], default: T | None = None) -> T | None"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/util.py",
+                "line": 18
+              },
+              "doc": {
+                "summary": "Returns the first item.",
+                "body": "Example:\n\n```python\nfirst([1, 2])\n```",
+                "returns": "The first item or the default.",
+                "throws": [
+                  "IndexError: Never."
+                ]
+              }
+            },
+            {
+              "id": "textkit/textkit/util#old_join",
+              "name": "old_join",
+              "kind": "function",
+              "signatures": [
+                {
+                  "params": [
+                    {
+                      "name": "parts",
+                      "type": {
+                        "kind": "name",
+                        "name": "list"
+                      },
+                      "doc": "The parts."
+                    },
+                    {
+                      "name": "sep",
+                      "type": {
+                        "kind": "name",
+                        "name": "str"
+                      },
+                      "optional": true,
+                      "default": "\",\"",
+                      "doc": "The separator."
+                    }
+                  ],
+                  "returns": {
+                    "kind": "name",
+                    "name": "str"
+                  },
+                  "code": "def old_join(parts, sep=\",\")"
+                }
+              ],
+              "source": {
+                "file": "src/textkit/util.py",
+                "line": 35
+              },
+              "doc": {
+                "summary": "Joins parts.",
+                "deprecated": "Use str.join instead."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

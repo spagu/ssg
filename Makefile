@@ -167,7 +167,7 @@ lint: ## 🔍 Run linter
 
 security: ## 🔒 Run SAST + vulnerability scan (gosec + govulncheck)
 	@echo "${BLUE}🔒 Running gosec...${RESET}"
-	@if command -v gosec >/dev/null 2>&1; then gosec -quiet ./...; else echo "${YELLOW}⚠️  gosec not installed (go install github.com/securego/gosec/v2/cmd/gosec@latest)${RESET}"; fi
+	@if command -v gosec >/dev/null 2>&1; then gosec -quiet -exclude-dir=testdata ./...; else echo "${YELLOW}⚠️  gosec not installed (go install github.com/securego/gosec/v2/cmd/gosec@latest)${RESET}"; fi
 	@echo "${BLUE}🔒 Running govulncheck...${RESET}"
 	@if command -v govulncheck >/dev/null 2>&1; then govulncheck ./...; else echo "${YELLOW}⚠️  govulncheck not installed (go install golang.org/x/vuln/cmd/govulncheck@latest)${RESET}"; fi
 	@echo "${GREEN}✅ Security scan complete${RESET}"

@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.69] - 2026-10-03
+
+API documentation from code and from OpenAPI. A site can now publish the
+reference for a JavaScript or TypeScript package, and for a REST API with a
+"Try it" console, next to its guides: same theme, same search, same link
+checking, and cross-links in both directions. There is also a new
+documentation theme, `apidoc`.
+
+### Added
+- 📚 **`api_docs:` — reference pages from code** (GO-103..GO-112, GO-114).
+  ssg reads a package's entry points (`exports`, `module`, `main`), follows its
+  re-exports, and documents what it exports from their doc comments. JavaScript
+  is read in pure Go (no Node). Packages that ship TypeScript declarations are
+  read from their `.d.ts` files. The result:
+  - a package page with its README;
+  - a page per module, with an anchor for each function, type, enum and variable;
+  - a page per class and interface;
+  - source links pinned to the commit (`source_url`, `source_ref: auto`);
+  - pages that work in every theme through `page.html`, with richer
+    `api-index`, `api-module` and `api-symbol` layouts in ssgtheme (package
+    tree and breadcrumbs).
+- 🔗 **Doc comments understood**: summary and body in Markdown, `@param` and
+  `@returns` with TypeScript-syntax types, `@typedef`/`@property`,
+  `@callback`, `@template`, `@example`, `@deprecated`, `@see`, `@since`,
+  `@internal`/`@beta`/`@alpha`/`@experimental`, and `{@link}`/`{@linkcode}`.
+  A link is resolved in the comment's own module first, then by a unique name
+  across the whole API; an ambiguous name is not guessed.
+- 🧬 **`api.json`**: the whole model as data, with stable IDs, types as trees
+  that point at documented symbols, a fixed order (two builds give identical
+  bytes) and a versioned JSON Schema (`docs/api-model.schema.json`).
+- ✅ **`check_api: warn|strict`** reports:
+  - exports without a description;
+  - undescribed parameters;
+  - `@deprecated` without a replacement;
+  - examples that are not code;
+  - dead `{@link}`s;
+  - code the reader could not parse.
+- 🤖 **For agents**: MCP tools `api_search`, `api_symbol` and `api_module`, and
+  WebMCP `findSymbol`/`getSymbol` in the browser. API pages are also in
+  `search-index.json`, `llms.txt` and `markdown_publish`.
+- `{{ apiHref }}` and `{{ apiType }}` template functions for themes of your own;
+  `examples/api-docs`, also a golden corpus.
+- 🐹 **Go, PHP and Python** (GO-119..GO-121): `api_docs` reads them too,
+  with nothing to install. Go uses the standard library's parser and doc
+  reader: packages, types with methods, enums from typed constants, generics,
+  `[Name]` links, and `Example` functions. PHP and Python have built-in
+  declaration scanners:
+  - PHP: namespaces, classes, traits, enums, PHPDoc, `use` resolution;
+  - Python: `__all__`, decorators, dataclasses, enums, and Google, NumPy and
+    reST docstrings.
+  The language comes from `language:` or from `go.mod`, `composer.json` or
+  `pyproject.toml`. Declarations are shown in the language's own syntax
+  (`func Parse(src string) error`, `def tokenize(text: str) -> list[Token]`).
+  A link resolves within its own package first when several packages share a
+  name, and a Go enum constant resolves by its own name. The include/exclude
+  glob filter is now shared by every reader.
+- ▶️ **Live examples** (GO-116): with `playground:` set to the package as an
+  ES module, every JavaScript `@example` gets an editor with Run and Reset.
+  The code runs in a sandboxed frame with its own origin, so it cannot read
+  the page, its cookies or its storage. `import` from the package works, as do
+  its exports as plain names, and console output and errors show below it.
+- 🌐 **REST API docs from OpenAPI** (GO-117): `api_docs: - openapi:
+  openapi.yaml` (3.0 or 3.1, YAML or JSON) gives:
+  - a front page with servers, authentication and every endpoint by tag;
+  - a page per tag with its operations: parameters, request body, responses
+    and examples, either from the file or built from the schema;
+  - a page of schemas.
+  Local `$ref`s are followed and recursive schemas are linked, not expanded.
+  `check_api` reports broken refs, undeclared path parameters, operations with
+  no responses, unknown security schemes and duplicate `operationId`s.
+- 🧪 **Try it** (GO-118): a console under every operation. Pick the server,
+  fill in the parameters and body, and enter an API key, bearer token or
+  Basic credentials; it shows the status, time, headers, body and the request
+  as `curl`. Credentials stay in the page's memory: they are never stored and
+  never shown in the `curl` command. `try_it: false` turns it off.
+- 📘 **`apidoc` theme** (GO-115), built into the binary: guides and references
+  in one sidebar with the current package's tree, search over
+  `search-index.json` (`/`), an "On this page" column, breadcrumbs, and light
+  and dark schemes. Google palette, Public Sans and JetBrains Mono, WCAG 2.2
+  AA, with measured ratios in its README. Branding comes from settings every
+  theme reads:
+  - the logo, favicon and social profiles, with their marks, from `marketing:`;
+  - brand colours from `colors:`;
+  - your own header links (`variables.nav`, optionally with an icon);
+  - a repository icon (`repository_url`).
+  The footer says "Built with SSG" with a link, and `ssg_credit: false`
+  removes it. `examples/api-docs` now uses the theme and documents a library
+  and its REST service side by side.
+
+See [docs/API_DOCS.md](docs/API_DOCS.md) and
+[docs/REST_API_DOCS.md](docs/REST_API_DOCS.md).
+
 ## [1.8.68] - 2026-10-02
 
 ### Fixed

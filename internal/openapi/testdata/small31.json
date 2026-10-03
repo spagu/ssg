@@ -1,0 +1,31 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Small", "version": "0.1.0", "summary": "A 3.1 sample"},
+  "paths": {
+    "/items/{id}": {
+      "get": {
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": ["string", "null"], "examples": ["abc"]}}
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}}
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {"type": ["string", "null"], "nullable": true},
+          "labels": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

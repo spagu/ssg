@@ -272,6 +272,7 @@ func (g *Generator) recordContentInputs() {
 	if exe, err := os.Executable(); err == nil {
 		g.recordInput(exe, depgraph.KindConfig)
 	}
+	g.recordCodeInputs()
 
 	// A build whose content did not come from files cannot be compared against
 	// files next time.

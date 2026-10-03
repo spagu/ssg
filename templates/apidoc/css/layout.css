@@ -1,0 +1,70 @@
+/* apidoc — page frame: header, the three columns, footer. Mobile first: one
+   column, the sidebar a drawer behind the menu button; the table of contents
+   appears from 75rem. */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: calc(var(--ad-header-h) + 1rem); }
+body { margin: 0; font: 400 1rem/1.65 var(--ad-font); color: var(--ad-text); background: var(--ad-bg); }
+a { color: var(--ad-link); text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--ad-focus); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: 1rem; top: -4rem; z-index: 30; padding: .5rem 1rem; background: var(--ad-accent); color: var(--ad-on-accent); border-radius: var(--ad-radius); }
+.skip-link:focus { top: .5rem; }
+
+.ad-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: .75rem; height: var(--ad-header-h); padding: 0 1rem; background: var(--ad-bg); border-bottom: 1px solid var(--ad-border); }
+.ad-brand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; color: var(--ad-text); text-decoration: none; white-space: nowrap; }
+.ad-brand__logo { display: block; height: 28px; width: auto; }
+.ad-menu, .ad-scheme { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; color: var(--ad-text); background: transparent; border: 1px solid transparent; border-radius: var(--ad-radius); cursor: pointer; }
+.ad-menu:hover, .ad-scheme:hover { border-color: var(--ad-control); }
+.ad-search { position: relative; flex: 1; max-width: 28rem; margin-left: auto; }
+.ad-search input { width: 100%; min-height: 40px; padding: .4rem .75rem; font: inherit; font-size: .9375rem; color: var(--ad-text); background: var(--ad-surface); border: 1px solid var(--ad-control); border-radius: var(--ad-radius); }
+.ad-search__results { position: absolute; top: calc(100% + .25rem); left: 0; right: 0; max-height: 70vh; overflow: auto; margin: 0; padding: .25rem; list-style: none; background: var(--ad-bg); border: 1px solid var(--ad-border); border-radius: var(--ad-radius); box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.ad-search__results a { display: block; padding: .5rem .75rem; border-radius: 6px; color: var(--ad-text); text-decoration: none; }
+.ad-search__results a:hover, .ad-search__results a:focus-visible { background: var(--ad-current); }
+.ad-search__results small { display: block; color: var(--ad-muted); }
+.ad-links ul { display: none; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.ad-links a { color: var(--ad-text); text-decoration: none; }
+.ad-links a:hover { text-decoration: underline; }
+.ad-links ul { align-items: center; }
+.ad-links__icon { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: var(--ad-radius); }
+.ad-links__icon:hover { background: var(--ad-current); }
+.ad-icon { display: block; flex: none; }
+.ad-social, .ad-footer__links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.ad-social a { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; text-transform: capitalize; }
+
+.ad-shell { display: block; }
+.ad-sidebar { position: fixed; inset: var(--ad-header-h) auto 0 0; z-index: 15; width: min(85vw, var(--ad-sidebar-w)); overflow-y: auto; padding: 1rem; background: var(--ad-surface); border-right: 1px solid var(--ad-border); transform: translateX(-105%); transition: transform .2s ease; }
+.ad-sidebar.is-open { transform: none; }
+.ad-sidebar__title { margin: 1rem 0 .25rem; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ad-muted); }
+.ad-tree, .ad-tree ul { margin: 0; padding: 0; list-style: none; }
+.ad-tree ul { margin-left: .75rem; padding-left: .5rem; border-left: 1px solid var(--ad-border); }
+.ad-tree a { display: block; padding: .3rem .5rem; border-radius: 6px; color: var(--ad-text); text-decoration: none; font-size: .9375rem; line-height: 1.35; }
+.ad-tree a:hover { background: var(--ad-current); }
+.ad-tree a[aria-current="page"] { background: var(--ad-current); font-weight: 700; box-shadow: inset 3px 0 0 var(--ad-accent); }
+.ad-tree code { font-size: .875em; }
+
+.ad-main { min-width: 0; padding: 1.5rem 1rem 0; }
+.ad-article, .ad-hero, .ad-main > section { max-width: 52rem; }
+.ad-toc { display: none; }
+.ad-footer { max-width: 52rem; margin-top: 4rem; padding: 1.5rem 0; border-top: 1px solid var(--ad-border); color: var(--ad-muted); font-size: .875rem; }
+.ad-footer a { color: var(--ad-muted); }
+
+@media (min-width: 60rem) {
+  .ad-menu { display: none; }
+  .ad-links ul { display: flex; }
+  .ad-shell { display: grid; grid-template-columns: var(--ad-sidebar-w) minmax(0, 1fr); }
+  .ad-sidebar { position: sticky; top: var(--ad-header-h); height: calc(100vh - var(--ad-header-h)); width: auto; transform: none; transition: none; }
+  .ad-main { padding: 2rem 2.5rem 0; }
+}
+@media (min-width: 75rem) {
+  .ad-shell { grid-template-columns: var(--ad-sidebar-w) minmax(0, 1fr) var(--ad-toc-w); }
+  .ad-toc:not([hidden]) { display: block; position: sticky; top: calc(var(--ad-header-h) + 2rem); align-self: start; max-height: calc(100vh - var(--ad-header-h) - 3rem); overflow-y: auto; padding: 0 1rem; font-size: .875rem; }
+  .ad-toc__title { margin: 0 0 .5rem; font-weight: 700; }
+  .ad-toc ul { margin: 0; padding: 0; list-style: none; }
+  .ad-toc li.is-sub { padding-left: .75rem; }
+  .ad-toc a { display: block; padding: .2rem 0 .2rem .5rem; color: var(--ad-muted); text-decoration: none; border-left: 2px solid transparent; }
+  .ad-toc a:hover { color: var(--ad-text); }
+  .ad-toc a.is-active { color: var(--ad-text); border-left-color: var(--ad-accent); }
+}
+@media (prefers-reduced-motion: reduce) { .ad-sidebar { transition: none; } }
+@media print { .ad-header, .ad-sidebar, .ad-toc, .ad-footer { display: none; } .ad-shell { display: block; } }

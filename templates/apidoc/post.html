@@ -1,0 +1,14 @@
+{{define "post.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Post.Title (or .Vars.title .Domain)) }}
+    <title>{{ $title }}</title>
+{{ template "ad-head" (dict "Title" $title "Desc" .Post.Excerpt "Canonical" .Post.GetURL "OgType" "article" "Ctx" .) }}
+    <meta property="article:published_time" content="{{ .Post.Date.Format "2006-01-02" }}">
+</head>
+<body>
+{{ template "ad-doc" (dict "Ctx" . "Here" .Post.GetURL "Title" .Post.Title "Eyebrow" "News"
+    "Meta" (printf "%s · %d min read" (.Post.Date.Format "2 January 2006") .Post.ReadingTime)
+    "Body" (.Post.Content | safeHTML)) }}
+</body>
+</html>{{end}}

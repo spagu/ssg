@@ -201,6 +201,22 @@ can be narrowed at all — worth asking first, because a site fed by external
 sources or MDDB records fewer edges than it really has, and every answer that
 comes back carries that caveat.
 
+## API (`api_*`)
+
+On a site with `api_docs` (see [API_DOCS.md](API_DOCS.md)), three read-only
+tools answer questions about the documented code from the `api.json` the last
+build wrote:
+
+| Tool | Answers |
+|---|---|
+| `api_search` | symbols whose name (first) or summary contains `query` — filter `kind`, cap with `limit` |
+| `api_symbol` | one symbol by `id`: signatures, types, documentation, source; members as a list of ids |
+| `api_module` | a module's exports by `id` |
+
+"What does `parse` take?" is `api_search` then `api_symbol`, not a read of the
+HTML. A class answers with its members as a list, and each member is one more
+`api_symbol` call, so a class with eighty methods does not arrive in one answer.
+
 ## Find, then edit — the cheap path
 
 The tool list above has two shapes for changing a file, and the difference is

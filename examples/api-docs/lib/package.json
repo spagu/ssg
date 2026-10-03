@@ -1,0 +1,7 @@
+{
+  "name": "textkit",
+  "version": "1.0.0",
+  "description": "Small text utilities, documented by ssg from their comments.",
+  "type": "module",
+  "exports": { ".": "./src/index.js" }
+}

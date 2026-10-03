@@ -57,6 +57,8 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.68">1.8.68 — 2026-10-02</option>
+      <option value="1.8.67">1.8.67 — 2026-10-02</option>
       <option value="1.8.66">1.8.66 — 2026-10-02</option>
       <option value="1.8.65">1.8.65 — 2026-10-01</option>
       <option value="1.8.64">1.8.64 — 2026-09-30</option>
@@ -200,6 +202,20 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.69">
+
+### 1.8.69 — nothing to do
+
+Documentation from code (`api_docs:`) is off until you configure it, and a
+site without it builds exactly as before. ssgtheme gains three layouts
+(`api-index`, `api-module`, `api-symbol`) that only API pages use.
+
+The live examples, OpenAPI pages and the `apidoc` theme are also opt-in
+(`playground:`, `openapi:`, `template: apidoc`). Their scripts and styles are
+added only to pages that contain an example or a REST operation.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.67">
 

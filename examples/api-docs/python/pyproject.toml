@@ -1,0 +1,4 @@
+[project]
+name = "textkit"
+version = "1.0.0"
+description = "Tokenize and format text."

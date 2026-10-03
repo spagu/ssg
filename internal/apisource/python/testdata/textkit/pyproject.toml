@@ -1,0 +1,8 @@
+[build-system]
+requires = ["hatchling"]
+name = "not-this"
+
+[project]
+name = "textkit"  # the distribution
+version = "1.0.0"
+description = "Text processing toolkit"

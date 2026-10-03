@@ -1,0 +1,14 @@
+{
+  "name": "lexkit",
+  "version": "1.2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./util": "./src/util.js",
+    "./features/*": "./src/features/*.js"
+  }
+}

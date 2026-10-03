@@ -1,0 +1,121 @@
+{{/*
+  apidoc — header, sidebar and footer.
+
+  The sidebar lists the guides (every page that is not part of a generated
+  reference, ordered by variables.docs_nav_order, then by title) and every
+  reference: the front page of each api_docs package or REST API. On a
+  reference page the package's own tree opens under it, from the precomputed
+  .Page.Extra.api.nav.
+
+  Takes a dict: Ctx (the page context), Here (the current URL, "" on the
+  home page and archives) and API (the page's .Extra.api, on references).
+*/}}
+{{define "ad-header"}}
+    {{ $name := or .Vars.title .Site.Marketing.OGSiteName .Domain }}
+    <a href="#main" class="skip-link">Skip to content</a>
+    <header class="ad-header">
+        <button class="ad-menu" type="button" aria-controls="ad-sidebar" aria-expanded="false">
+            <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+            <span class="visually-hidden">Menu</span>
+        </button>
+        <a class="ad-brand" href="/">
+            {{ with or .Vars.logo .Site.Marketing.Logo }}<img class="ad-brand__logo" src="{{ . }}" alt="{{ if $.Vars.logo_only }}{{ $name }}{{ end }}" height="28">{{ end }}
+            {{ if not .Vars.logo_only }}<span class="ad-brand__name">{{ $name }}</span>{{ end }}
+        </a>
+        <div class="ad-search" role="search">
+            <label class="visually-hidden" for="ad-search-input">Search the documentation</label>
+            <input id="ad-search-input" type="search" placeholder="Search  /" autocomplete="off"
+                   aria-describedby="ad-search-status" data-index="/search-index.json">
+            <p id="ad-search-status" class="visually-hidden" aria-live="polite"></p>
+            <ul id="ad-search-results" class="ad-search__results" hidden></ul>
+        </div>
+        {{/* variables.nav: your own links, [{label, url, icon}]. icon is a name
+             from partials/icons.html (github, discord, npm…); with one, the
+             link shows the mark and keeps the label for screen readers. */}}
+        <nav class="ad-links" aria-label="Main">
+            <ul>
+                {{ range .Vars.nav }}<li><a href="{{ .url }}"{{ if .icon }} class="ad-links__icon" title="{{ .label }}"{{ end }}>{{ if .icon }}{{ template "ad-icon" .icon }}<span class="visually-hidden">{{ .label }}</span>{{ else }}{{ .label }}{{ end }}</a></li>{{ end }}
+                {{/* The repository as an icon, from variables.repository_url: the
+                     mark follows the host (GitHub, GitLab, Codeberg) unless
+                     variables.repository_icon names one. */}}
+                {{ with .Vars.repository_url }}
+                {{ $icon := "code" }}
+                {{ if contains . "github.com" }}{{ $icon = "github" }}{{ else if contains . "gitlab" }}{{ $icon = "gitlab" }}{{ else if contains . "codeberg" }}{{ $icon = "codeberg" }}{{ end }}
+                {{ with $.Vars.repository_icon }}{{ $icon = . }}{{ end }}
+                <li><a href="{{ . }}" class="ad-links__icon" title="Source code">{{ template "ad-icon" $icon }}<span class="visually-hidden">Source code</span></a></li>
+                {{ end }}
+            </ul>
+        </nav>
+        <button class="ad-scheme" id="ad-scheme" type="button" aria-pressed="false">
+            <svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+            <span class="visually-hidden">Dark colour scheme</span>
+        </button>
+    </header>
+{{end}}
+
+
+{{define "ad-sidebar"}}
+    {{ $here := .Here }}{{ $api := .API }}
+    {{ $order := slice }}{{ with .Ctx.Vars.docs_nav_order }}{{ $order = . }}{{ end }}
+    <nav class="ad-sidebar" id="ad-sidebar" aria-label="Documentation">
+        <p class="ad-sidebar__title">Guides</p>
+        <ul class="ad-tree">
+            {{ range $slug := $order }}{{ range $.Ctx.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.api) (not .Extra.hide_from_lists) }}
+            <li><a href="{{ .GetURL }}"{{ if eq .GetURL $here }} aria-current="page"{{ end }}>{{ .Title }}</a></li>
+            {{ end }}{{ end }}{{ end }}
+            {{ range .Ctx.Site.Pages }}{{ if and (not .Extra.api) (not .Extra.hide_from_lists) (notIn .Slug $order) }}
+            <li><a href="{{ .GetURL }}"{{ if eq .GetURL $here }} aria-current="page"{{ end }}>{{ .Title }}</a></li>
+            {{ end }}{{ end }}
+        </ul>
+        <p class="ad-sidebar__title">Reference</p>
+        <ul class="ad-tree">
+            {{ range .Ctx.Site.Pages }}{{ if and .Extra.api (eq .Layout "api-index") }}
+            <li>
+                <a href="{{ .GetURL }}"{{ if eq .GetURL $here }} aria-current="page"{{ end }}>{{ .Extra.api.package.Name }}</a>
+                {{ if and $api (eq .Extra.api.package.Name $api.package.Name) }}
+                <ul>
+                    {{ range $api.nav }}
+                    <li>
+                        <a href="{{ .URL }}"{{ if eq .URL $here }} aria-current="page"{{ end }}>{{ if eq .Kind "module" }}<code>{{ .Title }}</code>{{ else }}{{ .Title }}{{ end }}</a>
+                        {{ if .Children }}<ul>{{ range .Children }}
+                            <li><a href="{{ .URL }}"{{ if eq .URL $here }} aria-current="page"{{ end }}>{{ .Title }}</a></li>
+                        {{ end }}</ul>{{ end }}
+                    </li>
+                    {{ end }}
+                </ul>
+                {{ end }}
+            </li>
+            {{ end }}{{ end }}
+        </ul>
+    </nav>
+{{end}}
+
+{{define "ad-toc"}}
+    {{/* Filled by js/main.js from the article's h2 and h3; stays hidden on a
+         page with fewer than two of them. */}}
+    <nav class="ad-toc" aria-labelledby="ad-toc-title" hidden>
+        <p class="ad-toc__title" id="ad-toc-title">On this page</p>
+        <ul></ul>
+    </nav>
+{{end}}
+
+{{define "ad-footer"}}
+    {{ $name := or .Vars.title .Site.Marketing.OGSiteName .Domain }}
+    <footer class="ad-footer">
+        {{/* marketing.social_profiles ({name: url}) — the same profiles the
+             build already knows for structured data — as links with marks. */}}
+        {{ with .Site.Marketing.SocialProfiles }}
+        <ul class="ad-social" aria-label="{{ $name }} elsewhere">
+            {{ range $network, $url := . }}<li><a href="{{ $url }}" rel="me noopener">{{ template "ad-icon" $network }}<span>{{ $network }}</span></a></li>{{ end }}
+        </ul>
+        {{ end }}
+        {{ with .Vars.footer_links }}
+        <ul class="ad-footer__links">{{ range . }}<li><a href="{{ .url }}">{{ .label }}</a></li>{{ end }}</ul>
+        {{ end }}
+        <p>{{ with .Vars.copyright }}{{ . }}{{ else }}&copy; {{ $name }}{{ end }}{{ with .Vars.repository_url }} · <a href="{{ . }}">Source</a>{{ end }}
+            · <a href="/sitemap.xml">Sitemap</a>{{ if .Vars.version }} · Version {{ .Vars.version }}{{ end }}</p>
+        {{/* The credit link; variables.ssg_credit: false removes it. */}}
+        {{ if ne (printf "%v" .Vars.ssg_credit) "false" }}<p>Built with <a href="https://ssg.tradik.com/">SSG</a>.</p>{{ end }}
+    </footer>
+    <script src="/js/main.js" defer></script>
+{{end}}

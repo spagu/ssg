@@ -22,7 +22,7 @@ documentation, company sites, portfolios and landing pages.
 
 - Fast, deterministic builds with a single Go binary
 - Markdown content with YAML frontmatter
-- Built-in `simple` and `krowy` themes
+- Built-in `simple`, `krowy` and `apidoc` (documentation) themes
 - Go, Pongo2, Mustache and Handlebars template engines
 - Sitemap, robots.txt, Atom feeds, search index and SEO metadata
 - WebP conversion, responsive images, SCSS, minification and fingerprinting
@@ -137,7 +137,7 @@ ssg my-blog simple example.com --http --watch
 Open <http://127.0.0.1:8888>. SSG rebuilds the site when its files change.
 The generated site is written to `output/`; do not edit that directory by hand.
 
-The `simple` and `krowy` themes are embedded in the binary and scaffolded when
+The `simple`, `krowy` and `apidoc` themes are embedded in the binary and scaffolded when
 first used, so this example does not require a local `templates/simple/` folder.
 
 ## Command model
@@ -358,6 +358,10 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 |---|---|
 | Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization; a file dropped for a missing `status:` or unparseable frontmatter is named with the likely cause (`strict: true` fails the build on the latter) ([docs/CONTENT.md](docs/CONTENT.md#markdown-and-frontmatter)) |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
+| API docs from code | `api_docs:` reads JavaScript (and TypeScript declarations) with their doc comments into pages of the site — packages, modules, classes, cross-links, source links — plus `api.json`, `check_api`, and MCP/WebMCP tools for agents; no Node needed for JS. `@example` blocks can run in the browser (`playground:`) ([docs/API_DOCS.md](docs/API_DOCS.md)) |
+| API docs for Go, PHP, Python | The same pages from Go (standard library parser), PHP and Python (built-in declaration scanners): nothing to install, language detected from `go.mod`, `composer.json`, `pyproject.toml` ([docs/API_LANGUAGES.md](docs/API_LANGUAGES.md)) |
+| REST API docs from OpenAPI | `api_docs: - openapi: openapi.yaml` turns an OpenAPI 3.0/3.1 file into pages: endpoints by tag, parameters, bodies, responses, schemas, and a "Try it" console that sends real requests with keys kept in memory only ([docs/REST_API_DOCS.md](docs/REST_API_DOCS.md)) |
+| `apidoc` theme | A documentation-only theme: guides and references in one sidebar, search, "On this page", light/dark, WCAG 2.2 AA ([templates/apidoc/README.md](templates/apidoc/README.md)) |
 | Read aloud | A "Listen" button with the visitor's own browser voice, and/or an MP3 per article from a TTS API at build time — cached, with a jingle, a fallback when the API is down, a podcast feed, and a self-hostable Docker TTS server ([docs/AUDIO.md](docs/AUDIO.md)) |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
 | SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
@@ -577,6 +581,9 @@ Development workflow and review requirements are in
 |---|---|
 | [.ssg.yaml.example](.ssg.yaml.example) | Complete configuration reference |
 | [docs/INSTALL.md](docs/INSTALL.md) | Platform installation guide |
+| [docs/API_DOCS.md](docs/API_DOCS.md) | API documentation from JavaScript/TypeScript code: configuration, doc comments, links, live examples, themes, `api.json`, agents |
+| [docs/API_LANGUAGES.md](docs/API_LANGUAGES.md) | API docs for Go, PHP and Python: what each reader understands and its limits |
+| [docs/REST_API_DOCS.md](docs/REST_API_DOCS.md) | REST API documentation from OpenAPI: pages, the Try it console, checks, theming |
 | [docs/AUDIO.md](docs/AUDIO.md) | Articles read aloud: the browser button, build-time MP3 through a TTS API, the podcast feed |
 | [services/tts-server/README.md](services/tts-server/README.md) | Self-hosted TTS API (Docker, Swagger, espeak-ng and Piper voices) that ssg's `generic` provider talks to |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
