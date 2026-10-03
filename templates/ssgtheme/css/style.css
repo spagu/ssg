@@ -927,7 +927,8 @@ a:hover {
 
 @media (min-width: 900px) {
   .pillar-list {
-    grid-template-columns: repeat(3, 1fr);
+    /* Two by two: four columns of prose are too narrow to read. */
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-10);
   }
 }
