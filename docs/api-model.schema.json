@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ssg.tradik.com/api-model.schema.json",
+  "title": "ssg API model (api.json)",
+  "description": "The documented API of one build: packages, modules and the symbols they export. Schema 1. See docs/API_DOCS.md.",
+  "type": "object",
+  "required": ["schema", "packages"],
+  "properties": {
+    "schema": { "const": 1 },
+    "packages": { "type": "array", "items": { "$ref": "#/$defs/package" } }
+  },
+  "$defs": {
+    "package": {
+      "type": "object",
+      "required": ["name", "modules"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "readme": { "type": "string", "description": "Markdown" },
+        "modules": { "type": "array", "items": { "$ref": "#/$defs/module" } }
+      }
+    },
+    "module": {
+      "type": "object",
+      "required": ["id", "path", "symbols"],
+      "properties": {
+        "id": { "type": "string", "description": "pkg/path" },
+        "path": { "type": "string" },
+        "doc": { "$ref": "#/$defs/doc" },
+        "symbols": { "type": "array", "items": { "$ref": "#/$defs/symbol" } }
+      }
+    },
+    "symbol": {
+      "type": "object",
+      "required": ["id", "name", "kind"],
+      "properties": {
+        "id": { "type": "string", "description": "pkg/path#Name or pkg/path#Name.member" },
+        "name": { "type": "string" },
+        "kind": { "enum": ["namespace", "class", "interface", "function", "method", "constructor", "property", "accessor", "type", "enum", "enumMember", "variable"] },
+        "signatures": { "type": "array", "items": { "$ref": "#/$defs/signature" } },
+        "type": { "$ref": "#/$defs/typeRef" },
+        "typeParams": { "type": "array", "items": { "$ref": "#/$defs/typeParam" } },
+        "extends": { "type": "array", "items": { "$ref": "#/$defs/typeRef" } },
+        "implements": { "type": "array", "items": { "$ref": "#/$defs/typeRef" } },
+        "members": { "type": "array", "items": { "$ref": "#/$defs/symbol" } },
+        "flags": { "$ref": "#/$defs/flags" },
+        "source": { "$ref": "#/$defs/source" },
+        "doc": { "$ref": "#/$defs/doc" }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "properties": {
+        "static": { "type": "boolean" },
+        "readonly": { "type": "boolean" },
+        "optional": { "type": "boolean" },
+        "abstract": { "type": "boolean" },
+        "async": { "type": "boolean" },
+        "default": { "type": "boolean" },
+        "stability": { "enum": ["beta", "alpha", "experimental"] },
+        "internal": { "type": "boolean" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "typeParams": { "type": "array", "items": { "$ref": "#/$defs/typeParam" } },
+        "params": { "type": "array", "items": { "$ref": "#/$defs/param" } },
+        "returns": { "$ref": "#/$defs/typeRef" },
+        "doc": { "$ref": "#/$defs/doc" }
+      }
+    },
+    "param": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "$ref": "#/$defs/typeRef" },
+        "optional": { "type": "boolean" },
+        "rest": { "type": "boolean" },
+        "default": { "type": "string" },
+        "doc": { "type": "string" }
+      }
+    },
+    "typeParam": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "constraint": { "$ref": "#/$defs/typeRef" },
+        "default": { "$ref": "#/$defs/typeRef" },
+        "doc": { "type": "string" }
+      }
+    },
+    "typeRef": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["name", "union", "intersection", "array", "tuple", "literal", "function", "object", "verbatim"] },
+        "name": { "type": "string" },
+        "ref": { "type": "string", "description": "ID of a documented symbol" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/typeRef" } },
+        "signature": { "$ref": "#/$defs/signature" },
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/param" } }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["file", "line"],
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "doc": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" },
+        "body": { "type": "string" },
+        "returns": { "type": "string" },
+        "throws": { "type": "array", "items": { "type": "string" } },
+        "examples": { "type": "array", "items": { "type": "string" } },
+        "deprecated": { "type": "string" },
+        "since": { "type": "string" },
+        "see": { "type": "array", "items": { "type": "string" } },
+        "default": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "text": { "type": "string" } } } }
+      }
+    }
+  }
+}
