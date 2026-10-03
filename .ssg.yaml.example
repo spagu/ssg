@@ -69,6 +69,16 @@ relative_links: false # Convert absolute URLs to relative links
 # host_files: true      # Write _headers/_redirects (Cloudflare Pages, Netlify); false elsewhere
 # autolink_list_items: true # Link list items whose text is a page title (never inside code blocks)
 
+# API docs from JS/TS code — see docs/API_DOCS.md
+# api_docs:
+#   - root: packages/core      # package.json + code; entry points from "exports"/"main"
+#     url: /api/core/
+#     source_url: https://example.com/repo/blob/{ref}/{path}#L{line}
+#     playground: https://cdn.example.com/npm/core@1/+esm  # runnable @example blocks
+#   - openapi: api/openapi.yaml  # REST API from OpenAPI 3.x — see docs/REST_API_DOCS.md
+#     try_it: true               # the "Try it" console on every operation
+# check_api: warn              # undocumented exports, dead {@link}s, OpenAPI problems
+
 # Articles read aloud — see docs/AUDIO.md
 # listen:
 #   enabled: true            # browser "Listen" button (Web Speech API)

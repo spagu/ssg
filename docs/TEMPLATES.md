@@ -8,7 +8,7 @@ image functions are in [IMAGES.md](IMAGES.md).
 
 ## Ready-made themes
 
-Four themes ship with SSG. `simple` and `krowy` are embedded in the binary and
+Five themes ship with SSG. `simple`, `krowy` and `apidoc` are embedded in the binary and
 scaffolded into an empty theme directory the first time you name one; `imd` and
 `ssgtheme` live in the repository, so copy the directory you want into your own
 `templates/`.
@@ -31,6 +31,14 @@ this repository.
       <h3><code>krowy</code> — a fuller blog with a sidebar</h3>
       <p>A wider layout with a sidebar for recent posts and categories, a photo strip in the header and a textured background. The one to look at for a content-heavy site.</p>
       <span class="theme-card__tag">Embedded · used by the examples</span>
+    </div>
+  </li>
+  <li class="theme-card">
+    <img src="/img/themes/apidoc.webp" alt="The apidoc theme: a REST reference page with a guides and reference sidebar, a POST method label, parameter and response tables and an On this page column" loading="lazy" width="1600" height="1125">
+    <div class="theme-card__body">
+      <h3><code>apidoc</code> — documentation and API reference</h3>
+      <p>Guides, references generated from code and REST references from OpenAPI in one sidebar, with search, an "On this page" column, live examples and the Try it console.</p>
+      <span class="theme-card__tag">Embedded · <a href="../templates/apidoc/README.md">README</a></span>
     </div>
   </li>
   <li class="theme-card">

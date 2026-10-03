@@ -304,6 +304,18 @@ the first `</h1>`; a slot is the way to choose the spot that also works with
 older ssg releases. `.AudioURL` and `.AudioLength` are there for a theme that
 builds its own player. See [AUDIO.md](AUDIO.md).
 
+### `apiHref`, `apiType` — API pages from code
+
+```go-html-template
+<a href="{{ apiHref "core/src/lex#Lexer" }}">Lexer</a>
+<code>{{ apiType .Page.Extra.api.symbol.Type }}</code>
+```
+
+`apiHref` is the URL of a documented symbol by its id. `apiType` renders a type
+from the model as HTML with every documented name linked. They are for themes
+of your own. The api-* layouts and their data are described in
+[API_DOCS.md](API_DOCS.md#themes).
+
 ## String helpers
 
 `hasPrefix`, `hasSuffix`, `startsWith`, `endsWith`, `matches`, `trimPrefix` and

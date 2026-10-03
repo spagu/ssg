@@ -1,0 +1,28 @@
+# Documentation from code and from an OpenAPI file (docs/API_DOCS.md), in the
+# documentation theme. Build from the repository root:
+#   ssg --config examples/api-docs/ssg.yaml
+source: site
+template: apidoc
+domain: example.com
+content_dir: examples/api-docs/content
+output_dir: examples/api-docs/output
+search_index: true
+check_links: strict
+check_api: warn
+
+variables:
+  title: textkit
+  tagline: Tokenize and format text — the library and the hosted service.
+  start: {url: /getting-started/, label: Get started}
+
+api_docs:
+  # The JavaScript library, read from its code and comments.
+  - root: examples/api-docs/lib
+    source_url: https://code.example.org/textkit/blob/{ref}/{path}#L{line}
+    source_ref: main
+    # The package as an ES module: @example blocks get Run in the browser.
+    # A CDN build works as is; a file this site serves needs CORS.
+    playground: https://cdn.example.com/npm/textkit@1.0.0/+esm
+  # The hosted service, read from its OpenAPI file, with Try it.
+  - openapi: examples/api-docs/openapi.yaml
+    url: /api/service/
