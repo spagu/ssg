@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: Shop
+  version: "2.0"
+  summary: Orders and products.
+  description: |
+    The shop API.
+
+    Second paragraph.
+servers:
+  - url: https://{region}.api.example.com/v2
+    description: Regional
+    variables:
+      region:
+        default: eu
+        enum: [eu, us]
+  - url: /v2
+tags:
+  - name: Orders
+    description: |
+      Placing and reading orders.
+  - name: Schemas
+  - name: Empty
+security:
+  - key: []
+  - {}
+paths:
+  /orders:
+    post:
+      tags: [Orders]
+      operationId: createOrder
+      summary: Create an order
+      description: Places an order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example: {id: 7}
+        "400":
+          description: Bad | request
+          content:
+            text/plain:
+              example: bad input
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      operationId: getOrder
+      security:
+        - basic: []
+        - token: [orders:read]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          example: 7
+          schema: {type: integer}
+        - name: X-Trace
+          in: header
+          deprecated: true
+          description: Trace id
+          schema: {type: string, default: abc, readOnly: false}
+        - name: view
+          in: query
+          schema: {type: string, enum: [full, short]}
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+  /ping:
+    get:
+      tags: [Schemas]
+      security: []
+      responses:
+        "204": {description: Alive}
+components:
+  securitySchemes:
+    key: {type: apiKey, in: query, name: api_key, description: "Issued\non signup"}
+    basic: {type: http, scheme: basic}
+    token: {type: oauth2, flows: {}}
+    oidc: {type: openIdConnect, openIdConnectUrl: https://id.example.com}
+    mtls: {type: mutualTLS}
+    jwt: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Order:
+      type: object
+      description: An order.
+      required: [id]
+      properties:
+        id: {type: integer, readOnly: true, minimum: 1, maximum: 9}
+        note: {type: string, minLength: 1, maxLength: 80, pattern: "^[a-z]+$", writeOnly: true}
+        status: {type: string, enum: [new, paid], deprecated: true}
+        created: {type: string, format: date-time}
+        day: {type: string, format: date}
+        mail: {type: string, format: email}
+        site: {type: string, format: uri}
+        uid: {type: string, format: uuid}
+        paid: {type: boolean}
+        total: {type: number}
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              sku: {type: string}
+              qty: {type: integer, default: 1}
+        customer:
+          type: object
+          properties:
+            name: {type: string}
+            address:
+              type: object
+              properties:
+                city:
+                  type: object
+                  properties:
+                    zip: {type: string}
+        related:
+          type: array
+          items: {$ref: '#/components/schemas/Order'}
+        kind:
+          oneOf: [{type: string, example: retail}, {type: integer}]
+        empty: {type: array}
+        anything: {}
+    Plain:
+      type: string
+      example: hello

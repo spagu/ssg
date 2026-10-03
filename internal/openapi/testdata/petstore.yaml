@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: Petstore
+  version: 1.2.0
+  description: A sample pet store used by the openapi reader tests.
+servers:
+  - url: https://api.example.com/{version}
+    description: Production
+    variables:
+      version:
+        default: v1
+        enum: [v1, v2]
+        description: API version
+tags:
+  - name: pets
+    description: Everything about pets
+  - name: store
+security:
+  - apiKey: []
+paths:
+  /pets:
+    get:
+      tags: [pets]
+      summary: List pets
+      operationId: listPets
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, sold]
+            default: available
+      responses:
+        '200':
+          description: A page of pets
+          headers:
+            X-Next:
+              $ref: '#/components/headers/next'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+              examples:
+                two:
+                  $ref: '#/components/examples/twoPets'
+        default:
+          $ref: '#/components/responses/error'
+    post:
+      tags: [pets, admin]
+      summary: Add a pet
+      security:
+        - bearer: [write]
+          apiKey: []
+      requestBody:
+        $ref: '#/components/requestBodies/pet'
+      responses:
+        '201':
+          description: Created
+  /pets/{petId}:
+    parameters:
+      - name: petId
+        in: path
+        required: true
+        description: Shared description
+        schema:
+          type: integer
+          format: int64
+    servers:
+      - url: https://pets.example.com
+    get:
+      summary: Get one pet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: Operation description
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The pet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+              example:
+                id: 1
+                name: Rex
+                tags: [good]
+    delete:
+      deprecated: true
+      security: []
+      servers:
+        - url: https://admin.example.com
+      responses:
+        '204':
+          description: Deleted
+components:
+  parameters:
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+      example: 20
+  headers:
+    next:
+      description: Link to the next page
+      schema:
+        type: string
+  examples:
+    twoPets:
+      value:
+        - id: 1
+          name: Rex
+        - id: 2
+          name: Tom
+  requestBodies:
+    pet:
+      description: The pet to add
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Pet'
+  responses:
+    error:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Key issued in the dashboard
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z]+$'
+        nickname:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [available, sold]
+        parent:
+          $ref: '#/components/schemas/Pet'
+        owner:
+          oneOf:
+            - $ref: '#/components/schemas/Person'
+            - $ref: '#/components/schemas/Company'
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+    Company:
+      type: object
+      properties:
+        name:
+          type: string
+          deprecated: true
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          writeOnly: true
+        message:
+          type: string
