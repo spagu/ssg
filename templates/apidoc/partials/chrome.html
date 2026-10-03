@@ -35,7 +35,15 @@
         <nav class="ad-links" aria-label="Main">
             <ul>
                 {{ range .Vars.nav }}<li><a href="{{ .url }}"{{ if .icon }} class="ad-links__icon" title="{{ .label }}"{{ end }}>{{ if .icon }}{{ template "ad-icon" .icon }}<span class="visually-hidden">{{ .label }}</span>{{ else }}{{ .label }}{{ end }}</a></li>{{ end }}
-                {{ template "ad-repo-link" . }}
+                {{/* The repository as an icon, from variables.repository_url: the
+                     mark follows the host (GitHub, GitLab, Codeberg) unless
+                     variables.repository_icon names one. */}}
+                {{ with .Vars.repository_url }}
+                {{ $icon := "code" }}
+                {{ if contains . "github.com" }}{{ $icon = "github" }}{{ else if contains . "gitlab" }}{{ $icon = "gitlab" }}{{ else if contains . "codeberg" }}{{ $icon = "codeberg" }}{{ end }}
+                {{ with $.Vars.repository_icon }}{{ $icon = . }}{{ end }}
+                <li><a href="{{ . }}" class="ad-links__icon" title="Source code">{{ template "ad-icon" $icon }}<span class="visually-hidden">Source code</span></a></li>
+                {{ end }}
             </ul>
         </nav>
         <button class="ad-scheme" id="ad-scheme" type="button" aria-pressed="false">
@@ -45,17 +53,6 @@
     </header>
 {{end}}
 
-{{/* ad-repo-link — the repository as an icon in the header, from
-     variables.repository_url. The mark follows the host (GitHub, GitLab,
-     Codeberg) unless variables.repository_icon names one. */}}
-{{define "ad-repo-link"}}
-    {{ with .Vars.repository_url }}
-    {{ $icon := "code" }}
-    {{ if contains . "github.com" }}{{ $icon = "github" }}{{ else if contains . "gitlab" }}{{ $icon = "gitlab" }}{{ else if contains . "codeberg" }}{{ $icon = "codeberg" }}{{ end }}
-    {{ with $.Vars.repository_icon }}{{ $icon = . }}{{ end }}
-    <li><a href="{{ . }}" class="ad-links__icon" title="Source code">{{ template "ad-icon" $icon }}<span class="visually-hidden">Source code</span></a></li>
-    {{ end }}
-{{end}}
 
 {{define "ad-sidebar"}}
     {{ $here := .Here }}{{ $api := .API }}

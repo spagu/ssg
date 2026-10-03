@@ -42,7 +42,7 @@ func sourceRef(configured, root string) string {
 		return c
 	}
 	// #nosec G204 -- fixed git arguments; root is the site's own configuration
-	cmd := exec.Command("git", "-C", filepath.Clean(root), "rev-parse", "HEAD")
+	cmd := exec.Command("git", "-C", filepath.Clean(root), "rev-parse", "HEAD") // NOSONAR S4036: git is intentionally resolved from PATH (portable), reviewed
 	out, err := cmd.Output()
 	if err != nil {
 		return "HEAD"

@@ -252,7 +252,7 @@
               'its server has to allow this site in CORS (Access-Control-Allow-Origin). ' + (err && err.message ? '(' + err.message + ')' : '')],
             ['curl', shown]]);
         })
-        .then(function () { send.disabled = false; });
+        .then(function () { send.disabled = false; }, function () { send.disabled = false; });
     });
 
     box.appendChild(toggle);

@@ -52,7 +52,7 @@
 
   function execute(box, code, out, run) {
     var mod = new URL(box.getAttribute('data-module'), document.baseURI).href;
-    var token = Math.random().toString(36).slice(2);
+    var token = crypto.getRandomValues(new Uint32Array(2)).join('-');
     var frame = document.createElement('iframe');
     frame.setAttribute('sandbox', 'allow-scripts');
     frame.title = 'Example runner';
@@ -63,7 +63,10 @@
     run.disabled = true;
     var timer = setTimeout(function () { finish('Stopped after ' + limitMs / 1000 + ' seconds.'); }, limitMs);
     function onMessage(e) {
-      if (e.source !== frame.contentWindow || !e.data || e.data.token !== token) return;
+      // The runner is a sandboxed frame, so its origin is always the opaque
+      // "null"; together with the frame and the per-run token, a message
+      // from anywhere else is ignored.
+      if (e.origin !== 'null' || e.source !== frame.contentWindow || !e.data || e.data.token !== token) return;
       if (e.data.type === 'done') finish();
       else print(out, e.data.level, String(e.data.text));
     }
