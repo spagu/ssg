@@ -1240,6 +1240,9 @@ var keyNamedElsewhere = map[string]string{
 // Functions run side by side. Called only once watch mode is active (a plain
 // one-shot build never starts a runner). Explicit watch_runner_* keys (GO-054)
 // still win as overrides (GO-065).
+//
+// watch_runner: none (or off) is an explicit "no runner": the worker stays
+// configured for builds and deploys, the preview serves only static files.
 func ApplyWorkerWatchDefaults(cfg *Config) {
 	if cfg.WatchRunner != "" {
 		return
@@ -1274,6 +1277,16 @@ func ApplyWorkerWatchDefaults(cfg *Config) {
 			cfg.WatchRunnerConfig = first.WranglerConfig
 		}
 	}
+}
+
+// RunnerDisabled reports whether watch_runner turns the runner off rather
+// than naming one (#326).
+func RunnerDisabled(runner string) bool {
+	switch strings.ToLower(strings.TrimSpace(runner)) {
+	case "none", "off", "false":
+		return true
+	}
+	return false
 }
 
 // docsURL points at the configuration reference named in the warning above.

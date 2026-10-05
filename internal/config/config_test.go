@@ -602,3 +602,16 @@ language_timezones:
 		t.Errorf("LanguageTimezones = %v, want 2 entries", cfg.LanguageTimezones)
 	}
 }
+
+func TestRunnerDisabled(t *testing.T) {
+	for r, want := range map[string]bool{"none": true, " Off ": true, "false": true, "wrangler": false, "": false} {
+		if RunnerDisabled(r) != want {
+			t.Errorf("RunnerDisabled(%q) = %v", r, !want)
+		}
+	}
+	cfg := &Config{WatchRunner: "none", Workers: []WorkerConfig{{Name: "w"}}}
+	ApplyWorkerWatchDefaults(cfg)
+	if cfg.WatchRunner != "none" {
+		t.Errorf("an explicit none stays: %q", cfg.WatchRunner)
+	}
+}
