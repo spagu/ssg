@@ -17,26 +17,38 @@ import (
 	"path"
 	"strings"
 
+	ssgi18n "github.com/spagu/ssg/internal/i18n"
 	"github.com/spagu/ssg/internal/models"
 )
 
-// rootPage returns the page that claims the site root for a language, or nil
-// when nothing does. A page claims it by resolving to an empty output path,
-// which is what `link: "/"` produces.
+// rootPage returns the page that claims a language's root, or nil when
+// nothing does. The root is the language's prefix: "" for the site root
+// (`link: "/"`), "en" for a language served under /en/ (`link: "/en/"`, #319)
+// — so every language can lead with a page of its own, and its post listing
+// moves to posts_page exactly as the default language's does.
 //
 // An empty lang means a single-language build, where a page's own `lang:` is
 // documentation rather than routing — every page belongs to the one site, so
 // none is filtered out.
-func rootPage(pages []models.Page, lang string) *models.Page {
+func rootPage(pages []models.Page, lang, langPrefix string) *models.Page {
 	for i := range pages {
 		if lang != "" && pages[i].Lang != lang {
 			continue
 		}
-		if isRootOutputPath(pages[i].GetOutputPath()) {
+		if isLanguageRoot(pages[i].GetOutputPath(), langPrefix) {
 			return &pages[i]
 		}
 	}
 	return nil
+}
+
+// isLanguageRoot reports whether an output path is the root of the language
+// served under prefix ("" for the site root).
+func isLanguageRoot(p, prefix string) bool {
+	if prefix == "" {
+		return isRootOutputPath(p)
+	}
+	return strings.Trim(p, "/") == strings.Trim(prefix, "/")
 }
 
 // isRootOutputPath reports whether an output path addresses index.html at the
@@ -54,13 +66,29 @@ func isRootOutputPath(p string) bool {
 // The comparison mirrors rootPage's own selection, so the page that renders
 // the root is always the page the report claimed.
 func (g *Generator) isDesignatedFrontPage(page models.Page) bool {
-	lang := ""
+	lang, prefix := "", ""
 	if g.config.I18n.Enabled {
-		lang = page.Lang
+		lang, prefix = page.Lang, g.languagePrefix(page.Lang)
 	}
-	front := rootPage(g.siteData.Pages, lang)
+	front := rootPage(g.siteData.Pages, lang, prefix)
 	return front != nil && front.SourceFile == page.SourceFile &&
 		front.Slug == page.Slug && front.Title == page.Title
+}
+
+// languagePrefix is the URL prefix a language is served under ("" for the
+// default language unless prefix_default_language is set).
+func (g *Generator) languagePrefix(lang string) string {
+	return ssgi18n.Prefix(lang, g.config.DefaultLanguage, g.config.I18n)
+}
+
+// isLanguageRootPage reports whether a page writes its language's root:
+// the site root, or /en/ for a page of the language served there.
+func (g *Generator) isLanguageRootPage(page models.Page) bool {
+	prefix := ""
+	if g.config.I18n.Enabled {
+		prefix = g.languagePrefix(page.Lang)
+	}
+	return isLanguageRoot(page.GetOutputPath(), prefix)
 }
 
 // postsListingPrefix resolves where the post listing goes for one language.

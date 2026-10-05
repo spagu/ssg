@@ -1559,7 +1559,13 @@ func (g *Generator) detectContentCollisions() error {
 	for _, p := range all {
 		path := p.GetOutputPath()
 		if previous, ok := seen[path]; ok {
-			return fmt.Errorf("i18n output collision at %q between %s and %s", path, previous, p.SourceFile)
+			hint := ""
+			if isRootOutputPath(path) {
+				// link: is never language-prefixed, so two languages' link: "/"
+				// meet at the site root (#319).
+				hint = ` — each language's front page names its own root: link: "/en/", link: "/pl/"`
+			}
+			return fmt.Errorf("i18n output collision at %q between %s and %s%s", path, previous, p.SourceFile, hint)
 		}
 		seen[path] = p.SourceFile
 		for _, alias := range p.Aliases {
@@ -1592,7 +1598,12 @@ func (g *Generator) translationsFor(p models.Page) []Translation {
 // translations, including x-default for the default language (PLAT-005). Returns
 // safe HTML for direct inclusion in <head>; empty when there is nothing to link.
 func (g *Generator) hreflangTags(p models.Page) template.HTML {
-	trs := g.translationsFor(p)
+	return g.hreflangHTML(g.translationsFor(p))
+}
+
+// hreflangHTML renders alternate links for a group of language variants,
+// with x-default on the default language's (or the default-language root).
+func (g *Generator) hreflangHTML(trs []Translation) template.HTML {
 	if len(trs) < 2 {
 		return ""
 	}
@@ -3964,10 +3975,17 @@ func (g *Generator) generateIndex() error {
 // indexTarget resolves where one language's post listing is written, honouring
 // a content page that claims the site root (#129).
 func (g *Generator) indexTarget(langPrefix, lang string) (prefix string, generate bool) {
-	front := rootPage(g.siteData.Pages, lang)
+	front := rootPage(g.siteData.Pages, lang, langPrefix)
 	prefix, ok := g.postsListingPrefix(langPrefix, front != nil)
 	g.reportFrontPage(front, prefix, ok)
 	return prefix, ok
+}
+
+// listingTarget is indexTarget without the report: where a language's post
+// listing is written, for the listings that name each other (#321).
+func (g *Generator) listingTarget(lang string) (string, bool) {
+	langPrefix := g.languagePrefix(lang)
+	return g.postsListingPrefix(langPrefix, rootPage(g.siteData.Pages, lang, langPrefix) != nil)
 }
 
 func (g *Generator) generateLanguageIndex(posts []models.Page, prefix string) error {
@@ -4046,6 +4064,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 	if g.config.I18n.Enabled {
 		pages = g.siteData.LanguagePages
 	}
+	listing := g.listingTranslations()
 	data := struct {
 		Site             *models.SiteData
 		Posts            []models.Page
@@ -4066,6 +4085,13 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		// needs it on every view or on none, and the front page is the one
 		// document that must not be mislabelled: it is the most linked (#208).
 		Lang string
+		// The head a theme writes for itself, as pages have it (#321): this
+		// pager page's canonical, the listing in every language, and the
+		// site's description.
+		CanonicalURL string
+		Translations []Translation
+		Hreflang     template.HTML
+		Description  string
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -4080,6 +4106,10 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
 		Lang:             g.currentLang,
+		CanonicalURL:     g.servedCanonical(*g.indexPageContext(outPath)),
+		Translations:     listing,
+		Hreflang:         g.hreflangHTML(listing),
+		Description:      g.siteData.Description,
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and
@@ -4168,7 +4198,7 @@ func (g *Generator) generatePage(page models.Page) error {
 	// a second claimant would overwrite it, and which document a site leads
 	// with would be decided by render order (#234).
 	outputSubPath := page.GetOutputPath()
-	if isRootOutputPath(outputSubPath) && !g.isDesignatedFrontPage(page) {
+	if g.isLanguageRootPage(page) && !g.isDesignatedFrontPage(page) {
 		fmt.Printf("   ⚠️  Skipping page '%s' (slug: %s) — the site root already belongs to the front page (#234)\n",
 			page.Title, page.Slug)
 		fmt.Printf("      Hint: give it a real path in 'link', or remove the extra link: \"/\"\n")

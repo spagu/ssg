@@ -12,22 +12,30 @@ func TestRootPage(t *testing.T) {
 		{Slug: "about", Link: "/about/"},
 		{Slug: "home", Link: "/", SourceFile: "home.md", Lang: "en"},
 		{Slug: "pl-home", Link: "/", Lang: "pl"},
+		{Slug: "de-home", Link: "/de/", Lang: "de"},
 	}
 
 	// A single-language build does not filter on `lang:` — an exported page
 	// carries one whether or not the site is multilingual.
-	front := rootPage(pages, "")
+	front := rootPage(pages, "", "")
 	if front == nil || front.Slug != "home" {
 		t.Fatalf("expected the page linked at /, got %+v", front)
 	}
-	// Each language has its own front page.
-	if front := rootPage(pages, "pl"); front == nil || front.Slug != "pl-home" {
+	// Each language has its own front page: at the site root for the
+	// unprefixed language, at its prefix for the others (#319).
+	if front := rootPage(pages, "pl", ""); front == nil || front.Slug != "pl-home" {
 		t.Errorf("expected the pl front page, got %+v", front)
 	}
-	if front := rootPage(pages, "de"); front != nil {
+	if front := rootPage(pages, "de", "de"); front == nil || front.Slug != "de-home" {
+		t.Errorf("expected the de front page at /de/, got %+v", front)
+	}
+	if front := rootPage(pages, "pl", "pl"); front != nil {
+		t.Errorf("a prefixed language's root is its prefix, not /: got %+v", front)
+	}
+	if front := rootPage(pages, "fr", "fr"); front != nil {
 		t.Errorf("a language with no front page yields nil, got %+v", front)
 	}
-	if front := rootPage([]models.Page{{Slug: "about", Link: "/about/"}}, ""); front != nil {
+	if front := rootPage([]models.Page{{Slug: "about", Link: "/about/"}}, "", ""); front != nil {
 		t.Errorf("no page claims the root, got %+v", front)
 	}
 }
