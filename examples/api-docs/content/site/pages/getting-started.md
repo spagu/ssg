@@ -3,6 +3,8 @@ title: Getting started with textkit
 slug: getting-started
 status: publish
 type: page
+date: 2026-10-03
+modified: 2026-10-03
 ---
 
 textkit splits text into tokens with a [Lexer](/api/textkit/src/index/Lexer/)
