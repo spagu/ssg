@@ -24,6 +24,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"github.com/spagu/ssg/internal/depgraph"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -121,6 +122,28 @@ type hookSet struct {
 	domain string
 }
 
+// hookPath finds a configured hook file (#320). A relative path is looked
+// up in the theme first — "hooks/image.html" ships with the theme, so the
+// theme stays portable — then from the working directory, where configs
+// written before 1.8.70 pointed. Not found, the error names every place it
+// looked.
+func (g *Generator) hookPath(configured string) (string, error) {
+	if filepath.IsAbs(configured) {
+		return configured, nil
+	}
+	candidates := []string{
+		filepath.Join(g.config.TemplatesDir, g.config.Template, configured),
+		filepath.Clean(configured),
+	}
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && !info.IsDir() {
+			return c, nil
+		}
+	}
+	return "", fmt.Errorf("%s not found (looked in the theme: %s, and from the working directory: %s)",
+		configured, candidates[0], candidates[1])
+}
+
 // loadRenderHooks parses the configured hook templates.
 //
 // A hook that names a file the site does not have is an error at load time:
@@ -140,6 +163,11 @@ func (g *Generator) loadRenderHooks(funcs template.FuncMap) error {
 		if !knownHook(name) {
 			return fmt.Errorf("render_hooks: %q is not a hook (have: %s)", name, strings.Join(hookNames, ", "))
 		}
+		path, err := g.hookPath(path)
+		if err != nil {
+			return fmt.Errorf("render_hooks.%s: %w", name, err)
+		}
+		g.recordInput(path, depgraph.KindTemplate)
 		raw, err := os.ReadFile(path) // #nosec G304 -- a template path from the site's own config
 		if err != nil {
 			return fmt.Errorf("render_hooks.%s: %w", name, err)

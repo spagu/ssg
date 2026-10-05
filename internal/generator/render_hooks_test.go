@@ -379,3 +379,39 @@ func TestOwnDomainIsInternalWhateverTheSchemeAndAnotherHostIsNot(t *testing.T) {
 		}
 	}
 }
+
+// TestHookPathFromTheTheme (#320): a relative hook path is the theme's own
+// file first, so a theme carries its hooks; the working directory is the
+// fallback older configs relied on; a miss names both places.
+func TestHookPathFromTheTheme(t *testing.T) {
+	cfg := newSiteFixture(t, `{"categories":[],"media":[],"users":[]}`, map[string]string{
+		"pages/a.md": "---\ntitle: A\nslug: a\nstatus: publish\ntype: page\n---\n\n![x](/a.jpg)\n",
+	}, func(name string) string {
+		if name == "page.html" {
+			return `<html><head><title>x</title></head><body>{{ .Content | safeHTML }}</body></html>`
+		}
+		return `<html><head><title>x</title></head><body><p>x</p></body></html>`
+	})
+	mustWrite(t, filepath.Join(cfg.TemplatesDir, cfg.Template, "hooks", "image.html"), `<img class="from-theme" src="{{ .Src }}">`)
+	cfg.RenderHooks = map[string]string{"image": "hooks/image.html"}
+	buildSiteFixture(t, cfg)
+	if got := mustRead(t, filepath.Join(cfg.OutputDir, "a", "index.html")); !strings.Contains(got, `class="from-theme"`) {
+		t.Errorf("the theme's hook was not used:\n%s", got)
+	}
+
+	g := &Generator{config: Config{TemplatesDir: cfg.TemplatesDir, Template: cfg.Template}}
+	wd := t.TempDir()
+	t.Chdir(wd)
+	mustWrite(t, filepath.Join(wd, "site-hooks", "link.html"), "<a>")
+	if p, err := g.hookPath("site-hooks/link.html"); err != nil || p != filepath.Join("site-hooks", "link.html") {
+		t.Errorf("working-directory fallback: %q %v", p, err)
+	}
+	if p, err := g.hookPath("/abs/hook.html"); err != nil || p != "/abs/hook.html" {
+		t.Errorf("absolute path: %q %v", p, err)
+	}
+	_, err := g.hookPath("hooks/missing.html")
+	if err == nil || !strings.Contains(err.Error(), filepath.Join(cfg.TemplatesDir, cfg.Template, "hooks", "missing.html")) ||
+		!strings.Contains(err.Error(), "working directory") {
+		t.Errorf("a miss names where it looked: %v", err)
+	}
+}
