@@ -1,11 +1,12 @@
 // Cloudflare Pages Function: comments moderation.
 //   GET  /api/comments/admin?status=pending → queue for review
 //   POST /api/comments/admin {id, action}   → approve | spam | delete
+//   POST /api/comments/admin {"action":"purge"} → run the retention purge now
 //
 // Behind HTTP Basic auth (COMMENTS_ADMIN_PASSWORD). The static panel that drives
 // it is public/comments-admin.html.
 
-import { Env, json, requireAdmin } from "./_lib";
+import { Env, json, purgeExpired, requireAdmin } from "./_lib";
 import { ensureSchema } from "./_schema";
 
 interface AdminRow {
@@ -37,7 +38,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 interface Action {
   id?: string;
-  action?: string; // approve | spam | delete
+  action?: string; // approve | spam | delete | purge
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -51,6 +52,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     payload = (await request.json()) as Action;
   } catch {
     return json({ error: "invalid JSON" }, 400);
+  }
+  if (payload.action === "purge") {
+    return json({ ok: true, purged: await purgeExpired(env, true) });
   }
   const id = payload.id;
   if (!id) return json({ error: "id is required" }, 422);

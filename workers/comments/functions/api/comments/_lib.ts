@@ -5,13 +5,15 @@ import { verifyAccess } from "./_access";
 
 export interface Env {
   COMMENTS_DB: D1Database;
-  TURNSTILE_SECRET?: string;
+  COMMENTS_TURNSTILE_SECRET?: string; // this worker's own Turnstile secret
+  TURNSTILE_SECRET?: string; // shared fallback, read only when the prefixed one is unset
   COMMENTS_ADMIN_PASSWORD?: string; // moderation via HTTP Basic (fallback when Access is not set)
   COMMENTS_ACCESS_TEAM?: string; // Cloudflare Access team ("myteam" or "myteam.cloudflareaccess.com")
   COMMENTS_ACCESS_AUD?: string; // Cloudflare Access application AUD tag
   COMMENTS_IP_SALT?: string;
   COMMENTS_ORDER?: string; // "newest" | "oldest"
   COMMENTS_CLOSE_AFTER_DAYS?: string; // auto-close a thread after N days of inactivity (0/unset = never)
+  COMMENTS_RETENTION_DAYS?: string; // purge spam/pending older than N days (0/unset = keep forever)
   COMMENTS_AKISMET_KEY?: string;
   COMMENTS_AKISMET_URL?: string;
   // Email-on-new-comment via an HTTP email API (e.g. Resend, or your own relay).
@@ -44,6 +46,15 @@ export const json = (data: unknown, status = 200): Response =>
 export async function sha256hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// turnstileSecret picks the secret the submit token is verified with. Every
+// worker in one Pages project shares one environment, so an unprefixed secret
+// set for one template is read by all of them (#325). The prefixed name is this
+// worker's own; the shared TURNSTILE_SECRET stays as a fallback so projects
+// configured before the prefix existed keep working.
+export function turnstileSecret(env: Env): string | undefined {
+  return env.COMMENTS_TURNSTILE_SECRET || env.TURNSTILE_SECRET;
 }
 
 export async function verifyTurnstile(secret: string, token: string, ip: string | null): Promise<boolean> {
@@ -175,4 +186,26 @@ function timingSafeEqual(a: string, b: string): boolean {
   let diff = a.length ^ b.length;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length);
   return diff === 0;
+}
+
+// Per-isolate timestamp of the last purge: the lazy purge rides on new
+// comments and runs at most hourly per isolate, so a busy thread does not
+// turn into a DELETE per request (#327).
+let lastPurge = 0;
+const PURGE_EVERY_MS = 60 * 60 * 1000;
+
+// purgeExpired deletes spam and pending comments older than
+// COMMENTS_RETENTION_DAYS. Approved comments are the site's content and are
+// never purged. `force` skips the hourly throttle (the admin endpoint).
+// Returns the rows deleted.
+export async function purgeExpired(env: Env, force = false): Promise<number> {
+  const days = Number.parseInt(env.COMMENTS_RETENTION_DAYS || "0", 10);
+  if (!Number.isFinite(days) || days <= 0) return 0;
+  if (!force && Date.now() - lastPurge < PURGE_EVERY_MS) return 0;
+  lastPurge = Date.now();
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  const res = await env.COMMENTS_DB.prepare(
+    "DELETE FROM comments WHERE status IN ('spam', 'pending') AND created_at < ?",
+  ).bind(cutoff).run();
+  return res.meta.changes ?? 0;
 }

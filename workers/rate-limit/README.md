@@ -51,6 +51,7 @@ All optional, all in `[vars]`:
 | `RATE_LIMIT_WINDOW` | `60` | window, in seconds |
 | `RATE_LIMIT_BY` | `ip` | `ip`, or `header:<name>` |
 | `RATE_LIMIT_PATHS` | `/api/` | comma-separated prefixes this covers |
+| `RATE_LIMIT_SKIP` | — | comma-separated prefixes left alone even inside `RATE_LIMIT_PATHS` |
 | `RATE_LIMIT_FAIL` | `open` | `open` or `closed` when the backend errors |
 
 ## Decisions worth knowing about
@@ -72,6 +73,13 @@ site has something better to key on.
 well-behaved client backs off instead of retrying immediately; the second
 because a 429 is about this caller at this moment, and a cached one would answer
 somebody else's request.
+
+**Some callers share an address by design.** A newsletter's RFC 8058 one-click
+unsubscribe is POSTed by the mailbox provider's servers, not by the reader — a
+campaign to a few thousand addresses at one provider arrives from a handful of
+IPs. Counting those against a per-IP budget turns an unsubscribe into a `429`
+the provider may never retry. `RATE_LIMIT_SKIP = "/api/newsletter/unsubscribe"`
+leaves that one path alone while the sign-up beside it stays covered.
 
 ## Testing it before it ships
 

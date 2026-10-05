@@ -22,4 +22,5 @@
 # RATE_LIMIT_WINDOW = "60"     # seconds
 # RATE_LIMIT_BY = "ip"         # "ip" or "header:<name>"
 # RATE_LIMIT_PATHS = "/api/"   # comma-separated prefixes this covers
+# RATE_LIMIT_SKIP = ""         # prefixes left alone, e.g. "/api/newsletter/unsubscribe"
 # RATE_LIMIT_FAIL = "open"     # "open" or "closed" when the backend errors

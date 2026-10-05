@@ -8,8 +8,8 @@
 // the raw IP (PII) is never stored. New comments are held for moderation.
 
 import {
-  Env, CommentRow, json, sha256hex, verifyTurnstile, normaliseURL, isSpam,
-  closeWindowMs, isClosed,
+  Env, CommentRow, json, sha256hex, verifyTurnstile, turnstileSecret, normaliseURL,
+  isSpam, closeWindowMs, isClosed, purgeExpired,
 } from "./_lib";
 import { notifyByEmail } from "./_mail";
 import { ensureSchema } from "./_schema";
@@ -71,7 +71,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // Both bindings are required to accept a comment; fail clean before touching
   // D1 (which the close-check below queries) so a missing binding is a 503, not
   // a raw 500.
-  if (!env.COMMENTS_DB || !env.TURNSTILE_SECRET) {
+  const secret = turnstileSecret(env);
+  if (!env.COMMENTS_DB || !secret) {
     return json({ error: "comments not configured" }, 503);
   }
   await ensureSchema(env);
@@ -119,7 +120,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   const ip = request.headers.get("cf-connecting-ip");
-  if (!payload.token || !(await verifyTurnstile(env.TURNSTILE_SECRET, payload.token, ip))) {
+  if (!payload.token || !(await verifyTurnstile(secret, payload.token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
   }
 
@@ -153,6 +154,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   if (!spam) {
     waitUntil(notifyByEmail(env, { url, author, body }));
   }
+  // Retention, in the background: a no-op unless COMMENTS_RETENTION_DAYS is set.
+  waitUntil(purgeExpired(env).then(() => undefined));
 
   // Never reveal the spam verdict to the submitter — a spammer must not learn
   // they were filtered. Both paths look like "thanks, awaiting review".

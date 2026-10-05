@@ -6,11 +6,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	ssgroot "github.com/spagu/ssg"
 )
 
 func TestAvailableWorkerTemplates(t *testing.T) {
 	names := availableWorkerTemplates()
-	want := map[string]bool{"contact-form": false, "stripe-checkout": false, "dynamic-price": false, "conversions-proxy": false}
+	want := map[string]bool{"contact-form": false, "stripe-checkout": false, "dynamic-price": false, "conversions-proxy": false, "newsletter": false}
 	for _, n := range names {
 		if _, ok := want[n]; ok {
 			want[n] = true
@@ -137,6 +139,111 @@ func TestTheRateLimitTemplateShipsWhatItPromises(t *testing.T) {
 	}
 	if !strings.Contains(readme, "fallback, not a choice") {
 		t.Error("the README must not present KV as an equal option")
+	}
+}
+
+// TestTheNewsletterTemplateShipsWhatItPromises (#323).
+//
+// A sign-up form is where list hygiene and the law meet, so the template's
+// guarantees are pinned rather than left for someone to rediscover: consent is
+// stored with its wording, unsubscribing is RFC 8058 one-click and never
+// happens on a GET, and the shared Turnstile secret is only a fallback (#325).
+func TestTheNewsletterTemplateShipsWhatItPromises(t *testing.T) {
+	if !slices.Contains(availableWorkerTemplates(), "newsletter") {
+		t.Fatal("newsletter is not offered by `ssg new worker`")
+	}
+	dest := filepath.Join(t.TempDir(), "newsletter")
+	if err := extractWorkerTemplate("workers/newsletter", dest); err != nil {
+		t.Fatalf("extract: %v", err)
+	}
+	api := filepath.Join(dest, "functions", "api", "newsletter")
+	for _, f := range []string{
+		filepath.Join(api, "index.ts"), filepath.Join(api, "unsubscribe.ts"), filepath.Join(api, "confirm.ts"),
+		filepath.Join(api, "admin.ts"), filepath.Join(api, "_lib.ts"), filepath.Join(api, "_store.ts"),
+		filepath.Join(dest, "schema.sql"), filepath.Join(dest, "wrangler.snippet.toml"), filepath.Join(dest, "README.md"),
+		filepath.Join(dest, "public", "newsletter-form.html"), filepath.Join(dest, "public", "newsletter.js"),
+	} {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("not scaffolded: %v", err)
+		}
+	}
+
+	signup := mustReadFile(t, filepath.Join(api, "index.ts"))
+	if !strings.Contains(signup, "export const onRequestPost") || !strings.Contains(signup, "status: 303") {
+		t.Error("a plain form post must be answered with a 303 the browser follows")
+	}
+	if !strings.Contains(signup, "consent_text") {
+		t.Error("consent must be stored together with the words it was given to")
+	}
+
+	unsub := mustReadFile(t, filepath.Join(api, "unsubscribe.ts"))
+	if !strings.Contains(unsub, `"List-Unsubscribe") === "One-Click"`) {
+		t.Error("the unsubscribe POST must recognise the RFC 8058 one-click body")
+	}
+	// A GET that unsubscribed would be triggered by every mail scanner.
+	get := unsub[strings.Index(unsub, "onRequestGet"):strings.Index(unsub, "onRequestPost")]
+	if strings.Contains(get, "unsubscribe(env") {
+		t.Error("GET must only render a page; the change belongs to the POST")
+	}
+
+	lib := mustReadFile(t, filepath.Join(api, "_lib.ts"))
+	if !strings.Contains(lib, "env.NEWSLETTER_TURNSTILE_SECRET || env.TURNSTILE_SECRET") {
+		t.Error("the prefixed Turnstile secret must win, with the shared one as fallback (#325)")
+	}
+	if !strings.Contains(lib, "getRandomValues") {
+		t.Error("link tokens must be random, not derived from the address")
+	}
+}
+
+// TestWorkerTemplatesKeepTheirTurnstileSecretsApart (#325).
+//
+// One Pages project gives every worker the same environment. cookie-consent
+// used to read the shared TURNSTILE_SECRET, so setting it for the contact form
+// silently dropped every consent record. Each template now reads its own
+// prefixed name; only those that always required Turnstile fall back to the
+// shared one, and cookie-consent never does.
+func TestWorkerTemplatesKeepTheirTurnstileSecretsApart(t *testing.T) {
+	read := func(rel string) string {
+		t.Helper()
+		b, err := ssgroot.EmbeddedWorkers.ReadFile("workers/" + rel)
+		if err != nil {
+			t.Fatalf("reading %s: %v", rel, err)
+		}
+		return string(b)
+	}
+	for rel, want := range map[string]string{
+		"contact-form/functions/api/contact.ts":       "env.CONTACT_TURNSTILE_SECRET || env.TURNSTILE_SECRET",
+		"comments/functions/api/comments/_lib.ts":     "env.COMMENTS_TURNSTILE_SECRET || env.TURNSTILE_SECRET",
+		"newsletter/functions/api/newsletter/_lib.ts": "env.NEWSLETTER_TURNSTILE_SECRET || env.TURNSTILE_SECRET",
+		"cookie-consent/functions/api/consent/log.ts": "env.CONSENT_TURNSTILE_SECRET",
+	} {
+		if !strings.Contains(read(rel), want) {
+			t.Errorf("%s: want %q", rel, want)
+		}
+	}
+	if strings.Contains(read("cookie-consent/functions/api/consent/log.ts"), "env.TURNSTILE_SECRET") {
+		t.Error("cookie-consent must never read the shared TURNSTILE_SECRET: its banner sends no token")
+	}
+}
+
+// TestWorkerCookieConsentDialogIsKeyboardSafe (#324): the banner is
+// role=dialog aria-modal, so Tab must not leave it and closing it must hand
+// focus back to whatever opened it.
+func TestWorkerCookieConsentDialogIsKeyboardSafe(t *testing.T) {
+	b, err := ssgroot.EmbeddedWorkers.ReadFile("workers/cookie-consent/public/cookie-consent.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(b)
+	for _, want := range []string{
+		"function trapTab",
+		"function restoreFocus",
+		`[tabindex]:not([tabindex="-1"])`,
+		"\n    hi: {", // the built-in Hindi string set
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("cookie-consent.js lacks %q", want)
+		}
 	}
 }
 

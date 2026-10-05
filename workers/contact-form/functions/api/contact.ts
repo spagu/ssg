@@ -4,13 +4,16 @@
 // setting RESEND_API_KEY and using the commented block below.
 //
 // Secrets (wrangler pages secret put <NAME>):
-//   TURNSTILE_SECRET   Cloudflare Turnstile secret key
+//   CONTACT_TURNSTILE_SECRET  Cloudflare Turnstile secret key for this form
+//   TURNSTILE_SECRET   shared fallback, read only when the prefixed one is
+//                      unset (kept so existing projects keep working)
 //   CONTACT_TO         destination inbox, e.g. "team@example.com"
 //   CONTACT_FROM       verified sender, e.g. "noreply@example.com"
 //   RESEND_API_KEY     (optional) enables the Resend path instead of MailChannels
 
 interface Env {
-  TURNSTILE_SECRET: string;
+  CONTACT_TURNSTILE_SECRET?: string;
+  TURNSTILE_SECRET?: string;
   CONTACT_TO: string;
   CONTACT_FROM: string;
   RESEND_API_KEY?: string;
@@ -29,6 +32,13 @@ async function verifyTurnstile(secret: string, token: string, ip: string | null)
   return out.success === true;
 }
 
+// One Pages project runs every worker it carries with one shared environment,
+// so an unprefixed secret set for one template is visible to all of them
+// (#325). The prefixed name is this form's own; the shared one is a fallback
+// for projects configured before the prefix existed.
+const turnstileSecret = (env: Env): string | undefined =>
+  env.CONTACT_TURNSTILE_SECRET || env.TURNSTILE_SECRET;
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let form: Record<string, string>;
   try {
@@ -41,9 +51,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const { name, email, message } = form;
   if (!name || !email || !message) return json({ error: "name, email and message are required" }, 422);
 
+  const secret = turnstileSecret(env);
+  if (!secret) return json({ error: "contact form not configured" }, 503);
   const token = form["cf-turnstile-response"];
   const ip = request.headers.get("cf-connecting-ip");
-  if (!token || !(await verifyTurnstile(env.TURNSTILE_SECRET, token, ip))) {
+  if (!token || !(await verifyTurnstile(secret, token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
   }
 

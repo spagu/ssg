@@ -81,6 +81,16 @@
       marketing: "Marketing", marketing_d: "Personnalisation des publicités et mesure.",
       preferences: "Préférences", preferences_d: "Mémorise des choix comme la langue.",
     },
+    hi: {
+      title: "हम आपकी निजता का सम्मान करते हैं",
+      body: "हम इस साइट को चलाने के लिए कुकीज़ का उपयोग करते हैं और, आपकी सहमति से, ट्रैफ़िक मापने और साइट को बेहतर बनाने के लिए भी। आप सभी स्वीकार कर सकते हैं, अस्वीकार कर सकते हैं, या हर श्रेणी के लिए अलग से चुन सकते हैं।",
+      acceptAll: "सभी स्वीकार करें", rejectAll: "सभी अस्वीकार करें", save: "चुनाव सहेजें",
+      manage: "कुकी सेटिंग्स", policy: "कुकी नीति", close: "बंद करें",
+      necessary: "अत्यंत आवश्यक", necessary_d: "साइट के काम करने के लिए ज़रूरी। हमेशा चालू।",
+      analytics: "एनालिटिक्स", analytics_d: "यह समझने में मदद करती हैं कि साइट का उपयोग कैसे होता है।",
+      marketing: "मार्केटिंग", marketing_d: "विज्ञापनों को वैयक्तिकृत करने और अभियानों को मापने के लिए।",
+      preferences: "प्राथमिकताएँ", preferences_d: "भाषा या क्षेत्र जैसे विकल्प याद रखती हैं।",
+    },
   };
 
   // ── config + storage ─────────────────────────────────────────────────────
@@ -248,15 +258,74 @@
       close(wrap);
       if (onDone) onDone(granted);
     });
-    document.addEventListener("keydown", function esc(e) {
-      if (e.key === "Escape" && wrap.parentNode) {
+    // One document-level handler per open dialog, removed again by close():
+    // Escape and the Tab focus trap both have to see keys pressed while focus
+    // is anywhere, including on the page behind after a stray click.
+    onKey = function (e) {
+      if (e.key === "Escape") {
         // Escape saves only necessary — never a silent "accept all".
         apply(cfg, onlyNecessary(cfg));
         close(wrap);
-        document.removeEventListener("keydown", esc);
+      } else if (e.key === "Tab") {
+        trapTab(wrap, e);
       }
-    });
+    };
+    document.addEventListener("keydown", onKey);
     return wrap;
+  }
+
+  // ── focus management (ARIA APG modal dialog pattern) ─────────────────────
+  //
+  // role="dialog" + aria-modal="true" promises assistive technology that the
+  // page behind is inert. Keyboard focus has to keep that promise too: Tab and
+  // Shift+Tab cycle inside the dialog, and closing it hands focus back to
+  // whatever opened it, so a keyboard user is not dropped at the top of the page.
+
+  var FOCUSABLE =
+    'a[href], area[href], button, input, select, textarea, iframe, ' +
+    '[tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+  var onKey = null; // the open dialog's keydown handler, removed on close
+  var returnFocus = null; // the element focused before the dialog opened
+
+  // focusables lists the dialog's tabbable elements in DOM order, skipping
+  // disabled controls (the always-on "necessary" toggle), elements opted out
+  // with tabindex="-1", and anything not rendered.
+  function focusables(wrap) {
+    return Array.prototype.filter.call(wrap.querySelectorAll(FOCUSABLE), function (el) {
+      if (el.disabled || el.getAttribute("tabindex") === "-1") return false;
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    });
+  }
+
+  // trapTab wraps Tab from the last element to the first and Shift+Tab from
+  // the first to the last. Focus that has escaped the dialog (a click on the
+  // page behind) is pulled back in on the next Tab.
+  function trapTab(wrap, e) {
+    var items = focusables(wrap);
+    if (!items.length) { e.preventDefault(); return; }
+    var first = items[0];
+    var last = items[items.length - 1];
+    var active = document.activeElement;
+    var inside = wrap.contains(active);
+    if (e.shiftKey && (!inside || active === first)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (!inside || active === last)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  // restoreFocus returns focus to the opener, but only if it is still on the
+  // page and is something real — focusing <body> or a detached node does
+  // nothing useful and can scroll the page.
+  function restoreFocus() {
+    var el = returnFocus;
+    returnFocus = null;
+    if (!el || el === document.body || el === document.documentElement) return;
+    if (!document.documentElement.contains(el) || typeof el.focus !== "function") return;
+    el.focus();
   }
 
   function readToggles(wrap, cfg) {
@@ -268,8 +337,12 @@
     return granted;
   }
 
-  function open(cfg, t) {
+  // open shows the dialog. `opener` is the element that asked for it (a
+  // [data-cookie-settings] link); without one, whatever had focus is used.
+  // Passing it explicitly matters on Safari, which does not focus a link on click.
+  function open(cfg, t, opener) {
     if (document.querySelector(".ssg-cc")) return;
+    returnFocus = opener || document.activeElement;
     var stored = getStored();
     var dlg = buildDialog(cfg, t);
     document.body.appendChild(dlg);
@@ -284,7 +357,10 @@
   }
 
   function close(wrap) {
+    if (onKey) document.removeEventListener("keydown", onKey);
+    onKey = null;
     if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    restoreFocus();
   }
 
   // ── boot ───────────────────────────────────────────────────────────────
@@ -319,7 +395,7 @@
     };
     document.addEventListener("click", function (e) {
       var el = e.target && e.target.closest && e.target.closest("[data-cookie-settings]");
-      if (el) { e.preventDefault(); open(cfg, t); }
+      if (el) { e.preventDefault(); open(cfg, t, el); }
     });
 
     needBanner(cfg, function (show) { if (show) open(cfg, t); });

@@ -15,13 +15,15 @@
 //
 // Bindings / config (all optional — the endpoint degrades gracefully):
 //   CONSENT_LOG            KV namespace binding; without it, nothing is stored
-//   TURNSTILE_SECRET       if set, a Turnstile token is verified (anti-flood)
+//   CONSENT_TURNSTILE_SECRET  if set, a Turnstile token is verified (anti-flood).
+//                          Deliberately NOT the shared TURNSTILE_SECRET — see
+//                          consentTurnstileSecret below.
 //   CONSENT_IP_SALT        salt for the IP hash; set one to make hashes stable
 //   CONSENT_RETENTION_DAYS KV TTL in days (default 365)
 
 interface Env {
   CONSENT_LOG?: KVNamespace;
-  TURNSTILE_SECRET?: string;
+  CONSENT_TURNSTILE_SECRET?: string;
   CONSENT_IP_SALT?: string;
   CONSENT_RETENTION_DAYS?: string;
 }
@@ -57,6 +59,15 @@ async function hashIP(ip: string, salt: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// The stock banner (public/cookie-consent.js) never sends a Turnstile token: a
+// challenge in front of a legally required choice is the wrong trade. So the
+// check is opt-in through this worker's OWN secret only. It used to read the
+// shared TURNSTILE_SECRET, and because every worker in a Pages project shares
+// one environment, setting that secret for contact-form or comments silently
+// turned verification on here — and every consent record was then dropped with
+// {"ok":true,"stored":false} (#325). The shared name is never consulted.
+const consentTurnstileSecret = (env: Env): string | undefined => env.CONSENT_TURNSTILE_SECRET;
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let payload: ConsentBody;
   try {
@@ -73,13 +84,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     .map((c) => String(c).slice(0, 40));
   const version = (typeof payload.version === "string" ? payload.version : "1").slice(0, 40);
 
-  // Turnstile is opt-in: only enforced when a secret is configured, and a
-  // failure never rejects the consent — it only skips the audit write, so a
-  // legally-required choice is never gated behind a challenge.
+  // Turnstile is opt-in: only enforced when CONSENT_TURNSTILE_SECRET is set,
+  // and a failure never rejects the consent — it only skips the audit write, so
+  // a legally-required choice is never gated behind a challenge.
+  //
+  // A configured secret with no token in the body is a deployment mistake, not
+  // an attack worth hiding: the stock banner sends none, so every record would
+  // vanish. Unverified records are still not stored (the operator asked for
+  // verification), but the reason is logged and returned instead of a bare
+  // stored:false.
   let verified = true;
-  if (env.TURNSTILE_SECRET) {
-    const ip = request.headers.get("cf-connecting-ip");
-    verified = !!payload.token && (await verifyTurnstile(env.TURNSTILE_SECRET, payload.token, ip));
+  let reason = "";
+  const secret = consentTurnstileSecret(env);
+  if (secret) {
+    if (!payload.token) {
+      verified = false;
+      reason = "turnstile token missing";
+      console.warn(
+        "consent log: CONSENT_TURNSTILE_SECRET is set but the request carried no token — " +
+          "record NOT stored. The stock cookie-consent.js sends no token; unset the secret " +
+          "or send `token` from a custom banner.",
+      );
+    } else {
+      const ip = request.headers.get("cf-connecting-ip");
+      verified = await verifyTurnstile(secret, payload.token, ip);
+      if (!verified) reason = "turnstile verification failed";
+    }
   }
 
   if (env.CONSENT_LOG && verified) {
@@ -103,5 +133,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   // Always acknowledge: the client has already stored the choice locally.
-  return json({ ok: true, stored: !!env.CONSENT_LOG && verified });
+  const stored = !!env.CONSENT_LOG && verified;
+  return json(reason ? { ok: true, stored, reason } : { ok: true, stored });
 };

@@ -205,11 +205,17 @@ small converter can map them the same way; the REST script covers the common
 
 | Secret | Purpose |
 |---|---|
-| `TURNSTILE_SECRET` | verifies the submit token (required) |
+| `COMMENTS_TURNSTILE_SECRET` | verifies the submit token (required; falls back to the shared `TURNSTILE_SECRET` when unset) |
 | `COMMENTS_ADMIN_PASSWORD` | moderation panel password (required to moderate) |
 | `COMMENTS_IP_SALT` | salt for the stored IP hash |
 | `COMMENTS_AKISMET_KEY` | optional — enables Akismet spam scoring |
 | `COMMENTS_MAIL_KEY` | optional — bearer token for the email API (email-on-comment) |
+
+Prefer `COMMENTS_TURNSTILE_SECRET` over the shared `TURNSTILE_SECRET`: every
+worker in one Pages project reads the same environment, so an unprefixed secret
+is seen by all of them. The fallback keeps projects configured before the prefix
+existed working unchanged — see *Secrets* in
+[docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
 
 `[vars]` (or `wrangler.toml`):
 
@@ -217,6 +223,7 @@ small converter can map them the same way; the REST script covers the common
 |---|---|
 | `COMMENTS_ORDER` | `newest` (default) or `oldest` |
 | `COMMENTS_CLOSE_AFTER_DAYS` | auto-close a thread `N` days after its last activity (`0` = never) |
+| `COMMENTS_RETENTION_DAYS` | delete spam and pending comments older than `N` days (`0` = keep). Approved comments are never deleted. The purge runs after new comments, at most hourly; `POST /api/comments/admin {"action":"purge"}` runs it now, e.g. from a cron |
 | `COMMENTS_AKISMET_URL` | Akismet endpoint, paired with the key |
 | `COMMENTS_MAIL_URL` | email API endpoint accepting `{from,to,subject,text}` (e.g. Resend); enables email-on-comment |
 | `COMMENTS_MAIL_FROM` | sender address for the notice |
@@ -282,8 +289,12 @@ does this and is a working example:
      env:
        TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET_KEY }}
      run: printf '%s' "$TURNSTILE_SECRET" |
-       npx wrangler pages secret put TURNSTILE_SECRET --project-name "$PROJECT"
+       npx wrangler pages secret put COMMENTS_TURNSTILE_SECRET --project-name "$PROJECT"
    ```
+
+   (The docs site's workflow still pushes the shared `TURNSTILE_SECRET`, which
+   the worker reads as a fallback. The prefixed name is what keeps that secret
+   away from the other workers in the same project.)
 
    Needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in the job env.
 
