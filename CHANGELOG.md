@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.70] - 2026-10-05
+
+Fixes from building a multilingual marketing site: each language's own front
+page, hreflang and canonicals on post listings, theme-relative render hooks,
+a warning when the snap writes into its private /tmp, and a newsletter
+sign-up Worker template.
+
 ## [1.8.69] - 2026-10-03
 
 API documentation from code and from OpenAPI. A site can now publish the
