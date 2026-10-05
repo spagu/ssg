@@ -81,10 +81,12 @@ func TestSecondRootClaimantIsSkippedNotSilentlyLast(t *testing.T) {
 // page, and a root claim in one language must not disqualify another's.
 func TestDesignationIsPerLanguage(t *testing.T) {
 	en := models.Page{Title: "Home", Slug: "home", Link: "/", Lang: "en", SourceFile: "en/home.md"}
-	pl := models.Page{Title: "Dom", Slug: "dom", Link: "/", Lang: "pl", SourceFile: "pl/dom.md"}
+	pl := models.Page{Title: "Dom", Slug: "dom", Link: "/pl/", Lang: "pl", SourceFile: "pl/dom.md"}
 	extra := models.Page{Title: "Extra", Slug: "extra", Link: "/", Lang: "en", SourceFile: "en/extra.md"}
-	g := &Generator{siteData: &models.SiteData{Pages: []models.Page{en, pl, extra}}}
+	plExtra := models.Page{Title: "Inny", Slug: "inny", Link: "/pl/", Lang: "pl", SourceFile: "pl/inny.md"}
+	g := &Generator{siteData: &models.SiteData{Pages: []models.Page{en, pl, extra, plExtra}}}
 	g.config.I18n.Enabled = true
+	g.config.DefaultLanguage = "en"
 
 	if !g.isDesignatedFrontPage(en) {
 		t.Error("the first English claimant is the English front page")
@@ -92,7 +94,13 @@ func TestDesignationIsPerLanguage(t *testing.T) {
 	if !g.isDesignatedFrontPage(pl) {
 		t.Error("the first Polish claimant is the Polish front page")
 	}
-	if g.isDesignatedFrontPage(extra) {
-		t.Error("a second English claimant must not be designated")
+	if g.isDesignatedFrontPage(extra) || g.isDesignatedFrontPage(plExtra) {
+		t.Error("a second claimant of a language root must not be designated")
+	}
+	if !g.isLanguageRootPage(pl) || !g.isLanguageRootPage(en) {
+		t.Error("/pl/ is the Polish root and / the English one (#319)")
+	}
+	if g.isLanguageRootPage(models.Page{Link: "/pl/", Lang: "en"}) {
+		t.Error("/pl/ is not the English root")
 	}
 }

@@ -222,6 +222,32 @@ reported, not silent:
 move its listing off the root. In multilingual builds the language prefix comes
 first (`/pl/blog/`), and each language has its own front page.
 
+#### A front page per language
+
+Each language names its own root in `link:`. The default language's root is
+`/`, unless `prefix_default_language` is on. Every other language's root is
+its prefix. `link:` is never prefixed for you, so write it in full:
+
+```yaml
+# home.hi.md (default language)   # home.en.md                  # home.pl.md
+link: "/"                         link: "/en/"                  link: "/pl/"
+translation_key: home             translation_key: home         translation_key: home
+```
+
+Each of these pages is its language's front page. Each language's post
+listing moves to its own `posts_page` (`/en/blog/`), or is not generated when
+`posts_page` is unset. The build names every language's front page:
+
+```text
+🏠 Front page: home.hi.md
+   Post listing: /blog/
+🏠 Front page: home.en.md
+   Post listing: /en/blog/
+```
+
+Giving two languages `link: "/"` is a collision at the site root. The error
+says how to fix it.
+
 The two are usually set together with `paginate`, which decides how many posts
 each page of the listing holds:
 
@@ -453,12 +479,23 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `host` | `127.0.0.1` | `--host` | Bind address |
 | `port` | `8888` | `--port` | TCP port. Taken if free; otherwise the server walks forward (8889, 8890, …, up to 64 ports) and announces where it landed. `0` = any free port |
 | `watch` | `false` | `--watch` | Rebuild after local file changes (content, templates, data and the config file) |
-| `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process |
+| `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process; `none` turns off the one a configured worker would start |
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
 | `clean` | `false` | `--clean` | Remove previous output before builds |
 | `incremental` | `false` | `--incremental` | Rebuild only the pages a change can reach. Always on under `--watch` |
 | `markdown_cache` | `false` | `--markdown-cache` | Keep converted Markdown between builds. Off for a reason — see below |
+
+`watch_runner: none` (or `off`) keeps a configured worker for builds and
+deploys but starts no runner in `--watch`, so the preview serves only the
+static site. If the runner's command is not installed, the preview still
+starts and ssg says so once. This is the usual case in the Docker image,
+which has no Node:
+
+```text
+ℹ️  Watch runner "npx wrangler pages dev ." not started: npx is not installed here, so /api/* Functions are not served (the static preview works).
+   The ssg Docker image has no Node: run `npx wrangler pages dev output` on the host beside it, or use an image with Node.
+```
 
 `watch_runner` coordinates background execution of development emulators (like `wrangler` or `workerd`). When configured, `ssg` automatically monitors files for rebuilds and spawns the runner in parallel, piping its output and terminating it on exit. Spelled `--wrangler` (for `npx wrangler dev`) or `--workerd` (for `workerd serve`) as CLI convenience flags.
 

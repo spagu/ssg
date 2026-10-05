@@ -64,7 +64,7 @@ sudo apt install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.69
+VERSION=1.8.70
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -110,7 +110,7 @@ sudo dnf install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.69
+VERSION=1.8.70
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm
@@ -167,6 +167,21 @@ sudo snap alias static-site-generator ssg
 ```
 
 Now you can use `ssg` instead of `static-site-generator`.
+
+### The snap's private `/tmp`
+
+The snap is strictly confined, so its `/tmp` and `/var/tmp` are private
+copies. `ssg --output-dir /tmp/site` succeeds and prints the path, but
+`/tmp/site` on your machine stays empty. ssg warns when the output, content or
+templates directory is in one of them:
+
+```text
+⚠️  The snap has its own private /tmp: the output directory /tmp/site is inside it, not on the host.
+```
+
+Build into a directory under your home instead. In CI, or anywhere else a
+script builds to a temporary directory, use the DEB package, the binary or
+Docker.
 
 ---
 

@@ -1,0 +1,27 @@
+# newsletter — needs a D1 database. Create it and paste the id:
+#   npx wrangler d1 create ssg-newsletter
+# [[d1_databases]]
+# binding = "NEWSLETTER_DB"
+# database_name = "ssg-newsletter"
+# database_id = "<paste-d1-database-id>"
+
+# [vars]
+# NEWSLETTER_THANKS_URL = "/{lang}/thanks/"  # or a JSON map: '{"en":"/thanks/","pl":"/pl/dziekujemy/","default":"/thanks/"}'
+# NEWSLETTER_RETENTION_DAYS = "0"            # 0 = keep; N = purge pending/unsubscribed rows untouched for N days
+# NEWSLETTER_MAIL_FROM = "news@example.com"  # with a provider key below: double opt-in
+# NEWSLETTER_MAIL_FROM_NAME = "Example News"
+#
+# Admin auth — pick ONE:
+#   (a) HTTP Basic: set the NEWSLETTER_ADMIN_PASSWORD secret (below).
+#   (b) Cloudflare Access (recommended): put /api/newsletter/admin* behind an
+#       Access application, then set both:
+# NEWSLETTER_ACCESS_TEAM = "myteam"           # "myteam" or "myteam.cloudflareaccess.com"
+# NEWSLETTER_ACCESS_AUD = "<application-aud>" # the Access application's AUD tag
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   NEWSLETTER_TURNSTILE_SECRET     Turnstile secret (required; the shared
+#                                   TURNSTILE_SECRET is read when it is unset)
+#   NEWSLETTER_HASH_SALT            salt for the stored IP / User-Agent hashes
+#   NEWSLETTER_ADMIN_PASSWORD       admin endpoint password (auth mode (a))
+#   NEWSLETTER_RESEND_API_KEY       optional — double opt-in mail via Resend
+#   NEWSLETTER_MAILCHANNELS_API_KEY optional — double opt-in mail via MailChannels

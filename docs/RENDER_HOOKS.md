@@ -6,6 +6,12 @@ render_hooks:
   link: hooks/link.html
 ```
 
+A path is looked up in the theme first (`templates/<theme>/hooks/image.html`),
+so a theme ships its hooks and stays portable. If the theme does not have the
+file, the path is read from the working directory, where configurations
+written before 1.8.70 pointed. An absolute path is used as it is. If the file
+is in neither place, the error names both paths it tried.
+
 A hook is a template that decides the markup for one kind of Markdown node. It
 runs at the syntax tree, where the node still knows what it is, rather than over
 the string it became.

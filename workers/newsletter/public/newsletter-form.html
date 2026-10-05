@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter sign-up</title>
+<meta name="description" content="Subscribe to the newsletter: occasional email updates, one-click unsubscribe in every message.">
+<!-- This page is a working demo of the snippet below and is served at
+     /newsletter-form.html. Copy the marked block into your theme; keep the demo
+     out of search results so it does not compete with your real pages. -->
+<meta name="robots" content="noindex">
+<style>
+  /* Google palette; all text pairs meet WCAG 2.2 AA (4.5:1) and the button
+     pairs exceed 7:1 in both colour schemes. */
+  :root { color-scheme: light dark; --nl-fg: #202124; --nl-bg: #ffffff; --nl-muted: #3c4043;
+          --nl-btn: #174ea6; --nl-btn-fg: #ffffff; --nl-border: #5f6368; }
+  @media (prefers-color-scheme: dark) {
+    :root { --nl-fg: #e8eaed; --nl-bg: #202124; --nl-muted: #bdc1c6;
+            --nl-btn: #8ab4f8; --nl-btn-fg: #202124; --nl-border: #9aa0a6; }
+  }
+  body { margin: 0; background: var(--nl-bg); color: var(--nl-fg);
+         font: 1.0625rem/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans Devanagari", sans-serif; }
+  main { max-width: 34rem; margin: 10vh auto; padding: 0 1rem; }
+</style>
+</head>
+<body>
+<main>
+<h1>Get the newsletter</h1>
+<p>Release notes and the occasional long read, about once a month.</p>
+
+<!-- ===== copy from here: the sign-up form ================================
+
+     Works without JavaScript: the browser posts the form and the worker answers
+     with a 303 to NEWSLETTER_THANKS_URL — or, when that is unset, back to this
+     page at #newsletter-thanks, which the rule below reveals with no script.
+     newsletter.js (optional) submits it with fetch instead and reports the
+     result in the aria-live region.
+
+     Fill in per page, from your theme:
+       language     the page language, e.g. {{ .Lang }} — stored with the record
+       source_page  the page path, e.g. {{ .Page.URL }}
+       tags         any segment labels, comma-separated
+       data-sitekey your public Turnstile site key (the secret stays server-side)
+     Keep the hidden consent_text identical to the visible consent label: it is
+     what gets stored as proof of what the visitor agreed to. -->
+<style>
+  .ssg-nl { display: grid; gap: .75rem; max-width: 30rem; }
+  .ssg-nl label { font-weight: 600; }
+  .ssg-nl input[type="email"] { font: inherit; padding: .55rem .7rem; border: 1px solid var(--nl-border, #5f6368);
+                                border-radius: .375rem; background: transparent; color: inherit; }
+  .ssg-nl .ssg-nl-consent { display: flex; gap: .5rem; align-items: flex-start; font-weight: 400; color: var(--nl-muted, #3c4043); }
+  .ssg-nl .ssg-nl-consent input { margin-top: .35rem; }
+  .ssg-nl button { justify-self: start; font: inherit; padding: .6rem 1.2rem; border: 0; border-radius: .375rem;
+                   background: var(--nl-btn, #174ea6); color: var(--nl-btn-fg, #ffffff); cursor: pointer; }
+  .ssg-nl button[disabled] { opacity: .7; cursor: progress; }
+  .ssg-nl :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+  .ssg-nl-thanks:not(:target) { display: none; }
+</style>
+<form class="ssg-nl" data-ssg-newsletter action="/api/newsletter" method="post">
+  <label for="ssg-nl-email">Email address</label>
+  <input id="ssg-nl-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required>
+  <input type="hidden" name="language" value="en">
+  <input type="hidden" name="source_page" value="/newsletter-form.html">
+  <input type="hidden" name="tags" value="newsletter">
+  <label class="ssg-nl-consent">
+    <input type="checkbox" name="consent" value="yes" required>
+    <span data-nl-consent-text>I agree to receive the newsletter by email. I can unsubscribe at any time with the link in every message.</span>
+  </label>
+  <input type="hidden" name="consent_text" value="I agree to receive the newsletter by email. I can unsubscribe at any time with the link in every message.">
+  <!-- Cloudflare Turnstile. For local testing, the always-pass test site key
+       is 1x00000000000000000000AA (pair it with the matching test secret). -->
+  <div class="cf-turnstile" data-sitekey="0xYOUR_SITE_KEY"></div>
+  <button type="submit">Subscribe</button>
+  <p data-nl-status role="status" aria-live="polite"></p>
+</form>
+<p id="newsletter-thanks" class="ssg-nl-thanks" tabindex="-1">Thank you. If a confirmation email is on its way, follow its link to finish signing up.</p>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="/newsletter.js" defer></script>
+<!-- ===== copy to here ================================================== -->
+
+</main>
+</body>
+</html>

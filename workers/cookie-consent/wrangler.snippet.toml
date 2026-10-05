@@ -16,5 +16,7 @@
 # CONSENT_RETENTION_DAYS = "365"
 
 # Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
-#   TURNSTILE_SECRET   verifies the audit-log token (optional, anti-flood)
+#   CONSENT_TURNSTILE_SECRET  verifies the audit-log token (optional, anti-flood).
+#                      Only for a custom banner that sends `token` — the stock
+#                      one does not. The shared TURNSTILE_SECRET is ignored here.
 #   CONSENT_IP_SALT    salt for the stored IP hash

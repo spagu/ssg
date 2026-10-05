@@ -15,6 +15,13 @@ It is compliant, not decorative:
 - **Withdrawable, versioned, expiring.** Any `data-cookie-settings` element
   reopens the dialog; consent is re-asked after `expiryDays` or a policy
   `version` bump.
+- **Keyboard-safe modal.** Per the ARIA APG modal dialog pattern, Tab and
+  Shift+Tab cycle inside the dialog instead of escaping to the page behind, and
+  closing it (a choice, or Escape) returns focus to the element that opened it —
+  a `data-cookie-settings` link, say.
+- **Localised.** English, Polish, German, French and Hindi built in, picked
+  from `<html lang>` (falling back to `defaultLang`); `i18n.<lang>` in the
+  config overrides single strings or adds a language.
 - **Consent Mode v2.** Emits `gtag('consent','update', …)`, a `dataLayer`
   event, and a `ssg:consent` DOM event so tag managers react.
 - **Auditable.** An optional endpoint records a proof-of-consent entry (the IP
@@ -146,13 +153,29 @@ Set with `wrangler pages secret put <NAME>` or `[vars]` in `wrangler.toml`:
 |---|---|
 | `CONSENT_COUNTRIES` | comma-separated ISO codes to require it in (replaces the EEA+UK default) |
 | `CONSENT_ALWAYS` | `1` requires the banner everywhere |
-| `TURNSTILE_SECRET` | if set, the audit endpoint verifies a Turnstile token (anti-flood); never blocks the choice |
+| `CONSENT_TURNSTILE_SECRET` | if set, the audit endpoint verifies a Turnstile token (anti-flood); never blocks the choice. Only for a custom banner that sends `token` — see below |
 | `CONSENT_IP_SALT` | salt for the stored IP hash |
 | `CONSENT_RETENTION_DAYS` | audit-record TTL (default 365) |
 | `CONSENT_LOG` (KV binding) | where audit records are stored; without it, nothing is written |
 
 Without any of these the banner still works (client-side, EEA+UK, no audit
 log). The audit log needs the `CONSENT_LOG` KV namespace bound to the project.
+
+### Turnstile and the shared `TURNSTILE_SECRET`
+
+The audit endpoint reads **only** `CONSENT_TURNSTILE_SECRET`, never the shared
+`TURNSTILE_SECRET`. Every worker in one Pages project sees the same environment,
+and the stock `cookie-consent.js` sends no Turnstile token (a challenge in front
+of a legally required choice is the wrong trade). Before 1.8.70 the endpoint
+read the shared name, so setting it for `contact-form` or `comments` silently
+switched verification on here and every consent record was dropped with
+`{"ok":true,"stored":false}`.
+
+Set `CONSENT_TURNSTILE_SECRET` only when a custom banner posts a `token` along
+with the categories. If it is set and a request arrives without one, the record
+is not stored, the response says `"reason":"turnstile token missing"`, and the
+Function logs a warning (visible in `wrangler pages deployment tail`) — the
+misconfiguration shows up instead of an audit log that quietly stays empty.
 
 ## Deploy
 

@@ -19,12 +19,19 @@ worker:
 ## Secrets
 
 ```sh
-wrangler pages secret put TURNSTILE_SECRET
+wrangler pages secret put CONTACT_TURNSTILE_SECRET
 wrangler pages secret put CONTACT_TO
 wrangler pages secret put CONTACT_FROM
 # optional, enables the Resend path instead of MailChannels:
 wrangler pages secret put RESEND_API_KEY
 ```
+
+`CONTACT_TURNSTILE_SECRET` is this form's own Turnstile secret. When it is
+unset the form falls back to the shared `TURNSTILE_SECRET`, so a project set up
+before the prefix existed keeps working unchanged. Prefer the prefixed name:
+every worker in one Pages project sees the same environment, and an unprefixed
+secret meant for one template is read by all of them — see *Secrets* in
+[docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
 
 ## Front-end
 

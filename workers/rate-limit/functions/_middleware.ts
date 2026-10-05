@@ -27,6 +27,11 @@
 //   RATE_LIMIT_WINDOW window in seconds (default 60)
 //   RATE_LIMIT_BY     "ip" (default) or "header:<name>"
 //   RATE_LIMIT_PATHS  comma-separated path prefixes to cover; default "/api/"
+//   RATE_LIMIT_SKIP   comma-separated path prefixes to leave alone even inside
+//                     RATE_LIMIT_PATHS; default none. For endpoints whose
+//                     legitimate callers share an address by design — the
+//                     newsletter's RFC 8058 one-click unsubscribe is POSTed by
+//                     a mailbox provider's servers, thousands per campaign.
 //   RATE_LIMIT_FAIL   "open" (default) or "closed" — what to do when the
 //                     backend itself errors
 
@@ -41,6 +46,7 @@ interface Env {
   RATE_LIMIT_WINDOW?: string;
   RATE_LIMIT_BY?: string;
   RATE_LIMIT_PATHS?: string;
+  RATE_LIMIT_SKIP?: string;
   RATE_LIMIT_FAIL?: string;
 }
 
@@ -53,15 +59,20 @@ const num = (raw: string | undefined, fallback: number): number => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-/** The paths this middleware guards. Static assets are not routed through
- *  functions/ at all, but a project may add a page-serving Function, and
- *  rate-limiting a page is a different decision from rate-limiting an API. */
-const covers = (path: string, env: Env): boolean =>
-  (env.RATE_LIMIT_PATHS ?? "/api/")
+/** Splits a comma-separated list of path prefixes, dropping empty entries. */
+const prefixes = (raw: string): string[] =>
+  raw
     .split(",")
     .map((p) => p.trim())
-    .filter(Boolean)
-    .some((prefix) => path.startsWith(prefix));
+    .filter(Boolean);
+
+/** The paths this middleware guards. Static assets are not routed through
+ *  functions/ at all, but a project may add a page-serving Function, and
+ *  rate-limiting a page is a different decision from rate-limiting an API.
+ *  RATE_LIMIT_SKIP carves exceptions out of the covered set. */
+const covers = (path: string, env: Env): boolean =>
+  prefixes(env.RATE_LIMIT_PATHS ?? "/api/").some((prefix) => path.startsWith(prefix)) &&
+  !prefixes(env.RATE_LIMIT_SKIP ?? "").some((prefix) => path.startsWith(prefix));
 
 /** The identity the budget is spent against.
  *

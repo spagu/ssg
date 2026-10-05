@@ -175,7 +175,7 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struc
 	// has bindings to read (GO-077).
 	ensureWranglerForWorkers(cfg)
 	config.ApplyWorkerWatchDefaults(cfg)
-	if cfg.WatchRunner != "" {
+	if cfg.WatchRunner != "" && !config.RunnerDisabled(cfg.WatchRunner) {
 		cmd := startWatchRunner(watchRunnerSpec{
 			Runner: cfg.WatchRunner,
 			Config: cfg.WatchRunnerConfig,
@@ -902,7 +902,7 @@ func parseFlags(args []string, cfg *config.Config) {
 		}
 		i += parseValueFlags(args, i, cfg)
 	}
-	if cfg.WatchRunner != "" {
+	if cfg.WatchRunner != "" && !config.RunnerDisabled(cfg.WatchRunner) {
 		cfg.Watch = true
 	}
 	warnUnknownFlags(args, cfg)
@@ -1343,6 +1343,7 @@ const (
 const plainScheme = "http"
 
 func build(genCfg generator.Config, cfg *config.Config) error {
+	warnSnapPrivatePaths(os.Stderr, genCfg, isSnapInstall(executableOf()))
 	gen, err := generator.New(genCfg)
 	if err != nil {
 		return fmt.Errorf("initializing generator: %w", err)
@@ -1942,6 +1943,22 @@ func watchRunnerCommand(runner, runnerConfig string) (string, []string) {
 	}
 }
 
+// runnerMissingMessage explains a runner that is not installed (#326): the
+// static preview keeps working, the Functions do not, and the reader is told
+// how to get them or how to stop being told. In the Docker image there is no
+// Node at all, which is worth saying in so many words.
+func runnerMissingMessage(cmdName, runner string, inDocker bool) string {
+	msg := fmt.Sprintf("ℹ️  Watch runner %q not started: %s is not installed here, so /api/* Functions are not served "+
+		"(the static preview works).\n", runner, cmdName)
+	if inDocker {
+		msg += "   The ssg Docker image has no Node: run `npx wrangler pages dev output` on the host beside it, " +
+			"or use an image with Node.\n"
+	} else {
+		msg += "   Install Node.js (for npx and wrangler), or run the runner yourself.\n"
+	}
+	return msg + "   Set watch_runner: none to preview without Functions and skip this note (docs/WORKERS.md).\n"
+}
+
 // watchRunnerSpec describes the background process to spawn: which runner, the
 // config file it should read, and the directory it runs in. Dir covers the
 // monorepo layout where the Worker sits in a subdirectory while content and
@@ -1987,6 +2004,10 @@ func startWatchRunner(spec watchRunnerSpec) *exec.Cmd {
 			errf("⚠️  Watch-runner directory %q not usable: %v\n", spec.Dir, err)
 			return nil
 		}
+	}
+	if _, err := exec.LookPath(cmdName); err != nil {
+		errf("%s", runnerMissingMessage(cmdName, spec.Runner, isDockerInstall()))
+		return nil
 	}
 	if !spec.Quiet {
 		where := ""

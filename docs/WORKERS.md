@@ -112,6 +112,7 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `cookie-consent` | GDPR/UK cookie banner: edge geo (EEA+UK), granular categories, script-gating, Consent Mode v2, optional audit log; ships a starter `cookie-policy.md`. `ssgtheme` wires it from `variables.cookie_consent` rather than literal HTML — see [its README](../workers/cookie-consent/README.md) |
 | `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
 | `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
+| `newsletter` | Newsletter / waitlist sign-up in D1: Turnstile, required consent stored with its wording, identical answer for new and existing addresses, RFC 8058 one-click unsubscribe, optional double opt-in (Resend or MailChannels), admin counts + CSV export, retention purge, IP/UA kept only as salted hashes. Ships a form that works without JavaScript. See [its README](../workers/newsletter/README.md) |
 | `rate-limit` | `functions/_middleware.ts` — a request budget for every Function in the project, including ones added later. Exact and free through the Workers Rate Limiting binding, KV as a fallback. See [its README](../workers/rate-limit/README.md) |
 
 ```sh
@@ -137,7 +138,9 @@ cp -r workers/rate-limit/functions/_middleware.ts workers/contact-form/functions
 ```
 
 It is middleware, so it wraps whatever is in `functions/` without either side
-knowing about the other. Without a backend bound it is a **no-op** — a limiter
+knowing about the other. `RATE_LIMIT_SKIP` carves paths back out — the
+newsletter's one-click unsubscribe, POSTed by mailbox providers from a few
+shared addresses, is the case it exists for. Without a backend bound it is a **no-op** — a limiter
 that turns visitors away because nobody finished configuring it is worse than no
 limiter — and it fails open by default, which is right for a contact form and
 wrong for a checkout, so `RATE_LIMIT_FAIL = "closed"` is there for the latter.
@@ -153,10 +156,38 @@ project with wrangler:
 
 ```sh
 wrangler pages secret put STRIPE_SECRET_KEY
-wrangler pages secret put TURNSTILE_SECRET
+wrangler pages secret put CONTACT_TURNSTILE_SECRET
 ```
 
 The Function reads them from its `env` binding at runtime.
+
+### One project, one environment: prefix your secrets
+
+Cloudflare Pages gives a project **one** set of variables and secrets, and every
+worker merged into that project's `functions/` tree reads all of it. A secret
+set for one template is therefore visible to every other — and a template that
+reads an unprefixed name picks up a value meant for someone else.
+
+That is how a shared `TURNSTILE_SECRET` used to break the cookie-consent audit
+log: set for `contact-form` or `comments`, it switched Turnstile verification on
+in `cookie-consent` too, whose banner never sends a token, so every consent
+record was dropped with `{"ok":true,"stored":false}` (#325).
+
+Each template now reads its **own prefixed name first**:
+
+| Template | Turnstile secret | Falls back to `TURNSTILE_SECRET`? |
+|---|---|---|
+| `contact-form` | `CONTACT_TURNSTILE_SECRET` | yes — existing projects keep working |
+| `comments` | `COMMENTS_TURNSTILE_SECRET` | yes — existing projects keep working |
+| `newsletter` | `NEWSLETTER_TURNSTILE_SECRET` | yes |
+| `cookie-consent` | `CONSENT_TURNSTILE_SECRET` (opt-in, audit log only) | **no** — the shared name is ignored |
+
+The fallback means nothing changes for a project that already sets
+`TURNSTILE_SECRET` for its contact form or comments, except that the consent log
+starts storing records again. New projects should set the prefixed names. The
+same rule applies to anything that switches behaviour on: the newsletter's
+double opt-in keys (`NEWSLETTER_RESEND_API_KEY`, `NEWSLETTER_MAILCHANNELS_API_KEY`)
+deliberately have no unprefixed fallback.
 
 ## Local development
 
@@ -172,6 +203,14 @@ directory (that is where SSG copies each worker's `functions/`, and where
 available. A prebuilt `mode: worker` keeps `wrangler dev` from its own
 directory. An explicit `watch_runner` (or `--wrangler`/`--workerd`) overrides
 all of this.
+
+The runner needs Node.js (`npx wrangler`). If the runner is not installed, the
+preview still starts, and ssg says once that `/api/*` is not served. This is
+the case in the ssg Docker image, which has no Node. Two ways to handle it:
+
+- Run `npx wrangler pages dev output` on the host, beside the container,
+  for the Functions.
+- Set `watch_runner: none` to preview the static site alone without the note.
 
 ## Generating a wrangler config
 
