@@ -14,6 +14,73 @@ page, hreflang and canonicals on post listings, theme-relative render hooks,
 a warning when the snap writes into its private /tmp, and a newsletter
 sign-up Worker template.
 
+### Added
+- 🌐 **A front page per language** (#319). A page whose `link:` names its
+  language's root (`/en/`, `/pl/`) is that language's front page, just as
+  `link: "/"` is for the default language. Its post listing moves to
+  `posts_page` (`/en/blog/`) or is not generated, so it no longer fights the
+  page for `en/index.html`. The build names every language's front page. Two
+  languages claiming `/` get an error that says how to name each root.
+- 🔗 **Post listings know their languages** (#321). The listing context has
+  what a page's has:
+  - `.Lang`;
+  - `.CanonicalURL`, per pager page;
+  - `.Translations`, the listing in every language with `IsCurrent`;
+  - `.Hreflang`, with `x-default`;
+  - `.Description`.
+  A theme's own `<head>` no longer rebuilds hreflang from the prefix rules.
+- `watch_runner: none` (#326) keeps a configured worker for builds and deploys
+  but starts no runner in `--watch`.
+- 📮 **`ssg new worker newsletter`** (#323): a newsletter or waitlist sign-up
+  stored in D1.
+  - **Sign-up:** `POST /api/newsletter` takes JSON or a plain form post. A form
+    post gets a 303 to `NEWSLETTER_THANKS_URL`, with a `{lang}` placeholder or
+    a per-language map. The email is validated, consent is required and its
+    wording stored, Turnstile is verified, and new and existing addresses get
+    the same answer.
+  - **Confirm and unsubscribe:** RFC 8058 one-click unsubscribe. The localised
+    pages (en, pl, hi, de, fr) never act on a GET, because mail scanners follow
+    links. Double opt-in is optional, through Resend or MailChannels.
+  - **Admin and privacy:** counts and CSV export behind a password or
+    Cloudflare Access, a retention purge, and IP and User-Agent kept only as
+    salted hashes.
+  - **Form:** works without JavaScript; the optional script adds an
+    `aria-live` status.
+- rate-limit: `RATE_LIMIT_SKIP` exempts path prefixes from the limit. The
+  newsletter's one-click unsubscribe needs it, because mailbox providers send
+  those POSTs from a few shared addresses.
+- cookie-consent: built-in Hindi (`hi`) strings (#324).
+
+### Fixed
+- **Render hooks are found in the theme** (#320). `render_hooks: {image:
+  hooks/image.html}` reads `templates/<theme>/hooks/image.html` first, then
+  the working directory as before. A missing hook names both paths tried.
+- **The snap's private `/tmp`** (#322). The snap build warns when the output,
+  content or templates directory is under `/tmp` or `/var/tmp`, which strict
+  confinement replaces with private copies. Before, the build reported success
+  and the files were nowhere on the host.
+- **A watch runner that is not installed** (#326), such as `npx` in the Docker
+  image, which has no Node. The build gets one clear note saying the static
+  preview works, `/api/*` Functions are not served, and how to get them or turn
+  the runner off. It used to print "Failed to start" on every start.
+- **A shared `TURNSTILE_SECRET` silently turned off the cookie-consent audit
+  log** (#325). Each worker now reads its own secret first:
+  `CONTACT_TURNSTILE_SECRET`, `COMMENTS_TURNSTILE_SECRET` or
+  `NEWSLETTER_TURNSTILE_SECRET`, falling back to `TURNSTILE_SECRET`, so
+  existing projects keep working. cookie-consent checks Turnstile only when its
+  own `CONSENT_TURNSTILE_SECRET` is set. If that is set and a request carries
+  no token, the response says why and a warning is logged.
+- **The cookie-consent dialog keeps keyboard focus** (#324). Tab and Shift+Tab
+  stay inside the dialog (the ARIA APG modal pattern), and closing it returns
+  focus to the element that opened it.
+- contact-form answers 503 "not configured" instead of 403 when it has no
+  Turnstile secret.
+- **comments: `COMMENTS_RETENTION_DAYS` now deletes old records** (#327). It
+  was documented but never implemented. Spam and pending comments older than
+  `N` days are purged after new comments, at most hourly, and
+  `{"action":"purge"}` on the admin endpoint runs the purge now. Approved
+  comments are never deleted.
+
 ## [1.8.69] - 2026-10-03
 
 API documentation from code and from OpenAPI. A site can now publish the

@@ -168,6 +168,21 @@ sudo snap alias static-site-generator ssg
 
 Now you can use `ssg` instead of `static-site-generator`.
 
+### The snap's private `/tmp`
+
+The snap is strictly confined, so its `/tmp` and `/var/tmp` are private
+copies. `ssg --output-dir /tmp/site` succeeds and prints the path, but
+`/tmp/site` on your machine stays empty. ssg warns when the output, content or
+templates directory is in one of them:
+
+```text
+⚠️  The snap has its own private /tmp: the output directory /tmp/site is inside it, not on the host.
+```
+
+Build into a directory under your home instead. In CI, or anywhere else a
+script builds to a temporary directory, use the DEB package, the binary or
+Docker.
+
 ---
 
 ## macOS - Homebrew

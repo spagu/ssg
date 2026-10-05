@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.69">1.8.69 — 2026-10-03</option>
       <option value="1.8.68">1.8.68 — 2026-10-02</option>
       <option value="1.8.67">1.8.67 — 2026-10-02</option>
       <option value="1.8.66">1.8.66 — 2026-10-02</option>
@@ -202,6 +203,33 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.70">
+
+### 1.8.70 — check three things if they apply
+
+**A non-default language with `link: "/en/"` and no `posts_page`.** That page
+is now the language's front page. Before, the post listing was also written to
+`/en/`, and render order decided which one the site served. Now the page wins
+and that language's listing is not generated. Set `posts_page: blog` to keep
+it, at `/en/blog/`.
+
+**A render hook path that exists both in the theme and in the project.**
+`render_hooks:` paths are now looked up in the theme first. If
+`templates/<theme>/hooks/image.html` and `hooks/image.html` both exist, the
+theme's copy is used. Give the project's copy an absolute path, or remove the
+one you do not want.
+
+**Worker templates you copied with `ssg new worker`** keep working: the shared
+`TURNSTILE_SECRET` is still read as a fallback. The cookie-consent log no
+longer checks Turnstile unless you set `CONSENT_TURNSTILE_SECRET`, so a site
+that sets the shared secret for another worker stores consent records again.
+Re-run `ssg new worker cookie-consent` (or copy the changed files) to get the
+focus fix and the Hindi strings.
+
+Everything else in 1.8.70 is new and opt-in.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.69">
 

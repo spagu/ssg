@@ -401,6 +401,19 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.Data` | map | YAML/JSON data files |
 | `.Pager` | pager | Pagination state |
 | `.BuildTime` | time | When this build ran — one value for the whole build |
+| `.Lang` | string | The listing's language (empty without i18n) |
+| `.CanonicalURL` | string | This listing page's own absolute URL, `/blog/page/2/` included |
+| `.Description` | string | The site's description |
+| `.Translations` | list | The listing in every language: `Lang`, `Locale`, `Title` (language name), `URL`, `Canonical`, `IsCurrent`, `IsDefault` |
+| `.Hreflang` | HTML | `<link rel="alternate" hreflang>` for every language plus `x-default`, built from `.Translations` |
+
+A shared `<head>` partial can therefore treat a listing like a page:
+
+```gotemplate
+<link rel="canonical" href="{{ .CanonicalURL }}">
+{{ .Hreflang }}
+{{ range .Translations }}{{ if not .IsCurrent }}<a href="{{ .URL }}" hreflang="{{ .Lang }}">{{ .Title }}</a>{{ end }}{{ end }}
+```
 
 `.Pager` contains `Current`, `Total`, `PerPage`, `PrevURL` and `NextURL`:
 
