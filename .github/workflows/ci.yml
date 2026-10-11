@@ -47,12 +47,12 @@ on:
 env:
   # Kept in step with go.mod's directive and with the pinned golangci-lint,
   # which refuses to analyse a target newer than the Go it was built with —
-  # v2.13.1 is the first release built on 1.27, which is what allowed the
-  # directive to move here at all.
+  # v2.13.1 was the first release built on 1.27; 1.27.2 also needs v2.14.0,
+  # whose x/tools reads the export data version 5 it writes.
   #
-  # Never below 1.26.7: earlier 1.26.x stdlib carries advisories govulncheck
-  # finds reachable from this code (encoding/asn1 GO-2026-5972 via the SFTP
-  # deploy, net/http GO-2026-5026 via every outbound request).
+  # Never below 1.27.2: earlier releases carry stdlib advisories govulncheck
+  # finds reachable from this code (net/http and HTTP/2, crypto/tls,
+  # html/template; GO-2026-6599..6613).
   GO_VERSION: "1.27.2"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -214,7 +214,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1 # pinned for reproducible CI (OPS-013); first build on go1.27
+          version: v2.14.0 # pinned for reproducible CI (OPS-013); reads go1.27.2 export data (v5)
 
   # services/tts-server is its own Go module (1.8.65), so the root `./...`
   # above never reaches it: it gets its own tests, coverage floor and lint.
@@ -249,7 +249,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1 # same pin as the root lint job
+          version: v2.14.0 # same pin as the root lint job
           working-directory: services/tts-server
 
   security:
@@ -286,8 +286,16 @@ jobs:
       # redirect replay, output walks moved to os.Root) or annotated with the
       # reason they do not apply — so a new finding fails the job. The SARIF
       # is uploaded either way, so the Security tab shows what failed it.
+      # Go 1.27.2 writes export data version 5; gosec v2.29.0 (the latest
+      # release) carries an x/tools that reads up to 4, so on 1.27.2 every
+      # package "has type errors" and the run fails with no finding. Built here
+      # from the same release against a newer x/tools, both pinned exactly.
       - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0 # NOSONAR S8545: pinned exact version (OPS-013)
+        run: | # NOSONAR S8545: pinned exact versions (OPS-013)
+          mkdir -p "$RUNNER_TEMP/gosec" && cd "$RUNNER_TEMP/gosec"
+          go mod init gosec-build
+          go get github.com/securego/gosec/v2/cmd/gosec@v2.29.0 golang.org/x/tools@v0.52.0
+          go build -o "$(go env GOPATH)/bin/gosec" github.com/securego/gosec/v2/cmd/gosec
 
       # testdata/ holds parser fixtures that are broken on purpose (the API
       # docs readers report syntax errors); gosec counts their type errors as
