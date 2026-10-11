@@ -53,7 +53,7 @@ env:
   # Never below 1.26.7: earlier 1.26.x stdlib carries advisories govulncheck
   # finds reachable from this code (encoding/asn1 GO-2026-5972 via the SFTP
   # deploy, net/http GO-2026-5026 via every outbound request).
-  GO_VERSION: "1.27.1"
+  GO_VERSION: "1.27.2"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -270,7 +270,7 @@ jobs:
           cache: true
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 # NOSONAR S8545: pinned to an exact, reproducible version (OPS-013)
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 # NOSONAR S8545: pinned to an exact, reproducible version (OPS-013)
         # v1.3.0 predates Go 1.27 and its x/tools crashed on 1.27 export data
         # (panic: Int in typesinternal.ForEachElement) — the scan died before
         # scanning anything. Keep this pin at a release younger than GO_VERSION.

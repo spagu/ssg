@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.70">1.8.70 — 2026-10-05</option>
       <option value="1.8.69">1.8.69 — 2026-10-03</option>
       <option value="1.8.68">1.8.68 — 2026-10-02</option>
       <option value="1.8.67">1.8.67 — 2026-10-02</option>
@@ -203,6 +204,17 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.71">
+
+### 1.8.71 — upgrade now; from source, Go 1.27.2
+
+A security release, and nothing in a site changes. Replace the binary,
+package or image. Building ssg from source now needs **Go 1.27.2**: the
+`go` directive asks for it, so an older Go fetches 1.27.2 itself unless
+`GOTOOLCHAIN=local` stops it.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.70">
 

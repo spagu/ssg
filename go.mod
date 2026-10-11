@@ -1,11 +1,11 @@
 module github.com/spagu/ssg
 
-// Requires go1.27.1+, which is what the language directive below asks for.
+// Requires go1.27.2+, which is what the language directive below asks for.
 // The floor was go1.26.6 before that, and for a reason worth keeping: earlier
 // 1.26.x stdlib carries seven advisories govulncheck finds reachable from this
 // code — among them GO-2026-5972 (encoding/asn1, via ssh.ParsePrivateKey in the
 // SFTP deploy) and GO-2026-5026 (net/http/idna, via every outbound request).
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -24,10 +24,10 @@ require (
 	github.com/ulikunitz/xz v0.5.17
 	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
-	golang.org/x/crypto v0.57.0
-	golang.org/x/image v0.46.0
-	golang.org/x/net v0.59.0
-	golang.org/x/text v0.42.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/image v0.47.0
+	golang.org/x/net v0.61.0
+	golang.org/x/text v0.43.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
@@ -53,8 +53,8 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

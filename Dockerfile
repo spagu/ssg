@@ -2,9 +2,9 @@
 # Multi-stage build for minimal image size
 
 # Stage 1: Build
-# Pinned to 1.27.1-alpine. Not below 1.26.7: earlier 1.26.x stdlib carries
-# advisories this code reaches (encoding/asn1 GO-2026-5972, net/http
-# GO-2026-5026).
+# Pinned to 1.27.2-alpine. Not below 1.27.2: earlier releases carry stdlib
+# advisories this code reaches (net/http, HTTP/2, crypto/tls and html/template:
+# GO-2026-6599..6613, fixed in 1.27.2).
 #
 # Cross-compile from the native BUILDPLATFORM to the requested TARGETPLATFORM so
 # ARM images build fast without QEMU emulation (supports amd64, arm64 and armv7).
@@ -15,7 +15,7 @@
 #
 # The annotation that would silence the rule cannot go here: a trailing comment
 # on a FROM line is parsed as extra arguments and fails the build.
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 # Provided automatically by buildx.
 ARG TARGETARCH
