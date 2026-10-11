@@ -47,13 +47,13 @@ on:
 env:
   # Kept in step with go.mod's directive and with the pinned golangci-lint,
   # which refuses to analyse a target newer than the Go it was built with —
-  # v2.13.1 is the first release built on 1.27, which is what allowed the
-  # directive to move here at all.
+  # v2.13.1 was the first release built on 1.27; 1.27.2 also needs v2.14.0,
+  # whose x/tools reads the export data version 5 it writes.
   #
-  # Never below 1.26.7: earlier 1.26.x stdlib carries advisories govulncheck
-  # finds reachable from this code (encoding/asn1 GO-2026-5972 via the SFTP
-  # deploy, net/http GO-2026-5026 via every outbound request).
-  GO_VERSION: "1.27.1"
+  # Never below 1.27.2: earlier releases carry stdlib advisories govulncheck
+  # finds reachable from this code (net/http and HTTP/2, crypto/tls,
+  # html/template; GO-2026-6599..6613).
+  GO_VERSION: "1.27.2"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -214,7 +214,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1 # pinned for reproducible CI (OPS-013); first build on go1.27
+          version: v2.14.0 # pinned for reproducible CI (OPS-013); reads go1.27.2 export data (v5)
 
   # services/tts-server is its own Go module (1.8.65), so the root `./...`
   # above never reaches it: it gets its own tests, coverage floor and lint.
@@ -249,7 +249,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1 # same pin as the root lint job
+          version: v2.14.0 # same pin as the root lint job
           working-directory: services/tts-server
 
   security:
@@ -270,7 +270,7 @@ jobs:
           cache: true
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 # NOSONAR S8545: pinned to an exact, reproducible version (OPS-013)
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 # NOSONAR S8545: pinned to an exact, reproducible version (OPS-013)
         # v1.3.0 predates Go 1.27 and its x/tools crashed on 1.27 export data
         # (panic: Int in typesinternal.ForEachElement) — the scan died before
         # scanning anything. Keep this pin at a release younger than GO_VERSION.
@@ -286,8 +286,12 @@ jobs:
       # redirect replay, output walks moved to os.Root) or annotated with the
       # reason they do not apply — so a new finding fails the job. The SARIF
       # is uploaded either way, so the Security tab shows what failed it.
+      # gosec is built from .github/tools/gosec, whose go.mod and go.sum lock
+      # it and a newer x/tools by hash: the v2.29.0 release reads export data
+      # up to version 4, and Go 1.27.2 writes 5 (see that go.mod).
       - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0 # NOSONAR S8545: pinned exact version (OPS-013)
+        working-directory: .github/tools/gosec
+        run: go build -mod=readonly -o "$(go env GOPATH)/bin/gosec" github.com/securego/gosec/v2/cmd/gosec
 
       # testdata/ holds parser fixtures that are broken on purpose (the API
       # docs readers report syntax errors); gosec counts their type errors as

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.71] - 2026-10-11
+
+A security release. Go 1.27.2 and golang.org/x/net v0.61.0 fix 13 advisories
+that ssg's own code reaches.
+
+### Security
+- **Go 1.27.2** for every build: binaries, packages, the Docker image and the
+  TTS server image. 1.27.1's standard library has 12 advisories that `govulncheck`
+  shows ssg's code calling:
+  - HTTP/2 in `net/http` (GO-2026-6603, -6610, -6611, -6612, -6617): the
+    preview server and every remote fetch;
+  - `net/http` (GO-2026-6605, -6609, -6613) and `net/textproto` (GO-2026-6608);
+  - `crypto/tls` (GO-2026-6607);
+  - `html/template` (GO-2026-6599, -6600): every page ssg renders;
+  - `os` (GO-2026-6604).
+  The `go` directive is now 1.27.2, so a build from source cannot pick up
+  the vulnerable toolchain.
+- **golang.org/x/net v0.61.0** (from v0.59.0) for the same HTTP/2 fixes in the
+  library ssg imports directly (GO-2026-6617 and others).
+- Also updated: `golang.org/x/image` v0.47.0, `golang.org/x/text` v0.43.0,
+  `golang.org/x/sys` v0.49.0, `golang.org/x/sync` v0.24.0, and govulncheck
+  v1.9.0 in CI.
+
 ## [1.8.70] - 2026-10-05
 
 Fixes from building a multilingual marketing site: each language's own front
