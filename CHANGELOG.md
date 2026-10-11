@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.71] - 2026-10-11
+
+A security release. Go 1.27.2 and golang.org/x/net v0.61.0 fix 13 advisories
+that ssg's own code reaches.
+
 ## [1.8.70] - 2026-10-05
 
 Fixes from building a multilingual marketing site: each language's own front
