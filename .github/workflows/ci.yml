@@ -286,16 +286,12 @@ jobs:
       # redirect replay, output walks moved to os.Root) or annotated with the
       # reason they do not apply — so a new finding fails the job. The SARIF
       # is uploaded either way, so the Security tab shows what failed it.
-      # Go 1.27.2 writes export data version 5; gosec v2.29.0 (the latest
-      # release) carries an x/tools that reads up to 4, so on 1.27.2 every
-      # package "has type errors" and the run fails with no finding. Built here
-      # from the same release against a newer x/tools, both pinned exactly.
+      # gosec is built from .github/tools/gosec, whose go.mod and go.sum lock
+      # it and a newer x/tools by hash: the v2.29.0 release reads export data
+      # up to version 4, and Go 1.27.2 writes 5 (see that go.mod).
       - name: Install gosec
-        run: | # NOSONAR S8545: pinned exact versions (OPS-013)
-          mkdir -p "$RUNNER_TEMP/gosec" && cd "$RUNNER_TEMP/gosec"
-          go mod init gosec-build
-          go get github.com/securego/gosec/v2/cmd/gosec@v2.29.0 golang.org/x/tools@v0.52.0
-          go build -o "$(go env GOPATH)/bin/gosec" github.com/securego/gosec/v2/cmd/gosec
+        working-directory: .github/tools/gosec
+        run: go build -mod=readonly -o "$(go env GOPATH)/bin/gosec" github.com/securego/gosec/v2/cmd/gosec
 
       # testdata/ holds parser fixtures that are broken on purpose (the API
       # docs readers report syntax errors); gosec counts their type errors as

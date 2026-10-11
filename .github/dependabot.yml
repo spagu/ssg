@@ -29,6 +29,19 @@ updates:
       golang-x:
         patterns: ["golang.org/x/*"]
 
+  # The locked gosec CI builds (.github/tools/gosec): one PR for the tool and
+  # everything it pulls in, so a gosec release and its x/tools move together.
+  - package-ecosystem: gomod
+    directory: /.github/tools/gosec
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+    labels: ["dependencies"]
+    groups:
+      gosec:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
