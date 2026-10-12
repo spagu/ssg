@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.72] - 2026-10-12
+
+Recipes get their category from the post's categories, and `check_schema`
+can point out the recommended Recipe properties a rich result shows.
+
 ## [1.8.71] - 2026-10-11
 
 A security release. Go 1.27.2 and golang.org/x/net v0.61.0 fix 13 advisories
