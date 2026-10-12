@@ -80,7 +80,23 @@ relative_links: false # Convert absolute URLs to relative links
 #     try_it: true               # the "Try it" console on every operation
 # check_api: warn              # undocumented exports, dead {@link}s, OpenAPI problems
 
+# A CV from a Schema Resume JSON document — see docs/RESUME.md
+# resume:
+#   file: cv.json              # https://schema-resume.org/1.3/schema.json
+#   url: /cv/                  # page URL; the document is published at /cv/resume.json
+#   title: Curriculum vitae    # default: basics.name
+#   contact: false             # true publishes e-mail, phone and street address
+
 # Articles read aloud — see docs/AUDIO.md
+# web_stories:              # Google Web Stories from posts (docs/WEB_STORIES.md)
+#   enabled: true
+#   publisher_logo: images/logo-square.png   # required, square ≥96px
+#   sections: [posts]
+#   pages: 4
+# print:
+#   enabled: true          # Print / PDF button and print stylesheet (docs/PRINT_AND_COOK_MODE.md)
+#   sections: [posts]
+# cook_mode: true          # step-by-step view on Recipe pages
 # listen:
 #   enabled: true            # browser "Listen" button (Web Speech API)
 #   label: "Listen"
@@ -216,6 +232,7 @@ analytics: false     # Render the tracking snippets a migration recorded in
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
 check_schema: ""     # "" (off), "warn" or "strict" — validate emitted JSON-LD against
                      # the properties search engines require (unknown @types pass)
+# check_schema_recommended: true  # also advise on recommended Recipe properties (never fails)
 
 # Validation over the generated HTML. Same shape as check_links; strict: true
 # escalates any of them to a build failure.

@@ -1,0 +1,20 @@
+/* Page tool buttons — Print / PDF and Cook mode (1.8.72).
+   They take the theme's text colour, so their contrast is the theme's own;
+   a theme can set --ssg-tool-bg, --ssg-tool-fg, --ssg-tool-border,
+   --ssg-tool-radius and --ssg-tool-focus to match its other controls. */
+.ssg-print { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
+.ssg-print[hidden], .ssg-print-button[hidden], .ssg-cook[hidden] { display: none; }
+.ssg-print-button, .ssg-cook {
+  display: inline-flex; align-items: center; gap: .4rem;
+  min-height: 44px; min-width: 44px; padding: .5rem .9rem; margin: .25rem .5rem .25rem 0;
+  font: inherit; font-size: .9375rem; line-height: 1.2; cursor: pointer;
+  color: var(--ssg-tool-fg, currentColor);
+  background: var(--ssg-tool-bg, transparent);
+  border: 1px solid var(--ssg-tool-border, currentColor);
+  border-radius: var(--ssg-tool-radius, 999px);
+}
+.ssg-print-button:hover, .ssg-cook:hover { text-decoration: underline; text-underline-offset: .2em; }
+.ssg-print-button:focus-visible, .ssg-cook:focus-visible {
+  outline: 3px solid var(--ssg-tool-focus, currentColor); outline-offset: 2px;
+}
+.ssg-tool-icon { flex: none; }

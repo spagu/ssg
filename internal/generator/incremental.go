@@ -273,6 +273,7 @@ func (g *Generator) recordContentInputs() {
 		g.recordInput(exe, depgraph.KindConfig)
 	}
 	g.recordCodeInputs()
+	g.recordInput(g.config.Resume.File, depgraph.KindConfig) // the résumé document
 
 	// A build whose content did not come from files cannot be compared against
 	// files next time.

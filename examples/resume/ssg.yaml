@@ -1,0 +1,17 @@
+# A CV from one Schema Resume document (docs/RESUME.md). Build from the
+# repository root:
+#   ssg --config examples/resume/ssg.yaml
+source: site
+template: simple
+domain: example.com
+content_dir: examples/resume/content
+output_dir: examples/resume/output
+seo: true
+check_links: strict
+check_schema: strict
+
+resume:
+  file: examples/resume/cv.json   # https://schema-resume.org/1.3/schema.json
+  url: /cv/                       # the page; the document is published at /cv/resume.json
+  # title: Curriculum vitae       # default: basics.name
+  # contact: true                 # publish e-mail, phone and street address (off by default)

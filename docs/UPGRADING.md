@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.71">1.8.71 — 2026-10-11</option>
       <option value="1.8.70">1.8.70 — 2026-10-05</option>
       <option value="1.8.69">1.8.69 — 2026-10-03</option>
       <option value="1.8.68">1.8.68 — 2026-10-02</option>
@@ -204,6 +205,23 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.72">
+
+### 1.8.72 — check your recipes' structured data
+
+Everything new in 1.8.72 is opt-in, except one thing that applies to pages
+whose structured data is a **Recipe**. ssg now fills `recipeCategory` from the
+page's categories. It also fills `recipeIngredient` and `recipeInstructions`
+from the post's "Ingredients" and "Method" sections when `schema:` has
+neither. A value in `schema:` still wins, so a site that already wrote all
+three sees no change. One that left them out now publishes them. Check one
+recipe with your search engine's rich-result test after the upgrade.
+
+With `seo: true`, listings, archives and the front page gain JSON-LD
+(`ItemList`, `ProfilePage`, `Organization`) where the theme wrote none.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.71">
 

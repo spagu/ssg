@@ -1,0 +1,110 @@
+{
+  "$schema": "https://schema-resume.org/1.3/schema.json",
+  "@context": "https://schema-resume.org/schema.json",
+  "basics": {
+    "name": "Ada Kowalczyk",
+    "label": "Platform Engineer",
+    "image": "https://example.com/images/ada.jpg",
+    "email": "ada@example.com",
+    "phone": "+48 600 000 000",
+    "url": "https://example.com/",
+    "summary": "Platform engineer with ten years of building deployment pipelines and the services behind them. Prefers boring infrastructure, written-down runbooks and small, reversible changes.",
+    "keyAchievements": [
+      "Cut the release cycle from two weeks to a day by moving 40 services to one pipeline",
+      "Wrote the on-call handbook used by four teams"
+    ],
+    "location": {
+      "streetAddress": "ul. Przykładowa 1",
+      "postalCode": "00-001",
+      "city": "Warsaw",
+      "countryCode": "PL"
+    },
+    "profiles": [
+      { "network": "Code", "username": "ada-k", "url": "https://code.example.com/ada-k" },
+      { "network": "Social", "username": "ada", "url": "https://social.example.com/@ada" }
+    ],
+    "pronouns": "she/her"
+  },
+  "work": [
+    {
+      "name": "Example Logistics",
+      "url": "https://logistics.example.com",
+      "workLocation": "Warsaw, PL",
+      "position": "Senior Platform Engineer",
+      "workType": "full-time",
+      "startDate": "2021-03",
+      "summary": "Runs the deployment platform for 120 engineers.",
+      "highlights": [
+        "Moved 40 services to a single build-and-release pipeline",
+        "Introduced canary releases, halving rollback-worthy incidents"
+      ]
+    },
+    {
+      "name": "Example Software House",
+      "url": "https://software.example.com",
+      "positions": [
+        { "position": "Software Engineer", "startDate": "2016", "endDate": "2018-06" },
+        { "position": "DevOps Engineer", "startDate": "2018-07", "endDate": "2021-02", "highlights": ["Built the first shared CI cluster"] }
+      ]
+    }
+  ],
+  "volunteer": [
+    {
+      "organization": "Example Code Club",
+      "position": "Mentor",
+      "url": "https://club.example.org",
+      "startDate": "2019-09",
+      "summary": "Teaches programming basics to teenagers on Saturday mornings."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Example University of Technology",
+      "url": "https://university.example.edu",
+      "area": "Computer Science",
+      "studyType": "Master",
+      "startDate": "2011-10",
+      "endDate": "2016-06-30",
+      "courses": ["Distributed systems", "Operating systems"]
+    }
+  ],
+  "awards": [
+    { "title": "Engineer of the Year", "date": "2023", "awarder": "Example Logistics" }
+  ],
+  "certificates": [
+    { "name": "Certified Cloud Operator", "issuer": "Example Certification Board", "date": "2022-05", "url": "https://certs.example.org/cco" }
+  ],
+  "publications": [
+    { "name": "Boring deployments", "publisher": "Example Engineering Blog", "releaseDate": "2024-02-14", "url": "https://blog.example.com/boring-deployments" }
+  ],
+  "skills": [
+    { "name": "Continuous delivery", "level": "Expert", "yearsOfExperience": 8, "keywords": ["Pipelines", "Canary releases"] },
+    { "name": "Go", "level": "Advanced", "keywords": ["Concurrency", "Tooling"] }
+  ],
+  "tools": [
+    { "name": "Kubernetes", "category": "Orchestration", "level": "Advanced", "yearsOfExperience": 6 }
+  ],
+  "languages": [
+    { "language": "Polish", "fluency": "Native" },
+    { "language": "English", "fluency": "Professional" }
+  ],
+  "interests": [
+    { "name": "Mountains", "keywords": ["Hiking", "Ski touring"] }
+  ],
+  "projects": [
+    {
+      "name": "shipcheck",
+      "description": "A small linter for deployment manifests.",
+      "url": "https://code.example.com/ada-k/shipcheck",
+      "startDate": "2022",
+      "roles": ["Author"],
+      "keywords": ["Go", "YAML"]
+    }
+  ],
+  "meta": {
+    "canonical": "https://example.com/cv/resume.json",
+    "version": "v1.0.0",
+    "dateCreated": "2026-01-10T09:00:00Z",
+    "dateModified": "2026-10-01T12:00:00Z"
+  }
+}
