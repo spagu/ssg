@@ -199,6 +199,12 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	} else {
 		s = stripEditAttrs(s)
 	}
+	// An AMP page (a theme's, or a web story) takes no injected script or
+	// style: everything below adds some (1.8.72).
+	if isAMPDocument(s) {
+		return g.finishAMP(s)
+	}
+	s = g.fillStorySlot(s, page)
 	if page != nil {
 		s = g.seoHTMLString(s, *page, isPost)
 		// Point agents at the page's other representations (GO-085, generalised
@@ -210,12 +216,15 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 				s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 			}
 			s = injectAlternates(s, g.alternateLinks(*page, s))
+			s = injectAlternates(s, g.resumeAlternate(*page, s))
 		}
 	}
 	// A page links the stylesheets and scripts of the components it actually
 	// contains, and then forgets which those were: the marker is bookkeeping,
 	// not content (GO-093).
 	s = g.injectComponentAssets(s)
+	// Print / PDF and Cook Mode, before Listen so the buttons read in order (1.8.72).
+	s = g.pageToolsHTMLString(s, page, isPost)
 	// The article read aloud: the MP3 player or the browser button, where the
 	// theme did not place one, and the button's script (1.8.65).
 	s = g.listenHTMLString(s, page)
@@ -287,7 +296,9 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 	out := buf.String()
 	data2 := []byte(out)
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
+		themeLD := strings.Contains(out, "application/ld+json")
 		out = g.transformHTMLPage(out, page, isPost)
+		out = g.injectStructuredData(out, structuredDataOf(data), themeLD)
 		g.noteEmptyCanonical(outputPath, out)
 		// Re-encode the finished HTML to the page's output encoding, keeping the
 		// declared <meta charset> in step with the bytes on disk (GO-087).

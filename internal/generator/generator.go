@@ -338,12 +338,18 @@ type Config struct {
 	SchemaDefaults map[string]map[string]interface{} // per-section structured-data defaults (#110)
 	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
-	CheckLinks   string
-	CheckImages  string
-	CheckMarkup  string
-	CheckMeta    string
-	CheckSchema  string // validate emitted JSON-LD: "" | warn | strict (#111)
-	CheckOrphans string
+	CheckLinks  string
+	CheckImages string
+	CheckMarkup string
+	CheckMeta   string
+	CheckSchema string // validate emitted JSON-LD: "" | warn | strict (#111)
+	// CheckSchemaRecommended also lists missing recommended properties, as
+	// advice that never fails the build.
+	CheckSchemaRecommended bool
+	// RecipeHeadings adds section names (per role: ingredients,
+	// instructions) to the ones a Recipe's fields are read from (1.8.72).
+	RecipeHeadings map[string][]string
+	CheckOrphans   string
 	// CheckRedirects reports links the host would redirect; PrettyURLs models that
 	// host behaviour (#87).
 	CheckRedirects string
@@ -384,10 +390,18 @@ type Config struct {
 	// Listen adds the browser read-aloud button (1.8.65).
 	Audio  AudioOptions
 	Listen ListenOptions
+	// WebStories makes an AMP web story from each selected post (1.8.72).
+	WebStories WebStoriesOptions
+	// Print adds the Print / PDF button and print stylesheet; CookMode the
+	// step-by-step recipe view (1.8.72).
+	Print    PrintOptions
+	CookMode CookModeOptions
 	// APIDocs documents JavaScript/TypeScript packages as pages (GO-107);
 	// CheckAPI reports documentation problems: "", warn or strict (GO-110).
 	APIDocs  []APIDocsOptions
 	CheckAPI string
+	// Resume publishes a Schema Resume document as a page (resume.go).
+	Resume ResumeOptions
 	// AI answers [ai …] content shortcodes at build time (cached). nil = the
 	// feature is off; the shortcode then resolves to its fallback (#1.8.16).
 	AI *ai.Client
@@ -535,6 +549,7 @@ type Generator struct {
 	shortcodeBase     *template.Template
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
+	webStories        storySet                       // this build's web stories (1.8.72)
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
 	linkRewriteOnce   sync.Once                      // built on the render pool, so memoize under a Once
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
@@ -657,6 +672,8 @@ type Generator struct {
 	apiDiagnostics []apisource.Diagnostic
 	apiPageCount   int
 	apiHref        func(id string) string // symbol ID → URL, set by loadAPIDocs
+	// resume is the résumé page's URL and published document (resume.go).
+	resume *resumeSite
 
 	// postURLs is the set of post URLs, built once (listen.go isPost).
 	postURLsOnce sync.Once
@@ -1074,6 +1091,10 @@ func (g *Generator) Generate() error {
 	if err := g.profile.Measure("Audio", g.generateAudio); err != nil {
 		return err
 	}
+	// Before rendering, so a post can link its story and the hub renders.
+	if err := g.profile.Measure("Web stories", g.generateWebStories); err != nil {
+		return err
+	}
 
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
@@ -1113,6 +1134,10 @@ func (g *Generator) Generate() error {
 
 	if err := g.writeAPIModel(); err != nil {
 		return fmt.Errorf("writing %s: %w", apiDocsFile, err)
+	}
+
+	if err := g.writeResumeJSON(); err != nil {
+		return fmt.Errorf("writing %s: %w", resumeJSONName, err)
 	}
 
 	if err := g.profile.Measure("Feeds", func() error {
@@ -1167,6 +1192,9 @@ func (g *Generator) loadPhase() error {
 	// Before data and taxonomies, so the API pages are pages like any other.
 	if err := g.loadAPIDocs(); err != nil {
 		return fmt.Errorf("reading code for API docs: %w", err)
+	}
+	if err := g.loadResume(); err != nil {
+		return err
 	}
 	if err := g.runStep("🗂️  Loading data files...", g.loadData, "loading data files"); err != nil {
 		return err
@@ -2548,7 +2576,9 @@ func (g *Generator) renderWithEngine(templateName, outputPath string, data inter
 	}
 	out := buf.String()
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
+		themeLD := strings.Contains(out, "application/ld+json")
 		out = g.transformHTMLPage(out, page, isPost)
+		out = g.injectStructuredData(out, structuredDataOf(data), themeLD)
 		g.noteEmptyCanonical(outputPath, out)
 	}
 	// #nosec G306 -- Web content files need to be world-readable
@@ -2830,6 +2860,7 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"translationURL":       g.translationURL,
 		"languageURL":          g.languageURL,
 		"localizeDate":         g.localizeDate,
+		"duration":             tmplDuration, // ISO 8601 → "1 hr 25 min" (1.8.72)
 
 		// Collection helpers (v1.8.3): the collection is the FINAL argument so
 		// helpers chain in pipelines — see docs/TEMPLATE_HELPERS.md.
@@ -3467,6 +3498,7 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"authorURL":       g.tmplAuthorURL,
 		"stripShortcodes": tmplStripShortcodes,
 		"stripHTML":       tmplStripHTML,
+		"duration":        tmplDuration,
 		"default":         tmplDefault,
 		"dict":            tmplDict,
 		"int":             tmplInt,
@@ -4092,6 +4124,9 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		Translations []Translation
 		Hreflang     template.HTML
 		Description  string
+		// The listing as an ItemList, and on the site's front listing the
+		// Organization behind the site (1.8.72).
+		StructuredData []map[string]interface{}
 	}{
 		Site:             g.siteData,
 		Posts:            posts,
@@ -4110,6 +4145,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		Translations:     listing,
 		Hreflang:         g.hreflangHTML(listing),
 		Description:      g.siteData.Description,
+		StructuredData:   g.indexStructuredData(outPath, posts),
 	}
 	// Render with a page context so the SEO block applies (#109). Without one,
 	// `if page != nil` in the render transform skipped OpenGraph, JSON-LD and

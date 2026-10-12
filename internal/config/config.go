@@ -561,6 +561,13 @@ type Config struct {
 	// properties and say nothing the author can see, so the build succeeds, the
 	// page ships and the rich result simply never appears.
 	CheckSchema string `yaml:"check_schema" toml:"check_schema" json:"check_schema"`
+	// CheckSchemaRecommended adds the properties a rich result shows but does
+	// not require (a Recipe's yield, time, nutrition) to check_schema's report.
+	// Always advisory: they never fail a strict build.
+	CheckSchemaRecommended bool `yaml:"check_schema_recommended" toml:"check_schema_recommended" json:"check_schema_recommended"`
+	// RecipeHeadings adds headings a Recipe's ingredients and method are read
+	// from when its schema: has neither: {ingredients: [...], instructions: [...]}.
+	RecipeHeadings map[string][]string `yaml:"recipe_headings" toml:"recipe_headings" json:"recipe_headings"`
 
 	// SitemapPruneCanonical also drops pages whose rendered canonical points at a
 	// different URL from sitemap.xml. Off by default: a canonical that disagrees
@@ -837,12 +844,22 @@ type Config struct {
 	// visitor's own browser speech engine (Web Speech API): no service, no
 	// audio files, nothing leaves the device (1.8.65).
 	Listen ListenConfig `yaml:"listen" toml:"listen" json:"listen"`
+	// Print adds a Print / PDF button and a print stylesheet; CookMode a
+	// step-by-step view of Recipe pages (1.8.72). See pagetools.go.
+	Print    PrintConfig    `yaml:"print" toml:"print" json:"print"`
+	CookMode CookModeConfig `yaml:"cook_mode" toml:"cook_mode" json:"cook_mode"`
 	// TTS renders each article to an MP3 at build time through a
 	// text-to-speech API, caches it, and can publish a podcast feed (1.8.65).
 	TTS TTSConfig `yaml:"tts" toml:"tts" json:"tts"`
 	// APIDocs documents JavaScript/TypeScript code as pages of the site, one
 	// entry per package (1.8.69, GO-107). See docs/API_DOCS.md.
 	APIDocs []APIDocsConfig `yaml:"api_docs" toml:"api_docs" json:"api_docs"`
+	// Resume publishes a Schema Resume (schema-resume.org) JSON CV as a page
+	// with ProfilePage structured data. See docs/RESUME.md.
+	Resume ResumeConfig `yaml:"resume" toml:"resume" json:"resume"`
+	// WebStories makes a Google Web Story (AMP) from each selected post and
+	// a hub listing them (1.8.72). See webstories.go and docs/WEB_STORIES.md.
+	WebStories WebStoriesConfig `yaml:"web_stories" toml:"web_stories" json:"web_stories"`
 
 	// Notifications POST each newly published (or changed) post to user-defined
 	// webhook destinations (point them at a social API, an automation service, or
@@ -1545,4 +1562,14 @@ type APIDocsConfig struct {
 	// TryIt adds the "Try it" console to every operation of an openapi
 	// entry. On unless false (GO-118).
 	TryIt *bool `yaml:"try_it" toml:"try_it" json:"try_it"`
+}
+
+// ResumeConfig is a Schema Resume document published as a page.
+type ResumeConfig struct {
+	File  string `yaml:"file" toml:"file" json:"file"`    // the JSON document; empty = off
+	URL   string `yaml:"url" toml:"url" json:"url"`       // the page's URL; default /cv/
+	Title string `yaml:"title" toml:"title" json:"title"` // the page title; default basics.name
+	// Contact publishes the e-mail, phone and street address (page, JSON-LD
+	// and resume.json). Off by default: they are taken out.
+	Contact bool `yaml:"contact" toml:"contact" json:"contact"`
 }

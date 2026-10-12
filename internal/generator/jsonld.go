@@ -23,6 +23,9 @@ func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
 
 	var b strings.Builder
 	writeLDScript(&b, merged)
+	if faq := g.faqLD(page); faq != nil {
+		writeLDScript(&b, faq)
+	}
 	if bc := g.breadcrumbLD(page); bc != nil {
 		writeLDScript(&b, bc)
 	}
@@ -42,6 +45,8 @@ func (g *Generator) mergedSchema(page models.Page, isPost bool) map[string]inter
 	merged := deepMergeLD(cloneLD(g.config.Schema), g.derivedLD(page, isPost, g.servedCanonical(page)))
 	merged = deepMergeLD(merged, g.sectionSchema(page))
 	merged = deepMergeLD(merged, page.Schema)
+	g.fillRecipeFromContent(merged, page.Content)
+	g.fillRecipeCategory(merged, page)
 	if _, ok := merged["@context"]; !ok {
 		merged["@context"] = "https://schema.org"
 	}

@@ -64,6 +64,9 @@ func (g *Generator) archiveData(kind, name string, cat models.Category,
 		// empty rather than failing, so whole sites shipped href="" on every
 		// archive with a green build and a clean link check.
 		"CanonicalURL": g.archiveCanonical(archiveURL, pager),
+		// The archive as structured data (1.8.72): an ItemList of its posts,
+		// and for an author the ProfilePage it is. Injected with seo: on.
+		structuredDataKey: g.listingStructuredData(kind, name, g.archiveCanonical(archiveURL, pager), posts),
 	}
 }
 

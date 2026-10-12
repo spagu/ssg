@@ -52,4 +52,8 @@ build_external()     { out="$1"; shift; "$BIN" --config examples/external-source
 # API pages read from JavaScript (1.8.69): pages, api.json, search records.
 build_apidocs()      { out="$1"; shift; "$BIN" --config examples/api-docs/ssg.yaml --output-dir "$out" "$@" >/dev/null; }
 
-CORPORA="corpus dynamic multilingual external apidocs"
+# A CV from one Schema Resume document (1.8.72): the page, its ProfilePage
+# JSON-LD and the published resume.json, contact details left out.
+build_resume()       { out="$1"; shift; "$BIN" --config examples/resume/ssg.yaml --output-dir "$out" "$@" >/dev/null; }
+
+CORPORA="corpus dynamic multilingual external apidocs resume"

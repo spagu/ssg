@@ -84,7 +84,13 @@ func (g *Generator) listenBlock(p models.Page) template.HTML {
 
 // listenSelected reports whether a page is in the listen sections.
 func (g *Generator) listenSelected(isPost bool) bool {
-	sections := g.config.Listen.Sections
+	return sectionSelected(g.config.Listen.Sections, isPost)
+}
+
+// sectionSelected reports whether a page is in a component's `sections:`
+// list — posts, pages or both; posts when the list is empty. Listen and
+// Print share it.
+func sectionSelected(sections []string, isPost bool) bool {
 	if len(sections) == 0 {
 		return isPost
 	}
@@ -136,8 +142,14 @@ func (g *Generator) listenHTMLString(s string, page *models.Page) string {
 
 // placeListenBlock puts block into the first slot, or after the first </h1>.
 func placeListenBlock(s, block string) string {
-	if i := strings.Index(s, listenSlot); i >= 0 {
-		return s[:i] + block + s[i+len(listenSlot):]
+	return placeBlock(s, listenSlot, block)
+}
+
+// placeBlock puts block into the first slot, or after the first </h1>; the
+// placement every injected page component shares (Listen, Print, Cook Mode).
+func placeBlock(s, slot, block string) string {
+	if i := strings.Index(s, slot); i >= 0 {
+		return s[:i] + block + s[i+len(slot):]
 	}
 	if i := strings.Index(s, "</h1>"); i >= 0 {
 		return s[:i+5] + "\n" + block + s[i+5:]

@@ -1,0 +1,42 @@
+/* The print stylesheet (1.8.72): the article alone, on white, full width.
+   Whatever a theme marks data-ssg-noprint is left out too. */
+[data-ssg-print-footer][hidden], [data-ssg-recipe-card][hidden] { display: none; }
+@media print {
+  @page { margin: 15mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  *, *::before, *::after { box-shadow: none !important; text-shadow: none !important; }
+  header:not(main header, article header), footer:not(main footer, article footer), nav, aside, form, iframe,
+  button, dialog, [role="dialog"], [role="navigation"], [role="banner"], [role="contentinfo"],
+  .comments, #comments, .comment-respond, .share, .sharing, .social-share,
+  [data-ssg-noprint], .ssg-listen, .ssg-audio, .ssg-print, .ssg-cook,
+  [id*="cookie-banner" i], [class*="cookie-banner" i], [id*="cookie-consent" i], [class*="cookie-consent" i],
+  #ssg-consent, .cc-window, #CybotCookiebotDialog, #onetrust-banner-sdk {
+    display: none !important;
+  }
+  main, article, .content, .container, .wrapper, .post, .entry-content {
+    width: auto !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important;
+    float: none !important; position: static !important; columns: auto !important;
+  }
+  a { color: #000 !important; text-decoration: underline; }
+  article a[href^="http"]::after, main a[href^="http"]::after {
+    content: " (" attr(href) ")"; font-size: .85em; word-break: break-all;
+  }
+  article a[href^="http"]:has(img)::after, main a[href^="http"]:has(img)::after { content: none; }
+  img, svg, video, figure, picture, table, pre, blockquote { max-width: 100% !important; break-inside: avoid; }
+  img { height: auto !important; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; break-inside: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  [data-ssg-print-footer] {
+    display: block !important; margin-top: 2rem; padding-top: .5rem;
+    border-top: 1px solid #000; font-size: 9pt; word-break: break-all;
+  }
+
+  /* "Print recipe": only the card and the footer line. */
+  html.ssg-print-recipe body > :not([data-ssg-recipe-card]):not([data-ssg-print-footer]) { display: none !important; }
+  html.ssg-print-recipe [data-ssg-recipe-card] { display: block !important; font-size: 11pt; line-height: 1.4; }
+  [data-ssg-recipe-card] h1 { font-size: 18pt; margin: 0 0 .25rem; }
+  [data-ssg-recipe-card] h2 { font-size: 13pt; margin: 1rem 0 .25rem; }
+  [data-ssg-recipe-card] .ssg-recipe-meta { margin: 0 0 .5rem; }
+  [data-ssg-recipe-card] ul, [data-ssg-recipe-card] ol { margin: 0; padding-left: 1.5rem; }
+  [data-ssg-recipe-card] li { margin: .15rem 0; break-inside: avoid; }
+}

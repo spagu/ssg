@@ -42,6 +42,14 @@ var requiredSchemaProps = map[string][]string{
 	"FAQPage":       {"mainEntity"},
 }
 
+// recommendedSchemaProps are the properties a rich result shows when they are
+// there and simply leaves out when they are not: a Recipe card without a yield
+// or a time is still a Recipe card, only a poorer one. "a|b" means either.
+// Checked only with check_schema_recommended, and never a build failure.
+var recommendedSchemaProps = map[string][]string{
+	"Recipe": {"description", "nutrition", "recipeCategory", "recipeCuisine", "recipeYield", "totalTime|cookTime"},
+}
+
 // checkSchemaIfRequested validates every JSON-LD block in the output.
 func (g *Generator) checkSchemaIfRequested() error {
 	mode := g.resolveMode(g.config.CheckSchema)
@@ -54,12 +62,17 @@ func (g *Generator) checkSchemaIfRequested() error {
 	// loudly as one that shipped incomplete (#158).
 	promised := g.promisedSchemaTypes()
 
-	var findings []finding
+	var findings, advice []finding
 	err := g.walkOutputHTML(func(rel string, doc *html.Node) {
 		blocks := jsonLDBlocks(doc)
 		for _, raw := range blocks {
 			for _, miss := range missingSchemaProps(raw) {
 				findings = append(findings, finding{rel, miss})
+			}
+			if g.config.CheckSchemaRecommended {
+				for _, miss := range missingRecommendedProps(raw) {
+					advice = append(advice, finding{rel, miss})
+				}
 			}
 		}
 		if want := promised[rel]; missingPromisedType(blocks, want) {
@@ -70,9 +83,50 @@ func (g *Generator) checkSchemaIfRequested() error {
 		return err
 	}
 	sortFindings(findings)
+	if g.config.CheckSchemaRecommended {
+		sortFindings(advice)
+		// Advice, so "warn" whatever the mode: a strict build fails on what a
+		// search engine rejects, not on what it would merely show less of.
+		_ = g.report(advice, "warn", "recommended structured data",
+			"structured data carries every recommended property", "%d")
+	}
 	return g.report(findings, mode, "structured data",
 		"structured data carries every required property",
 		"%d structured-data problem(s)")
+}
+
+// missingRecommendedProps reports the recommended properties a block's typed
+// objects lack, one message per object. Invalid JSON is the required check's
+// to report.
+func missingRecommendedProps(raw string) []string {
+	var v interface{}
+	if json.Unmarshal([]byte(raw), &v) != nil {
+		return nil
+	}
+	var out []string
+	walkLD(v, func(obj map[string]interface{}) {
+		ldType, _ := obj["@type"].(string)
+		var missing []string
+		for _, want := range recommendedSchemaProps[ldType] {
+			if !hasAnyLDProp(obj, strings.Split(want, "|")) {
+				missing = append(missing, strings.ReplaceAll(want, "|", " or "))
+			}
+		}
+		if len(missing) > 0 {
+			out = append(out, fmt.Sprintf("%s could add %s", ldType, strings.Join(missing, ", ")))
+		}
+	})
+	return out
+}
+
+// hasAnyLDProp reports whether any of the properties is present.
+func hasAnyLDProp(obj map[string]interface{}, props []string) bool {
+	for _, p := range props {
+		if hasLDProp(obj, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // jsonLDBlocks returns the raw text of every application/ld+json script.
