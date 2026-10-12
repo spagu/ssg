@@ -1167,6 +1167,8 @@ implemented.
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
 | `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
+| `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
+| `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
 | `check_api` | `""` | config only | Report documentation problems in `api_docs` entries: undocumented exports, dead `{@link}`s, unreadable code, broken OpenAPI `$ref`s and operations. `warn` or `strict` |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
@@ -1497,6 +1499,127 @@ schema:  <  derived (BlogPosting/WebPage/WebSite)  <  schema_defaults  <  page f
 Section defaults sit **above** the derived data deliberately — overriding the
 derived `@type` is what they exist for — while a page's own `schema:` still wins
 over its section.
+
+#### Recipes
+
+A page whose structured data is a `Recipe` gets `recipeCategory` from its own
+categories: one category as a string, several as a list. It is filled only
+when nothing above set one, so a section default (`recipeCategory: Desserts`)
+or the page's own `schema:` still wins. Together with what every post already
+gets (`name`, `image`, `author`, the dates, and `keywords` from tags), a recipe
+post needs only its ingredients, method, times and yield in `schema:`:
+
+```yaml
+schema:
+  recipeYield: "16 servings"
+  cookTime: PT1H
+  recipeIngredient: ["5 large eggs", "200 g sugar"]
+  recipeInstructions: ["Set the oven to 160°C.", "Whisk the eggs with the sugar."]
+```
+
+When a Recipe's `schema:` has no `recipeIngredient` or `recipeInstructions`,
+ssg reads them from the post itself: the list under a heading named
+"Ingredients" (or "Składniki", "Zutaten", "Ingrédients", "Ingredientes",
+"Ingredienti") and the steps under "Method" (or "Instructions", "Directions",
+"Preparation", "Steps", "Przygotowanie", "Sposób przygotowania", "Zubereitung"…).
+A heading may also be a paragraph in bold (`**Ingredients**`), and may go on
+("Ingredients for 16 servings"). Steps are the list items. Without a list,
+each paragraph is a step, and bold sub-headings such as `**Step 2**` separate
+them. The page's own field wins over the one read from its body, field by
+field. Add a site's own heading names with:
+
+```yaml
+recipe_headings:
+  ingredients: ["What you need"]
+  instructions: ["How to make it"]
+```
+
+`check_schema` reports a Recipe without `image`, `recipeIngredient` or
+`recipeInstructions`. With `check_schema_recommended: true` it also lists, as
+advice, the properties a recipe card shows when they are there:
+`description`, `nutrition`, `recipeCategory`, `recipeCuisine`, `recipeYield`,
+and `totalTime` or `cookTime`.
+
+#### Print / PDF and Cook Mode
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `print.enabled` | bool | `false` | Print / PDF button plus print stylesheet |
+| `print.label` | string | `"Print / PDF"` | Button text |
+| `print.sections` | list | `[posts]` | `posts`, `pages`, or both |
+| `print.auto` | bool | `true` | Place after the first `</h1>` when the theme has no `data-ssg-print-slot` |
+| `print.labels` | map | — | `recipe`, `ingredients`, `steps`, `yield`, `prep`, `cook`, `total`, `printed` |
+| `cook_mode` | bool or map | `false` | `true` is shorthand for `{enabled: true}` |
+| `cook_mode.enabled` | bool | `false` | Cook Mode on Recipe pages with ingredients and instructions |
+| `cook_mode.label` | string | `"Cook mode"` | Button text |
+| `cook_mode.auto` | bool | `true` | Place after the first `</h1>` when the theme has no `data-ssg-cook-slot` |
+| `cook_mode.labels` | map | — | `title`, `ingredients`, `step` ("Step {n} of {total}"), `next`, `back`, `close`, `restart`, `done`, `finished` |
+
+See [PRINT_AND_COOK_MODE.md](PRINT_AND_COOK_MODE.md).
+
+#### Web Stories
+
+Google Web Stories (AMP) made from posts. See [WEB_STORIES.md](WEB_STORIES.md).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `web_stories.enabled` | `false` | Make a story from each selected post with a featured image. `web_stories: true` is shorthand. |
+| `web_stories.publisher_logo` | — | Square image, at least 96×96, found like `imageResize` sources. Required: without it no story is made (build warning). |
+| `web_stories.sections` | `[posts]` | `posts`, `pages`, or a content directory (`posts/recipes`). |
+| `web_stories.url` | `/web-stories/` | The hub; stories live at `<url><slug>/`. |
+| `web_stories.pages` | `4` | Most photo pages between the cover and the last page. |
+| `web_stories.min_images` | `2` | Distinct images (featured included) a post needs. |
+| `web_stories.cta` | `Read the full article` | Last page's link text (overrides the i18n catalog). |
+
+Images are WebP when `webp: true` or `image_formats` includes `webp`, JPEG otherwise.
+
+#### A résumé
+
+`resume:` publishes a CV from a [Schema Resume](https://schema-resume.org)
+JSON document as a page, with `ProfilePage` structured data and the document at
+`<url>resume.json`. See [RESUME.md](RESUME.md).
+
+| Key | Default | Description |
+|---|---|---|
+| `resume.file` | — | Path to the Schema Resume JSON document; empty turns the feature off |
+| `resume.url` | `/cv/` | URL of the page (always a directory) |
+| `resume.title` | `basics.name` | Page title |
+| `resume.contact` | `false` | Publish e-mail, phone and street address in the page, JSON-LD and resume.json |
+
+```yaml
+resume:
+  file: cv.json
+  url: /cv/
+  contact: false
+```
+
+#### Questions and answers
+
+A page that lists questions in front matter gets an `FAQPage` block beside its
+main structured data:
+
+```yaml
+faq:
+  - question: Can I freeze the cheesecake?
+    answer: Yes, wrapped, for up to a month. Thaw it in the fridge.
+```
+
+Answers are Markdown, published as plain text. A theme renders the list
+itself from `.faq`.
+
+#### Listings, authors and the site
+
+With `seo: true`, the pages ssg generates carry structured data too:
+
+| Page | Blocks |
+|---|---|
+| The post listing and every archive (category, tag, date, custom taxonomy) | `ItemList` of the posts on that page, in order |
+| An author archive | `ProfilePage` with the author as `Person`, plus the `ItemList` |
+| The site's front listing | also an `Organization`: `marketing.og_site_name` (else the title), `marketing.logo`, and `marketing.social_profiles` as `sameAs` |
+
+The blocks are injected only where the theme wrote no JSON-LD of its own, as
+for every page. A theme that writes its own gets them as `.StructuredData` and
+can add them: `{{ range .StructuredData }}<script type="application/ld+json">{{ toJSON . }}</script>{{ end }}`.
 
 ### Content contracts (schemas, strict mode, route manifest)
 

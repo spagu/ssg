@@ -470,6 +470,18 @@ SSG registers several helper functions in the Go template engine for date format
   {{ formatDatePL .Date }}
   ```
 
+### `duration` — an ISO 8601 time for people
+
+```gotemplate
+{{ with .Schema.cookTime }}Ready in {{ duration . $.Lang }}{{ end }}
+```
+
+`duration "PT1H25M"` gives `1 hr 25 min`. Days, hours, minutes and seconds
+are written in the page's language when a language is given (`en`, `pl`, `de`,
+`fr`, `es`, `it`), and in English otherwise. Anything that is not a duration
+comes back unchanged. Structured data stores times as ISO 8601, so a theme
+prints the same value instead of keeping a second, hand-written copy.
+
 ### Taxonomy and Metadata Lookup
 * **`getCategoryName id`** — Looks up and returns the name of a category by its integer ID from `metadata.json`.
   ```gotemplate

@@ -304,6 +304,9 @@ variables:
     - api_docs         # reference from code
     - api_languages    # Go, PHP, Python
     - rest_api_docs    # reference from OpenAPI
+    - resume           # a CV from Schema Resume
+    - web_stories      # Google Web Stories from posts
+    - print_and_cook_mode  # Print / PDF and Cook Mode
     - deployment       # then ship it
     - upgrading        # and keep it current
 

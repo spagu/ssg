@@ -985,6 +985,29 @@ docs/API_LANGUAGES.md.
 An entry with \fBopenapi\fR (an OpenAPI 3.0/3.1 file) documents a REST API
 instead: endpoints by tag, schemas, and a "Try it" console on each operation
 (\fBtry_it: false\fR removes it). See docs/REST_API_DOCS.md.
+.SH RECIPES AND STRUCTURED DATA
+A page whose structured data is a \fBRecipe\fR gets \fBrecipeCategory\fR from
+its categories, and \fBrecipeIngredient\fR and \fBrecipeInstructions\fR from
+its "Ingredients" and "Method" sections when \fBschema:\fR has neither
+(\fBrecipe_headings\fR adds section names). \fBfaq:\fR in front matter becomes
+an FAQPage. With \fBseo: true\fR, listings carry an ItemList, author archives a
+ProfilePage, and the front listing an Organization from \fBmarketing:\fR.
+\fBcheck_schema_recommended: true\fR adds advice on recommended Recipe
+properties. The template function \fBduration\fR prints an ISO 8601 time.
+.SH PRINT, COOK MODE AND WEB STORIES
+\fBprint.enabled: true\fR adds a Print / PDF button and print stylesheet, and a
+recipe card on Recipe pages. \fBcook_mode: true\fR adds a step-by-step view on
+Recipe pages. \fBweb_stories.enabled: true\fR (with \fBpublisher_logo\fR)
+makes a Google Web Story from each selected post. See
+docs/PRINT_AND_COOK_MODE.md and docs/WEB_STORIES.md.
+.SH RESUME
+\fBresume.file\fR names a Schema Resume (schema-resume.org) JSON document.
+It becomes a page at \fBresume.url\fR (default \fB/cv/\fR) that renders in
+any theme (layout \fBresume\fR; the document is \fB.Page.Extra.resume\fR),
+with ProfilePage/Person structured data, and the document is published
+beside it as \fBresume.json\fR. E-mail, phone and street address stay out of
+all three unless \fBresume.contact: true\fR. A missing basics.name fails the
+build; bad dates and URLs are warnings. See docs/RESUME.md.
 .SH ARTICLES READ ALOUD
 \fBlisten.enabled: true\fR adds a "Listen" button that reads the article with
 the visitor's browser voice. \fBtts.enabled: true\fR makes an MP3 of each

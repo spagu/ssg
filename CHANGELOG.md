@@ -12,6 +12,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Recipes get their category from the post's categories, and `check_schema`
 can point out the recommended Recipe properties a rich result shows.
 
+### Added
+- 🍰 **`recipeCategory` from categories.** A page whose structured data is a
+  `Recipe`, from `schema_defaults` or its own `schema:`, gets `recipeCategory`
+  from its categories: one category as a string, several as a list. A section
+  default or the page's own value still wins.
+- 🥣 **Ingredients and method from the post.** A Recipe whose `schema:` has
+  no `recipeIngredient` or `recipeInstructions` gets them from the post's
+  "Ingredients" and "Method" sections. Section names are recognised in
+  English, Polish, German, French, Spanish and Italian, in ATX or bold
+  headings, with lists, numbered lists or `**Step N**` paragraphs.
+  `recipe_headings` adds a site's own names.
+- ❓ **`faq:` → FAQPage.** Questions and answers in front matter become an
+  `FAQPage` block beside the page's structured data.
+- 🗂️ **Listings, authors and the site as structured data** (with `seo:
+  true`): every listing and archive is an `ItemList`; an author archive is a
+  `ProfilePage` with a `Person`; the front listing names the `Organization`
+  from `marketing:` (name, logo, social profiles as `sameAs`). Themes with
+  their own JSON-LD get the blocks as `.StructuredData`.
+- 🖨️ **Print / PDF button** (`print:`). It opens the browser's print
+  dialog, which offers "Save as PDF", and adds a print stylesheet:
+  - **Hidden:** the header, navigation, footer, sidebars, forms, comments,
+    buttons, cookie banners and anything marked `[data-ssg-noprint]`.
+  - **Printed:** the article at full width with images kept whole, the
+    address after each external link, and a footer line with the page URL and
+    the print date.
+  - **Print recipe:** on Recipe pages this button prints only a compact card
+    with the title, yield and times, ingredients and numbered steps, built
+    from the page's structured data.
+  The button goes into `<span data-ssg-print-slot></span>` or after the first
+  `</h1>`. Off by default. See
+  [docs/PRINT_AND_COOK_MODE.md](docs/PRINT_AND_COOK_MODE.md).
+- 👩‍🍳 **Cook Mode** (`cook_mode: true`), on Recipe pages with ingredients
+  and steps.
+  - **Screens:** a full-screen dialog with an ingredient checklist, one
+    large-text screen per step, then a finish screen.
+  - **Moving:** Next/Back, arrow keys, swipes or taps.
+  - **While cooking:** the screen stays awake (Screen Wake Lock), and progress
+    is kept per page with a "Start over" button.
+  - **Accessibility:** modal, focus trapped, Escape closes it, focus returns to
+    the button, progress is announced in a live region.
+  The recipe is embedded in the page, so the dialog makes no request.
+- The bundled themes (simple, imd, krowy, ssgtheme) have print and cook slots
+  beside the listen slot. Empty slots are removed, so output is unchanged with
+  the features off.
+- 📱 **Google Web Stories** (`web_stories:`). Each selected post with a
+  featured image becomes a standalone AMP story at `/web-stories/<slug>/`.
+  - **Pages:** a cover (featured image and title); up to `pages` full-bleed
+    photos from the post, captioned with hooks (tags, a Recipe's "Ready in
+    1 hr 25 min" or "Makes 16 servings", the excerpt, never the method); and
+    a last page linking to the article.
+  - **Images:** cut by ssg's own pipeline (poster 640×853, pages 720×1280,
+    logo 192×192), WebP when the site publishes WebP, and cached.
+  - **Hub:** `/web-stories/` lists them. Stories and the hub are in the
+    sitemap and stay out of listings, feeds and the search index.
+  - **Themes:** link a post to its story with
+    `<span data-ssg-story-slot></span>`, or override the template with
+    `story.html`.
+  Needs `publisher_logo`. Posts without a story are reported once per build.
+  See [docs/WEB_STORIES.md](docs/WEB_STORIES.md).
+- 📄 **Résumé from Schema Resume** (`resume:`). A CV kept as one
+  [Schema Resume](https://schema-resume.org) JSON document becomes a page of
+  the site, at `/cv/` by default, that renders in any theme.
+  - **Page:** the body is Markdown generated from the document. The layout is
+    `resume`, so a theme can ship `resume.html` and read the document from
+    `.Page.Extra.resume`.
+  - **Structured data:** a `ProfilePage` whose `Person` carries jobTitle,
+    worksFor, hasOccupation, alumniOf, hasCredential, knowsAbout,
+    knowsLanguage, award and sameAs.
+  - **Source:** published beside the page as `resume.json` and announced with
+    `<link rel="alternate" type="application/json">`.
+  - **Privacy:** e-mail, phone and street address stay out of the page, the
+    JSON-LD and `resume.json` unless `resume.contact: true`.
+  - **Checks:** a missing `basics.name` fails the build; malformed dates, URLs
+    and e-mails are warnings.
+  New example `examples/resume/` and golden corpus `resume`. See
+  [docs/RESUME.md](docs/RESUME.md).
+- ⏱️ **`{{ duration "PT1H25M" }}`** → `1 hr 25 min`, in the page's language
+  (en, pl, de, fr, es, it).
+- **`check_schema_recommended: true`** adds advice to `check_schema`: the
+  recommended Recipe properties a rich result shows (`description`,
+  `nutrition`, `recipeCategory`, `recipeCuisine`, `recipeYield`, and
+  `totalTime` or `cookTime`). It never fails a strict build.
+
+### Changed
+- Pages rendered as AMP (`<html amp>` / `<html ⚡>`) no longer get ssg's
+  injected head, analytics, feed links, component assets, listen button,
+  KaTeX, mermaid or WebMCP scripts, any of which made them invalid AMP.
+  Minifying and prettifying still apply.
+
 ## [1.8.71] - 2026-10-11
 
 A security release. Go 1.27.2 and golang.org/x/net v0.61.0 fix 13 advisories
