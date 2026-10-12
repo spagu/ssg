@@ -4,7 +4,12 @@
 @media print {
   @page { margin: 15mm; }
   html, body { background: #fff !important; color: #000 !important; }
-  *, *::before, *::after { box-shadow: none !important; text-shadow: none !important; }
+  /* Every element, not just body: a dark theme's white headings and grey
+     lead paragraphs would otherwise print white or faint on white paper. */
+  *, *::before, *::after {
+    color: #000 !important; background-color: transparent !important; background-image: none !important;
+    box-shadow: none !important; text-shadow: none !important;
+  }
   header:not(main header, article header), footer:not(main footer, article footer), nav, aside, form, iframe,
   button, dialog, [role="dialog"], [role="navigation"], [role="banner"], [role="contentinfo"],
   .comments, #comments, .comment-respond, .share, .sharing, .social-share,

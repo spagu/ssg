@@ -24,6 +24,10 @@
   }
 }
 .ssg-cook-dialog[open] { display: flex; flex-direction: column; }
+/* The dialog's own colours win over a theme's text colours ("p { color: … }"),
+   which would otherwise put grey step text on the dialog's white. */
+.ssg-cook-dialog p, .ssg-cook-dialog li, .ssg-cook-dialog h1, .ssg-cook-dialog h2,
+.ssg-cook-dialog h3, .ssg-cook-dialog span, .ssg-cook-dialog label { color: var(--_fg); }
 .ssg-cook-dialog::backdrop { background: var(--_bg, #fff); }
 html.ssg-cook-open { overflow: hidden; }
 .ssg-cook-dialog *, .ssg-cook-dialog *::before, .ssg-cook-dialog *::after { box-sizing: border-box; }

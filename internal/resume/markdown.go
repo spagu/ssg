@@ -32,8 +32,8 @@ func (m *mdWriter) block(text string) {
 	if strings.TrimSpace(text) == "" {
 		return
 	}
-	m.WriteString(text)
-	m.WriteString("\n\n")
+	_, _ = m.WriteString(text)
+	_, _ = m.WriteString("\n\n")
 }
 
 // heading writes a section or entry heading.
