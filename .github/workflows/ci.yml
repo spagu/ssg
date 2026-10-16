@@ -449,7 +449,7 @@ jobs:
           fi
 
       - name: Download built binary
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ssg-linux-${{ matrix.arch }}
 
@@ -535,7 +535,7 @@ jobs:
           fi
 
       - name: Download built binary
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ssg-linux-${{ matrix.goarch }}
 
@@ -616,7 +616,7 @@ jobs:
           git push -f origin "refs/tags/$MAJOR"
 
       - name: Download all artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           path: artifacts
 
