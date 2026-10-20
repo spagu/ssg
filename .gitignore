@@ -84,3 +84,4 @@ ssg-bench/
 
 # Tools built by the Makefile (make security builds the locked gosec here)
 .cache/
+CLAUDE.md

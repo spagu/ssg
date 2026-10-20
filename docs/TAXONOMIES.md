@@ -94,8 +94,9 @@ Archive pages pick the first template that exists in the theme:
 | Taxonomy index (`/technology/`) | `template:` override → `taxonomy-<name>.html` → `taxonomy.html` → `archive.html` → `category.html` |
 | Term archive (`/technology/go/`) | `term_template:` override → `taxonomy-<name>-term.html` → `taxonomy-term.html` → `archive.html` → `category.html` |
 
-The index context provides `.Taxonomy` (`Name/Label/Singular/Path/URL`) and
-`.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`). The term context
+The index context provides `.Taxonomy` (`Name/Label/Singular/Path/URL`),
+`.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`) and, like every
+other archive, `.CanonicalURL`. The term context
 provides `.Taxonomy`, `.Term`, `.Posts` (newest first), `.Pager` and — for
 compatibility with `category.html` — `.Category`, `.Kind` and `.Name`. With
 `paginate` set, term archives paginate to `/technology/go/page/2/`, and

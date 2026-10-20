@@ -97,6 +97,11 @@ relative_links: false # Convert absolute URLs to relative links
 #   enabled: true          # Print / PDF button and print stylesheet (docs/PRINT_AND_COOK_MODE.md)
 #   sections: [posts]
 # cook_mode: true          # step-by-step view on Recipe pages
+# breadcrumbs:             # the JSON-LD BreadcrumbList (docs/CONFIGURATION.md)
+#   home: "Home"
+#   sections:
+#     posts: {name: "Articles", url: /blog/}
+# breadcrumbs: false       # emit none; the theme writes its own
 # listen:
 #   enabled: true            # browser "Listen" button (Web Speech API)
 #   label: "Listen"

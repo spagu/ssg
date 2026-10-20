@@ -658,7 +658,7 @@ fingerprinted assets.
 | `sitemaps` | empty | config only | Declared sub-sitemaps, each with its own `path` and selection; `sitemap.xml` becomes their index. See [Splitting the sitemap](#splitting-the-sitemap-sitemaps-sitemap_max_urls) |
 | `sitemap_max_urls` | `50000` | config only | Per-file URL ceiling; a larger set is split and indexed |
 | `robots_off` | `false` | `--robots-off` | Disable `robots.txt` |
-| `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence |
+| `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence, and is never listed in `sitemap.xml` |
 | `pretty_html` | `false` | `--pretty-html` | Remove blank lines from HTML |
 | `relative_links` | `false` | `--relative-links` | Convert absolute site links to relative links |
 | `base_path` | path of `domain` | config only | Path the site is served under (`/<repo>` for a GitHub project page); prefixes every root-relative URL, and `check_links` and `ssg --http` follow it. `/` forces the root. See [DEPLOYMENT.md](DEPLOYMENT.md#sites-served-under-a-path) |
@@ -1926,7 +1926,30 @@ readable data without executing JavaScript. Content types map to Schema.org:
 | Any other page | `WebPage` | title, description |
 
 Every non-home page additionally gets a `BreadcrumbList` built from its URL path,
-placing it in the site hierarchy.
+placing it in the site hierarchy. A step names a document the build writes —
+a page, a post listing, a taxonomy, type or date archive — with that
+document's title; a URL segment with nothing behind it is left out and the
+positions are numbered after the gap (#335). Under i18n the trail starts at
+the language's own home. The error page (slug `404`) has none.
+
+`breadcrumbs:` names the steps, or turns them off for a theme that writes its
+own:
+
+```yaml
+breadcrumbs:
+  home: "Strona główna"            # the first step; default "Home"
+  sections:                        # a URL segment → its step
+    posts:  {name: "Baza wiedzy", url: /baza-wiedzy/}   # always shown, pointing at url
+    uslugi: {name: "Usługi"}       # renames the step; shown only if /uslugi/ exists
+# breadcrumbs: false               # emit no BreadcrumbList
+```
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `breadcrumbs` | bool or map | on | `false` emits no `BreadcrumbList` |
+| `breadcrumbs.home` | string | `"Home"` | First step's label |
+| `breadcrumbs.sections.<segment>.name` | string | the page's title | Label of that segment's step |
+| `breadcrumbs.sections.<segment>.url` | string | the segment's path | Where the step points; with a URL the step is always shown |
 
 **Overrides.** Two knobs extend or replace the generated data, deep-merged in
 order (most specific wins): site-wide `schema:` in the config, then per-page

@@ -407,6 +407,18 @@ its author wrote it rather than half-italic.
 A mapped source keeps its `.ExternalData.<name>` namespace. The records are
 pages **and** data, so a template that already iterated them still can.
 
+Each page also carries its whole record, the way custom frontmatter reaches a
+template: every field, mapped or not, at the root and in `.Extra` —
+`.Page.Extra` on the page pipeline, `.Post.Extra` on the post pipeline. The
+mapping picks a title and a body; a product's price or a package's list of
+dependencies is still what its page is about.
+
+```gotemplate
+{{/* product.html — type "=product" renders on the post pipeline */}}
+<h1>{{ .Title }}</h1>
+<p>{{ .Post.Extra.price }} — SKU {{ .sku }}</p>
+```
+
 ## SQL (`type: sql`)
 
 Drivers: `mysql`, `mariadb`, `postgres`, `sqlite` (pure Go, no cgo). Queries

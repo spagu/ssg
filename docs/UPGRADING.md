@@ -206,6 +206,22 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.73">
+
+### 1.8.73 — two things in your output change
+
+Both are fixes, and both change what a build writes:
+
+- **Breadcrumbs** (`seo: true`, or a theme that prints the derived JSON-LD):
+  a step whose URL has no page behind it is gone, and the steps that remain
+  carry the page's title instead of the titled slug. A trail that pointed at
+  `/posts/` on a site without that page loses the step. To keep a step, point
+  it at a page that exists with `breadcrumbs.sections.<segment>.url`.
+- **`sitemap.xml`** no longer lists the page slugged `404`. Nothing to do; the
+  `robots: noindex` you may have added to keep it out can stay.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.72">
 
 ### 1.8.72 — check your recipes' structured data

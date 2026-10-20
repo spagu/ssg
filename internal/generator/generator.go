@@ -396,6 +396,8 @@ type Config struct {
 	// step-by-step recipe view (1.8.72).
 	Print    PrintOptions
 	CookMode CookModeOptions
+	// Breadcrumbs shapes the derived JSON-LD BreadcrumbList (1.8.73, #335).
+	Breadcrumbs BreadcrumbOptions
 	// APIDocs documents JavaScript/TypeScript packages as pages (GO-107);
 	// CheckAPI reports documentation problems: "", warn or strict (GO-110).
 	APIDocs  []APIDocsOptions
@@ -553,6 +555,8 @@ type Generator struct {
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
 	linkRewriteOnce   sync.Once                      // built on the render pool, so memoize under a Once
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
+	crumbMu           sync.Mutex                     // guards crumbURLs (#335)
+	crumbURLs         map[string]string              // URL → title of every written document, for breadcrumbs (#335)
 	gitRoot           string                         // repo top-level dir for lastmod lookups (PERF-001)
 	gitTimes          map[string]time.Time           // repo-relative path → last commit date (PERF-001)
 	refCache          map[string]bool                // link-checker target memo (PERF-009)
@@ -1059,6 +1063,7 @@ func (g *Generator) Generate() error {
 	// the documents this build actually copied (#255).
 	g.resetEmptyCanonicals()
 	g.resetStaticSitemap()
+	g.resetCrumbIndex()
 	g.resetOutputRefs()
 	g.resetComponents()
 	// The dependency graph is recorded on every build, incremental or not: a
@@ -4553,7 +4558,9 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 		fmt.Fprintf(&b, `<meta property="og:description" content="%s">`+"\n", stdhtml.EscapeString(desc))
 	}
 	fmt.Fprintf(&b, `<meta property="og:type" content="%s">`+"\n", stdhtml.EscapeString(ogType))
-	fmt.Fprintf(&b, `<meta property="og:url" content="%s">`+"\n", stdhtml.EscapeString(url))
+	if !page.IsNotFound() { // the error page has no address of its own (#333)
+		fmt.Fprintf(&b, `<meta property="og:url" content="%s">`+"\n", stdhtml.EscapeString(url))
+	}
 	if page.Locale != "" {
 		fmt.Fprintf(&b, `<meta property="og:locale" content="%s">`+"\n", stdhtml.EscapeString(strings.ReplaceAll(page.Locale, "-", "_")))
 		for _, tr := range page.Translations {
@@ -5365,8 +5372,12 @@ func processWPShortcodesWith(content string, emit func(string) string) string {
 }
 
 // excludeFromSitemap returns true if a page should be excluded from sitemap.xml.
-// Excluded: pages with robots containing "noindex", layout "redirect", or sitemap "no".
+// Excluded: the error page (#333), pages with robots containing "noindex",
+// layout "redirect", or sitemap "no".
 func excludeFromSitemap(page models.Page) bool {
+	if page.IsNotFound() {
+		return true
+	}
 	if strings.Contains(strings.ToLower(page.Robots), "noindex") {
 		return true
 	}

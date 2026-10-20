@@ -193,7 +193,20 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 		}
 	}
 	applyMappedTaxonomies(page, rec, m.Taxonomies, &warnings)
+	page.Extra = recordExtra(rec)
 	return page, warnings, nil
+}
+
+// recordExtra hands the whole record to the page's template as .Page.Extra,
+// the way custom frontmatter reaches it: the mapping picks a title and a body,
+// and the fields it did not pick (a version, a list of dependencies) are still
+// what the page is about. A copy, so the data namespace stays untouched.
+func recordExtra(rec map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(rec))
+	for k, v := range rec {
+		out[k] = v
+	}
+	return out
 }
 
 // applyMappedTaxonomies fills the generic taxonomy map, plus the legacy tags

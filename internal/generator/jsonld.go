@@ -103,40 +103,6 @@ func (g *Generator) derivedLD(page models.Page, isPost bool, canonical string) m
 	return ld
 }
 
-// breadcrumbLD derives a BreadcrumbList from the page's URL path so agents can
-// place the page in the site hierarchy. Home (and any page whose URL is "/") has
-// no trail and returns nil; a bare domain also skips it (item URLs need a host).
-func (g *Generator) breadcrumbLD(page models.Page) map[string]interface{} {
-	if g.config.Domain == "" {
-		return nil
-	}
-	rel := strings.Trim(page.GetURL(), "/")
-	if rel == "" {
-		return nil
-	}
-	segs := strings.Split(rel, "/")
-	items := make([]interface{}, 0, len(segs)+1)
-	items = append(items, crumb(1, "Home", "https://"+g.config.Domain+"/"))
-	acc := ""
-	for i, s := range segs {
-		acc += "/" + s
-		name := titleize(s)
-		itemURL := "https://" + g.config.Domain + acc + "/"
-		if i == len(segs)-1 { // the page itself: use its real title and canonical URL
-			if page.Title != "" {
-				name = page.Title
-			}
-			itemURL = g.servedCanonical(page)
-		}
-		items = append(items, crumb(i+2, name, itemURL))
-	}
-	return map[string]interface{}{
-		"@context":        "https://schema.org",
-		"@type":           "BreadcrumbList",
-		"itemListElement": items,
-	}
-}
-
 // crumb is one BreadcrumbList ListItem.
 func crumb(pos int, name, item string) map[string]interface{} {
 	return map[string]interface{}{

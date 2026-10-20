@@ -140,6 +140,7 @@ test: ## 🧪 Run tests
 test-coverage: test ## 📊 Run tests with coverage report
 	@echo "${BLUE}📊 Generating coverage report...${RESET}"
 	@$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "${GREEN}✅ Coverage report: coverage.html${RESET}"
 
 bench: ## ⏱️  Measure build throughput on a synthetic corpus (PERF-012/013)
 	@./scripts/bench-build.sh
@@ -152,7 +153,6 @@ golden: ## 🔒 Check taxonomy output against the backward-compat golden baselin
 
 golden-update: ## 🔄 Re-baseline the taxonomy goldens (after an intended change)
 	@./scripts/taxonomy-golden.sh --update
-	@echo "${GREEN}✅ Coverage report: coverage.html${RESET}"
 
 # Linting
 lint: ## 🔍 Run linter

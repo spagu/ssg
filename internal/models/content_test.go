@@ -831,3 +831,22 @@ func TestGetURLWithPageFormat(t *testing.T) {
 		})
 	}
 }
+
+// TestPageIsNotFound covers #333: only the page written as the root 404.html
+// is the error page.
+func TestPageIsNotFound(t *testing.T) {
+	cases := []struct {
+		page Page
+		want bool
+	}{
+		{Page{Slug: "404", Type: "page"}, true},
+		{Page{Slug: "404", Type: "page", PageFormat: "flat"}, true},
+		{Page{Slug: "404", Type: "page", LangPrefix: "en"}, false},
+		{Page{Slug: "about", Type: "page"}, false},
+	}
+	for _, c := range cases {
+		if got := c.page.IsNotFound(); got != c.want {
+			t.Errorf("%+v IsNotFound = %v, want %v", c.page, got, c.want)
+		}
+	}
+}
