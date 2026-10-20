@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.73] - 2026-10-18
+
+Breadcrumbs that only point at pages that exist, an error page that stays out
+of the sitemap, and records from an external source that keep all their
+fields.
+
+### Fixed
+- 🍞 **Breadcrumb steps without a page** (#335). The derived JSON-LD
+  `BreadcrumbList` linked every URL segment, whether or not the build wrote a
+  page there, and titled it from the slug: a post at `/posts/my-article/` on a
+  site whose listing lives at `/blog/` got a "Posts" step pointing at a 404,
+  and a Polish site got English labels with the diacritics stripped. A step
+  now names a document the build writes (a page, a post listing, a taxonomy,
+  type or date archive) with that document's title, or is left out and the
+  positions renumbered. Under i18n the trail starts at the language's home.
+- 🚫 **The error page in `sitemap.xml`** (#333). A page slugged `404` was
+  listed like content; on Cloudflare Pages the URL redirects to a `200` "not
+  found" page that Search Console reports as a soft 404. It is never listed
+  now, whatever its `robots:`. With `seo: true` the injected head marks it
+  `noindex` and gives it no `og:url`, hreflang or breadcrumb.
+- 🔗 **`.CanonicalURL` on taxonomy indexes.** Every other archive has had it
+  since #245; a shared `<head>` reading it on `/technology/` failed the build.
+
+### Added
+- ⚙️ **`breadcrumbs:`.** `home` names the first step, `sections` renames a
+  URL segment's step or points it elsewhere (`posts: {name: "Baza wiedzy",
+  url: /baza-wiedzy/}`), `breadcrumbs: false` emits none.
+- 🏷️ **`.Page.IsNotFound`**, true on the error page, so a theme can mark it
+  `noindex` and leave out canonical, hreflang and `og:url` without testing the
+  slug.
+- 🧾 **A mapped record's fields in `.Extra`.** A page made from an external
+  source with `content_map` carries its whole record at the root and in
+  `.Page.Extra` / `.Post.Extra`, the way custom frontmatter does, so a template
+  can show the fields the mapping did not pick.
+
 ## [1.8.72] - 2026-10-12
 
 Recipes get their category from the post's categories, and `check_schema`
