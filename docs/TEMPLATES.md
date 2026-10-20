@@ -513,6 +513,8 @@ executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface
 | `.Pager`, `.Posts` | **only on a page with `paginate:` in its frontmatter** — this page's pager and slice, the same shape an archive gets; nil / absent elsewhere, so guard with `{{ with .Pager }}` in a shared layout |
 | `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
 | custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
+| a mapped record's fields (external source with `content_map`) | root, or `.Page.Extra` / `.Post.Extra` — every field, mapped or not |
+| `.Page.IsNotFound` | true on the error page (slug `404`, written as `/404.html`) — the one page to mark `noindex` and give no canonical |
 
 Under the nested struct the computed ones have method equivalents:
 `{{ .Page.GetURL }}`, `{{ .Page.GetCanonical .Domain }}`, `{{ .Page.GetOutputPath }}`.

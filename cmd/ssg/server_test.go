@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -387,7 +388,9 @@ func TestServeOnListenerAutoTLS(t *testing.T) {
 	go func() { done <- serveOnListener(server, ln, &config.Config{}, "auto", acm) }()
 	defer func() {
 		_ = server.Close()
-		<-done
+		if err := <-done; err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Logf("server stopped with %v", err)
+		}
 	}()
 
 	// Handshake with an SNI outside the whitelist: the host policy rejects it

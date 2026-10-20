@@ -236,6 +236,14 @@ func (p Page) GetURL() string {
 // notFoundBasePath is the base path the generator writes as the root 404.html.
 const notFoundBasePath = "/404"
 
+// IsNotFound reports whether this is the site's error page — the one the
+// generator writes as the root 404.html. It is not content: the sitemap never
+// lists it, and a theme can use `.Page.IsNotFound` to mark it noindex and
+// leave out canonical, hreflang and og:url without hard-coding the slug (#333).
+func (p Page) IsNotFound() bool {
+	return p.getBasePath() == notFoundBasePath
+}
+
 // getBasePath returns the base URL path without trailing slash or extension,
 // applying any language prefix (PLAT-005).
 func (p Page) getBasePath() string {

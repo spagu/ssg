@@ -74,6 +74,24 @@ func TestMapRecordsBuildsPages(t *testing.T) {
 	}
 }
 
+// TestMapRecordsExposesTheRecord: the fields the mapping did not pick reach
+// the page's template as .Page.Extra, and editing them leaves the record be.
+func TestMapRecordsExposesTheRecord(t *testing.T) {
+	rec := map[string]interface{}{"sku": "W-1", "name": "Blue Widget", "deps": []interface{}{"a", "b"}}
+	imp, _, err := MapRecords(mappedSource(productMap()), []interface{}{rec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := imp.Posts[0].Extra
+	if extra["sku"] != "W-1" || len(extra["deps"].([]interface{})) != 2 {
+		t.Fatalf("extra = %v", extra)
+	}
+	extra["sku"] = "changed"
+	if rec["sku"] != "W-1" {
+		t.Error("Extra must be a copy of the record")
+	}
+}
+
 // TestMapRecordsRoutesPagesAndPosts: `type: page` renders on the page pipeline,
 // anything else on the post pipeline, the same rule the CMS import uses.
 func TestMapRecordsRoutesPagesAndPosts(t *testing.T) {

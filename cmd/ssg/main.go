@@ -760,6 +760,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Listen:                 buildListenOptions(cfg.Listen),
 		Print:                  buildPrintOptions(cfg.Print),
 		CookMode:               buildCookModeOptions(cfg.CookMode),
+		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
 		PostsPage:              cfg.PostsPage,

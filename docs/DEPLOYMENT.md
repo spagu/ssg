@@ -14,6 +14,13 @@ is why SSG generates a minimal `404.html` when the site does not provide one.
 To own it, add a page slugged `404`; it renders to `/404.html` and takes
 precedence. To suppress it entirely, set `not_found_off: true`.
 
+That page is the error page, not content: it is never listed in `sitemap.xml`,
+whatever its `robots:` says (#333). Listing it advertised a URL that Cloudflare
+Pages redirects (`/404.html` → `/404`) to a `200` "not found" page, which
+Search Console reports as a soft 404. A theme can test `.Page.IsNotFound` to
+mark it `noindex` and leave out canonical, hreflang and `og:url`; with
+`seo: true` the injected block already does.
+
 ## Production build
 
 A conservative production command is:

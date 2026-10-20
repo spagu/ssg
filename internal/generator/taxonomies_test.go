@@ -23,7 +23,7 @@ func writeTaxonomyTemplates(t *testing.T, tmplDir string) {
 		`{{define "taxonomy.html"}}<html><body><h1>{{.Taxonomy.Label}}</h1>`+
 			`{{range .Terms}}<a href="{{.URL}}">{{.Name}} ({{.Count}})</a>{{end}}`+
 			`|helpers:{{range taxonomies}}[{{.Name}}]{{end}}{{termURL "technology" "Go"}}`+
-			`</body></html>{{end}}`)
+			`|canonical:{{.CanonicalURL}}</body></html>{{end}}`)
 	mustWrite(t, filepath.Join(tmplDir, "taxonomy-term.html"),
 		`{{define "taxonomy-term.html"}}<html><body><h1>{{.Taxonomy.Singular}}: {{.Term.Name}}</h1>`+
 			`<p>{{.Term.Description}}</p>{{range .Posts}}<article>{{.Title}}</article>{{end}}`+
@@ -127,7 +127,8 @@ func TestTaxonomyFullBuild(t *testing.T) {
 	wantContains(t, "technology index", mustRead(t, filepath.Join(out, "technology", "index.html")),
 		"<h1>Technology</h1>", `<a href="/technology/go/">Go (2)</a>`,
 		`<a href="/technology/rust/">Rust Lang (1)</a>`,
-		"[category][tag][series][difficulty][platform][technology]", "/technology/go/")
+		"[category][tag][series][difficulty][platform][technology]", "/technology/go/",
+		"|canonical:https://example.com/technology/")
 
 	// Term archive: posts, metadata description, helpers (pageTerms/hasTerm/pagesByTerm).
 	wantContains(t, "go term", mustRead(t, filepath.Join(out, "technology", "go", "index.html")),

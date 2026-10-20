@@ -848,6 +848,9 @@ type Config struct {
 	// step-by-step view of Recipe pages (1.8.72). See pagetools.go.
 	Print    PrintConfig    `yaml:"print" toml:"print" json:"print"`
 	CookMode CookModeConfig `yaml:"cook_mode" toml:"cook_mode" json:"cook_mode"`
+	// Breadcrumbs names the steps of the derived JSON-LD BreadcrumbList, or
+	// turns it off (1.8.73, #335). See breadcrumbs.go.
+	Breadcrumbs BreadcrumbsConfig `yaml:"breadcrumbs" toml:"breadcrumbs" json:"breadcrumbs"`
 	// TTS renders each article to an MP3 at build time through a
 	// text-to-speech API, caches it, and can publish a podcast feed (1.8.65).
 	TTS TTSConfig `yaml:"tts" toml:"tts" json:"tts"`

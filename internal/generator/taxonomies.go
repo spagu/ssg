@@ -350,8 +350,11 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		// renders from its own struct, and a shared footer reads .BuildTime on
 		// every view or on none (#186).
 		BuildTime time.Time
+		// The canonical every other archive has had since #245; the term
+		// index was the one view a shared <head> could not read it from.
+		CanonicalURL string
 	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
-		g.externalData, g.buildTime}
+		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{})}
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}

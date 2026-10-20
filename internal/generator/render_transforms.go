@@ -145,7 +145,13 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 		// themes that supply their own social meta (e.g. ssgtheme).
 		b.WriteString(g.buildJSONLD(page, isPost))
 	}
-	if !strings.Contains(s, "hreflang") {
+	if page.IsNotFound() {
+		// The error page is not content: keep it out of the index and give it
+		// no alternates, whatever the theme forgot (#333).
+		if !strings.Contains(s, `name="robots"`) {
+			b.WriteString(`<meta name="robots" content="noindex">` + "\n")
+		}
+	} else if !strings.Contains(s, "hreflang") {
 		b.WriteString(string(g.hreflangTags(page)))
 	}
 	// The site's own identity, discovered when the content was migrated:
