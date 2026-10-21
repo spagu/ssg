@@ -413,7 +413,9 @@ A mapped source keeps its `.ExternalData.<name>` namespace. The records are
 pages **and** data, so a template that already iterated them still can.
 
 Each page also carries its whole record, the way custom frontmatter reaches a
-template: every field, mapped or not, at the root and in `.Extra` —
+template: every field, mapped or not, at the root and in `.Extra` (for the
+template only: a record's taxonomy terms come from `content_map.taxonomies`
+alone, never from a field that happens to share a taxonomy's name) —
 `.Page.Extra` on the page pipeline, `.Post.Extra` on the post pipeline. The
 mapping picks a title and a body; a product's price or a package's list of
 dependencies is still what its page is about.

@@ -86,6 +86,10 @@ func TestMapRecordsExposesTheRecord(t *testing.T) {
 	if extra["sku"] != "W-1" || len(extra["deps"].([]interface{})) != 2 {
 		t.Fatalf("extra = %v", extra)
 	}
+	// Marked, so taxonomies take their terms from the mapping alone (#344).
+	if !imp.Posts[0].FromRecord {
+		t.Error("a mapped page must be marked FromRecord")
+	}
 	extra["sku"] = "changed"
 	if rec["sku"] != "W-1" {
 		t.Error("Extra must be a copy of the record")

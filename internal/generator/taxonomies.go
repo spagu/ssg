@@ -54,12 +54,26 @@ func (g *Generator) buildTaxonomies() error {
 	return g.checkTaxonomyCollisions()
 }
 
+// taxonomyExtra is the part of a page's Extra a taxonomy may read its terms
+// from: custom frontmatter, yes; a mapped record, no. A record carries every
+// field in Extra so a template can show it (1.8.73), and reading terms from
+// there too added the record's raw "maintainer" to the terms its
+// content_map.taxonomies chose — a normalised spelling, or none on purpose —
+// and failed the build on the slug collision (#344). For such a page the
+// mapping is the taxonomy's only source, as it is for the title and the rest.
+func taxonomyExtra(p *models.Page) map[string]interface{} {
+	if p.FromRecord {
+		return nil
+	}
+	return p.Extra
+}
+
 // assignPageTaxonomies resolves one page's taxonomy values and, for posts,
 // registers them in the registry's language bucket.
 func (g *Generator) assignPageTaxonomies(p *models.Page, isPost bool) error {
 	src := taxonomy.PageSources{
 		TaxonomiesFM:  p.TaxonomiesFM,
-		Extra:         p.Extra,
+		Extra:         taxonomyExtra(p),
 		CategoryNames: g.categoryNames(p),
 		Tags:          p.Tags,
 		Series:        p.Series,
