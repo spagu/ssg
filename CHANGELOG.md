@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.74] - 2026-10-21
 
-Which ssg built the site, in the site; and Go 1.27.3 for a crypto/x509 fix.
+Which ssg built the site, in the site; a sitemap held to Google's guidelines, hubs dated; and Go 1.27.3 for a crypto/x509 fix.
 
 ### Added
 - 🏷️ **`.SSG.Version` in templates** (#338). Every view that has
@@ -22,6 +22,21 @@ Which ssg built the site, in the site; and Go 1.27.3 for a crypto/x509 fix.
   time the build and count `*.html` in shell.
 
 ### Fixed
+- 🗺️ **`<lastmod>` on the pages that list others** (#339). The front page,
+  post listings, category, tag, series and author archives, taxonomy indexes
+  and terms had none, though they are the URLs a crawler should revisit most.
+  Each now takes the newest lastmod of what it lists, and templates get it as
+  `.Modified` for `dateModified`.
+- 🧮 **A JSON number in a `content_map` template** (#340) printed as
+  `1.761638001e+09`, so a timestamp mapped through `"{{.ts}}"` was no date and
+  the page silently lost its `<lastmod>`. Whole numbers print as whole
+  numbers in mapping templates, and a `modified` that does not parse is now
+  warned about, as `date` always was.
+- 📐 **Sitemaps against Google's guidelines.** A `<loc>` is entity-escaped (a
+  canonical with `&` wrote invalid XML) and percent-encoded outside ASCII; a
+  file is split at 50 MB as well as at 50,000 URLs; more files than an index
+  may name fails the build; an index entry no longer falls back to the build
+  time when its file has no dates. Tests cover each limit and rule.
 - 🔢 **`ssg --version` after `go install`** (#337). A binary installed with
   `go install github.com/spagu/ssg/cmd/ssg@v1.8.73` said `ssg version dev`,
   because only release builds stamp the version with `-ldflags`. When nothing

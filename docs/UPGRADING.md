@@ -212,8 +212,12 @@ which is a longer read but never a wrong one.
 
 Replace the binary, package or image: it is built with Go 1.27.3, which fixes
 a certificate check in `crypto/x509` (GO-2026-6809). Building ssg from source
-now needs **Go 1.27.3**. Nothing in a site changes; `.SSG.Version` and
-`build_report:` are there to use.
+now needs **Go 1.27.3**.
+
+`sitemap.xml` changes in two ways: the front page, listings and archives gain
+a `<lastmod>` (the newest of what they list), and an index entry for a file
+without dates loses the build-time `<lastmod>` it used to get. A URL with `&`
+or non-ASCII characters is now written escaped. Nothing to do.
 
 </div>
 

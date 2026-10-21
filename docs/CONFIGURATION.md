@@ -1833,9 +1833,10 @@ Two things eventually ask. sitemaps.org caps **one file at 50,000 URLs** (and
 Console reports indexing coverage **per submitted sitemap**, so "how much of the
 blog is indexed" is a question only a separate file can answer.
 
-**Size is handled without configuration.** A set over the ceiling is split into
+**Size is handled without configuration.** A set over either ceiling —
+50,000 URLs or 50 MB (52,428,800 bytes) rendered — is split into
 `sitemap-1.xml`, `sitemap-2.xml`… and `sitemap.xml` becomes the index naming
-them. `sitemap_max_urls` lowers the ceiling (never raises it — a larger file is
+them. More files than one index may name (50,000) fails the build. `sitemap_max_urls` lowers the ceiling (never raises it — a larger file is
 invalid whatever the config says), which is useful for testing the shape on a
 small site.
 
@@ -1863,6 +1864,31 @@ written and always in the index — nothing is silently dropped by a `sitemaps:`
 block that does not cover the whole site. A spec that selects nothing is
 reported and its file is skipped, since an index entry pointing at an empty
 urlset is a fetch that teaches a crawler nothing.
+
+### What the sitemap promises
+
+What Google's *Build and submit a sitemap* asks, and what a build checks in
+its tests:
+
+- **UTF-8 XML**, every `<loc>` an absolute URL, entity-escaped (`&` → `&amp;`),
+  anything outside ASCII percent-encoded (`/usługi/` → `/us%C5%82ugi/`).
+- **Canonical URLs only**: a page that says `noindex`, a redirect, `sitemap:
+  no` and the error page stay out; `sitemap_prune_canonical` also drops pages
+  whose canonical points elsewhere.
+- **`<lastmod>` only where it is known.** A document's is its `modified`
+  (falling back to `date`), or its last commit under `lastmod_from_git`. A
+  page that lists others — the front page, a post listing, category, tag,
+  series and author archives, taxonomy indexes and terms — takes the newest
+  lastmod of what it lists (#339); one listing nothing dated has none. An index
+  entry carries the newest date of its file, never the build time.
+- `<changefreq>` and `<priority>` are written for other crawlers; Google
+  ignores them.
+
+A document with neither `date` nor `modified` in its frontmatter takes the
+file's modification time. That is accurate on the machine that wrote it and
+not in a fresh clone, where every file is as new as the clone; a site built
+in CI should give its documents dates, or turn on `lastmod_from_git` with
+enough history to date each file.
 
 `robots.txt` is unchanged either way: it points at `/sitemap.xml`, which is now
 the index. That is exactly what the protocol expects, so a site already

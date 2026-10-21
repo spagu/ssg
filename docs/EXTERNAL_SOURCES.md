@@ -383,6 +383,11 @@ A missing `slug` is derived from the title. A missing `type` is `post`; `page`
 routes the record onto the page pipeline. Dates are read as ISO-8601,
 `YYYY-MM-DD`, `DD/MM/YYYY`, RFC 1123 or a Unix timestamp.
 
+In a mapping template a whole JSON number prints as one: `"{{.ts}}"` of
+`1761638001` is `1761638001`, not Go's `1.761638001e+09`, so a timestamp
+mapped through a template is still a date (#340). A `date` or `modified` that
+does not parse is warned about, record by record.
+
 ### What stops the build, and what only warns
 
 - **Two records mapping to the same slug** stops it, always. Two pages at one

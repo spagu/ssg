@@ -66,7 +66,7 @@ func archiveEntry(loc string, kind sitemapKind) sitemapEntry {
 // writeTo renders one <url> block.
 func (e sitemapEntry) writeTo(sb *strings.Builder) {
 	sb.WriteString(sitemapURLOpen)
-	fmt.Fprintf(sb, "    <loc>%s</loc>\n", e.loc)
+	fmt.Fprintf(sb, "    <loc>%s</loc>\n", sitemapLoc(e.loc))
 	sb.WriteString(e.alternates)
 	if !e.lastmod.IsZero() {
 		fmt.Fprintf(sb, "    <lastmod>%s</lastmod>\n", e.lastmod.Format(sitemapDateLayout))
@@ -102,7 +102,7 @@ func (g *Generator) renderURLSet(entries []sitemapEntry) []byte {
 // The index keeps the name sitemap.xml, so robots.txt, Search Console and every
 // crawler that already knows the site need no change: an index served where a
 // urlset used to be is exactly what the protocol expects.
-func (g *Generator) renderSitemapIndex(files []sitemapFile, built time.Time) []byte {
+func (g *Generator) renderSitemapIndex(files []sitemapFile) []byte {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
 	sb.WriteString("\n")
@@ -110,8 +110,10 @@ func (g *Generator) renderSitemapIndex(files []sitemapFile, built time.Time) []b
 	sb.WriteString("\n")
 	for _, f := range files {
 		sb.WriteString("  <sitemap>\n")
-		fmt.Fprintf(&sb, "    <loc>%s%s/%s</loc>\n", httpsScheme, g.config.Domain, f.path)
-		fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", f.lastmod(built).Format(sitemapDateLayout))
+		fmt.Fprintf(&sb, "    <loc>%s</loc>\n", sitemapLoc(httpsScheme+g.config.Domain+"/"+f.path))
+		if m := f.lastmod(); !m.IsZero() {
+			fmt.Fprintf(&sb, "    <lastmod>%s</lastmod>\n", m.Format(sitemapDateLayout))
+		}
 		sb.WriteString("  </sitemap>\n")
 	}
 	sb.WriteString("</sitemapindex>\n")

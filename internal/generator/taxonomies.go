@@ -355,8 +355,11 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		CanonicalURL string
 		// SSG names the ssg that built the site, beside BuildTime (#338).
 		SSG SSGInfo
+		// Modified is the newest lastmod of any post with a term (#339).
+		Modified time.Time
 	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
-		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{}), g.ssgInfo()}
+		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{}), g.ssgInfo(),
+		g.taxonomyLastmod(def.Name, lang)}
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}

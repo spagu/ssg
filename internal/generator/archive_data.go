@@ -58,6 +58,9 @@ func (g *Generator) archiveData(kind, name string, cat models.Category,
 		// template must not say one year on a post and another on an archive.
 		"BuildTime": g.buildTime,
 		"SSG":       g.ssgInfo(), // which ssg built it (#338)
+		// The newest lastmod of the posts on this page, for dateModified; zero
+		// when none is dated (#339).
+		"Modified": g.newestLastmod(posts),
 		// The name pages and posts already carry, so one expression writes
 		// <link rel="canonical">, og:url and twitter:url on every view (#245).
 		// Archives had no canonical at all, and a theme reaching for the key it

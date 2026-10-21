@@ -401,6 +401,7 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.Data` | map | YAML/JSON data files |
 | `.Pager` | pager | Pagination state |
 | `.BuildTime` | time | When this build ran — one value for the whole build |
+| `.Modified` | time | The newest `modified` (or `date`) of the listed posts, for `dateModified`; zero when none is dated |
 | `.SSG.Version` | string | The ssg that built the site, e.g. `1.8.74` |
 | `.Lang` | string | The listing's language (empty without i18n) |
 | `.CanonicalURL` | string | This listing page's own absolute URL, `/blog/page/2/` included |

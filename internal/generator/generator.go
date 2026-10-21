@@ -4130,6 +4130,8 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		BuildTime time.Time
 		// SSG names the ssg that built the site, beside BuildTime (#338).
 		SSG SSGInfo
+		// Modified is the newest lastmod of the listed posts (#339).
+		Modified time.Time
 		// Lang, for the same reason. A theme writing <html lang="{{.Lang}}">
 		// needs it on every view or on none, and the front page is the one
 		// document that must not be mislabelled: it is the most linked (#208).
@@ -4158,6 +4160,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
 		SSG:              g.ssgInfo(),
+		Modified:         g.newestLastmod(posts),
 		Lang:             g.currentLang,
 		CanonicalURL:     g.servedCanonical(*g.indexPageContext(outPath)),
 		Translations:     listing,
@@ -5502,8 +5505,15 @@ func (g *Generator) generateSitemap() error {
 	if err := g.validateSitemapSpecs(); err != nil {
 		return err
 	}
-	entries := g.collectSitemapEntries()
+	return g.writeSitemaps(g.collectSitemapEntries())
+}
+
+// writeSitemaps plans and writes the sitemap files for entries.
+func (g *Generator) writeSitemaps(entries []sitemapEntry) error {
 	files, index := g.planSitemaps(entries)
+	if len(files) > sitemapIndexLimit {
+		return fmt.Errorf("sitemaps: %d files, more than the %d one index may name", len(files), sitemapIndexLimit)
+	}
 	for _, f := range files {
 		path := filepath.Join(g.config.OutputDir, filepath.FromSlash(f.path))
 		if err := g.ensureWithinOutput(path); err != nil {
@@ -5522,7 +5532,7 @@ func (g *Generator) generateSitemap() error {
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, defaultSitemapName),
-		g.renderSitemapIndex(files, g.buildTime), 0644)
+		g.renderSitemapIndex(files), 0644)
 }
 
 // collectSitemapEntries gathers every URL the site publishes, in the order the
@@ -5602,6 +5612,8 @@ func (g *Generator) collectSitemapEntries() []sitemapEntry {
 	// Custom taxonomy indexes + term archives (taxonomies-feature.md)
 	entries = append(entries, g.taxonomyEntries()...)
 
+	// The hubs above date themselves from what they list (#339).
+	g.dateHubs(entries)
 	return entries
 }
 
