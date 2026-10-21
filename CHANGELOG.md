@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.76] - 2026-10-21
 
 ### Fixed
+- 💥 **Two documents at one address replaced each other silently** (#346).
+  Without i18n nothing compared output paths: a content page and an
+  external-source record with the same `link:`, or two records, went to one
+  `index.html`, one of them was lost, and link checking stayed green because
+  the address existed. Every build now stops on it and names both documents,
+  with a hint to give one a distinct `link:` or `slug:`. A second page at the
+  site root keeps its warning-and-skip (#234), and an alias that meets a page
+  is still not written; in neither is anything lost.
 - 🏷️ **A mapped taxonomy added to the record's own field instead of
   replacing it** (#344). Since 1.8.73 a page made from a record carries the
   whole record in `.Extra`, and taxonomies also read their terms from a field

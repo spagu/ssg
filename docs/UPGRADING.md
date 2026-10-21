@@ -208,7 +208,13 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.76">
 
-### 1.8.76 — nothing to do
+### 1.8.76 — a build may now stop on a collision
+
+A build without i18n that has two documents at one address — two pages, a
+page and a post, a page and an external-source record — now stops with an
+error naming both, where it used to write one and drop the other without a
+word. If your build stops here after the upgrade, a page was missing from
+your site: give one of the two a distinct `link:` or `slug:`.
 
 A page made from an external source's record takes its taxonomy terms from
 `content_map.taxonomies` alone again, as before 1.8.73. A `field:` you set on
