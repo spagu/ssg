@@ -4824,6 +4824,9 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// hand-written one — `{{ toJSON .Schema }}` — is the supported way to
 		// have both, without reimplementing the merge in the theme.
 		"Schema": g.mergedSchema(page, isPost),
+		// The derived trail, ready for {{ toJSON .BreadcrumbSchema }} in a
+		// theme that writes its JSON-LD by hand; nil where there is none (#351).
+		"BreadcrumbSchema": g.breadcrumbLD(page),
 		// When this build ran — one value for the whole build, honouring
 		// SOURCE_DATE_EPOCH. `© 2007-{{.BuildTime.Year}}` is the case that
 		// hits every site at once, on the same night (#186).

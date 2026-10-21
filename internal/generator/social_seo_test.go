@@ -38,33 +38,55 @@ func TestMarketingOGImageIsAbsolute(t *testing.T) {
 	}
 }
 
-// TestThemeJSONLDIsNotDoubled covers #349: the social tags and the derived
-// JSON-LD are each added only when the theme did not write its own.
+// TestThemeJSONLDIsNotDoubled covers #349 and #351: the social tags and the
+// page's derived type are each added only when the theme wrote none; the
+// BreadcrumbList and FAQPage sit beside any type, so they are added unless
+// the theme wrote those too.
 func TestThemeJSONLDIsNotDoubled(t *testing.T) {
 	g := newTestGen(t, "")
 	g.config.SEO = true
-	page := models.Page{Title: "x/a", Slug: "a", Type: "post", URLFormat: "slug"}
+	page := models.Page{Title: "x/a", Slug: "a", Type: "post", URLFormat: "slug",
+		Extra: map[string]interface{}{"faq": []interface{}{map[string]interface{}{"question": "Q?", "answer": "A."}}}}
 	const ld = `<script type="application/ld+json">{"@type":"SoftwareApplication"}</script>`
 	const og = `<meta property="og:title" content="x/a">`
+	const crumbs = `<script type="application/ld+json">{"@type":"BreadcrumbList"}</script>`
 	cases := []struct {
-		name, head string
-		wantOG     bool
-		wantLD     bool
+		name, head               string
+		wantOG, wantType         bool
+		wantCrumbs, wantFAQBlock bool
 	}{
-		{"own JSON-LD, no og:title (#349)", ld, true, false},
-		{"own og:title, no JSON-LD", og, false, true},
-		{"neither", "", true, true},
-		{"both", og + ld, false, false},
+		{"own JSON-LD, no og:title (#349)", ld, true, false, true, true},
+		{"own og:title, no JSON-LD", og, false, true, true, true},
+		{"neither", "", true, true, true, true},
+		{"both", og + ld, false, false, true, true},
+		{"own breadcrumb too (#351)", og + ld + crumbs, false, false, false, true},
 	}
 	for _, c := range cases {
 		out := g.seoHTMLString("<html><head>"+c.head+"</head><body></body></html>", page, true)
-		gotOG := strings.Count(out, `property="og:title"`) > strings.Count(c.head, `property="og:title"`)
-		gotLD := strings.Count(out, "application/ld+json") > strings.Count(c.head, "application/ld+json")
-		if gotOG != c.wantOG || gotLD != c.wantLD {
-			t.Errorf("%s: injected og=%v ld=%v, want og=%v ld=%v\n%s", c.name, gotOG, gotLD, c.wantOG, c.wantLD, out)
+		added := strings.TrimPrefix(out, "<html><head>"+c.head)
+		got := [4]bool{
+			strings.Contains(added, `property="og:title"`),
+			strings.Contains(added, "BlogPosting"),
+			strings.Contains(added, `"BreadcrumbList"`),
+			strings.Contains(added, `"FAQPage"`),
 		}
-		if c.name == "own JSON-LD, no og:title (#349)" && strings.Contains(out, "BlogPosting") {
-			t.Errorf("a BlogPosting beside the theme's SoftwareApplication:\n%s", out)
+		want := [4]bool{c.wantOG, c.wantType, c.wantCrumbs, c.wantFAQBlock}
+		if got != want {
+			t.Errorf("%s: injected og/type/crumbs/faq = %v, want %v\n%s", c.name, got, want, out)
 		}
+	}
+}
+
+// TestBreadcrumbSchemaInTemplates covers #351: a theme that writes its own
+// JSON-LD gets the derived trail as data, ready for toJSON.
+func TestBreadcrumbSchemaInTemplates(t *testing.T) {
+	g := newTestGen(t, "")
+	data := g.pageToTemplateData(models.Page{Title: "A", Slug: "a", Type: "page", Link: "/x/a/"}, false)
+	bc, ok := data["BreadcrumbSchema"].(map[string]interface{})
+	if !ok || bc["@type"] != "BreadcrumbList" {
+		t.Fatalf("BreadcrumbSchema = %v", data["BreadcrumbSchema"])
+	}
+	if home := g.pageToTemplateData(models.Page{Title: "Home", Slug: "", Type: "page", Link: "/"}, false); home["BreadcrumbSchema"] != nil && home["BreadcrumbSchema"].(map[string]interface{}) != nil {
+		t.Errorf("the front page has no trail: %v", home["BreadcrumbSchema"])
 	}
 }

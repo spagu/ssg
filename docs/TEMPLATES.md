@@ -534,6 +534,7 @@ executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface
 | `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
 | custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
 | a mapped record's fields (external source with `content_map`) | root, or `.Page.Extra` / `.Post.Extra` — every field, mapped or not |
+| `.BreadcrumbSchema` | the derived `BreadcrumbList`, ready for `{{ toJSON .BreadcrumbSchema }}` in a theme that writes its own JSON-LD; nil on the front page |
 | `.Page.IsNotFound` | true on the error page (slug `404`, written as `/404.html`) — the one page to mark `noindex` and give no canonical |
 
 Under the nested struct the computed ones have method equivalents:

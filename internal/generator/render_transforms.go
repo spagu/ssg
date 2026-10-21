@@ -147,6 +147,10 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 	if !strings.Contains(s, "application/ld+json") {
 		// AI-first Linked Data (#61) for every theme that wrote none.
 		b.WriteString(g.buildJSONLD(page, isPost))
+	} else {
+		// The theme's own block is the page's type; the breadcrumb and the
+		// FAQ still belong beside it, unless the theme wrote those too (#351).
+		b.WriteString(g.companionLD(page, s))
 	}
 	if page.IsNotFound() {
 		// The error page is not content: keep it out of the index and give it
