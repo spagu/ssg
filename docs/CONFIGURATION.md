@@ -1178,6 +1178,7 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations, link checks and unparseable frontmatter to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
+| `build_report` | `` | `--build-report[=FILE]` | Write a JSON report of the build into the output directory: version, duration, pages and files written, content by type. A bare flag writes `build.json` |
 | `profile` | `` | `--profile[=json]` | Report where the build's time went; `json` also writes `build-profile.json` |
 | `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
@@ -1899,6 +1900,31 @@ content_exclude:
 
 Patterns are matched before parsing, against the full path, the content-relative
 path and the filename, so each form behaves the way it reads.
+
+`build_report: build.json` (or `--build-report`) writes, once the last page is
+out and before the `post_build` hooks, a small report a site can publish (#338):
+
+```json
+{
+  "generator": "ssg",
+  "version": "1.8.74",
+  "buildTime": "2026-10-21T17:41:56Z",
+  "started": "2026-10-21T17:41:56Z",
+  "finished": "2026-10-21T17:42:32Z",
+  "durationSeconds": 36.2,
+  "pages": 38037,
+  "files": 38211,
+  "content": {"page": 4, "port": 35270, "post": 0}
+}
+```
+
+`pages` counts the `.html` files in the output, `files` every file but the
+report; `content` counts the loaded documents by type. `buildTime` is
+`.BuildTime` (so `SOURCE_DATE_EPOCH` pins it), `started` and `finished` are
+the clock. The report is published with the site, which is the point: a footer
+script can show "38,037 pages in 36.2 s" without shell around the build. For
+*why* a build is slow, use `--profile=json`, which writes the time of every
+phase and page to `build-profile.json` beside the project, not into the site.
 
 `route_manifest` (or `--route-manifest`) writes `routes.json` to the output root:
 a sorted, deduplicated list of every generated route — posts, pages, and category

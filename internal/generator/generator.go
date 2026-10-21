@@ -383,6 +383,9 @@ type Config struct {
 	ContentSchemas map[string]models.ContentSchema
 	Strict         bool
 	RouteManifest  bool
+	// BuildReport is the output-relative file a build report is written to
+	// after the last page ("" = none) (#338).
+	BuildReport string
 	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
 	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
 	BuildWorkers int
@@ -1055,6 +1058,7 @@ func exportVariablesToEnv(vars map[string]interface{}, prefix string) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
+	started := time.Now() // for the build report's duration; templates see g.buildTime
 	// Release the lazily-built related-posts mddb client when the build ends.
 	defer g.closeRelatedMddb()
 
@@ -1167,6 +1171,12 @@ func (g *Generator) Generate() error {
 
 	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {
 		return err
+	}
+
+	// After the last page and before the hooks, so a post_build hook can read
+	// how the build went (#338).
+	if err := g.writeBuildReport(started, time.Now); err != nil {
+		return fmt.Errorf("writing build report: %w", err)
 	}
 
 	if err := g.runHooks("post_build", nil); err != nil {
@@ -4118,6 +4128,8 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		// so every field a theme may read has to be named here too — a footer
 		// in a shared partial is on the front page as much as anywhere (#186).
 		BuildTime time.Time
+		// SSG names the ssg that built the site, beside BuildTime (#338).
+		SSG SSGInfo
 		// Lang, for the same reason. A theme writing <html lang="{{.Lang}}">
 		// needs it on every view or on none, and the front page is the one
 		// document that must not be mislabelled: it is the most linked (#208).
@@ -4145,6 +4157,7 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
+		SSG:              g.ssgInfo(),
 		Lang:             g.currentLang,
 		CanonicalURL:     g.servedCanonical(*g.indexPageContext(outPath)),
 		Translations:     listing,
@@ -4810,6 +4823,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// SOURCE_DATE_EPOCH. `© 2007-{{.BuildTime.Year}}` is the case that
 		// hits every site at once, on the same night (#186).
 		"BuildTime": g.buildTime,
+		"SSG":       g.ssgInfo(), // which ssg built it (#338)
 		// The readers' comments a migration brought across, threaded and in
 		// the order they were written (#142). Empty for a page that has none.
 		"Comments":       g.commentsFor(page),

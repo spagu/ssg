@@ -353,8 +353,10 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		// The canonical every other archive has had since #245; the term
 		// index was the one view a shared <head> could not read it from.
 		CanonicalURL string
+		// SSG names the ssg that built the site, beside BuildTime (#338).
+		SSG SSGInfo
 	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
-		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{})}
+		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{}), g.ssgInfo()}
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}

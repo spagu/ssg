@@ -97,6 +97,7 @@ relative_links: false # Convert absolute URLs to relative links
 #   enabled: true          # Print / PDF button and print stylesheet (docs/PRINT_AND_COOK_MODE.md)
 #   sections: [posts]
 # cook_mode: true          # step-by-step view on Recipe pages
+# build_report: build.json # version, duration and pages of the build, beside the pages
 # breadcrumbs:             # the JSON-LD BreadcrumbList (docs/CONFIGURATION.md)
 #   home: "Home"
 #   sections:

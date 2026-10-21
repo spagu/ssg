@@ -401,6 +401,7 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.Data` | map | YAML/JSON data files |
 | `.Pager` | pager | Pagination state |
 | `.BuildTime` | time | When this build ran — one value for the whole build |
+| `.SSG.Version` | string | The ssg that built the site, e.g. `1.8.74` |
 | `.Lang` | string | The listing's language (empty without i18n) |
 | `.CanonicalURL` | string | This listing page's own absolute URL, `/blog/page/2/` included |
 | `.Description` | string | The site's description |
@@ -433,6 +434,7 @@ Individual content fields are flattened at the root:
 |---|---|
 | `.Site`, `.Domain`, `.Vars`, `.Data` | Global site/configuration data |
 | `.BuildTime` | When this build ran (see below) |
+| `.SSG.Version` | The ssg that built the site (see below) |
 | `.ID`, `.Title`, `.Slug`, `.Status`, `.Type` | Identity fields |
 | `.Date`, `.Modified` | Dates converted to the configured content timezone |
 | `.Content`, `.Excerpt`, `.Description`, `.Keywords` | Body and metadata text |
@@ -468,6 +470,23 @@ should not break a deploy. The build stays internally consistent either way.
 
 A site that rebuilds on a schedule, or on a `republish-trigger` webhook, then
 never shows last year's footer without anyone editing anything.
+
+### `.SSG.Version` — which ssg built the page
+
+Every view that has `.BuildTime` — pages, posts, the front listing, archives
+and taxonomy indexes — also has `.SSG.Version`, so a footer or the generator
+meta tag can name the tool (#338):
+
+```gotemplate
+<meta name="generator" content="ssg {{ .SSG.Version }}">
+<footer>Built with ssg {{ .SSG.Version }} on {{ .BuildTime.Format "2 January 2006" }}</footer>
+```
+
+It is `1.8.74` for a release, the module version for `go install
+github.com/spagu/ssg/cmd/ssg@v1.8.74` (#337), `1.8.74+dirty` for a build of a
+modified checkout. How many pages the build wrote and how long it took cannot
+be in a page, which is written before the build ends; `build_report:` writes
+them to a file beside the pages (see CONFIGURATION.md).
 
 > ⚠️ The four do not behave alike. An exporter writes **names** in frontmatter
 > (`author: "Zonqor"`, `categories: ["Marsaskala"]`), but `.Author` and

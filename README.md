@@ -1,6 +1,6 @@
 # SSG — Static Site Generator
 
-[![Go Version](https://img.shields.io/badge/Go-1.27.2+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27.3+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![CI](https://github.com/spagu/ssg/actions/workflows/ci.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
 [![codecov](https://codecov.io/gh/spagu/ssg/branch/main/graph/badge.svg)](https://codecov.io/gh/spagu/ssg)
@@ -300,6 +300,7 @@ Common options:
 | Validate frontmatter contracts | `content_schemas: {post: {required: [title, date]}}` | config only |
 | Fail the build on any violation | `strict: true` | `--strict` |
 | Emit a route manifest (`routes.json`) | `route_manifest: true` | `--route-manifest` |
+| Publish a build report (version, duration, pages) | `build_report: build.json` | `--build-report` |
 | Publish the site's model for agents (`site-graph.json` + MCP `site_*`) | `site_graph: true` | config only |
 | Report where the build's time went | `profile: text` | `--profile[=json]` |
 | Rebuild only what a change reaches | `incremental: true` | `--incremental` |
@@ -525,8 +526,9 @@ workflow examples are available in [examples/workflows](examples/workflows/).
 
 ## Development
 
-Building SSG itself requires Go 1.27.2 or newer — the version the `go` directive
-in [go.mod](go.mod) asks for. The floor was 1.26.6 before that, because earlier
+Building SSG itself requires Go 1.27.3 or newer — the version the `go` directive
+in [go.mod](go.mod) asks for. 1.27.2 carries GO-2026-6809 (crypto/x509), which
+ssg reaches through every TLS connection. The floor was 1.26.6 before 1.27, because earlier
 Go 1.26 releases contain standard-library vulnerabilities relevant to this
 project.
 

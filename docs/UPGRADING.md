@@ -206,6 +206,17 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.74">
+
+### 1.8.74 — upgrade; from source, Go 1.27.3
+
+Replace the binary, package or image: it is built with Go 1.27.3, which fixes
+a certificate check in `crypto/x509` (GO-2026-6809). Building ssg from source
+now needs **Go 1.27.3**. Nothing in a site changes; `.SSG.Version` and
+`build_report:` are there to use.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.73">
 
 ### 1.8.73 — two things in your output change

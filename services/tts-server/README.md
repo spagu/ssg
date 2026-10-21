@@ -1,6 +1,6 @@
 # tts-server
 
-[![Go Version](https://img.shields.io/badge/Go-1.27.2+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.27.3+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539?style=flat&logo=openapiinitiative)](internal/httpapi/openapi.yaml)
 [![Engines](https://img.shields.io/badge/engines-espeak--ng%20%7C%20Piper-blueviolet?style=flat)](#engines)
 [![Coverage](https://img.shields.io/badge/coverage-98.7%25-brightgreen?style=flat)](#development)

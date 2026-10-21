@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.73" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.74" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -997,6 +997,10 @@ properties. The template function \fBduration\fR prints an ISO 8601 time.
 Breadcrumb steps name only documents the build writes; \fBbreadcrumbs.home\fR,
 \fBbreadcrumbs.sections\fR rename or redirect them and \fBbreadcrumbs: false\fR
 turns them off. The page slugged \fB404\fR is never listed in the sitemap.
+Templates get \fB.SSG.Version\fR beside \fB.BuildTime\fR.
+\fB\-\-build\-report\fR[=\fIFILE\fR] (\fBbuild_report:\fR) writes the build's version,
+duration and page count to \fIFILE\fR (default \fBbuild.json\fR) in the output
+directory.
 .SH PRINT, COOK MODE AND WEB STORIES
 \fBprint.enabled: true\fR adds a Print / PDF button and print stylesheet, and a
 recipe card on Recipe pages. \fBcook_mode: true\fR adds a step-by-step view on
