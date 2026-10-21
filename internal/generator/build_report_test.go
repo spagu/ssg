@@ -112,3 +112,26 @@ func TestBuildReportOffAndOutside(t *testing.T) {
 		t.Error("no site data, no counts")
 	}
 }
+
+// TestBuildReportIsWorldReadable covers #342: the report is published with
+// the site, so a web server running as another user must be able to read it
+// — and the directory it sits in — like the pages beside it.
+func TestBuildReportIsWorldReadable(t *testing.T) {
+	g := newTestGen(t, "")
+	g.config.BuildReport = "meta/build.json"
+	if err := g.writeBuildReport(time.Now(), time.Now); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{filepath.Join(g.config.OutputDir, "meta"), filepath.Join(g.config.OutputDir, "meta", "build.json")} {
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o004 == 0 {
+			t.Errorf("%s is %v: others cannot read it", p, info.Mode().Perm())
+		}
+		if info.IsDir() && info.Mode().Perm()&0o001 == 0 {
+			t.Errorf("%s is %v: others cannot enter it", p, info.Mode().Perm())
+		}
+	}
+}

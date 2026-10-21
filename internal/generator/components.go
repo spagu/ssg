@@ -229,7 +229,9 @@ func (g *Generator) writeComponentManifest() error {
 
 // copyComponentAsset copies one file, creating the directories it needs.
 func copyComponentAsset(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+	// Traversable by a web server running as another user, like every other
+	// output directory (0750 made it answer 403 for the assets, #342).
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil { // #nosec G301 -- a public web directory
 		return err
 	}
 	data, err := os.ReadFile(src) // #nosec G304 -- the project's own components directory

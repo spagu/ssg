@@ -85,10 +85,13 @@ func (g *Generator) writeBuildReport(started time.Time, now func() time.Time) er
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
+	if err := g.ensureParent(dest); err != nil {
 		return err
 	}
-	return os.WriteFile(dest, append(raw, '\n'), 0o600)
+	// Published with the site, so readable like every page beside it: 0600
+	// made a web server running as another user answer 403 (#342).
+	// #nosec G306 -- a public web file
+	return os.WriteFile(dest, append(raw, '\n'), 0o644)
 }
 
 // countOutput counts the .html files and all files under dir, leaving out
