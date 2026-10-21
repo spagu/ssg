@@ -206,6 +206,17 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.78">
+
+### 1.8.78 — nothing to do
+
+A theme that writes its own JSON-LD gets ssg's `BreadcrumbList` (and the
+`FAQPage` of a page with `faq:`) beside it again, unless it writes one of its
+own. A theme that wrote `og:title` and JSON-LD gets them for the first time.
+To write the trail yourself, `{{ toJSON .BreadcrumbSchema }}` has it.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.77">
 
 ### 1.8.77 — check two things in your `<head>`
@@ -214,8 +225,8 @@ which is a longer read but never a wrong one.
   (`https://example.com/card.png`). Nothing to do; social cards that showed no
   image show it now.
 - **A theme that writes its own JSON-LD but no `og:title`** no longer gets
-  ssg's JSON-LD beside it (it still gets the Open Graph tags). If you relied on
-  ssg's `BreadcrumbList` there, write it in the theme or emit `{{ toJSON .Schema }}`.
+  ssg's JSON-LD beside it (it still gets the Open Graph tags). This also
+  dropped the `BreadcrumbList`; 1.8.78 adds it back (#351).
 
 A full-content feed now carries absolute URLs in its posts' HTML.
 
