@@ -376,8 +376,23 @@ record has; the build says so and points at `"=product"`.
 ### The fields you can map
 
 `title` (required), `slug`, `content`, `excerpt`, `description`, `date`,
-`modified`, `type`, `status`, `link`, `image`, `lang`, and `taxonomies` as a
-map of taxonomy name to record field.
+`modified`, `type`, `status`, `link`, `image`, `lang`, `taxonomies` as a
+map of taxonomy name to record field, and `schema`.
+
+`schema` is every record's `schema:`, the structured data its page carries,
+as frontmatter `schema:` is for a page written by hand. A record has no
+directory, so `schema_defaults` cannot reach it; this is how a source says
+what its records are (1.8.77, #349). Its values are constants:
+
+```yaml
+content_map:
+  title: origin
+  type: "=port"
+  schema:
+    "@type": SoftwareApplication
+    applicationCategory: DeveloperApplication
+    operatingSystem: FreeBSD
+```
 
 A missing `slug` is derived from the title. A missing `type` is `post`; `page`
 routes the record onto the page pipeline. Dates are read as ISO-8601,

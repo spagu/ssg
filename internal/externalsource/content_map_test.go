@@ -623,3 +623,28 @@ func TestMapRecordsWarnsOnAnUnparsableModified(t *testing.T) {
 		t.Errorf("warnings = %v, err %v", warnings, err)
 	}
 }
+
+// TestMapRecordsSchema covers #349: content_map.schema is each record's
+// schema:, a copy per page so the JSON-LD merge cannot leak between them.
+func TestMapRecordsSchema(t *testing.T) {
+	m := ContentMap{Title: "name", Schema: map[string]interface{}{
+		"@type": "SoftwareApplication", "offers": map[string]interface{}{"price": "0"},
+	}}
+	imp, _, err := MapRecords(mappedSource(m), []interface{}{
+		map[string]interface{}{"name": "A"}, map[string]interface{}{"name": "B"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := imp.Posts[0].Schema, imp.Posts[1].Schema
+	if a["@type"] != "SoftwareApplication" || b["@type"] != "SoftwareApplication" {
+		t.Fatalf("schema = %v / %v", a, b)
+	}
+	a["offers"].(map[string]interface{})["price"] = "9"
+	if b["offers"].(map[string]interface{})["price"] != "0" || m.Schema["offers"].(map[string]interface{})["price"] != "0" {
+		t.Error("each page must get its own copy of the schema")
+	}
+	if (ContentMap{Schema: map[string]interface{}{"@type": "X"}}).Empty() {
+		t.Error("a map with only a schema is not empty")
+	}
+}

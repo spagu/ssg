@@ -17,7 +17,6 @@ package externalsource
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,6 +49,13 @@ type ContentMap struct {
 	// Taxonomies maps a taxonomy name to the record field holding its terms;
 	// the field may be a list or a single value.
 	Taxonomies map[string]string `yaml:"taxonomies" toml:"taxonomies" json:"taxonomies"`
+	// Schema is every record's `schema:` — the structured data its page
+	// carries, as frontmatter `schema:` does for a page written by hand. A
+	// record has no directory, so schema_defaults cannot reach it, and this
+	// is how a source's records say what they are (#349):
+	//   schema: {"@type": "SoftwareApplication", applicationCategory: DeveloperApplication}
+	// Values are constants.
+	Schema map[string]interface{} `yaml:"schema" toml:"schema" json:"schema"`
 }
 
 // Empty reports whether nothing was mapped at all.
@@ -57,7 +63,7 @@ func (m ContentMap) Empty() bool {
 	return m.Title == "" && m.Slug == "" && m.Content == "" && m.Excerpt == "" &&
 		m.Date == "" && m.Modified == "" && m.Type == "" && m.Status == "" &&
 		m.Link == "" && m.Description == "" && m.Image == "" && m.Lang == "" &&
-		len(m.Taxonomies) == 0
+		len(m.Taxonomies) == 0 && len(m.Schema) == 0
 }
 
 // Content formats a mapped body can be declared as.
@@ -200,19 +206,12 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 	applyMappedTaxonomies(page, rec, m.Taxonomies, &warnings)
 	page.Extra = recordExtra(rec)
 	page.FromRecord = true
-	return page, warnings, nil
-}
-
-// recordExtra hands the whole record to the page's template as .Page.Extra,
-// the way custom frontmatter reaches it: the mapping picks a title and a body,
-// and the fields it did not pick (a version, a list of dependencies) are still
-// what the page is about. A copy, so the data namespace stays untouched.
-func recordExtra(rec map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(rec))
-	for k, v := range rec {
-		out[k] = v
+	if len(m.Schema) > 0 {
+		// A copy per page: the JSON-LD merge must never write into the one
+		// map every record shares.
+		page.Schema = copyValue(m.Schema).(map[string]interface{})
 	}
-	return out
+	return page, warnings, nil
 }
 
 // applyMappedTaxonomies fills the generic taxonomy map, plus the legacy tags
@@ -477,32 +476,6 @@ func lookupField(rec map[string]interface{}, path string) (interface{}, bool) {
 		}
 	}
 	return cur, true
-}
-
-// templateValue is a record as a mapping template sees it: a whole number
-// JSON decoded as float64 becomes an int64, so "{{.ts}}" prints 1761638001
-// and not 1.761638001e+09, which is no date and no slug (#340). Only the
-// template's copy changes; the record, and .ExternalData, keep their types.
-func templateValue(v interface{}) interface{} {
-	switch t := v.(type) {
-	case float64:
-		if t == math.Trunc(t) && math.Abs(t) < 1<<53 {
-			return int64(t)
-		}
-	case map[string]interface{}:
-		out := make(map[string]interface{}, len(t))
-		for k, x := range t {
-			out[k] = templateValue(x)
-		}
-		return out
-	case []interface{}:
-		out := make([]interface{}, len(t))
-		for i, x := range t {
-			out[i] = templateValue(x)
-		}
-		return out
-	}
-	return v
 }
 
 // renderRecordTemplate composes a value from several fields.

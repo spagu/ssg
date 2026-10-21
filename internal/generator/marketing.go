@@ -51,7 +51,7 @@ func (g *Generator) buildMarketingHead(existing string) string {
 	addMeta("property", "og:site_name", m.OGSiteName, "og:site_name")
 	// og:image is per-page when the page has a featured image; this is the
 	// site-wide fallback for pages that have none.
-	addMeta("property", "og:image", m.OGImage, "og:image")
+	addMeta("property", "og:image", g.socialURL(m.OGImage), "og:image")
 	addMeta("name", "twitter:site", m.TwitterSite, "twitter:site")
 
 	// Verification tokens keep search-console and business-manager ownership

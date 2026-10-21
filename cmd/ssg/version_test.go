@@ -39,3 +39,11 @@ func TestBuildReportFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestSiteOrigin(t *testing.T) {
+	for in, want := range map[string]string{"example.com": "https://example.com", " example.com/ ": "https://example.com", "": ""} {
+		if got := siteOrigin(in); got != want {
+			t.Errorf("siteOrigin(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

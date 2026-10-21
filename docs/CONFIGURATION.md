@@ -1188,9 +1188,20 @@ what the page already rendered and fills only the gaps:
 
 | The theme emitted | SSG injects |
 |---|---|
-| no `og:title` | Open Graph, Twitter **and** JSON-LD |
+| neither | Open Graph, Twitter **and** JSON-LD |
 | `og:title`, no `application/ld+json` | **JSON-LD only** |
+| `application/ld+json`, no `og:title` | **Open Graph and Twitter only** (1.8.77, #349) |
 | both | nothing |
+
+The two are decided apart. Until 1.8.77 a theme with its own JSON-LD but no
+`og:title` got ssg's JSON-LD beside its own, so a page could describe itself
+twice, as two different types.
+
+Every image URL ssg writes into `og:image`, `twitter:image` and the JSON-LD
+`image` is absolute against `domain`, as Open Graph requires: a
+`featured_image: /media/hero.jpg` or `og_image: /card.png` becomes
+`https://example.com/…` (1.8.77, #350). Social networks fetch the image
+without resolving it against the page.
 
 The middle row is the useful one: a theme can own its Open Graph tags — to control
 `og:image`, say — and still get structured data generated from frontmatter, with
@@ -1785,7 +1796,7 @@ It is configuration now:
 
 ```yaml
 marketing:
-  og_image: "/img/card.png"      # 1200×630, absolute or site-relative
+  og_image: "/img/card.png"      # 1200×630; a site-relative path is written absolute
   og_site_name: "SSG"
   twitter_site: "@example"
   theme_color: "#0f172a"

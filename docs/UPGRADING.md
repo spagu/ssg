@@ -208,10 +208,16 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.8.77">
 
-### 1.8.77 — nothing to do
+### 1.8.77 — check two things in your `<head>`
 
-A full-content feed now carries absolute URLs in its posts' HTML. Readers
-that showed broken images and links in your feed show them now.
+- **`og:image`, `twitter:image` and the JSON-LD `image`** are now absolute
+  (`https://example.com/card.png`). Nothing to do; social cards that showed no
+  image show it now.
+- **A theme that writes its own JSON-LD but no `og:title`** no longer gets
+  ssg's JSON-LD beside it (it still gets the Open Graph tags). If you relied on
+  ssg's `BreadcrumbList` there, write it in the theme or emit `{{ toJSON .Schema }}`.
+
+A full-content feed now carries absolute URLs in its posts' HTML.
 
 </div>
 

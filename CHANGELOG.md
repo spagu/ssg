@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.77] - 2026-10-21
+## [1.8.77] - 2026-10-22
 
 ### Fixed
+- 🧾 **JSON-LD doubled beside a theme's own** (#349). With `seo: true`, a
+  theme that wrote `application/ld+json` but no `og:title` got ssg's JSON-LD
+  injected anyway, because the check sat only in the other branch: a port page
+  shipped its theme's SoftwareApplication and ssg's BlogPosting for the same
+  page. The social tags and the structured data are now decided apart, each
+  added only when the theme wrote none, as documented.
+- 🖼️ **A site-relative `og:image`** (#350). `marketing.og_image: /card.png`
+  and a page's `featured_image` were written as given, and Facebook, LinkedIn,
+  Slack, Mastodon and X fetch `og:image` without resolving it, so links posted
+  as bare text. `og:image`, `twitter:image` and the JSON-LD `image` are written
+  absolute against `domain`. The WebP pass now recognises the site's own
+  absolute URLs, so such an image still follows its file to `.webp`.
 - 📰 **Relative URLs in full-content feeds** (#347). With `full_content`,
   a feed carried each post's HTML as it is on the page, so `/images/a.svg`
   and `img/b.png` stayed relative. RSS 2.0 gives item content no base URI, so
@@ -18,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the post's. Every relative `src`, `href`, `srcset`, `poster` and `url()` in
   feed content is now made absolute against the post's own address, as Hugo
   and Jekyll do. The rewriting is the one `base_path` already used, now shared.
+
+### Added
+- 🏷️ **`content_map.schema`** (#349): the structured data of every record of a
+  source, the way frontmatter `schema:` works for a page written by hand. A
+  record has no directory for `schema_defaults` to match.
 
 ## [1.8.76] - 2026-10-21
 

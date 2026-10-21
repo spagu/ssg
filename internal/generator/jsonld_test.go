@@ -65,7 +65,7 @@ func TestBuildJSONLDPost(t *testing.T) {
 		"dateModified":  "2026-01-03T00:00:00Z",
 		"keywords":      "go, ssg",
 		"url":           "https://example.com/hello-world/",
-		"image":         "/media/hero.jpg",
+		"image":         "https://example.com/media/hero.jpg", // absolute (#350)
 	}
 	for k, want := range checks {
 		if main[k] != want {
