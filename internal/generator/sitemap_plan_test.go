@@ -226,20 +226,20 @@ func TestSplitSitemapEdges(t *testing.T) {
 	}
 }
 
-// TestSitemapFileLastmod: an index entry always carries a date — the newest of
-// the file's own, or the build time when the file has none.
+// TestSitemapFileLastmod: an index entry carries the newest date of the
+// file's own, and none when the file has none — never the build time, which
+// Google would rightly not trust.
 func TestSitemapFileLastmod(t *testing.T) {
-	built := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
 	older := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	newer := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 
 	f := sitemapFile{entries: []sitemapEntry{{lastmod: older}, {lastmod: newer}}}
-	if got := f.lastmod(built); !got.Equal(newer) {
+	if got := f.lastmod(); !got.Equal(newer) {
 		t.Errorf("lastmod = %v, want the newest entry %v", got, newer)
 	}
 	bare := sitemapFile{entries: []sitemapEntry{{}}}
-	if got := bare.lastmod(built); !got.Equal(built) {
-		t.Errorf("lastmod = %v, want the build time %v", got, built)
+	if got := bare.lastmod(); !got.IsZero() {
+		t.Errorf("lastmod = %v, want none", got)
 	}
 }
 

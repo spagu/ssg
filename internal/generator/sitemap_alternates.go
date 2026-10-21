@@ -58,7 +58,7 @@ func (g *Generator) sitemapAlternates(page models.Page) string {
 func alternatesBlock(links []alternateLink, defaultLang string) string {
 	var sb strings.Builder
 	for _, l := range links {
-		href := stdhtml.EscapeString(l.href)
+		href := sitemapLoc(l.href)
 		fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"%s\" href=\"%s\"/>\n", stdhtml.EscapeString(l.lang), href)
 		if l.lang == defaultLang {
 			fmt.Fprintf(&sb, "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"%s\"/>\n", href)

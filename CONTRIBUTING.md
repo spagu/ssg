@@ -17,7 +17,7 @@ review workflow. By participating, you agree to follow the
 
 ## Requirements
 
-- Go 1.27.2 or newer
+- Go 1.27.3 or newer
 - Make for the documented shortcuts
 - Git
 - Optional `cwebp` for WebP integration paths
@@ -39,9 +39,10 @@ held up by packages at 99–100 % while others sat in the eighties, which is
 exactly the shape a single number hides. gosec runs in CI too, with
 results in the repository's Security tab.
 
-Go 1.27.2 is the minimum: it is what the `go` directive asks for, and the
-linter refuses to analyse a target newer than the Go it was built with. The
-floor before it was 1.26.6, because earlier 1.26 standard libraries contain
+Go 1.27.3 is the minimum: it is what the `go` directive asks for, and the
+linter refuses to analyse a target newer than the Go it was built with. 1.27.2
+carries GO-2026-6809 (crypto/x509), which this code reaches. The floor before
+it was 1.27.2, and before that 1.26.6, because earlier 1.26 standard libraries contain
 security issues relevant to this project. The exact module requirement is in
 [go.mod](go.mod).
 

@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.74] - 2026-10-21
+
+Which ssg built the site, in the site; a sitemap held to Google's guidelines, hubs dated; and Go 1.27.3 for a crypto/x509 fix.
+
+### Added
+- 🏷️ **`.SSG.Version` in templates** (#338). Every view that has
+  `.BuildTime` (pages, posts, the front listing, archives, taxonomy indexes)
+  names the ssg that built it, for a footer or `<meta name="generator">`.
+- 📊 **`build_report:` / `--build-report[=FILE]`** (#338). Once the last page
+  is out, and before the `post_build` hooks, ssg writes a JSON report beside
+  the pages: version, start, finish, duration, `.html` pages and files written,
+  and the content by type. A bare flag writes `build.json`. Sites no longer
+  time the build and count `*.html` in shell.
+
+### Fixed
+- 🗺️ **`<lastmod>` on the pages that list others** (#339). The front page,
+  post listings, category, tag, series and author archives, taxonomy indexes
+  and terms had none, though they are the URLs a crawler should revisit most.
+  Each now takes the newest lastmod of what it lists, and templates get it as
+  `.Modified` for `dateModified`.
+- 🧮 **A JSON number in a `content_map` template** (#340) printed as
+  `1.761638001e+09`, so a timestamp mapped through `"{{.ts}}"` was no date and
+  the page silently lost its `<lastmod>`. Whole numbers print as whole
+  numbers in mapping templates, and a `modified` that does not parse is now
+  warned about, as `date` always was.
+- 📐 **Sitemaps against Google's guidelines.** A `<loc>` is entity-escaped (a
+  canonical with `&` wrote invalid XML) and percent-encoded outside ASCII; a
+  file is split at 50 MB as well as at 50,000 URLs; more files than an index
+  may name fails the build; an index entry no longer falls back to the build
+  time when its file has no dates. Tests cover each limit and rule.
+- 🕰️ **No `<lastmod>` from a file's modification time.** A document without
+  `date`/`modified`, and a copied `static_sources` document git cannot date,
+  took its file's modification time — which a fresh clone sets to the clone,
+  so in CI every such page claimed to change on every build, the kind of
+  date Google stops trusting. Like Hugo and jekyll-sitemap, the sitemap now
+  uses git, then the frontmatter's `modified`, then `date`, and leaves the
+  field out when nobody wrote a date. Ordering, templates and feeds keep the
+  fallback.
+- 🔢 **`ssg --version` after `go install`** (#337). A binary installed with
+  `go install github.com/spagu/ssg/cmd/ssg@v1.8.73` said `ssg version dev`,
+  because only release builds stamp the version with `-ldflags`. When nothing
+  was stamped, ssg now reads the version Go recorded in the binary; a build
+  of a modified checkout reports its tag with `+dirty`.
+
+### Security
+- 🔐 **Go 1.27.3.** 1.27.2's `crypto/x509` trusts compromised intermediate
+  certificates (GO-2026-6809), which govulncheck finds reachable through every
+  TLS connection ssg makes. Release builds, the Docker image and the
+  tts-server image are built with 1.27.3; building from source needs it.
+
 ## [1.8.73] - 2026-10-18
 
 Breadcrumbs that only point at pages that exist, an error page that stays out

@@ -695,6 +695,10 @@ type Config struct {
 	// RouteManifest writes routes.json — a machine-readable list of every generated
 	// route and its metadata — for external tooling and typed clients (#62).
 	RouteManifest bool `yaml:"route_manifest" toml:"route_manifest" json:"route_manifest"`
+	// BuildReport writes a JSON report of the build — version, duration,
+	// pages and files written, content by type — to this file in the output
+	// directory once the last page is out (#338). Empty means none.
+	BuildReport string `yaml:"build_report" toml:"build_report" json:"build_report"`
 
 	// Profile reports where the build's time went (GO-097): "text" prints the
 	// phases, counters and slowest pages after the build; "json" additionally

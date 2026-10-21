@@ -383,6 +383,9 @@ type Config struct {
 	ContentSchemas map[string]models.ContentSchema
 	Strict         bool
 	RouteManifest  bool
+	// BuildReport is the output-relative file a build report is written to
+	// after the last page ("" = none) (#338).
+	BuildReport string
 	// BuildWorkers is the resolved page/post render concurrency (>=1; 1 =
 	// sequential). Set by the CLI from --workers/build_workers (BUILD-PARALLEL).
 	BuildWorkers int
@@ -1055,6 +1058,7 @@ func exportVariablesToEnv(vars map[string]interface{}, prefix string) {
 
 // Generate performs the full site generation
 func (g *Generator) Generate() error {
+	started := time.Now() // for the build report's duration; templates see g.buildTime
 	// Release the lazily-built related-posts mddb client when the build ends.
 	defer g.closeRelatedMddb()
 
@@ -1167,6 +1171,12 @@ func (g *Generator) Generate() error {
 
 	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {
 		return err
+	}
+
+	// After the last page and before the hooks, so a post_build hook can read
+	// how the build went (#338).
+	if err := g.writeBuildReport(started, time.Now); err != nil {
+		return fmt.Errorf("writing build report: %w", err)
 	}
 
 	if err := g.runHooks("post_build", nil); err != nil {
@@ -2394,10 +2404,10 @@ func (g *Generator) loadMarkdownEntry(dir string, entry os.DirEntry) (models.Pag
 			if page.Date.IsZero() || page.Modified.IsZero() {
 				if info, err := entry.Info(); err == nil {
 					if page.Date.IsZero() {
-						page.Date = info.ModTime()
+						page.Date, page.DateFromFile = info.ModTime(), true
 					}
 					if page.Modified.IsZero() {
-						page.Modified = info.ModTime()
+						page.Modified, page.ModifiedFromFile = info.ModTime(), true
 					}
 				}
 			}
@@ -4118,6 +4128,10 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		// so every field a theme may read has to be named here too — a footer
 		// in a shared partial is on the front page as much as anywhere (#186).
 		BuildTime time.Time
+		// SSG names the ssg that built the site, beside BuildTime (#338).
+		SSG SSGInfo
+		// Modified is the newest lastmod of the listed posts (#339).
+		Modified time.Time
 		// Lang, for the same reason. A theme writing <html lang="{{.Lang}}">
 		// needs it on every view or on none, and the front page is the one
 		// document that must not be mislabelled: it is the most linked (#208).
@@ -4145,6 +4159,8 @@ func (g *Generator) renderIndexPage(posts []models.Page, pager Pager, outPath st
 		HomePagesLimit:   effectiveHomeLimit(g.config.HomePagesLimit, len(pages)),
 		HomePostsLimit:   effectiveHomeLimit(g.config.HomePostsLimit, len(posts)),
 		BuildTime:        g.buildTime,
+		SSG:              g.ssgInfo(),
+		Modified:         g.newestLastmod(posts),
 		Lang:             g.currentLang,
 		CanonicalURL:     g.servedCanonical(*g.indexPageContext(outPath)),
 		Translations:     listing,
@@ -4810,6 +4826,7 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		// SOURCE_DATE_EPOCH. `© 2007-{{.BuildTime.Year}}` is the case that
 		// hits every site at once, on the same night (#186).
 		"BuildTime": g.buildTime,
+		"SSG":       g.ssgInfo(), // which ssg built it (#338)
 		// The readers' comments a migration brought across, threaded and in
 		// the order they were written (#142). Empty for a page that has none.
 		"Comments":       g.commentsFor(page),
@@ -5488,8 +5505,15 @@ func (g *Generator) generateSitemap() error {
 	if err := g.validateSitemapSpecs(); err != nil {
 		return err
 	}
-	entries := g.collectSitemapEntries()
+	return g.writeSitemaps(g.collectSitemapEntries())
+}
+
+// writeSitemaps plans and writes the sitemap files for entries.
+func (g *Generator) writeSitemaps(entries []sitemapEntry) error {
 	files, index := g.planSitemaps(entries)
+	if len(files) > sitemapIndexLimit {
+		return fmt.Errorf("sitemaps: %d files, more than the %d one index may name", len(files), sitemapIndexLimit)
+	}
 	for _, f := range files {
 		path := filepath.Join(g.config.OutputDir, filepath.FromSlash(f.path))
 		if err := g.ensureWithinOutput(path); err != nil {
@@ -5508,7 +5532,7 @@ func (g *Generator) generateSitemap() error {
 	}
 	// #nosec G306 -- Web content files need to be world-readable
 	return os.WriteFile(filepath.Join(g.config.OutputDir, defaultSitemapName),
-		g.renderSitemapIndex(files, g.buildTime), 0644)
+		g.renderSitemapIndex(files), 0644)
 }
 
 // collectSitemapEntries gathers every URL the site publishes, in the order the
@@ -5588,6 +5612,8 @@ func (g *Generator) collectSitemapEntries() []sitemapEntry {
 	// Custom taxonomy indexes + term archives (taxonomies-feature.md)
 	entries = append(entries, g.taxonomyEntries()...)
 
+	// The hubs above date themselves from what they list (#339).
+	g.dateHubs(entries)
 	return entries
 }
 
@@ -5603,7 +5629,7 @@ func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool,
 		out = append(out, sitemapEntry{
 			loc:        loc,
 			alternates: g.sitemapAlternates(doc),
-			lastmod:    g.lastModFor(doc),
+			lastmod:    g.sitemapLastmod(doc),
 			changefreq: "monthly",
 			priority:   priority,
 			kind:       kind,

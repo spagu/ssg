@@ -206,6 +206,25 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.74">
+
+### 1.8.74 — upgrade; from source, Go 1.27.3
+
+Replace the binary, package or image: it is built with Go 1.27.3, which fixes
+a certificate check in `crypto/x509` (GO-2026-6809). Building ssg from source
+now needs **Go 1.27.3**.
+
+`sitemap.xml` changes in three ways: the front page, listings and archives
+gain a `<lastmod>` (the newest of what they list); a document whose
+frontmatter has no `date` or `modified` — and a `static_sources` document git
+cannot date — loses the `<lastmod>` it took from its file's modification time;
+and an index entry for a file without dates loses its build-time `<lastmod>`.
+A URL with `&` or non-ASCII characters is now written escaped. To keep a
+`<lastmod>` on such a document, give it a `date` in frontmatter or turn on
+`lastmod_from_git`.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.73">
 
 ### 1.8.73 — two things in your output change

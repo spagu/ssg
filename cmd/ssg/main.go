@@ -36,8 +36,8 @@ import (
 	"github.com/spagu/ssg/internal/webp"
 )
 
-// Version is set by build flags
-var Version = "dev"
+// Version is set by build flags; see version.go for a `go install` build.
+var Version = devVersion
 
 func main() {
 	if code, done := run(os.Args[1:]); done {
@@ -748,6 +748,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		ContentSchemas:         cfg.ContentSchemas,
 		Strict:                 cfg.Strict,
 		RouteManifest:          cfg.RouteManifest,
+		BuildReport:            cfg.BuildReport,
 		Profile:                cfg.Profile,
 		AnalyticsIDs:           cfg.AnalyticsIDs,
 		ComponentsDir:          cfg.ComponentsDir,
@@ -918,6 +919,10 @@ func parseFlags(args []string, cfg *config.Config) {
 // parseBoolFlags handles boolean flags, returns true if flag was handled. Simple
 // on/off toggles are table-driven (name → target field) to keep this small and DRY.
 func parseBoolFlags(arg string, cfg *config.Config) bool {
+	if arg == "--build-report" { // bare: the default file (#338)
+		cfg.BuildReport = generator.DefaultBuildReport
+		return true
+	}
 	if arg == "--auto-reload" || arg == "--no-auto-reload" { // *bool: on by default in --watch
 		v := arg == "--auto-reload"
 		cfg.AutoReload = &v
@@ -1188,6 +1193,8 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 		setPermalink(cfg, "post", strings.TrimPrefix(arg, "--permalink-post="))
 	case strings.HasPrefix(arg, "--permalink-page="):
 		setPermalink(cfg, "page", strings.TrimPrefix(arg, "--permalink-page="))
+	case strings.HasPrefix(arg, "--build-report="): // #338
+		cfg.BuildReport = strings.TrimPrefix(arg, "--build-report=")
 	case strings.HasPrefix(arg, "--profile="):
 		if v := strings.TrimPrefix(arg, "--profile="); v == generator.ProfileText || v == generator.ProfileJSON {
 			cfg.Profile = v
@@ -1829,6 +1836,7 @@ func printUsage() {
 	fmt.Println("                           strict = keep and fail the build)")
 	fmt.Println("  --strict               - Escalate every soft build problem into a hard failure")
 	fmt.Println("  --route-manifest       - Write routes.json so the route contract ships with the site")
+	fmt.Println("  --build-report[=FILE]  - Write a JSON build report (version, duration, pages) to FILE, default build.json")
 	fmt.Println("  --edit                 - Turn the preview into an editor (needs --http --watch); see docs/EDITING.md")
 	fmt.Println("  --incremental          - Rebuild only what a change affects (default in --watch)")
 	fmt.Println("  --markdown-cache       - Keep converted Markdown between builds (off by default; see docs)")
@@ -2104,7 +2112,7 @@ func knownFlagNames(cfg *config.Config) map[string]bool {
 var standaloneFlagNames = []string{
 	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
 	markdownCacheFlag, noMarkdownCacheFlag,
-	"--profile",
+	"--profile", "--build-report",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
 	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",
 }

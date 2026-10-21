@@ -626,9 +626,10 @@ see [TEMPLATES.md](TEMPLATES.md).
 `timezone` and `language_timezones` affect content dates used by templates and
 date permalink tokens. Feeds and sitemap timestamps remain UTC. With
 `lastmod_from_git`, sitemap modification dates come from the source file's last
-Git commit and fall back to frontmatter/file dates when unavailable — for a
-verbatim `static_sources` document, which has no frontmatter, the fallback is the
-file's modification time.
+Git commit and fall back to the frontmatter's `modified`, then `date`, when
+unavailable. A date nobody wrote — a file's modification time standing in for
+missing frontmatter — is never a sitemap `<lastmod>`: such a document, and a
+verbatim `static_sources` document git cannot date, gets none (1.8.74).
 
 **`git` has to be on `PATH`.** When it is not, every date quietly comes from the
 fallback instead, which looks like the setting working until the dates are

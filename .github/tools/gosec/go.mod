@@ -1,10 +1,10 @@
-// gosec for CI, locked (OPS-013). Go 1.27.2 writes export data version 5;
+// gosec for CI, locked (OPS-013). Go 1.27 writes export data version 5;
 // the gosec v2.29.0 release carries an x/tools that reads up to 4, so it is
 // built here against a newer x/tools. go.sum pins both by hash; CI builds
 // with -mod=readonly. Dependabot (gomod) keeps it current.
 module github.com/spagu/ssg/tools/gosec
 
-go 1.27.2
+go 1.27.3
 
 tool github.com/securego/gosec/v2/cmd/gosec
 

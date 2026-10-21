@@ -452,9 +452,9 @@ Opt-in, because most of what a site copies verbatim is an asset. A directory
 entry resolves to the `index.html` at its root; anything that is not an HTML
 document is a warning rather than a sitemap line, and a document whose own HTML
 says `noindex` keeps itself out like every other entry. The `<lastmod>` comes
-from the **source** file's last commit under `lastmod_from_git`, and from its
-modification time otherwise — a copied document has no frontmatter date to fall
-back to, so the filesystem is what knows.
+from the **source** file's last commit under `lastmod_from_git`; without it a
+copied document has no `<lastmod>`, since it has no frontmatter date and a
+file's modification time is no reliable one (1.8.74).
 
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
@@ -1178,6 +1178,7 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations, link checks and unparseable frontmatter to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
+| `build_report` | `` | `--build-report[=FILE]` | Write a JSON report of the build into the output directory: version, duration, pages and files written, content by type. A bare flag writes `build.json` |
 | `profile` | `` | `--profile[=json]` | Report where the build's time went; `json` also writes `build-profile.json` |
 | `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
@@ -1832,9 +1833,10 @@ Two things eventually ask. sitemaps.org caps **one file at 50,000 URLs** (and
 Console reports indexing coverage **per submitted sitemap**, so "how much of the
 blog is indexed" is a question only a separate file can answer.
 
-**Size is handled without configuration.** A set over the ceiling is split into
+**Size is handled without configuration.** A set over either ceiling —
+50,000 URLs or 50 MB (52,428,800 bytes) rendered — is split into
 `sitemap-1.xml`, `sitemap-2.xml`… and `sitemap.xml` becomes the index naming
-them. `sitemap_max_urls` lowers the ceiling (never raises it — a larger file is
+them. More files than one index may name (50,000) fails the build. `sitemap_max_urls` lowers the ceiling (never raises it — a larger file is
 invalid whatever the config says), which is useful for testing the shape on a
 small site.
 
@@ -1862,6 +1864,33 @@ written and always in the index — nothing is silently dropped by a `sitemaps:`
 block that does not cover the whole site. A spec that selects nothing is
 reported and its file is skipped, since an index entry pointing at an empty
 urlset is a fetch that teaches a crawler nothing.
+
+### What the sitemap promises
+
+What Google's *Build and submit a sitemap* asks, and what a build checks in
+its tests:
+
+- **UTF-8 XML**, every `<loc>` an absolute URL, entity-escaped (`&` → `&amp;`),
+  anything outside ASCII percent-encoded (`/usługi/` → `/us%C5%82ugi/`).
+- **Canonical URLs only**: a page that says `noindex`, a redirect, `sitemap:
+  no` and the error page stay out; `sitemap_prune_canonical` also drops pages
+  whose canonical points elsewhere.
+- **`<lastmod>` only where it is known.** A document's is its `modified`
+  (falling back to `date`), or its last commit under `lastmod_from_git`. A
+  page that lists others — the front page, a post listing, category, tag,
+  series and author archives, taxonomy indexes and terms — takes the newest
+  lastmod of what it lists (#339); one listing nothing dated has none. An index
+  entry carries the newest date of its file, never the build time.
+- `<changefreq>` and `<priority>` are written for other crawlers; Google
+  ignores them.
+
+A document with neither `date` nor `modified` in its frontmatter has **no
+`<lastmod>`** (1.8.74), as in Hugo and jekyll-sitemap. It still sorts and
+shows by its file's modification time, but that time is accurate only on the
+machine that wrote the file — a fresh clone dates every file to the clone —
+and Google trusts a sitemap's dates only while they are consistently accurate.
+Give such documents a date, or turn on `lastmod_from_git` with enough history
+to date each file. Feeds keep the fallback, because Atom requires `<updated>`.
 
 `robots.txt` is unchanged either way: it points at `/sitemap.xml`, which is now
 the index. That is exactly what the protocol expects, so a site already
@@ -1899,6 +1928,31 @@ content_exclude:
 
 Patterns are matched before parsing, against the full path, the content-relative
 path and the filename, so each form behaves the way it reads.
+
+`build_report: build.json` (or `--build-report`) writes, once the last page is
+out and before the `post_build` hooks, a small report a site can publish (#338):
+
+```json
+{
+  "generator": "ssg",
+  "version": "1.8.74",
+  "buildTime": "2026-10-21T17:41:56Z",
+  "started": "2026-10-21T17:41:56Z",
+  "finished": "2026-10-21T17:42:32Z",
+  "durationSeconds": 36.2,
+  "pages": 38037,
+  "files": 38211,
+  "content": {"page": 4, "port": 35270, "post": 0}
+}
+```
+
+`pages` counts the `.html` files in the output, `files` every file but the
+report; `content` counts the loaded documents by type. `buildTime` is
+`.BuildTime` (so `SOURCE_DATE_EPOCH` pins it), `started` and `finished` are
+the clock. The report is published with the site, which is the point: a footer
+script can show "38,037 pages in 36.2 s" without shell around the build. For
+*why* a build is slow, use `--profile=json`, which writes the time of every
+phase and page to `build-profile.json` beside the project, not into the site.
 
 `route_manifest` (or `--route-manifest`) writes `routes.json` to the output root:
 a sorted, deduplicated list of every generated route — posts, pages, and category

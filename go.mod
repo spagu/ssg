@@ -1,11 +1,13 @@
 module github.com/spagu/ssg
 
-// Requires go1.27.2+, which is what the language directive below asks for.
-// The floor was go1.26.6 before that, and for a reason worth keeping: earlier
+// Requires go1.27.3+, which is what the language directive below asks for:
+// 1.27.2 carries GO-2026-6809 (crypto/x509 trusts compromised intermediates),
+// reachable through every TLS connection ssg makes. Before that the floor was
+// go1.27.2 (GO-2026-6599..6613), and go1.26.6, and for a reason worth keeping: earlier
 // 1.26.x stdlib carries seven advisories govulncheck finds reachable from this
 // code — among them GO-2026-5972 (encoding/asn1, via ssh.ParsePrivateKey in the
 // SFTP deploy) and GO-2026-5026 (net/http/idna, via every outbound request).
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/BurntSushi/toml v1.6.0

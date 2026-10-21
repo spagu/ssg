@@ -241,8 +241,9 @@ func TestMapRecordsDates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(warns) != 1 || !imp.Posts[0].Date.IsZero() {
-		t.Errorf("an unreadable date should warn once and leave the field empty: %v", warns)
+	// One warning per field: modified used to be dropped without one (#340).
+	if len(warns) != 2 || !imp.Posts[0].Date.IsZero() || !imp.Posts[0].Modified.IsZero() {
+		t.Errorf("an unreadable date should warn for each field and leave both empty: %v", warns)
 	}
 }
 
@@ -581,5 +582,40 @@ func TestCollectTermsIgnoresWhatItCannotRead(t *testing.T) {
 	}
 	if len(sortedTerms(into)) != 2 {
 		t.Errorf("sortedTerms = %v", sortedTerms(into))
+	}
+}
+
+// TestMapRecordsWholeNumbersInTemplates covers #340: a JSON number reaches a
+// mapping template as a whole number, so a Unix timestamp is a date and not
+// 1.761638001e+09; the record itself keeps its type.
+func TestMapRecordsWholeNumbersInTemplates(t *testing.T) {
+	rec := map[string]interface{}{
+		"name": "W", "ts": float64(1761638001), "price": 9.5,
+		"nested": map[string]interface{}{"id": float64(42)}, "list": []interface{}{float64(7)},
+	}
+	m := ContentMap{Title: "name", Modified: "{{.ts}}", Slug: "w-{{.nested.id}}-{{index .list 0}}", Description: "{{.price}}"}
+	imp, warnings, err := MapRecords(mappedSource(m), []interface{}{rec})
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("err %v, warnings %v", err, warnings)
+	}
+	p := imp.Posts[0]
+	if !p.Modified.Equal(time.Unix(1761638001, 0)) {
+		t.Errorf("modified = %v", p.Modified)
+	}
+	if p.Slug != "w-42-7" || p.Description != "9.5" {
+		t.Errorf("slug %q, description %q", p.Slug, p.Description)
+	}
+	if _, ok := rec["ts"].(float64); !ok {
+		t.Error("the record keeps its float64")
+	}
+}
+
+// TestMapRecordsWarnsOnAnUnparsableModified: a mapped modified that is not a
+// date is said, as date always was (#340).
+func TestMapRecordsWarnsOnAnUnparsableModified(t *testing.T) {
+	m := ContentMap{Title: "name", Modified: "when"}
+	_, warnings, err := MapRecords(mappedSource(m), []interface{}{map[string]interface{}{"name": "W", "when": "soon"}})
+	if err != nil || len(warnings) != 1 || !strings.Contains(warnings[0], "content_map.modified") {
+		t.Errorf("warnings = %v, err %v", warnings, err)
 	}
 }

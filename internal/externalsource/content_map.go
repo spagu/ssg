@@ -17,6 +17,7 @@ package externalsource
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -190,6 +191,10 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 	if raw := get("modified", m.Modified); raw != "" {
 		if t, ok := parseRecordTime(raw); ok {
 			page.Modified = t
+		} else {
+			// Said for date long before modified; a lost modified costs the
+			// page its <lastmod> just as silently (#340).
+			warnings = append(warnings, fmt.Sprintf("content_map.modified: %q is not a date this build recognises", raw))
 		}
 	}
 	applyMappedTaxonomies(page, rec, m.Taxonomies, &warnings)
@@ -473,6 +478,32 @@ func lookupField(rec map[string]interface{}, path string) (interface{}, bool) {
 	return cur, true
 }
 
+// templateValue is a record as a mapping template sees it: a whole number
+// JSON decoded as float64 becomes an int64, so "{{.ts}}" prints 1761638001
+// and not 1.761638001e+09, which is no date and no slug (#340). Only the
+// template's copy changes; the record, and .ExternalData, keep their types.
+func templateValue(v interface{}) interface{} {
+	switch t := v.(type) {
+	case float64:
+		if t == math.Trunc(t) && math.Abs(t) < 1<<53 {
+			return int64(t)
+		}
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(t))
+		for k, x := range t {
+			out[k] = templateValue(x)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, len(t))
+		for i, x := range t {
+			out[i] = templateValue(x)
+		}
+		return out
+	}
+	return v
+}
+
 // renderRecordTemplate composes a value from several fields.
 func renderRecordTemplate(rec map[string]interface{}, spec string) (string, error) {
 	tmpl, err := template.New("map").Option("missingkey=zero").Parse(spec)
@@ -480,7 +511,7 @@ func renderRecordTemplate(rec map[string]interface{}, spec string) (string, erro
 		return "", fmt.Errorf("%q is not a valid template: %w", spec, err)
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, rec); err != nil {
+	if err := tmpl.Execute(&buf, templateValue(rec)); err != nil {
 		return "", fmt.Errorf("%q: %w", spec, err)
 	}
 	return strings.TrimSpace(buf.String()), nil

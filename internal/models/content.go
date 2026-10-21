@@ -57,16 +57,22 @@ func (fi *FlexInt) UnmarshalJSON(data []byte) error {
 
 // Page represents a page or post content with frontmatter metadata
 type Page struct {
-	ID         int       `yaml:"id"`
-	Title      string    `yaml:"title"`
-	Slug       string    `yaml:"slug"`
-	Date       time.Time `yaml:"date"`
-	Modified   time.Time `yaml:"modified"`
-	Status     string    `yaml:"status"`
-	Type       string    `yaml:"type"`
-	Link       string    `yaml:"link"`
-	Author     int       `yaml:"author"`
-	Categories []int     `yaml:"categories,omitempty"`
+	ID       int       `yaml:"id"`
+	Title    string    `yaml:"title"`
+	Slug     string    `yaml:"slug"`
+	Date     time.Time `yaml:"date"`
+	Modified time.Time `yaml:"modified"`
+	// DateFromFile and ModifiedFromFile say the date above was not written
+	// by anyone: the frontmatter had none and the file's modification time
+	// stood in. Good enough to order a listing; not a lastmod, since a fresh
+	// clone makes every file as new as the clone.
+	DateFromFile     bool   `yaml:"-"`
+	ModifiedFromFile bool   `yaml:"-"`
+	Status           string `yaml:"status"`
+	Type             string `yaml:"type"`
+	Link             string `yaml:"link"`
+	Author           int    `yaml:"author"`
+	Categories       []int  `yaml:"categories,omitempty"`
 
 	// Raw fields for flexible parsing (string or int values before resolution)
 	AuthorRaw     interface{}   `yaml:"-" json:"-"` // Unresolved author (int or string)

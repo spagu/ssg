@@ -46,17 +46,16 @@ type sitemapFile struct {
 }
 
 // lastmod is the newest date among a file's entries, which is what an index
-// entry should carry. A file whose entries carry no dates at all falls back to
-// the build time, so the index never omits the field.
-func (f sitemapFile) lastmod(built time.Time) time.Time {
+// entry should carry. A file whose entries carry no dates has none: Google
+// uses lastmod only where it is consistently accurate, and the build time —
+// new on every build of unchanged content — would teach it the site's dates
+// cannot be trusted.
+func (f sitemapFile) lastmod() time.Time {
 	newest := time.Time{}
 	for _, e := range f.entries {
 		if e.lastmod.After(newest) {
 			newest = e.lastmod
 		}
-	}
-	if newest.IsZero() {
-		return built
 	}
 	return newest
 }
@@ -133,27 +132,53 @@ func (g *Generator) partitionSitemaps(entries []sitemapEntry) ([]sitemapFile, []
 
 // splitSitemap breaks one file into as many as the URL ceiling requires.
 func (g *Generator) splitSitemap(f sitemapFile) []sitemapFile {
-	max := g.maxSitemapURLs()
-	if len(f.entries) <= max {
-		if len(f.entries) == 0 {
-			return nil
-		}
+	if len(f.entries) == 0 {
+		return nil
+	}
+	chunks := chunkSitemap(f.entries, g.maxSitemapURLs(), sitemapByteLimit)
+	if len(chunks) == 1 {
 		return []sitemapFile{f}
 	}
 	stem := strings.TrimSuffix(f.path, ".xml")
-	var out []sitemapFile
-	for i := 0; i < len(f.entries); i += max {
-		end := i + max
-		if end > len(f.entries) {
-			end = len(f.entries)
-		}
-		out = append(out, sitemapFile{
-			path:    fmt.Sprintf("%s-%d.xml", stem, len(out)+1),
-			entries: f.entries[i:end],
-		})
+	out := make([]sitemapFile, 0, len(chunks))
+	for _, c := range chunks {
+		out = append(out, sitemapFile{path: fmt.Sprintf("%s-%d.xml", stem, len(out)+1), entries: c})
 	}
 	if !g.config.Quiet {
-		fmt.Printf("   🗺️  %s exceeds %d URLs and was split into %d files\n", f.path, max, len(out))
+		fmt.Printf("   🗺️  %s exceeds %d URLs or %d MB and was split into %d files\n",
+			f.path, g.maxSitemapURLs(), sitemapByteLimit>>20, len(out))
 	}
 	return out
+}
+
+// sitemapByteLimit is the protocol's other ceiling: 50 MB uncompressed per
+// file. At ordinary URL lengths the 50,000-URL limit is reached first, but a
+// site with long URLs and hreflang alternates can cross this one first (#339).
+const sitemapByteLimit = 50 << 20
+
+// sitemapIndexLimit is how many sitemaps one index may name (sitemaps.org).
+// At 50,000 URLs each that is 2.5 billion URLs; the check is there so the
+// limit is enforced rather than assumed.
+const sitemapIndexLimit = 50000
+
+// sitemapFrameBytes is what a file adds around its <url> blocks: the XML
+// declaration and the <urlset> element with its namespaces.
+const sitemapFrameBytes = 512
+
+// chunkSitemap cuts entries into files of at most maxURLs entries and
+// maxBytes rendered bytes each, in order.
+func chunkSitemap(entries []sitemapEntry, maxURLs, maxBytes int) [][]sitemapEntry {
+	var chunks [][]sitemapEntry
+	start, size := 0, sitemapFrameBytes
+	for i, e := range entries {
+		var sb strings.Builder
+		e.writeTo(&sb)
+		n := sb.Len()
+		if i > start && (i-start >= maxURLs || size+n > maxBytes) {
+			chunks = append(chunks, entries[start:i])
+			start, size = i, sitemapFrameBytes
+		}
+		size += n
+	}
+	return append(chunks, entries[start:])
 }
