@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.74] - 2026-10-21
+
+Which ssg built the site, in the site; and Go 1.27.3 for a crypto/x509 fix.
+
+### Added
+- 🏷️ **`.SSG.Version` in templates** (#338). Every view that has
+  `.BuildTime` (pages, posts, the front listing, archives, taxonomy indexes)
+  names the ssg that built it, for a footer or `<meta name="generator">`.
+- 📊 **`build_report:` / `--build-report[=FILE]`** (#338). Once the last page
+  is out, and before the `post_build` hooks, ssg writes a JSON report beside
+  the pages: version, start, finish, duration, `.html` pages and files written,
+  and the content by type. A bare flag writes `build.json`. Sites no longer
+  time the build and count `*.html` in shell.
+
+### Fixed
+- 🔢 **`ssg --version` after `go install`** (#337). A binary installed with
+  `go install github.com/spagu/ssg/cmd/ssg@v1.8.73` said `ssg version dev`,
+  because only release builds stamp the version with `-ldflags`. When nothing
+  was stamped, ssg now reads the version Go recorded in the binary; a build
+  of a modified checkout reports its tag with `+dirty`.
+
+### Security
+- 🔐 **Go 1.27.3.** 1.27.2's `crypto/x509` trusts compromised intermediate
+  certificates (GO-2026-6809), which govulncheck finds reachable through every
+  TLS connection ssg makes. Release builds, the Docker image and the
+  tts-server image are built with 1.27.3; building from source needs it.
+
 ## [1.8.73] - 2026-10-18
 
 Breadcrumbs that only point at pages that exist, an error page that stays out

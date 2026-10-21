@@ -64,7 +64,7 @@ sudo apt install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.73
+VERSION=1.8.74
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -110,7 +110,7 @@ sudo dnf install ssg
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.8.73
+VERSION=1.8.74
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm
@@ -314,7 +314,7 @@ scoop install ssg
 
 ### Requirements
 
-- Go 1.27.2 or later
+- Go 1.27.3 or later
 - Git
 
 ### Build and Install
@@ -334,6 +334,20 @@ sudo mv ssg /usr/local/bin/
 make build
 sudo make install
 ```
+
+### With `go install`
+
+Where there is no package for the release yet — a FreeBSD jail, say — Go
+installs a tagged version straight from the module:
+
+```bash
+go install github.com/spagu/ssg/cmd/ssg@v1.8.74
+ssg --version        # ssg version 1.8.74
+```
+
+Since 1.8.74 such a binary reports the version it was installed at; before,
+only release builds did, and a `go install` one said `dev` (#337). The
+binary lands in `$(go env GOPATH)/bin`.
 
 ---
 
