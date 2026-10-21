@@ -452,9 +452,9 @@ Opt-in, because most of what a site copies verbatim is an asset. A directory
 entry resolves to the `index.html` at its root; anything that is not an HTML
 document is a warning rather than a sitemap line, and a document whose own HTML
 says `noindex` keeps itself out like every other entry. The `<lastmod>` comes
-from the **source** file's last commit under `lastmod_from_git`, and from its
-modification time otherwise — a copied document has no frontmatter date to fall
-back to, so the filesystem is what knows.
+from the **source** file's last commit under `lastmod_from_git`; without it a
+copied document has no `<lastmod>`, since it has no frontmatter date and a
+file's modification time is no reliable one (1.8.74).
 
 `output_dir` is generated state. `clean: true` deletes its old contents before
 building. See [CONTENT.md](CONTENT.md) for the source directory contract.
@@ -1884,11 +1884,13 @@ its tests:
 - `<changefreq>` and `<priority>` are written for other crawlers; Google
   ignores them.
 
-A document with neither `date` nor `modified` in its frontmatter takes the
-file's modification time. That is accurate on the machine that wrote it and
-not in a fresh clone, where every file is as new as the clone; a site built
-in CI should give its documents dates, or turn on `lastmod_from_git` with
-enough history to date each file.
+A document with neither `date` nor `modified` in its frontmatter has **no
+`<lastmod>`** (1.8.74), as in Hugo and jekyll-sitemap. It still sorts and
+shows by its file's modification time, but that time is accurate only on the
+machine that wrote the file — a fresh clone dates every file to the clone —
+and Google trusts a sitemap's dates only while they are consistently accurate.
+Give such documents a date, or turn on `lastmod_from_git` with enough history
+to date each file. Feeds keep the fallback, because Atom requires `<updated>`.
 
 `robots.txt` is unchanged either way: it points at `/sitemap.xml`, which is now
 the index. That is exactly what the protocol expects, so a site already

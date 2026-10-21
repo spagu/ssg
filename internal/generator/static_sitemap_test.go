@@ -163,10 +163,11 @@ func TestStaticSitemapEdges(t *testing.T) {
 	}
 }
 
-// TestStaticSitemapDatesWithoutGit: 1.8.57 emitted <lastmod> only when git could
-// answer, so a build where it cannot — a strictly confined snap, which sees
-// neither the host's git nor its own — produced an entry with no date while the
-// ordinary pages beside it kept theirs from frontmatter (#260).
+// TestStaticSitemapDatesWithoutGit: when git cannot date a copied document — a
+// strictly confined snap sees neither the host's git nor its own — the entry
+// has no <lastmod>, and the build says why (#260). 1.8.58 to 1.8.73 used the
+// file's modification time instead; as in Hugo and jekyll-sitemap, and as
+// Google asks, an untrustworthy date is now left out (1.8.74).
 func TestStaticSitemapDatesWithoutGit(t *testing.T) {
 	g := newTestGen(t, "")
 	g.config.Domain = "example.com"
@@ -181,12 +182,12 @@ func TestStaticSitemapDatesWithoutGit(t *testing.T) {
 	var sb string
 	out := captureBuildOutput(t, func() { sb = renderStaticEntries(g, map[string]bool{}) })
 
-	if !strings.Contains(sb, "<lastmod>") {
-		t.Errorf("no date at all, which is what #260 reported:\n%s", sb)
+	if strings.Contains(sb, "<lastmod>") {
+		t.Errorf("a file's modification time is not a lastmod:\n%s", sb)
 	}
 	// And the build says why, instead of leaving it to be found by reading XML.
-	if !strings.Contains(out, "lastmod_from_git") || !strings.Contains(out, "modification time") {
-		t.Errorf("the fallback was silent:\n%s", out)
+	if !strings.Contains(out, "lastmod_from_git") || !strings.Contains(out, "no <lastmod>") {
+		t.Errorf("the missing date was silent:\n%s", out)
 	}
 	if !strings.Contains(out, "snap") {
 		t.Errorf("the commonest cause is not named:\n%s", out)
@@ -212,8 +213,8 @@ func TestStaticSitemapGitWarningIsOncePerBuild(t *testing.T) {
 	if n := strings.Count(out, "lastmod_from_git is on"); n != 1 {
 		t.Errorf("the warning appeared %d times, want 1:\n%s", n, out)
 	}
-	if n := strings.Count(sb, "<lastmod>"); n != 3 {
-		t.Errorf("%d of 3 documents carry a date", n)
+	if n := strings.Count(sb, "<lastmod>"); n != 0 {
+		t.Errorf("%d of 3 documents carry an invented date", n)
 	}
 }
 

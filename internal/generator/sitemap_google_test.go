@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spagu/ssg/internal/models"
 )
 
 // TestSitemapLimitsAreTheProtocols: 50,000 URLs and 50 MB (52,428,800 bytes)
@@ -184,5 +186,31 @@ func TestTooManySitemapsFails(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(g.config.OutputDir, "sitemap.xml")); statErr == nil {
 		t.Error("nothing may be written when the set cannot be indexed")
+	}
+}
+
+// TestSitemapLastmodNeverFromTheFile: a document whose frontmatter has no
+// date gets no <lastmod> (Hugo, jekyll-sitemap); a written date is used, and
+// git wins when it answers. Feeds keep their fallback: Atom needs <updated>.
+func TestSitemapLastmodNeverFromTheFile(t *testing.T) {
+	g := newTestGen(t, "")
+	written := time.Date(2025, 5, 6, 0, 0, 0, 0, time.UTC)
+	mtime := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name string
+		page models.Page
+		want time.Time
+	}{
+		{"modified written", models.Page{Modified: written, Date: mtime, DateFromFile: true}, written},
+		{"only date written", models.Page{Date: written, Modified: mtime, ModifiedFromFile: true}, written},
+		{"nothing written", models.Page{Date: mtime, DateFromFile: true, Modified: mtime, ModifiedFromFile: true}, time.Time{}},
+	}
+	for _, c := range cases {
+		if got := g.sitemapLastmod(c.page); !got.Equal(c.want) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+	if got := g.lastModFor(cases[2].page); !got.Equal(mtime) {
+		t.Errorf("feeds keep the file's time: %v", got)
 	}
 }

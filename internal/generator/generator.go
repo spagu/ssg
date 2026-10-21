@@ -2404,10 +2404,10 @@ func (g *Generator) loadMarkdownEntry(dir string, entry os.DirEntry) (models.Pag
 			if page.Date.IsZero() || page.Modified.IsZero() {
 				if info, err := entry.Info(); err == nil {
 					if page.Date.IsZero() {
-						page.Date = info.ModTime()
+						page.Date, page.DateFromFile = info.ModTime(), true
 					}
 					if page.Modified.IsZero() {
-						page.Modified = info.ModTime()
+						page.Modified, page.ModifiedFromFile = info.ModTime(), true
 					}
 				}
 			}
@@ -5629,7 +5629,7 @@ func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool,
 		out = append(out, sitemapEntry{
 			loc:        loc,
 			alternates: g.sitemapAlternates(doc),
-			lastmod:    g.lastModFor(doc),
+			lastmod:    g.sitemapLastmod(doc),
 			changefreq: "monthly",
 			priority:   priority,
 			kind:       kind,

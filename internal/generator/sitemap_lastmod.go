@@ -113,7 +113,7 @@ func (g *Generator) homeLastmod(lang string) time.Time {
 		prefix = g.languagePrefix(lang)
 	}
 	if root := rootPage(g.siteData.Pages, lang, prefix); root != nil {
-		return g.lastModFor(*root)
+		return g.sitemapLastmod(*root)
 	}
 	return g.newestLastmod(g.postsInLang(lang))
 }
@@ -132,11 +132,32 @@ func (g *Generator) postsInLang(lang string) []models.Page {
 	return out
 }
 
+// sitemapLastmod is a document's <lastmod>, the way Hugo and jekyll-sitemap
+// decide it: the last commit under lastmod_from_git, else the frontmatter's
+// modified, else its date — and nothing when no one wrote a date. A file's
+// modification time is not used: it is accurate where the file was written
+// and nowhere else, and Google trusts lastmod only where it is consistently
+// accurate. Feeds still use lastModFor, since Atom requires <updated>.
+func (g *Generator) sitemapLastmod(p models.Page) time.Time {
+	if g.config.LastmodFromGit {
+		if t, ok := g.gitLastMod(p); ok {
+			return t
+		}
+	}
+	if !p.Modified.IsZero() && !p.ModifiedFromFile {
+		return p.Modified
+	}
+	if !p.DateFromFile {
+		return p.Date
+	}
+	return time.Time{}
+}
+
 // newestLastmod is the newest lastmod among pages; zero when none is dated.
 func (g *Generator) newestLastmod(pages []models.Page) time.Time {
 	var newest time.Time
 	for _, p := range pages {
-		if t := g.lastModFor(p); t.After(newest) {
+		if t := g.sitemapLastmod(p); t.After(newest) {
 			newest = t
 		}
 	}

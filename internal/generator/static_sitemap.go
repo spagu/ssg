@@ -142,9 +142,11 @@ func (g *Generator) staticSourceEntries(claimed map[string]bool) []sitemapEntry 
 // document has no frontmatter, so it looked like the git lookup was broken when
 // what was missing was the fallback.
 //
-// The file's own modification time is the analogue of that frontmatter date: it
-// is what the filesystem knows about the document, always available, and never
-// worse than omitting the field.
+// It used to fall back to the file's modification time. That is accurate where
+// the file was written and nowhere else — a fresh clone dates every file to the
+// clone — and Google uses lastmod only where it is consistently accurate, so
+// an untrustworthy date costs more than a missing one. As in Hugo and
+// jekyll-sitemap, a copied document has a lastmod only when git dates it.
 func (g *Generator) staticLastMod(source string) time.Time {
 	if source == "" {
 		return time.Time{}
@@ -154,9 +156,6 @@ func (g *Generator) staticLastMod(source string) time.Time {
 			return t
 		}
 		g.warnGitLastModUnavailable(source)
-	}
-	if info, err := os.Stat(source); err == nil {
-		return info.ModTime()
 	}
 	return time.Time{}
 }
@@ -174,7 +173,7 @@ func (g *Generator) warnGitLastModUnavailable(source string) {
 		return
 	}
 	g.gitWarnOnce.Do(func() {
-		fmt.Printf("   ⚠️  lastmod_from_git is on, but git could not date %s — using the file's modification time instead\n", source)
+		fmt.Printf("   ⚠️  lastmod_from_git is on, but git could not date %s — it gets no <lastmod>\n", source)
 		fmt.Println("      git has to be on PATH; a strictly confined snap cannot see the host's copy.")
 	})
 }

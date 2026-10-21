@@ -37,6 +37,14 @@ Which ssg built the site, in the site; a sitemap held to Google's guidelines, hu
   file is split at 50 MB as well as at 50,000 URLs; more files than an index
   may name fails the build; an index entry no longer falls back to the build
   time when its file has no dates. Tests cover each limit and rule.
+- 🕰️ **No `<lastmod>` from a file's modification time.** A document without
+  `date`/`modified`, and a copied `static_sources` document git cannot date,
+  took its file's modification time — which a fresh clone sets to the clone,
+  so in CI every such page claimed to change on every build, the kind of
+  date Google stops trusting. Like Hugo and jekyll-sitemap, the sitemap now
+  uses git, then the frontmatter's `modified`, then `date`, and leaves the
+  field out when nobody wrote a date. Ordering, templates and feeds keep the
+  fallback.
 - 🔢 **`ssg --version` after `go install`** (#337). A binary installed with
   `go install github.com/spagu/ssg/cmd/ssg@v1.8.73` said `ssg version dev`,
   because only release builds stamp the version with `-ldflags`. When nothing
