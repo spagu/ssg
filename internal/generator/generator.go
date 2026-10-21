@@ -5878,8 +5878,7 @@ func (g *Generator) writeFeedEntry(sb *strings.Builder, p models.Page) {
 		fmt.Fprintf(sb, "    <updated>%s</updated>\n", m.UTC().Format(time.RFC3339))
 	}
 	if g.config.FeedFullContent {
-		// Feed readers render this HTML — sanitize like page output (SEC-014).
-		htmlBody := g.sanitizeHTML(g.convertMarkdownToHTML(p.Content))
+		htmlBody, _ := g.feedBody(p, true)
 		fmt.Fprintf(sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(htmlBody))
 	} else {
 		summary := p.Excerpt

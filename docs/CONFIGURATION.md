@@ -319,7 +319,7 @@ Two things worth knowing even if you only ever want Atom:
 | `tags` | Tags — any of |
 | `type` | `post` (default) or `page` |
 | `items` | Item cap for this feed; defaults to `feed_items` |
-| `full_content` | Full body vs summary; defaults to `feed_full_content` |
+| `full_content` | Full body vs summary; defaults to `feed_full_content`. A full body's relative URLs are made absolute against the post's address |
 
 Selection criteria are optional and combine with **AND** — `source: blog` plus
 `tags: [release]` means release posts *from the blog folder*. A feed with no
@@ -1028,7 +1028,7 @@ shortcode_errors: strict
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
-| `feed_full_content` | `false` | config only | Full rendered body instead of summary |
+| `feed_full_content` | `false` | config only | Full rendered body instead of summary; its relative `src`, `href`, `srcset` and `url()` become absolute against the post's address, since a feed reader has no page to resolve them against (#347) |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 | `api_docs` | empty | config only | Document JavaScript/TypeScript packages as pages of the site, with `api.json`. See [docs/API_DOCS.md](API_DOCS.md) |
 | `api_docs[].language` | detected | config only | `javascript`, `typescript`, `go`, `php` or `python`; detected from `package.json`, `go.mod`, `composer.json`, `pyproject.toml` when empty. See [docs/API_LANGUAGES.md](API_LANGUAGES.md) |

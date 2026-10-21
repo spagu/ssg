@@ -301,8 +301,9 @@ func lowerSet(items []string) map[string]bool {
 // and the plain-text summary used by formats that want both.
 func (g *Generator) feedBody(p models.Page, full bool) (htmlBody, summary string) {
 	if full {
-		// Feed readers render this HTML — sanitize like page output (SEC-014).
-		htmlBody = g.sanitizeHTML(g.convertMarkdownToHTML(p.Content))
+		// Feed readers render this HTML — sanitize like page output (SEC-014)
+		// — away from the page, so its URLs must work there too (#347).
+		htmlBody = absoluteFeedHTML(g.sanitizeHTML(g.convertMarkdownToHTML(p.Content)), g.servedCanonical(p))
 	}
 	summary = p.Excerpt
 	if summary == "" {
