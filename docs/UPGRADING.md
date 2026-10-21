@@ -206,6 +206,15 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.77">
+
+### 1.8.77 — nothing to do
+
+A full-content feed now carries absolute URLs in its posts' HTML. Readers
+that showed broken images and links in your feed show them now.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.76">
 
 ### 1.8.76 — a build may now stop on a collision

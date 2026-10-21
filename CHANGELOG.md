@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.77] - 2026-10-21
+
+### Fixed
+- 📰 **Relative URLs in full-content feeds** (#347). With `full_content`,
+  a feed carried each post's HTML as it is on the page, so `/images/a.svg`
+  and `img/b.png` stayed relative. RSS 2.0 gives item content no base URI, so
+  readers that do not guess one showed broken images and dead links; Atom
+  readers resolved a document-relative path against the feed's directory, not
+  the post's. Every relative `src`, `href`, `srcset`, `poster` and `url()` in
+  feed content is now made absolute against the post's own address, as Hugo
+  and Jekyll do. The rewriting is the one `base_path` already used, now shared.
+
 ## [1.8.76] - 2026-10-21
 
 ### Fixed
