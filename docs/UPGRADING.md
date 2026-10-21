@@ -206,6 +206,16 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.75">
+
+### 1.8.75 — nothing to do
+
+`build.json` and the component assets' directory are written readable by
+other users, like every other output file. A `chmod` you added to work around
+the 403 can go.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.74">
 
 ### 1.8.74 — upgrade; from source, Go 1.27.3

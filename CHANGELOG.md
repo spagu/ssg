@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.75] - 2026-10-21
+
+### Fixed
+- 🔓 **`build.json` was private** (#342). `build_report:` wrote the report
+  with mode `0600`, so a web server running as another user answered `/build.json`
+  with 403 while serving every page beside it. It is `0644` now, in a directory
+  made like every other output directory. The same mistake in the directory
+  that component assets are copied to (`0750`) is fixed too: their CSS and JS
+  answered 403 the same way.
+- 🧪 A test builds a site with the features that write their own files and
+  checks that every file in the output is readable, and every directory
+  enterable, by other users, so the next one is caught in CI.
+
 ## [1.8.74] - 2026-10-21
 
 Which ssg built the site, in the site; a sitemap held to Google's guidelines, hubs dated; and Go 1.27.3 for a crypto/x509 fix.
