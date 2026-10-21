@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.76] - 2026-10-21
+
+### Fixed
+- 🏷️ **A mapped taxonomy added to the record's own field instead of
+  replacing it** (#344). Since 1.8.73 a page made from a record carries the
+  whole record in `.Extra`, and taxonomies also read their terms from a field
+  named like the taxonomy there. A record with a raw `maintainer` and a
+  normalised `maintainerTerm` mapped with `content_map.taxonomies` got both,
+  and two spellings slugify erases failed the build on the collision; a record
+  whose mapped field was empty on purpose still got the raw one. For a mapped
+  record the mapping is again the only source of its terms, as it is for the
+  title and the rest, and a taxonomy the mapping does not name takes nothing
+  from the record. Templates still see every field.
+
 ## [1.8.75] - 2026-10-21
 
 ### Fixed

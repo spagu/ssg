@@ -206,6 +206,16 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.76">
+
+### 1.8.76 — nothing to do
+
+A page made from an external source's record takes its taxonomy terms from
+`content_map.taxonomies` alone again, as before 1.8.73. A `field:` you set on
+a taxonomy to work around the doubled terms can go.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.75">
 
 ### 1.8.75 — nothing to do
