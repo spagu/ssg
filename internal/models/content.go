@@ -66,13 +66,17 @@ type Page struct {
 	// by anyone: the frontmatter had none and the file's modification time
 	// stood in. Good enough to order a listing; not a lastmod, since a fresh
 	// clone makes every file as new as the clone.
-	DateFromFile     bool   `yaml:"-"`
-	ModifiedFromFile bool   `yaml:"-"`
-	Status           string `yaml:"status"`
-	Type             string `yaml:"type"`
-	Link             string `yaml:"link"`
-	Author           int    `yaml:"author"`
-	Categories       []int  `yaml:"categories,omitempty"`
+	DateFromFile     bool `yaml:"-"`
+	ModifiedFromFile bool `yaml:"-"`
+	// FromRecord marks a page made from an external source's record by a
+	// content_map. Its Extra is the raw record, there for templates; its
+	// taxonomies come from content_map.taxonomies alone (#344).
+	FromRecord bool   `yaml:"-"`
+	Status     string `yaml:"status"`
+	Type       string `yaml:"type"`
+	Link       string `yaml:"link"`
+	Author     int    `yaml:"author"`
+	Categories []int  `yaml:"categories,omitempty"`
 
 	// Raw fields for flexible parsing (string or int values before resolution)
 	AuthorRaw     interface{}   `yaml:"-" json:"-"` // Unresolved author (int or string)

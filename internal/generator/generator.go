@@ -1546,15 +1546,14 @@ func (g *Generator) finalizeLoadedContent() error {
 	g.recordContentInputs()
 	g.planIncremental()
 	g.pending = g.incrementalOutputs()
-	if g.config.I18n.Enabled {
-		if err := g.validateI18nContent(languages); err != nil {
-			return err
-		}
-		if err := g.detectContentCollisions(); err != nil {
-			return err
-		}
+	if !g.config.I18n.Enabled {
+		// i18n has a stricter check of its own below, aliases and root included.
+		return g.detectPathCollisions()
 	}
-	return nil
+	if err := g.validateI18nContent(languages); err != nil {
+		return err
+	}
+	return g.detectContentCollisions()
 }
 
 func generatedTranslationKey(p models.Page) string {

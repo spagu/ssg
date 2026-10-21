@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.76] - 2026-10-21
+
+### Fixed
+- 💥 **Two documents at one address replaced each other silently** (#346).
+  Without i18n nothing compared output paths: a content page and an
+  external-source record with the same `link:`, or two records, went to one
+  `index.html`, one of them was lost, and link checking stayed green because
+  the address existed. Every build now stops on it and names both documents,
+  with a hint to give one a distinct `link:` or `slug:`. A second page at the
+  site root keeps its warning-and-skip (#234), and an alias that meets a page
+  is still not written; in neither is anything lost.
+
+### Changed
+- ⬆️ `actions/upload-artifact` 7.0.1 → 7.0.2 in CI (retries on HTTP 429;
+  #330).
+- 🏷️ **A mapped taxonomy added to the record's own field instead of
+  replacing it** (#344). Since 1.8.73 a page made from a record carries the
+  whole record in `.Extra`, and taxonomies also read their terms from a field
+  named like the taxonomy there. A record with a raw `maintainer` and a
+  normalised `maintainerTerm` mapped with `content_map.taxonomies` got both,
+  and two spellings slugify erases failed the build on the collision; a record
+  whose mapped field was empty on purpose still got the raw one. For a mapped
+  record the mapping is again the only source of its terms, as it is for the
+  title and the rest, and a taxonomy the mapping does not name takes nothing
+  from the record. Templates still see every field.
+
 ## [1.8.75] - 2026-10-21
 
 ### Fixed

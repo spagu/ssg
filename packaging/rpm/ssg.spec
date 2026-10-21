@@ -1,5 +1,5 @@
 Name:           ssg
-Version:        1.8.75
+Version:        1.8.76
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 

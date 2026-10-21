@@ -34,6 +34,12 @@ content_sources:
 
 - Extra sources join the site **before** finalize, so they get the same URL,
   permalink, i18n, taxonomy and collision treatment as native content.
+- **Two documents at one address stop the build**, whatever their source:
+  pages, posts and external-source records alike. The error names both. A
+  second page claiming the site root is skipped with a warning instead
+  (#234), and an alias that meets a page is not written; in both the page
+  is kept. Before 1.8.76 a build without i18n let one document silently
+  replace the other (#346).
 - `category` applies only to files whose own frontmatter names no category.
 - A directory that does not exist, is a file, or has an unsupported `type`
   fails the build with a message naming the path; an empty directory warns.

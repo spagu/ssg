@@ -393,6 +393,10 @@ does not parse is warned about, record by record.
 - **Two records mapping to the same slug** stops it, always. Two pages at one
   URL means one of them is silently lost, and no policy makes that acceptable.
   The error suggests the fix: a slug template with a field that is unique.
+- **Two documents at one address** stops it too: two records whose slugs
+  differ but whose `link:` is the same, or a record and a page written by
+  hand. The error names both and asks for a distinct `link:` or `slug:`
+  (#346; before 1.8.76 only an i18n build checked this).
 - **More records than `max_rows`** stops it, so a source that grew by a
   thousand does not quietly become a thousand pages.
 - **A record with no title** is skipped with a warning, and a **field the
@@ -413,7 +417,9 @@ A mapped source keeps its `.ExternalData.<name>` namespace. The records are
 pages **and** data, so a template that already iterated them still can.
 
 Each page also carries its whole record, the way custom frontmatter reaches a
-template: every field, mapped or not, at the root and in `.Extra` —
+template: every field, mapped or not, at the root and in `.Extra` (for the
+template only: a record's taxonomy terms come from `content_map.taxonomies`
+alone, never from a field that happens to share a taxonomy's name) —
 `.Page.Extra` on the page pipeline, `.Post.Extra` on the post pipeline. The
 mapping picks a title and a body; a product's price or a package's list of
 dependencies is still what its page is about.

@@ -199,6 +199,7 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 	}
 	applyMappedTaxonomies(page, rec, m.Taxonomies, &warnings)
 	page.Extra = recordExtra(rec)
+	page.FromRecord = true
 	return page, warnings, nil
 }
 
