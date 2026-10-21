@@ -1,5 +1,5 @@
 Package: ssg
-Version: 1.8.74
+Version: 1.8.75
 Section: web
 Priority: optional
 Architecture: ${ARCH}
