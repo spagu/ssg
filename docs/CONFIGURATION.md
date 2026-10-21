@@ -319,7 +319,7 @@ Two things worth knowing even if you only ever want Atom:
 | `tags` | Tags — any of |
 | `type` | `post` (default) or `page` |
 | `items` | Item cap for this feed; defaults to `feed_items` |
-| `full_content` | Full body vs summary; defaults to `feed_full_content` |
+| `full_content` | Full body vs summary; defaults to `feed_full_content`. A full body's relative URLs are made absolute against the post's address |
 
 Selection criteria are optional and combine with **AND** — `source: blog` plus
 `tags: [release]` means release posts *from the blog folder*. A feed with no
@@ -1028,7 +1028,7 @@ shortcode_errors: strict
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
-| `feed_full_content` | `false` | config only | Full rendered body instead of summary |
+| `feed_full_content` | `false` | config only | Full rendered body instead of summary; its relative `src`, `href`, `srcset` and `url()` become absolute against the post's address, since a feed reader has no page to resolve them against (#347) |
 | `search_index` | `false` | `--search-index` | Emit `search-index.json` |
 | `api_docs` | empty | config only | Document JavaScript/TypeScript packages as pages of the site, with `api.json`. See [docs/API_DOCS.md](API_DOCS.md) |
 | `api_docs[].language` | detected | config only | `javascript`, `typescript`, `go`, `php` or `python`; detected from `package.json`, `go.mod`, `composer.json`, `pyproject.toml` when empty. See [docs/API_LANGUAGES.md](API_LANGUAGES.md) |
@@ -1188,9 +1188,20 @@ what the page already rendered and fills only the gaps:
 
 | The theme emitted | SSG injects |
 |---|---|
-| no `og:title` | Open Graph, Twitter **and** JSON-LD |
+| neither | Open Graph, Twitter **and** JSON-LD |
 | `og:title`, no `application/ld+json` | **JSON-LD only** |
+| `application/ld+json`, no `og:title` | **Open Graph and Twitter only** (1.8.77, #349) |
 | both | nothing |
+
+The two are decided apart. Until 1.8.77 a theme with its own JSON-LD but no
+`og:title` got ssg's JSON-LD beside its own, so a page could describe itself
+twice, as two different types.
+
+Every image URL ssg writes into `og:image`, `twitter:image` and the JSON-LD
+`image` is absolute against `domain`, as Open Graph requires: a
+`featured_image: /media/hero.jpg` or `og_image: /card.png` becomes
+`https://example.com/…` (1.8.77, #350). Social networks fetch the image
+without resolving it against the page.
 
 The middle row is the useful one: a theme can own its Open Graph tags — to control
 `og:image`, say — and still get structured data generated from frontmatter, with
@@ -1785,7 +1796,7 @@ It is configuration now:
 
 ```yaml
 marketing:
-  og_image: "/img/card.png"      # 1200×630, absolute or site-relative
+  og_image: "/img/card.png"      # 1200×630; a site-relative path is written absolute
   og_site_name: "SSG"
   twitter_site: "@example"
   theme_color: "#0f172a"

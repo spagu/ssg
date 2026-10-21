@@ -135,10 +135,11 @@ func TestBuildOpenGraphEmitsFeaturedImage(t *testing.T) {
 		Slug:          "post",
 		FeaturedImage: "/media/hero.jpg",
 	}, true)
+	// Absolute, as Open Graph requires (#350).
 	for _, want := range []string{
-		`<meta property="og:image" content="/media/hero.jpg">`,
-		`<meta name="twitter:image" content="/media/hero.jpg">`,
-		`"image":"/media/hero.jpg"`,
+		`<meta property="og:image" content="https://example.com/media/hero.jpg">`,
+		`<meta name="twitter:image" content="https://example.com/media/hero.jpg">`,
+		`"image":"https://example.com/media/hero.jpg"`,
 	} {
 		if !strings.Contains(og, want) {
 			t.Errorf("buildOpenGraph missing %q in:\n%s", want, og)

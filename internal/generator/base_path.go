@@ -77,34 +77,47 @@ var (
 // attributes (href, src, srcset, a meta refresh target, a style attribute's
 // url()) and in <style> blocks.
 func basePathHTML(s, base string) string {
+	return rewriteHTMLURLs(s, func(u string) string { return withBasePath(u, base) })
+}
+
+// basePathCSS prefixes the root-relative url() references of a stylesheet.
+func basePathCSS(s, base string) string {
+	return rewriteCSSURLs(s, func(u string) string { return withBasePath(u, base) })
+}
+
+// rewriteHTMLURLs passes every URL of an HTML fragment through fn: the
+// URL-valued attributes of each start tag, srcset candidates, a meta refresh
+// target, and url() in style attributes and <style> blocks. base_path uses it
+// to prefix a path; feeds use it to make a post's URLs absolute (#347).
+func rewriteHTMLURLs(s string, fn func(string) string) string {
 	s = baseTagRe.ReplaceAllStringFunc(s, func(tag string) string {
-		return basePathTag(tag, base)
+		return rewriteTagURLs(tag, fn)
 	})
 	return baseStyleRe.ReplaceAllStringFunc(s, func(m string) string {
 		p := baseStyleRe.FindStringSubmatch(m)
-		return p[1] + basePathCSS(p[2], base) + p[3]
+		return p[1] + rewriteCSSURLs(p[2], fn) + p[3]
 	})
 }
 
-// basePathTag prefixes the URL-valued attributes of one start tag.
-func basePathTag(tag, base string) string {
+// rewriteTagURLs rewrites the URL-valued attributes of one start tag.
+func rewriteTagURLs(tag string, fn func(string) string) string {
 	tag = baseAttrRe.ReplaceAllStringFunc(tag, func(m string) string {
 		p := baseAttrRe.FindStringSubmatch(m)
-		return p[1] + p[2] + withBasePath(p[3], base)
+		return p[1] + p[2] + fn(p[3])
 	})
 	tag = baseSrcsetRe.ReplaceAllStringFunc(tag, func(m string) string {
 		p := baseSrcsetRe.FindStringSubmatch(m)
-		return p[1] + p[2] + basePathSrcset(p[3], base)
+		return p[1] + p[2] + rewriteSrcset(p[3], fn)
 	})
 	tag = baseRefreshRe.ReplaceAllStringFunc(tag, func(m string) string {
 		p := baseRefreshRe.FindStringSubmatch(m)
-		return p[1] + withBasePath(p[2], base)
+		return p[1] + fn(p[2])
 	})
-	return basePathCSS(tag, base)
+	return rewriteCSSURLs(tag, fn)
 }
 
-// basePathSrcset prefixes each candidate URL of a srcset list.
-func basePathSrcset(list, base string) string {
+// rewriteSrcset rewrites each candidate URL of a srcset list.
+func rewriteSrcset(list string, fn func(string) string) string {
 	parts := strings.Split(list, ",")
 	for i, part := range parts {
 		lead := part[:len(part)-len(strings.TrimLeft(part, " \t\n"))]
@@ -112,17 +125,17 @@ func basePathSrcset(list, base string) string {
 		if len(fields) == 0 {
 			continue
 		}
-		fields[0] = withBasePath(fields[0], base)
+		fields[0] = fn(fields[0])
 		parts[i] = lead + strings.Join(fields, " ")
 	}
 	return strings.Join(parts, ",")
 }
 
-// basePathCSS prefixes root-relative url() references.
-func basePathCSS(s, base string) string {
+// rewriteCSSURLs rewrites root-relative url() references.
+func rewriteCSSURLs(s string, fn func(string) string) string {
 	return baseCSSURLRe.ReplaceAllStringFunc(s, func(m string) string {
 		p := baseCSSURLRe.FindStringSubmatch(m)
-		return p[1] + withBasePath(p[2], base)
+		return p[1] + fn(p[2])
 	})
 }
 

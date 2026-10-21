@@ -137,12 +137,15 @@ func (g *Generator) seoHTMLString(s string, page models.Page, isPost bool) strin
 		return s
 	}
 	var b strings.Builder
+	// The social tags and the structured data are decided apart: a theme may
+	// write either, both or neither. Before #349 a theme with its own JSON-LD
+	// but no og:title got ssg's JSON-LD beside its own — a SoftwareApplication
+	// page shipped a BlogPosting for itself too.
 	if !strings.Contains(s, "og:title") {
-		b.WriteString(g.buildOpenGraph(page, isPost)) // includes the JSON-LD
-	} else if !strings.Contains(s, "application/ld+json") {
-		// The theme already provides OpenGraph tags but no structured data —
-		// inject the JSON-LD on its own so AI-first Linked Data (#61) still reaches
-		// themes that supply their own social meta (e.g. ssgtheme).
+		b.WriteString(g.socialMeta(page, isPost))
+	}
+	if !strings.Contains(s, "application/ld+json") {
+		// AI-first Linked Data (#61) for every theme that wrote none.
 		b.WriteString(g.buildJSONLD(page, isPost))
 	}
 	if page.IsNotFound() {

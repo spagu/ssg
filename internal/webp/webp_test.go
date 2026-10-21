@@ -1204,3 +1204,41 @@ func TestUpdateReferencesSrcsetEmptyEntry(t *testing.T) {
 		t.Errorf("srcset with empty entries mishandled, got: %s", out)
 	}
 }
+
+// TestUpdateReferencesOnSite covers #350: og:image is written absolute, and an
+// absolute URL of the site itself still follows its image to .webp — another
+// host's is left alone, and so is a converted image without a .webp.
+func TestUpdateReferencesOnSite(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "media/hero.webp")
+	html := `<meta property="og:image" content="https://example.com/media/hero.jpg">
+<meta name="twitter:image" content="https://example.com/media/hero.jpg">
+<meta property="og:image" content="https://example.org/media/hero.jpg">
+<meta property="og:image" content="https://example.com/media/missing.jpg">
+<script type="application/ld+json">{"image":"https://example.com/media/hero.jpg"}</script>`
+	want := `<meta property="og:image" content="https://example.com/media/hero.webp">
+<meta name="twitter:image" content="https://example.com/media/hero.webp">
+<meta property="og:image" content="https://example.org/media/hero.jpg">
+<meta property="og:image" content="https://example.com/media/missing.jpg">
+<script type="application/ld+json">{"image":"https://example.com/media/hero.webp"}</script>`
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateReferencesOnSite(tmpDir, "https://example.com/"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(htmlPath); string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	// Without an origin an absolute URL is remote, as before.
+	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateReferences(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(htmlPath); string(got) != html {
+		t.Errorf("without an origin nothing absolute may change:\n%s", got)
+	}
+}

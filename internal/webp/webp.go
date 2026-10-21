@@ -438,7 +438,7 @@ var cssURLRe = regexp.MustCompile(`(?i)url\(\s*("[^"]*"|'[^']*'|[^'")]+)\)`)
 // twitter:image property have their content URL extension-rewritten to .webp so
 // share previews point at the file that actually shipped (#64). Non-image metas
 // (description, og:title) are skipped by socialImageMetaTag, and non-image
-// content (og:image:width "1200") is left alone by rewriteLocalImageURL.
+// content (og:image:width "1200") is left alone by refRewriter.local.
 var socialImageMetaRe = regexp.MustCompile(`(?i)<meta\b[^>]*>`)
 
 // metaContentRe captures a meta tag's content="..." (or single-quoted) value.
@@ -481,11 +481,21 @@ func isRemoteURL(ref string) bool {
 		strings.HasPrefix(ref, "//")
 }
 
-// rewriteLocalImageURL maps a single local .jpg/.jpeg/.png reference — matched
-// case-insensitively so Photo.JPG is rewritten too (GO-016) — to .webp, but only
-// when the converted file exists on disk (GO-017). baseDir resolves relative
-// references (the referencing file's directory); root resolves "/"-absolute ones.
-func rewriteLocalImageURL(ref, baseDir, root string, webpSet map[string]bool) string {
+// refRewriter rewrites a file's image references to their .webp forms.
+// baseDir resolves relative references (the referencing file's directory);
+// root resolves "/"-absolute ones. origin, when set ("https://example.com"),
+// marks absolute URLs of the site itself as local: og:image must be absolute
+// (#350), and an absolute og:image still has to follow its image to .webp.
+type refRewriter struct {
+	baseDir, root, origin string
+	webpSet               map[string]bool
+}
+
+func (r refRewriter) local(ref string) string {
+	if r.origin != "" && strings.HasPrefix(ref, r.origin+"/") {
+		// The site's own absolute URL: rewrite its path, keep it absolute.
+		return r.origin + r.local(strings.TrimPrefix(ref, r.origin))
+	}
 	if ref == "" || isRemoteURL(ref) {
 		return ref
 	}
@@ -496,40 +506,35 @@ func rewriteLocalImageURL(ref, baseDir, root string, webpSet map[string]bool) st
 	webpRef := ref[:len(ref)-len(ext)] + ".webp"
 	var file string
 	if strings.HasPrefix(webpRef, "/") {
-		file = filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(webpRef, "/")))
+		file = filepath.Join(r.root, filepath.FromSlash(strings.TrimPrefix(webpRef, "/")))
 	} else {
-		file = filepath.Join(baseDir, filepath.FromSlash(webpRef))
+		file = filepath.Join(r.baseDir, filepath.FromSlash(webpRef))
 	}
-	if !webpSet[filepath.Clean(file)] {
+	if !r.webpSet[filepath.Clean(file)] {
 		return ref // conversion missing or failed — keep the working reference
 	}
 	return webpRef
 }
 
-// rewriteRefList rewrites each URL of a (possibly comma-separated, srcset-style)
-// attribute value, preserving width/density descriptors and spacing.
-func rewriteRefList(value, baseDir, root string, webpSet map[string]bool) string {
+func (r refRewriter) refList(value string) string {
 	parts := strings.Split(value, ",")
 	for i, part := range parts {
 		fields := strings.Fields(part)
 		if len(fields) == 0 {
 			continue
 		}
-		if newURL := rewriteLocalImageURL(fields[0], baseDir, root, webpSet); newURL != fields[0] {
+		if newURL := r.local(fields[0]); newURL != fields[0] {
 			parts[i] = strings.Replace(part, fields[0], newURL, 1)
 		}
 	}
 	return strings.Join(parts, ",")
 }
 
-// rewriteImageRefs rewrites image references inside src/srcset/href attributes,
-// CSS url(...), og:image/twitter:image meta content, and JSON-LD "image" values;
-// everything else — prose, remote URLs, scripts — is left untouched (GO-017).
-func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) string {
+func (r refRewriter) imageRefs(content string) string {
 	out := imageRefAttrRe.ReplaceAllStringFunc(content, func(m string) string {
 		quoted := imageRefAttrRe.FindStringSubmatch(m)[1]
 		inner := quoted[1 : len(quoted)-1]
-		rewritten := rewriteRefList(inner, baseDir, root, webpSet)
+		rewritten := r.refList(inner)
 		if rewritten == inner {
 			return m
 		}
@@ -542,7 +547,7 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 			quote, inner = string(raw[0]), raw[1:len(raw)-1]
 		}
 		inner = strings.TrimSpace(inner)
-		rewritten := rewriteLocalImageURL(inner, baseDir, root, webpSet)
+		rewritten := r.local(inner)
 		if rewritten == inner {
 			return m
 		}
@@ -558,7 +563,7 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 		return metaContentRe.ReplaceAllStringFunc(tag, func(attr string) string {
 			quoted := metaContentRe.FindStringSubmatch(attr)[1]
 			inner := quoted[1 : len(quoted)-1]
-			rewritten := rewriteLocalImageURL(inner, baseDir, root, webpSet)
+			rewritten := r.local(inner)
 			if rewritten == inner {
 				return attr
 			}
@@ -569,7 +574,7 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 	return ldJSONScriptRe.ReplaceAllStringFunc(out, func(block string) string {
 		return ldImageValRe.ReplaceAllStringFunc(block, func(m string) string {
 			sub := ldImageValRe.FindStringSubmatch(m)
-			rewritten := rewriteLocalImageURL(sub[2], baseDir, root, webpSet)
+			rewritten := r.local(sub[2])
 			if rewritten == sub[2] {
 				return m
 			}
@@ -582,6 +587,13 @@ func rewriteImageRefs(content, baseDir, root string, webpSet map[string]bool) st
 // whose converted .webp target exists are rewritten, remote URLs and prose are
 // left alone (GO-017), and extensions are matched case-insensitively (GO-016).
 func UpdateReferences(dir string) error {
+	return UpdateReferencesOnSite(dir, "")
+}
+
+// UpdateReferencesOnSite is UpdateReferences for a site served at origin
+// ("https://example.com"): absolute URLs of the site itself are rewritten too,
+// and stay absolute — og:image and twitter:image are written that way (#350).
+func UpdateReferencesOnSite(dir, origin string) error {
 	webpSet, err := collectWebpSet(dir)
 	if err != nil {
 		return err
@@ -603,7 +615,8 @@ func UpdateReferences(dir string) error {
 			return err
 		}
 
-		newContent := rewriteImageRefs(string(content), filepath.Dir(path), dir, webpSet)
+		r := refRewriter{baseDir: filepath.Dir(path), root: dir, origin: strings.TrimRight(origin, "/"), webpSet: webpSet}
+		newContent := r.imageRefs(string(content))
 		if newContent != string(content) {
 			return os.WriteFile(path, []byte(newContent), info.Mode()) // #nosec G703,G122 -- CLI tool writes user's output files
 		}

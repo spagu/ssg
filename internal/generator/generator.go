@@ -4557,6 +4557,12 @@ func (g *Generator) servedURL(raw string) string {
 
 // buildOpenGraph renders OpenGraph + Twitter Card + JSON-LD markup for a page (SEO-003).
 func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
+	return g.socialMeta(page, isPost) + g.buildJSONLD(page, isPost)
+}
+
+// socialMeta renders the OpenGraph and Twitter Card tags alone, so the
+// structured data can be decided on its own (#349).
+func (g *Generator) socialMeta(page models.Page, isPost bool) string {
 	title := page.Title
 	desc := page.Description
 	url := g.servedCanonical(page)
@@ -4585,7 +4591,7 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 		}
 	}
 	if page.FeaturedImage != "" {
-		fmt.Fprintf(&b, `<meta property="og:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
+		fmt.Fprintf(&b, `<meta property="og:image" content="%s">`+"\n", stdhtml.EscapeString(g.socialURL(page.FeaturedImage)))
 	}
 	fmt.Fprintf(&b, `<meta name="twitter:card" content="summary_large_image">`+"\n")
 	fmt.Fprintf(&b, `<meta name="twitter:title" content="%s">`+"\n", stdhtml.EscapeString(title))
@@ -4596,11 +4602,8 @@ func (g *Generator) buildOpenGraph(page models.Page, isPost bool) string {
 	// featured image; both stay as authored and are extension-rewritten to the
 	// emitted .webp by the webp reference pass, same as in-content <img> (#64).
 	if page.FeaturedImage != "" {
-		fmt.Fprintf(&b, `<meta name="twitter:image" content="%s">`+"\n", stdhtml.EscapeString(page.FeaturedImage))
+		fmt.Fprintf(&b, `<meta name="twitter:image" content="%s">`+"\n", stdhtml.EscapeString(g.socialURL(page.FeaturedImage)))
 	}
-	// JSON-LD structured data (main entity + BreadcrumbList) is built separately
-	// so it stays AI-first rich and per-page/site overridable via schema: (#61).
-	b.WriteString(g.buildJSONLD(page, isPost))
 	return b.String()
 }
 
@@ -5878,8 +5881,7 @@ func (g *Generator) writeFeedEntry(sb *strings.Builder, p models.Page) {
 		fmt.Fprintf(sb, "    <updated>%s</updated>\n", m.UTC().Format(time.RFC3339))
 	}
 	if g.config.FeedFullContent {
-		// Feed readers render this HTML — sanitize like page output (SEC-014).
-		htmlBody := g.sanitizeHTML(g.convertMarkdownToHTML(p.Content))
+		htmlBody, _ := g.feedBody(p, true)
 		fmt.Fprintf(sb, "    <content type=\"html\">%s</content>\n", stdhtml.EscapeString(htmlBody))
 	} else {
 		summary := p.Excerpt

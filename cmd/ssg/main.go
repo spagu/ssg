@@ -1443,7 +1443,8 @@ func runWebP(cfg *config.Config, prof *generator.Profile) error {
 	if err != nil {
 		return fmt.Errorf("converting to WebP: %w", err)
 	}
-	if err := webp.UpdateReferences(cfg.OutputDir); err != nil {
+	// The site's own absolute image URLs (og:image, #350) are rewritten too.
+	if err := webp.UpdateReferencesOnSite(cfg.OutputDir, siteOrigin(cfg.Domain)); err != nil {
 		return fmt.Errorf("updating image references: %w", err)
 	}
 	// Emit responsive srcset/sizes for images that have variants (ASSET-004).
@@ -2233,4 +2234,14 @@ func toGeneratorOutputs(in []config.CustomOutput) []generator.CustomOutput {
 		})
 	}
 	return out
+}
+
+// siteOrigin is the absolute origin the site is served at ("" without a
+// domain), the form an absolute og:image starts with (#350).
+func siteOrigin(domain string) string {
+	domain = strings.Trim(strings.TrimSpace(domain), "/")
+	if domain == "" {
+		return ""
+	}
+	return "https://" + domain
 }

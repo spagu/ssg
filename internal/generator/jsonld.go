@@ -76,7 +76,7 @@ func (g *Generator) derivedLD(page models.Page, isPost bool, canonical string) m
 		ld["inLanguage"] = page.Locale
 	}
 	if page.FeaturedImage != "" {
-		ld["image"] = page.FeaturedImage
+		ld["image"] = g.socialURL(page.FeaturedImage)
 	}
 	if !isPost {
 		return ld
