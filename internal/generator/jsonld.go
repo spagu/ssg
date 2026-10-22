@@ -19,14 +19,24 @@ import (
 // schema: overrides everything. json.Marshal HTML-escapes </script>, so
 // untrusted titles cannot break out of the script element.
 func (g *Generator) buildJSONLD(page models.Page, isPost bool) string {
-	merged := g.mergedSchema(page, isPost)
-
 	var b strings.Builder
-	writeLDScript(&b, merged)
-	if faq := g.faqLD(page); faq != nil {
+	writeLDScript(&b, g.mergedSchema(page, isPost))
+	b.WriteString(g.companionLD(page, ""))
+	return b.String()
+}
+
+// companionLD is the structured data that sits beside a page's own type
+// rather than competing with it: the FAQPage its faq: asked for, and the
+// BreadcrumbList that says where the page sits. A theme that writes its own
+// JSON-LD replaces ssg's main entity (#349), and kept losing these with it,
+// which no template could put back (#351). Each is added unless the theme's
+// head already has one of that type.
+func (g *Generator) companionLD(page models.Page, head string) string {
+	var b strings.Builder
+	if faq := g.faqLD(page); faq != nil && !strings.Contains(head, `"FAQPage"`) {
 		writeLDScript(&b, faq)
 	}
-	if bc := g.breadcrumbLD(page); bc != nil {
+	if bc := g.breadcrumbLD(page); bc != nil && !strings.Contains(head, `"BreadcrumbList"`) {
 		writeLDScript(&b, bc)
 	}
 	return b.String()

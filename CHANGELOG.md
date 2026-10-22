@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.78] - 2026-10-22
+
+### Fixed
+- 🍞 **A theme's own JSON-LD dropped the breadcrumb** (#351). Since 1.8.77
+  (#349) a theme that writes `application/ld+json` gets no derived JSON-LD,
+  and with ssg's main entity went the `BreadcrumbList` and the `FAQPage` from
+  `faq:`, which no template could put back. Both describe where the page sits
+  and what it answers, not what it is, so they are added beside the theme's
+  block again unless the theme wrote one of that type.
+
+### Added
+- **`.BreadcrumbSchema`** in page and post templates: the derived trail as
+  data, for `{{ toJSON .BreadcrumbSchema }}` in a theme that writes its own.
+
 ## [1.8.77] - 2026-10-22
 
 ### Fixed

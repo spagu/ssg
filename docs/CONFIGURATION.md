@@ -1191,11 +1191,17 @@ what the page already rendered and fills only the gaps:
 | neither | Open Graph, Twitter **and** JSON-LD |
 | `og:title`, no `application/ld+json` | **JSON-LD only** |
 | `application/ld+json`, no `og:title` | **Open Graph and Twitter only** (1.8.77, #349) |
-| both | nothing |
+| both | nothing but the breadcrumb and FAQ (below) |
 
 The two are decided apart. Until 1.8.77 a theme with its own JSON-LD but no
 `og:title` got ssg's JSON-LD beside its own, so a page could describe itself
 twice, as two different types.
+
+A theme's own JSON-LD replaces ssg's description of **what** the page is. The
+`BreadcrumbList` (where the page sits) and the `FAQPage` from `faq:` do not
+compete with that, so they are still added beside the theme's block unless
+it already has one of that type (1.8.78, #351). A theme that writes the trail
+itself has it as data: `{{ toJSON .BreadcrumbSchema }}`.
 
 Every image URL ssg writes into `og:image`, `twitter:image` and the JSON-LD
 `image` is absolute against `domain`, as Open Graph requires: a
