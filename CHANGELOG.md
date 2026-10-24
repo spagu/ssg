@@ -12,6 +12,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 A page announces only the output formats it was actually written in, and a
 page can set its own sitemap change frequency and priority.
 
+### Added
+- **Sitemap hints per page** (#356). `sitemap_changefreq` and
+  `sitemap_priority`, in front matter, in a source's `content_map` (a
+  constant such as `"=daily"`, or a field or template) and in mddb metadata,
+  set a page's `<changefreq>` and `<priority>`. A value the protocol does not
+  allow is reported and the default kept. Unset, every page keeps today's
+  `monthly` and its type's priority. Google ignores both, but Bing and other
+  crawlers read them.
+
+### Fixed
+- **A custom output that renders nothing is no longer announced** (#355). A
+  format whose template produced nothing for a page already wrote no file,
+  but the page's `<head>` still linked to it as `rel="alternate"`, so a
+  strict `check_links` failed the build on the missing file. Pages that
+  cannot opt out through front matter, such as API pages and the post
+  listing, were hit too. Each format is now rendered once, when the head is
+  built: an empty result means no link and no file, and the written file is
+  the same render.
+
+### Security and dependencies
+- `github.com/tdewolff/parse/v2` 2.8.20 (the JavaScript reader of `api_docs`)
+  and `github.com/quic-go/quic-go` 0.64.1.
+- The locked gosec CI builds (`.github/tools/gosec`) moves to
+  `google.golang.org/grpc` 1.84.0. 1.83.1 had a denial of service in xDS
+  servers (GHSA, high). It was a build tool's dependency, never in ssg.
+
 ## [1.8.78] - 2026-10-22
 
 ### Fixed

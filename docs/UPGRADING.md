@@ -57,6 +57,13 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.78">1.8.78 — 2026-10-22</option>
+      <option value="1.8.77">1.8.77 — 2026-10-22</option>
+      <option value="1.8.76">1.8.76 — 2026-10-21</option>
+      <option value="1.8.75">1.8.75 — 2026-10-21</option>
+      <option value="1.8.74">1.8.74 — 2026-10-21</option>
+      <option value="1.8.73">1.8.73 — 2026-10-20</option>
+      <option value="1.8.72">1.8.72 — 2026-10-12</option>
       <option value="1.8.71">1.8.71 — 2026-10-11</option>
       <option value="1.8.70">1.8.70 — 2026-10-05</option>
       <option value="1.8.69">1.8.69 — 2026-10-03</option>
@@ -205,6 +212,17 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.79">
+
+### 1.8.79 — nothing to do
+
+A custom output a page did not get is no longer linked from its `<head>`. The
+link pointed at a file that was never written, so nothing that worked goes
+away. The sitemap hints are new and opt-in: without them every entry reads as
+before.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.78">
 
