@@ -482,6 +482,31 @@ are written in the page's language when a language is given (`en`, `pl`, `de`,
 comes back unchanged. Structured data stores times as ISO 8601, so a theme
 prints the same value instead of keeping a second, hand-written copy.
 
+### `formatNumber` — a number for readers
+
+```gotemplate
+{{ formatNumber .Site.Data.stats.ports }} ports       {{/* 111,381 ports */}}
+{{ formatNumber 111381 " " }}                         {{/* 111 381 */}}
+```
+
+Digits are grouped the way the page's language groups them. On a site without
+i18n the language comes from `default_language`, and without that it is
+English:
+
+| Language | `formatNumber 111381` | `formatNumber 1234.5` |
+|---|---|---|
+| en (default) | `111,381` | `1,234.5` |
+| pl, cs, sk, ru, uk, sv, fi, nb | `111 381` (no-break space) | `1 234,5` |
+| fr | `111 381` (narrow no-break space) | `1 234,5` |
+| de, es, it, nl, pt, da | `111.381` | `1.234,5` |
+| hi, mr, bn | `1,11,381` (Indian grouping) | `1,234.5` |
+
+A language not in the table writes as English does. A second argument sets
+the group separator yourself, in groups of three. Integers, floats (a JSON
+number arrives as one) and numeric strings are accepted, and a whole float
+prints without a decimal part. Anything else comes back unchanged, so a
+template never prints less than it was given.
+
 ### Taxonomy and Metadata Lookup
 * **`getCategoryName id`** — Looks up and returns the name of a category by its integer ID from `metadata.json`.
   ```gotemplate

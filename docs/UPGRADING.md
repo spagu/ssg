@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.79">1.8.79 — 2026-10-24</option>
       <option value="1.8.78">1.8.78 — 2026-10-22</option>
       <option value="1.8.77">1.8.77 — 2026-10-22</option>
       <option value="1.8.76">1.8.76 — 2026-10-21</option>
@@ -212,6 +213,14 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.80">
+
+### 1.8.80 — nothing to do
+
+`formatNumber` is a new template function; nothing changes until a theme uses it.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.79">
 

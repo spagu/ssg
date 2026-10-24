@@ -2879,7 +2879,8 @@ func (g *Generator) buildTemplateFuncs(pageLinks map[string]string) template.Fun
 		"translationURL":       g.translationURL,
 		"languageURL":          g.languageURL,
 		"localizeDate":         g.localizeDate,
-		"duration":             tmplDuration, // ISO 8601 → "1 hr 25 min" (1.8.72)
+		"duration":             tmplDuration,       // ISO 8601 → "1 hr 25 min" (1.8.72)
+		"formatNumber":         g.tmplFormatNumber, // 111381 → "111,381" (#358)
 
 		// Collection helpers (v1.8.3): the collection is the FINAL argument so
 		// helpers chain in pipelines — see docs/TEMPLATE_HELPERS.md.
@@ -3518,6 +3519,7 @@ func (g *Generator) shortcodeFuncMap() template.FuncMap {
 		"stripShortcodes": tmplStripShortcodes,
 		"stripHTML":       tmplStripHTML,
 		"duration":        tmplDuration,
+		"formatNumber":    g.tmplFormatNumber,
 		"default":         tmplDefault,
 		"dict":            tmplDict,
 		"int":             tmplInt,

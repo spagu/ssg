@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.80] - 2026-10-24
+
+Numbers for readers: a template can group digits the way the page's
+language does.
+
+### Added
+- **`{{ formatNumber 111381 }}`** (#358) prints `111,381`. Digits are grouped
+  the way the page's language groups them, falling back to the site's
+  `default_language` and then English: `111 381` in Polish (with a no-break
+  space), `111.381` in German, `1,11,381` in Hindi (Indian grouping).
+  `formatNumber n " "` sets the separator yourself. Ints, floats (JSON
+  numbers) and numeric strings are accepted, and a whole float prints without
+  a decimal part.
+
 ## [1.8.79] - 2026-10-24
 
 A page announces only the output formats it was actually written in, and a
