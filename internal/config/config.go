@@ -950,7 +950,22 @@ type MCPConfig struct {
 	// only when the images genuinely come from a host on the same private
 	// network (#214).
 	MediaAllowPrivate bool `yaml:"media_allow_private" toml:"media_allow_private" json:"media_allow_private"`
+	// OAuth makes `ssg mcp --listen` an OAuth 2.1 resource server (#362).
+	OAuth MCPOAuth `yaml:"oauth" toml:"oauth" json:"oauth"`
 }
+
+// MCPOAuth names the authorization server whose access tokens the MCP
+// endpoint accepts, and this server's own canonical URI, which a token's
+// audience must name. ssg never issues tokens itself.
+type MCPOAuth struct {
+	Issuer   string   `yaml:"issuer" toml:"issuer" json:"issuer"`       // authorization server; tokens' iss
+	Resource string   `yaml:"resource" toml:"resource" json:"resource"` // this endpoint's public URI; tokens' aud
+	Scopes   []string `yaml:"scopes" toml:"scopes" json:"scopes"`       // scopes a token must carry
+	JWKSURL  string   `yaml:"jwks_url" toml:"jwks_url" json:"jwks_url"` // optional; discovered from the issuer otherwise
+}
+
+// Enabled reports whether OAuth is configured.
+func (o MCPOAuth) Enabled() bool { return o.Issuer != "" || o.Resource != "" }
 
 // MCPSearch points designer_find / content_find at an MDDB collection so a
 // question phrased as a sentence can be answered, where a local scan can only

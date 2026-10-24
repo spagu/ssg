@@ -221,7 +221,9 @@ which is a longer read but never a wrong one.
 
 The unread-content warning no longer lists Markdown that `content_exclude`
 names. `mddb.sources` is new; a config without it reads its one collection as
-before. Nothing in the output changes.
+before. `mcp.oauth` is new: without it the MCP endpoint authenticates as before,
+and a `401` now also carries `WWW-Authenticate: Bearer`. Nothing in the built
+site changes.
 
 </div>
 

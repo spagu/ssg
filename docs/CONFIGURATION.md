@@ -2638,6 +2638,10 @@ MDDB collection and it can:
 | `mcp.search.mddb_lang` | Language used to tokenise the query, e.g. `en` |
 | `mcp.search.mddb_fuzzy` | Typo tolerance: `0` off, `1` or `2` edit distance |
 | `mcp.search.mddb_validate` | Check each document before storing it (`ssg mddb push-theme`, MDDB 2.12.0+). Default on; warnings never fail a push |
+| `mcp.oauth.issuer` | OAuth 2.1 authorization server whose access tokens the HTTP endpoint accepts; tokens' `iss` must equal it. See [MCP_TRANSPORTS.md](MCP_TRANSPORTS.md#oauth-21) |
+| `mcp.oauth.resource` | This endpoint's public URI (`https://mcp.example.com/mcp`); tokens' `aud` must name it |
+| `mcp.oauth.scopes` | Scopes a token must carry, also advertised in the metadata |
+| `mcp.oauth.jwks_url` | The issuer's key set; discovered from its metadata when empty |
 | `mcp.media_allow_private` | Permit `media_upload` to fetch a URL resolving to a loopback or private address. Off by default: an unguarded fetch on someone else's instruction is server-side request forgery |
 | `mcp.search.mddb_allow_http` | Permit the API key over plaintext `http://` to a non-loopback host — a private container network. Off by default |
 

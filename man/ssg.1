@@ -241,6 +241,14 @@ carries a bearer token \(em supplied with \fB\-\-token\fR, read from
 is set. Prefer the variable: a command line is visible in \fBps\fR and in shell
 history. \fBGET\fR and \fBDELETE\fR answer \fB405\fR.
 .IP
+With \fBmcp.oauth\fR in the config (\fBissuer\fR, \fBresource\fR, \fBscopes\fR,
+optional \fBjwks_url\fR) the endpoint is an OAuth 2.1 resource server. It
+publishes \fB/.well-known/oauth-protected-resource\fR (RFC 9728) and answers
+\fB401\fR with a \fBWWW-Authenticate\fR challenge pointing at it. It accepts
+access tokens from that issuer only when they are signed with its keys,
+unexpired, have an audience naming \fBresource\fR and carry the scopes. No token
+is minted then. See \fIdocs/MCP_TRANSPORTS.md\fR.
+.IP
 \fB\-\-watch\fR additionally polls the filesystem, so edits made outside MCP rebuild
 and reload the \fB\-\-http\fR preview as well; one process then serves the preview,
 serves the MCP endpoint and watches the tree, with every rebuild serialised. See

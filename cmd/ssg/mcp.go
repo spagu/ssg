@@ -144,6 +144,7 @@ func runMCP(args []string) int {
 	// than instead of it: the two are bindings of one protocol, and a client
 	// that spawns the process and one that dials it can both be served by the
 	// same running server (#173).
+	netCfg.oauth = mcpOAuthOf(cfg)
 	if code := serveMCPEndpoint(server, netCfg, logf); code >= 0 {
 		return code
 	}
@@ -162,6 +163,7 @@ type mcpNetFlags struct {
 	listen  string
 	token   string
 	origins []string
+	oauth   *mcp.OAuthOptions // from mcp.oauth in the config, nil without it (#362)
 	noStdio bool
 }
 
@@ -210,6 +212,29 @@ func resolveMCPToken(flagToken string) (token string, minted bool, err error) {
 	return generated, true, nil
 }
 
+// endpointToken is the static token the endpoint accepts. With OAuth it is
+// only one the operator gave: OAuth already authenticates every request, and a
+// minted token beside it would be a second way in that nobody asked for.
+func endpointToken(flags mcpNetFlags) (token string, minted bool, err error) {
+	if flags.oauth == nil {
+		return resolveMCPToken(flags.token)
+	}
+	if t := strings.TrimSpace(flags.token); t != "" {
+		return t, false, nil
+	}
+	return strings.TrimSpace(os.Getenv(mcpTokenEnv)), false, nil
+}
+
+// mcpOAuthOf maps mcp.oauth onto the transport's options, or nil when the
+// config has none.
+func mcpOAuthOf(cfg *config.Config) *mcp.OAuthOptions {
+	o := cfg.MCP.OAuth
+	if !o.Enabled() {
+		return nil
+	}
+	return &mcp.OAuthOptions{Issuer: o.Issuer, Resource: o.Resource, Scopes: o.Scopes, JWKSURL: o.JWKSURL}
+}
+
 // serveMCPEndpoint starts the Streamable HTTP transport when --listen was
 // given. It returns an exit code on failure, or -1 to carry on.
 //
@@ -225,12 +250,18 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 		}
 		return -1
 	}
+	if flags.oauth != nil {
+		if err := flags.oauth.Validate(); err != nil {
+			errf("❌ %v\n", err)
+			return 2
+		}
+	}
 	addr := flags.listen
 	if !strings.Contains(addr, ":") {
 		addr = "127.0.0.1:" + addr // a bare port means localhost, not the world
 	}
 
-	token, minted, err := resolveMCPToken(flags.token)
+	token, minted, err := endpointToken(flags)
 	if err != nil {
 		errf("❌ %v\n", err)
 		return 1
@@ -238,8 +269,13 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", mcp.HTTPHandler(server, mcp.HTTPOptions{
-		Token: token, AllowedOrigins: flags.origins, Logf: logf,
+		Token: token, AllowedOrigins: flags.origins, Logf: logf, OAuth: flags.oauth,
 	}))
+	if flags.oauth != nil {
+		for _, p := range flags.oauth.MetadataPaths() {
+			mux.Handle(p, mcp.ProtectedResourceHandler(*flags.oauth))
+		}
+	}
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
@@ -252,7 +288,13 @@ func serveMCPEndpoint(server *mcp.Server, flags mcpNetFlags, logf func(string, .
 	}
 
 	logf("🌐 MCP endpoint: http://%s/mcp (Streamable HTTP)", ln.Addr())
-	logf("   Authorization: Bearer %s", token)
+	if flags.oauth != nil {
+		logf("   OAuth 2.1: tokens from %s for %s", flags.oauth.Issuer, flags.oauth.Resource)
+		logf("   metadata: %s", flags.oauth.MetadataURL())
+	}
+	if token != "" {
+		logf("   Authorization: Bearer %s", token)
+	}
 	if minted {
 		logf("   Minted for this run — set %s to keep it stable across restarts.", mcpTokenEnv)
 	}

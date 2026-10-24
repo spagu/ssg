@@ -21,6 +21,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Watch mode checks every listed collection. A config without `sources`, and
   `--mddb-collection`, read one collection as before.
 
+- **OAuth 2.1 for `ssg mcp --listen`** (#362). With `mcp.oauth` (`issuer`,
+  `resource`, `scopes`, optional `jwks_url`) the Streamable HTTP endpoint is an
+  OAuth 2.1 resource server, as the MCP authorization specification describes.
+  It publishes Protected Resource Metadata (RFC 9728), answers `401` with a
+  `WWW-Authenticate` challenge pointing at it, and accepts access tokens only
+  when they are signed with the issuer's keys (asymmetric algorithms only),
+  unexpired, have an audience naming this server (RFC 8707) and carry the
+  scopes. A valid token without a required scope gets `403
+  insufficient_scope`. Keys are discovered through RFC 8414 or OpenID Connect
+  discovery and cached. A client that only offers OAuth sign-in can now
+  connect. The static `--token` keeps working beside OAuth, and no token is
+  minted when OAuth is on.
+
+### Changed
+
+- **A `401` from the MCP endpoint carries `WWW-Authenticate: Bearer`**, as RFC
+  6750 asks, with or without OAuth (#362).
+
+### Dependencies
+
+- `github.com/go-jose/go-jose/v4` v4.1.4 → v4.1.6, now a direct dependency for
+  verifying access tokens (#362).
+
 ### Fixed
 
 - **The unread-content warning respects `content_exclude`** (#360). A build

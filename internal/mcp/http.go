@@ -28,6 +28,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -51,6 +52,9 @@ type HTTPOptions struct {
 	// Logf receives one line per rejected request, so a client that cannot
 	// connect can be diagnosed from the server's side.
 	Logf func(string, ...any)
+	// OAuth, when set, also accepts access tokens from an OAuth 2.1
+	// authorization server (#362). Token keeps working beside it.
+	OAuth *OAuthOptions
 }
 
 // HTTPHandler returns the MCP endpoint for s.
@@ -62,18 +66,33 @@ func HTTPHandler(s *Server, opts HTTPOptions) http.Handler {
 	if opts.Logf == nil {
 		opts.Logf = func(string, ...any) {}
 	}
-	return &httpTransport{server: s, opts: opts}
+	h := &httpTransport{server: s, opts: opts}
+	if opts.OAuth != nil {
+		h.verifier = newTokenVerifier(*opts.OAuth)
+	}
+	return h
 }
 
 type httpTransport struct {
-	server *Server
-	opts   HTTPOptions
+	server   *Server
+	opts     HTTPOptions
+	verifier *tokenVerifier // nil without OAuth
+}
+
+// refusal is a request that must not reach the server.
+type refusal struct {
+	status    int
+	message   string
+	challenge string // WWW-Authenticate, for a 401 or 403
 }
 
 func (h *httpTransport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if code, msg := h.reject(r); code != 0 {
-		h.opts.Logf("   ⚠️  MCP %s %s → %d %s", r.Method, r.URL.Path, code, msg)
-		writeRPCError(w, code, nil, codeInvalidRequest, msg)
+	if no := h.reject(r); no != nil {
+		h.opts.Logf("   ⚠️  MCP %s %s → %d %s", r.Method, r.URL.Path, no.status, no.message)
+		if no.challenge != "" {
+			w.Header().Set("WWW-Authenticate", no.challenge)
+		}
+		writeRPCError(w, no.status, nil, codeInvalidRequest, no.message)
 		return
 	}
 
@@ -116,23 +135,51 @@ func (h *httpTransport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// reject applies the transport's rules, returning the HTTP status and message
-// for a request that must not reach the server, or 0 to proceed.
-func (h *httpTransport) reject(r *http.Request) (int, string) {
+// reject applies the transport's rules, returning why a request must not
+// reach the server, or nil to proceed.
+func (h *httpTransport) reject(r *http.Request) *refusal {
 	// Earlier revisions used GET for a standalone stream and DELETE to end a
 	// session; neither exists here, and 405 is what says so.
 	if r.Method != http.MethodPost {
-		return http.StatusMethodNotAllowed, "the MCP endpoint accepts POST"
+		return &refusal{status: http.StatusMethodNotAllowed, message: "the MCP endpoint accepts POST"}
 	}
 	if origin := r.Header.Get("Origin"); origin != "" && !h.originAllowed(origin) {
 		// DNS rebinding is the attack this closes: a page the operator visits
 		// resolving a name to 127.0.0.1 and then driving this server.
-		return http.StatusForbidden, "origin not allowed"
+		return &refusal{status: http.StatusForbidden, message: "origin not allowed"}
 	}
-	if !h.authorized(r) {
-		return http.StatusUnauthorized, "a bearer token is required"
+	return h.authenticate(r)
+}
+
+// authenticate accepts the static token or, with OAuth, an access token from
+// the issuer. A refusal carries the challenge RFC 6750 asks for, and with
+// OAuth it points at the metadata, which is how a client learns where to sign
+// in (#362).
+func (h *httpTransport) authenticate(r *http.Request) *refusal {
+	if h.opts.Token == "" && h.verifier == nil {
+		return nil
 	}
-	return 0, ""
+	got, sent := bearerToken(r)
+	if sent && h.opts.Token != "" && subtle.ConstantTimeCompare([]byte(got), []byte(h.opts.Token)) == 1 {
+		return nil
+	}
+	if h.verifier == nil {
+		return &refusal{status: http.StatusUnauthorized, message: "a bearer token is required", challenge: "Bearer"}
+	}
+	oauth := h.verifier.opts
+	if !sent {
+		return &refusal{status: http.StatusUnauthorized, message: "a bearer token is required", challenge: oauth.challenge("")}
+	}
+	err := h.verifier.verify(got)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errInsufficientScope):
+		return &refusal{status: http.StatusForbidden, message: "insufficient scope", challenge: oauth.challenge("insufficient_scope")}
+	default:
+		h.opts.Logf("   ⚠️  MCP access token refused: %v", err)
+		return &refusal{status: http.StatusUnauthorized, message: "invalid token", challenge: oauth.challenge("invalid_token")}
+	}
 }
 
 // originAllowed reports whether a browser origin is on the list. Comparison is
@@ -155,17 +202,12 @@ func (h *httpTransport) originAllowed(origin string) bool {
 	return false
 }
 
-// authorized checks the bearer token in constant time. No token configured
-// means the endpoint is open, which the CLI permits only on localhost.
-func (h *httpTransport) authorized(r *http.Request) bool {
-	if h.opts.Token == "" {
-		return true
-	}
+// bearerToken reads `Authorization: Bearer <token>`; sent is false when there
+// is none.
+func bearerToken(r *http.Request) (token string, sent bool) {
 	got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(got)), []byte(h.opts.Token)) == 1
+	got = strings.TrimSpace(got)
+	return got, ok && got != ""
 }
 
 // negotiatedVersion echoes the client's requested protocol version when it sent
