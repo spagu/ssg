@@ -359,3 +359,31 @@ func TestPageTextOfAnEmptyPage(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+// TestEmptyOutputIsNotAnnounced (#355): a custom format whose template renders
+// nothing for a page writes no file for it and puts no alternate in its head,
+// so a strict link check passes; the page it does render for keeps both.
+func TestEmptyOutputIsNotAnnounced(t *testing.T) {
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "api.json")
+	mustWrite(t, tmpl, `{{ if eq .Page.Title "About us" }}{"title": "{{ .Page.Title }}"}{{ end }}`)
+	cfg := outputSite(t, func(cfg *Config) {
+		cfg.Outputs = []string{"html", "api"}
+		cfg.OutputsCustom = []CustomOutput{{Name: "api", Suffix: "index.json", MIME: "application/json", Template: tmpl}}
+		cfg.CheckLinks = "strict"
+	})
+	about := mustRead(t, filepath.Join(cfg.OutputDir, "about", "index.html"))
+	if !strings.Contains(about, `href="/about/index.json"`) {
+		t.Errorf("the rendered format is announced:\n%s", about)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "about", "index.json")); err != nil {
+		t.Errorf("and written: %v", err)
+	}
+	post := mustRead(t, filepath.Join(cfg.OutputDir, "2024", "01", "02", "hello", "index.html"))
+	if strings.Contains(post, "index.json") {
+		t.Errorf("an empty render is not announced:\n%s", post)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "2024", "01", "02", "hello", "index.json")); err == nil {
+		t.Error("nor written")
+	}
+}

@@ -693,6 +693,9 @@ type Generator struct {
 
 	// outputs is the format registry for this build (GO-092).
 	outputs *outputRegistry
+	// outputCache holds each page's rendered output formats between the
+	// <head> asking whether one exists and the file being written (#355).
+	outputCache sync.Map
 
 	// graph records what this build depended on; prevGraph is the previous
 	// build's, and plan is what the two say can be skipped (GO-094). pending
@@ -1061,6 +1064,8 @@ func (g *Generator) Generate() error {
 	started := time.Now() // for the build report's duration; templates see g.buildTime
 	// Release the lazily-built related-posts mddb client when the build ends.
 	defer g.closeRelatedMddb()
+	// Renderings kept for a page's <head> belong to one build (#355).
+	g.outputCache.Clear()
 
 	// This build's findings only: a watch-mode rebuild reports the site as it is
 	// now, not every page that was ever wrong in this process (#247), and lists
@@ -5635,8 +5640,8 @@ func (g *Generator) documentEntries(docs []models.Page, claimed map[string]bool,
 			loc:        loc,
 			alternates: g.sitemapAlternates(doc),
 			lastmod:    g.sitemapLastmod(doc),
-			changefreq: "monthly",
-			priority:   priority,
+			changefreq: g.pageChangefreq(doc, "monthly"),
+			priority:   g.pagePriority(doc, priority),
 			kind:       kind,
 			source:     doc.SourceDir,
 		})
