@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.80" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.81" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -241,6 +241,14 @@ carries a bearer token \(em supplied with \fB\-\-token\fR, read from
 is set. Prefer the variable: a command line is visible in \fBps\fR and in shell
 history. \fBGET\fR and \fBDELETE\fR answer \fB405\fR.
 .IP
+With \fBmcp.oauth\fR in the config (\fBissuer\fR, \fBresource\fR, \fBscopes\fR,
+optional \fBjwks_url\fR) the endpoint is an OAuth 2.1 resource server. It
+publishes \fB/.well-known/oauth-protected-resource\fR (RFC 9728) and answers
+\fB401\fR with a \fBWWW-Authenticate\fR challenge pointing at it. It accepts
+access tokens from that issuer only when they are signed with its keys,
+unexpired, have an audience naming \fBresource\fR and carry the scopes. No token
+is minted then. See \fIdocs/MCP_TRANSPORTS.md\fR.
+.IP
 \fB\-\-watch\fR additionally polls the filesystem, so edits made outside MCP rebuild
 and reload the \fB\-\-http\fR preview as well; one process then serves the preview,
 serves the MCP endpoint and watches the tree, with every rebuild serialised. See
@@ -298,7 +306,11 @@ HTTP or \fBlocalhost:11024\fR for gRPC.
 Connection protocol: \fBhttp\fR (default) or \fBgrpc\fR.
 .TP
 .BR \-\-mddb\-collection =\fINAME
-Collection name for fetching pages and posts.
+Collection name for fetching pages and posts. Ignored when the config file sets
+\fBmddb.sources\fR, which reads several collections in one build. Each source
+names a \fBcollection\fR, a metadata \fBfilter\fR that MDDB applies on the
+server (\fB{ visibility: [public] }\fR), a \fBtype\fR (\fBpage\fR or
+\fBpost\fR) and a \fBsection\fR.
 .TP
 .BR \-\-mddb\-key =\fIKEY
 API key for MDDB authentication (optional).

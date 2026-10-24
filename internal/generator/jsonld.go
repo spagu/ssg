@@ -232,8 +232,12 @@ func (g *Generator) sectionSchema(page models.Page) map[string]interface{} {
 }
 
 // contentSection returns a page's directory path relative to the content root,
-// slash-separated, or "" when it cannot be placed.
+// slash-separated, or "" when it cannot be placed. Content that has no
+// directory names its section itself (mddb.sources, #361).
 func (g *Generator) contentSection(page models.Page) string {
+	if page.Section != "" {
+		return strings.Trim(filepath.ToSlash(page.Section), "/")
+	}
 	if page.SourceDir == "" {
 		return ""
 	}

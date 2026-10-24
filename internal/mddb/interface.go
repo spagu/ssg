@@ -18,6 +18,10 @@ type MddbClient interface {
 	// GetByType fetches all documents filtered by type (page or post) with pagination
 	GetByType(collection string, docType string, lang string) ([]Document, error)
 
+	// GetMatching fetches all documents whose metadata matches filterMeta, a
+	// key → accepted values map the server applies (#361)
+	GetMatching(collection, lang string, filterMeta map[string][]any) ([]Document, error)
+
 	// Health checks if the mddb server is available
 	Health() error
 

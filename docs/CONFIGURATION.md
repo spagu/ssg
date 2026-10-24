@@ -1944,7 +1944,9 @@ content_exclude:
 ```
 
 Patterns are matched before parsing, against the full path, the content-relative
-path and the filename, so each form behaves the way it reads.
+path and the filename, so each form behaves the way it reads. Excluded files
+are also left out of the "Markdown file(s) in the source tree were not read"
+warning, since leaving them out was the point.
 
 `build_report: build.json` (or `--build-report`) writes, once the last page is
 out and before the `post_build` hooks, a small report a site can publish (#338):
@@ -2278,6 +2280,44 @@ mddb:
 | `mddb.batch_size` | `1000` | `--mddb-batch-size` |
 | `mddb.watch` | `false` | `--mddb-watch` |
 | `mddb.watch_interval` | `30` | `--mddb-watch-interval` |
+| `mddb.sources` | empty | — (config only; replaces `collection` when set) |
+
+#### Several collections, filtered on the server
+
+`mddb.sources` reads more than one collection in a build, each with its own
+filter, content type and section:
+
+```yaml
+mddb:
+  enabled: true
+  url: http://mddb:11023
+  sources:
+    - collection: articles
+      filter: { visibility: [public] }
+      type: post
+      section: articles
+    - collection: events
+      type: post
+      section: events
+    - collection: kb
+      type: page
+```
+
+| Source key | Meaning |
+|---|---|
+| `collection` | The collection to read. Required |
+| `filter` | Metadata the documents must have: each key lists the values it accepts. Sent to MDDB as `filterMeta` |
+| `type` | `page` or `post` files every document as that. Empty uses each document's own `type` meta, which is how `collection` always worked |
+| `section` | The content section the documents belong to. `schema_defaults`, `language_sections`, `output_encoding_sections`, Web Stories sections and a declared feed's or paginated page's `source:` match it the way they match a directory |
+
+MDDB applies the filter, so a document it leaves out is never downloaded. It
+does not reach the build directory, the search index or `llms.txt`. Filtering in
+templates instead would put private documents in all three. Leave `type` out
+when you want a filter on `type` itself. A source that sets `type` reads every
+document in the collection that matches the filter. With `sources` set,
+`collection` and `--mddb-collection` are ignored. Categories, media and users
+still come from the `categories`, `media` and `users` collections. Watch mode
+rebuilds when any of the listed collections changes.
 
 `mddb.allow_http` permits the API key over plaintext `http://` to a host that is
 not loopback. It is off by default and should stay off for anything routable —
@@ -2598,6 +2638,10 @@ MDDB collection and it can:
 | `mcp.search.mddb_lang` | Language used to tokenise the query, e.g. `en` |
 | `mcp.search.mddb_fuzzy` | Typo tolerance: `0` off, `1` or `2` edit distance |
 | `mcp.search.mddb_validate` | Check each document before storing it (`ssg mddb push-theme`, MDDB 2.12.0+). Default on; warnings never fail a push |
+| `mcp.oauth.issuer` | OAuth 2.1 authorization server whose access tokens the HTTP endpoint accepts; tokens' `iss` must equal it. See [MCP_TRANSPORTS.md](MCP_TRANSPORTS.md#oauth-21) |
+| `mcp.oauth.resource` | This endpoint's public URI (`https://mcp.example.com/mcp`); tokens' `aud` must name it |
+| `mcp.oauth.scopes` | Scopes a token must carry, also advertised in the metadata |
+| `mcp.oauth.jwks_url` | The issuer's key set; discovered from its metadata when empty |
 | `mcp.media_allow_private` | Permit `media_upload` to fetch a URL resolving to a loopback or private address. Off by default: an unguarded fetch on someone else's instruction is server-side request forgery |
 | `mcp.search.mddb_allow_http` | Permit the API key over plaintext `http://` to a non-loopback host — a private container network. Off by default |
 

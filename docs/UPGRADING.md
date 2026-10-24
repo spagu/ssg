@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.80">1.8.80 — 2026-10-24</option>
       <option value="1.8.79">1.8.79 — 2026-10-24</option>
       <option value="1.8.78">1.8.78 — 2026-10-22</option>
       <option value="1.8.77">1.8.77 — 2026-10-22</option>
@@ -213,6 +214,18 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.81">
+
+### 1.8.81 — nothing to do
+
+The unread-content warning no longer lists Markdown that `content_exclude`
+names. `mddb.sources` is new; a config without it reads its one collection as
+before. `mcp.oauth` is new: without it the MCP endpoint authenticates as before,
+and a `401` now also carries `WWW-Authenticate: Bearer`. Nothing in the built
+site changes.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.80">
 

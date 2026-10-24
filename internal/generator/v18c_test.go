@@ -82,7 +82,11 @@ func TestEnginePipeline(t *testing.T) {
 
 // --- old code: loadMetadataFromMddb via a fake client ---------------------
 
-type fakeMddb struct{ byCollection map[string][]mddb.Document }
+type fakeMddb struct {
+	byCollection map[string][]mddb.Document
+	err          error    // returned by GetMatching
+	requests     []string // collections GetMatching was asked for
+}
 
 func (f *fakeMddb) Search(mddb.SearchRequest) ([]mddb.Document, int, error) {
 	return nil, 0, nil

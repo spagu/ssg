@@ -129,6 +129,54 @@ secret you thought you passed did not arrive.
 and session mechanics of earlier protocol revisions, which this transport does
 not implement.
 
+### OAuth 2.1
+
+A client that only offers OAuth sign-in for a remote server cannot use a static
+token. With `mcp.oauth` set, the endpoint is an OAuth 2.1 resource server, as the
+MCP authorization specification describes. Tokens come from an authorization
+server you already run (Keycloak, Auth0, Cloudflare Access, …). ssg never issues
+them.
+
+```yaml
+mcp:
+  oauth:
+    issuer: https://auth.example.com/realms/site
+    resource: https://mcp.example.com/mcp     # the address clients use
+    scopes: [ssg.mcp]
+    # jwks_url: https://auth.example.com/realms/site/protocol/openid-connect/certs
+```
+
+What the endpoint then does:
+
+- **Publishes Protected Resource Metadata** (RFC 9728) at
+  `/.well-known/oauth-protected-resource/mcp` and at
+  `/.well-known/oauth-protected-resource`, naming the issuer and the scopes.
+- **Answers `401` with a challenge** that points at that metadata, so the client
+  finds where to sign in:
+  `WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp", scope="ssg.mcp"`.
+- **Checks every access token.** The signature must come from the issuer's keys,
+  and only asymmetric algorithms are accepted (RS, PS, ES, EdDSA). `iss` must
+  equal `issuer`. `exp` must be present and in the future, with a minute of
+  leeway. `aud` must name `resource` (RFC 8707), so a token the same issuer
+  minted for another service does not work here.
+- **Answers `403 insufficient_scope`** for a valid token without one of `scopes`.
+  Scopes are read from `scope` (space-separated) or `scp` (a list or a string).
+
+When `jwks_url` is empty, the keys are found through the issuer's RFC 8414
+metadata, then its OpenID Connect discovery document. That document must name
+the same issuer. The key set is cached for an hour. A token with an unknown key
+ID triggers a refetch at most every 30 seconds, so made-up key IDs cannot hammer
+the issuer.
+
+`resource` must be `https` unless it points at this machine. ssg refuses to start
+otherwise. Behind a reverse proxy, `resource` is the proxy's public address and
+the proxy must forward `/.well-known/oauth-protected-resource*` as well as `/mcp`.
+
+With OAuth on, no token is minted. A static token from `--token` or
+`$SSG_MCP_TOKEN` is still accepted beside OAuth, for scripts. Leave both unset to
+accept OAuth only. Without `mcp.oauth` nothing changes, except that a `401` now
+carries `WWW-Authenticate: Bearer`, as RFC 6750 asks.
+
 ## Protocol version
 
 `ssg mcp` speaks **both eras**, and says so:

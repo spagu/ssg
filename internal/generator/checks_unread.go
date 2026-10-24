@@ -77,7 +77,7 @@ func (g *Generator) unreadContentDirs(sourcePath string) []unreadDir {
 		if loaded[name] {
 			continue
 		}
-		if n := countMarkdown(filepath.Join(sourcePath, name)); n > 0 {
+		if n := g.countMarkdown(filepath.Join(sourcePath, name)); n > 0 {
 			out = append(out, unreadDir{Path: name, Files: n})
 		}
 	}
@@ -109,14 +109,16 @@ func (g *Generator) loadedContentRoots(sourcePath string) map[string]bool {
 	return loaded
 }
 
-// countMarkdown counts .md files anywhere under dir.
-func countMarkdown(dir string) int {
+// countMarkdown counts .md files anywhere under dir, leaving out those
+// content_exclude names: excluding a file is a decision, not an oversight, and
+// the report's advice would publish what the site chose not to (#360).
+func (g *Generator) countMarkdown(dir string) int {
 	n := 0
-	_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil //nolint:nilerr // an unreadable subtree is not worth failing a report over
 		}
-		if strings.EqualFold(filepath.Ext(info.Name()), ".md") {
+		if strings.EqualFold(filepath.Ext(info.Name()), ".md") && !g.excludedFromContent(p) {
 			n++
 		}
 		return nil

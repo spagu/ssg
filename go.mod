@@ -16,6 +16,7 @@ require (
 	github.com/cbroglie/mustache v1.4.2
 	github.com/disintegration/imaging v1.6.2
 	github.com/flosch/pongo2/v6 v6.1.0
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jlaffaye/ftp v0.2.4

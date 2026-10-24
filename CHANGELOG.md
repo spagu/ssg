@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.81] - 2026-10-24
+
+### Added
+
+- **`mddb.sources`: several MDDB collections in one build, each filtered on the
+  server** (#361). Each source names a `collection`, a metadata `filter` sent
+  to MDDB as `filterMeta` (`{ visibility: [public] }`), a `type` (`page` or
+  `post`) and a `section`. MDDB applies the filter, so private documents are
+  never downloaded and cannot leak into the build directory or the search
+  index. The section is the key `schema_defaults`, `language_sections`,
+  `output_encoding_sections` and a declared feed's `source:` already match.
+  Watch mode checks every listed collection. A config without `sources`, and
+  `--mddb-collection`, read one collection as before.
+
+- **OAuth 2.1 for `ssg mcp --listen`** (#362). With `mcp.oauth` (`issuer`,
+  `resource`, `scopes`, optional `jwks_url`) the Streamable HTTP endpoint is an
+  OAuth 2.1 resource server, as the MCP authorization specification describes.
+  It publishes Protected Resource Metadata (RFC 9728), answers `401` with a
+  `WWW-Authenticate` challenge pointing at it, and accepts access tokens only
+  when they are signed with the issuer's keys (asymmetric algorithms only),
+  unexpired, have an audience naming this server (RFC 8707) and carry the
+  scopes. A valid token without a required scope gets `403
+  insufficient_scope`. Keys are discovered through RFC 8414 or OpenID Connect
+  discovery and cached. A client that only offers OAuth sign-in can now
+  connect. The static `--token` keeps working beside OAuth, and no token is
+  minted when OAuth is on.
+
+### Changed
+
+- **A `401` from the MCP endpoint carries `WWW-Authenticate: Bearer`**, as RFC
+  6750 asks, with or without OAuth (#362).
+
+### Dependencies
+
+- `github.com/go-jose/go-jose/v4` v4.1.4 → v4.1.6, now a direct dependency for
+  verifying access tokens (#362).
+
+### Fixed
+
+- **The unread-content warning respects `content_exclude`** (#360). A build
+  warned about Markdown that `content_exclude:` leaves out on purpose and
+  advised adding it back with `content_sources:`, which would publish a file
+  the site chose not to. Excluded files are no longer counted: a directory
+  whose Markdown is all excluded is not reported, and a partly excluded one
+  shows only the files that are not.
+
 ## [1.8.80] - 2026-10-24
 
 Numbers for readers: a template can group digits the way the page's

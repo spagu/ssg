@@ -89,15 +89,16 @@ type Shortcode struct {
 
 // MddbConfig holds MDDB connection settings for generator
 type MddbConfig struct {
-	Enabled    bool   // Enable mddb as content source
-	URL        string // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
-	Protocol   string // Connection protocol: "http" (default) or "grpc"
-	APIKey     string // Optional API key
-	Collection string // Collection name for content
-	Lang       string // Language filter (e.g., "en_US")
-	Timeout    int    // Request timeout in seconds
-	BatchSize  int    // Batch size for pagination (default: 1000)
-	AllowHTTP  bool   // Permit an API key over plaintext http:// to a private host (#201)
+	Enabled    bool         // Enable mddb as content source
+	URL        string       // Base URL (e.g., "http://localhost:11023" or "localhost:11024" for gRPC)
+	Protocol   string       // Connection protocol: "http" (default) or "grpc"
+	APIKey     string       // Optional API key
+	Collection string       // Collection name for content
+	Lang       string       // Language filter (e.g., "en_US")
+	Timeout    int          // Request timeout in seconds
+	BatchSize  int          // Batch size for pagination (default: 1000)
+	AllowHTTP  bool         // Permit an API key over plaintext http:// to a private host (#201)
+	Sources    []MddbSource // Several collections per build, each filtered (#361); empty ⇒ Collection
 	// Watch/WatchInterval live in the CLI config only — the watch loop runs in
 	// cmd/ssg, not in the generator (GO-043: dead copies removed).
 }
@@ -2117,42 +2118,9 @@ func (g *Generator) loadContentFromMddb() error {
 
 	g.log("   🔗 Connected to mddb server")
 
-	// Load pages from mddb
-	pageDocs, err := client.GetByType(g.config.Mddb.Collection, "page", g.config.Mddb.Lang)
-	if err != nil {
-		return fmt.Errorf("loading pages from mddb: %w", err)
+	if err := g.loadMddbSources(client); err != nil {
+		return err
 	}
-
-	g.reportStructuredMeta(pageDocs)
-	pages, err := mddb.ToPages(pageDocs)
-	if err != nil {
-		return fmt.Errorf("converting pages: %w", err)
-	}
-	for i := range pages {
-		pages[i].PageFormat = g.config.PageFormat
-	}
-	g.siteData.Pages = pages
-
-	// Load posts from mddb
-	postDocs, err := client.GetByType(g.config.Mddb.Collection, "post", g.config.Mddb.Lang)
-	if err != nil {
-		return fmt.Errorf("loading posts from mddb: %w", err)
-	}
-
-	g.reportStructuredMeta(postDocs)
-	posts, err := mddb.ToPages(postDocs)
-	if err != nil {
-		return fmt.Errorf("converting posts: %w", err)
-	}
-
-	// Set URL format and page format for posts based on config
-	for i := range posts {
-		posts[i].URLFormat = g.config.PostURLFormat
-		posts[i].PageFormat = g.config.PageFormat
-	}
-
-	// The same one sort a file-backed site gets (#155).
-	g.siteData.Posts = sortPostsByDate(posts)
 
 	// Load metadata (categories, media, users) from mddb
 	if err := g.loadMetadataFromMddb(client); err != nil {
