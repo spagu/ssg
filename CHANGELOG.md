@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.79] - 2026-10-24
+
+A page announces only the output formats it was actually written in, and a
+page can set its own sitemap change frequency and priority.
+
 ## [1.8.78] - 2026-10-22
 
 ### Fixed
