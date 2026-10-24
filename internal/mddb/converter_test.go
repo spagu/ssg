@@ -750,3 +750,17 @@ func TestToPageAliasStubs(t *testing.T) {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+func TestDocument_ToPage_SitemapHints(t *testing.T) {
+	doc := Document{Key: "k", Metadata: map[string]any{"title": "T", "sitemap_changefreq": "weekly", "sitemap_priority": float64(0.3)}}
+	page, err := doc.ToPage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.SitemapChangefreq != "weekly" || page.SitemapPriority != "0.3" {
+		t.Errorf("hints = %q %q", page.SitemapChangefreq, page.SitemapPriority)
+	}
+	if metaString(7) != "7" || metaString(nil) != "" {
+		t.Error("metaString")
+	}
+}

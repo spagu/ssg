@@ -46,6 +46,11 @@ type ContentMap struct {
 	Description string `yaml:"description" toml:"description" json:"description"`
 	Image       string `yaml:"image" toml:"image" json:"image"`
 	Lang        string `yaml:"lang" toml:"lang" json:"lang"`
+	// SitemapChangefreq and SitemapPriority set each record's sitemap
+	// <changefreq> and <priority> (#356): "=daily" for every record, or a
+	// field or template that varies by record.
+	SitemapChangefreq string `yaml:"sitemap_changefreq" toml:"sitemap_changefreq" json:"sitemap_changefreq"`
+	SitemapPriority   string `yaml:"sitemap_priority" toml:"sitemap_priority" json:"sitemap_priority"`
 	// Taxonomies maps a taxonomy name to the record field holding its terms;
 	// the field may be a list or a single value.
 	Taxonomies map[string]string `yaml:"taxonomies" toml:"taxonomies" json:"taxonomies"`
@@ -63,6 +68,7 @@ func (m ContentMap) Empty() bool {
 	return m.Title == "" && m.Slug == "" && m.Content == "" && m.Excerpt == "" &&
 		m.Date == "" && m.Modified == "" && m.Type == "" && m.Status == "" &&
 		m.Link == "" && m.Description == "" && m.Image == "" && m.Lang == "" &&
+		m.SitemapChangefreq == "" && m.SitemapPriority == "" &&
 		len(m.Taxonomies) == 0 && len(m.Schema) == 0
 }
 
@@ -186,6 +192,9 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 		FeaturedImage: get("image", m.Image),
 		Lang:          get("lang", m.Lang),
 		Link:          get("link", m.Link),
+
+		SitemapChangefreq: get("sitemap_changefreq", m.SitemapChangefreq),
+		SitemapPriority:   get("sitemap_priority", m.SitemapPriority),
 	}
 	if raw := get("date", m.Date); raw != "" {
 		if t, ok := parseRecordTime(raw); ok {
