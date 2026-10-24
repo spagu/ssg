@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.80] - 2026-10-24
+
+Numbers for readers: a template can group digits the way the page's
+language does.
+
 ## [1.8.79] - 2026-10-24
 
 A page announces only the output formats it was actually written in, and a
