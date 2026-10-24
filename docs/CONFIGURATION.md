@@ -1944,7 +1944,9 @@ content_exclude:
 ```
 
 Patterns are matched before parsing, against the full path, the content-relative
-path and the filename, so each form behaves the way it reads.
+path and the filename, so each form behaves the way it reads. Excluded files
+are also left out of the "Markdown file(s) in the source tree were not read"
+warning, since leaving them out was the point.
 
 `build_report: build.json` (or `--build-report`) writes, once the last page is
 out and before the `post_build` hooks, a small report a site can publish (#338):

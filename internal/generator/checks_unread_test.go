@@ -120,11 +120,43 @@ func TestCountMarkdown(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := countMarkdown(root); got != 3 {
+	g := newTestGen(t, "")
+	if got := g.countMarkdown(root); got != 3 {
 		t.Errorf("countMarkdown = %d, want 3", got)
 	}
-	if got := countMarkdown(filepath.Join(root, "nope")); got != 0 {
+	if got := g.countMarkdown(filepath.Join(root, "nope")); got != 0 {
 		t.Errorf("a missing directory counts zero, got %d", got)
+	}
+}
+
+// TestExcludedContentIsNotUnread: content_exclude is a decision, so what it
+// names is not reported, and the advice never suggests adding it back (#360).
+func TestExcludedContentIsNotUnread(t *testing.T) {
+	// The reporter's shape: content_dir: docs, the pattern project-relative.
+	project := sourceTree(t,
+		"docs/index.md",
+		"docs/examples/sample.md",
+		"docs/drafts/kept.md", "docs/drafts/sample-old.md",
+	)
+	t.Chdir(project)
+	g := newTestGen(t, "")
+	g.config.ContentDir = "docs"
+	g.config.Source = ""
+	g.config.ContentExclude = []string{"docs/examples/**", "sample-*.md"}
+
+	dirs := g.unreadContentDirs("docs")
+	if len(dirs) != 1 || dirs[0].Path != "drafts" || dirs[0].Files != 1 {
+		t.Fatalf("a fully excluded directory goes, a partly excluded one counts the rest: %+v", dirs)
+	}
+	out := captureBuildOutput(t, func() { g.reportUnreadContent("docs") })
+	if strings.Contains(out, "examples") {
+		t.Errorf("the report must not suggest adding excluded files back:\n%s", out)
+	}
+
+	// Everything excluded: no report at all.
+	g.config.ContentExclude = []string{"docs/examples/**", "drafts/*.md"}
+	if out := captureBuildOutput(t, func() { g.reportUnreadContent("docs") }); out != "" {
+		t.Errorf("all unread Markdown is excluded, yet the build printed %q", out)
 	}
 }
 

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.81] - unreleased
 
+### Fixed
+
+- **The unread-content warning respects `content_exclude`** (#360). A build
+  warned about Markdown that `content_exclude:` leaves out on purpose and
+  advised adding it back with `content_sources:`, which would publish a file
+  the site chose not to. Excluded files are no longer counted: a directory
+  whose Markdown is all excluded is not reported, and a partly excluded one
+  shows only the files that are not.
+
 ## [1.8.80] - 2026-10-24
 
 Numbers for readers: a template can group digits the way the page's
