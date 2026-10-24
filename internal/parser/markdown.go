@@ -273,6 +273,7 @@ var knownFields = map[string]bool{
 	"translation_key": true,
 	"robots":          true, "featured_image": true, "tags": true, "category": true,
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
+	"sitemap_changefreq": true, "sitemap_priority": true,
 	"taxonomies": true, "sticky": true, "paginate": true,
 }
 
@@ -306,20 +307,24 @@ type PageFrontmatter struct {
 	Categories []interface{} `yaml:"categories,omitempty"`
 
 	// SEO and metadata fields
-	Description    string               `yaml:"description"`
-	Keywords       string               `yaml:"keywords"`
-	Lang           string               `yaml:"lang"`
-	TranslationKey string               `yaml:"translation_key"`
-	Canonical      string               `yaml:"canonical"`
-	Robots         string               `yaml:"robots"`
-	FeaturedImage  string               `yaml:"featured_image"`
-	Tags           []string             `yaml:"tags,omitempty"`
-	Category       string               `yaml:"category"`
-	Sitemap        string               `yaml:"sitemap"`            // "no" excludes the page from sitemap.xml (GO-003)
-	Aliases        []string             `yaml:"aliases,omitempty"`  // old paths that redirect here (SEO-002)
-	Series         string               `yaml:"series,omitempty"`   // series grouping (AX-005)
-	Sticky         bool                 `yaml:"sticky,omitempty"`   // pinned to the top of date-ordered listings (#155)
-	Paginate       *models.PaginateSpec `yaml:"paginate,omitempty"` // page-level pagination over a collection (#267)
+	Description    string   `yaml:"description"`
+	Keywords       string   `yaml:"keywords"`
+	Lang           string   `yaml:"lang"`
+	TranslationKey string   `yaml:"translation_key"`
+	Canonical      string   `yaml:"canonical"`
+	Robots         string   `yaml:"robots"`
+	FeaturedImage  string   `yaml:"featured_image"`
+	Tags           []string `yaml:"tags,omitempty"`
+	Category       string   `yaml:"category"`
+	Sitemap        string   `yaml:"sitemap"` // "no" excludes the page from sitemap.xml (GO-003)
+	// The page's own <changefreq> and <priority> (#356). A string, so
+	// `sitemap_priority: 0.9` and `"0.9"` both arrive as written.
+	SitemapChangefreq string               `yaml:"sitemap_changefreq"`
+	SitemapPriority   string               `yaml:"sitemap_priority"`
+	Aliases           []string             `yaml:"aliases,omitempty"`  // old paths that redirect here (SEO-002)
+	Series            string               `yaml:"series,omitempty"`   // series grouping (AX-005)
+	Sticky            bool                 `yaml:"sticky,omitempty"`   // pinned to the top of date-ordered listings (#155)
+	Paginate          *models.PaginateSpec `yaml:"paginate,omitempty"` // page-level pagination over a collection (#267)
 
 	// AliasStubs overrides the site-wide alias_stubs default per page: false =
 	// 301 only (no duplicate copy), true = force a stub (#65).
@@ -449,13 +454,16 @@ func (pf *PageFrontmatter) ToPage() *models.Page {
 		Tags:           pf.Tags,
 		Category:       pf.Category,
 		Sitemap:        pf.Sitemap,
-		Aliases:        pf.Aliases,
-		AliasStubs:     pf.AliasStubs,
-		Series:         pf.Series,
-		Sticky:         pf.Sticky,
-		Paginate:       pf.Paginate,
-		Schema:         pf.Schema,
-		TaxonomiesFM:   pf.Taxonomies,
+
+		SitemapChangefreq: pf.SitemapChangefreq,
+		SitemapPriority:   pf.SitemapPriority,
+		Aliases:           pf.Aliases,
+		AliasStubs:        pf.AliasStubs,
+		Series:            pf.Series,
+		Sticky:            pf.Sticky,
+		Paginate:          pf.Paginate,
+		Schema:            pf.Schema,
+		TaxonomiesFM:      pf.Taxonomies,
 		// Template selection
 		Layout:   pf.Layout,
 		Template: pf.Template,

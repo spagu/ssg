@@ -376,8 +376,21 @@ record has; the build says so and points at `"=product"`.
 ### The fields you can map
 
 `title` (required), `slug`, `content`, `excerpt`, `description`, `date`,
-`modified`, `type`, `status`, `link`, `image`, `lang`, `taxonomies` as a
-map of taxonomy name to record field, and `schema`.
+`modified`, `type`, `status`, `link`, `image`, `lang`, `sitemap_changefreq`,
+`sitemap_priority`, `taxonomies` as a map of taxonomy name to record field,
+and `schema`.
+
+`sitemap_changefreq` and `sitemap_priority` are the record's sitemap hints
+(1.8.79, #356): a constant for the whole source, or a field or template when
+records change at different rates:
+
+```yaml
+content_map:
+  title: title
+  modified: asOf
+  sitemap_changefreq: "=daily"   # always, hourly, daily, weekly, monthly, yearly, never
+  sitemap_priority: "=0.7"       # 0.0 to 1.0
+```
 
 `schema` is every record's `schema:`, the structured data its page carries,
 as frontmatter `schema:` is for a page written by hand. A record has no

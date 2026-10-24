@@ -274,6 +274,8 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `template` | string | page | Specific page template filename override |
 | `robots` | string | both | Robots directive; `noindex` excludes from sitemap |
 | `sitemap` | string | both | `no` excludes the item from `sitemap.xml` |
+| `sitemap_changefreq` | string | both | The item's `<changefreq>`: `always`, `hourly`, `daily`, `weekly`, `monthly`, `yearly` or `never`; default `monthly` (1.8.79) |
+| `sitemap_priority` | number | both | The item's `<priority>`, 0.0 to 1.0; default by type (1.8.79) |
 | `lang` | string | both | Language used in multilingual output |
 
 Unknown frontmatter fields are retained and flattened into the template's root

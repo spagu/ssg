@@ -648,3 +648,23 @@ func TestMapRecordsSchema(t *testing.T) {
 		t.Error("a map with only a schema is not empty")
 	}
 }
+
+// TestMapRecordsSitemapHints (#356): a constant or a field sets each record's
+// sitemap hints; unset leaves them empty for the build's defaults.
+func TestMapRecordsSitemapHints(t *testing.T) {
+	m := productMap()
+	m.SitemapChangefreq = "=daily"
+	m.SitemapPriority = "weight"
+	imp, _, err := MapRecords(mappedSource(m), []interface{}{
+		map[string]interface{}{"sku": "W-1", "name": "Blue", "weight": 0.7},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := imp.Posts[0]; p.SitemapChangefreq != "daily" || p.SitemapPriority != "0.7" {
+		t.Errorf("hints = %q %q", p.SitemapChangefreq, p.SitemapPriority)
+	}
+	if (ContentMap{SitemapPriority: "=1"}).Empty() {
+		t.Error("a mapping with only a sitemap hint is not empty")
+	}
+}

@@ -102,9 +102,13 @@ type Page struct {
 	Canonical      string            `yaml:"canonical"`
 	Robots         string            `yaml:"robots"`
 	Sitemap        string            `yaml:"sitemap"`
-	FeaturedImage  string            `yaml:"featured_image"`
-	Tags           []string          `yaml:"tags,omitempty"`
-	Category       string            `yaml:"category"`
+	// SitemapChangefreq and SitemapPriority are the page's own <changefreq>
+	// and <priority> (#356); empty keeps the build's defaults.
+	SitemapChangefreq string   `yaml:"sitemap_changefreq"`
+	SitemapPriority   string   `yaml:"sitemap_priority"`
+	FeaturedImage     string   `yaml:"featured_image"`
+	Tags              []string `yaml:"tags,omitempty"`
+	Category          string   `yaml:"category"`
 
 	// Relations are the links this page declares to other pages, by name:
 	// `relations: {supersedes: [api-auth-v3], see_also: [oauth-setup]}`

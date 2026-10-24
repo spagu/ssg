@@ -195,6 +195,9 @@ func (d *Document) ToPage() (*models.Page, error) {
 	if sitemap, ok := d.Metadata["sitemap"].(string); ok {
 		page.Sitemap = sitemap
 	}
+	// The page's own sitemap hints (#356); a number arrives as written.
+	page.SitemapChangefreq = metaString(d.Metadata["sitemap_changefreq"])
+	page.SitemapPriority = metaString(d.Metadata["sitemap_priority"])
 	if featuredImage, ok := d.Metadata["featured_image"].(string); ok {
 		page.FeaturedImage = featuredImage
 	}
@@ -244,6 +247,7 @@ func (d *Document) ToPage() (*models.Page, error) {
 		"link": true, "author": true, "excerpt": true, "date": true, "modified": true,
 		"categories": true, "description": true, "keywords": true, "lang": true,
 		"canonical": true, "robots": true, "sitemap": true, "featured_image": true, "tags": true,
+		"sitemap_changefreq": true, "sitemap_priority": true,
 		"category": true, "layout": true, "template": true, "aliases": true, "series": true,
 		"alias_stubs": true, "schema": true, "sticky": true,
 	}
@@ -406,4 +410,18 @@ func ExtractAuthor(doc Document) models.Author {
 	}
 
 	return author
+}
+
+// metaString is a metadata value as text: a string as is, a number written
+// the shortest way, anything else empty.
+func metaString(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(t)
+	}
+	return ""
 }

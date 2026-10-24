@@ -376,6 +376,12 @@ func (g *Generator) alternateLinks(page models.Page, existing string) string {
 		if format.MIME == "" {
 			continue
 		}
+		// Only what is written is announced (#355): a format whose template
+		// renders nothing for this page gets no file, so it gets no link
+		// either — a link to a missing file fails check_links.
+		if data, err := g.renderOutput(page, name, format); err != nil || len(data) == 0 {
+			continue
+		}
 		href := outputURLFor(page, format)
 		// GO-085 announces the Markdown copy with its own absolute link, and a
 		// page must not carry two alternates for one representation.
@@ -434,7 +440,8 @@ func (g *Generator) writePageOutputs(page models.Page, htmlPath string) {
 	}
 	for _, name := range g.formatsFor(page) {
 		format := g.outputs.formats[name]
-		data, err := format.Render(g, page)
+		data, err := g.renderOutput(page, name, format)
+		g.forgetOutput(page, name)
 		if err != nil {
 			g.warnOutput(fmt.Sprintf("output %s for %q: %v", name, page.Slug, err))
 			continue
@@ -500,4 +507,36 @@ func injectAlternates(s, links string) string {
 		return s[:i] + links + s[i:]
 	}
 	return links + s
+}
+
+// renderedOutput is one format rendered for one page, kept from the moment
+// the page's <head> asks whether it exists until the file is written (#355).
+type renderedOutput struct {
+	data []byte
+	err  error
+}
+
+// outputKey identifies a page's rendering of one format.
+func outputKey(page models.Page, name string) string {
+	return page.GetURL() + "\x00" + page.SourceFile + "\x00" + name
+}
+
+// renderOutput renders a format for a page once: the <head> asks first, the
+// writer uses the same bytes, so the announcement and the file cannot
+// disagree and the template runs once.
+func (g *Generator) renderOutput(page models.Page, name string, format OutputFormat) ([]byte, error) {
+	key := outputKey(page, name)
+	if v, ok := g.outputCache.Load(key); ok {
+		r := v.(renderedOutput)
+		return r.data, r.err
+	}
+	data, err := format.Render(g, page)
+	g.outputCache.Store(key, renderedOutput{data: data, err: err})
+	return data, err
+}
+
+// forgetOutput drops a rendering once its file is written, so a watch build
+// renders afresh and memory does not grow with the site.
+func (g *Generator) forgetOutput(page models.Page, name string) {
+	g.outputCache.Delete(outputKey(page, name))
 }
