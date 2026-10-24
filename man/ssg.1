@@ -298,7 +298,11 @@ HTTP or \fBlocalhost:11024\fR for gRPC.
 Connection protocol: \fBhttp\fR (default) or \fBgrpc\fR.
 .TP
 .BR \-\-mddb\-collection =\fINAME
-Collection name for fetching pages and posts.
+Collection name for fetching pages and posts. Ignored when the config file sets
+\fBmddb.sources\fR, which reads several collections in one build. Each source
+names a \fBcollection\fR, a metadata \fBfilter\fR that MDDB applies on the
+server (\fB{ visibility: [public] }\fR), a \fBtype\fR (\fBpage\fR or
+\fBpost\fR) and a \fBsection\fR.
 .TP
 .BR \-\-mddb\-key =\fIKEY
 API key for MDDB authentication (optional).

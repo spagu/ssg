@@ -83,7 +83,7 @@ func (g *Generator) paginateCollection(page models.Page, spec models.PaginateSpe
 		if spec.Collection() == "pages" && p.GetOutputPath() == page.GetOutputPath() {
 			continue
 		}
-		if s := strings.TrimSpace(spec.Source); s != "" && !sourceDirMatches(p.SourceDir, s) {
+		if s := strings.TrimSpace(spec.Source); s != "" && !pageInSource(p, s) {
 			continue
 		}
 		out = append(out, p)

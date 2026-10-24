@@ -231,8 +231,12 @@ func (c *GRPCClient) GetAll(collection string, lang string, batchSize int) ([]Do
 
 // GetByType fetches all documents filtered by type (page or post) with pagination
 func (c *GRPCClient) GetByType(collection string, docType string, lang string) ([]Document, error) {
-	return getAllPaginated(c.Search, collection, lang,
-		map[string][]any{"type": {docType}}, c.batchSize)
+	return c.GetMatching(collection, lang, map[string][]any{"type": {docType}})
+}
+
+// GetMatching fetches every document whose metadata matches filterMeta (#361).
+func (c *GRPCClient) GetMatching(collection, lang string, filterMeta map[string][]any) ([]Document, error) {
+	return getAllPaginated(c.Search, collection, lang, filterMeta, c.batchSize)
 }
 
 // Health checks if the mddb server is available using Stats RPC

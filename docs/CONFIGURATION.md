@@ -2280,6 +2280,44 @@ mddb:
 | `mddb.batch_size` | `1000` | `--mddb-batch-size` |
 | `mddb.watch` | `false` | `--mddb-watch` |
 | `mddb.watch_interval` | `30` | `--mddb-watch-interval` |
+| `mddb.sources` | empty | — (config only; replaces `collection` when set) |
+
+#### Several collections, filtered on the server
+
+`mddb.sources` reads more than one collection in a build, each with its own
+filter, content type and section:
+
+```yaml
+mddb:
+  enabled: true
+  url: http://mddb:11023
+  sources:
+    - collection: articles
+      filter: { visibility: [public] }
+      type: post
+      section: articles
+    - collection: events
+      type: post
+      section: events
+    - collection: kb
+      type: page
+```
+
+| Source key | Meaning |
+|---|---|
+| `collection` | The collection to read. Required |
+| `filter` | Metadata the documents must have: each key lists the values it accepts. Sent to MDDB as `filterMeta` |
+| `type` | `page` or `post` files every document as that. Empty uses each document's own `type` meta, which is how `collection` always worked |
+| `section` | The content section the documents belong to. `schema_defaults`, `language_sections`, `output_encoding_sections`, Web Stories sections and a declared feed's or paginated page's `source:` match it the way they match a directory |
+
+MDDB applies the filter, so a document it leaves out is never downloaded. It
+does not reach the build directory, the search index or `llms.txt`. Filtering in
+templates instead would put private documents in all three. Leave `type` out
+when you want a filter on `type` itself. A source that sets `type` reads every
+document in the collection that matches the filter. With `sources` set,
+`collection` and `--mddb-collection` are ignored. Categories, media and users
+still come from the `categories`, `media` and `users` collections. Watch mode
+rebuilds when any of the listed collections changes.
 
 `mddb.allow_http` permits the API key over plaintext `http://` to a host that is
 not loopback. It is off by default and should stay off for anything routable —

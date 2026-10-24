@@ -50,6 +50,43 @@ type MddbConfig struct {
 	// default; the same opt-in `external_sources` already take (#201).
 	AllowHTTP     bool `yaml:"allow_http" toml:"allow_http" json:"allow_http"`
 	WatchInterval int  `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
+	// Sources reads several collections in one build, each with its own
+	// metadata filter, content type and section (#361). Empty means the one
+	// `collection` above, as before.
+	Sources []MddbSource `yaml:"sources" toml:"sources" json:"sources"`
+}
+
+// MddbSource is one collection an MDDB build reads (#361). Filter is passed to
+// the server as filterMeta — each key lists the values a document may have —
+// so what it leaves out never reaches the build directory or the search index.
+// Type "page" or "post" files every document as that; empty keeps each
+// document's own `type` meta. Section is the content section the documents
+// belong to, the key schema_defaults, language_sections and feeds match.
+type MddbSource struct {
+	Collection string              `yaml:"collection" toml:"collection" json:"collection"`
+	Filter     map[string][]string `yaml:"filter" toml:"filter" json:"filter"`
+	Type       string              `yaml:"type" toml:"type" json:"type"`
+	Section    string              `yaml:"section" toml:"section" json:"section"`
+}
+
+// Collections names every collection the build reads, in order and once each,
+// which is what the watch loop checksums.
+func (m MddbConfig) Collections() []string {
+	if len(m.Sources) == 0 {
+		if m.Collection == "" {
+			return nil
+		}
+		return []string{m.Collection}
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, src := range m.Sources {
+		if src.Collection != "" && !seen[src.Collection] {
+			seen[src.Collection] = true
+			out = append(out, src.Collection)
+		}
+	}
+	return out
 }
 
 // ContentSource is one extra Markdown root merged into the site (CONTENT-002).

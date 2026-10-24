@@ -272,8 +272,14 @@ func (c *Client) GetAll(collection string, lang string, batchSize int) ([]Docume
 
 // GetByType fetches all documents filtered by type (page or post) with pagination
 func (c *Client) GetByType(collection string, docType string, lang string) ([]Document, error) {
-	return getAllPaginated(c.Search, collection, lang,
-		map[string][]any{"type": {docType}}, c.batchSize)
+	return c.GetMatching(collection, lang, map[string][]any{"type": {docType}})
+}
+
+// GetMatching fetches every document whose metadata matches filterMeta, which
+// the server applies, so a document the filter leaves out never reaches the
+// build (#361).
+func (c *Client) GetMatching(collection, lang string, filterMeta map[string][]any) ([]Document, error) {
+	return getAllPaginated(c.Search, collection, lang, filterMeta, c.batchSize)
 }
 
 // Health checks if the mddb server is available

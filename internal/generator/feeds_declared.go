@@ -242,9 +242,10 @@ func (g *Generator) selectFeedPosts(spec models.FeedSpec) []models.Page {
 
 // pageInSource reports whether a page came from a content root, matching the
 // directory itself and anything beneath it, so `source: blog` covers
-// blog/2026/post.md as well as blog/post.md.
+// blog/2026/post.md as well as blog/post.md. A page with a named section, an
+// MDDB document, matches that section the same way (#361).
 func pageInSource(p models.Page, source string) bool {
-	return sourceDirMatches(p.SourceDir, source)
+	return sourceDirMatches(p.SourceDir, source) || sourceDirMatches(p.Section, source)
 }
 
 // sourceDirMatches is that test on the directory alone, so a declared sitemap

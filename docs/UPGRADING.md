@@ -220,7 +220,8 @@ which is a longer read but never a wrong one.
 ### 1.8.81 — nothing to do
 
 The unread-content warning no longer lists Markdown that `content_exclude`
-names. Nothing in the output changes.
+names. `mddb.sources` is new; a config without it reads its one collection as
+before. Nothing in the output changes.
 
 </div>
 

@@ -342,6 +342,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan s
 		return
 	}
 
+	collections := cfg.Mddb.Collections()
 	interval := cfg.Mddb.WatchInterval
 	if interval <= 0 {
 		interval = 30
@@ -349,13 +350,13 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan s
 
 	if !cfg.Quiet {
 		fmt.Printf("👀 Watching MDDB collection '%s' for changes (interval: %ds)...\n",
-			cfg.Mddb.Collection, interval)
+			strings.Join(collections, "', '"), interval)
 	}
 
 	var lastChecksum string
 
 	// Get initial checksum
-	checksumResp, err := client.Checksum(cfg.Mddb.Collection)
+	checksumResp, err := mddbChecksum(client, collections)
 	if err != nil {
 		errf("⚠️  Could not get initial checksum: %v\n", err)
 	} else {
@@ -373,7 +374,7 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan s
 		case <-time.After(time.Duration(interval) * time.Second):
 		}
 
-		checksumResp, err := client.Checksum(cfg.Mddb.Collection)
+		checksumResp, err := mddbChecksum(client, collections)
 		if err != nil {
 			if !cfg.Quiet {
 				errf("⚠️  Checksum check failed: %v\n", err)
@@ -390,6 +391,26 @@ func runMddbWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan s
 			rebuildOnChange(genCfg, cfg)
 		}
 	}
+}
+
+// mddbChecksum is one checksum over every collection the build reads, so a
+// change in any of them rebuilds (#361). A single collection reports its own
+// checksum unchanged.
+func mddbChecksum(client mddb.MddbClient, collections []string) (*mddb.ChecksumResponse, error) {
+	if len(collections) == 1 {
+		return client.Checksum(collections[0])
+	}
+	sums := make([]string, 0, len(collections))
+	total := 0
+	for _, c := range collections {
+		resp, err := client.Checksum(c)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", c, err)
+		}
+		sums = append(sums, resp.Checksum)
+		total += resp.DocumentCount
+	}
+	return &mddb.ChecksumResponse{Checksum: strings.Join(sums, "+"), DocumentCount: total}, nil
 }
 
 // rebuildOnChange handles rebuilding when changes are detected. It no longer
@@ -820,6 +841,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 			Timeout:    cfg.Mddb.Timeout,
 			BatchSize:  cfg.Mddb.BatchSize,
 			AllowHTTP:  cfg.Mddb.AllowHTTP,
+			Sources:    mddbSourcesOf(cfg),
 		},
 	}
 }
@@ -864,6 +886,23 @@ func workersOf(cfg *config.Config) []generator.WorkerConfig {
 // contentSourcesOf converts the configured extra Markdown roots into the
 // generator's own type, keeping the two packages free of a shared dependency
 // (the same pattern as MddbConfig above). CONTENT-002.
+// mddbSourcesOf maps mddb.sources onto the generator's own type (#361).
+func mddbSourcesOf(cfg *config.Config) []generator.MddbSource {
+	if len(cfg.Mddb.Sources) == 0 {
+		return nil
+	}
+	out := make([]generator.MddbSource, 0, len(cfg.Mddb.Sources))
+	for _, src := range cfg.Mddb.Sources {
+		out = append(out, generator.MddbSource{
+			Collection: src.Collection,
+			Filter:     src.Filter,
+			Type:       src.Type,
+			Section:    src.Section,
+		})
+	}
+	return out
+}
+
 func contentSourcesOf(cfg *config.Config) []generator.ContentSource {
 	if len(cfg.ContentSources) == 0 {
 		return nil

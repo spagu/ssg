@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.81] - unreleased
 
+### Added
+
+- **`mddb.sources`: several MDDB collections in one build, each filtered on the
+  server** (#361). Each source names a `collection`, a metadata `filter` sent
+  to MDDB as `filterMeta` (`{ visibility: [public] }`), a `type` (`page` or
+  `post`) and a `section`. MDDB applies the filter, so private documents are
+  never downloaded and cannot leak into the build directory or the search
+  index. The section is the key `schema_defaults`, `language_sections`,
+  `output_encoding_sections` and a declared feed's `source:` already match.
+  Watch mode checks every listed collection. A config without `sources`, and
+  `--mddb-collection`, read one collection as before.
+
 ### Fixed
 
 - **The unread-content warning respects `content_exclude`** (#360). A build

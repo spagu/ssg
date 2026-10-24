@@ -225,6 +225,28 @@ func TestClient_GetByType(t *testing.T) {
 	}
 }
 
+// TestClient_GetMatching sends a configured filter as filterMeta, so the server
+// leaves out what the site may not publish (#361).
+func TestClient_GetMatching(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req SearchRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Collection != "articles" || len(req.FilterMeta["visibility"]) != 1 || req.FilterMeta["visibility"][0] != "public" {
+			t.Errorf("request = %+v", req)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Total-Count", "1")
+		_ = json.NewEncoder(w).Encode([]mddbDocument{{Key: "open", ContentMd: "# Open"}})
+	}))
+	defer server.Close()
+
+	docs, err := NewClient(Config{BaseURL: server.URL}).GetMatching("articles", "",
+		map[string][]any{"visibility": {"public"}})
+	if err != nil || len(docs) != 1 {
+		t.Fatalf("docs = %v, err = %v", docs, err)
+	}
+}
+
 func TestClient_WithAPIKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// An API key goes in X-API-Key, not in Authorization. MDDB's middleware
