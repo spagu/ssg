@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.81">1.8.81 — 2026-10-24</option>
       <option value="1.8.80">1.8.80 — 2026-10-24</option>
       <option value="1.8.79">1.8.79 — 2026-10-24</option>
       <option value="1.8.78">1.8.78 — 2026-10-22</option>
@@ -214,6 +215,16 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.82">
+
+### 1.8.82 — nothing to do
+
+A security release: `golang.org/x/net` 0.62.0 fixes a slow path in the HTML
+parser that every build runs. Replace the binary. `heading_anchors` is new and
+off by default, so a site that does not set it builds exactly as before.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.81">
 

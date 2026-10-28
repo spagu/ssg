@@ -110,7 +110,11 @@ func (c *jwksCache) discover() (string, error) {
 			JWKSURI string `json:"jwks_uri"`
 		}
 		if err := c.getJSON(u, &meta); err != nil {
-			lastErr = err
+			// A metadata document naming someone else says more than a 404 at
+			// the next address, so it is the one reported.
+			if lastErr == nil {
+				lastErr = err
+			}
 			continue
 		}
 		if meta.Issuer != c.opts.Issuer || meta.JWKSURI == "" {

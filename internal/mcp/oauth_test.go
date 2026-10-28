@@ -324,3 +324,14 @@ func TestOAuthRefusesAMultiSignatureToken(t *testing.T) {
 		t.Error("a multi-signature token must be refused")
 	}
 }
+
+// TestJWKSDiscoveryRefusesAnotherIssuersMetadata: a metadata document at the
+// right address that names a different issuer describes someone else.
+func TestJWKSDiscoveryRefusesAnotherIssuersMetadata(t *testing.T) {
+	f := newFakeIssuer(t, "/.well-known/oauth-authorization-server/realm")
+	o := f.options()
+	f.issuer = "https://impostor.example.com"
+	if _, err := newJWKSCache(o).key("k1"); err == nil || !strings.Contains(err.Error(), "impostor") {
+		t.Errorf("err = %v", err)
+	}
+}

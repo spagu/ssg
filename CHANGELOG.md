@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.82] - 2026-10-28
+
+### Added
+
+- **`heading_anchors`: a self-link on each heading** (#364). With
+  `heading_anchors: true`, every `h1`–`h3` that has an id gets
+  `<a class="heading-anchor" href="#id" aria-label="Link to the section …">#</a>`,
+  written at build time, so it works without JavaScript, crawlers see it, and
+  every theme gets it. A mapping sets `levels`, `symbol`, `class` and `label`.
+  The links go into the page body only; the table of contents, search index,
+  feeds and read-aloud audio never see the symbol. TEMPLATES.md now also
+  explains how a theme script should look up an id that starts with a digit.
+
+### Security
+
+- **`golang.org/x/net` v0.61.0 → v0.62.0** for GO-2026-6860, quadratic time
+  when the HTML parser coalesces text nodes. ssg calls `html.Parse` on every
+  page it writes (the output checks), so a page with crafted content could
+  slow the build to a crawl. Also GO-2026-6866 in the same package, which ssg
+  does not call. Upgrade.
+
+### Fixed
+
+- **MCP OAuth key discovery names the real problem.** When the issuer's RFC
+  8414 metadata named a different issuer, the error reported the 404 from the
+  OpenID Connect address tried next. It now reports the mismatch.
+
+### Tests
+
+- Every package is back at or above 97% statement coverage (the generated
+  protobuf code aside). New tests cover failure paths: unreadable deploy
+  output, a network that is down, archive entries that do not open or inflate,
+  unreadable component files, external-source config refusals and a truncated
+  image source.
+
+### Dependencies
+
+- `google.golang.org/grpc` v1.84.0 → v1.85.0, `modernc.org/sqlite` v1.60.1 →
+  v1.61.0, `github.com/pkg/sftp` v1.13.11 → v1.13.12; the locked gosec tool
+  module gets the same `x/net` and `grpc`.
+
 ## [1.8.81] - 2026-10-24
 
 ### Added

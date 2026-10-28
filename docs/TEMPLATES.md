@@ -304,6 +304,16 @@ The attribute is free to leave in: a build without `--edit` removes it, byte for
 byte, so a published page carries none of it. `ssgtheme`, `simple` and `krowy`
 already have it on their titles.
 
+### Heading ids may start with a digit
+
+Heading ids follow the heading text, so `## 1. Deterministic ids` gets
+`id="1-deterministic-ids"`. `#1-deterministic-ids` is not a valid CSS selector,
+and `document.querySelector(location.hash)` throws on it. A theme script that
+scrolls to a heading should look it up with
+`document.getElementById(decodeURIComponent(location.hash.slice(1)))`, or with
+`CSS.escape` around the id. ssg can also write the heading links itself; see
+`heading_anchors` in [CONFIGURATION.md](CONFIGURATION.md#authoring).
+
 ## Template engines
 
 | Engine | Configuration | Aliases | Syntax |
