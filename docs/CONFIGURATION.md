@@ -916,10 +916,41 @@ rewritten HTML/CSS references serve WebP, the runtime `.png` still resolves
 | `highlight_line_numbers` | `false` | — | Prefix highlighted blocks with line numbers (needs `highlight`) |
 | `toc` | `false` | `--toc` | Expose `.TOC`; `[toc]` also expands |
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
+| `heading_anchors` | `false` | — | Append a `#` link to its own id on each heading, so a reader can copy the section's address |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
 | `mermaid` | `false` | — | Render ```` ```mermaid ```` fences as diagrams |
 | `mermaid_theme` | — | — | Mermaid built-in theme: `default`, `neutral`, `dark`, `forest`, `base` |
 | `mermaid_background` | — | — | Solid CSS colour boxed behind each diagram |
+
+`heading_anchors: true` gives every `h1`–`h3` that has an id a link to itself,
+written at build time, so it works without JavaScript and every theme gets it:
+
+```html
+<h2 id="overview">Overview <a class="heading-anchor" href="#overview" aria-label="Link to the section Overview">#</a></h2>
+```
+
+The mapping form changes what is written. A mapping turns the links on unless it
+says `enabled: false`:
+
+```yaml
+heading_anchors:
+  levels: [2, 3]                   # default [1, 2, 3]
+  symbol: "¶"                      # default "#"
+  class: heading-anchor            # default
+  label: "Link to the section {text}"   # aria-label; {text} is the heading
+```
+
+The links are added to the page body only. The table of contents, the search
+index, feeds, summaries and the read-aloud audio read the Markdown, so the
+symbol never appears in them. A heading that already links to its own id, for
+example from a heading render hook, is left as it is. Style the link in the
+theme; a common choice is to show it only on hover:
+
+```css
+.heading-anchor { opacity: 0; text-decoration: none; margin-left: .25em; }
+h1:hover .heading-anchor, h2:hover .heading-anchor, h3:hover .heading-anchor,
+.heading-anchor:focus { opacity: 1; }
+```
 
 `mermaid: true` rewrites a ```` ```mermaid ```` fence into a
 `<pre class="mermaid">` block before rendering (so the diagram source is passed

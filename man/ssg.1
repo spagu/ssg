@@ -544,7 +544,10 @@ Chroma style (default: \fBgithub\fR).
 Expose \fB.TOC\fR to templates; the \fB[toc]\fR marker in content always expands.
 .TP
 .BR \-\-toc\-depth =\fIN
-Maximum heading level included in the TOC (default: 3).
+Maximum heading level included in the TOC (default: 3). The config key
+\fBheading_anchors: true\fR (no flag) appends a \fB#\fR link to its own id
+on each h1\(enh3 of the page body; a mapping sets \fBlevels\fR, \fBsymbol\fR,
+\fBclass\fR and \fBlabel\fR.
 .SS Feeds, SEO and Search
 .TP
 .B \-\-feed

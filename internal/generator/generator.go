@@ -400,6 +400,8 @@ type Config struct {
 	// step-by-step recipe view (1.8.72).
 	Print    PrintOptions
 	CookMode CookModeOptions
+	// HeadingAnchors appends a self-link to each heading with an id (#364).
+	HeadingAnchors HeadingAnchorsOptions
 	// Breadcrumbs shapes the derived JSON-LD BreadcrumbList (1.8.73, #335).
 	Breadcrumbs BreadcrumbOptions
 	// APIDocs documents JavaScript/TypeScript packages as pages (GO-107);
@@ -3003,6 +3005,8 @@ func (g *Generator) tmplSafeHTML(pageLinks map[string]string, mdLinkMap map[stri
 				s = strings.Replace(s, fmt.Sprintf("ssg-protected-%d-token", i), html, 1)
 			}
 		}
+		// After the sanitizer: the links are this build's own markup (#364).
+		s = g.addHeadingAnchors(s)
 		return template.HTML(s) // #nosec G203 -- rendered markdown (optionally sanitized, FE-005)
 	}
 }

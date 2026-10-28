@@ -357,7 +357,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 
 | Area | Available capabilities |
 |---|---|
-| Authoring | Shortcodes, table of contents, syntax highlighting, KaTeX math, raw HTML sanitization; a file dropped for a missing `status:` or unparseable frontmatter is named with the likely cause (`strict: true` fails the build on the latter) ([docs/CONTENT.md](docs/CONTENT.md#markdown-and-frontmatter)) |
+| Authoring | Shortcodes, table of contents, heading self-links (`heading_anchors`), syntax highlighting, KaTeX math, raw HTML sanitization; a file dropped for a missing `status:` or unparseable frontmatter is named with the likely cause (`strict: true` fails the build on the latter) ([docs/CONTENT.md](docs/CONTENT.md#markdown-and-frontmatter)) |
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
 | API docs from code | `api_docs:` reads JavaScript (and TypeScript declarations) with their doc comments into pages of the site — packages, modules, classes, cross-links, source links — plus `api.json`, `check_api`, and MCP/WebMCP tools for agents; no Node needed for JS. `@example` blocks can run in the browser (`playground:`) ([docs/API_DOCS.md](docs/API_DOCS.md)) |
 | API docs for Go, PHP, Python | The same pages from Go (standard library parser), PHP and Python (built-in declaration scanners): nothing to install, language detected from `go.mod`, `composer.json`, `pyproject.toml` ([docs/API_LANGUAGES.md](docs/API_LANGUAGES.md)) |
