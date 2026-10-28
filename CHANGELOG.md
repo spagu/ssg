@@ -28,6 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   slow the build to a crawl. Also GO-2026-6866 in the same package, which ssg
   does not call. Upgrade.
 
+### Fixed
+
+- **MCP OAuth key discovery names the real problem.** When the issuer's RFC
+  8414 metadata named a different issuer, the error reported the 404 from the
+  OpenID Connect address tried next. It now reports the mismatch.
+
+### Tests
+
+- Every package is back at or above 97% statement coverage (the generated
+  protobuf code aside). New tests cover failure paths: unreadable deploy
+  output, a network that is down, archive entries that do not open or inflate,
+  unreadable component files, external-source config refusals and a truncated
+  image source.
+
 ### Dependencies
 
 - `google.golang.org/grpc` v1.84.0 → v1.85.0, `modernc.org/sqlite` v1.60.1 →
