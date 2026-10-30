@@ -473,6 +473,12 @@ func (g *Generator) writeOutputFile(path string, data []byte, what string) bool 
 		g.warnOutput(fmt.Sprintf("%s: %v", what, err))
 		return false
 	}
+	// A taxonomy view writes its formats before its HTML (#370), so the
+	// directory may not exist yet. Cached, so a page pays nothing for it.
+	if err := g.ensureParent(path); err != nil {
+		g.warnOutput(fmt.Sprintf("%s: %v", what, err))
+		return false
+	}
 	// #nosec G306,G703 -- a published representation of the page beside it
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		g.warnOutput(fmt.Sprintf("%s: %v", what, err))

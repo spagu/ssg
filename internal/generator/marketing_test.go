@@ -140,3 +140,22 @@ func TestMarketingSummary(t *testing.T) {
 		t.Errorf("nothing found → no line, got %q", s)
 	}
 }
+
+// TestMarketingOGImageOnlyAsFallback: a page with its own image gets one
+// og:image, its own; a page without one gets the site's (#371).
+func TestMarketingOGImageOnlyAsFallback(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", SEO: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.siteData = &models.SiteData{Marketing: models.Marketing{OGImage: "/card.png", OGSiteName: "Example"}}
+	doc := "<html><head><title>x</title></head><body></body></html>"
+	withImage := g.seoHTMLString(doc, models.Page{Title: "Brotli", Slug: "brotli", FeaturedImage: "/brotli/card.png"}, false)
+	if n := strings.Count(withImage, `property="og:image"`); n != 1 || !strings.Contains(withImage, "/brotli/card.png") {
+		t.Errorf("want only the page's og:image, got %d in:\n%s", n, withImage)
+	}
+	without := g.seoHTMLString(doc, models.Page{Title: "Plain", Slug: "plain"}, false)
+	if n := strings.Count(without, `property="og:image"`); n != 1 || !strings.Contains(without, "https://example.com/card.png") {
+		t.Errorf("want the site fallback once, got %d in:\n%s", n, without)
+	}
+}

@@ -216,6 +216,19 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.84">
+
+### 1.8.84 — nothing to do
+
+Replace the binary. `format: google-merchant` for `feeds:` is new; existing
+feeds are unchanged. A page with `featured_image` and a site with
+`marketing.og_image` now carries one `og:image`, the page's own, instead of
+both. A taxonomy with `outputs:` now links its formats from the
+page's `<head>`; a theme that added those links by hand keeps working, because
+a link already present is not added again.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.83">
 
 ### 1.8.83 — nothing to do

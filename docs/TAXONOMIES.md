@@ -165,6 +165,11 @@ have `.Site`, `.Domain`, `.Vars`, `.Data` and the theme's helpers, including
 {{else}}{"terms": [{{range $i, $t := .Terms}}{{if $i}},{{end}}{"name": {{ toJSON $t.Name }}, "count": {{ $t.Count }}}{{end}}]}{{end}}
 ```
 
+The index and page 1 of each term announce every format that has a `mime` in
+their `<head>`, as content pages do (since 1.8.84, #370):
+`<link rel="alternate" type="application/json" href="/license/index.json">`.
+A format the theme already links is not announced twice.
+
 A paginated term writes its format once, beside page 1, and `.Posts` there is
 every post of the term, not the first page: an API client wants the whole term.
 Each language's taxonomy base gets its own file. Only custom formats apply —

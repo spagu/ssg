@@ -13,17 +13,26 @@ package generator
 
 import (
 	"fmt"
+	stdhtml "html"
 	"reflect"
 	"strings"
 )
 
 // writeViewOutputs writes the custom formats a taxonomy view publishes beside
-// the HTML written to htmlPath. view names the page in warnings.
-func (g *Generator) writeViewOutputs(formats []string, htmlPath, view string, data interface{}) {
+// the HTML that goes to htmlPath, served at pageURL, and keeps a <head> link
+// for each format written, for that HTML to carry (#370). view names the page
+// in warnings.
+func (g *Generator) writeViewOutputs(formats []string, htmlPath, pageURL, view string, data interface{}) {
 	if g.outputs == nil || len(formats) == 0 {
 		return
 	}
 	ctx := viewContext(data)
+	var links []viewAlternate
+	defer func() {
+		if len(links) > 0 {
+			g.viewAlternates.Store(htmlPath, links)
+		}
+	}()
 	for _, raw := range formats {
 		name := strings.ToLower(strings.TrimSpace(raw))
 		if name == "" || name == FormatHTML {
@@ -43,8 +52,31 @@ func (g *Generator) writeViewOutputs(formats []string, htmlPath, view string, da
 		if len(out) == 0 {
 			continue
 		}
-		g.writeOutputFile(outputFilePath(htmlPath, format), out, what)
+		if g.writeOutputFile(outputFilePath(htmlPath, format), out, what) && format.MIME != "" {
+			links = append(links, viewAlternate{mime: format.MIME, href: strings.TrimRight(pageURL, "/") + "/" + format.Suffix})
+		}
 	}
+}
+
+// viewAlternate is one format a taxonomy page announces.
+type viewAlternate struct{ mime, href string }
+
+// injectViewAlternates places the links writeViewOutputs kept for the page
+// written to outputPath. A format the theme already announces, by its address
+// or its type, is not announced twice — the rule content pages follow.
+func (g *Generator) injectViewAlternates(s, outputPath string) string {
+	v, ok := g.viewAlternates.LoadAndDelete(outputPath)
+	if !ok {
+		return s
+	}
+	var b strings.Builder
+	for _, a := range v.([]viewAlternate) {
+		if strings.Contains(s, `href="`+a.href+`"`) || strings.Contains(s, `rel="alternate" type="`+a.mime+`"`) {
+			continue
+		}
+		fmt.Fprintf(&b, `<link rel="alternate" type="%s" href="%s">`+"\n", stdhtml.EscapeString(a.mime), stdhtml.EscapeString(a.href))
+	}
+	return injectAlternates(s, b.String())
 }
 
 // viewContext turns a view's data into a map, so one format template can test

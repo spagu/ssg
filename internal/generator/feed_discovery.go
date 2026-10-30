@@ -36,7 +36,7 @@ func (g *Generator) feedAutodiscoveryLinks(lang string) string {
 			continue
 		}
 		format, _, err := feedFormatOf(spec)
-		if err != nil {
+		if err != nil || format.unlisted {
 			continue
 		}
 		title := strings.TrimSpace(spec.Title)

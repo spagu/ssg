@@ -374,10 +374,11 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
 		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{}), g.ssgInfo(),
 		g.taxonomyLastmod(def.Name, lang)}
+	// The formats first, so the page announces only what was written (#370).
+	g.writeViewOutputs(def.OutputsIndex, indexOut, base, "taxonomy "+base, indexData)
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}
-	g.writeViewOutputs(def.OutputsIndex, indexOut, "taxonomy "+base, indexData)
 
 	for i, t := range terms {
 		posts := sortPostsByDate(g.taxonomies.Pages(def.Name, lang, t.Key))
@@ -437,6 +438,13 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 	if def.Paginate > 0 {
 		perPage = def.Paginate
 	}
+	// The custom formats are written once, beside the first page, and list
+	// every post of the term: an API client wants the term, not one page of
+	// it (#367). Before the HTML, so page 1 can announce them (#370).
+	if len(def.OutputsTerm) > 0 {
+		data := g.termData(def, lang, info, term, slug, posts, Pager{Current: 1, Total: 1, PerPage: perPage})
+		g.writeViewOutputs(def.OutputsTerm, filepath.Join(root, indexHTMLName), term.URL, "term "+term.URL, data)
+	}
 	for _, chunk := range paginateTerm(posts, perPage, term.URL) {
 		outPath := filepath.Join(root, indexHTMLName)
 		if chunk.Pager.Current > 1 {
@@ -446,13 +454,6 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 		if err := g.renderTaxonomyPage(chain, outPath, data); err != nil {
 			return err
 		}
-	}
-	// The custom formats are written once, beside the first page, and list
-	// every post of the term: an API client wants the term, not one page of
-	// it (#367).
-	if len(def.OutputsTerm) > 0 {
-		data := g.termData(def, lang, info, term, slug, posts, Pager{Current: 1, Total: 1, PerPage: perPage})
-		g.writeViewOutputs(def.OutputsTerm, filepath.Join(root, indexHTMLName), "term "+term.URL, data)
 	}
 	return nil
 }

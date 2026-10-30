@@ -702,6 +702,9 @@ type Generator struct {
 	// outputCache holds each page's rendered output formats between the
 	// <head> asking whether one exists and the file being written (#355).
 	outputCache sync.Map
+	// viewAlternates holds the <head> links a taxonomy page announces for the
+	// formats written beside it, keyed by the HTML's output path (#370).
+	viewAlternates sync.Map
 
 	// graph records what this build depended on; prevGraph is the previous
 	// build's, and plan is what the two say can be skipped (GO-094). pending
@@ -2574,6 +2577,7 @@ func (g *Generator) renderWithEngine(templateName, outputPath string, data inter
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
 		themeLD := strings.Contains(out, "application/ld+json")
 		out = g.transformHTMLPage(out, page, isPost)
+		out = g.injectViewAlternates(out, outputPath)
 		out = g.injectStructuredData(out, structuredDataOf(data), themeLD)
 		g.noteEmptyCanonical(outputPath, out)
 	}

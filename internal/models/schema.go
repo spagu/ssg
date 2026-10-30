@@ -108,6 +108,18 @@ type FeedSpec struct {
 	// feed_full_content rather than repeating them per entry.
 	Items       *int  `yaml:"items" toml:"items" json:"items"`
 	FullContent *bool `yaml:"full_content" toml:"full_content" json:"full_content"`
+
+	// Merchant holds the site-wide values of a `format: google-merchant` feed
+	// for attributes a product page does not state (#196).
+	Merchant MerchantDefaults `yaml:"merchant" toml:"merchant" json:"merchant"`
+}
+
+// MerchantDefaults are a merchant feed's fallbacks. A page's JSON-LD and its
+// `merchant:` front matter win over them.
+type MerchantDefaults struct {
+	Availability string `yaml:"availability" toml:"availability" json:"availability"` // in_stock, out_of_stock, preorder, backorder
+	Condition    string `yaml:"condition" toml:"condition" json:"condition"`          // new (default), used, refurbished
+	Brand        string `yaml:"brand" toml:"brand" json:"brand"`
 }
 
 // FeedInput is one input of an aggregating feed (#89): either an external feed

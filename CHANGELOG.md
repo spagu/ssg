@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.84] - 2026-10-30
+
+### Added
+
+- **Google Merchant Center product feed** (#196). `feeds:` takes
+  `format: google-merchant` and writes the selected pages' products as RSS 2.0
+  in the `g:` namespace, which Google fetches on its own schedule. Rows come
+  from the merged JSON-LD each page already gets, so a page with valid
+  `Product` + `Offer` data needs no extra authoring. `id` is the `sku`, then
+  `merchant.id` in front matter, then the URL (with a warning, because a
+  changed slug is a new product to Google). Schema.org availability and
+  condition are mapped to Google's values; a `ProductGroup` gives one row per
+  variant with a shared `item_group_id`. A page's `merchant:` front matter and
+  the feed's `merchant:` defaults fill what the JSON-LD does not say. Products
+  Google would reject are left out with a warning, and the feed is not
+  advertised to feed readers.
+
+### Fixed
+
+- **Taxonomy pages announce their formats** (#370). Since 1.8.83 a taxonomy
+  writes its `outputs_custom` formats beside its pages, but only content pages
+  carried the `<link rel="alternate">` for them, so a client that discovers the
+  API from the page could not find `/license/index.json`. The taxonomy index
+  and page 1 of each term — where the file is written — now announce every
+  format that has a MIME type and was actually written, the way content pages
+  do. A format the theme already links is not announced twice, and the link
+  follows `base_path`. The formats are now written before the page, so a
+  template error in a format no longer leaves a link to a missing file.
+- **One `og:image` per page** (#371). `marketing.og_image` is the fallback for
+  pages with no image of their own, but the marketing block could not see the
+  `og:image` the SEO block had just written from the page's `featured_image`,
+  so such a page carried two. It now gets only its own; a page without an image
+  still gets the site's. The palette's `theme-color` follows the same rule.
+
 ## [1.8.83] - 2026-10-30
 
 ### Added

@@ -29,6 +29,9 @@ import (
 type feedFormat struct {
 	mime   string
 	render func(g *Generator, page feedPage) string
+	// unlisted keeps a feed out of the pages' autodiscovery links: a product
+	// feed is for Merchant Center, not for a reader to subscribe to (#196).
+	unlisted bool
 }
 
 // feedFormats is the supported set. Podcast and news shapes are deliberately
@@ -39,6 +42,8 @@ var feedFormats = map[string]feedFormat{
 	"atom": {mime: "application/atom+xml", render: renderAtomFeed},
 	"rss":  {mime: "application/rss+xml", render: renderRSSFeed},
 	"json": {mime: "application/feed+json", render: renderJSONFeed},
+	// The products, not the posts: written by writeMerchantFeed (#196).
+	merchantFormat: {mime: "application/rss+xml", unlisted: true},
 }
 
 // feedFormatOf resolves a spec's format, defaulting to atom.
@@ -49,7 +54,7 @@ func feedFormatOf(f models.FeedSpec) (feedFormat, string, error) {
 	}
 	format, ok := feedFormats[name]
 	if !ok {
-		return feedFormat{}, name, fmt.Errorf("feeds: %q has unsupported format %q (supported: atom, rss, json)", f.Path, f.Format)
+		return feedFormat{}, name, fmt.Errorf("feeds: %q has unsupported format %q (supported: atom, rss, json, google-merchant)", f.Path, f.Format)
 	}
 	return format, name, nil
 }
@@ -86,9 +91,12 @@ func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 	if rel == "" {
 		return fmt.Errorf("feeds: path is required")
 	}
-	format, _, err := feedFormatOf(spec)
+	format, name, err := feedFormatOf(spec)
 	if err != nil {
 		return err
+	}
+	if name == merchantFormat {
+		return g.writeMerchantFeed(spec, rel)
 	}
 
 	full := g.config.FeedFullContent

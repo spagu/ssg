@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -147,7 +148,7 @@ func TestTaxonomyOutputsRejectedFormats(t *testing.T) {
 
 func TestWriteViewOutputsWithoutRegistry(t *testing.T) {
 	g := &Generator{}
-	g.writeViewOutputs([]string{"api"}, "x/index.html", "view", nil) // no registry: nothing to do
+	g.writeViewOutputs([]string{"api"}, "x/index.html", "/x/", "view", nil) // no registry: nothing to do
 }
 
 func TestViewContext(t *testing.T) {
@@ -165,5 +166,80 @@ func TestViewContext(t *testing.T) {
 	}
 	if got := viewContext(42); len(got) != 0 {
 		t.Errorf("non-struct: %v", got)
+	}
+}
+
+// headTemplates gives the taxonomy views a <head>, so links can be injected.
+func headTemplates(t *testing.T, tmp, indexHead string) {
+	t.Helper()
+	dir := filepath.Join(tmp, "templates", "simple")
+	mustWrite(t, filepath.Join(dir, "taxonomy.html"),
+		`{{define "taxonomy.html"}}<html><head><title>{{.Taxonomy.Label}}</title>`+indexHead+`</head><body></body></html>{{end}}`)
+	mustWrite(t, filepath.Join(dir, "taxonomy-term.html"),
+		`{{define "taxonomy-term.html"}}<html><head><title>{{.Term.Name}}</title></head><body>{{.Pager.Current}}</body></html>{{end}}`)
+}
+
+const apiAlternate = `<link rel="alternate" type="application/json" href="%s">`
+
+// TestTaxonomyOutputsAnnounced: the index and page 1 of a term announce the
+// format written beside them; page 2, which has no file, does not (#370).
+func TestTaxonomyOutputsAnnounced(t *testing.T) {
+	tmp, cfg := taxonomyOutputsSite(t)
+	headTemplates(t, tmp, "")
+	cfg.Paginate = 1
+	cfg.Taxonomies["technology"] = taxonomy.DefinitionConfig{Outputs: []string{"html", "api"}}
+	generateSite(t, cfg)
+	out := filepath.Join(tmp, "output", "technology")
+	wantContains(t, "index", mustRead(t, filepath.Join(out, "index.html")), fmt.Sprintf(apiAlternate, "/technology/index.json"))
+	wantContains(t, "term", mustRead(t, filepath.Join(out, "go", "index.html")), fmt.Sprintf(apiAlternate, "/technology/go/index.json"))
+	if page2 := mustRead(t, filepath.Join(out, "go", "page", "2", "index.html")); strings.Contains(page2, "index.json") {
+		t.Errorf("page 2 has no file to announce: %s", page2)
+	}
+}
+
+// TestTaxonomyOutputsAnnouncedOnce: a link the theme already has is not
+// repeated, and a format without a MIME type is written but not announced.
+func TestTaxonomyOutputsAnnouncedOnce(t *testing.T) {
+	tmp, cfg := taxonomyOutputsSite(t)
+	headTemplates(t, tmp, fmt.Sprintf(apiAlternate, "/technology/index.json"))
+	plain := filepath.Join(tmp, "plain.tmpl")
+	mustWrite(t, plain, "{{.Domain}}")
+	cfg.OutputsCustom = append(cfg.OutputsCustom, CustomOutput{Name: "plain", Suffix: "index.txt", Template: plain})
+	cfg.Taxonomies["technology"] = taxonomy.DefinitionConfig{Outputs: []string{"api", "plain"}}
+	generateSite(t, cfg)
+	out := filepath.Join(tmp, "output", "technology")
+	index := mustRead(t, filepath.Join(out, "index.html"))
+	if n := strings.Count(index, "/technology/index.json"); n != 1 {
+		t.Errorf("announced %d times: %s", n, index)
+	}
+	if strings.Contains(index, "index.txt") {
+		t.Errorf("a format without MIME is not announced: %s", index)
+	}
+	wantFiles(t, filepath.Join(out, "index.txt"))
+}
+
+// TestTaxonomyOutputsAnnouncedUnderBasePath: the link follows base_path like
+// every other root-relative URL.
+func TestTaxonomyOutputsAnnouncedUnderBasePath(t *testing.T) {
+	tmp, cfg := taxonomyOutputsSite(t)
+	headTemplates(t, tmp, "")
+	cfg.BasePath = "/docs"
+	cfg.Taxonomies["technology"] = taxonomy.DefinitionConfig{Outputs: []string{"api"}}
+	generateSite(t, cfg)
+	wantContains(t, "index", mustRead(t, filepath.Join(tmp, "output", "technology", "index.html")),
+		fmt.Sprintf(apiAlternate, "/docs/technology/index.json"))
+}
+
+// TestWriteOutputFileBlockedParent: a format whose directory cannot be made is
+// a warning, and nothing is announced for it.
+func TestWriteOutputFileBlockedParent(t *testing.T) {
+	out := t.TempDir()
+	g, err := New(Config{Domain: "example.com", OutputDir: out})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(out, "blocked"), "a file where a directory should be")
+	if g.writeOutputFile(filepath.Join(out, "blocked", "x", "index.json"), []byte("{}"), "test") {
+		t.Error("a file in the way must fail")
 	}
 }
