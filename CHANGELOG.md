@@ -64,6 +64,12 @@ the code, and these are the places where the code was wrong.
   `CONTACT_FROM` — is set, before spending the visitor's Turnstile token. The
   old `RESEND_API_KEY` still works as a Resend fallback, read last. Its tests
   run with `make test-workers`.
+- **The GitHub Action resolves `version: latest` without the API** (#382). It
+  asked the REST API, which rate-limits unauthenticated calls from shared
+  runner IPs; the answer then had no `tag_name`, and `pipefail` ended the step
+  before its error message, so the job failed in milliseconds with no cause.
+  The action now follows the `releases/latest` redirect and, if that fails,
+  says so and suggests pinning `version`.
 - **CI** (#380). The coverage gate is 97%, for the module and per package — the
   floor every package has met since 1.8.82 — instead of 96%. The release notes
   name the snap correctly: `snap install static-site-generator`.
