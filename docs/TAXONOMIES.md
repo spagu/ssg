@@ -101,10 +101,16 @@ The index context provides `.Taxonomy` (`Name/Label/Singular/Path/URL`),
 `.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`), `.Site`,
 `.Lang`, `.Domain`, `.Vars`, `.Data`, `.ExternalData`, `.BuildTime`, `.SSG`,
 `.Modified` (the newest lastmod of any post with a term) and, like every other
-archive, `.CanonicalURL`. It has no `.Posts`, `.Pager`, `.Category`, `.Kind` or
-`.Name` — the index is a struct, so even `{{ with .Posts }}` is a render
-error there. A theme whose `category.html` reads those fields should ship a
-`taxonomy.html` (or `taxonomy-<name>.html`) for the index. The term context is the archive context described in
+archive, `.CanonicalURL`. So that the `archive.html` → `category.html` end of
+the chain renders on any theme, it also carries the archive-shaped fields
+those templates read: `.Category` (`Name` = the taxonomy label, `Slug` = its
+path), `.Kind` (the taxonomy name), `.Name` (the label), `.Posts` (always
+empty — an index lists terms, not posts) and `.Pager` (a single page). Before
+1.8.85 the index had none of them, and a theme without `taxonomy.html` failed
+the build on `can't evaluate field Category` (#377). A category template still
+shows an empty post list there, so a theme should ship a `taxonomy.html` (or
+`taxonomy-<name>.html`) that ranges over `.Terms`; the bundled `simple` theme
+ships `taxonomy.html` and `taxonomy-term.html`. The term context is the archive context described in
 [TEMPLATES.md](TEMPLATES.md#category-tag-author-and-series-archives) —
 `.Posts` (newest first), `.Pager`, `.Modified`, `.StructuredData` and, for
 compatibility with `category.html`, `.Category`, `.Kind` and `.Name` — plus

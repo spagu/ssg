@@ -105,3 +105,30 @@ func TestCacheDispatch(t *testing.T) {
 		t.Fatal("a source dir named 'cache' must still build normally")
 	}
 }
+
+// TestRunCacheCleanDry: --dry reports what clean would remove and removes
+// nothing (#373).
+func TestRunCacheCleanDry(t *testing.T) {
+	t.Chdir(t.TempDir())
+	dir := filepath.Join(".ssg-cache", "images")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(dir, "x.abc.webp")
+	if err := os.WriteFile(entry, []byte("12345"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := runCache([]string{"clean", "--namespace=images", "--dry"}); code != 0 {
+		t.Fatalf("clean --dry exit %d", code)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Fatalf("clean --dry must not remove anything: %v", err)
+	}
+}
+
+func TestRunCacheGCBadFlag(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if code := runCache([]string{"gc", "--bogus"}); code != 2 {
+		t.Fatalf("gc with a bad flag should exit 2, got %d", code)
+	}
+}

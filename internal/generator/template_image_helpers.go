@@ -39,10 +39,15 @@ func (g *Generator) imageProcessor() *images.Processor {
 				dirs = append(dirs, src.Path)
 			}
 		}
+		// The configured qualities apply here exactly as in the --webp and
+		// image_formats pipeline; without them helper output silently used the
+		// image package's defaults (#375).
 		g.images = images.New(images.Config{
-			SourceDirs: dirs,
-			OutputDir:  g.config.OutputDir,
-			Quiet:      g.config.Quiet,
+			SourceDirs:  dirs,
+			OutputDir:   g.config.OutputDir,
+			WebPQuality: g.config.WebPQuality,
+			AVIFQuality: g.config.AVIFQuality,
+			Quiet:       g.config.Quiet,
 		})
 	})
 	return g.images

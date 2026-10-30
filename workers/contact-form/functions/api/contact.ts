@@ -1,22 +1,24 @@
 // Cloudflare Pages Function: contact / job-application form handler.
 // POST /api/contact — validates a Turnstile token, then sends the message via
-// MailChannels (no API key required from Cloudflare Pages). Swap in Resend by
-// setting RESEND_API_KEY and using the commented block below.
+// Resend or the MailChannels Email API (see _mail.ts).
 //
 // Secrets (wrangler pages secret put <NAME>):
-//   CONTACT_TURNSTILE_SECRET  Cloudflare Turnstile secret key for this form
-//   TURNSTILE_SECRET   shared fallback, read only when the prefixed one is
-//                      unset (kept so existing projects keep working)
-//   CONTACT_TO         destination inbox, e.g. "team@example.com"
-//   CONTACT_FROM       verified sender, e.g. "noreply@example.com"
-//   RESEND_API_KEY     (optional) enables the Resend path instead of MailChannels
+//   CONTACT_TURNSTILE_SECRET      Cloudflare Turnstile secret key for this form
+//   TURNSTILE_SECRET              shared fallback, read only when the prefixed
+//                                 one is unset (kept so existing projects keep working)
+//   CONTACT_TO                    destination inbox, e.g. "team@example.com"
+//   CONTACT_FROM                  verified sender, e.g. "noreply@example.com"
+//   CONTACT_RESEND_API_KEY        Resend key — or:
+//   CONTACT_MAILCHANNELS_API_KEY  MailChannels key (one of the two is required)
+//   RESEND_API_KEY                legacy Resend fallback, read only when neither
+//                                 prefixed key is set
+// Without a mail key the form answers 503 instead of failing at the provider.
 
-interface Env {
+import { type MailEnv, missingMailConfig, sendMail } from "./_mail";
+
+interface Env extends MailEnv {
   CONTACT_TURNSTILE_SECRET?: string;
   TURNSTILE_SECRET?: string;
-  CONTACT_TO: string;
-  CONTACT_FROM: string;
-  RESEND_API_KEY?: string;
 }
 
 const json = (data: unknown, status = 200): Response =>
@@ -53,35 +55,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const secret = turnstileSecret(env);
   if (!secret) return json({ error: "contact form not configured" }, 503);
+  // Checked before the captcha so a misconfigured form never spends the token.
+  const missing = missingMailConfig(env);
+  if (missing) {
+    console.error(`contact form: mail not configured: ${missing}`);
+    return json({ error: `contact form mail not configured: ${missing}` }, 503);
+  }
   const token = form["cf-turnstile-response"];
   const ip = request.headers.get("cf-connecting-ip");
   if (!token || !(await verifyTurnstile(secret, token, ip))) {
     return json({ error: "captcha verification failed" }, 403);
   }
 
-  const subject = `Contact form: ${name}`;
-  const text = `From: ${name} <${email}>\n\n${message}`;
-
-  // Resend path (opt-in):
-  // if (env.RESEND_API_KEY) {
-  //   const r = await fetch("https://api.resend.com/emails", {
-  //     method: "POST",
-  //     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-  //     body: JSON.stringify({ from: env.CONTACT_FROM, to: env.CONTACT_TO, subject, text, reply_to: email }),
-  //   });
-  //   return r.ok ? json({ ok: true }) : json({ error: "send failed" }, 502);
-  // }
-
-  const res = await fetch("https://api.mailchannels.net/tx/v1/send", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: env.CONTACT_TO }] }],
-      from: { email: env.CONTACT_FROM, name: "Website" },
-      reply_to: { email, name },
-      subject,
-      content: [{ type: "text/plain", value: text }],
-    }),
+  const sent = await sendMail(env, {
+    replyTo: { email, name },
+    subject: `Contact form: ${name}`,
+    text: `From: ${name} <${email}>\n\n${message}`,
   });
-  return res.ok ? json({ ok: true }) : json({ error: "send failed" }, 502);
+  return sent ? json({ ok: true }) : json({ error: "send failed" }, 502);
 };

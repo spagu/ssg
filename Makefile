@@ -137,9 +137,10 @@ test: ## 🧪 Run tests
 	@$(GO) test -v -race -coverprofile=coverage.out ./...
 	@echo "${GREEN}✅ Tests passed${RESET}"
 
-test-workers: ## 🧪 Run the worker tests that have them (Node >= 23; web-push)
+test-workers: ## 🧪 Run the worker tests that have them (Node >= 23; web-push, contact-form)
 	@echo "${BLUE}🧪 Running worker tests...${RESET}"
 	@node --import ./workers/web-push/test/resolve.mjs --test 'workers/web-push/test/*.test.ts'
+	@node --import ./workers/contact-form/test/resolve.mjs --test 'workers/contact-form/test/*.test.ts'
 	@echo "${GREEN}✅ Worker tests passed${RESET}"
 
 test-coverage: test ## 📊 Run tests with coverage report

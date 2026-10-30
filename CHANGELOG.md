@@ -9,6 +9,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.85] - unreleased
 
+Fixes from the documentation audit of 1.8.84: the docs were checked against
+the code, and these are the places where the code was wrong.
+
+### Fixed
+
+- **`ssg cache clean --dry` no longer deletes** (#373). `--dry` was parsed and
+  then ignored, so asking what `clean` would remove removed it — paid TTS and AI
+  results included. It now reports `would remove N entries` and leaves the
+  cache alone, like `cache gc --dry`.
+- **CLI flags** (#374). `ssg mcp` takes `--listen`, `--token`, `--allow-origin`
+  and `--role` as `--flag value` as well as `--flag=value`, like every other
+  value flag. A bare `--check-markup` is accepted (it means `warn`, the
+  default) instead of being reported as unknown. `--seo-off` is described as
+  what it is — it turns off a config's `seo: true` — and a hint for
+  `ssg migrate --no-custom-types`, a flag ssg accepts, is gone.
+- **Image helpers use the site's `webp_quality` / `avif_quality`** (#375).
+  `resize`, `srcset` and `picture` output used the image package's own
+  defaults (WebP 82, AVIF 80) instead of the configured qualities and the
+  pipeline's 60/45. The configured quality is now part of the cache key, so
+  changing it regenerates the helper variants that set no quality of their own
+  (they are re-encoded once). Cached AVIF variants are checked from their
+  header instead of with a decoder Go does not have, so `avifenc` no longer
+  runs on every build. A static GIF with `format: auto` is published as PNG
+  instead of failing, and the `<picture>` fallback `<img>` carries its own
+  `srcset` (`.FallbackSrcSet`).
+- **External sources: `${NAME}` secrets, SQL rows as pages, full format list**
+  (#376). `dsn` and the `auth` secret fields resolve `"${NAME}"` like `"$NAME"`;
+  a malformed reference such as `"${NAME"` is refused with a message naming
+  both spellings instead of looking up the wrong variable. A SQL source with
+  `mode: content` now produces one page per row (it produced one broken
+  record), and `transform.select` works on SQL sources and picks the query
+  whose rows become pages — required when there are several queries. The
+  "unsupported format" error lists every format, `changelog` and `feed`
+  included.
+- **A custom taxonomy index renders on themes without `taxonomy.html`** (#377).
+  The index fell back to `archive.html` → `category.html` with a context that
+  had no `.Category`, `.Posts`, `.Kind`, `.Name` or `.Pager`, so a site on
+  `simple` (or `krowy`, or `apidoc`) that added `taxonomies: {technology: {}}`
+  failed with "can't evaluate field Category". The index now carries those
+  fields too (the taxonomy as `.Category`, an empty `.Posts`, a one-page
+  `.Pager`), and `simple` ships `taxonomy.html` and `taxonomy-term.html`, the
+  latter with the term's own canonical instead of `/category/<slug>/`.
+- **Front matter the parser reads stays out of `.Extra`** (#378). `schema` and
+  `alias_stubs` were parsed and also copied into `Extra`, so they reached the
+  template root a second time. The list of known keys is now built from the
+  front-matter struct itself, so a new field cannot leak again. `--watch` also
+  watches `resume.file`, which can live outside every watched directory.
+- **The contact-form worker sends mail again** (#379). It called MailChannels
+  without an API key, which MailChannels no longer accepts from Workers, and
+  its Resend branch was commented out. Like the newsletter worker it now takes
+  `CONTACT_RESEND_API_KEY` or `CONTACT_MAILCHANNELS_API_KEY` (sent as
+  `X-Api-Key`) and answers a clear 503 when neither — or `CONTACT_TO` /
+  `CONTACT_FROM` — is set, before spending the visitor's Turnstile token. The
+  old `RESEND_API_KEY` still works as a Resend fallback, read last. Its tests
+  run with `make test-workers`.
+- **CI** (#380). The coverage gate is 97%, for the module and per package — the
+  floor every package has met since 1.8.82 — instead of 96%. The release notes
+  name the snap correctly: `snap install static-site-generator`.
+
 ## [1.8.84] - 2026-10-30
 
 ### Added

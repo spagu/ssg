@@ -477,7 +477,7 @@ func TestPipelineRuntimeGaps(t *testing.T) {
 func TestNewDefaultsAndDotDot(t *testing.T) {
 	d := New(Config{})
 	if d.cfg.URLPrefix != "processed_images" || d.cfg.CacheDir != ".ssg-cache/images" ||
-		d.cfg.JPEGQuality != 82 || d.cfg.WebPQuality != 82 ||
+		d.cfg.JPEGQuality != 82 || d.cfg.WebPQuality != 60 || d.cfg.AVIFQuality != 45 ||
 		d.cfg.MaxSourcePixels != 80_000_000 || d.cfg.MaxOutputPixels != 40_000_000 ||
 		d.cfg.MaxDimension != 20_000 || d.cfg.MaxVariants != 20 {
 		t.Errorf("defaults = %+v", d.cfg)

@@ -371,9 +371,23 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		SSG SSGInfo
 		// Modified is the newest lastmod of any post with a term (#339).
 		Modified time.Time
+		// The archive-shaped fields every other archive carries (see
+		// archiveData). The index chain ends at archive.html → category.html,
+		// and a theme without taxonomy.html rendered the index with a template
+		// that reads .Category, .Posts, .Kind, .Name or .Pager — a template
+		// error on a struct without them, and the index was lost (#377). The
+		// taxonomy stands in for the category; the index lists terms, not
+		// posts, so Posts is empty and the pager is a single page.
+		Category models.Category
+		Kind     string
+		Name     string
+		Posts    []models.Page
+		Pager    Pager
 	}{g.siteData, info, views, lang, g.config.Domain, g.config.Variables, g.data,
 		g.externalData, g.buildTime, g.archiveCanonical(base, Pager{}), g.ssgInfo(),
-		g.taxonomyLastmod(def.Name, lang)}
+		g.taxonomyLastmod(def.Name, lang),
+		models.Category{Name: def.Label, Slug: def.Path}, def.Name, def.Label,
+		[]models.Page{}, Pager{Current: 1, Total: 1}}
 	// The formats first, so the page announces only what was written (#370).
 	g.writeViewOutputs(def.OutputsIndex, indexOut, base, "taxonomy "+base, indexData)
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
@@ -517,7 +531,8 @@ func (g *Generator) hasTemplate(name string) bool {
 
 // taxonomyIndexChain is the index-page template fallback order: explicit
 // config override, then taxonomy-<name>.html → taxonomy.html → archive.html →
-// category.html (the shared archive fallback every theme has).
+// category.html (the shared archive fallback every theme has). The index view
+// carries the archive-shaped fields those last two read (#377).
 func (g *Generator) taxonomyIndexChain(def taxonomy.Definition) []string {
 	var chain []string
 	if def.Template != "" {

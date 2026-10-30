@@ -1,0 +1,39 @@
+{{/* One term of a custom taxonomy (/technology/go/). category.html served
+     here before and gave every term a /category/<slug>/ canonical; this one
+     uses the term's own address and links back to the index (#377). */}}
+{{define "taxonomy-term.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Term.Name "Description" (printf "%s: %s" .Taxonomy.Singular .Term.Name) "Canonical" .CanonicalURL)}}
+    <main class="main-content" id="main-content">
+        <section class="category-page" id="term-{{.Term.Slug}}">
+            <div class="container">
+                <header class="category-header">
+                    <a href="{{.Taxonomy.URL}}" class="category-tag">{{.Taxonomy.Label}}</a>
+                    <h1 class="category-title">{{.Term.Name}}</h1>
+                    {{if .Term.Description}}
+                    <p class="category-description">{{.Term.Description}}</p>
+                    {{end}}
+                </header>
+                <div class="posts-grid" id="term-posts">
+                    {{range .Posts}}
+                    <article class="post-card" id="post-card-{{.Slug}}">
+                        <h3 class="post-card-title">
+                            <a href="/{{.Slug}}/">{{.Title}}</a>
+                        </h3>
+                        <time class="post-date" datetime="{{.Date.Format "2006-01-02"}}">
+                            {{.Date.Format "2 January 2006"}}
+                        </time>
+                        <p class="post-excerpt">{{.Excerpt}}</p>
+                        <a href="/{{.Slug}}/" class="read-more">Read more →</a>
+                    </article>
+                    {{end}}
+                </div>
+                {{if or .Pager.PrevURL .Pager.NextURL}}
+                <nav class="pagination" aria-label="Pages">
+                    {{with .Pager.PrevURL}}<a href="{{.}}" rel="prev">← Newer</a>{{end}}
+                    {{with .Pager.NextURL}}<a href="{{.}}" rel="next">Older →</a>{{end}}
+                </nav>
+                {{end}}
+            </div>
+        </section>
+    </main>
+
+{{template "site-close" .}}{{end}}

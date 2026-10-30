@@ -264,7 +264,10 @@ func decodeTextEntities(page *models.Page) {
 	}
 }
 
-// knownFields lists all fields that are handled by PageFrontmatter struct
+// knownFields lists the fields the parser handles itself, which therefore do
+// not belong in Extra. Every PageFrontmatter key is added from its yaml tag in
+// init, so a field added to the struct cannot leak into Extra by being left
+// off this list (#378 — `schema` and `alias_stubs` did).
 var knownFields = map[string]bool{
 	"id": true, "title": true, "slug": true, "date": true, "modified": true,
 	"status": true, "type": true, "link": true, "author": true, "categories": true,
@@ -275,6 +278,15 @@ var knownFields = map[string]bool{
 	"layout": true, "template": true, "sitemap": true, "aliases": true, "series": true,
 	"sitemap_changefreq": true, "sitemap_priority": true,
 	"taxonomies": true, "sticky": true, "paginate": true,
+}
+
+func init() {
+	t := reflect.TypeOf(PageFrontmatter{})
+	for i := 0; i < t.NumField(); i++ {
+		if name, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ","); name != "" && name != "-" {
+			knownFields[name] = true
+		}
+	}
 }
 
 // extractExtraFields returns fields not in knownFields

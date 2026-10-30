@@ -8,7 +8,7 @@ import (
 )
 
 // Secrets come exclusively from environment variables (plan §Jeden system
-// sekretów): a value of "$NAME" resolves to os.Getenv("NAME"). Auth secret
+// sekretów): a value of "$NAME" or "${NAME}" resolves to os.Getenv("NAME"). Auth secret
 // fields REQUIRE the env form so credentials never live in the config file,
 // and error messages only ever name the variable, never its value.
 
@@ -64,14 +64,25 @@ func expandEnvInline(source, field, value string) (string, error) {
 	return out, nil
 }
 
-// expandEnvRef resolves a whole-string "$NAME" to the environment value; other
-// strings pass through unchanged. Used where the env form is mandatory (auth
-// secrets, SQL DSNs) so a literal can be rejected before expansion.
+// envWholeRefRe matches a whole-value reference in either spelling, "$NAME"
+// or "${NAME}"; group 1 or 2 holds the variable name.
+var envWholeRefRe = regexp.MustCompile(`^\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))$`)
+
+// expandEnvRef resolves a whole-string "$NAME" or "${NAME}" to the environment
+// value — the same two spellings expandEnvInline accepts (#376); strings not
+// starting with "$" pass through unchanged. Used where the env form is
+// mandatory (auth secrets, SQL DSNs) so a literal can be rejected before
+// expansion. A value that starts with "$" but is neither spelling is refused
+// rather than looked up under a mangled name.
 func expandEnvRef(source, field, value string) (string, error) {
 	if !strings.HasPrefix(value, "$") {
 		return value, nil
 	}
-	name := strings.TrimPrefix(value, "$")
+	m := envWholeRefRe.FindStringSubmatch(value)
+	if m == nil {
+		return "", fmt.Errorf("external source %q: %s must be a whole environment reference, \"$NAME\" or \"${NAME}\"", source, field)
+	}
+	name := m[1] + m[2]
 	v, ok := os.LookupEnv(name)
 	if !ok || v == "" {
 		return "", &UnsetEnvError{Source: source, Field: field, Name: name}
@@ -129,7 +140,7 @@ func expandAuthField(source string, a AuthConfig, field, value string, set func(
 		return AuthConfig{}, fmt.Errorf("external source %q: %s is required for auth.type %q", source, field, a.Type)
 	}
 	if !strings.HasPrefix(value, "$") {
-		return AuthConfig{}, fmt.Errorf("external source %q: %s must reference an environment variable (e.g. \"$API_TOKEN\"), not a literal secret", source, field)
+		return AuthConfig{}, fmt.Errorf("external source %q: %s must reference an environment variable (e.g. \"$API_TOKEN\" or \"${API_TOKEN}\"), not a literal secret", source, field)
 	}
 	expanded, err := expandEnvRef(source, field, value)
 	if err != nil {

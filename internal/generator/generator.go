@@ -333,6 +333,11 @@ type Config struct {
 	SanitizeOutput string
 	// ImageMetadata is "strip" (default) or "keep" for generated derivatives.
 	ImageMetadata string
+	// WebPQuality/AVIFQuality are webp_quality/avif_quality, so the image*
+	// template helpers encode at the same settings as the build pipeline (#375).
+	// Zero falls back to the pipeline defaults (60/45).
+	WebPQuality int
+	AVIFQuality int
 	// Schema holds site-wide JSON-LD defaults merged into every page's generated
 	// structured data (publisher, etc.); per-page schema: overrides it (#61).
 	Schema         map[string]interface{}

@@ -593,7 +593,7 @@ Useful targets — `make help` lists every one of them:
 | `make release VERSION=v1.2.3` | Tag and push a release |
 | `make all` | Dependencies, lint, tests and build |
 
-CI holds a **96% statement-coverage floor twice**: on the module as a whole and
+CI holds a **97% statement-coverage floor twice**: on the module as a whole and
 on every package individually, both computed without the generated protobuf. A
 pull request that drops either fails the `Test` job — see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the exact check and how to run it

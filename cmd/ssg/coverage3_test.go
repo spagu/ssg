@@ -19,12 +19,13 @@ import (
 // the deprecated --seo-off still disables SEO injection instead of erroring.
 func TestParseCheckFlagBareForms(t *testing.T) {
 	cfg := config.DefaultConfig()
-	parseFlags([]string{"--check-images", "--check-meta", "--check-schema",
+	cfg.CheckMarkup = ""
+	parseFlags([]string{"--check-images", "--check-meta", "--check-schema", "--check-markup",
 		"--check-orphans", "--check-redirects", "--seo-off"}, cfg)
 	for name, got := range map[string]string{
 		"check-images": cfg.CheckImages, "check-meta": cfg.CheckMeta,
 		"check-schema": cfg.CheckSchema, "check-orphans": cfg.CheckOrphans,
-		"check-redirects": cfg.CheckRedirects,
+		"check-redirects": cfg.CheckRedirects, "check-markup": cfg.CheckMarkup,
 	} {
 		if got != "warn" {
 			t.Errorf("bare --%s = %q, want warn", name, got)

@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.84">1.8.84 — 2026-10-30</option>
       <option value="1.8.83">1.8.83 — 2026-10-30</option>
       <option value="1.8.82">1.8.82 — 2026-10-28</option>
       <option value="1.8.81">1.8.81 — 2026-10-24</option>
@@ -217,6 +218,28 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.8.85">
+
+### 1.8.85 — check three things
+
+Replace the binary. Two fixes can change what you see:
+
+- **contact-form worker:** set `CONTACT_RESEND_API_KEY` or
+  `CONTACT_MAILCHANNELS_API_KEY` (and `CONTACT_TO`, `CONTACT_FROM`). Without a
+  key the form now answers 503 instead of failing at the mail provider. An
+  old `RESEND_API_KEY` keeps working and now actually sends.
+- **SQL sources with `mode: content` and several queries** need
+  `transform.select` naming the query whose rows become pages; such a source
+  used to build one broken page and is now refused at config time.
+
+Image helper variants (`resize`, `srcset`, `picture`) without a quality of
+their own are re-encoded once, at your `webp_quality` / `avif_quality` (60 / 45
+by default) instead of the old 82 / 80 — smaller files; set the qualities to
+keep the old look. `ssg cache clean --dry` now really is a dry run, and
+`${NAME}` works in `dsn`/`auth`.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.84">
 

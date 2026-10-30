@@ -105,7 +105,7 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 
 | Template | What it does |
 |---|---|
-| `contact-form` | `POST /api/contact` — Turnstile verify, email via MailChannels (Resend optional) |
+| `contact-form` | `POST /api/contact` — Turnstile verify, email via Resend (`CONTACT_RESEND_API_KEY`) or MailChannels (`CONTACT_MAILCHANNELS_API_KEY`); one key is required, 503 without it |
 | `stripe-checkout` | `POST /api/checkout` (Checkout Session) + `POST /api/stripe-webhook` (HMAC signature verify) |
 | `dynamic-price` | `GET /api/price/:sku` from KV or an upstream API, plus a client snippet |
 | `conversions-proxy` | `POST /api/track` — server-side Meta CAPI relay with SHA-256-hashed PII |

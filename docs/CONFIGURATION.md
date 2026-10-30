@@ -1257,7 +1257,7 @@ implemented.
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
-| `check_markup` | `warn` | `--check-markup=warn\|strict\|off`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
+| `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
 | `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
@@ -1306,7 +1306,8 @@ The middle row is the useful one: a theme can own its Open Graph tags — to con
 no need to hand-write JSON-LD. It also fills in a missing meta description from the
 frontmatter `description:`.
 
-The old `seo_off`/`--seo-off` setting is a deprecated no-op. Plain `--check-links`
+`seo_off: true` and `--seo-off` are deprecated: SEO is off unless you turn it
+on, so their only effect is to force it off over `seo: true`. Plain `--check-links`
 selects warning mode; strict mode fails the build.
 
 ### Invisible characters

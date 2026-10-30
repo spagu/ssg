@@ -33,7 +33,7 @@ func TestWarnUnknownFlagsStaysQuiet(t *testing.T) {
 		"--http", "--watch", "--zip", "-zip", "--quiet", "-q",
 		"--output-dir=public", "--output-dir", "public",
 		"--config=.ssg.yaml", "--paginate=10",
-		"--check-links", "--check-schema", "--seo-off",
+		"--check-links", "--check-schema", "--check-markup", "--seo-off",
 		"--auto-reload", "--no-auto-reload",
 		"my-blog", "simple", "example.com", "-", "--",
 	}

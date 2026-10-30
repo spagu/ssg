@@ -75,7 +75,7 @@ func mapRecordsIfContent(src Source, result *Result) ([]string, error) {
 	if src.Mode != "content" || src.Type == "cms" {
 		return nil, nil
 	}
-	imported, warnings, err := MapRecords(src, result.Data)
+	imported, warnings, err := MapRecords(src, sqlContentData(src, result.Data))
 	if err != nil {
 		return nil, fail(src, "content_map", err)
 	}

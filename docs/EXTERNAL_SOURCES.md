@@ -65,8 +65,8 @@ and is skipped. Every failure names the source, its type and the stage
 (`config`, `read`, `fetch`, `cache`, `parse`, `transform`, `connect`,
 `query <name>`, `import`, `content_map`) — and never contains credentials.
 
-**Secrets come only from the environment.** Values written as `"$NAME"`
-resolve from the environment at build time; literal secrets in `dsn` and the
+**Secrets come only from the environment.** Values written as `"$NAME"` or
+`"${NAME}"` resolve from the environment at build time; literal secrets in `dsn` and the
 `auth` secret fields (`token`, `password`, `value`) are rejected outright, and
 a referenced-but-unset variable fails the build naming the variable (never a
 value).
@@ -99,12 +99,13 @@ Rules:
   `defaults.required: false`) the source is **skipped with a warning** — so a
   shared config can carry an env-driven source nobody else has to set up.
 - `dsn` and `auth` secret fields keep the stricter whole-value form
-  (`dsn: "$PRODUCT_DB_DSN"`); a literal there is still rejected, and only the
-  `$NAME` spelling is recognised (not `${NAME}`).
+  (`dsn: "$PRODUCT_DB_DSN"` or `dsn: "${PRODUCT_DB_DSN}"`); a literal there is
+  still rejected, and so is anything else starting with `$` that is not one
+  whole reference (`"$DSN/x"`, `"${DSN"`).
 
 ## Local files (`type: file`)
 
-Formats: YAML, JSON, TOML, CSV, XML — inferred from the extension or forced
+Formats: YAML, JSON, TOML, CSV, XML, `feed` and `changelog` (below) — inferred from the extension or forced
 with `format:`. Files are size-capped by `max_response_size`.
 
 ```yaml
@@ -492,6 +493,28 @@ inventory:
 {{ range .ExternalData.inventory.products }}{{ .name }}: {{ .price }}{{ end }}
 ```
 
+With `mode: content` and a `content_map`, each row becomes a page. A source
+with one query needs nothing else — its rows are the records. With several
+queries, name the one whose rows become pages with `transform.select`
+(config fails otherwise, listing the queries):
+
+```yaml
+inventory:
+  type: sql
+  driver: postgres
+  dsn: "${INVENTORY_DSN}"
+  queries:
+    products: { sql: "SELECT name, slug, description FROM products" }
+    brands:   { sql: "SELECT name FROM brands" }
+  transform:
+    select: products       # these rows become pages
+  mode: content
+  content_map:
+    title: name
+    slug: slug
+    content: description
+```
+
 Operational rules: use a dedicated read-only database user, and TLS for remote
 connections (configure both in the DSN).
 
@@ -589,8 +612,9 @@ transform:
 ```
 
 `select` unwraps API envelopes before the data reaches templates (and before
-`content_map`). It applies to `file` and `http` sources; SQL results are
-already keyed by query name. There is
+`content_map`). It applies to `file`, `http` and `sql` sources; SQL results
+are keyed by query name, so `select: products` narrows a SQL source (data view
+and pages alike) to that query's rows. There is
 deliberately no scripting, `eval` or embedded query runtime.
 
 ## Migration notes

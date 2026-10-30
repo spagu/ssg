@@ -35,8 +35,8 @@ dimensions.
 |--------|------|---------|-------|
 | `width`, `height` | int | 0 | per-mode requirements below |
 | `mode` | string | `fit` | `scale` · `fit_width` · `fit_height` · `fit` · `fill` |
-| `format` | string | `auto` | `auto` keeps the source format (alpha never silently flattened to JPEG) |
-| `quality` | int | 82 (AVIF 80) | 1–100 (JPEG/WebP/AVIF; PNG is lossless and ignores it) |
+| `format` | string | `auto` | `auto` keeps the source format (alpha never silently flattened to JPEG); a GIF source becomes PNG |
+| `quality` | int | JPEG 82 · WebP `webp_quality` (60) · AVIF `avif_quality` (45) | 1–100 (JPEG/WebP/AVIF; PNG is lossless and ignores it) |
 | `resample` | string | `lanczos` | `nearest` · `linear` · `catmullrom` · `mitchell` · `lanczos` |
 | `upscale` | bool | `false` | growing beyond the source is refused unless set |
 | `anchor` | string | `center` | used by `fill` |
@@ -115,11 +115,12 @@ a warning, not a build failure** — so the same template works on a machine
 without `avifenc`/`cwebp` (the AVIF `<source>` simply drops out). `formats`
 defaults to `["webp", "jpeg"]`; `widths` is required; a top-level `format` is
 rejected (use `formats`). The `<img>` carries `src` (the fallback's largest
-variant), `width`/`height`, `sizes`, `alt`, `loading="lazy"` and
-`decoding="async"` — it has no `srcset` of its own.
+variant), `width`/`height`, a `srcset` of the fallback format's widths (so a
+browser that falls back still picks a fitting size), `sizes`, `alt`,
+`loading="lazy"` and `decoding="async"`.
 
 Result object: `.Sources` (each `.Format`/`.Type`/`.SrcSet`), `.Fallback` (an
-image result for the `<img>`), `.Sizes`, `.Alt`, `.Skipped` (formats dropped for
+image result for the `<img>`), `.FallbackSrcSet` (the `<img>`'s `srcset`), `.Sizes`, `.Alt`, `.Skipped` (formats dropped for
 a missing encoder) and `.HTML` (the ready-to-emit markup; pipe through
 `safeHTML`).
 
@@ -134,9 +135,14 @@ paths (`.SourcePath` is the path as passed to the helper).
 - **Input**: JPEG, PNG, GIF and WebP only, detected from the file's bytes, not
   its extension (SEC-013: TIFF/BMP are refused before any decode).
 - **Output**: `jpg`/`jpeg`, `png`, `webp`, `avif` (`auto` = keep source format;
-  there is no GIF encoder, so a GIF source needs an explicit `format`, and a
-  WebP source kept as WebP needs `cwebp`). AVIF is encoded with
+  there is no GIF encoder, so a static GIF under `auto` is published as PNG,
+  and a WebP source kept as WebP needs `cwebp`). AVIF is encoded with
   `avifenc -q <quality> -s 5`.
+- **Quality**: a call without `quality` uses the site's settings — the same
+  `webp_quality` (`--webp-quality`, default 60) and `avif_quality`
+  (`--avif-quality`, default 45) the `--webp`/`image_formats` pipeline uses;
+  JPEG defaults to 82. The configured value is part of the cache key, so
+  changing it regenerates the affected variants.
   WebP encoding uses the **optional `cwebp` tool** and AVIF the **optional
   `avifenc` tool** (from libavif) — same optional-binary approach, no CGO, the
   binary stays static. Requesting a format without its tool is a descriptive
@@ -152,8 +158,10 @@ paths (`.SourcePath` is the path as passed to the helper).
 
 ## Cache & GC
 
-Key = `sha256(source bytes + normalized ops JSON + processor version)` → name
-`<base>.<hash10>.<ext>`. Repeated and clean builds produce identical filenames;
+Key = `sha256(source bytes + normalized ops JSON [+ configured WebP/AVIF quality
+when the call sets none] + processor version)` → name `<base>.<hash10>.<ext>`.
+A cached AVIF is verified from its own `ftyp`/`ispe` header (Go has no AVIF
+decoder), so a second build reuses it instead of running `avifenc` again. Repeated and clean builds produce identical filenames;
 concurrent identical requests process once.
 
 Garbage collection (GO-057): `--images-gc` (config `images_gc: true`) deletes

@@ -172,3 +172,39 @@ func TestBuildMCPGitDerivesTheRepoFromTheRemote(t *testing.T) {
 		t.Fatalf("git flow must be enabled by a token alone: %+v", g)
 	}
 }
+
+// TestParseMCPArgsSpaceForm: ssg mcp's value flags take "--flag value" as well
+// as "--flag=value" (GO-053, #374).
+func TestParseMCPArgsSpaceForm(t *testing.T) {
+	p := parseMCPArgs([]string{"--listen", "127.0.0.1:8080", "--token", "s3cret", "--allow-origin", "https://example.com",
+		"--role", "content", "--no-stdio", "site"})
+	if p.netCfg.listen != "127.0.0.1:8080" || p.netCfg.token != "s3cret" || len(p.netCfg.origins) != 1 ||
+		!p.roles["content"] || !p.netCfg.noStdio || len(p.rest) != 1 || p.rest[0] != "site" {
+		t.Fatalf("space form not parsed: %+v", p)
+	}
+	// A trailing flag with no value is left for the build parser to report.
+	if p := parseMCPArgs([]string{"--listen"}); p.netCfg.listen != "" || len(p.rest) != 1 {
+		t.Fatalf("dangling --listen: %+v", p)
+	}
+}
+
+// TestRunMCPServeReadError: a stdin the server cannot read is reported and
+// exits 1 rather than being taken for a clean end of input.
+func TestRunMCPServeReadError(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile(".ssg.yaml", []byte("source: s\ntemplate: simple\ndomain: example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+	_ = r.Close() // reading a closed file fails
+	saved := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = saved }()
+	if code := runMCP([]string{"--no-watch", "--role=content"}); code != 1 {
+		t.Fatalf("unreadable stdin exit = %d, want 1", code)
+	}
+}
