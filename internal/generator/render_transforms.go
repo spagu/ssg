@@ -312,6 +312,7 @@ func (g *Generator) renderPageTemplate(templateName, outputPath string, data int
 	if strings.HasSuffix(strings.ToLower(outputPath), ".html") {
 		themeLD := strings.Contains(out, "application/ld+json")
 		out = g.transformHTMLPage(out, page, isPost)
+		out = g.injectViewAlternates(out, outputPath)
 		out = g.injectStructuredData(out, structuredDataOf(data), themeLD)
 		g.noteEmptyCanonical(outputPath, out)
 		// Re-encode the finished HTML to the page's output encoding, keeping the

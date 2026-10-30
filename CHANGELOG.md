@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.84] - unreleased
 
+### Fixed
+
+- **Taxonomy pages announce their formats** (#370). Since 1.8.83 a taxonomy
+  writes its `outputs_custom` formats beside its pages, but only content pages
+  carried the `<link rel="alternate">` for them, so a client that discovers the
+  API from the page could not find `/license/index.json`. The taxonomy index
+  and page 1 of each term — where the file is written — now announce every
+  format that has a MIME type and was actually written, the way content pages
+  do. A format the theme already links is not announced twice, and the link
+  follows `base_path`. The formats are now written before the page, so a
+  template error in a format no longer leaves a link to a missing file.
+
 ## [1.8.83] - 2026-10-30
 
 ### Added
