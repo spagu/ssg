@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.85] - unreleased
+## [1.8.85] - 2026-10-30
 
 Fixes from the documentation audit of 1.8.84: the docs were checked against
 the code, and these are the places where the code was wrong.
@@ -6135,7 +6135,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.84...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.85...HEAD
+[1.8.85]: https://github.com/spagu/ssg/compare/v1.8.84...v1.8.85
 [1.8.84]: https://github.com/spagu/ssg/compare/v1.8.83...v1.8.84
 [1.8.83]: https://github.com/spagu/ssg/compare/v1.8.82...v1.8.83
 [1.8.82]: https://github.com/spagu/ssg/compare/v1.8.81...v1.8.82
