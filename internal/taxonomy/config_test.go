@@ -140,3 +140,28 @@ func TestBoolOr(t *testing.T) {
 		t.Fatal("boolOr")
 	}
 }
+
+// TestResolveOutputs: `outputs` fills both views; `outputs_index` and
+// `outputs_term` override it for one (#367).
+func TestResolveOutputs(t *testing.T) {
+	defs, _, err := Resolve(map[string]DefinitionConfig{
+		"license":  {Outputs: []string{"html", "api"}},
+		"platform": {Outputs: []string{"api"}, OutputsTerm: []string{"csv"}},
+		"system":   {OutputsIndex: []string{"api"}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := defs["license"]; strings.Join(got.OutputsIndex, ",") != "html,api" || strings.Join(got.OutputsTerm, ",") != "html,api" {
+		t.Errorf("license = %v / %v", got.OutputsIndex, got.OutputsTerm)
+	}
+	if got := defs["platform"]; strings.Join(got.OutputsIndex, ",") != "api" || strings.Join(got.OutputsTerm, ",") != "csv" {
+		t.Errorf("platform = %v / %v", got.OutputsIndex, got.OutputsTerm)
+	}
+	if got := defs["system"]; len(got.OutputsTerm) != 0 || len(got.OutputsIndex) != 1 {
+		t.Errorf("system = %v / %v", got.OutputsIndex, got.OutputsTerm)
+	}
+	if got := defs["category"]; got.OutputsIndex != nil || got.OutputsTerm != nil {
+		t.Errorf("default must be HTML only: %v / %v", got.OutputsIndex, got.OutputsTerm)
+	}
+}

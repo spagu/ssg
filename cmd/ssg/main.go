@@ -783,6 +783,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Print:                  buildPrintOptions(cfg.Print),
 		CookMode:               buildCookModeOptions(cfg.CookMode),
 		HeadingAnchors:         generator.HeadingAnchorsOptions(cfg.HeadingAnchors),
+		WebPush:                generator.WebPushOptions(cfg.WebPush),
 		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,

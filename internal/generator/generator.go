@@ -402,6 +402,9 @@ type Config struct {
 	CookMode CookModeOptions
 	// HeadingAnchors appends a self-link to each heading with an id (#364).
 	HeadingAnchors HeadingAnchorsOptions
+	// WebPush writes the manifest and the subscribe script for the web-push
+	// worker (#368).
+	WebPush WebPushOptions
 	// Breadcrumbs shapes the derived JSON-LD BreadcrumbList (1.8.73, #335).
 	Breadcrumbs BreadcrumbOptions
 	// APIDocs documents JavaScript/TypeScript packages as pages (GO-107);
@@ -1175,6 +1178,10 @@ func (g *Generator) Generate() error {
 
 	if err := g.runStep("☁️  Generating Cloudflare Pages files...", g.generateCloudflareFiles, "generating Cloudflare files"); err != nil {
 		return err
+	}
+
+	if err := g.profile.Measure("Web push", g.writeWebPush); err != nil {
+		return fmt.Errorf("writing %s: %w", webManifestName, err)
 	}
 
 	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {

@@ -29,6 +29,11 @@ type Definition struct {
 	Slugify       bool
 	GenerateEmpty bool
 	Paginate      int // posts per term-archive page; 0 = fall back to the global paginate (#44)
+	// OutputsIndex and OutputsTerm are the custom output formats written beside
+	// the taxonomy index and beside each term archive (#367). HTML is always
+	// written; empty means HTML only.
+	OutputsIndex []string
+	OutputsTerm  []string
 	// Folded marks a built-in (category/tag/series) now rendered by the registry
 	// but with legacy-compatible output: no taxonomy index page, no i18n path
 	// prefix, single-page term archives, a two-entry template fallback (<primary>
@@ -55,6 +60,11 @@ type DefinitionConfig struct {
 	Slugify       *bool  `yaml:"slugify" toml:"slugify" json:"slugify"`
 	GenerateEmpty *bool  `yaml:"generate_empty" toml:"generate_empty" json:"generate_empty"`
 	Paginate      *int   `yaml:"paginate" toml:"paginate" json:"paginate"`
+	// Outputs applies to the index and the terms; OutputsIndex and OutputsTerm
+	// override it for one of the two (#367).
+	Outputs      []string `yaml:"outputs" toml:"outputs" json:"outputs"`
+	OutputsIndex []string `yaml:"outputs_index" toml:"outputs_index" json:"outputs_index"`
+	OutputsTerm  []string `yaml:"outputs_term" toml:"outputs_term" json:"outputs_term"`
 }
 
 // nameRe constrains taxonomy names to safe identifier/URL material.
@@ -142,6 +152,8 @@ func applyOverrides(base Definition, uc DefinitionConfig) Definition {
 	if uc.Paginate != nil {
 		base.Paginate = *uc.Paginate
 	}
+	base.OutputsIndex = firstList(uc.OutputsIndex, uc.Outputs, base.OutputsIndex)
+	base.OutputsTerm = firstList(uc.OutputsTerm, uc.Outputs, base.OutputsTerm)
 	base.Multiple = boolOr(uc.Multiple, base.Multiple)
 	base.Archive = boolOr(uc.Archive, base.Archive)
 	base.Feed = boolOr(uc.Feed, base.Feed)
@@ -150,6 +162,16 @@ func applyOverrides(base Definition, uc DefinitionConfig) Definition {
 	base.Slugify = boolOr(uc.Slugify, base.Slugify)
 	base.GenerateEmpty = boolOr(uc.GenerateEmpty, base.GenerateEmpty)
 	return base
+}
+
+// firstList returns the first list that has anything in it.
+func firstList(lists ...[]string) []string {
+	for _, l := range lists {
+		if len(l) > 0 {
+			return l
+		}
+	}
+	return nil
 }
 
 // validate enforces unique paths, sane sort values and reserved segments.

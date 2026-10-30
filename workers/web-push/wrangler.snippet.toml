@@ -1,0 +1,25 @@
+# web-push — needs a D1 database (the subscriptions) and a KV namespace (the
+# last item announced). Create them and paste the ids:
+#   npx wrangler d1 create ssg-push
+#   npx wrangler kv namespace create ssg-push
+# [[d1_databases]]
+# binding = "PUSH_DB"
+# database_name = "ssg-push"
+# database_id = "<paste-d1-database-id>"
+#
+# [[kv_namespaces]]
+# binding = "PUSH_KV"
+# id = "<paste-kv-namespace-id>"
+
+# [vars]
+# PUSH_VAPID_PUBLIC_KEY = "<from scripts/vapid-keys.mjs>"
+# PUSH_SUBJECT = "mailto:news@example.com"   # VAPID contact for the push services
+# PUSH_FEED_URL = "/feed.xml"                # the feed to announce (Atom, RSS or JSON Feed)
+# PUSH_MAX_ITEMS = "3"                       # most items announced per notify call
+# PUSH_TTL = "86400"                         # seconds a push service holds an undelivered message
+# PUSH_ENDPOINT_HOSTS = ""                   # override the accepted push services (host suffixes, comma-separated)
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   PUSH_VAPID_PRIVATE_KEY   the private half of the VAPID pair (required)
+#   PUSH_KEY                 Bearer token for POST /api/push/notify (required)
+#   PUSH_HASH_SALT           optional — salt for the stored User-Agent hash

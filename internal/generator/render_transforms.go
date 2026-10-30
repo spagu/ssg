@@ -257,6 +257,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// — the first place a reader or a subscription tool looks — never advertised
 	// a feed at all (#86).
 	s = g.injectFeedLinks(s, lang)
+	s = g.injectWebPush(s)
 	if g.config.Math {
 		s = mathHTMLString(s)
 	}

@@ -891,6 +891,10 @@ type Config struct {
 	CookMode CookModeConfig `yaml:"cook_mode" toml:"cook_mode" json:"cook_mode"`
 	// HeadingAnchors appends a "#" self-link to each heading with an id (#364).
 	HeadingAnchors HeadingAnchorsConfig `yaml:"heading_anchors" toml:"heading_anchors" json:"heading_anchors"`
+
+	// WebPush writes the web app manifest and the subscribe script the
+	// web-push worker needs (#368).
+	WebPush WebPushConfig `yaml:"web_push" toml:"web_push" json:"web_push"`
 	// Breadcrumbs names the steps of the derived JSON-LD BreadcrumbList, or
 	// turns it off (1.8.73, #335). See breadcrumbs.go.
 	Breadcrumbs BreadcrumbsConfig `yaml:"breadcrumbs" toml:"breadcrumbs" json:"breadcrumbs"`

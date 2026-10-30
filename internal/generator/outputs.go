@@ -56,6 +56,10 @@ type OutputFormat struct {
 	Render func(g *Generator, page models.Page) ([]byte, error)
 	// Custom marks a format the site defined with a template.
 	Custom bool
+	// renderView runs a custom format's template on a view that is not a page —
+	// a taxonomy index or term archive (#367). Nil for the built-in formats,
+	// which only know how to represent a page.
+	renderView func(data interface{}) ([]byte, error)
 }
 
 // CustomOutput is a format a site defines for itself.
@@ -169,15 +173,19 @@ func (g *Generator) loadOutputs(funcs template.FuncMap) error {
 		if suffix == "" {
 			suffix = "index." + name
 		}
+		execute := func(data interface{}) ([]byte, error) {
+			var buf bytes.Buffer
+			if err := tmpl.Execute(&buf, data); err != nil {
+				return nil, err
+			}
+			return buf.Bytes(), nil
+		}
 		reg.formats[name] = OutputFormat{
 			Name: name, Suffix: suffix, MIME: c.MIME, Custom: true,
 			Render: func(g *Generator, page models.Page) ([]byte, error) {
-				var buf bytes.Buffer
-				if err := tmpl.Execute(&buf, g.pageOutputContext(page)); err != nil {
-					return nil, err
-				}
-				return buf.Bytes(), nil
+				return execute(g.pageOutputContext(page))
 			},
+			renderView: execute,
 		}
 	}
 
@@ -449,20 +457,28 @@ func (g *Generator) writePageOutputs(page models.Page, htmlPath string) {
 		if len(data) == 0 {
 			continue
 		}
-		path := outputFilePath(htmlPath, format)
-		if err := g.ensureWithinOutput(path); err != nil {
-			g.warnOutput(fmt.Sprintf("output %s for %q: %v", name, page.Slug, err))
-			continue
-		}
-		// #nosec G306,G703 -- a published representation of the page beside it
-		if err := os.WriteFile(path, data, 0o644); err != nil {
-			g.warnOutput(fmt.Sprintf("output %s for %q: %v", name, page.Slug, err))
+		if !g.writeOutputFile(outputFilePath(htmlPath, format), data, fmt.Sprintf("output %s for %q", name, page.Slug)) {
 			continue
 		}
 		if name == FormatMarkdown {
 			g.writeFlatMarkdownSibling(htmlPath, data)
 		}
 	}
+}
+
+// writeOutputFile writes one representation, warning under what's name when it
+// cannot, and reports whether the file was written.
+func (g *Generator) writeOutputFile(path string, data []byte, what string) bool {
+	if err := g.ensureWithinOutput(path); err != nil {
+		g.warnOutput(fmt.Sprintf("%s: %v", what, err))
+		return false
+	}
+	// #nosec G306,G703 -- a published representation of the page beside it
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		g.warnOutput(fmt.Sprintf("%s: %v", what, err))
+		return false
+	}
+	return true
 }
 
 // writeFlatMarkdownSibling keeps GO-085's `/section.md` beside
