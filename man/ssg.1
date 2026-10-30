@@ -553,7 +553,10 @@ Maximum heading level included in the TOC (default: 3). The config key
 on each h1\(enh3 of the page body; a mapping sets \fBlevels\fR, \fBsymbol\fR,
 \fBclass\fR and \fBlabel\fR.
 A custom taxonomy's \fBoutputs\fR (or \fBoutputs_index\fR / \fBoutputs_term\fR)
-writes formats from \fBoutputs_custom\fR beside its index and term pages.
+writes formats from \fBoutputs_custom\fR beside its index and term pages, and
+announces them in the page head. A \fBfeeds:\fR entry with
+\fBformat: google-merchant\fR writes a Google Merchant Center product feed
+from the pages' Product JSON-LD.
 .SS Feeds, SEO and Search
 .TP
 .B \-\-feed

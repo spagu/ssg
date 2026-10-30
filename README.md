@@ -294,6 +294,7 @@ Common options:
 | Fingerprint CSS/JS | `fingerprint: true` | `--fingerprint` |
 | Compile SCSS | `scss: true` | `--scss` |
 | Generate Atom feeds | `feed: true` | `--feed` |
+| Publish a Google Merchant Center product feed | `feeds: [{path: /merchant.xml, format: google-merchant}]` | config only |
 | Generate search index | `search_index: true` | `--search-index` |
 | Declare the site's tools to a browser agent | `webmcp: true` | `--webmcp` |
 | Add SEO metadata | `seo: true` | `--seo` |

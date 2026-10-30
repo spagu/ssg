@@ -313,7 +313,7 @@ Two things worth knowing even if you only ever want Atom:
 |---|---|
 | `path` | Output path — also the URL. Required |
 | `title` | Feed title; defaults to the site domain |
-| `format` | `atom` (default), `rss` (2.0) or `json` (JSON Feed 1.1) |
+| `format` | `atom` (default), `rss` (2.0), `json` (JSON Feed 1.1) or `google-merchant` (a product feed, see below) |
 | `source` | A content root: matches that folder and everything beneath it |
 | `categories` | Category names or slugs — any of |
 | `tags` | Tags — any of |
@@ -324,6 +324,60 @@ Two things worth knowing even if you only ever want Atom:
 Selection criteria are optional and combine with **AND** — `source: blog` plus
 `tags: [release]` means release posts *from the blog folder*. A feed with no
 criteria covers every post, at a path you choose.
+
+### Product feed for Google Merchant Center
+
+`format: google-merchant` writes the site's products as a Merchant Center feed
+(RSS 2.0 in the `g:` namespace). Google fetches the file on a schedule you set
+in Merchant Center, so nothing has to run or hold credentials (since 1.8.84,
+#196).
+
+```yaml
+feeds:
+  - path: /merchant.xml
+    format: google-merchant
+    title: "Example Shop"
+    source: shop               # the usual selection; without type: both posts and pages
+    merchant:                  # for what a product page does not say
+      availability: in_stock
+      brand: Example
+      condition: new
+```
+
+The rows come from the JSON-LD the page already gets (`.Schema`: site, section
+and page `schema:` merged), so a page that ships valid `Product` + `Offer` data
+needs no extra authoring. Every product is listed — `feed_items` does not cap a
+catalogue; `items:` does when set.
+
+| Google attribute | From |
+|---|---|
+| `id` | `sku`, then `merchant.id` in front matter, then the page's URL |
+| `title`, `description` | `name`, `description`; else the page's title and description |
+| `link` | `url` of the product or offer; else the page's canonical URL |
+| `image_link` | `image` (a URL, a list or an `ImageObject`), made absolute |
+| `price` | `offers.price` + `offers.priceCurrency` → `12.50 PLN` |
+| `availability` | `offers.availability` (`InStock` → `in_stock`, `OutOfStock`/`SoldOut`/`Discontinued` → `out_of_stock`, `PreOrder` → `preorder`, `BackOrder` → `backorder`); else the feed's `merchant.availability`; else `in_stock` with a warning |
+| `condition` | `itemCondition` (`UsedCondition` → `used`, `RefurbishedCondition` → `refurbished`); new is left out, as Google asks |
+| `brand` | `brand` (text or a `Brand`); else the feed's `merchant.brand` |
+| `gtin`, `mpn` | `gtin`/`gtin13`/`gtin12`/`gtin14`/`gtin8`, `mpn` |
+| `item_group_id` | a `ProductGroup`'s `productGroupID` (or `sku`): each of its `hasVariant` products is a row of its own and inherits what it leaves out |
+
+A page's `merchant:` front matter (`id`, `availability`, `condition`, `brand`,
+`gtin`, `mpn`) wins over the JSON-LD. `merchant.id` applies only to a page with
+one product; variants need their own `sku`.
+
+**Keep the id stable.** To Google a changed `id` is a new product, and the old
+one's history is gone. An id taken from the URL changes when the slug does, so
+the build says how many products use one — give them a `sku` or `merchant.id`.
+
+**Stock is what it was at build time.** Rebuild when it changes, or let Google
+update price and availability from the structured data on the product pages
+(Merchant Center's automatic item updates). The build warns about products
+that state no availability at all.
+
+A product Google would reject — no title, description, link, image or price —
+is left out with a warning naming the page. The feed is not offered to readers
+in the pages' autodiscovery links.
 
 ### Aggregating feeds (a "planet")
 
@@ -1060,7 +1114,7 @@ shortcode_errors: strict
 | `image_formats` | `[webp]` | — | Formats to publish images in, in preference order — `[avif, webp]` offers AVIF first. See [Image formats](#image-formats) |
 | `avif_quality` | `45` | — | `avifenc -q` for the AVIF pass |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
-| `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`) |
+| `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`, `google-merchant`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary; its relative `src`, `href`, `srcset` and `url()` become absolute against the post's address, since a feed reader has no page to resolve them against (#347) |
