@@ -144,8 +144,11 @@ func parseCacheFlags(args []string) (namespace string, dry bool, ok bool) {
 	return namespace, dry, true
 }
 
+// runCacheClean removes the selected namespaces. With --dry it only reports
+// what it would remove: a cache can hold paid TTS and AI results, and asking
+// what goes must not be what makes it go (#373).
 func runCacheClean(namespaces []cacheNamespace, args []string) int {
-	selector, _, ok := parseCacheFlags(args)
+	selector, dry, ok := parseCacheFlags(args)
 	if !ok {
 		return 2
 	}
@@ -154,13 +157,19 @@ func runCacheClean(namespaces []cacheNamespace, args []string) int {
 		errf("❌ no cache namespace matches %q\n", selector)
 		return 1
 	}
+	verb := "removed"
+	if dry {
+		verb = "would remove"
+	}
 	for _, ns := range selected {
 		st, _ := cache.DirStats(ns.name, ns.dir)
-		if err := cache.Clean(ns.dir); err != nil {
-			errf("❌ %s: %v\n", ns.name, err)
-			return 1
+		if !dry {
+			if err := cache.Clean(ns.dir); err != nil {
+				errf("❌ %s: %v\n", ns.name, err)
+				return 1
+			}
 		}
-		fmt.Printf("🧹 %s: removed %d entries (%s)\n", ns.name, st.Entries, cache.HumanBytes(st.Bytes))
+		fmt.Printf("🧹 %s: %s %d entries (%s)\n", ns.name, verb, st.Entries, cache.HumanBytes(st.Bytes))
 	}
 	return 0
 }

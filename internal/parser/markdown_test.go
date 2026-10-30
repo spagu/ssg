@@ -733,3 +733,17 @@ func TestParseUnclosedFrontmatter(t *testing.T) {
 		t.Errorf("error = %v, want it to mention unclosed frontmatter", err)
 	}
 }
+
+// TestKnownFieldsCoverFrontmatter: every key the parser reads into
+// PageFrontmatter stays out of Extra (#378).
+func TestKnownFieldsCoverFrontmatter(t *testing.T) {
+	for _, key := range []string{"schema", "alias_stubs", "title", "taxonomies"} {
+		if !knownFields[key] {
+			t.Errorf("%s is parsed but not known", key)
+		}
+	}
+	extra := extractExtraFields(map[string]interface{}{"schema": map[string]interface{}{"@type": "Product"}, "alias_stubs": true, "rating": 5})
+	if len(extra) != 1 || extra["rating"] != 5 {
+		t.Errorf("extra = %v", extra)
+	}
+}

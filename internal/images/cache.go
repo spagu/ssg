@@ -1,10 +1,13 @@
 package images
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"image"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +29,30 @@ func (p *Processor) cacheKey(path string, ops []request) (string, error) {
 		return "", err
 	}
 	k.Write(opsJSON)
+	// A quality the request leaves to the config is part of the variant: without
+	// it, changing webp_quality/avif_quality would keep serving variants encoded
+	// at the old setting (#375). Explicit qualities are already in opsJSON, so
+	// their keys — and the golden formula — are unchanged.
+	if q := p.configQuality(finalFormat(ops, formatFromPath(path)), ops); q > 0 {
+		k.WriteString(fmt.Sprintf("|quality=%d", q))
+	}
 	return k.Sum(), nil
+}
+
+// configQuality returns the configured quality a WebP/AVIF variant will be
+// encoded at when no operation sets one, or 0 when it does not apply.
+func (p *Processor) configQuality(format string, ops []request) int {
+	if finalQuality(ops) > 0 {
+		return 0
+	}
+	switch format {
+	case "webp":
+		return p.cfg.WebPQuality
+	case "avif":
+		return p.cfg.AVIFQuality
+	default:
+		return 0
+	}
 }
 
 // outputName builds the deterministic published name: <base>.<hash>.<ext>.
@@ -37,7 +63,9 @@ func outputName(source, key, format string) string {
 
 // finalFormat resolves the effective output format for a pipeline: the last
 // explicit format wins; `auto`/empty keeps the source format (never silently
-// converting alpha-capable sources to JPEG).
+// converting alpha-capable sources to JPEG). There is no GIF encoder, so a
+// static GIF under `auto` becomes PNG — lossless and transparency-preserving
+// (#375).
 func finalFormat(ops []request, sourceFormat string) string {
 	format := ""
 	for _, op := range ops {
@@ -46,7 +74,7 @@ func finalFormat(ops []request, sourceFormat string) string {
 		}
 	}
 	if format == "" || format == "auto" {
-		if sourceFormat == "" {
+		if sourceFormat == "" || sourceFormat == "gif" {
 			return "png"
 		}
 		return sourceFormat
@@ -85,7 +113,7 @@ func (p *Processor) cached(source, path, key string, ops []request) (ImageResult
 			return ImageResult{}, false
 		}
 	}
-	cfg, format, derr := decodeConfigAt(cachePath)
+	cfg, format, derr := cachedConfigAt(cachePath, finalFormat(ops, formatFromPath(path)))
 	if derr != nil {
 		return ImageResult{}, false
 	}
@@ -177,6 +205,48 @@ func copyFile(src, dst string) error {
 	defer func() { _ = out.Close() }()
 	_, err = io.Copy(out, in)
 	return err
+}
+
+// cachedConfigAt reads the dimensions/format of a cached variant. AVIF has no
+// registered decoder, so it is verified from its own header instead — decoding
+// it always failed, which made every AVIF variant a cache miss (#375).
+func cachedConfigAt(path, format string) (image.Config, string, error) {
+	if format == "avif" {
+		cfg, err := avifConfigAt(path)
+		return cfg, format, err
+	}
+	return decodeConfigAt(path)
+}
+
+// avifHeaderLimit bounds how much of a cached AVIF is scanned for its ispe box;
+// avifenc writes the meta box (which holds it) right after ftyp.
+const avifHeaderLimit = 64 << 10
+
+// avifConfigAt reads an AVIF's dimensions from its ftyp + ispe boxes: the file
+// must start with an ftyp box and carry a non-zero image spatial extent.
+func avifConfigAt(path string) (image.Config, error) {
+	f, err := os.Open(path) // #nosec G304 -- cache-internal path
+	if err != nil {
+		return image.Config{}, err
+	}
+	defer func() { _ = f.Close() }()
+	head := make([]byte, avifHeaderLimit)
+	n, _ := io.ReadFull(f, head)
+	head = head[:n]
+	if len(head) < 12 || string(head[4:8]) != "ftyp" {
+		return image.Config{}, fmt.Errorf("%s: not an AVIF (no ftyp box)", path)
+	}
+	i := bytes.Index(head, []byte("ispe"))
+	// ispe: 4-byte type, 4-byte version/flags, then 32-bit width and height.
+	if i < 0 || i+16 > len(head) {
+		return image.Config{}, fmt.Errorf("%s: AVIF without a readable ispe box", path)
+	}
+	w := binary.BigEndian.Uint32(head[i+8:])
+	h := binary.BigEndian.Uint32(head[i+12:])
+	if w == 0 || h == 0 || w > math.MaxInt32 || h > math.MaxInt32 {
+		return image.Config{}, fmt.Errorf("%s: AVIF with invalid dimensions %dx%d", path, w, h)
+	}
+	return image.Config{Width: int(w), Height: int(h)}, nil
 }
 
 // decodeConfigAt reads dimensions/format of an on-disk image.

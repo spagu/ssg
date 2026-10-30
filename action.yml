@@ -158,11 +158,18 @@ runs:
           # --max-time/--retry rather than a bare fetch: a stalled connection used to
           # consume the whole 20-minute job budget and be reported as a timeout with
           # no cause, instead of failing in seconds and trying again.
-          VERSION=$(curl --proto '=https' --proto-redir =https -sL \
+          #
+          # The releases/latest page redirects to the newest tag. It is read
+          # instead of the REST API because unauthenticated API calls from a
+          # shared runner IP hit the rate limit, and the answer then had no
+          # tag_name: grep failed, pipefail ended the script before any message
+          # was printed, and the job died in 56 ms with no cause (#382).
+          LOCATION=$(curl --proto '=https' -sS -o /dev/null -w '%{redirect_url}' \
             --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 2 --retry-all-errors \
-            https://api.github.com/repos/spagu/ssg/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
-          if [[ -z "$VERSION" ]]; then
-            echo "::error::Failed to get latest version"
+            https://github.com/spagu/ssg/releases/latest || true)
+          VERSION="${LOCATION##*/releases/tag/}"
+          if [[ -z "$LOCATION" || "$VERSION" == "$LOCATION" ]] || ! [[ "$VERSION" =~ ^v?[0-9A-Za-z._-]+$ ]]; then
+            echo "::error::Failed to resolve the latest ssg release (redirect: '${LOCATION}'). Pin the 'version' input, e.g. version: vX.Y.Z"
             exit 1
           fi
           # Unpinned deploys silently pick up new releases; make the resolved

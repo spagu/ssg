@@ -1,0 +1,11 @@
+# contact-form — no bindings or [vars]; everything it reads is a secret.
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   CONTACT_TURNSTILE_SECRET      Turnstile secret for this form (required;
+#                                 falls back to the shared TURNSTILE_SECRET)
+#   CONTACT_TO                    destination inbox (required)
+#   CONTACT_FROM                  verified sender address (required)
+#   CONTACT_RESEND_API_KEY        Resend API key            } one of the two is
+#   CONTACT_MAILCHANNELS_API_KEY  MailChannels API key      } required (#379)
+#   RESEND_API_KEY                legacy Resend fallback, read only when neither
+#                                 prefixed mail key is set

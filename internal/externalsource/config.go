@@ -382,7 +382,31 @@ func resolveSQL(src *Source, sc SourceConfig, defaults Defaults) error {
 	if err := resolveSQLConn(src, sc); err != nil {
 		return err
 	}
-	return resolveSQLQueries(src, sc)
+	if err := resolveSQLQueries(src, sc); err != nil {
+		return err
+	}
+	return requireSQLContentSelect(src)
+}
+
+// requireSQLContentSelect: a SQL source's data is keyed by query name, so
+// with several queries the rows that become pages must be named with
+// transform.select (#376). One query needs no select — its rows are the pages.
+func requireSQLContentSelect(src *Source) error {
+	if src.Mode != "content" || src.Transform.Select != "" || len(src.Queries) < 2 {
+		return nil
+	}
+	return fmt.Errorf("external source %q: mode: content with several queries needs transform.select naming the one whose rows become pages (queries: %s)",
+		src.Name, strings.Join(sortedKeys(src.Queries), ", "))
+}
+
+// sortedKeys lists a map's keys in order, for stable error messages.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // resolveSQLConn validates the driver and credentials (env-only DSNs).
@@ -402,7 +426,7 @@ func resolveSQLConn(src *Source, sc SourceConfig) error {
 		return fmt.Errorf("external source %q: dsn is required for driver %q", src.Name, sc.Driver)
 	}
 	if !strings.HasPrefix(sc.DSN, "$") {
-		return fmt.Errorf("external source %q: dsn must reference an environment variable (e.g. \"$PRODUCT_DB_DSN\"), not a literal", src.Name)
+		return fmt.Errorf("external source %q: dsn must reference an environment variable (e.g. \"$PRODUCT_DB_DSN\" or \"${PRODUCT_DB_DSN}\"), not a literal", src.Name)
 	}
 	dsn, err := expandEnvRef(src.Name, "dsn", sc.DSN)
 	if err != nil {
@@ -453,7 +477,7 @@ func resolveFormat(src *Source, sc SourceConfig) error {
 		format = "yaml"
 	}
 	if !supportedFormats[format] {
-		return fmt.Errorf("external source %q: unsupported format %q (supported: yaml, json, toml, csv, xml)", src.Name, sc.Format)
+		return fmt.Errorf("external source %q: unsupported format %q (supported: %s)", src.Name, sc.Format, strings.Join(sortedKeys(supportedFormats), ", "))
 	}
 	src.Format = format
 	return nil

@@ -186,6 +186,8 @@ func TestWatchDirsRoots(t *testing.T) {
 		{"bare", func(*config.Config) {}, []string{"content", "templates"}},
 		{"content sources", content, []string{"content", "templates", "data", "docs", "blog"}},
 		{"static roots", static, []string{"content", "templates", "static", "shared-assets", "brand"}},
+		{"resume file (#378)", func(c *config.Config) { c.Resume.File = "examples/resume/cv.json" },
+			[]string{"content", "templates", "examples/resume/cv.json"}},
 		{"everything", func(c *config.Config) { content(c); static(c) },
 			[]string{"content", "templates", "data", "static", "docs", "blog", "shared-assets", "brand"}},
 	}

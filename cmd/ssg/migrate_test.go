@@ -209,9 +209,8 @@ func TestMigrateDispatch(t *testing.T) {
 // flag" left the operator guessing why their custom types never arrived (#134).
 func TestEngineFlagHint(t *testing.T) {
 	for flag, kind := range map[string]string{
-		"--no-custom-types": "custom",
-		"--no-comments":     "comments",
-		"--no-media=true":   "media",
+		"--no-comments":   "comments",
+		"--no-media=true": "media",
 	} {
 		hint := engineFlagHint(flag)
 		if hint == "" {
@@ -222,6 +221,10 @@ func TestEngineFlagHint(t *testing.T) {
 		}
 	}
 
+	// --no-custom-types is ssg's own flag now, so it needs no hint (#374).
+	if hint := engineFlagHint("--no-custom-types"); hint != "" {
+		t.Fatalf("an accepted flag needs no engine hint, got %q", hint)
+	}
 	if hint := engineFlagHint("--nonsense"); hint != "" {
 		t.Fatalf("an unrelated flag needs no engine hint, got %q", hint)
 	}

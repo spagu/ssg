@@ -22,15 +22,16 @@ type PictureSource struct {
 }
 
 // ImagePicture is the result of imagePicture: the ordered <source> list, the
-// <img> fallback, the shared sizes attribute, the formats that were skipped
+// <img> fallback and its srcset, the shared sizes attribute, the formats that were skipped
 // because their encoder was missing, and a ready-to-emit HTML string.
 type ImagePicture struct {
-	Sources  []PictureSource
-	Fallback ImageResult
-	Sizes    string
-	Alt      string
-	Skipped  []string
-	HTML     string
+	Sources        []PictureSource
+	Fallback       ImageResult
+	FallbackSrcSet string // the fallback format's responsive srcset, emitted on <img>
+	Sizes          string
+	Alt            string
+	Skipped        []string
+	HTML           string
 }
 
 // pictureOptions carries the parsed imagePicture request.
@@ -114,10 +115,10 @@ func (p *Processor) Picture(source string, opts pictureOptions) (ImagePicture, e
 		}
 		if f == fallbackFormat {
 			pic.Fallback = set.Default
+			pic.FallbackSrcSet = set.SrcSet
+			continue
 		}
-		if f != fallbackFormat {
-			pic.Sources = append(pic.Sources, PictureSource{Format: f, Type: formatMIME(f), SrcSet: set.SrcSet})
-		}
+		pic.Sources = append(pic.Sources, PictureSource{Format: f, Type: formatMIME(f), SrcSet: set.SrcSet})
 	}
 	pic.HTML = renderPictureHTML(pic)
 	return pic, nil
@@ -135,7 +136,8 @@ func (p *Processor) pictureSrcSet(source, format string, opts pictureOptions) (I
 }
 
 // renderPictureHTML assembles the <picture> markup. The <img> carries
-// width/height (zero CLS), the shared srcset and sizes, alt, and lazy/async
+// width/height (zero CLS), the fallback format's srcset with the shared sizes
+// (so a browser on the fallback still picks a fitting width, #375), alt, and lazy/async
 // hints that are safe defaults for below-the-fold imagery.
 func renderPictureHTML(pic ImagePicture) string {
 	var b strings.Builder
@@ -150,6 +152,9 @@ func renderPictureHTML(pic ImagePicture) string {
 	b.WriteString("<img src=\"" + pic.Fallback.URL + "\"")
 	if pic.Fallback.Width > 0 && pic.Fallback.Height > 0 {
 		fmt.Fprintf(&b, " width=\"%d\" height=\"%d\"", pic.Fallback.Width, pic.Fallback.Height)
+	}
+	if pic.FallbackSrcSet != "" {
+		b.WriteString(" srcset=\"" + pic.FallbackSrcSet + "\"")
 	}
 	if pic.Sizes != "" {
 		b.WriteString(" sizes=\"" + pic.Sizes + "\"")

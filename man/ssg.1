@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.84" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.8.85" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -154,7 +154,8 @@ Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
 external-sources, ai, graph, markdown, tts). \fBstats\fR prints entries and size per namespace;
 \fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
 external-source entries (image GC needs the build manifest — use
-\fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
+\fB\-\-images\-gc\fR on a build). \fB\-\-dry\fR makes \fBclean\fR and \fBgc\fR
+report what they would remove and remove nothing. The pre-1.8.27 \fB.ai-cache\fR root is shown
 as \fBai (legacy)\fR while it exists.
 .TP
 .B ssg config \fR{\fBview\fR|\fBset\fR|\fBunset\fR} [\fIpath\fR] [\fIvalue\fR] [\fB\-\-effective\fR] [\fB\-\-string\fR] [\fB\-\-json\fR] [\fB\-\-config=\fIFILE\fR]

@@ -319,6 +319,12 @@ func watchDirs(cfg *config.Config) []string {
 			dirs = append(dirs, p)
 		}
 	}
+	// The résumé file, which may live outside every directory above (#378).
+	// A walk of a file visits just that file, so the file itself is watched,
+	// not its directory — which may be the project root and the output.
+	if p := strings.TrimSpace(cfg.Resume.File); p != "" {
+		dirs = append(dirs, p)
+	}
 	return dirs
 }
 
@@ -764,6 +770,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		TypeArchives:           cfg.TypeArchives,
 		SanitizeOutput:         cfg.SanitizeOutput,
 		ImageMetadata:          cfg.ImageMetadata,
+		WebPQuality:            cfg.WebPQuality,
+		AVIFQuality:            cfg.AVIFQuality,
 		Schema:                 cfg.Schema,
 		SchemaDefaults:         cfg.SchemaDefaults,
 		ContentSchemas:         cfg.ContentSchemas,
@@ -990,7 +998,9 @@ func parseBoolFlags(arg string, cfg *config.Config) bool {
 		cfg.CheckMarkup = ""
 		return true
 	}
-	if arg == "--seo-off" { // deprecated no-op: SEO injection is opt-in since v1.8.2
+	// Deprecated: SEO injection is opt-in since v1.8.2, so this only matters to
+	// turn off a config's `seo: true` from the command line (#374).
+	if arg == "--seo-off" {
 		cfg.SEO = false
 		return true
 	}
@@ -1022,6 +1032,9 @@ func bareCheckFlags(cfg *config.Config) map[string]*string {
 		"--check-schema":    &cfg.CheckSchema,    // #111
 		"--check-orphans":   &cfg.CheckOrphans,   // #77
 		"--check-redirects": &cfg.CheckRedirects, // #87
+		// On at "warn" by default (#127); the bare flag says so explicitly
+		// rather than being refused as unknown (#374).
+		"--check-markup": &cfg.CheckMarkup,
 	}
 }
 
@@ -2156,7 +2169,7 @@ var standaloneFlagNames = []string{
 	markdownCacheFlag, noMarkdownCacheFlag,
 	"--profile", "--build-report",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
-	"--check-orphans", "--check-redirects", "--seo-off", "--no-check-markup",
+	"--check-orphans", "--check-redirects", "--check-markup", "--seo-off", "--no-check-markup",
 }
 
 // nearestFlag returns the known option closest to what was typed, so a

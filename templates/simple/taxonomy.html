@@ -1,0 +1,26 @@
+{{/* The index of a custom taxonomy (/technology/): every term with its post
+     count. Without this file the index fell back to category.html, which lists
+     posts, and an index has terms instead (#377). */}}
+{{define "taxonomy.html"}}{{template "site-open" (dict "Ctx" . "PageTitle" .Taxonomy.Label "Description" (printf "All %s on %s" .Taxonomy.Label .Domain) "Canonical" .CanonicalURL)}}
+    <main class="main-content" id="main-content">
+        <section class="category-page" id="taxonomy-{{.Taxonomy.Name}}">
+            <div class="container">
+                <header class="category-header">
+                    <h1 class="category-title">{{.Taxonomy.Label}}</h1>
+                </header>
+                <div class="posts-grid" id="taxonomy-terms">
+                    {{range .Terms}}
+                    <article class="post-card" id="term-{{.Slug}}">
+                        <h3 class="post-card-title">
+                            <a href="{{.URL}}">{{.Name}}</a>
+                        </h3>
+                        <span class="post-date">{{.Count}} {{if eq .Count 1}}post{{else}}posts{{end}}</span>
+                        {{if .Description}}<p class="post-excerpt">{{.Description}}</p>{{end}}
+                    </article>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+    </main>
+
+{{template "site-close" .}}{{end}}

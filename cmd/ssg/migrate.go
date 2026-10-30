@@ -421,12 +421,11 @@ func (f *migrateFlags) setPort(value string) int {
 // easy mistake — they appear in the engine's help, and the two tools sit one
 // command apart — and the bare "unknown flag" left the operator guessing (#134).
 var engineFlagKinds = map[string]string{
-	"--no-custom-types": "custom",
-	"--no-comments":     "comments",
-	"--no-posts":        "posts",
-	"--no-pages":        "pages",
-	"--no-media":        "media",
-	"--no-products":     "products",
+	"--no-comments": "comments",
+	"--no-posts":    "posts",
+	"--no-pages":    "pages",
+	"--no-media":    "media",
+	"--no-products": "products",
 }
 
 // engineFlagHint explains how to express an engine flag as a --content

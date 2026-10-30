@@ -25,5 +25,9 @@ var EmbeddedThemes embed.FS
 // `_lib.ts`) is excluded by go:embed's default `_`/`.` rule, so the scaffold
 // would drop it and the importing functions would fail to build (GO-078).
 //
+// It embeds whatever workers/ holds when the binary is built, so a local build
+// from a tree with untracked worker directories lists templates a release
+// does not have (#380). Release binaries are built from a clean checkout.
+//
 //go:embed all:workers
 var EmbeddedWorkers embed.FS

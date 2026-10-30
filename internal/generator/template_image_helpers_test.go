@@ -110,3 +110,38 @@ func TestImageHelpersIntegration(t *testing.T) {
 		t.Errorf("ImagesGC: %v", err)
 	}
 }
+
+// TestImageHelpersUseConfiguredQuality (#375): resize/srcset/picture output is
+// encoded at webp_quality/avif_quality, like the --webp/image_formats pipeline,
+// not at the image package's own defaults.
+func TestImageHelpersUseConfiguredQuality(t *testing.T) {
+	stubDir := t.TempDir()
+	logPath := filepath.Join(stubDir, "args.log")
+	for _, name := range []string{"cwebp", "avifenc"} {
+		// The stub records its argv and leaves an output file behind.
+		script := "#!/bin/sh\necho \"" + name + " $@\" >> '" + logPath + "'\nfor last; do :; done\necho stub > \"$last\"\n"
+		// #nosec G306 -- the stub must be executable
+		if err := os.WriteFile(filepath.Join(stubDir, name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	g := imageTestGen(t)
+	g.config.WebPQuality = 37
+	g.config.AVIFQuality = 29
+	if _, err := g.tmplImageResize("pic.png", map[string]any{"width": 16, "format": "webp"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.tmplImageResize("pic.png", map[string]any{"width": 16, "format": "avif"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(logPath) // #nosec G304 -- test-owned log
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := string(data)
+	if !strings.Contains(log, "cwebp -quiet -q 37") || !strings.Contains(log, "avifenc -q 29") {
+		t.Errorf("encoders did not get the configured qualities:\n%s", log)
+	}
+}

@@ -102,7 +102,7 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
-      # The 96% floor the project holds itself to, enforced rather than reported
+      # The 97% floor the project holds itself to, enforced rather than reported
       # (TEST-002). Generated protobuf is excluded the same way codecov.yml
       # excludes it: 2,760 statements nobody writes, which dragged the number
       # 16 points below the truth. Codecov still uploads below, but a status
@@ -113,8 +113,8 @@ jobs:
           grep -v 'internal/mddb/proto' coverage.out > coverage.gate.out
           pct=$(go tool cover -func=coverage.gate.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
           echo "coverage excluding generated proto: ${pct}%"
-          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 96) }' \
-            || { echo "::error::coverage ${pct}% is below the 96% floor"; exit 1; }
+          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 97) }' \
+            || { echo "::error::coverage ${pct}% is below the 97% floor"; exit 1; }
 
       # The same floor, per package (TEST-001). The aggregate above was being
       # held up by the packages at 99-100% while cmd/ssg sat at 91 and
@@ -132,16 +132,16 @@ jobs:
             END {
               for (pkg in total) {
                 pct = 100 * covered[pkg] / total[pkg]
-                if (pct + 0 < 96) printf "%s %.1f%%\n", pkg, pct
+                if (pct + 0 < 97) printf "%s %.1f%%\n", pkg, pct
               }
             }' coverage.gate.out | sort)
           if [ -n "$below" ]; then
             echo "$below" | while read -r pkg pct; do
-              echo "::error::${pkg} is at ${pct}, below the 96% floor"
+              echo "::error::${pkg} is at ${pct}, below the 97% floor"
             done
             exit 1
           fi
-          echo "every package is at or above 96%"
+          echo "every package is at or above 97%"
 
       # A short fuzz pass on every push. Not to find something in 20 seconds —
       # to keep the targets compiling, keep the seed corpus exercised, and grow
@@ -243,8 +243,8 @@ jobs:
           go test -race -coverprofile=coverage.out ./...
           pct=$(go tool cover -func=coverage.out | awk '/^total:/ { gsub("%", "", $3); print $3 }')
           echo "tts-server coverage: ${pct}%"
-          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 96) }' \
-            || { echo "::error::tts-server coverage ${pct}% is below the 96% floor"; exit 1; }
+          awk -v p="$pct" 'BEGIN { exit !(p + 0 >= 97) }' \
+            || { echo "::error::tts-server coverage ${pct}% is below the 97% floor"; exit 1; }
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
@@ -657,7 +657,7 @@ jobs:
 
             ### Package Managers
             - **Homebrew**: `brew install spagu/tap/ssg`
-            - **Snap**: `snap install ssg`
+            - **Snap**: `snap install static-site-generator`
             - **Debian/Ubuntu**: Download `.deb` file below
             - **Fedora/RHEL**: Download `.rpm` file below
 

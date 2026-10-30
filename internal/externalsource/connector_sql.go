@@ -25,7 +25,9 @@ type SQLConnector struct{}
 var sqlOpen = sql.Open
 
 // Load executes every configured query and exposes the rows as
-// .ExternalData.<source>.<query> ([]map[column]value).
+// .ExternalData.<source>.<query> ([]map[column]value). transform.select runs
+// afterwards, as for file and http sources, so "select: products" narrows the
+// source to that query's rows (#376).
 func (SQLConnector) Load(src Source) (*Result, error) {
 	driver, dsn := driverAndDSN(src)
 	db, err := sqlOpen(driver, dsn)
@@ -58,10 +60,36 @@ func (SQLConnector) Load(src Source) (*Result, error) {
 		data[name] = rows
 		records += len(rows)
 	}
-	return &Result{Name: src.Name, Type: src.Type, Data: data, Metadata: Metadata{
+	selected, err := applyTransform(data, src.Transform)
+	if err != nil {
+		return nil, fail(src, "transform", err)
+	}
+	if src.Transform.Select != "" {
+		records = recordCount(selected)
+	}
+	return &Result{Name: src.Name, Type: src.Type, Data: selected, Metadata: Metadata{
 		SourceType: src.Type, Identifier: sqlIdentifier(src), FetchedAt: time.Now(),
 		RecordCount: records, ContentType: driver,
 	}}, nil
+}
+
+// sqlContentData picks the rows a SQL source's content_map turns into pages.
+// Without transform.select the data is keyed by query name; config allows that
+// only for a single query (requireSQLContentSelect), whose rows are the pages.
+// Anything else — a selected value, or another source type — passes through.
+func sqlContentData(src Source, data interface{}) interface{} {
+	if src.Type != "sql" || src.Transform.Select != "" || len(src.Queries) != 1 {
+		return data
+	}
+	byQuery, ok := data.(map[string]interface{})
+	if !ok {
+		return data
+	}
+	var only string
+	for name := range src.Queries {
+		only = name
+	}
+	return byQuery[only]
 }
 
 // driverAndDSN maps the configured driver to the registered database/sql name.

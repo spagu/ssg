@@ -22,8 +22,8 @@ type Config struct {
 	URLPrefix       string   // default "processed_images"
 	CacheDir        string   // default ".ssg-cache/images"
 	JPEGQuality     int      // default 82
-	WebPQuality     int      // default 82
-	AVIFQuality     int      // default 80 (avifenc -q 0..100)
+	WebPQuality     int      // default 60, the --webp pipeline's default (webp_quality)
+	AVIFQuality     int      // default 45, the image_formats pipeline's default (avif_quality; avifenc -q 0..100)
 	AVIFSpeed       int      // default 5  (avifenc -s 0..10; higher = faster, larger)
 	AllowUpscale    bool
 	MaxSourcePixels int // default 80_000_000 (decompression-bomb guard)
@@ -56,10 +56,10 @@ func New(cfg Config) *Processor {
 		cfg.JPEGQuality = 82
 	}
 	if cfg.WebPQuality <= 0 {
-		cfg.WebPQuality = 82
+		cfg.WebPQuality = 60
 	}
 	if cfg.AVIFQuality <= 0 {
-		cfg.AVIFQuality = 80
+		cfg.AVIFQuality = 45
 	}
 	if cfg.AVIFSpeed <= 0 {
 		cfg.AVIFSpeed = 5
