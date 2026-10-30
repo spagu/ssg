@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.83] - unreleased
 
+### Added
+
+- **Custom output formats beside taxonomy pages** (#367). A custom taxonomy
+  takes `outputs:` — or `outputs_index:` / `outputs_term:` for one of the two
+  views — and every listed `outputs_custom` format is written beside the
+  taxonomy index (`/license/index.json`) and each term archive
+  (`/license/mit/index.json`). The template gets the view's data as a map:
+  `.Taxonomy` and `.Terms` on the index, `.Taxonomy`, `.Term` and `.Posts` on a
+  term, plus `.Site`, `.Domain`, `.Vars` and the theme's helpers, so one
+  template can serve both with `{{if .Term}}`. A paginated term writes the
+  format once, beside page 1, with every post of the term. Built-in formats and
+  unknown names are skipped with a warning. The default stays HTML only.
+- **Web Push notifications about new posts** (#368). A new worker template,
+  `ssg new worker web-push`: subscriptions in D1, and `POST /api/push/notify`,
+  gated by a key and called from CI after a deploy, reads the feed (Atom, RSS
+  or JSON Feed) and sends one notification per new post. The first call only
+  records the newest post, so turning it on does not announce the archive.
+  Encryption (RFC 8291) and VAPID (RFC 8292) use WebCrypto only, subscriptions
+  a push service reports gone are removed, and only known push services are
+  accepted as endpoints. `web_push: true` in the site config writes
+  `manifest.webmanifest` (iOS needs it) and puts the manifest link and the
+  subscribe script in every page's head; the theme adds only the button.
+  `make test-workers` runs the worker's tests.
+
+### Changed
+
+- `heading_anchors` and `web_push` share one decoder for the "switch or
+  mapping" form of a setting. Behaviour is unchanged.
+
+### Dependencies
+
+- `docker/login-action` 4.6.0 → 4.7.0 in the Docker workflow (#366).
+
 ## [1.8.82] - 2026-10-28
 
 ### Added

@@ -216,6 +216,16 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.8.83">
+
+### 1.8.83 — nothing to do
+
+Replace the binary. Taxonomy `outputs` and `web_push` are new and off by
+default, so a site that sets neither builds exactly as before. To add browser
+notifications, see the `web-push` worker's README.
+
+</div>
+
 <div class="upgrade-step" data-since="1.8.82">
 
 ### 1.8.82 — nothing to do

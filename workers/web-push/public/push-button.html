@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New-post notifications</title>
+<meta name="description" content="Get a browser notification when a new post is published; switch it off again with the same button.">
+<!-- This page is a working demo of the snippet below and is served at
+     /push-button.html. Copy the marked block into your theme; keep the demo
+     out of search results so it does not compete with your real pages. -->
+<meta name="robots" content="noindex">
+<link rel="manifest" href="/manifest.webmanifest">
+<script src="/push.js" defer data-endpoint="/api/push"></script>
+<style>
+  /* Google palette; text and button pairs meet WCAG 2.2 AA (4.5:1) in both
+     colour schemes. */
+  :root { color-scheme: light dark; --wp-fg: #202124; --wp-bg: #ffffff; --wp-muted: #3c4043;
+          --wp-btn: #174ea6; --wp-btn-fg: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --wp-fg: #e8eaed; --wp-bg: #202124; --wp-muted: #bdc1c6;
+            --wp-btn: #8ab4f8; --wp-btn-fg: #202124; }
+  }
+  body { margin: 0; background: var(--wp-bg); color: var(--wp-fg);
+         font: 1.0625rem/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif; }
+  main { max-width: 34rem; margin: 10vh auto; padding: 0 1rem; }
+  .note { color: var(--wp-muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>Hear about new posts first</h1>
+<p>One notification per new post, from your browser. No account, no email
+address; the same button turns it off.</p>
+
+<!-- ===== copy from here: the button ======================================
+
+     With `web_push: true` ssg already adds push.js and the manifest link to
+     every page, so this button is all a theme needs. It stays hidden where the
+     browser cannot receive push — including iPhone and iPad until the site is
+     added to the home screen. -->
+<style>
+  .ssg-push { font: inherit; padding: .6rem 1.2rem; border: 0; border-radius: .375rem;
+              background: var(--wp-btn, #174ea6); color: var(--wp-btn-fg, #ffffff); cursor: pointer; }
+  .ssg-push[disabled] { opacity: .7; cursor: progress; }
+  .ssg-push:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+</style>
+<button type="button" class="ssg-push" data-push-subscribe hidden
+        data-label-on="Notify me about new posts"
+        data-label-off="Stop notifications">Notify me about new posts</button>
+<!-- ===== copy to here ===================================================== -->
+
+<p class="note">On iPhone and iPad, add this site to the home screen first
+(Share → Add to Home Screen) and open it from there.</p>
+</main>
+</body>
+</html>

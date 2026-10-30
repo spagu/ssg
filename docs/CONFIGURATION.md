@@ -844,6 +844,10 @@ outputs_custom:
 The template receives `.Page`, `.Site`, `.Domain` and `.Content` (the rendered
 body), plus your theme's helpers and `xmlEscape`.
 
+A custom taxonomy can publish these formats beside its index and term pages
+too, with `outputs:` on the taxonomy; the template then gets the taxonomy view's
+data instead of `.Page`. See [TAXONOMIES.md](TAXONOMIES.md#custom-output-formats).
+
 Custom formats render through **text/template**, not html/template, and that
 difference is deliberate: a custom format is by definition not HTML, and
 contextual HTML escaping is wrong everywhere else — it turns an XML declaration
@@ -2799,6 +2803,45 @@ worker:
   mode: functions
   routes_include:
     - /api/*
+```
+
+### Web Push (`web_push`)
+
+| Key | Default | Notes |
+|---|---:|---|
+| `web_push` | `false` | `true`, or a mapping; a mapping turns it on unless it says `enabled: false` |
+| `web_push.endpoint` | `/api/push` | where the `web-push` worker answers |
+
+Browser notifications about new posts need a server: someone has to keep the
+subscriptions and sign every message with a private key. The `web-push` worker
+does that (`ssg new worker web-push`, see
+[its README](../workers/web-push/README.md)) and ships `sw.js` and `push.js`.
+`web_push: true` makes the site ready for it:
+
+- writes `/manifest.webmanifest` from `.Site.Title`, `marketing.theme_color` and
+  the site's icons, unless the output already has one (from `static/` or the
+  theme). iOS delivers push only to a site added to the home screen, which needs
+  the manifest;
+- puts `<link rel="manifest">` and `<script src="/push.js" defer>` in every
+  page's `<head>`, skipping either one the theme already has;
+- warns when `push.js` or `sw.js` is missing from the output, because the worker
+  is not configured.
+
+The theme adds only the button. `push.js` shows it in a browser that supports
+push, and asks for permission only when it is clicked:
+
+```html
+<button data-push-subscribe hidden data-label-on="Notify me about new posts"
+        data-label-off="Stop notifications">Notify me about new posts</button>
+```
+
+```yaml
+web_push: true
+feed: true            # the worker reads /feed.xml to find new posts
+worker:
+  dir: workers/web-push
+  routes_include:
+    - /api/push/*
 ```
 
 ## Complete example

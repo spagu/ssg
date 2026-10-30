@@ -33,7 +33,7 @@ GOFLAGS=-v
 VERSION := $(shell cat VERSION 2>/dev/null)
 LDFLAGS=-s -w -X main.Version=$(VERSION)
 
-.PHONY: all help deps tidy version-sync version-check \
+.PHONY: all help deps tidy version-sync version-check test-workers \
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
@@ -136,6 +136,11 @@ test: ## 🧪 Run tests
 	@echo "${BLUE}🧪 Running tests...${RESET}"
 	@$(GO) test -v -race -coverprofile=coverage.out ./...
 	@echo "${GREEN}✅ Tests passed${RESET}"
+
+test-workers: ## 🧪 Run the worker tests that have them (Node >= 23; web-push)
+	@echo "${BLUE}🧪 Running worker tests...${RESET}"
+	@node --import ./workers/web-push/test/resolve.mjs --test 'workers/web-push/test/*.test.ts'
+	@echo "${GREEN}✅ Worker tests passed${RESET}"
 
 test-coverage: test ## 📊 Run tests with coverage report
 	@echo "${BLUE}📊 Generating coverage report...${RESET}"

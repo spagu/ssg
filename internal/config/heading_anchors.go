@@ -2,12 +2,7 @@ package config
 
 // `heading_anchors:` — a self-link on each heading that has an id (#364).
 
-import (
-	"encoding/json"
-	"fmt"
-
-	"gopkg.in/yaml.v3"
-)
+import "gopkg.in/yaml.v3"
 
 // HeadingAnchorsConfig appends `<a href="#id">#</a>` to headings.
 // `heading_anchors: true` turns it on with the defaults, and so does a mapping
@@ -34,49 +29,22 @@ type headingAnchorsFields struct {
 
 func (h *HeadingAnchorsConfig) set(f headingAnchorsFields) {
 	*h = HeadingAnchorsConfig{
-		Enabled: f.Enabled == nil || *f.Enabled,
+		Enabled: toggleOn(f.Enabled),
 		Levels:  f.Levels, Symbol: f.Symbol, Class: f.Class, Label: f.Label,
 	}
 }
 
 // UnmarshalYAML accepts `heading_anchors: true` as well as the mapping.
 func (h *HeadingAnchorsConfig) UnmarshalYAML(value *yaml.Node) error {
-	if value.Kind == yaml.ScalarNode {
-		return value.Decode(&h.Enabled)
-	}
-	var f headingAnchorsFields
-	if err := value.Decode(&f); err != nil {
-		return err
-	}
-	h.set(f)
-	return nil
+	return decodeToggleYAML(value, &h.Enabled, h.set)
 }
 
 // UnmarshalJSON accepts `"heading_anchors": true` as well as the object.
 func (h *HeadingAnchorsConfig) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &h.Enabled); err == nil {
-		return nil
-	}
-	var f headingAnchorsFields
-	if err := json.Unmarshal(data, &f); err != nil {
-		return err
-	}
-	h.set(f)
-	return nil
+	return decodeToggleJSON(data, &h.Enabled, h.set)
 }
 
 // UnmarshalTOML accepts `heading_anchors = true` as well as the table.
 func (h *HeadingAnchorsConfig) UnmarshalTOML(data interface{}) error {
-	switch v := data.(type) {
-	case bool:
-		h.Enabled = v
-		return nil
-	case map[string]interface{}:
-		raw, err := json.Marshal(v)
-		if err != nil {
-			return err
-		}
-		return h.UnmarshalJSON(raw)
-	}
-	return fmt.Errorf("heading_anchors: expected true/false or a table")
+	return decodeToggleTOML("heading_anchors", data, &h.Enabled, h.set)
 }

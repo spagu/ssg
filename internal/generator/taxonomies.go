@@ -377,6 +377,7 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 	if err := g.renderTaxonomyPage(g.taxonomyIndexChain(def), indexOut, indexData); err != nil {
 		return err
 	}
+	g.writeViewOutputs(def.OutputsIndex, indexOut, "taxonomy "+base, indexData)
 
 	for i, t := range terms {
 		posts := sortPostsByDate(g.taxonomies.Pages(def.Name, lang, t.Key))
@@ -441,17 +442,29 @@ func (g *Generator) renderTermArchive(def taxonomy.Definition, lang string, info
 		if chunk.Pager.Current > 1 {
 			outPath = filepath.Join(root, "page", fmt.Sprintf("%d", chunk.Pager.Current), indexHTMLName)
 		}
-		data := g.archiveData(def.Name, term.Name,
-			models.Category{Name: term.Name, Slug: slug}, chunk.Posts, chunk.Pager, lang, term.URL)
-		// A custom taxonomy also names the term's own definition and info, which
-		// only this view has.
-		data["Taxonomy"] = info
-		data["Term"] = term
+		data := g.termData(def, lang, info, term, slug, chunk.Posts, chunk.Pager)
 		if err := g.renderTaxonomyPage(chain, outPath, data); err != nil {
 			return err
 		}
 	}
+	// The custom formats are written once, beside the first page, and list
+	// every post of the term: an API client wants the term, not one page of
+	// it (#367).
+	if len(def.OutputsTerm) > 0 {
+		data := g.termData(def, lang, info, term, slug, posts, Pager{Current: 1, Total: 1, PerPage: perPage})
+		g.writeViewOutputs(def.OutputsTerm, filepath.Join(root, indexHTMLName), "term "+term.URL, data)
+	}
 	return nil
+}
+
+// termData is what a term archive's templates receive. A custom taxonomy also
+// names the term's own definition and info, which only this view has.
+func (g *Generator) termData(def taxonomy.Definition, lang string, info TaxonomyInfo, term TaxonomyTerm, slug string, posts []models.Page, pager Pager) map[string]interface{} {
+	data := g.archiveData(def.Name, term.Name,
+		models.Category{Name: term.Name, Slug: slug}, posts, pager, lang, term.URL)
+	data["Taxonomy"] = info
+	data["Term"] = term
+	return data
 }
 
 // termPageURL returns the URL of page n of a term archive (page 1 is the term root).

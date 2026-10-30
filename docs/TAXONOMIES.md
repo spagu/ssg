@@ -25,6 +25,9 @@ taxonomies:
     case_sensitive: false  # "Go" and "go" merge into one term by default
     slugify: true          # URL slugs derived from term names
     generate_empty: false  # true = archives for zero-post terms from data files
+    outputs: [html]        # custom formats beside the index and every term (see below)
+    outputs_index: []      # overrides outputs for the index only
+    outputs_term: []       # overrides outputs for the term archives only
 ```
 
 `paginate` sets the page size for this taxonomy's term archives, overriding the
@@ -132,6 +135,43 @@ rather than a frontmatter field, so it is driven outside the registry and
 a post carries, the post itself, an author record or a display name, and returns
 `/author/<slug>/` (see
 [docs/TEMPLATE_HELPERS.md](TEMPLATE_HELPERS.md)).
+
+## Custom output formats
+
+A format from `outputs_custom` can be written beside the taxonomy pages too,
+the same way it is beside content pages (since 1.8.83, #367):
+
+```yaml
+outputs_custom:
+  - name: api
+    suffix: index.json
+    mime: application/json
+    template: formats/api.json
+taxonomies:
+  license:
+    outputs: [html, api]   # /license/index.json and /license/<term>/index.json
+```
+
+`outputs` applies to the index and to every term; `outputs_index` or
+`outputs_term` overrides it for one of the two. The default is HTML only.
+
+The template gets the data the HTML view gets, as a map. The index has
+`.Taxonomy` and `.Terms`; a term has `.Taxonomy`, `.Term` and `.Posts`; both
+have `.Site`, `.Domain`, `.Vars`, `.Data` and the theme's helpers, including
+`getExternal`. One template can serve both views:
+
+```gotemplate
+{{if .Term}}{"term": {{ toJSON .Term.Name }}, "count": {{ len .Posts }}}
+{{else}}{"terms": [{{range $i, $t := .Terms}}{{if $i}},{{end}}{"name": {{ toJSON $t.Name }}, "count": {{ $t.Count }}}{{end}}]}{{end}}
+```
+
+A paginated term writes its format once, beside page 1, and `.Posts` there is
+every post of the term, not the first page: an API client wants the whole term.
+Each language's taxonomy base gets its own file. Only custom formats apply —
+`json`, `markdown` and `txt` describe a page's front matter and body, which a
+taxonomy view does not have — so any other name is skipped with a warning. The
+built-in `category`, `tag` and `series` keep their legacy output and take no
+formats.
 
 ## Multilingual builds
 
