@@ -98,7 +98,8 @@ be processed.
 
 ### Where stories appear — and do not
 
-- **Sitemap**: every story and every hub.
+- **Sitemap**: every story (only when `domain` is set, since a sitemap needs
+  absolute URLs) and every hub.
 - **Hub**: an ordinary page rendered through the theme's `web-stories` layout
   when it has one, `page.html` otherwise. Its `.Content` is a list of posters
   (`<ul class="ssg-web-stories">`); `.web_stories` is the list as data —

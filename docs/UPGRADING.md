@@ -57,6 +57,8 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.83">1.8.83 — 2026-10-30</option>
+      <option value="1.8.82">1.8.82 — 2026-10-28</option>
       <option value="1.8.81">1.8.81 — 2026-10-24</option>
       <option value="1.8.80">1.8.80 — 2026-10-24</option>
       <option value="1.8.79">1.8.79 — 2026-10-24</option>
@@ -73,12 +75,12 @@ covers only the steps; the changelog covers everything else.
       <option value="1.8.68">1.8.68 — 2026-10-02</option>
       <option value="1.8.67">1.8.67 — 2026-10-02</option>
       <option value="1.8.66">1.8.66 — 2026-10-02</option>
-      <option value="1.8.65">1.8.65 — 2026-10-01</option>
+      <option value="1.8.65">1.8.65 — 2026-10-02</option>
       <option value="1.8.64">1.8.64 — 2026-09-30</option>
       <option value="1.8.63">1.8.63 — 2026-09-25</option>
-      <option value="1.8.62">1.8.62 — 2026-09-13</option>
+      <option value="1.8.62">1.8.62 — 2026-09-14</option>
       <option value="1.8.61">1.8.61 — 2026-09-11</option>
-      <option value="1.8.60">1.8.60 — 2026-09-10</option>
+      <option value="1.8.60">1.8.60 — 2026-09-11</option>
       <option value="1.8.59">1.8.59 — 2026-09-08</option>
       <option value="1.8.58">1.8.58 — 2026-09-08</option>
       <option value="1.8.57">1.8.57 — 2026-09-07</option>
@@ -92,7 +94,7 @@ covers only the steps; the changelog covers everything else.
       <option value="1.8.49">1.8.49 — 2026-08-24</option>
       <option value="1.8.48">1.8.48 — 2026-08-24</option>
       <option value="1.8.47">1.8.47 — 2026-08-21</option>
-      <option value="1.8.46">1.8.46 — 2026-08-19</option>
+      <option value="1.8.46">1.8.46 — 2026-08-20</option>
       <option value="1.8.45">1.8.45 — 2026-08-19</option>
       <option value="1.8.44">1.8.44 — 2026-08-18</option>
       <option value="1.8.43">1.8.43 — 2026-08-17</option>
@@ -108,13 +110,13 @@ covers only the steps; the changelog covers everything else.
       <option value="1.8.33">1.8.33 — 2026-08-14</option>
       <option value="1.8.32">1.8.32 — 2026-08-14</option>
       <option value="1.8.31">1.8.31 — 2026-08-13</option>
-      <option value="1.8.30">1.8.30 — 2026-08-12</option>
+      <option value="1.8.30">1.8.30 — 2026-08-13</option>
       <option value="1.8.29">1.8.29 — 2026-08-12</option>
       <option value="1.8.28">1.8.28 — 2026-08-12</option>
       <option value="1.8.27">1.8.27 — 2026-08-12</option>
       <option value="1.8.26">1.8.26 — 2026-08-11</option>
       <option value="1.8.25">1.8.25 — 2026-08-11</option>
-      <option value="1.8.24">1.8.24 — 2026-08-09</option>
+      <option value="1.8.24">1.8.24 — 2026-08-10</option>
       <option value="1.8.23">1.8.23 — 2026-08-08</option>
       <option value="1.8.22">1.8.22 — 2026-08-08</option>
       <option value="1.8.21">1.8.21 — 2026-08-07</option>
@@ -137,7 +139,7 @@ covers only the steps; the changelog covers everything else.
       <option value="1.8.4">1.8.4 — 2026-07-14</option>
       <option value="1.8.3">1.8.3 — 2026-07-14</option>
       <option value="1.8.2">1.8.2 — 2026-07-11</option>
-      <option value="1.8.1">1.8.1 — 2026-07-10</option>
+      <option value="1.8.1">1.8.1 — 2026-07-11</option>
       <option value="1.8.0">1.8.0 — 2026-07-10</option>
     </optgroup>
     <optgroup label="1.7.x">
@@ -145,7 +147,7 @@ covers only the steps; the changelog covers everything else.
       <option value="1.7.14">1.7.14 — 2026-07-08</option>
       <option value="1.7.13">1.7.13 — 2026-04-08</option>
       <option value="1.7.12">1.7.12 — 2026-04-08</option>
-      <option value="1.7.11">1.7.11 — 2026-04-06</option>
+      <option value="1.7.11">1.7.11 — 2026-04-08</option>
       <option value="1.7.10">1.7.10 — 2026-04-06</option>
       <option value="1.7.9">1.7.9 — 2026-04-06</option>
       <option value="1.7.8">1.7.8 — 2026-04-06</option>
@@ -154,7 +156,7 @@ covers only the steps; the changelog covers everything else.
       <option value="1.7.4">1.7.4 — 2026-04-01</option>
       <option value="1.7.3">1.7.3 — 2026-03-31</option>
       <option value="1.7.2">1.7.2 — 2026-03-31</option>
-      <option value="1.7.1">1.7.1 — 2026-03-30</option>
+      <option value="1.7.1">1.7.1 — 2026-03-31</option>
       <option value="1.7.0">1.7.0 — 2026-03-05</option>
     </optgroup>
     <optgroup label="1.6.x">
@@ -223,8 +225,8 @@ which is a longer read but never a wrong one.
 Replace the binary. `format: google-merchant` for `feeds:` is new; existing
 feeds are unchanged. A page with `featured_image` and a site with
 `marketing.og_image` now carries one `og:image`, the page's own, instead of
-both. A taxonomy with `outputs:` now links its formats from the
-page's `<head>`; a theme that added those links by hand keeps working, because
+both; the palette's `theme-color` follows the same rule. A taxonomy with
+`outputs:` now links its formats from the page's `<head>`; a theme that added those links by hand keeps working, because
 a link already present is not added again.
 
 </div>
@@ -381,6 +383,11 @@ recipe with your search engine's rich-result test after the upgrade.
 
 With `seo: true`, listings, archives and the front page gain JSON-LD
 (`ItemList`, `ProfilePage`, `Organization`) where the theme wrote none.
+
+A page rendered as AMP (`<html amp>` or `<html ⚡>`) no longer gets ssg's
+injected head, analytics, feed links, component assets or scripts, which made
+it invalid AMP. A theme that relied on them on an AMP page adds what AMP
+allows itself.
 
 </div>
 

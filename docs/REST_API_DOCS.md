@@ -94,7 +94,8 @@ JavaScript.
 
 `check_api: warn` lists, and `strict` (or a strict build) fails on:
 
-- a `$ref` that points nowhere, to another file, or round in a circle;
+- a `$ref` that points nowhere, to another file, or round in a circle (a
+  chain deeper than 32 references counts as one);
 - a path parameter (`{id}`) with no `in: path` parameter;
 - an operation with no responses;
 - a security requirement naming a scheme that does not exist;
@@ -121,11 +122,14 @@ properties:
 |---|---|
 | `--ssg-api-accent`, `--ssg-api-on-accent` | the Send and Run buttons |
 | `--ssg-api-border`, `--ssg-api-focus` | field borders, the focus ring |
-| `--ssg-api-code`, `--ssg-api-mono` | response and output blocks |
+| `--ssg-api-field` | the background of fields and the example editor |
+| `--ssg-api-code` | the background of response and output blocks |
+| `--ssg-api-mono` | the monospace font of fields, outputs and method labels |
 | `--ssg-api-get`, `--ssg-api-post`, `--ssg-api-put`, `--ssg-api-delete` | method labels |
 | `--ssg-api-error`, `--ssg-api-warn` | errors and warnings in live examples |
 
-The `apidoc` theme sets all of them.
+Each has a fallback that follows the text colour. The `apidoc` theme sets all
+of them except `--ssg-api-field`, `--ssg-api-error` and `--ssg-api-warn`.
 
 ## In `--watch`
 

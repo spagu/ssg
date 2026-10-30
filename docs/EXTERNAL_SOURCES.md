@@ -62,13 +62,14 @@ Source names must match `[a-z][a-z0-9_-]*`. Sources load in deterministic
 (name-sorted) order, up to `max_concurrent_sources` at a time. A `required`
 source's failure aborts the build; an optional one (`required: false`) warns
 and is skipped. Every failure names the source, its type and the stage
-(`config`, `read`, `fetch`, `parse`, `transform`, `connect`, `query`,
-`import`) — and never contains credentials.
+(`config`, `read`, `fetch`, `cache`, `parse`, `transform`, `connect`,
+`query <name>`, `import`, `content_map`) — and never contains credentials.
 
 **Secrets come only from the environment.** Values written as `"$NAME"`
-resolve from the environment at build time; literal secrets in `dsn`, `auth`
-and `jwt`-style fields are rejected outright, and a referenced-but-unset
-variable fails the build naming the variable (never a value).
+resolve from the environment at build time; literal secrets in `dsn` and the
+`auth` secret fields (`token`, `password`, `value`) are rejected outright, and
+a referenced-but-unset variable fails the build naming the variable (never a
+value).
 
 ### Environment variables in values
 
@@ -98,7 +99,8 @@ Rules:
   `defaults.required: false`) the source is **skipped with a warning** — so a
   shared config can carry an env-driven source nobody else has to set up.
 - `dsn` and `auth` secret fields keep the stricter whole-value form
-  (`dsn: "$PRODUCT_DB_DSN"`); a literal there is still rejected.
+  (`dsn: "$PRODUCT_DB_DSN"`); a literal there is still rejected, and only the
+  `$NAME` spelling is recognised (not `${NAME}`).
 
 ## Local files (`type: file`)
 
@@ -135,7 +137,7 @@ external_sources:
   sources:
     mddb:
       type: http
-      url: https://mddb.tradik.com/feed.xml
+      url: https://blog.example.com/feed.xml
       format: feed
 ```
 
@@ -209,14 +211,14 @@ is joined back into one entry.
 products_api:
   type: http
   url: https://api.example.com/products
-  format: json          # json | csv | xml (yaml/toml also work)
+  format: json          # json | csv | xml | feed (yaml/toml also work); inferred from the URL extension when omitted
   headers:
     Accept: application/json
   query:
     page: "1"
   auth:
     type: bearer        # bearer | basic | header
-    token: "$API_TOKEN"
+    token: "$API_TOKEN"   # basic: username + password: "$PASS"; header: header + value: "$KEY"
   timeout: 10s
   cache_ttl: 1h
   stale_ttl: 24h
@@ -267,7 +269,11 @@ never silent. Pages are aggregated into a single JSON array before transforms;
 each page request reuses the standard auth/retry/size-cap machinery, and the
 aggregated result is what lands in the disk cache.
 
-Retries with linear backoff cover network errors, 429 and 5xx. Successful
+Pagination requires `format: json`; `mode` is mandatory once the block is
+present.
+
+Retries with linear backoff (`retry_backoff` × attempt) cover network errors,
+429 and 5xx; other statuses fail immediately. Successful
 payloads land in the shared disk cache (`<hash>.body` + `<hash>.meta.json`,
 sha256-verified; corrupted entries are evicted). Within `cache_ttl` the cache
 is served without touching the network; after that, a failed refetch can serve
@@ -460,7 +466,8 @@ dependencies is still what its page is about.
 
 ## SQL (`type: sql`)
 
-Drivers: `mysql`, `mariadb`, `postgres`, `sqlite` (pure Go, no cgo). Queries
+Drivers: `mysql`, `mariadb`, `postgres`, `sqlite` (pure Go, no cgo). SQLite
+takes a local file path in `database:` instead of a `dsn`. Queries
 live **only** in configuration — never in templates — and are statically
 validated: a single statement, `SELECT` (or `WITH … SELECT`) only, no
 piggybacked statements. Each query runs under the source `timeout` with a hard
@@ -557,8 +564,8 @@ movable_type:
 ```
 
 With `include_comments: true` each imported entry carries its approved
-(`comment_visible = 1`) comments as a list of maps (author, email, url,
-created_on, text) under `.Extra["comments"]`, ready for templates. Unapproved
+(`comment_visible = 1`) comments as a list of maps (`author`, `email`,
+`url`, `date`, `body`) under `.Extra["comments"]`, ready for templates. Unapproved
 and spam comments are never imported. Default `false` — identical behaviour
 to previous releases.
 
@@ -581,7 +588,9 @@ transform:
   select: data.items    # dot path into the parsed structure
 ```
 
-`select` unwraps API envelopes before the data reaches templates. There is
+`select` unwraps API envelopes before the data reaches templates (and before
+`content_map`). It applies to `file` and `http` sources; SQL results are
+already keyed by query name. There is
 deliberately no scripting, `eval` or embedded query runtime.
 
 ## Migration notes

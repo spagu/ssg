@@ -15,7 +15,7 @@ For the configuration, comments, links and themes, see
 api_docs:
   - root: packages/core          # language detected
   - root: services/billing
-    language: go                 # javascript | typescript | go | php | python
+    language: go                 # javascript | typescript | go (or golang) | php | python
 ```
 
 Without `language:`, ssg looks in `root` for the first of `package.json`
@@ -42,6 +42,9 @@ Read with the Go standard library's own parser and documentation reader.
 | Comments | Go doc comments: the first paragraph is the summary, `Deprecated:` the deprecation, `[Name]` and `[pkg.Name]` links, indented code as Go blocks |
 | Examples | `ExampleParse`, `ExampleLexer_Next` from `_test.go` files, with their `// Output:` |
 
+A link to an enum constant may use its own name (`[Debug]`), as Go code
+does, although the model keeps it under its type (`Level.Debug`).
+
 Go documents parameters in a function's own sentences, so `check_api` does
 not ask for a description of each one.
 
@@ -55,7 +58,7 @@ Read by ssg's own scanner of PHP declarations; function bodies are skipped.
 
 | What | How |
 |---|---|
-| Files | `composer.json` autoload paths (psr-4, psr-0, classmap, files), else `src/`, else the root; `vendor/` and `tests/` skipped |
+| Files | `composer.json` autoload paths (psr-4, psr-0, classmap, files), else `src/`, else the root; `vendor/`, `node_modules/`, `tests/` and `test/` skipped |
 | Modules | one per namespace (`Acme/Textkit/Lexer`); the global namespace is `global` |
 | Symbols | classes (abstract, final, readonly), interfaces, traits, enums with cases, functions, public methods, properties (also promoted constructor properties) and constants |
 | Types | declared types (`?T`, `A\|B`, `A&B`), else PHPDoc types; class names resolved through `namespace` and `use` |

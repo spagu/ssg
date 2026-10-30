@@ -34,6 +34,7 @@ Deliberate choices:
 ```
 workers/web-push/
 ├── schema.sql                           the D1 table
+├── wrangler.snippet.toml                D1/KV bindings + [vars] stub for `ssg new wrangler`
 ├── functions/api/push/key.ts            GET the VAPID public key
 ├── functions/api/push/subscribe.ts      POST a PushSubscription
 ├── functions/api/push/unsubscribe.ts    POST {"endpoint"} to forget it

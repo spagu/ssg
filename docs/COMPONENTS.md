@@ -81,8 +81,13 @@ not shift as the video loads, and a stylesheet that travels with it.
 
 `required: true` refuses a call that omits it. `default:` fills one that does.
 `enum: [a, b]` restricts a string to a list, and refuses anything else by name.
-A component with no `component.yaml` takes any argument as a string, because it
-has promised nothing.
+An argument the schema does not declare is refused too, naming the props it
+has. A component with no `component.yaml` takes any argument as a string,
+because it has promised nothing.
+
+A component's directory name is its name: lowercase letters, digits, `-` or
+`_`. A directory without `template.html` is skipped with a warning. The
+template can call the same helpers a theme partial can.
 
 ## What a mistake looks like
 
@@ -93,14 +98,16 @@ has promised nothing.
 ```
 
 Every message names the call, which is a unique string to search the content
-for. `shortcode_errors` decides what happens next — one setting for "my content
-is wrong", not two:
+for. A call naming a component the site does not have stays in the page as
+written under every setting, with the warning. A call to a component that does
+exist, made wrongly (a missing or invalid prop, a template error), follows
+`shortcode_errors` — one setting for "my content is wrong", not two:
 
-| `shortcode_errors` | A call that does not resolve |
+| `shortcode_errors` | A wrong call to an existing component |
 |---|---|
-| `keep` (default) | stays in the page, visible, so an author proofreading sees it |
-| `drop` | is removed from the page |
-| `strict` | fails the build |
+| `drop` (default) | is removed from the page |
+| `keep` | stays in the page, visible, so an author proofreading sees it |
+| `strict` | stays in the page, and the build fails |
 
 None of them invents markup.
 
@@ -118,7 +125,8 @@ prose that merely looks like a call. Documentation that quotes a component call
 stays quoted.
 
 A call lives on one line and ends at the first `>}}`. A prop may contain a `>`;
-it may not contain the terminator itself.
+it may not contain the terminator itself. A call inside a fenced, indented or
+inline code span is code, not a call, and is never rendered.
 
 ## Assets
 

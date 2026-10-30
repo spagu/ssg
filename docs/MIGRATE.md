@@ -1,7 +1,8 @@
 # Migrating a site into SSG (`ssg migrate`)
 
-One command takes a live site to a working SSG project — WordPress, Drupal or
-a plain crawl — with URLs, media and taxonomies carried across intact:
+One command takes a live site to a working SSG project — today a WordPress
+site, through the `wordpress` provider — with URLs, media and taxonomies
+carried across intact:
 
 ```bash
 ssg migrate wordpress https://example.com --content pages,posts,media
@@ -21,7 +22,7 @@ ssg migrate --list
 
 | Provider | Engine | Content kinds |
 |---|---|---|
-| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.11** (REST API) | `pages`, `posts`, `media`, `tags`, `users`, `menus`, `products` |
+| `wordpress` | [wpexporter](https://github.com/tradik/wpexporter) **≥ 1.8.11** (REST API) | `pages`, `posts`, `media`, `custom`, `comments`, `products`, `tags`, `users`, `menus` |
 
 The migration asks the engine for the SSG format (`--ssg-sections`) and for a
 metadata crawl (`--assisted-crawl`), so `content/<source>/metadata.json`
@@ -57,7 +58,7 @@ snap install wpexporter
 The migration report names the engine that ran, including where it came from:
 
 ```text
-⚙️  engine: wpexporter 1.8.7 (bundled with the snap)
+⚙️  engine: wpexporter 1.8.12 (bundled with the snap)
 ```
 
 **Snap users need none of this**: the `static-site-generator` snap bundles the
@@ -102,9 +103,11 @@ An unknown kind is a hard error (a typo must not silently export the whole
 site). A recognised-but-undeliverable kind is reported as skipped in the final
 summary, never dropped silently — there are none today.
 
-Passing the engine's own flags (`--no-custom-types`, `--no-comments`) to
-`ssg migrate` is rejected with the `--content` equivalent, because they are one
-command apart and the mistake costs a whole content type.
+Passing the engine's own `--no-<kind>` flags (`--no-comments`, `--no-posts`,
+`--no-pages`, `--no-media`, `--no-products`) to `ssg migrate` is rejected with
+the `--content` equivalent, because they are one command apart and the mistake
+costs a whole content type. `--no-custom-types` is the exception: ssg accepts
+it as its own flag (see [The theme's own post types](#the-themes-own-post-types)).
 
 ### Comments
 
@@ -234,14 +237,13 @@ comments and key order survive. A timezone WordPress reports as a bare offset
 (`UTC+2`) is skipped rather than written as something that will not load: it
 carries no DST rules.
 
-The palette arrives only when the engine collects it: that is wpexporter
-**1.8.2**, which is **not released yet**
-([tradik/wpexporter#27](https://github.com/tradik/wpexporter/issues/27)). With
-1.8.1 the migration completes `title`, `description` and `timezone` as
-described, and simply finds no colours. The same release will export **custom
-post types** — a theme's Services, Portfolio or Team entries, silently lost
-today ([#28](https://github.com/tradik/wpexporter/issues/28)) — which will land
-under `pages/<type-slug>/` and keep their original URLs.
+The palette arrives only when the engine collects it (wpexporter 1.8.2+,
+[tradik/wpexporter#27](https://github.com/tradik/wpexporter/issues/27)), which
+every supported engine (≥ 1.8.11) does; a site whose theme exposes no palette
+simply completes `title`, `description` and `timezone`. **Custom post types**
+— a theme's Services, Portfolio or Team entries
+([#28](https://github.com/tradik/wpexporter/issues/28)) — land under
+`pages/<type-slug>/` and keep their original URLs.
 
 Tracking is opt-in on purpose: loading third-party JavaScript on every page is
 your decision, not a side effect of moving content. Verification tokens and
@@ -295,8 +297,10 @@ no menus arrive, the report says why rather than leaving you to guess:
 ### Comments and the engine's age
 
 `comments` can be excluded from `--content` only by **wpexporter 1.8.5 or
-newer**. On an older engine they are exported regardless and the report says
-so, rather than failing a migration over a flag the engine does not know:
+newer**. Engines older than 1.8.11 are refused anyway, so this only matters
+with `--engine` pointing at an engine whose banner ssg cannot read: then they
+are exported regardless and the report says so, rather than failing a
+migration over a flag the engine does not know:
 
 ```text
 ⚠️  comments: exported anyway — this wpexporter cannot be asked to skip them
@@ -447,9 +451,10 @@ only designs.
 
 | Flag | Meaning |
 |---|---|
-| `--content a,b,c` | Content kinds to fetch (default: everything the provider offers): `pages`, `posts`, `media`, `custom`, `products`, `tags`, `users`, `menus` |
+| `--content a,b,c` | Content kinds to fetch (default: everything the provider offers): `pages`, `posts`, `media`, `custom`, `comments`, `products`; metadata kinds `tags`, `users`, `menus` always ship unless excluded with `no-tags`, `no-users`, `no-menus` |
 | `--all-media` | Download the whole media library instead of only the files the content references |
 | `--watch --http` | Live mode: server first, then watch the data load |
+| `--host H`, `--port P` | Address of the live-mode server (default port 8888; a busy port shifts forward) |
 | `--source NAME` | Content source directory name (default: the site's host, `www.` stripped) |
 | `--auth-user U --auth-pass P` | Credentials for the source CMS (menus and settings need them) |
 | `--auth-token T` | Bearer token instead of the user/password pair |

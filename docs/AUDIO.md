@@ -55,14 +55,17 @@ tts:
   api_url: http://localhost:8080/v1/speech
   api_key: $TTS_API_KEY                   # from the environment; never a literal
   voice: en_US-lessac-medium
+  model: ""                               # openai, elevenlabs: the provider's model id
+  instructions: ""                        # openai: how to read ("calm, unhurried")
   lang: ""                                # default: each page's language
   speed: 1.0
+  max_chars: 0                            # split size; 0 = the provider's limit (below)
   jingle_url: https://example.com/intro.mp3   # optional, played before every article
   sections: [posts]
   dir: audio                              # → /audio/<page>.mp3
   timeout: 60s                            # per request
-  retries: 2                              # extra attempts on 429, 5xx, network errors
-  breaker: 3                              # failed articles in a row → stop calling
+  retries: 2                              # extra attempts on 429, 5xx, network errors; -1 none
+  breaker: 3                              # failed articles in a row → stop calling; -1 never
   on_failure: stale                       # stale | skip | fail
   feed: true                              # podcast feed
   feed_path: podcast.xml
@@ -95,7 +98,8 @@ plainly down:
 
 1. **Timeout and retries.** Each request has `timeout`. A network error, a
    timeout, `429` or a `5xx` is retried `retries` times, waiting 1 s, 2 s, 4 s…
-   or what `Retry-After` asks for, capped at 30 s. A `4xx` other than `429`
+   or what `Retry-After` asks for when that is longer (a `Retry-After` is
+   capped at 30 s). A `4xx` other than `429`
    (bad key, unknown voice) is not retried, because asking again changes nothing.
 2. **Breaker.** After `breaker` articles fail in a row, the API is not called
    again for the rest of the build. One line says so. Without it, a down API
@@ -119,15 +123,17 @@ A page without audio still gets the browser button when `listen` is on.
 server in [`services/tts-server/`](https://github.com/spagu/ssg/tree/main/services/tts-server) implements
 it, and so can any small adapter you write in front of another engine.
 
-| Provider | Endpoint (default) | Auth | Per request | Notes |
+| Provider | Endpoint (default) | Auth | Split at | Notes |
 |---|---|---|---|---|
-| `generic` | your `api_url` | `Authorization: Bearer` | 20,000 chars | the contract above |
-| `openai` | `https://api.openai.com/v1/audio/speech` | `Authorization: Bearer` | 4,096 chars | `model` default `gpt-4o-mini-tts`, `voice` default `alloy`; `instructions` steer delivery |
-| `elevenlabs` | `https://api.elevenlabs.io/v1/text-to-speech/{voice}` | `xi-api-key` | split at 4,500 | `voice` (the voice id) is required; `model` default `eleven_multilingual_v2`; MP3 44.1 kHz 128 kbps |
-| `google` | `https://texttospeech.googleapis.com/v1/text:synthesize` | `X-Goog-Api-Key` | 5,000 bytes | `voice` is a voice name such as `pl-PL-Wavenet-A`; audio arrives base64 in JSON |
+| `generic` | your `api_url` (required) | `Authorization: Bearer` | 20,000 chars | the contract above |
+| `openai` | `https://api.openai.com/v1/audio/speech` | `Authorization: Bearer` | 4,000 chars (API limit 4,096) | `model` default `gpt-4o-mini-tts`, `voice` default `alloy`; `instructions` steer delivery |
+| `elevenlabs` | `https://api.elevenlabs.io/v1/text-to-speech/{voice}` | `xi-api-key` | 4,500 chars | `voice` (the voice id) is required; `model` default `eleven_multilingual_v2`; MP3 44.1 kHz 128 kbps |
+| `google` | `https://texttospeech.googleapis.com/v1/text:synthesize` | `X-Goog-Api-Key` | 2,400 chars (API limit 5,000 bytes) | `voice` is a voice name such as `pl-PL-Wavenet-A`; language default `en-US`; audio arrives base64 in JSON |
 
-Longer articles are split at sentence ends under the limit, and the parts are
-joined into one file. `max_chars` overrides the split size.
+`api_url` overrides the default endpoint of `openai`, `elevenlabs` and
+`google` too. Longer articles are split at sentence ends under the limit, and
+the parts are joined into one file. `max_chars` overrides the split size. One
+response may be at most 64 MB, a jingle at most 8 MB.
 
 Services without a simple API-key request (Amazon Polly signs requests with
 SigV4, Azure Speech takes SSML) are reached through `generic` with a small

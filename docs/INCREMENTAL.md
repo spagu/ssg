@@ -17,7 +17,9 @@ ssg                          # a full build
 ```
 
 A one-shot build is full unless asked, because a build nobody is waiting on
-should be the simple one.
+should be the simple one. The config key `incremental: true` is the same as the
+flag. Each incremental build prints its decision on one line —
+`🧩 Incremental: …` or `🧩 Full build: <reason>` — unless `--quiet`.
 
 ## What it actually saves, and what it does not
 
@@ -63,8 +65,11 @@ ssg --incremental --profile=text        # where your build actually spends time
 ssg graph                                   # what the last build recorded
 ssg graph content/site/posts/hello.md       # what changing that file rebuilds
 ssg graph content/site/posts/hello.md --json
-ssg graph --dot | dot -Tsvg > graph.svg
+ssg graph --dot | dot -Tsvg > graph.svg       # --dot ignores a file argument
 ```
+
+`ssg graph` reads `.ssg-cache/graph/` in the current directory and exits 1
+with "run a build first" when there is no graph yet.
 
 With no argument it prints the size of the graph, or the reasons this site's
 builds cannot be narrowed. With a file it prints the outputs that file reaches,
@@ -82,6 +87,7 @@ not appear in the count.
 | A template or a partial changed | The graph does not model which pages a partial reaches, so it will not guess |
 | The configuration file changed | A setting can change anything |
 | The `ssg` binary changed | A new release can render the same sources differently (1.8.67+) |
+| A changed file is an output of the build, not an input | The graph cannot tell what it would reach |
 | A file appeared that the last build never saw | A new page reaches archives, feeds, tag listings and the sitemap, and none of those edges exist yet |
 | `--clean` | The output directory is emptied, so there is nothing left to keep |
 | Content comes from MDDB | The graph cannot hash a remote collection |
@@ -111,8 +117,9 @@ happens after that check says something did.
 ## Where the graph is kept
 
 `.ssg-cache/graph/graph.json`, beside the other build caches. It is a cache:
-delete it and the next build is full. `ssg cache --namespace=graph --dry` lists
-it; `.gitignore` already excludes `.ssg-cache/`.
+delete it and the next build is full. `ssg cache stats` shows its size and
+`ssg cache clean --namespace=graph` deletes it; `.gitignore` already excludes
+`.ssg-cache/`.
 
 The file records a schema version, and the `ssg` binary itself is one of the
 recorded inputs. A graph in another format is discarded, and a graph written by

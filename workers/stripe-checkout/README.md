@@ -3,12 +3,13 @@
 Cloudflare Pages Functions for Stripe payments beside a static SSG site:
 
 - `POST /api/checkout` — creates a Checkout Session (one-time or subscription)
-  and returns its `url` for a client-side redirect.
+  and returns its `url` for a client-side redirect. Body:
+  `{ "priceId": "price_…", "quantity": 1, "mode": "payment" | "subscription" }`.
 - `POST /api/stripe-webhook` — verifies the `Stripe-Signature` with WebCrypto
   HMAC-SHA256 and dispatches on the event type.
 
-Raw `fetch` against the Stripe REST API — no npm dependencies, Direct-Upload
-friendly.
+Raw `fetch` against the Stripe REST API — no npm dependencies. `ssg --deploy
+cloudflare` publishes the `functions/` tree through `wrangler pages deploy`.
 
 ## Config
 

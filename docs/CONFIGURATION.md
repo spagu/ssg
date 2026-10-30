@@ -96,9 +96,9 @@ domain: example.com
 ssg my-blog simple example.com
 ```
 
-Most features are disabled by default. Defaults listed below come from the
-current `config.DefaultConfig`; omitted strings and booleans otherwise use Go's
-empty value.
+Most features are disabled by default. Defaults listed below are the effective
+ones: `config.DefaultConfig` plus the values the build applies when a key is
+unset; omitted strings and booleans otherwise use Go's empty value.
 
 ## Editing the config from the command line
 
@@ -387,12 +387,12 @@ into one published feed. Read the sources with `format: feed`, then list them:
 ```yaml
 external_sources:
   sources:
-    ssg:  { type: http, url: https://ssg.tradik.com/feed.xml,  format: feed }
-    mddb: { type: http, url: https://mddb.tradik.com/feed.xml, format: feed }
+    ssg:  { type: http, url: https://blog.example.com/feed.xml,  format: feed }
+    mddb: { type: http, url: https://docs.example.com/feed.xml, format: feed }
 
 feeds:
   - path: /planet.xml
-    title: "Planet Tradik"
+    title: "Planet Example"
     format: rss
     aggregate:
       - source: ssg
@@ -402,7 +402,7 @@ feeds:
         exclude:
           tags: [events]        # narrow this source only
       - site: blog              # your own content — "*" for every post
-        label: "Tradik"
+        label: "Example"
     exclude:
       words: [sponsored]        # applies to the whole feed
     items: 200                  # how many entries the feed carries at all
@@ -533,6 +533,7 @@ See [TEMPLATES.md](TEMPLATES.md).
 | `host` | `127.0.0.1` | `--host` | Bind address |
 | `port` | `8888` | `--port` | TCP port. Taken if free; otherwise the server walks forward (8889, 8890, …, up to 64 ports) and announces where it landed. `0` = any free port |
 | `watch` | `false` | `--watch` | Rebuild after local file changes (content, templates, data and the config file) |
+| `auto_reload` | on with `--http --watch` | `--auto-reload`, `--no-auto-reload` | Inject a live-reload client into served HTML so the browser refreshes after each successful rebuild; `false` opts out |
 | `watch_runner` | `""` | `--watch-runner` | Spawns a background watch runner process; `none` turns off the one a configured worker would start |
 | `watch_runner_config` | `""` | `--watch-runner-config` | Config file the runner should use |
 | `watch_runner_dir` | `""` | `--watch-runner-dir` | Directory the runner starts in |
@@ -753,7 +754,7 @@ tokens are `:year`, `:month`, `:day`, `:slug` and `:category`.
 `?query` across. **Only in-repository links**: an href with a scheme or a `//`
 prefix is left alone, so a link to a file's history on a code host stays where
 it points even though it ends in `.md`. The emitted URL follows
-[`pretty_urls`](#link-checking), so the rewriter and `check_redirects` agree
+[`pretty_urls`](#links-the-host-redirects-pretty_urls-check_redirects), so the rewriter and `check_redirects` agree
 about the same link. `strip_md_link_text` complements it at publish time: when a
 link's visible text is exactly a filename ending in `.md`, the `.md` is dropped
 (`[CONFIGURATION.md](CONFIGURATION.md)` renders as "CONFIGURATION"). Only bare
@@ -772,8 +773,8 @@ link inside the code). `autolink_list_items: false` turns it off.
 
 ```yaml
 link_rewrites:
-  "../examples/": "https://github.com/spagu/ssg/tree/main/examples/"
-  "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
+  "../examples/": "https://code.example.com/ssg/tree/main/examples/"
+  "../.ssg.yaml.example": "https://code.example.com/ssg/blob/main/.ssg.yaml.example"
 ```
 
 With both set, `check_links` on a documentation site can reach zero warnings.
@@ -930,6 +931,8 @@ stay where they are — `feed:` and `feeds:` — and are documented under
 | `image_sizes` | empty | `--image-sizes` | Responsive widths; no upscaling |
 | `image_sizes_attr` | `100vw` | `--image-sizes-attr` | Generated HTML `sizes` value |
 | `build_workers` | one per CPU | `--workers=N` | Parallel build workers; `0` = off (sequential) |
+| `images_gc` | `false` | `--images-gc` | After the build, prune image-cache entries the build no longer references |
+| `images_gc_dry` | `false` | `--images-gc-dry` | Only report what `images_gc` would remove |
 
 `build_workers` (`--workers=N`) sets how many **pages/posts render and images
 convert to WebP in parallel**. Leave it unset to use the **whole machine** (one
@@ -1111,8 +1114,8 @@ shortcode_errors: strict
 | `type_archives` | empty | — | Which content types get a listing at `/<type>/` — the archive the source CMS renders and links to from its own menu, which is not a document and so is in no export. Keyed by type slug: `realizacje: true` builds it, `reviews: false` refuses it even when the export says the source had one. Rendered by `category.html` with `Kind: "type"`. See [Custom post type archives](#custom-post-type-archives) |
 | `sanitize_output` | `on` | — | Remove invisible characters from generated HTML — zero-width spaces, bidi overrides, tag characters. `warn` reports without changing, `off` does neither. Never touches `<pre>`/`<code>`. See [Invisible characters](#invisible-characters) |
 | `image_metadata` | `strip` | — | Remove EXIF/IPTC/XMP from published images. `keep` publishes it |
-| `image_formats` | `[webp]` | — | Formats to publish images in, in preference order — `[avif, webp]` offers AVIF first. See [Image formats](#image-formats) |
-| `avif_quality` | `45` | — | `avifenc -q` for the AVIF pass |
+| `image_formats` | `[webp]` | `--image-formats=avif,webp` | Formats to publish images in, in preference order — `[avif, webp]` offers AVIF first. See [Image formats](#image-formats) |
+| `avif_quality` | `45` | `--avif-quality` | `avifenc -q` for the AVIF pass |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
 | `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`, `google-merchant`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
@@ -1254,7 +1257,7 @@ implemented.
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
-| `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
+| `check_markup` | `warn` | `--check-markup=warn\|strict\|off`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
 | `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
 | `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
@@ -2125,7 +2128,7 @@ schema:
   publisher:
     "@type": Organization
     name: Acme Inc.
-    logo: https://acme.example/logo.png
+    logo: https://example.com/logo.png
 ```
 
 ```yaml
@@ -2209,8 +2212,8 @@ Non-default languages are written below `/<lang>/`. Templates receive `.Lang`,
 `.Languages`, `.DefaultLanguage`, `.Translations` and `.Hreflang`. Timezones
 affect permalink calendar tokens and template dates; feeds and sitemap remain UTC.
 
-For the opt-in expanded multilingual system, translation dictionaries and
-prefix/fallback policies, see [I18N.md](I18N.md).
+For the opt-in expanded multilingual system (the `i18n:` block), translation
+dictionaries and prefix/fallback policies, see [I18N.md](I18N.md).
 
 ### A language for a whole section (`language_sections`)
 
@@ -2541,7 +2544,7 @@ ai:
   cache_dir: .ssg-cache/ai    # commit it for reproducible, key-free CI builds
   models:                     # endpoints — the connection
     fast:
-      url: https://api.openai.com/v1/chat/completions
+      url: https://ai.example.com/v1/chat/completions
       key: $OPENAI_KEY
       model: gpt-4o-mini
       system: "Answer in one short paragraph."   # house style, inherited by agents
@@ -2603,7 +2606,7 @@ never fires unless you pass `--notify`, so local dev builds stay quiet.
 notify_state: .ssg-notifications.json   # commit it — CI needs the sent-history
 notifications:
   - name: zapier
-    url: https://hooks.zapier.com/hooks/catch/…   # fans out to X / LinkedIn / …
+    url: https://hooks.example.com/catch/…   # fans out to X / LinkedIn / …
     headers: { X-Token: $ZAP_TOKEN }
 ```
 
@@ -2760,7 +2763,7 @@ dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
 | Key | Notes |
 |---|---|
 | `path` | Request path handled by this endpoint, e.g. `/api/quote` (exact match) |
-| `type` | `redirect`, `proxy` or `form` |
+| `type` | `redirect`, `proxy`, `form` or `auth` |
 | `to` / `status` | `redirect`: destination and 3xx code (default `302`) |
 | `target` | `proxy`: upstream URL; the client's path is replaced by the target's |
 | `methods` | `proxy`: allowed HTTP methods (empty = any) |
@@ -2846,6 +2849,10 @@ self-hosted server (on a platform the upstream runs at the edge).
 | `worker.routes_include` | `["/api/*"]` | paths that invoke the Function |
 | `worker.routes_exclude` | empty | paths carved back out to static |
 | `worker.wrangler_config` | empty | wrangler config outside the project root |
+| `worker.source` | empty | Fetch the worker from a repo or ZIP URL into `dir` instead of vendoring it |
+| `worker.auth` | empty | Credentials for a private `source`: `type` `bearer`, `basic` or `header`; secret fields must be `$ENV` references |
+| `worker.config` | empty | Free-form per-worker settings, passed to the worker phase as-is |
+| `workers` | empty | A list of worker definitions (each with a `name` plus the keys above); supersedes `worker:` when set |
 
 Wires a Cloudflare Pages Function into the build for transactional endpoints
 (payments, forms, dynamic pricing, tracking). Scaffold one with `ssg new worker

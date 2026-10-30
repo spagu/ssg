@@ -98,10 +98,17 @@ Archive pages pick the first template that exists in the theme:
 | Term archive (`/technology/go/`) | `term_template:` override → `taxonomy-<name>-term.html` → `taxonomy-term.html` → `archive.html` → `category.html` |
 
 The index context provides `.Taxonomy` (`Name/Label/Singular/Path/URL`),
-`.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`) and, like every
-other archive, `.CanonicalURL`. The term context
-provides `.Taxonomy`, `.Term`, `.Posts` (newest first), `.Pager` and — for
-compatibility with `category.html` — `.Category`, `.Kind` and `.Name`. With
+`.Terms` (each `Name/Slug/URL/Description/Count/Weight/Data`), `.Site`,
+`.Lang`, `.Domain`, `.Vars`, `.Data`, `.ExternalData`, `.BuildTime`, `.SSG`,
+`.Modified` (the newest lastmod of any post with a term) and, like every other
+archive, `.CanonicalURL`. It has no `.Posts`, `.Pager`, `.Category`, `.Kind` or
+`.Name` — the index is a struct, so even `{{ with .Posts }}` is a render
+error there. A theme whose `category.html` reads those fields should ship a
+`taxonomy.html` (or `taxonomy-<name>.html`) for the index. The term context is the archive context described in
+[TEMPLATES.md](TEMPLATES.md#category-tag-author-and-series-archives) —
+`.Posts` (newest first), `.Pager`, `.Modified`, `.StructuredData` and, for
+compatibility with `category.html`, `.Category`, `.Kind` and `.Name` — plus
+`.Taxonomy` and `.Term`. With
 `paginate` set, term archives paginate to `/technology/go/page/2/`, and
 `.CanonicalURL` names the page currently being rendered.
 

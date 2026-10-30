@@ -7,8 +7,9 @@ background (audit FE-002).
 ## Principles
 
 - **Accessibility first** — WCAG 2.2 AA contrast for body and muted text.
-- **System fonts** — themes use a native font stack (no external font CDN, no visitor
-  IP leak to third parties; audit FE-003).
+- **System fonts** — `simple`, `krowy` and `imd` use a native font stack (no external
+  font CDN, no visitor IP leak to third parties; audit FE-003). `apidoc` and `ssgtheme`
+  load their faces from Google Fonts (see [Fonts](#fonts)).
 - **CSS custom properties** — every color/spacing token is a `--var` in `:root`, so a
   theme can be re-skinned by overriding variables.
 - **Responsive & mobile-first** — layouts use relative units and flexbox/grid.
@@ -21,12 +22,21 @@ Light and dark, Public Sans and JetBrains Mono. The tokens, every measured
 contrast ratio and the method label colours are in
 [templates/apidoc/README.md](../templates/apidoc/README.md).
 
+### `ssgtheme` — documentation sites
+
+Light and dark (`prefers-color-scheme`, overridable with `data-theme`), Geist,
+Geist Mono and Instrument Serif. `css/tokens.css` holds every token with its
+measured contrast; the roles and ratios are listed in
+[templates/ssgtheme/README.md](../templates/ssgtheme/README.md).
+
 ### `krowy` — light, natural green
 
 | Token | Value | Notes |
 |-------|-------|-------|
 | `--color-bg-primary` | `#f8faf5` | page background |
-| `--color-text` | dark green/near-black | body text |
+| `--color-text-primary` | `#1a2e1a` | body text |
+| `--color-text-secondary` | `#3d5a3d` | secondary text |
+| `--color-accent` | `#2d7d32` | links/buttons |
 | `--color-text-muted` | `#4a6b4a` | meta/dates — **5.72:1** on bg-primary (AA) |
 | `--font-family` | `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` | system stack |
 
@@ -60,7 +70,13 @@ text at ≥ 4.5:1.
 
 ## Fonts
 
-Themes ship no bundled or CDN webfonts. The first family in each stack (`Inter`,
-`Manrope`, `Space Grotesk`) is used only if the visitor already has it installed;
-otherwise the browser falls back to the platform UI font. This keeps builds
-self-contained and privacy-respecting.
+`simple`, `krowy` and `imd` ship no bundled or CDN webfonts. The first family in
+each stack (`Inter`, `Manrope`, `Space Grotesk`) is used only if the visitor already
+has it installed; otherwise the browser falls back to the platform UI font. This
+keeps builds self-contained and privacy-respecting.
+
+`apidoc` (Public Sans, JetBrains Mono) and `ssgtheme` (Geist, Geist Mono,
+Instrument Serif) load their faces from Google Fonts in the page `<head>`, with
+system fallbacks in each stack. A site that must not contact a third party
+self-hosts those files under `static/` and replaces the `<link>` in the theme's
+head partial.

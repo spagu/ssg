@@ -28,6 +28,14 @@ ssg mcp --config=.ssg.yaml
 | `--no-watch` | Do not rebuild after each change |
 | `--watch` | Also watch the filesystem, so edits made outside MCP rebuild too |
 | `--config=FILE` | Site config (default `.ssg.yaml`) |
+| `--http` | Also serve the site preview, with live reload on every rebuild |
+| `--listen=ADDR` | Also serve the MCP endpoint over Streamable HTTP (a bare port binds `127.0.0.1`) |
+| `--token=SECRET` | Bearer token for `--listen` (else `$SSG_MCP_TOKEN`, else minted) |
+| `--allow-origin=URL` | Accept one browser origin on `--listen`; repeatable |
+| `--no-stdio` | Serve only the `--listen` endpoint |
+
+The network flags and OAuth 2.1 (`mcp.oauth`) are covered in
+[MCP_TRANSPORTS.md](MCP_TRANSPORTS.md).
 
 Both roles are exposed by default. Narrow with `--role` when an agent should not
 be able to touch the other half.

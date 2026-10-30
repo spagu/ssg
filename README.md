@@ -5,6 +5,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/spagu/ssg)](https://goreportcard.com/report/github.com/spagu/ssg)
 [![codecov](https://codecov.io/gh/spagu/ssg/branch/main/graph/badge.svg)](https://codecov.io/gh/spagu/ssg)
 [![GitHub Release](https://img.shields.io/github/v/release/spagu/ssg?style=flat&color=blue)](https://github.com/spagu/ssg/releases)
+[![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/spagu/ssg/badge)](https://scorecard.dev/viewer/?uri=github.com/spagu/ssg)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 
 SSG is a fast static site generator written in Go. It turns Markdown with YAML
@@ -22,7 +24,8 @@ documentation, company sites, portfolios and landing pages.
 
 - Fast, deterministic builds with a single Go binary
 - Markdown content with YAML frontmatter
-- Built-in `simple`, `krowy` and `apidoc` (documentation) themes
+- Built-in `simple`, `krowy` and `apidoc` (documentation) themes, plus `imd` and
+  `ssgtheme` in the repository ([docs/TEMPLATES.md](docs/TEMPLATES.md))
 - Go, Pongo2, Mustache and Handlebars template engines
 - Sitemap, robots.txt, Atom feeds, search index and SEO metadata
 - WebP conversion, responsive images, SCSS, minification and fingerprinting
@@ -164,6 +167,29 @@ This reads `content/my-blog/`, uses the `krowy` theme, treats
 All three values may instead be provided by a configuration file. In MDDB mode,
 content is fetched remotely and the source argument is optional.
 
+Subcommands are recognised only on a known verb (or verb + noun), so a content
+source named `new`, `cache` or `migrate` still builds (`--source=migrate` for
+the reserved single verbs):
+
+| Command | Purpose |
+|---|---|
+| `ssg init [name] [--domain example.com]` | Scaffold a ready-to-build project without overwriting anything |
+| `ssg new worker <template>` | Scaffold a Cloudflare Pages Functions template into `workers/<template>/` |
+| `ssg new wrangler` | Write a starter `wrangler.toml` for the configured workers |
+| `ssg import redirects <file>` | Convert a Next.js `redirects()` rule set into a `redirects:` block |
+| `ssg migrate <provider> <url>` | Migrate a live site into a project ([docs/MIGRATE.md](docs/MIGRATE.md)) |
+| `ssg repair [path...] [--fix]` | Find (and fix) markup an export left indented or fenced |
+| `ssg graph [path] [--dot\|--json]` | What a change rebuilds, and why a build cannot be narrowed |
+| `ssg profile page /url/` | What one page cost in the last `--profile=json` build |
+| `ssg config view\|set\|unset` | Read and edit the config file, comments intact |
+| `ssg cache stats\|clean\|gc` | Inspect or prune `.ssg-cache/` (images, external-sources, ai, graph, markdown, tts) |
+| `ssg mddb push-theme [--dry]` | Upsert templates and assets into MDDB for MCP search |
+| `ssg mcp` | Development MCP server for AI-assisted editing ([docs/MCP.md](docs/MCP.md)) |
+| `ssg daemon [--once]` | Watch every project in `.ssg_projects` from one process ([docs/DAEMON.md](docs/DAEMON.md)) |
+| `ssg self-update-check` | Say whether a newer release exists and how to upgrade this install |
+
+`man ssg` (installed by `make install` and the packages) documents every flag.
+
 ## Content model
 
 SSG uses explicit locations and predictable output rules. These rules are useful
@@ -290,6 +316,7 @@ Common options:
 | Clean output first | `clean: true` | `--clean` |
 | Minify HTML/CSS/JS | `minify_all: true` | `--minify-all` |
 | Convert images to WebP | `webp: true` | `--webp` |
+| Publish AVIF and WebP, best first | `image_formats: [avif, webp]` | `--image-formats=avif,webp` |
 | Responsive images | `image_sizes: [480, 960]` | `--image-sizes=480,960` |
 | Fingerprint CSS/JS | `fingerprint: true` | `--fingerprint` |
 | Compile SCSS | `scss: true` | `--scss` |
@@ -316,6 +343,8 @@ Common options:
 | Name relations between pages, and version a document | `relations:` / `version_of:` in frontmatter | config only |
 | Publish a page as JSON, Markdown, text or your own format | `outputs: {page: [html, json]}` | `--outputs=html,json` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
+| Check alt text, meta, JSON-LD, orphans, redirects | `check_images: warn` (and `check_meta`, `check_schema`, `check_orphans`, `check_redirects`) | `--check-images` … `--check-redirects[=strict]` |
+| Skip the generated `404.html` | `not_found_off: true` | `--not-found-off` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
 | Derive missing excerpts | `auto_excerpt: true` | `--auto-excerpt` |
@@ -456,6 +485,7 @@ output/
 ├── media/
 ├── sitemap.xml
 ├── robots.txt
+├── 404.html
 ├── feed.xml
 └── search-index.json
 ```
@@ -472,8 +502,8 @@ are read from environment variables, never from content files.
 |---|---|---|
 | Cloudflare Pages | `--deploy=cloudflare` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
 | GitHub Pages | `--deploy=github-pages` | `GITHUB_TOKEN` or SSH credentials |
-| Netlify | `--deploy=netlify` | `NETLIFY_AUTH_TOKEN` |
-| Vercel | `--deploy=vercel` | `VERCEL_TOKEN` (optional `VERCEL_ORG_ID` for team scope) |
+| Netlify | `--deploy=netlify` | `NETLIFY_AUTH_TOKEN`; site via `--deploy-project` or `NETLIFY_SITE_ID` |
+| Vercel | `--deploy=vercel` | `VERCEL_TOKEN`; project via `--deploy-project` or `VERCEL_PROJECT_ID` (optional `VERCEL_ORG_ID` for team scope) |
 | FTP | `--deploy=ftp` | `FTP_USERNAME`, `FTP_PASSWORD` |
 | SFTP | `--deploy=sftp` | `SSH_USERNAME` + `SSH_PASSWORD` or `SSH_KEY_FILE` |
 
@@ -561,6 +591,7 @@ Useful targets — `make help` lists every one of them:
 | `make version-sync` | Propagate `VERSION` into every file that states it |
 | `make package-all` | Build the DEB, RPM and Snap packages |
 | `make release VERSION=v1.2.3` | Tag and push a release |
+| `make all` | Dependencies, lint, tests and build |
 
 CI holds a **96% statement-coverage floor twice**: on the module as a whole and
 on every package individually, both computed without the generated protobuf. A
@@ -568,8 +599,6 @@ pull request that drops either fails the `Test` job — see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the exact check and how to run it
 locally. `BENCH_INCREMENTAL=1 make bench` times a one-post edit under
 `--incremental` beside a full build.
-| `make all` | Dependencies, lint, tests and build |
-| `make install` | Install the binary and manual page |
 
 `make golden` and `make determinism` guard the two properties the test suite
 cannot express as unit tests: that a change did not alter generated output, and
@@ -614,7 +643,7 @@ Development workflow and review requirements are in
 | [docs/TEMPLATE_HELPERS.md](docs/TEMPLATE_HELPERS.md) | Go template helper reference |
 | [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Native providers, archives and GitHub Actions |
-| [docs/STYLES.md](docs/STYLES.md) | Built-in theme style guide |
+| [docs/STYLES.md](docs/STYLES.md) | Style and colour guidelines: built-in theme palettes, typography, WCAG 2.2 contrast |
 | [examples/README.md](examples/README.md) | Example projects and workflows |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development and contribution workflow |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |

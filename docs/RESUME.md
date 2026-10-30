@@ -58,7 +58,7 @@ ssg --config examples/resume/ssg.yaml
 | Output | Content |
 |---|---|
 | `<url>index.html` | The CV as a page. The body is Markdown generated from the document, so it goes through the theme's `page.html` like any other page. It also appears in search, the sitemap, `llms.txt` and `markdown_publish`. |
-| `<url>resume.json` | The document. With `contact: true` it is the file byte for byte. Otherwise the contact fields are removed and the JSON is re-encoded with sorted keys. |
+| `<url>resume.json` | The document. With `contact: true`, or when the file has no contact fields, it is the file byte for byte. Otherwise the contact fields are removed and the JSON is re-encoded (indented, sorted keys). |
 | `<link rel="alternate" type="application/json" href="<url>resume.json">` | Added to the page's `<head>`, so tools can find the data. |
 | JSON-LD | A `ProfilePage` with `mainEntity: Person`, produced by the normal SEO pipeline (`seo: true`). |
 
@@ -177,4 +177,8 @@ contact fields removed.
 - The document is not validated against the full JSON Schema. ssg applies the
   rules listed above and decodes the fields it knows. A wrongly typed known
   field fails the build, and unknown fields are kept.
-- A resume file that changes during `--watch` triggers a full rebuild.
+- During `--watch` an edit to the resume file triggers a full rebuild only
+  when the file lies in a watched directory (content, templates, data, static
+  or a `content_sources`/`static_sources` path). Keep `cv.json` in one of them,
+  or rebuild by hand. The incremental build (`--incremental`) always tracks it
+  and rebuilds everything when it changes.

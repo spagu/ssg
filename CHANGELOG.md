@@ -340,7 +340,11 @@ Which ssg built the site, in the site; a sitemap held to Google's guidelines, hu
   TLS connection ssg makes. Release builds, the Docker image and the
   tts-server image are built with 1.27.3; building from source needs it.
 
-## [1.8.73] - 2026-10-18
+### Dependencies
+- `ossf/scorecard-action` 2.4.4 → 2.5.0 (#334) and `actions/download-artifact`
+  8.0.1 → 8.0.2 (#331) in CI.
+
+## [1.8.73] - 2026-10-20
 
 Breadcrumbs that only point at pages that exist, an error page that stays out
 of the sitemap, and records from an external source that keep all their
@@ -696,7 +700,7 @@ See [docs/API_DOCS.md](docs/API_DOCS.md) and
   `listen.player: full` brings the `<audio>` bar back. Without JavaScript, a
   page with an MP3 shows a "Listen (MP3)" link.
 
-## [1.8.65] - 2026-10-01
+## [1.8.65] - 2026-10-02
 
 Articles you can listen to, two ways: with the reader's own browser voice, or
 as an MP3 made once at build time by a text-to-speech API.
@@ -808,7 +812,7 @@ links deleted so anchors matched GitHub.
   1.1.0, `klauspost/cpuid/v2` 2.4.0, `ncruces/go-strftime` 1.1.0, genproto
   2026-09-28; the `golang:1.27.1-alpine` builder image digest.
 
-## [1.8.63] - 2026-09-24
+## [1.8.63] - 2026-09-25
 
 Two reports, a security pass and a snap that shipped a graphics stack. The
 Snap Store flagged libxml2 in a package that never parses XML. The cause was
@@ -868,7 +872,7 @@ viewer brought in Mesa, LLVM and libxml2.
   `github.com/quic-go/quic-go` 0.62.0 → 0.63.0, and the `alpine:3.24` runtime
   image digest (#294).
 
-## [1.8.62] - 2026-09-13
+## [1.8.62] - 2026-09-14
 
 Fourteen reports, eleven of them from building one three-language site by hand.
 None of them broke a build outright; each one cost time because the build said
@@ -1011,7 +1015,7 @@ nothing, or said something that was not true.
 - 📖 `--markdown-cache` appears in `--help`; it was documented in the manpage
   and the guides but not where the flag is discovered.
 
-## [1.8.60] - 2026-09-10
+## [1.8.60] - 2026-09-11
 
 ### Changed
 - 🧪 **Every package now meets the 96% coverage floor** (TEST-001). The gate in
@@ -2718,7 +2722,7 @@ nothing, or said something that was not true.
   unchanged — only its spelling — and the corpora stay byte-identical.
 
 
-## [1.8.46] - 2026-08-19
+## [1.8.46] - 2026-08-20
 
 ### Changed
 - 🐹 **Built with and targeting Go 1.27.0** (from 1.26.6), with golangci-lint
@@ -3450,7 +3454,7 @@ and the dev server giving up on a port instead of taking the next one.
   in place with `ssg repair --fix` rather than requiring a re-migration.
 
 
-## [1.8.30] - 2026-08-12
+## [1.8.30] - 2026-08-13
 
 ### Fixed
 - 🧭 **`--content` no longer strips a migrated site of its navigation** —
@@ -3622,7 +3626,7 @@ and the dev server giving up on a port instead of taking the next one.
   so a site can spell out its policy for AI and search crawlers (GPTBot,
   OAI-SearchBot, Googlebot…). Empty keeps the allow-all default.
 
-## [1.8.24] - 2026-08-09
+## [1.8.24] - 2026-08-10
 
 ### Added
 - 🧩 **`check_schema`** (#111) — validates the JSON-LD each page emits against the
@@ -5217,7 +5221,7 @@ output byte-equivalent for generated pages.
   table, richer argument/path-resolution docs, and a "Common Recipes (task → command)"
   cheat-sheet.
 
-## [1.8.1] - 2026-07-10
+## [1.8.1] - 2026-07-11
 
 Server-hardening and packaging release. The built-in server gains optional public-facing
 capabilities (TLS, HTTP/2, HTTP/3, compression, limits); the build gains extra archive
@@ -5540,7 +5544,7 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
   - Config-defined fields (Title, Text, Url, etc.) remain available alongside inline attrs
   - Unknown shortcodes are left untouched (no silent removal)
 
-## [1.7.11] - 2026-04-06
+## [1.7.11] - 2026-04-08
 
 ### Added
 - ✨ **Flexible author and category fields** - Frontmatter `author` and `categories` now accept both integer IDs and string values
@@ -5643,7 +5647,7 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - 📖 Updated man page with all MDDB options (protocol, watch, batch-size)
 - 📖 Updated docs/INSTALL.md to require Go 1.26
 
-## [1.7.1] - 2026-03-30
+## [1.7.1] - 2026-03-31
 
 ### Added
 - 📎 **Co-located content assets** - Images and media files placed alongside Markdown content files are automatically copied to the corresponding output directory
@@ -6070,7 +6074,67 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.24...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.84...HEAD
+[1.8.84]: https://github.com/spagu/ssg/compare/v1.8.83...v1.8.84
+[1.8.83]: https://github.com/spagu/ssg/compare/v1.8.82...v1.8.83
+[1.8.82]: https://github.com/spagu/ssg/compare/v1.8.81...v1.8.82
+[1.8.81]: https://github.com/spagu/ssg/compare/v1.8.80...v1.8.81
+[1.8.80]: https://github.com/spagu/ssg/compare/v1.8.79...v1.8.80
+[1.8.79]: https://github.com/spagu/ssg/compare/v1.8.78...v1.8.79
+[1.8.78]: https://github.com/spagu/ssg/compare/v1.8.77...v1.8.78
+[1.8.77]: https://github.com/spagu/ssg/compare/v1.8.76...v1.8.77
+[1.8.76]: https://github.com/spagu/ssg/compare/v1.8.75...v1.8.76
+[1.8.75]: https://github.com/spagu/ssg/compare/v1.8.74...v1.8.75
+[1.8.74]: https://github.com/spagu/ssg/compare/v1.8.73...v1.8.74
+[1.8.73]: https://github.com/spagu/ssg/compare/v1.8.72...v1.8.73
+[1.8.72]: https://github.com/spagu/ssg/compare/v1.8.71...v1.8.72
+[1.8.71]: https://github.com/spagu/ssg/compare/v1.8.70...v1.8.71
+[1.8.70]: https://github.com/spagu/ssg/compare/v1.8.69...v1.8.70
+[1.8.69]: https://github.com/spagu/ssg/compare/v1.8.68...v1.8.69
+[1.8.68]: https://github.com/spagu/ssg/compare/v1.8.67...v1.8.68
+[1.8.67]: https://github.com/spagu/ssg/compare/v1.8.66...v1.8.67
+[1.8.66]: https://github.com/spagu/ssg/compare/v1.8.65...v1.8.66
+[1.8.65]: https://github.com/spagu/ssg/compare/v1.8.64...v1.8.65
+[1.8.64]: https://github.com/spagu/ssg/compare/v1.8.63...v1.8.64
+[1.8.63]: https://github.com/spagu/ssg/compare/v1.8.62...v1.8.63
+[1.8.62]: https://github.com/spagu/ssg/compare/v1.8.61...v1.8.62
+[1.8.61]: https://github.com/spagu/ssg/compare/v1.8.60...v1.8.61
+[1.8.60]: https://github.com/spagu/ssg/compare/v1.8.59...v1.8.60
+[1.8.59]: https://github.com/spagu/ssg/compare/v1.8.58...v1.8.59
+[1.8.58]: https://github.com/spagu/ssg/compare/v1.8.57...v1.8.58
+[1.8.57]: https://github.com/spagu/ssg/compare/v1.8.56...v1.8.57
+[1.8.56]: https://github.com/spagu/ssg/compare/v1.8.55...v1.8.56
+[1.8.55]: https://github.com/spagu/ssg/compare/v1.8.54...v1.8.55
+[1.8.54]: https://github.com/spagu/ssg/compare/v1.8.53...v1.8.54
+[1.8.53]: https://github.com/spagu/ssg/compare/v1.8.52...v1.8.53
+[1.8.52]: https://github.com/spagu/ssg/compare/v1.8.51...v1.8.52
+[1.8.51]: https://github.com/spagu/ssg/compare/v1.8.50...v1.8.51
+[1.8.50]: https://github.com/spagu/ssg/compare/v1.8.49...v1.8.50
+[1.8.49]: https://github.com/spagu/ssg/compare/v1.8.48...v1.8.49
+[1.8.48]: https://github.com/spagu/ssg/compare/v1.8.47...v1.8.48
+[1.8.47]: https://github.com/spagu/ssg/compare/v1.8.46...v1.8.47
+[1.8.46]: https://github.com/spagu/ssg/compare/v1.8.45...v1.8.46
+[1.8.45]: https://github.com/spagu/ssg/compare/v1.8.44...v1.8.45
+[1.8.44]: https://github.com/spagu/ssg/compare/v1.8.43...v1.8.44
+[1.8.43]: https://github.com/spagu/ssg/compare/v1.8.42...v1.8.43
+[1.8.42]: https://github.com/spagu/ssg/compare/v1.8.41...v1.8.42
+[1.8.41]: https://github.com/spagu/ssg/compare/v1.8.40...v1.8.41
+[1.8.40]: https://github.com/spagu/ssg/compare/v1.8.39...v1.8.40
+[1.8.39]: https://github.com/spagu/ssg/compare/v1.8.38...v1.8.39
+[1.8.38]: https://github.com/spagu/ssg/compare/v1.8.37...v1.8.38
+[1.8.37]: https://github.com/spagu/ssg/compare/v1.8.36...v1.8.37
+[1.8.36]: https://github.com/spagu/ssg/compare/v1.8.35...v1.8.36
+[1.8.35]: https://github.com/spagu/ssg/compare/v1.8.34...v1.8.35
+[1.8.34]: https://github.com/spagu/ssg/compare/v1.8.33...v1.8.34
+[1.8.33]: https://github.com/spagu/ssg/compare/v1.8.32...v1.8.33
+[1.8.32]: https://github.com/spagu/ssg/compare/v1.8.31...v1.8.32
+[1.8.31]: https://github.com/spagu/ssg/compare/v1.8.30...v1.8.31
+[1.8.30]: https://github.com/spagu/ssg/compare/v1.8.29...v1.8.30
+[1.8.29]: https://github.com/spagu/ssg/compare/v1.8.28...v1.8.29
+[1.8.28]: https://github.com/spagu/ssg/compare/v1.8.27...v1.8.28
+[1.8.27]: https://github.com/spagu/ssg/compare/v1.8.26...v1.8.27
+[1.8.26]: https://github.com/spagu/ssg/compare/v1.8.25...v1.8.26
+[1.8.25]: https://github.com/spagu/ssg/compare/v1.8.24...v1.8.25
 [1.8.24]: https://github.com/spagu/ssg/compare/v1.8.23...v1.8.24
 [1.8.23]: https://github.com/spagu/ssg/compare/v1.8.22...v1.8.23
 [1.8.22]: https://github.com/spagu/ssg/compare/v1.8.21...v1.8.22
@@ -6080,11 +6144,15 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 [1.8.18]: https://github.com/spagu/ssg/compare/v1.8.17...v1.8.18
 [1.8.17]: https://github.com/spagu/ssg/compare/v1.8.16...v1.8.17
 [1.8.16]: https://github.com/spagu/ssg/compare/v1.8.15...v1.8.16
+[1.8.15]: https://github.com/spagu/ssg/compare/v1.8.14...v1.8.15
+[1.8.14]: https://github.com/spagu/ssg/compare/v1.8.13...v1.8.14
+[1.8.13]: https://github.com/spagu/ssg/compare/v1.8.12...v1.8.13
+[1.8.12]: https://github.com/spagu/ssg/compare/v1.8.11...v1.8.12
+[1.8.11]: https://github.com/spagu/ssg/compare/v1.8.10...v1.8.11
 [1.8.10]: https://github.com/spagu/ssg/compare/v1.8.9...v1.8.10
 [1.8.9]: https://github.com/spagu/ssg/compare/v1.8.8...v1.8.9
 [1.8.8]: https://github.com/spagu/ssg/compare/v1.8.7...v1.8.8
-[1.8.7]: https://github.com/spagu/ssg/compare/v1.8.6...v1.8.7
-[1.8.6]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.6
+[1.8.7]: https://github.com/spagu/ssg/compare/v1.8.5...v1.8.7
 [1.8.5]: https://github.com/spagu/ssg/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/spagu/ssg/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/spagu/ssg/compare/v1.8.2...v1.8.3
@@ -6097,3 +6165,31 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 [1.7.12]: https://github.com/spagu/ssg/compare/v1.7.11...v1.7.12
 [1.7.11]: https://github.com/spagu/ssg/compare/v1.7.10...v1.7.11
 [1.7.10]: https://github.com/spagu/ssg/compare/v1.7.9...v1.7.10
+[1.7.9]: https://github.com/spagu/ssg/compare/v1.7.8...v1.7.9
+[1.7.8]: https://github.com/spagu/ssg/compare/v1.7.7...v1.7.8
+[1.7.7]: https://github.com/spagu/ssg/compare/v1.7.6...v1.7.7
+[1.7.6]: https://github.com/spagu/ssg/compare/v1.7.4...v1.7.6
+[1.7.4]: https://github.com/spagu/ssg/compare/v1.7.3...v1.7.4
+[1.7.3]: https://github.com/spagu/ssg/compare/v1.7.2...v1.7.3
+[1.7.2]: https://github.com/spagu/ssg/compare/v1.7.1...v1.7.2
+[1.7.1]: https://github.com/spagu/ssg/compare/v1.7.0...v1.7.1
+[1.7.0]: https://github.com/spagu/ssg/compare/v1.6.2...v1.7.0
+[1.6.2]: https://github.com/spagu/ssg/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/spagu/ssg/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/spagu/ssg/compare/v1.5.4...v1.6.0
+[1.5.4]: https://github.com/spagu/ssg/compare/v1.5.1...v1.5.4
+[1.5.1]: https://github.com/spagu/ssg/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/spagu/ssg/compare/v1.4.9...v1.5.0
+[1.4.9]: https://github.com/spagu/ssg/compare/v1.4.8...v1.4.9
+[1.4.8]: https://github.com/spagu/ssg/compare/v1.4.5...v1.4.8
+[1.4.5]: https://github.com/spagu/ssg/compare/v1.4.4...v1.4.5
+[1.4.4]: https://github.com/spagu/ssg/compare/v1.4.3...v1.4.4
+[1.4.3]: https://github.com/spagu/ssg/compare/v1.4.2...v1.4.3
+[1.4.2]: https://github.com/spagu/ssg/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/spagu/ssg/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/spagu/ssg/compare/v1.3.4...v1.4.0
+[1.3.4]: https://github.com/spagu/ssg/compare/v1.3.3...v1.3.4
+[1.3.3]: https://github.com/spagu/ssg/compare/v1.3.2...v1.3.3
+[1.3.2]: https://github.com/spagu/ssg/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/spagu/ssg/compare/v1.2.0...v1.3.1
+[1.2.0]: https://github.com/spagu/ssg/releases/tag/v1.2.0

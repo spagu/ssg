@@ -15,7 +15,8 @@ never exposed to the caller.
 ```
 workers/republish-trigger/
 ├── functions/api/republish/index.ts   POST (and optional GET) → dispatch
-└── functions/api/republish/_lib.ts    auth, provider dispatch, KV debounce
+├── functions/api/republish/_lib.ts    auth, provider dispatch, KV debounce
+└── wrangler.snippet.toml              optional REPUBLISH_KV + [vars] stub for `ssg new wrangler`
 ```
 
 ## Endpoint

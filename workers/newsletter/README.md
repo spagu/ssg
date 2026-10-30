@@ -31,6 +31,7 @@ Deliberate choices:
 ```
 workers/newsletter/
 ├── schema.sql                                 the D1 table + indexes
+├── wrangler.snippet.toml                      D1 binding + [vars] stub for `ssg new wrangler`
 ├── functions/api/newsletter/index.ts          POST sign-up
 ├── functions/api/newsletter/confirm.ts        GET page + POST confirm (double opt-in)
 ├── functions/api/newsletter/unsubscribe.ts    GET page + POST unsubscribe (RFC 8058)
@@ -50,7 +51,8 @@ npx wrangler d1 create ssg-newsletter
 # paste the id into workers/newsletter/wrangler.snippet.toml (uncomment the block)
 ```
 
-The worker **creates its table on first use**, so the binding is the only step.
+The worker **creates its table on first use**, so the binding — D1 bound as
+`NEWSLETTER_DB` — is the only step.
 To apply the schema by hand instead:
 `npx wrangler d1 execute ssg-newsletter --file=workers/newsletter/schema.sql --remote`.
 `ssg new wrangler` folds the binding stub into your `wrangler.toml`.

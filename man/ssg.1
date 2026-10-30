@@ -25,6 +25,9 @@ ssg \- fast static site generator written in Go
 .B ssg new worker
 .I template
 .br
+.B ssg new wrangler
+.RB [ \-\-config=\fIFILE\fR ]
+.br
 .B ssg init
 .RI [ source-name ]
 .RI [ \-\-domain\ example.com ]
@@ -67,6 +70,11 @@ ssg \- fast static site generator written in Go
 .B ssg daemon
 .RB [ \-\-config\ \fIFILE\fR ]
 .RB [ \-\-once ]
+.br
+.B ssg mcp
+.RB [ \-\-role=\fIROLE\fR ]
+.RB [ \-\-listen=\fIADDR\fR ]
+.RB [ \-\-no\-watch | \-\-watch ]
 .SH DESCRIPTION
 .B ssg
 is a fast and flexible static site generator that converts Markdown content
@@ -109,7 +117,15 @@ and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBcookie-consent\fR, \fBcomments\fR, \fBrepublish-trigger\fR, \fBnewsletter\fR,
 \fBrate-limit\fR and \fBweb-push\fR (browser notifications about new posts; the
 config key \fBweb_push: true\fR writes \fBmanifest.webmanifest\fR and puts the
-subscribe script in every page's head).
+subscribe script in every page's head). Run without a template name it lists
+the templates and exits 2.
+.TP
+.B ssg new wrangler \fR[\fB\-\-config=\fIFILE\fR]
+Write a starter \fBwrangler.toml\fR for the workers the configuration declares
+(\fBworker:\fR or \fBworkers:\fR), with binding stubs to review before
+\fBwrangler pages dev\fR. An existing file is left untouched. Exits 1 when no
+worker is configured. The same file is written automatically before
+\fB\-\-wrangler\fR starts, when workers are configured and none exists.
 .TP
 .B ssg self-update-check
 Report whether a newer release exists. Prints the running version and how this
@@ -123,7 +139,8 @@ the check could not be made.
 .B ssg mddb push-theme \fR[\fB\-\-dry\fR] [\fB\-\-lang=\fICODE\fR] [\fB\-\-no\-validate\fR]
 Upsert every template and static asset into the MDDB collection named by
 \fBmcp.search.mddb_collection\fR, keyed by project-relative path, and delete
-documents whose file no longer exists. This is what lets \fBdesigner_find\fR
+documents whose file no longer exists (\fB\-\-dry\-run\fR is an alias of
+\fB\-\-dry\fR). This is what lets \fBdesigner_find\fR
 answer a question phrased as a sentence; without it the find tools scan the
 project locally, which needs no setup. \fB\-\-dry\fR reports without writing. Each document is checked against the
 collection before it is stored (MDDB 2.12.0+), so lost structured frontmatter is
@@ -134,7 +151,7 @@ endpoint is detected once and skipped silently.
 .TP
 .B ssg cache \fR{\fBstats\fR|\fBclean\fR|\fBgc\fR} [\fB\-\-namespace=\fINAME\fR] [\fB\-\-dry\fR]
 Operate on every SSG disk cache under \fB.ssg-cache/\fR (images,
-external-sources, ai, graph, markdown). \fBstats\fR prints entries and size per namespace;
+external-sources, ai, graph, markdown, tts). \fBstats\fR prints entries and size per namespace;
 \fBclean\fR removes a namespace (or all); \fBgc\fR reclaims expired
 external-source entries (image GC needs the build manifest — use
 \fB\-\-images\-gc\fR on a build). The pre-1.8.27 \fB.ai-cache\fR root is shown
@@ -200,6 +217,18 @@ selected with \fB\-\-custom\-types\fR \fIslug,slug\fR or skipped with
 \fB\-\-no\-custom\-types\fR. Menus reach templates as
 \fB.Site.Menus.\fIlocation\fR.
 .IP
+\fB\-\-no\-crawl\fR skips the SEO/marketing crawl (faster; no tracking ids,
+social profiles or icons in \fBmetadata.json\fR). \fB\-\-user\-agent\fR \fIS\fR
+identifies the engine as \fIS\fR \(em bot protection commonly matches the
+engine's default agent and answers every request with a 500, which looks
+exactly like a broken REST API. \fB\-\-rate\-limit\fR \fIMS\fR waits that many
+milliseconds between the engine's requests. \fB\-\-engine\-arg\fR \fIA\fR hands
+\fIA\fR to the engine verbatim; it is repeatable, a flag and its value are
+separate arguments, and it comes after everything ssg derives, so it can
+override it. The engine's own \fB\-\-no\-posts\fR, \fB\-\-no\-pages\fR,
+\fB\-\-no\-media\fR, \fB\-\-no\-comments\fR and \fB\-\-no\-products\fR are refused
+with a hint naming the \fB\-\-content\fR selection that means the same.
+.IP
 The engine that runs is the newest one ssg can reach, and the report names it.
 \fB\-\-engine\fR \fIPATH\fR (or \fBSSG_WPEXPORTER\fR) chooses one outright; a
 named binary that cannot be run is an error, never a silent fall back. Otherwise
@@ -229,7 +258,7 @@ language\fR holding markup in a document that carries raw markup outside it as
 well. A deliberate sample is written as \fB```html\fR and does not sit in a page
 otherwise made of divs. Front matter and list continuations are never touched.
 .TP
-.B ssg mcp \fR[\fB\-\-role\fR=\fIROLE\fR] [\fB\-\-listen\fR=\fIADDR\fR] [\fB\-\-token\fR=\fISECRET\fR] [\fB\-\-no\-stdio\fR] [\fB\-\-watch\fR]
+.B ssg mcp \fR[\fB\-\-role\fR=\fIROLE\fR] [\fB\-\-listen\fR=\fIADDR\fR] [\fB\-\-token\fR=\fISECRET\fR] [\fB\-\-allow\-origin\fR=\fIORIGIN\fR] [\fB\-\-no\-stdio\fR] [\fB\-\-watch\fR|\fB\-\-no\-watch\fR]
 Model Context Protocol development server for AI-assisted editing. Speaks
 \fBstdio\fR by default, so an assistant launches it. \fB\-\-listen\fR additionally
 serves the MCP endpoint at \fBhttp://\fIADDR\fB/mcp\fR over Streamable HTTP, the
@@ -253,6 +282,8 @@ access tokens from that issuer only when they are signed with its keys,
 unexpired, have an audience naming \fBresource\fR and carry the scopes. No token
 is minted then. See \fIdocs/MCP_TRANSPORTS.md\fR.
 .IP
+Edits made through MCP rebuild the site; \fB\-\-no\-watch\fR edits only, with no
+rebuilds. \fB\-\-role\fR is \fBdesigner\fR or \fBcontent\fR and may be repeated.
 \fB\-\-watch\fR additionally polls the filesystem, so edits made outside MCP rebuild
 and reload the \fB\-\-http\fR preview as well; one process then serves the preview,
 serves the MCP endpoint and watches the tree, with every rebuild serialised. See
@@ -272,8 +303,8 @@ restarted. \fBSIGHUP\fR reloads on demand; \fBSIGINT\fR and \fBSIGTERM\fR stop
 everything. A projects file that no longer parses leaves the running projects
 alone rather than stopping them over a typo. A project that exits by itself is
 restarted; one that will not start is named and skipped so the rest come up.
-\fB\-\-once\fR prints what would run and exits, which checks a projects file in
-CI. See \fBdocs/DAEMON.md\fR.
+\fB\-\-once\fR (alias \fB\-\-check\fR) prints what would run and exits, which
+checks a projects file in CI. See \fBdocs/DAEMON.md\fR.
 .TP
 .B ssg init \fR[\fIsource-name\fR] [\fB\-\-domain\fR \fIexample.com\fR]
 Scaffold a ready-to-build project in the current directory — config, a content
@@ -353,6 +384,10 @@ a privileged port, exhausted descriptors — still stops the server immediately.
 Watch content and template directories for file changes and rebuild
 automatically.
 .TP
+.BR \-\-auto\-reload ", " \-\-no\-auto\-reload
+Live reload of the browser after a rebuild. On by default under
+\fB\-\-watch\fR; \fB\-\-no\-auto\-reload\fR turns it off.
+.TP
 .B \-\-wrangler
 In watch mode, launch the Cloudflare Wrangler emulator in the background (\fBnpx wrangler dev\fR). Automatically sets \fB\-\-watch\fR.
 .TP
@@ -420,6 +455,9 @@ gzip-compress responses when the client sends \fBAccept\-Encoding: gzip\fR.
 .BR \-\-max\-conns =\fIN
 Cap the number of simultaneous connections (\fB0\fR = unlimited).
 .TP
+.BR \-\-workers =\fIN
+Parallel build workers (default: one per CPU; \fB0\fR = sequential).
+.TP
 .BR \-\-mem\-limit =\fISIZE
 Runtime GC soft memory target, e.g. \fB512MiB\fR, \fB1GiB\fR.
 .SS Output Control
@@ -440,6 +478,10 @@ following frontmatter conditions are met:
 .TP
 .B \-\-robots\-off
 Disable robots.txt generation.
+.TP
+.B \-\-not\-found\-off
+Disable the generated \fB404.html\fR. A page slugged \fB404\fR still wins;
+without either, static hosts answer unknown paths with \fBindex.html\fR and a 200.
 .TP
 .BR \-\-pretty\-html ", " \-\-pretty
 Clean up generated HTML by removing all blank lines, without aggressive
@@ -571,6 +613,30 @@ Maximum items per feed (default: 20).
 Validate internal links against the output \(em \fBhref\fR and \fBsrc\fR in HTML,
 \fBurl()\fR and \fB@import\fR in stylesheets, the latter reported with the
 stylesheet and line; \fBstrict\fR fails the build on a dead link.
+.TP
+.BR \-\-check\-images "[=" \fIstrict\fR|\fIstrict\-decorative ]
+Report images with no \fBalt\fR attribute; \fBstrict\fR fails the build and
+\fBstrict\-decorative\fR also reports \fBalt=""\fR.
+.TP
+.BR \-\-check\-meta "[=" \fIstrict ]
+Validate title and description on indexable pages.
+.TP
+.BR \-\-check\-schema "[=" \fIstrict ]
+Validate emitted JSON\-LD against its required properties.
+.TP
+.BR \-\-check\-orphans "[=" \fIstrict ]
+Report indexable pages that no other page links to.
+.TP
+.BR \-\-check\-redirects "[=" \fIstrict ]
+Report links the host would redirect (needs \fBpretty_urls\fR).
+.PP
+Each bare \fB\-\-check\-*\fR flag means \fBwarn\fR; \fB=strict\fR fails the build.
+.TP
+.B \-\-route\-manifest
+Write \fBroutes.json\fR, so the route contract ships with the site.
+.TP
+.B \-\-notify
+Announce new and changed posts to the channels configured under \fBnotify:\fR.
 .TP
 .B \-\-strict
 Escalate soft build problems into failures: \fBcontent_schemas\fR violations,
@@ -794,6 +860,14 @@ Convert images to WebP format. Requires \fBcwebp\fR to be installed.
 .BR \-\-webp\-quality =\fIN
 WebP compression quality, 1\-100 (default: 60).
 .TP
+.BR \-\-image\-formats =\fIa,b
+Publish images in these formats, best first (e.g. \fBavif,webp\fR). AVIF needs
+the optional \fBavifenc\fR; a missing encoder is skipped with a warning and the
+site still publishes WebP and the originals.
+.TP
+.BR \-\-avif\-quality =\fIN
+AVIF quality, 1\-100 (default: 45).
+.TP
 .B \-\-webp\-keep\-original
 Emit each \fB.webp\fR next to its original instead of replacing it. Safe for
 themes with hardcoded \fB.png\fR/\fB.jpg\fR references (favicons, logos,
@@ -844,8 +918,9 @@ An \fBftp://\fR/\fBsftp://\fR URL, or a git remote for github-pages.
 .PP
 Required environment per provider: \fBcloudflare\fR — CLOUDFLARE_API_TOKEN,
 CLOUDFLARE_ACCOUNT_ID; \fBgithub-pages\fR — GITHUB_TOKEN (https) or an SSH key;
-\fBnetlify\fR — NETLIFY_AUTH_TOKEN (+ NETLIFY_SITE_ID); \fBvercel\fR — VERCEL_TOKEN,
-VERCEL_ORG_ID; \fBftp\fR — FTP_USERNAME, FTP_PASSWORD; \fBsftp\fR — SSH_USERNAME,
+\fBnetlify\fR — NETLIFY_AUTH_TOKEN (site via \fB\-\-deploy\-project\fR or
+NETLIFY_SITE_ID); \fBvercel\fR — VERCEL_TOKEN (project via \fB\-\-deploy\-project\fR
+or VERCEL_PROJECT_ID; VERCEL_ORG_ID optional, for team scope); \fBftp\fR — FTP_USERNAME, FTP_PASSWORD; \fBsftp\fR — SSH_USERNAME,
 SSH_PASSWORD or SSH_KEY_FILE (the host must be present in known_hosts).
 .PP
 When a \fBcloudflare\fR deploy target's output contains a \fBfunctions/\fR
@@ -1225,12 +1300,17 @@ Modern dark theme with glassmorphism effects, purple gradient accents, and
 micro-animations.
 .TP
 .B krowy
-Light green farm theme inspired by krowy.net, with natural colors and
-organic design.
+Light green farm theme with a sidebar for recent posts and categories,
+natural colors and organic design.
 .TP
 .B apidoc
 Documentation theme: guides and API references in one sidebar, search,
 an "On this page" column, light and dark schemes.
+.PP
+These three are embedded in the binary and scaffolded into an empty theme
+directory the first time one is named. Two more live in the repository and are
+copied into \fBtemplates/\fR by hand: \fBimd\fR (a corporate landing page) and
+\fBssgtheme\fR (the documentation theme). See \fBdocs/TEMPLATES.md\fR.
 .SH EXIT STATUS
 .TP
 .B 0

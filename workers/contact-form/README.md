@@ -2,7 +2,8 @@
 
 A Cloudflare Pages Function that receives a contact / job-application form,
 verifies a Turnstile token and sends the message by email (MailChannels by
-default, Resend optional). No npm dependencies — deployable via Direct Upload.
+default, Resend optional). No npm dependencies; `ssg --deploy cloudflare`
+publishes the `functions/` tree through `wrangler pages deploy`.
 
 ## Config
 
@@ -22,9 +23,13 @@ worker:
 wrangler pages secret put CONTACT_TURNSTILE_SECRET
 wrangler pages secret put CONTACT_TO
 wrangler pages secret put CONTACT_FROM
-# optional, enables the Resend path instead of MailChannels:
+# optional, for the Resend path (see below):
 wrangler pages secret put RESEND_API_KEY
 ```
+
+The Resend path ships **commented out** in `functions/api/contact.ts`: setting
+`RESEND_API_KEY` alone changes nothing. Uncomment the `if (env.RESEND_API_KEY)`
+block to send through Resend instead of MailChannels.
 
 `CONTACT_TURNSTILE_SECRET` is this form's own Turnstile secret. When it is
 unset the form falls back to the shared `TURNSTILE_SECRET`, so a project set up

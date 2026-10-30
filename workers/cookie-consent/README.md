@@ -35,7 +35,8 @@ workers/cookie-consent/
 ├── functions/api/consent/geo.ts   GET  — is the banner required for this visitor?
 ├── functions/api/consent/log.ts   POST — optional proof-of-consent audit record
 ├── public/cookie-consent.js       the banner (served from your site root)
-├── public/cookie-consent.css       its styles
+├── public/cookie-consent.css      its styles
+├── wrangler.snippet.toml          optional CONSENT_LOG KV + [vars] stub for `ssg new wrangler`
 └── cookie-policy.md               a starter policy page — edit to list your services
 ```
 

@@ -58,6 +58,14 @@ taxonomy listings, the home page and `404.html`:
 | `getDocument(url)` | One document's title, excerpt, tags, language and text |
 | `navigate(url)` | Opens one of **this site's own** documents |
 
+On a site with `api_docs` ([API_DOCS.md](API_DOCS.md)) two more are registered,
+answering from `api.json` (fetched on first call, like the index):
+
+| Tool | Answers |
+|---|---|
+| `findSymbol(query, limit)` | Documented code symbols whose name contains `query` (default 20) |
+| `getSymbol(id)` | One symbol by id: signatures, types, documentation; members as a list |
+
 `navigate` refuses any URL not in the site's own index. An agent can move a
 reader around the site it is already on and nowhere else.
 

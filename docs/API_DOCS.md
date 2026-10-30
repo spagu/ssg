@@ -107,11 +107,14 @@ this order:
 
 1. as a full ID;
 2. in the comment's own module, so a module's own `Token` wins over another's;
-3. as the only symbol with that name in the whole API.
+3. as the only symbol with that name in the whole API;
+4. as the only symbol with that name in the comment's own package, so a site
+   that documents several packages links each `Lexer` to its own.
 
-`Lexer.next` reaches a member, and `src/lex#Lexer` a symbol in another module.
-A name nobody has, or that two modules both have, is not guessed. It is shown
-as text and reported by `check_api`.
+`Lexer.next` reaches a member, and `src/lex#Lexer` a symbol in another module
+of the same package. A trailing `()` is ignored (`{@link parse()}`). A name
+nobody has, or that two modules of one package both have, is not guessed. It
+is shown as text and reported by `check_api`.
 
 ## Live examples
 
@@ -220,8 +223,9 @@ list shows each package once, by its front page.
 
 ## In `--watch`
 
-Every source file of a documented package (`.js`, `.ts`, `.json`, `.md` and so
-on, outside `node_modules`) is an input of the build. A change makes the next
+Every source file of a documented package (`.js`, `.ts`, `.go`, `.php`, `.py`,
+`.json`, `.md`, `go.mod`, `pyproject.toml` and so on, outside `node_modules`,
+`vendor`, `__pycache__` and hidden directories) is an input of the build. A change makes the next
 build full, so the reference never shows code that is no longer there.
 
 ## The API model (`api.json`)

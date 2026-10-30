@@ -1,4 +1,4 @@
-# Editing in the browser (`ssg serve --edit`)
+# Editing in the browser (`ssg --http --watch --edit`)
 
 ```
 ssg --http --watch --edit
@@ -73,8 +73,9 @@ not running.
 
 ## Where a save goes
 
-The first save of a session creates a branch (`edit/<timestamp>`), and every
-save after it commits there:
+The first save of a session creates a branch (`edit/<timestamp>`, for example
+`edit/2026-09-10-142530`; a configured `mcp.git.branch_prefix` replaces
+`edit/`), and every save after it commits there:
 
 ```
 edit: hello.md: title = Hello, edited
@@ -95,6 +96,8 @@ A project that is not a git repository is told so and the file is still saved.
 This writes files and runs git from a web page, so it is treated as what it is.
 
 - `--edit` needs `--http` **and** `--watch`, and refuses to start without them.
+- Every page the preview serves gets the panel script; the endpoints live
+  under `/__edit/` (`doc`, `frontmatter`, `block`, `body`, `ai`, `status`).
 - Every request to `/__edit/*` carries the session token in the
   `X-SSG-Edit-Token` **header**. A header, not a cookie: a page on another
   origin cannot add one, so a stray browser tab cannot drive this.

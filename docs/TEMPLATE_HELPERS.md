@@ -63,7 +63,7 @@ falls back to deep comparison.
 ### `related` / `relatedFromMddb` — related posts
 
 ```gotemplate
-{{ range related . 5 }}<a href="{{ .Link }}">{{ .Title }}</a>{{ end }}
+{{ range related .Post 5 }}<a href="{{ .Link }}">{{ .Title }}</a>{{ end }}
 ```
 
 `related <page> <n>` returns up to `n` posts most related to `<page>`, ranked by
@@ -367,6 +367,16 @@ script without the theme having to know the block's shape — the pattern
 general slugify helper, and `termURL "category" "Marsaskala"` is how a term
 link is built. The built-in taxonomy names are `category`, `tag` and `series`.
 
+## Helpers documented elsewhere
+
+| Helpers | Where |
+|---------|-------|
+| `t`, `hasTranslation`, `translationURL`, `languageURL`, `localizeDate` | [I18N.md](I18N.md) |
+| `imageInfo`, `imageResize`, `imageCrop`, `imageProcess`, `imageFilter`, `imageSrcSet`, `imagePicture` | [IMAGES.md](IMAGES.md) |
+| `getExternal`, `getExternalMeta` | [EXTERNAL_SOURCES.md](EXTERNAL_SOURCES.md) |
+| `relationsOf`, `relatedBy` | [CONTENT.md](CONTENT.md) |
+| `xmlEscape` (custom output formats only) | [CONFIGURATION.md](CONFIGURATION.md) |
+
 ## Conditional helpers
 
 | Helper | Signature | Example |
@@ -424,14 +434,16 @@ SSG registers several helper functions in the Go template engine for date format
   conversion, `.md` link rewriting, `link_rewrites`, sanitizing — and returns
   `template.HTML` so the result is not escaped again.
 
-  **A content field piped through anything else is emitted as raw Markdown.**
-  `{{ .Content }}` renders `# Title` literally instead of an `<h1>`, which is the
-  single most common template mistake:
+  **The struct's `Content` field printed any other way is raw Markdown.**
+  `{{ .Post.Content }}` renders `# Title` literally instead of an `<h1>`, which
+  is the single most common template mistake. The root `.Content` is already
+  rendered (#127), and `safeHTML` passes a rendered value through unchanged:
 
   ```gotemplate
   {{ .Post.Content | safeHTML }}   {{/* posts   — correct */}}
   {{ .Page.Content | safeHTML }}   {{/* pages   — correct */}}
-  {{ .Content }}                   {{/* WRONG — raw Markdown reaches the reader */}}
+  {{ .Content }}                   {{/* root    — correct, already HTML */}}
+  {{ .Post.Content }}              {{/* WRONG — raw Markdown reaches the reader */}}
   ```
 
   Use it for shortcode output and other pre-rendered HTML too.
@@ -453,17 +465,20 @@ SSG registers several helper functions in the Go template engine for date format
   ```
 * **`stripHTML value`** — Strips all HTML tags (`<...>` pattern) from the string.
   ```gotemplate
-  {{ .Content | stripHTML }}
+  {{ .Post.Content | stripHTML }}
   ```
 * **`stripShortcodes value`** — Strips YouTube and embed WordPress-style bracket shortcodes (`[youtube]...[/youtube]`, `[embed]...[/embed]`) from the text.
   ```gotemplate
-  {{ .Content | stripShortcodes }}
+  {{ .Post.Content | stripShortcodes }}
   ```
 
 ### Date Formatting
-* **`formatDate value`** — Formats a date. If a string is passed, it returns it as-is.
+* **`formatDate value [layout]`** — Formats a `time.Time` (or `*time.Time`) in a
+  Go layout, `2 January 2006` when none is given. A zero or nil date renders
+  empty; a string is returned as-is.
   ```gotemplate
-  {{ formatDate .Date }}
+  {{ formatDate .Date }}                {{/* 13 May 2017 */}}
+  {{ formatDate .Date "2006-01-02" }}   {{/* 2017-05-13 */}}
   ```
 * **`formatDatePL date`** — Formats a Go `time.Time` date using Polish month names (e.g., `14 lipca 2026`).
   ```gotemplate
@@ -540,23 +555,23 @@ template never prints less than it was given.
   ```
 * **`hasValidCategories page`** — Returns `true` if the page or post is filed under at least one category that is not the catch-all term.
   ```gotemplate
-  {{ if hasValidCategories . }}...{{ end }}
+  {{ if hasValidCategories .Post }}...{{ end }}
   ```
 
 ### Pages and URLs
 * **`getURL page`** — Helper function that returns the calculated URL path for the page or post. Equivalent to calling `.GetURL`.
   ```gotemplate
-  {{ getURL . }}
+  {{ getURL .Post }}
   ```
-* **`getCanonical page`** — Helper function that returns the full canonical URL for the page or post. Equivalent to calling `.GetCanonical .Domain`.
+* **`getCanonical page domain`** — Helper function that returns the full canonical URL for the page or post. Equivalent to calling `.GetCanonical .Domain`.
   ```gotemplate
-  {{ getCanonical . }}
+  {{ getCanonical .Page .Domain }}
   ```
 
 ### Miscellaneous Helpers
 * **`thumbnailFromYoutube value`** — Extracts the YouTube video ID from a YouTube WordPress-style shortcode and returns its high-quality video thumbnail URL (`https://img.youtube.com/vi/<id>/hqdefault.jpg`).
   ```gotemplate
-  {{ thumbnailFromYoutube .Content }}
+  {{ thumbnailFromYoutube .Post.Content }}
   ```
 * **`recentPosts n`** — Returns a list of the first `n` posts. Safely clamps the count at both ends to prevent slice panics.
   ```gotemplate
@@ -596,13 +611,19 @@ theme actually needs (column splits, "page N of M", index offsets).
 
 - **Theme templates** (`base/index/post/page/category.html`, layouts, partials):
   every helper above.
-- **Shortcode templates**: the safe, deterministic subset — `slice`, `append`, `in`,
-  `notIn`, `contains`, `startsWith`, `endsWith`, `hasPrefix`, `hasSuffix`,
-  `trimPrefix`, `trimSuffix`, `matches`, `isNil`, `isEmpty`, `ternary`, `upper`,
-  `lower`, `title` — plus the image helpers
-  (`imageResize`, `imageSrcSet`, …) and the read-only external-source helpers
-  (`getExternal`, `getExternalMeta`). Collection helpers that walk site-wide
-  data stay theme-only.
+- **Shortcode templates**: a subset — the collection helpers (`where`, `filter`, `sort`, `first`, `last`,
+  `limit`, `offset`, `groupBy`, `uniq`, `uniqBy`, `reverse`, `pluck`, `indexBy`,
+  `concat`, `flatten`, `slice`, `append`), the conditional and string helpers,
+  `upper`/`lower`/`title`, `raw`/`html`, `decodeHTML`, `stripHTML`,
+  `stripShortcodes`, `formatDate`, `formatDatePL`, `duration`, `formatNumber`,
+  `getCategoryName`, `getCategorySlug`, `isValidCategory`, `getAuthorName`,
+  `authorURL`, `default`, `dict`, `int`, `float`, `add`/`sub`/`mul`/`div`, the
+  image helpers and the read-only external-source helpers (`getExternal`,
+  `getExternalMeta`). In a shortcode `safeHTML` is the plain `template.HTML`
+  cast, not the Markdown pipeline. The content wrappers (`latest`, `byTag`, …),
+  `related*`, `relatedIn`, `feed`, `recentPosts`, `getURL`, `getCanonical`,
+  `hasValidCategories`, `thumbnailFromYoutube`, `toJSON`, `listen`, `apiHref`,
+  `apiType`, the taxonomy, relation and i18n helpers stay theme-only.
 - **Alt engines** (pongo2/mustache/handlebars): not applicable — those engines
   ship their own filter syntax; these helpers are Go-template only.
 

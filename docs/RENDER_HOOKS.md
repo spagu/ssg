@@ -48,6 +48,8 @@ is a security property and not a nicety.
 a link hook as markup rather than as flattened text. `.Alt` is plain text,
 because it is an attribute value.
 
+A hook template can call the same helpers a theme template can.
+
 `.ID` on a heading is the anchor the build already computed — the same one the
 table of contents uses, so a hook cannot disagree with it.
 

@@ -26,12 +26,15 @@ Deliberate choices:
 ```
 workers/comments/
 ├── schema.sql                              the D1 table + indexes
+├── wrangler.snippet.toml                   D1 binding + [vars] stub for `ssg new wrangler`
 ├── functions/api/comments/index.ts         GET (list approved) + POST (submit)
-├── functions/api/comments/admin.ts         GET queue + POST approve/spam/delete
-├── functions/api/comments/_lib.ts          shared helpers (not a route)
+├── functions/api/comments/admin.ts         GET queue + POST approve/spam/delete/purge
+├── functions/api/comments/import.ts        POST a JSON batch of existing comments
+├── functions/api/comments/_*.ts            shared helpers: lib, access, mail, schema (not routes)
 ├── public/comments.js                      the reader widget
-├── public/comments.css                      its styles
-└── public/comments-admin.html              the moderation panel
+├── public/comments.css                     its styles
+├── public/comments-admin.html              the moderation panel
+└── tools/wordpress-comments.sh             WordPress REST → import JSON
 ```
 
 `public/` is served from the site root: the widget at `/comments.js`, the panel

@@ -54,7 +54,7 @@ says nothing about the fourth is worse than one that does not start.
 ssg daemon --once
 ```
 
-Prints what would run and exits, leaving nothing behind — a projects-file check
+(`--check` is the same flag.) Prints what would run and exits, leaving nothing behind — a projects-file check
 for CI:
 
 ```
@@ -109,7 +109,7 @@ failure:
   restarted. A site must not silently go unserved.
 - **Stopping** signals the project's whole process group, so a `watch_runner`
   child releases the port too. A project that ignores the signal is ended after
-  a grace period, because the next start needs that port.
+  a five-second grace period, because the next start needs that port.
 
 ## Output
 
@@ -122,7 +122,9 @@ readable:
 [docs] 👀 Watching for changes in content, templates, data, config
 ```
 
-`--quiet` silences the daemon's own lines; the projects still log.
+`--quiet` (`-q`) silences the daemon's own lines; the projects still log.
+`--config=FILE` (or `--config FILE`) reads a projects file other than
+`./.ssg_projects`.
 
 ## Running it as a service
 

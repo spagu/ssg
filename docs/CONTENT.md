@@ -260,7 +260,7 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `category` | string | post | Single free-form category value exposed to templates |
 | `tags` | list | post | Creates tag listings at `/tag/<slug>/` |
 | `series` | string | post | Creates a series listing and previous/next navigation |
-| `sticky` | bool | Pin the post to the top of date-ordered listings: the front page, the posts page, `.Site.Posts` and every term archive. Pinned posts keep their own order among themselves; reaches templates as `.Sticky`. Feeds are deliberately **not** pinned — `/feed/` reports what was published when, as WordPress does. |
+| `sticky` | bool | post | Pin the post to the top of date-ordered listings: the front page, the posts page, `.Site.Posts` and every term archive. Pinned posts keep their own order among themselves; reaches templates as `.Sticky`. Feeds are deliberately **not** pinned — `/feed/` reports what was published when, as WordPress does. |
 | `excerpt` | string | both | Listing, feed and metadata summary |
 | `description` | string | both | SEO description; themes may fall back to `excerpt` |
 | `keywords` | string | both | SEO keywords |
@@ -277,6 +277,11 @@ Liquid guards (`{%` … `%}`), so the excerpt starts at the first real sentence.
 | `sitemap_changefreq` | string | both | The item's `<changefreq>`: `always`, `hourly`, `daily`, `weekly`, `monthly`, `yearly` or `never`; default `monthly` (1.8.79) |
 | `sitemap_priority` | number | both | The item's `<priority>`, 0.0 to 1.0; default by type (1.8.79) |
 | `lang` | string | both | Language used in multilingual output |
+| `translation_key` | string | both | Groups translations of one document across languages (see [I18N.md](I18N.md)) |
+| `taxonomies` | map | post | Generic taxonomy assignment, highest priority (see [TAXONOMIES.md](TAXONOMIES.md#assigning-terms-in-frontmatter)) |
+| `relations` | map of lists | both | Named links to other slugs; see [Relations](#relations) |
+| `version`, `version_of` | string | both | A versioned chain; see [Versions](#versions) |
+| `outputs` | list | both | Overrides the site's `outputs:` for this page; see [Outputs per page](#outputs-per-page) |
 
 Unknown frontmatter fields are retained and flattened into the template's root
 context. They never replace standard fields with the same name.
@@ -598,8 +603,8 @@ See [Authentication](AUTHENTICATION.md) and [API](../reference/API.md).
 ```
 
 SSG resolves the source filename and final slug. Unknown `.md` links remain
-unchanged. The feature is disabled by default for sites that intentionally
-publish raw Markdown.
+unchanged. A site that intentionally publishes raw Markdown sets
+`rewrite_md_links: false`.
 
 ## Assets and static files
 
@@ -704,7 +709,7 @@ To strip these shortcodes from your text in lists or feeds, use the `stripShortc
 
 ## Publication checklist
 
-- `metadata.json` exists and contains every referenced author/category.
+- If authors or categories are referenced by ID, `metadata.json` exists and contains them.
 - Posts are not placed directly in `posts/`.
 - Frontmatter content has `status: publish`.
 - `type` is correct and posts have a valid `date`.
