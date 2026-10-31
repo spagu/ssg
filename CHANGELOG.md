@@ -12,9 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **License: Business Source License 1.1** replaces BSD-3-Clause from this
-  version on. Production and commercial use stay free of charge on one
-  condition: every generated site keeps the "Built with ssg" notice. Your
-  content and the sites you generate are yours. Each version becomes
+  version on. Production use stays free of charge. A non-commercial site has no
+  further condition; a commercial site — a business, a shop, paid advertising,
+  a site built for a client — keeps the "Built with ssg" notice, unless a
+  commercial license says otherwise. Offering ssg itself — as a hosted service,
+  inside a paid product, as a white-labelled copy — needs a commercial license;
+  building sites for clients does not, and redistributing ssg under the license
+  stays free. Your content and the sites you generate are yours. Each version becomes
   BSD-3-Clause again four years after its release (1.9.0 on 2030-10-31). There
   is no price list; the launch grant is free for everyone, and a later change
   can apply to later versions only. Versions up to 1.8.85 remain BSD-3-Clause.
@@ -30,7 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before `</body>`, unless the theme has a notice of its own (an element with
   `data-ssg-attribution`, or any link to the project page). AMP pages and web
   stories are exempt, redirect stubs get the meta tag only. `attribution: false`
-  removes both and is permitted under a commercial license only. The bundled
+  removes both; a non-commercial site may, a commercial one under a commercial
+  license only. The bundled
   `apidoc` and `ssgtheme` mark their existing footer credit, so they render as
   before; every other theme gains the notice at the end of `<body>`, styled
   through `.ssg-attribution`. The golden corpora are re-baselined for it.

@@ -10,20 +10,30 @@ license text wins where the two differ.
 
 ## In one paragraph
 
-You may use ssg for anything, including building commercial sites and sites for
-clients, at no charge, as long as **every site you generate keeps the "Built
-with ssg" notice** the generator writes. Your content and the sites you generate
-are yours. Each version of ssg becomes BSD-3-Clause again four years after its
+You may use ssg for anything, at no charge. A personal, educational, charitable
+or public-sector site has no further condition. A **commercial** site — a
+business, a shop, paid advertising, a site built for a client for a fee —
+**keeps the "Built with ssg" notice** the generator writes, unless a commercial
+license says otherwise. Your content and the sites you generate are yours. Each version of ssg becomes BSD-3-Clause again four years after its
 release (1.9.0 on 2030-10-31).
 
 ## What you may do
 
 - Use ssg in production, for personal, non-profit and commercial sites.
-- Build sites for clients and charge for that work.
+- Build sites for clients and charge for that work (that is commercial use:
+  the client's site keeps the notice).
+- Remove the notice from a non-commercial site, freely.
 - Modify ssg and redistribute it, with this license and its notices intact.
 - Use the themes, workers and scripts in this repository under the same terms.
 
-## The one condition: the notice
+## The one condition: the notice (commercial sites)
+
+**Commercial use** means use by or for a business, or a site that sells or
+advertises goods or services, carries paid advertising or sponsorship, or is
+built for a client for a fee. Everything else — a personal blog without ads, a
+school, a charity, a public body, a non-profit that sells nothing through the
+site — is non-commercial and may turn the notice off with `attribution: false`.
+When in doubt, keep it: it costs one line in a footer.
 
 Every page ssg writes carries two things:
 
@@ -39,9 +49,25 @@ the page also counts. Style the generated one through `.ssg-attribution`.
 AMP pages and web stories carry no notice, because AMP allows no extra markup;
 the rest of the site does. Redirect stubs carry only the meta tag.
 
-`attribution: false` in the configuration removes both. **Using it requires a
-commercial license.** There is no license key and no check in the binary — the
-condition is a term of the license, not a technical lock.
+`attribution: false` in the configuration removes both. On a non-commercial site
+that is allowed; **on a commercial site it requires a commercial license.**
+There is no license key and no check in the binary — the condition is a term of
+the license, not a technical lock.
+
+## What needs a commercial license
+
+Two things, and only these:
+
+1. **Removing the notice from a commercial site.**
+2. **Selling ssg itself**: offering it as a hosted or managed service ("ssg as
+   a service"), embedding or bundling it in a product or service sold to third
+   parties, or distributing a renamed or white-labelled copy.
+
+Building sites for clients with ssg is using a tool, not selling it — allowed,
+with the notice. Forking, mirroring and packaging ssg under this license (a
+port, a Homebrew tap, a distribution package) is redistribution, which the
+license grants to everyone; the copy stays under BUSL, so there is nothing to
+sell in it.
 
 ## Your sites are yours
 
@@ -69,7 +95,7 @@ https://github.com/spagu/ssg/discussions.
 
 BSD let anyone build a business on ssg without the project seeing any of it.
 BUSL keeps the code open to read, change and redistribute, makes production use
-free on one visible condition, and guarantees that every version returns to BSD
+free with one visible condition for commercial sites, and guarantees that every version returns to BSD
 on a known date. It is the license MariaDB, HashiCorp and CockroachDB used for
 the same reason, and it has an SPDX identifier, so license scanners and package
 indexes recognise it.
@@ -84,10 +110,17 @@ and each version becomes open source (BSD-3-Clause) four years after release.
 Yes, when it resolved to 1.9.0 or later. Both print a notice saying so. Pin
 `version: v1.8.85` to stay on BSD.
 
-**Does the notice have to be visible?** Yes — a link in the footer is enough.
-The meta tag alone is not.
+**Does the notice have to be visible?** On a commercial site, yes — a link in
+the footer is enough; the meta tag alone is not.
+
+**My blog has an affiliate link / a sponsor.** That is paid advertising or
+sponsorship, so it counts as commercial: keep the notice.
 
 **I forked ssg before 1.9.0.** Your fork is BSD-3-Clause and stays so.
+
+**Can I offer ssg hosting or put it inside my CMS product?** Not under the free
+grant: that is offering ssg itself, and needs a commercial license. Hosting the
+*sites* you build with ssg is fine.
 
 **Does this cover the MDDB client, workers or the TTS server in the repository?**
 Yes, everything in this repository is under the one LICENSE file. Dependencies

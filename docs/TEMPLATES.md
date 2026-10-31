@@ -207,7 +207,7 @@ its own footer writes it there and marks the element with
 
 Any link to `https://ssg.tradik.com/` in the page counts as well. The generated
 notice has the class `ssg-attribution`, for the theme's CSS. `attribution: false`
-removes it and requires a commercial license.
+removes it; a commercial site may do that under a commercial license only.
 
 ## Template loading and sharing
 

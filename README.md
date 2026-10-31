@@ -664,9 +664,12 @@ and [deployment-aware local preview](blog/local-preview-should-not-lie.md).
 ## License
 
 From 1.9.0 SSG is distributed under the [Business Source License 1.1](LICENSE):
-free to use, modify and redistribute, including in production and commercially,
-on one condition — every generated site keeps the "Built with ssg" notice the
-generator writes (a theme may place its own, marked `data-ssg-attribution`).
+free to use, modify and redistribute, including in production. Non-commercial
+sites have no further condition; a commercial site keeps the "Built with ssg"
+notice the generator writes (a theme may place its own, marked
+`data-ssg-attribution`), unless a commercial license says otherwise. Selling ssg
+itself — as a hosted service, inside a paid product or as a white-labelled copy
+— needs a commercial license; building sites for clients does not.
 Your content and the sites you generate are yours. Each version becomes
 BSD-3-Clause again four years after its release. There is no price list: the
 launch grant is free; if that ever changes it will be announced ahead and apply

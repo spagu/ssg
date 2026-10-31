@@ -3,15 +3,15 @@ package generator
 // The "Built with ssg" notice (1.9.0).
 //
 // From 1.9.0 ssg is licensed under the Business Source License 1.1. Its
-// Additional Use Grant allows production use at no charge on one condition:
-// every generated site keeps a visible notice naming ssg. This is where the
-// notice is written, so a site built with the defaults complies without the
-// theme author doing anything.
+// Additional Use Grant allows production use at no charge; a commercial site
+// keeps a visible notice naming ssg. This is where the notice is written, so a
+// site built with the defaults complies without the theme author doing
+// anything.
 //
 // A theme that places its own notice marks it with data-ssg-attribution (the
 // bundled apidoc and ssgtheme do), and nothing is added. `attribution: false`
-// removes it; that setting is allowed under a commercial license only, see
-// docs/LICENSING.md.
+// removes it: freely on a non-commercial site, under a commercial license on a
+// commercial one, see docs/LICENSING.md.
 
 import "strings"
 

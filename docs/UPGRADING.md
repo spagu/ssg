@@ -225,9 +225,10 @@ which is a longer read but never a wrong one.
 ### 1.9.0 — read the license change
 
 **The license changes from BSD-3-Clause to the Business Source License 1.1.**
-Nothing is charged: production and commercial use stay free, on the condition
-that every generated site keeps the "Built with ssg" notice, which ssg now
-writes for you. Your content and your sites are yours. Each version becomes
+Nothing is charged: production use stays free. A non-commercial site has no
+condition at all; a commercial site keeps the "Built with ssg" notice, which
+ssg now writes for you. Only selling ssg itself (hosting it as a service,
+bundling it in a paid product, white-labelling) needs a commercial license. Your content and your sites are yours. Each version becomes
 BSD-3-Clause four years after its release. Versions up to 1.8.85 stay BSD. If
 your organisation cannot accept BUSL, pin `v1.8.85`. Everything else is in
 [LICENSING.md](LICENSING.md).
@@ -236,8 +237,8 @@ What changes in the output: every page gains `<meta name="generator">` and, at
 the end of `<body>`, `<p class="ssg-attribution">Built with <a href="https://ssg.tradik.com/">ssg</a></p>`.
 To put it in your footer instead, write it there and mark the element with
 `data-ssg-attribution`; the generated one then disappears. Style the generated
-one via `.ssg-attribution`. `attribution: false` removes it and needs a
-commercial license.
+one via `.ssg-attribution`. `attribution: false` removes it — freely on a
+non-commercial site, under a commercial license on a commercial one.
 
 </div>
 

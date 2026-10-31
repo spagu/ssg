@@ -7,14 +7,34 @@ Licensor:             spagu (https://github.com/spagu), publishing as tradik.
 Licensed Work:        ssg (Static Site Generator), version 1.9.0 and every
                       later version. The Licensed Work is (c) 2026 spagu.
 
-Additional Use Grant: You may make production use of the Licensed Work for any
-                      purpose, including commercial use, at no charge, provided
-                      that every website generated with the Licensed Work keeps
-                      the "Built with ssg" notice and link that the Licensed
-                      Work emits (or an equivalent visible notice naming ssg and
-                      linking to https://ssg.tradik.com/). Removing or hiding
-                      that notice requires a commercial license from the
-                      Licensor.
+Additional Use Grant: You may make production use of the Licensed Work at no
+                      charge.
+
+                      Non-Commercial Use carries no further condition.
+                      Commercial Use is permitted provided that every website
+                      generated with the Licensed Work keeps the "Built with
+                      ssg" notice and link that the Licensed Work emits (or an
+                      equivalent visible notice naming ssg and linking to
+                      https://ssg.tradik.com/). Removing or hiding that notice
+                      from a website made in Commercial Use requires a
+                      commercial license from the Licensor.
+
+                      "Commercial Use" means use by or for a business, or use
+                      in a website that sells or advertises goods or services,
+                      carries paid advertising or sponsorship, or is built for
+                      a client for a fee. "Non-Commercial Use" means any other
+                      use, including personal, educational, charitable and
+                      public-sector use and use by a non-profit organisation
+                      that does not sell goods or services through the website.
+
+                      This Additional Use Grant does not include offering the
+                      Licensed Work itself to third parties: as a hosted or
+                      managed service, embedded or bundled in a product or
+                      service that is sold, licensed or otherwise provided for
+                      a fee, or as a renamed or white-labelled copy. Such use
+                      requires a commercial license from the Licensor. Using the
+                      Licensed Work as a tool to build websites for others, and
+                      redistributing it under this License, are not affected.
 
                       Websites and other output you generate with the Licensed
                       Work are yours. This License covers the Licensed Work
