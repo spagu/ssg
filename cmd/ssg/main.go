@@ -817,6 +817,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		StaticSources:          cfg.StaticSources,
 		Feeds:                  cfg.Feeds,
 		FeedAutodiscovery:      cfg.FeedAutodiscovery,
+		Attribution:            cfg.Attribution,
 		MetaLimits:             cfg.MetaLimits,
 		Bundles:                cfg.Bundles,
 		Outputs:                cfg.Outputs,

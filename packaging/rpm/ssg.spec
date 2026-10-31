@@ -1,9 +1,9 @@
 Name:           ssg
-Version:        1.8.85
+Version:        1.9.0
 Release:        1%{?dist}
 Summary:        Fast static site generator written in Go
 
-License:        BSD-3-Clause
+License:        BUSL-1.1
 URL:            https://github.com/spagu/ssg
 Source0:        https://github.com/spagu/ssg/archive/refs/tags/v%{version}.tar.gz
 

@@ -514,6 +514,11 @@ type Config struct {
 	// this is the explicit form of that (#86).
 	FeedAutodiscovery *bool `yaml:"feed_autodiscovery" toml:"feed_autodiscovery" json:"feed_autodiscovery"`
 
+	// Attribution keeps the "Built with ssg" notice and the generator meta tag
+	// in every page (nil/true). Turning it off is allowed under a commercial
+	// license only; see docs/LICENSING.md (1.9.0).
+	Attribution *bool `yaml:"attribution" toml:"attribution" json:"attribution"`
+
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
 	HighlightStyle string `yaml:"highlight_style" toml:"highlight_style" json:"highlight_style"` // Chroma style (default "github")

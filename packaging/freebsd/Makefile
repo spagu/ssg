@@ -2,15 +2,17 @@
 # Install: cd /usr/ports/www/ssg && make install clean
 
 PORTNAME=	ssg
-DISTVERSION=	1.8.85
+DISTVERSION=	1.9.0
 CATEGORIES=	www
 
 MAINTAINER=	spagu@github.com
 COMMENT=	Fast static site generator written in Go
 WWW=		https://github.com/spagu/ssg
 
-LICENSE=	BSD3CLAUSE
+LICENSE=	BUSL-1.1
+LICENSE_NAME=	Business Source License 1.1
 LICENSE_FILE=	${WRKSRC}/LICENSE
+LICENSE_PERMS=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
 USES=		go:modules
 

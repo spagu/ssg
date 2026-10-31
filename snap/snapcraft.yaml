@@ -24,7 +24,7 @@ description: |
 
 grade: stable
 confinement: strict
-license: BSD-3-Clause
+license: BUSL-1.1
 base: core24
 
 contact: https://github.com/spagu/ssg/issues

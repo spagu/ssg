@@ -370,6 +370,9 @@ type Config struct {
 	// FeedAutodiscovery injects the <link rel="alternate"> elements; nil/true
 	// keeps the default behaviour (#86).
 	FeedAutodiscovery *bool
+	// Attribution keeps the "Built with ssg" notice in every page; nil/true is
+	// on (1.9.0, see docs/LICENSING.md).
+	Attribution *bool
 	// SitemapPruneCanonical opts into dropping non-self-canonical pages from the
 	// sitemap; noindex pages are dropped regardless (#78).
 	SitemapPruneCanonical bool

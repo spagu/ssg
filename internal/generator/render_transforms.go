@@ -253,6 +253,8 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// site with `seo: false` got none at all despite having consented. The two
 	// were always separate decisions; only the code had them tangled.
 	s = g.injectAnalytics(s)
+	// The licence's one condition, written into the page (1.9.0).
+	s = g.injectAttribution(s)
 	// Feed autodiscovery is injected for every page, not only those with a page
 	// context. The SEO block runs only for posts and pages, so the site homepage
 	// — the first place a reader or a subscription tool looks — never advertised
