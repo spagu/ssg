@@ -7,7 +7,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/spagu/ssg?style=flat&color=blue)](https://github.com/spagu/ssg/releases)
 [![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/spagu/ssg/badge)](https://scorecard.dev/viewer/?uri=github.com/spagu/ssg)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 
 SSG is a fast static site generator written in Go. It turns Markdown with YAML
 frontmatter into a complete website with clean URLs, templates, feeds, search,
@@ -635,6 +635,7 @@ Development workflow and review requirements are in
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |
 | [docs/DAEMON.md](docs/DAEMON.md) | `ssg daemon`: several projects watched by one process, reloaded in place |
 | [docs/MCP_TRANSPORTS.md](docs/MCP_TRANSPORTS.md) | `ssg mcp` over stdio and Streamable HTTP, and how to expose it safely |
+| [docs/LICENSING.md](docs/LICENSING.md) | The Business Source License in practice: free use with the "Built with ssg" notice, your sites are yours, BSD after four years |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
 | [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |
@@ -662,4 +663,13 @@ and [deployment-aware local preview](blog/local-preview-should-not-lie.md).
 
 ## License
 
-SSG is distributed under the [BSD 3-Clause License](LICENSE).
+From 1.9.0 SSG is distributed under the [Business Source License 1.1](LICENSE):
+free to use, modify and redistribute, including in production and commercially,
+on one condition — every generated site keeps the "Built with ssg" notice the
+generator writes (a theme may place its own, marked `data-ssg-attribution`).
+Your content and the sites you generate are yours. Each version becomes
+BSD-3-Clause again four years after its release. There is no price list: the
+launch grant is free; if that ever changes it will be announced ahead and apply
+to new versions only. Details, the FAQ and how to remove the notice under a
+commercial license: [docs/LICENSING.md](docs/LICENSING.md). Versions up to
+1.8.85 remain BSD-3-Clause.

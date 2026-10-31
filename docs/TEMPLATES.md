@@ -193,6 +193,22 @@ last and overwrites the theme's copy. Use this to override a single theme asset
 per project; keep static paths clear of the theme's `css/`, `js/` and `images/`
 if you do not intend to shadow it.
 
+## The "Built with ssg" notice
+
+From 1.9.0 every page carries `<meta name="generator">` and a visible
+`Built with <a href="https://ssg.tradik.com/">ssg</a>` before `</body>` — the
+one condition of the [license](LICENSING.md). A theme that wants the notice in
+its own footer writes it there and marks the element with
+`data-ssg-attribution`; the generator then adds nothing:
+
+```html
+<footer>… <p data-ssg-attribution>Built with <a href="https://ssg.tradik.com/" rel="generator">ssg</a></p></footer>
+```
+
+Any link to `https://ssg.tradik.com/` in the page counts as well. The generated
+notice has the class `ssg-attribution`, for the theme's CSS. `attribution: false`
+removes it and requires a commercial license.
+
 ## Template loading and sharing
 
 Three directories are parsed, in this order, into **one** template set:

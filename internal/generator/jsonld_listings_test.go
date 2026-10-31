@@ -142,7 +142,7 @@ func TestThemeLDKeepsListingsOut(t *testing.T) {
 	cfg.SEO = true
 	buildSiteFixture(t, cfg)
 	got := mustRead(t, filepath.Join(cfg.OutputDir, "category", "cakes", "index.html"))
-	if strings.Count(got, "application/ld+json") != 1 || !strings.Contains(got, "<body>1</body>") {
+	if strings.Count(got, "application/ld+json") != 1 || !strings.Contains(got, "<body>1") {
 		t.Errorf("theme JSON-LD wins, .StructuredData still offered:\n%s", got)
 	}
 }

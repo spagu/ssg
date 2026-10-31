@@ -14,7 +14,7 @@
 # =============================================================================
 set -euo pipefail
 
-VERSION="${SSG_VERSION:-1.8.85}"
+VERSION="${SSG_VERSION:-1.9.0}"
 INSTALL_DIR="${SSG_INSTALL_DIR:-/usr/local/bin}"
 RELEASE_URL="https://github.com/spagu/ssg/releases/download/v${VERSION}"
 
@@ -117,6 +117,7 @@ download_and_install() {
     fi
 
     log_success "SSG v${VERSION} installed successfully!"
+    log_info "License: Business Source License 1.1 from 1.9.0 (free to use, keep the 'Built with ssg' notice) - https://github.com/spagu/ssg/blob/main/docs/LICENSING.md"
 }
 
 verify_installation() {

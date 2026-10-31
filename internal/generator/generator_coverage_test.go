@@ -602,10 +602,12 @@ func TestGenerateWithRelativeLinks(t *testing.T) {
 }
 
 func TestPrettifyIfRequestedSkipsWhenMinify(t *testing.T) {
+	off := false
 	gen := &Generator{
 		config: Config{
-			PrettyHTML: true,
-			MinifyHTML: true,
+			PrettyHTML:  true,
+			MinifyHTML:  true,
+			Attribution: &off, // the notice is not what this test measures
 		},
 	}
 	input := "<html>\n\n<body>  <p>Hi</p>  </body>\n\n</html>\n"
