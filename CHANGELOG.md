@@ -26,8 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`attribution`** (default `true`) writes `<meta name="generator" content="ssg
-  x.y.z">` into every page's head and `Built with <a href="https://ssg.tradik.com/">ssg</a>`
+- **`attribution`** (default `true`) writes `<meta name="generator" content="ssg">` into every page's head and `Built with <a href="https://ssg.tradik.com/">ssg</a>`
   before `</body>`, unless the theme has a notice of its own (an element with
   `data-ssg-attribution`, or any link to the project page). AMP pages and web
   stories are exempt, redirect stubs get the meta tag only. `attribution: false`

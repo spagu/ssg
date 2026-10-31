@@ -13,10 +13,7 @@ package generator
 // removes it; that setting is allowed under a commercial license only, see
 // docs/LICENSING.md.
 
-import (
-	stdhtml "html"
-	"strings"
-)
+import "strings"
 
 // attributionURL is the project page the notice links to.
 const attributionURL = "https://ssg.tradik.com/"
@@ -36,13 +33,12 @@ func (g *Generator) injectAttribution(s string) string {
 	if !g.attributionOn() {
 		return s
 	}
+	// The name alone, no version: the golden corpora and a site's own diffs
+	// must not change with every release or between a dev build and CI. The
+	// version is in build.json and .SSG for whoever wants it.
 	if !strings.Contains(s, `name="generator"`) {
 		if i := strings.LastIndex(s, "</head>"); i >= 0 {
-			content := "ssg"
-			if g.config.Version != "" {
-				content += " " + g.config.Version
-			}
-			s = s[:i] + `<meta name="generator" content="` + stdhtml.EscapeString(content) + `">` + "\n" + s[i:]
+			s = s[:i] + `<meta name="generator" content="ssg">` + "\n" + s[i:]
 		}
 	}
 	if strings.Contains(s, attributionMarker) || strings.Contains(s, `href="`+attributionURL) ||

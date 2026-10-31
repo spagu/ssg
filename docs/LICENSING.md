@@ -27,7 +27,7 @@ release (1.9.0 on 2030-10-31).
 
 Every page ssg writes carries two things:
 
-- `<meta name="generator" content="ssg x.y.z">` in `<head>`, and
+- `<meta name="generator" content="ssg">` in `<head>`, and
 - a visible `Built with <a href="https://ssg.tradik.com/">ssg</a>` before
   `</body>` — unless the theme already has a notice of its own.
 

@@ -22,7 +22,7 @@ func TestAttributionDefaultsOn(t *testing.T) {
 	g := attributionGen(t, nil, "1.9.0")
 	out := g.injectAttribution(plainDoc)
 	for _, want := range []string{
-		`<meta name="generator" content="ssg 1.9.0">` + "\n</head>",
+		`<meta name="generator" content="ssg">` + "\n</head>",
 		`<p class="ssg-attribution" data-ssg-attribution>Built with <a href="https://ssg.tradik.com/" rel="generator">ssg</a></p>` + "\n</body>",
 	} {
 		if !strings.Contains(out, want) {
@@ -35,13 +35,10 @@ func TestAttributionDefaultsOn(t *testing.T) {
 	}
 }
 
-func TestAttributionOffAndNoVersion(t *testing.T) {
+func TestAttributionOff(t *testing.T) {
 	off := false
 	if out := attributionGen(t, &off, "1.9.0").injectAttribution(plainDoc); out != plainDoc {
 		t.Errorf("attribution: false must leave the page alone:\n%s", out)
-	}
-	if out := attributionGen(t, nil, "").injectAttribution(plainDoc); !strings.Contains(out, `content="ssg">`) {
-		t.Errorf("no version, bare generator name:\n%s", out)
 	}
 }
 
