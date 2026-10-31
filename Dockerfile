@@ -58,7 +58,7 @@ LABEL org.opencontainers.image.title="SSG - Static Site Generator"
 LABEL org.opencontainers.image.description="Fast static site generator written in Go"
 LABEL org.opencontainers.image.version="1.9.0"
 LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
-LABEL org.opencontainers.image.licenses="BSD-3-Clause"
+LABEL org.opencontainers.image.licenses="BUSL-1.1"
 LABEL maintainer="spagu <spagu@github.com>"
 
 # Copy binary from builder — root-owned and world-executable, which is what a

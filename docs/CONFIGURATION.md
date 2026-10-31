@@ -978,6 +978,7 @@ rewritten HTML/CSS references serve WebP, the runtime `.png` still resolves
 | `toc` | `false` | `--toc` | Expose `.TOC`; `[toc]` also expands |
 | `toc_depth` | `3` | `--toc-depth` | Maximum TOC heading level |
 | `heading_anchors` | `false` | — | Append a `#` link to its own id on each heading, so a reader can copy the section's address |
+| `attribution` | `true` | — | Keep the generator meta tag and the "Built with ssg" notice in every page. `false` requires a commercial license — [LICENSING.md](LICENSING.md) |
 | `math` | `false` | `--math` | Inject KaTeX on pages containing math |
 | `mermaid` | `false` | — | Render ```` ```mermaid ```` fences as diagrams |
 | `mermaid_theme` | — | — | Mermaid built-in theme: `default`, `neutral`, `dark`, `forest`, `base` |

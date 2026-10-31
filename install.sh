@@ -117,6 +117,7 @@ download_and_install() {
     fi
 
     log_success "SSG v${VERSION} installed successfully!"
+    log_info "License: Business Source License 1.1 from 1.9.0 (free to use, keep the 'Built with ssg' notice) - https://github.com/spagu/ssg/blob/main/docs/LICENSING.md"
 }
 
 verify_installation() {

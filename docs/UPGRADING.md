@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.85">1.8.85 — 2026-10-30</option>
       <option value="1.8.84">1.8.84 — 2026-10-30</option>
       <option value="1.8.83">1.8.83 — 2026-10-30</option>
       <option value="1.8.82">1.8.82 — 2026-10-28</option>
@@ -218,6 +219,27 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.0">
+
+### 1.9.0 — read the license change
+
+**The license changes from BSD-3-Clause to the Business Source License 1.1.**
+Nothing is charged: production and commercial use stay free, on the condition
+that every generated site keeps the "Built with ssg" notice, which ssg now
+writes for you. Your content and your sites are yours. Each version becomes
+BSD-3-Clause four years after its release. Versions up to 1.8.85 stay BSD. If
+your organisation cannot accept BUSL, pin `v1.8.85`. Everything else is in
+[LICENSING.md](LICENSING.md).
+
+What changes in the output: every page gains `<meta name="generator">` and, at
+the end of `<body>`, `<p class="ssg-attribution">Built with <a href="https://ssg.tradik.com/">ssg</a></p>`.
+To put it in your footer instead, write it there and mark the element with
+`data-ssg-attribution`; the generated one then disappears. Style the generated
+one via `.ssg-attribution`. `attribution: false` removes it and needs a
+commercial license.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.85">
 

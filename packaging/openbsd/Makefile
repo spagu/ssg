@@ -11,7 +11,8 @@ HOMEPAGE=	https://github.com/spagu/ssg
 
 MAINTAINER=	spagu@github.com
 
-# BSD-3-Clause
+# Business Source License 1.1 (source available; production use free with the
+# "Built with ssg" notice, BSD-3-Clause four years after each release)
 PERMIT_PACKAGE=	Yes
 
 WANTLIB=	c pthread

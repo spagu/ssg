@@ -223,6 +223,7 @@ runs:
         echo "/tmp/ssg-bin" >> $GITHUB_PATH
 
         echo "✅ SSG $VERSION installed successfully"
+        echo "::notice::ssg 1.9.0+ is licensed under the Business Source License 1.1: free to use, keep the 'Built with ssg' notice. https://github.com/spagu/ssg/blob/main/docs/LICENSING.md"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Install image tools

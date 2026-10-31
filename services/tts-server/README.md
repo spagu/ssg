@@ -4,7 +4,7 @@
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6BA539?style=flat&logo=openapiinitiative)](internal/httpapi/openapi.yaml)
 [![Engines](https://img.shields.io/badge/engines-espeak--ng%20%7C%20Piper-blueviolet?style=flat)](#engines)
 [![Coverage](https://img.shields.io/badge/coverage-98.7%25-brightgreen?style=flat)](#development)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](../../LICENSE)
+[![License](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](../../LICENSE)
 
 A small text-to-speech HTTP API you run yourself. It turns text into MP3 or
 WAV with [espeak-ng](https://github.com/espeak-ng/espeak-ng) (100+ languages,
@@ -275,7 +275,7 @@ Polish through Piper gave 5.5 minutes of audio in 13 s.
 
 ## Licences
 
-- tts-server's Go code: BSD-3-Clause, like ssg.
+- tts-server's Go code: Business Source License 1.1, like ssg (see [docs/LICENSING.md](../../docs/LICENSING.md)).
 - espeak-ng: GPL-3.0-or-later. lame: LGPL-2.0. Both come from Debian packages
   in the image.
 - Piper (rhasspy/piper): MIT. Its release bundle includes onnxruntime (MIT)

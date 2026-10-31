@@ -9,8 +9,10 @@ MAINTAINER=	spagu@github.com
 COMMENT=	Fast static site generator written in Go
 WWW=		https://github.com/spagu/ssg
 
-LICENSE=	BSD3CLAUSE
+LICENSE=	BUSL-1.1
+LICENSE_NAME=	Business Source License 1.1
 LICENSE_FILE=	${WRKSRC}/LICENSE
+LICENSE_PERMS=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
 USES=		go:modules
 

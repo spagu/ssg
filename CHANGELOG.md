@@ -7,7 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.9.0] - unreleased
+## [1.9.0] - 2026-10-31
+
+### Changed
+
+- **License: Business Source License 1.1** replaces BSD-3-Clause from this
+  version on. Production and commercial use stay free of charge on one
+  condition: every generated site keeps the "Built with ssg" notice. Your
+  content and the sites you generate are yours. Each version becomes
+  BSD-3-Clause again four years after its release (1.9.0 on 2030-10-31). There
+  is no price list; the launch grant is free for everyone, and a later change
+  can apply to later versions only. Versions up to 1.8.85 remain BSD-3-Clause.
+  The reasons, the FAQ and how to arrange a commercial license are in
+  [docs/LICENSING.md](docs/LICENSING.md). The SPDX identifier (`BUSL-1.1`) is
+  updated in the Docker image labels, the snap, the RPM spec, the Homebrew
+  formula and the FreeBSD/OpenBSD port Makefiles; the GitHub Action and
+  `install.sh` print one line about the license after installing.
+
+### Added
+
+- **`attribution`** (default `true`) writes `<meta name="generator" content="ssg
+  x.y.z">` into every page's head and `Built with <a href="https://ssg.tradik.com/">ssg</a>`
+  before `</body>`, unless the theme has a notice of its own (an element with
+  `data-ssg-attribution`, or any link to the project page). AMP pages and web
+  stories are exempt, redirect stubs get the meta tag only. `attribution: false`
+  removes both and is permitted under a commercial license only. The bundled
+  `apidoc` and `ssgtheme` mark their existing footer credit, so they render as
+  before; every other theme gains the notice at the end of `<body>`, styled
+  through `.ssg-attribution`. The golden corpora are re-baselined for it.
 
 ## [1.8.85] - 2026-10-30
 
@@ -6143,7 +6170,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.85...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/spagu/ssg/compare/v1.8.85...v1.9.0
 [1.8.85]: https://github.com/spagu/ssg/compare/v1.8.84...v1.8.85
 [1.8.84]: https://github.com/spagu/ssg/compare/v1.8.83...v1.8.84
 [1.8.83]: https://github.com/spagu/ssg/compare/v1.8.82...v1.8.83
