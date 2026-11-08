@@ -1,0 +1,42 @@
+name: Already tested
+description: >-
+  Reports whether a pushed merge commit carries code its pull request already
+  tested, so main and tag runs can skip checks the PR run passed. See check.sh.
+inputs:
+  checks:
+    description: Newline-separated check-run names that must have passed on the PR head
+    required: true
+  relevant:
+    description: ERE of paths that can affect those checks (default every path)
+    required: false
+    default: "."
+  ignore:
+    description: ERE of paths that cannot affect them
+    required: false
+    default: "^$"
+outputs:
+  tested:
+    description: "'true' when the checks can be skipped"
+    value: ${{ steps.check.outputs.tested }}
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        SHA: ${{ github.sha }}
+        EVENT: ${{ github.event_name }}
+        CHECKS: ${{ inputs.checks }}
+        RELEVANT: ${{ inputs.relevant }}
+        IGNORE: ${{ inputs.ignore }}
+      run: |
+        # A failed lookup (API outage, rate limit) must not fail the build:
+        # it means "run the checks", the safe answer.
+        if out=$("${GITHUB_ACTION_PATH}/check.sh"); then
+          echo "$out" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::already-tested lookup failed; running the checks"
+          echo "tested=false" >> "$GITHUB_OUTPUT"
+        fi

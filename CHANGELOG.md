@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.9.2] - 2026-11-08
 
+### Changed
+
+- **CI tests a release once, not three times.** A release used to run Test,
+  Lint and the TTS server checks on the pull request, again on the merge commit
+  pushed to `main`, and a third time on the tag at that commit. A new
+  `already-tested` step (`.github/actions/already-tested`) checks whether the
+  pushed merge commit's PR head passed those checks on the same code — `main`
+  may differ only in files CI ignores (docs, blog, `*.md`). When it did, the
+  `main` and tag runs skip them, and a tag goes straight to building the
+  release. The GitHub Action tests (`test-action.yml`) skip the same way. The
+  Security Scan still runs on `main`, whose SARIF upload refreshes the default
+  branch's code-scanning alerts. Only check runs created by GitHub Actions
+  count, and a failed lookup runs the checks.
+
 ## [1.9.1] - 2026-11-08
 
 ### Added

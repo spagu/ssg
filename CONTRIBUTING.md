@@ -195,6 +195,18 @@ Do not create tags or publish packages as part of an ordinary contribution.
 Maintainers handle releases. User-visible changes should be recorded in
 `CHANGELOG.md` under the appropriate release section.
 
+### How often CI tests a release (maintainers)
+
+Tests run once per release, on the pull request. The merge commit pushed to
+`main` and the tag pushed at it start with an **Already tested** job
+(`.github/actions/already-tested`): when the PR head passed Test, Lint and TTS
+server on the same code, those jobs are skipped and the tag goes straight to
+the build. "Same code" means `main` differs from the PR head only in files CI
+ignores (docs, blog, `*.md`), so a code commit landed on `main` meanwhile
+makes the checks run again. To force a full run, use *Run workflow*: manual
+runs always test. Merge with a merge commit, not squash or rebase — the
+lookup needs the PR head as the merge commit's second parent.
+
 ### Republishing the Homebrew tap (maintainers)
 
 Tagging runs `.github/workflows/homebrew.yml`, which regenerates

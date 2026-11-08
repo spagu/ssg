@@ -31,9 +31,39 @@ permissions:
   contents: read
 
 jobs:
+  # Skips the push-to-main run when the merged PR already ran these exact jobs
+  # on the same action and Go code (see .github/actions/already-tested).
+  gate:
+    name: Already tested
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      tested: ${{ steps.gate.outputs.tested }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Look up the PR run
+        id: gate
+        uses: ./.github/actions/already-tested
+        with:
+          checks: |
+            Test SSG Action
+            Test SSG Action with WebP
+            Test SSG Action with ZIP
+          # Same list as the paths filter above.
+          relevant: '^(action\.yml$|cmd/|internal/|\.github/workflows/test-action\.yml$)'
+
   test-action:
     name: Test SSG Action
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -73,6 +103,8 @@ jobs:
   test-action-webp:
     name: Test SSG Action with WebP
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -95,6 +127,8 @@ jobs:
   test-action-zip:
     name: Test SSG Action with ZIP
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     timeout-minutes: 20
     steps:
       - name: Checkout repository
