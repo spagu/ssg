@@ -4854,6 +4854,11 @@ func (g *Generator) pageToTemplateData(page models.Page, isPost bool) map[string
 		"Robots":         page.Robots,
 		"Sitemap":        page.Sitemap,
 		"FeaturedImage":  page.FeaturedImage,
+		// The drawn share card and the source a page was built from, which
+		// TEMPLATES.md lists beside FeaturedImage; the flat map lacked both,
+		// so `{{.OGCard}}` was empty in page templates (#395).
+		"OGCard":         page.OGCard,
+		"ExternalSource": page.ExternalSource,
 		"Tags":           page.Tags,
 		"Category":       page.Category,
 		"Layout":         page.Layout,

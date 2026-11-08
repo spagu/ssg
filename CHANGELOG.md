@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   who installed `latest` sees the change from BSD without reading the
   repository.
 
+### Fixed
+
+- **`{{.OGCard}}` is set in page templates** (#395). The card was drawn and
+  stored on the page, but the flat map a page template receives copied
+  `FeaturedImage` and not `OGCard`. A theme that writes its own `og:image` got
+  an empty value on pages and fell back to the site-wide image, so the drawn
+  cards were never referenced. Posts and `.Page.OGCard` were not affected.
+  `.ExternalSource`, documented in the same table, was missing from the map
+  too and is set now.
+
 ### Changed
 
 - **Dependencies:** `go-jose/v4` 4.1.9, `pgx/v5` 5.12.0, `goldmark` 1.8.7,
