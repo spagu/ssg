@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.1" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.2" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -1486,7 +1486,11 @@ Credentials for the FTP deployment provider.
 Credentials and settings for the SFTP deployment provider.
 .TP
 .B SSG_OUTPUT_DIR ", " SSG_PHASE ", " SSG_PAGE_PATH
-Context variables supplied to custom build hooks during execution.
+Context variables supplied to custom build hooks during execution. The program
+of every \fBpre_build\fR and \fBpost_build\fR hook is looked up before the
+build renders anything; a missing one stops it at once. The snap build cannot
+run programs installed on the host, so hooks calling \fBnode\fR, \fBpython\fR
+and the like need another install method.
 .PP
 Additionally, any custom variables defined under the
 .B variables

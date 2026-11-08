@@ -79,10 +79,11 @@ func mustSymlinkOrSkip(t *testing.T, oldname, newname string) {
 func TestGeneratePipelineErrors(t *testing.T) {
 	cases := []pipelineCase{
 		{"pre_build hook", func(cfg *Config, _ string) {
-			cfg.Hooks = map[string][]string{"pre_build": {"/nonexistent-ssg-hook-xyz"}}
+			// An existing program that fails: a missing one stops at checkHookCommands (#397).
+			cfg.Hooks = map[string][]string{"pre_build": {"false"}}
 		}, nil, "pre_build hook"},
 		{"post_build hook", func(cfg *Config, _ string) {
-			cfg.Hooks = map[string][]string{"post_build": {"/nonexistent-ssg-hook-xyz"}}
+			cfg.Hooks = map[string][]string{"post_build": {"false"}}
 		}, nil, "post_build hook"},
 		{"content schema strict", func(cfg *Config, _ string) {
 			cfg.Strict = true

@@ -2529,6 +2529,12 @@ Commands are argv-split, time-limited to 60 seconds, and never loaded from
 content. Hooks receive `SSG_OUTPUT_DIR`, `SSG_PHASE`, and for page hooks
 `SSG_PAGE_PATH`, plus exported custom variables.
 
+Before rendering, ssg looks up the program of every `pre_build` and
+`post_build` hook and stops at once if one is missing (since 1.9.2), rather than
+after every page has rendered. The **snap** cannot run programs installed on
+the host, so a hook that calls `node`, `python` or similar needs another
+install method — see [INSTALL.md](INSTALL.md#hooks-cannot-run-host-programs-in-the-snap).
+
 ## MDDB content
 
 MDDB replaces local Markdown with remote documents:

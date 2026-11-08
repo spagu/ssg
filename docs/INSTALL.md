@@ -65,7 +65,7 @@ install the one you download.
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.9.1
+VERSION=1.9.2
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -97,7 +97,7 @@ install the one you download.
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.9.1
+VERSION=1.9.2
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm
@@ -169,6 +169,23 @@ templates directory is in one of them:
 Build into a directory under your home instead. In CI, or anywhere else a
 script builds to a temporary directory, use the DEB package, the binary or
 Docker.
+
+### Hooks cannot run host programs in the snap
+
+Strict confinement also hides the programs installed on your machine. A
+`hooks:` entry such as `node scripts/build-redirects.mjs` or
+`python3 tools/report.py` fails inside the snap even when `node` or `python3`
+is on your `PATH`. Since 1.9.2 ssg checks every `pre_build` and `post_build`
+hook before it renders anything, and says so:
+
+```text
+❌ Error: generating site: post_build hook: hook "node scripts/build-redirects.mjs" (post_build): exec: "node": executable file not found in $PATH — this ssg is the snap (/snap/static-site-generator/…), and strict confinement hides programs installed on the host; install ssg another way …
+```
+
+Sites whose hooks call `node`, `python` or other host tools should install ssg
+with `install.sh`, the DEB/RPM package, Homebrew or `go install`. Many hook
+jobs need no hook at all: `redirects:` writes `_redirects` from the config
+(see [CONFIGURATION.md](CONFIGURATION.md)).
 
 ---
 

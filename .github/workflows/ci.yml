@@ -69,9 +69,43 @@ permissions:
   contents: read
 
 jobs:
+  # A release used to pass through these checks three times on the same code:
+  # on the pull request, on the merge commit pushed to main, and on the tag at
+  # that merge commit. The gate answers "did the PR already test exactly this?"
+  # (a merge whose PR head passed Test/Lint/TTS, with main bringing in only
+  # paths-ignored files). When it did, main and tag runs skip those jobs and a
+  # tag goes straight to the build. Pull requests and manual runs always test.
+  gate:
+    name: Already tested
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      tested: ${{ steps.gate.outputs.tested }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Look up the PR run
+        id: gate
+        uses: ./.github/actions/already-tested
+        with:
+          checks: |
+            Test
+            Lint
+            TTS server
+          # Same list as paths-ignore above.
+          ignore: '^(docs/|blog/|assets/|templates/ssgtheme/|docs-site\.yaml$|[^/]*\.md$|\.github/workflows/docs-site\.yml$)'
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     permissions:
       contents: read
     timeout-minutes: 20
@@ -198,6 +232,8 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     permissions:
       contents: read
     timeout-minutes: 20
@@ -221,6 +257,8 @@ jobs:
   tts-server:
     name: TTS server
     runs-on: ubuntu-latest
+    needs: [gate]
+    if: needs.gate.outputs.tested != 'true'
     permissions:
       contents: read
     timeout-minutes: 20
@@ -255,6 +293,11 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    needs: [gate]
+    # Kept on pushes to main even when the PR passed it: the SARIF upload is
+    # what refreshes the default branch's code-scanning alerts. A tag at an
+    # already-tested merge commit skips it — main's run just did it.
+    if: needs.gate.outputs.tested != 'true' || !startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: read
       security-events: write   # gosec SARIF → Security tab (OPS-008)
@@ -312,14 +355,20 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 20
-    needs: [test, lint, security]
+    needs: [gate, test, lint, security]
     # Tags only. This matrix ran on every PR and every push to main, building
     # eleven dev-versioned binaries nobody publishes — four full matrix runs
     # per release cycle before the one that ships. Cross-platform compile
     # breakage is still caught on every PR by the cross-compile check in the
     # test job, which costs one cached `go build` per GOOS instead of eleven
     # artifact builds.
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true'
+    #
+    # always() lets the build run when the gate skipped the checks; a failed
+    # or cancelled check still stops it.
+    if: >-
+      always() && needs.gate.result == 'success'
+      && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+      && (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.build_packages == 'true')
     strategy:
       matrix:
         include:

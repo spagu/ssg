@@ -1099,6 +1099,9 @@ func (g *Generator) Generate() error {
 	// graph is only useful if it describes the build that actually ran (GO-094).
 	g.startGraph()
 
+	if err := g.checkHookCommands(); err != nil {
+		return err
+	}
 	if err := g.runHooks("pre_build", nil); err != nil {
 		return fmt.Errorf("pre_build hook: %w", err)
 	}
@@ -1355,7 +1358,7 @@ func (g *Generator) runHooks(phase string, extraEnv map[string]string) error {
 		err := cmd.Run()
 		cancel()
 		if err != nil {
-			return fmt.Errorf("hook %q (%s): %w", cmdline, phase, err)
+			return hookError(cmdline, phase, err)
 		}
 	}
 	return nil
