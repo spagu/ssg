@@ -77,6 +77,12 @@ func run(args []string) (int, bool) {
 	// gives no way to tell whether the tool changed or the site did.
 	logRunningVersion(cfg)
 
+	// The ceiling goes on before any work, and after the version line, which
+	// stays the first line of the log (#384).
+	if !applyResources(resourceRequest(cfg), cfg.Quiet, func(f string, a ...any) { fmt.Printf(f, a...) }) {
+		return 2, true
+	}
+
 	// A watch loop is where narrowing pays for itself: the alternative is a
 	// full build on every save. One-shot builds stay full unless asked,
 	// because a build nobody is waiting on should be the simple one (GO-094).
@@ -615,7 +621,7 @@ func downloadOnlineTheme(cfg *config.Config) {
 		fmt.Printf("🌐 Downloading theme from: %s\n", cfg.OnlineTheme)
 	}
 
-	if err := theme.Download(cfg.OnlineTheme, themeDir); err != nil {
+	if err := theme.Download(cfg.OnlineTheme, themeDir, cfg.OnlineThemeSHA256); err != nil {
 		errf("❌ Error downloading theme: %v\n", err)
 		os.Exit(1)
 	}
@@ -784,13 +790,14 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		RenderHooks:            cfg.RenderHooks,
 		Versions:               generator.VersionsConfig{NoindexOld: cfg.Versions.NoindexOld},
 		EditMode:               cfg.Edit,
-		BuildWorkers:           resolveBuildWorkers(cfg.BuildWorkers),
+		BuildWorkers:           buildWorkers(cfg),
 		AI:                     buildAIClient(cfg.AI),
 		Audio:                  buildAudioOptions(cfg),
 		Listen:                 buildListenOptions(cfg.Listen),
 		Print:                  buildPrintOptions(cfg.Print),
 		CookMode:               buildCookModeOptions(cfg.CookMode),
 		HeadingAnchors:         generator.HeadingAnchorsOptions(cfg.HeadingAnchors),
+		OGCards:                buildOGCardOptions(cfg.OGCards),
 		WebPush:                generator.WebPushOptions(cfg.WebPush),
 		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
@@ -817,6 +824,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		StaticSources:          cfg.StaticSources,
 		Feeds:                  cfg.Feeds,
 		FeedAutodiscovery:      cfg.FeedAutodiscovery,
+		Attribution:            cfg.Attribution,
 		MetaLimits:             cfg.MetaLimits,
 		Bundles:                cfg.Bundles,
 		Outputs:                cfg.Outputs,
@@ -828,7 +836,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		OutputsCustom:          toGeneratorOutputs(cfg.OutputsCustom),
 		SearchIndex:            cfg.SearchIndex,
 		WebMCP:                 cfg.WebMCP,
-		SanitizeHTML:           cfg.SanitizeHTML,
+		SanitizeHTML:           cfg.SanitizesHTML(),
 		ShortcodeErrors:        cfg.ShortcodeErrors,
 		ContentSources:         contentSourcesOf(cfg),
 		LinkRewrites:           cfg.LinkRewrites,
@@ -949,12 +957,9 @@ func robotsRulesOf(cfg *config.Config) []generator.RobotsRule {
 func parseFlags(args []string, cfg *config.Config) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		skip := parseBoolFlags(arg, cfg)
-		if skip {
-			continue
-		}
-		skip = parseSpecialFlags(arg)
-		if skip {
+		// --version and --help exit inside parseSpecialFlags, so it only ever
+		// returns false; a separate `continue` for it could never run.
+		if parseBoolFlags(arg, cfg) || parseSpecialFlags(arg) {
 			continue
 		}
 		i += parseValueFlags(args, i, cfg)
@@ -1057,7 +1062,8 @@ func selectWatchRunner(cfg *config.Config, runner, field, value string) {
 	}
 }
 
-// parseSpecialFlags handles --version and --help
+// parseSpecialFlags handles --version and --help. Both print and exit, so the
+// only value it ever returns is false: "not special, keep parsing".
 func parseSpecialFlags(arg string) bool {
 	switch arg {
 	case "--version", "-v":
@@ -1066,10 +1072,8 @@ func parseSpecialFlags(arg string) bool {
 	case "--help", "-h":
 		printUsage()
 		os.Exit(0)
-	default:
-		return false
 	}
-	return true
+	return false
 }
 
 // parseValueFlags handles flags with values, returns number of args to skip
@@ -1130,35 +1134,36 @@ func setPermalink(cfg *config.Config, typ, pattern string) {
 // keeping parseEqualFlags free of one near-identical case per plain string option.
 func stringEqualFlags(cfg *config.Config) map[string]*string {
 	return map[string]*string{
-		"--host=":             &cfg.Host,
-		"--tls-cert=":         &cfg.TLSCert,
-		"--tls-key=":          &cfg.TLSKey,
-		"--tls-domain=":       &cfg.TLSDomain,
-		"--mem-limit=":        &cfg.MemLimit,
-		"--content-dir=":      &cfg.ContentDir,
-		"--templates-dir=":    &cfg.TemplatesDir,
-		"--output-dir=":       &cfg.OutputDir,
-		"--static-dir=":       &cfg.StaticDir,
-		"--data-dir=":         &cfg.DataDir,
-		"--image-sizes-attr=": &cfg.ImageSizesAttr,
-		"--sass-binary=":      &cfg.SassBinary,
-		"--highlight-style=":  &cfg.HighlightStyle,
-		"--profile-pprof=":    &cfg.ProfilePprof,
-		"--components-dir=":   &cfg.ComponentsDir,
-		"--default-language=": &cfg.DefaultLanguage,
-		"--timezone=":         &cfg.Timezone,
-		"--engine=":           &cfg.Engine,
-		"--online-theme=":     &cfg.OnlineTheme,
-		"--post-url-format=":  &cfg.PostURLFormat,
-		"--deploy=":           &cfg.Deploy,
-		"--deploy-project=":   &cfg.DeployProject,
-		"--deploy-branch=":    &cfg.DeployBranch,
-		"--deploy-target=":    &cfg.DeployTarget,
-		"--mddb-key=":         &cfg.Mddb.APIKey,
-		"--mddb-collection=":  &cfg.Mddb.Collection,
-		"--mddb-lang=":        &cfg.Mddb.Lang,
-		"--external-source=":  &cfg.ExternalSources.Only,
-		"--watch-runner=":     &cfg.WatchRunner,
+		"--host=":                &cfg.Host,
+		"--tls-cert=":            &cfg.TLSCert,
+		"--tls-key=":             &cfg.TLSKey,
+		"--tls-domain=":          &cfg.TLSDomain,
+		"--mem-limit=":           &cfg.Resources.Memory,
+		"--content-dir=":         &cfg.ContentDir,
+		"--templates-dir=":       &cfg.TemplatesDir,
+		"--output-dir=":          &cfg.OutputDir,
+		"--static-dir=":          &cfg.StaticDir,
+		"--data-dir=":            &cfg.DataDir,
+		"--image-sizes-attr=":    &cfg.ImageSizesAttr,
+		"--sass-binary=":         &cfg.SassBinary,
+		"--highlight-style=":     &cfg.HighlightStyle,
+		"--profile-pprof=":       &cfg.ProfilePprof,
+		"--components-dir=":      &cfg.ComponentsDir,
+		"--default-language=":    &cfg.DefaultLanguage,
+		"--timezone=":            &cfg.Timezone,
+		"--engine=":              &cfg.Engine,
+		"--online-theme=":        &cfg.OnlineTheme,
+		"--online-theme-sha256=": &cfg.OnlineThemeSHA256,
+		"--post-url-format=":     &cfg.PostURLFormat,
+		"--deploy=":              &cfg.Deploy,
+		"--deploy-project=":      &cfg.DeployProject,
+		"--deploy-branch=":       &cfg.DeployBranch,
+		"--deploy-target=":       &cfg.DeployTarget,
+		"--mddb-key=":            &cfg.Mddb.APIKey,
+		"--mddb-collection=":     &cfg.Mddb.Collection,
+		"--mddb-lang=":           &cfg.Mddb.Lang,
+		"--external-source=":     &cfg.ExternalSources.Only,
+		"--watch-runner=":        &cfg.WatchRunner,
 		// Runner-agnostic spellings; --wrangler-config/--wrangler-dir (and the
 		// workerd pair) are the convenience forms that also select the runner.
 		"--watch-runner-config=": &cfg.WatchRunnerConfig,
@@ -1201,6 +1206,8 @@ func parseIntEqualFlags(arg string, cfg *config.Config) bool {
 	case setIntEqual(arg, "--webp-quality=", 1, 100, func(n int) { cfg.WebPQuality = n }):
 	case setIntEqual(arg, "--max-conns=", 0, 0, func(n int) { cfg.MaxConns = n }):
 	case setIntEqual(arg, "--workers=", 0, 0, func(n int) { cfg.BuildWorkers = &n }):
+	case setIntEqual(arg, "--cpu-limit=", 0, 0, func(n int) { cfg.Resources.CPU = n }):
+	case setIntEqual(arg, "--gc-percent=", -1, 0, func(n int) { cfg.Resources.GCPercent = &n }):
 	case setIntEqual(arg, "--paginate=", 0, 0, func(n int) { cfg.Paginate = n }):
 	case setIntEqual(arg, "--feed-items=", 1, 0, func(n int) { cfg.FeedItems = n }):
 	case setIntEqual(arg, "--toc-depth=", 1, 0, func(n int) { cfg.TOCDepth = n }):
@@ -1322,7 +1329,7 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 // boolean toggle, so only the "=" spelling can carry a mode.
 var extraEqualValueFlags = []string{
 	"--webp-quality", "--avif-quality", "--image-formats",
-	"--max-conns", "--workers", "--paginate", "--feed-items", "--toc-depth",
+	"--max-conns", "--workers", "--cpu-limit", "--gc-percent", "--paginate", "--feed-items", "--toc-depth",
 	"--port", "--mddb-timeout", "--mddb-batch-size", "--mddb-watch-interval",
 	"--mddb-url", "--mddb-protocol", "--image-sizes", "--permalink-post",
 	"--permalink-page", "--outputs", "--languages", "--page-format",
@@ -1463,11 +1470,12 @@ func runImagesGC(gen *generator.Generator, cfg *config.Config) {
 }
 
 // resolveBuildWorkers turns the configured --workers value into a concrete pool
-// size: unset ⇒ one per CPU (the whole machine), an explicit 0 (or negative) ⇒ 1
-// (parallelism off / sequential), N ⇒ exactly N (#63… build parallelism).
+// size: unset ⇒ one per usable CPU (GOMAXPROCS, which resources.cpu and a
+// cgroup CPU limit lower), an explicit 0 (or negative) ⇒ 1 (parallelism off /
+// sequential), N ⇒ exactly N (#63… build parallelism).
 func resolveBuildWorkers(n *int) int {
 	if n == nil {
-		return runtime.NumCPU()
+		return runtime.GOMAXPROCS(0)
 	}
 	if *n < 1 {
 		return 1
@@ -1482,23 +1490,24 @@ func runWebP(cfg *config.Config, prof *generator.Profile) error {
 	}
 	// AVIF first: it encodes from the originals, and the WebP pass below
 	// replaces them in place unless webp_keep_original is set (#178).
-	if err := runAVIF(cfg); err != nil {
-		return err
-	}
+	runAVIF(cfg)
 	opts := webp.ConvertOptions{
 		Quality:      cfg.WebPQuality,
 		Quiet:        cfg.Quiet,
 		Force:        cfg.ReconvertImages,
 		Sizes:        cfg.ImageSizes,
 		KeepOriginal: cfg.WebPKeepOriginal,
-		Workers:      resolveBuildWorkers(cfg.BuildWorkers),
+		Workers:      buildWorkers(cfg),
+		SkipDirs:     ogCardSkipDirs(cfg.OGCards),
+		Origin:       siteOrigin(cfg.Domain),
 	}
 	converted, saved, err := webp.ConvertDirectory(cfg.OutputDir, opts)
 	if err != nil {
 		return fmt.Errorf("converting to WebP: %w", err)
 	}
-	// The site's own absolute image URLs (og:image, #350) are rewritten too.
-	if err := webp.UpdateReferencesOnSite(cfg.OutputDir, siteOrigin(cfg.Domain)); err != nil {
+	// The site's own absolute image URLs (og:image, #350) are rewritten too,
+	// except share cards whose original is kept (#385).
+	if err := webp.UpdateReferencesOnSite(cfg.OutputDir, siteOrigin(cfg.Domain), cfg.WebPKeepOriginal); err != nil {
 		return fmt.Errorf("updating image references: %w", err)
 	}
 	// Emit responsive srcset/sizes for images that have variants (ASSET-004).
@@ -1536,32 +1545,31 @@ func wantsFormat(cfg *config.Config, name string) bool {
 // A missing encoder is a warning rather than a failure: the site still has its
 // WebP and its originals, and stopping a build over an optional tool would make
 // the format unusable on exactly the machines most likely to lack it.
-func runAVIF(cfg *config.Config) error {
+func runAVIF(cfg *config.Config) {
 	if !wantsFormat(cfg, "avif") {
-		return nil
+		return
 	}
-	if !webp.AVIFAvailable() {
+	made, err := webp.ConvertDirectoryAVIF(cfg.OutputDir, webp.AVIFOptions{
+		Quality:  cfg.AVIFQuality,
+		Sizes:    cfg.ImageSizes,
+		Force:    cfg.ReconvertImages,
+		Quiet:    cfg.Quiet,
+		Workers:  buildWorkers(cfg),
+		SkipDirs: ogCardSkipDirs(cfg.OGCards),
+	})
+	// The pass fails only when avifenc is not installed (one encoder failing
+	// skips that image), and that costs the site its AVIF copies, not the build.
+	if err != nil {
 		if !cfg.Quiet {
 			fmt.Println("   ⚠️  image_formats lists avif but avifenc is not installed — skipping it.")
 			fmt.Println("      Debian/Ubuntu: apt install libavif-bin · Alpine: apk add libavif-apps · macOS: brew install libavif")
 			fmt.Println("      The site still publishes WebP and the originals.")
 		}
-		return nil
-	}
-	made, err := webp.ConvertDirectoryAVIF(cfg.OutputDir, webp.AVIFOptions{
-		Quality: cfg.AVIFQuality,
-		Sizes:   cfg.ImageSizes,
-		Force:   cfg.ReconvertImages,
-		Quiet:   cfg.Quiet,
-		Workers: resolveBuildWorkers(cfg.BuildWorkers),
-	})
-	if err != nil {
-		return fmt.Errorf("converting to AVIF: %w", err)
+		return
 	}
 	if !cfg.Quiet && made > 0 {
 		fmt.Println(webp.AVIFSummary(made))
 	}
-	return nil
 }
 
 // runArchives creates the requested deployment archives (ZIP, tar.gz, tar.xz).
@@ -1677,7 +1685,14 @@ func createZip(sourceDir, zipFileName string) error {
 		_ = zipFile.Close()
 		return err
 	}
-	if err := zipFile.Close(); err != nil {
+	return closeZipFile(zipFile)
+}
+
+// closeZipFile closes the finished archive and reports a failure. On a local
+// disk Close almost never fails; on NFS or past a quota it is where a deferred
+// write error finally surfaces, and the archive is then incomplete (GO-024).
+func closeZipFile(f io.Closer) error {
+	if err := f.Close(); err != nil {
 		return fmt.Errorf("closing zip file: %w", err)
 	}
 	return nil
@@ -1717,10 +1732,9 @@ func zipAddEntry(zw *zip.Writer, sourceDir, path string, info os.FileInfo) error
 	}
 	relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
 
-	header, err := zip.FileInfoHeader(info)
-	if err != nil {
-		return fmt.Errorf("creating file header: %w", err)
-	}
+	// zip.FileInfoHeader has never returned a non-nil error (it only fills
+	// fields from info), so there is no failure to handle here.
+	header, _ := zip.FileInfoHeader(info)
 	header.Name = relPath
 
 	if info.IsDir() {
@@ -1781,6 +1795,8 @@ func printUsage() {
 	fmt.Println("                           (alt engines load the theme's own templates verbatim)")
 	fmt.Println("  --online-theme=URL     - Download theme from URL (GitHub, GitLab, or direct ZIP)")
 	fmt.Println("                           Example: --online-theme=https://github.com/user/hugo-theme")
+	fmt.Println("                           Pin a tag/branch/commit: --online-theme=https://github.com/user/theme@v1.2.0")
+	fmt.Println("  --online-theme-sha256=HEX - Expected SHA-256 of the theme archive; a mismatch stops the build")
 	fmt.Println("")
 	fmt.Println("MDDB Content Source (https://github.com/tradik/mddb):")
 	fmt.Println("  --mddb-url=URL         - MDDB server URL (enables mddb mode)")
@@ -1794,6 +1810,7 @@ func printUsage() {
 	fmt.Println("  --mddb-batch-size=N    - Batch size for pagination (default: 1000)")
 	fmt.Println("  --mddb-watch           - Watch MDDB for changes and rebuild automatically")
 	fmt.Println("  --mddb-watch-interval=SEC - Watch interval in seconds (default: 30)")
+	fmt.Println("  --mddb-trusted         - Trust MDDB content: skip the HTML sanitizer MDDB builds get by default")
 	fmt.Println("")
 	fmt.Println("Server & Development:")
 	fmt.Println("  --http                 - Start built-in HTTP server (also serves configured endpoints:)")
@@ -1822,7 +1839,9 @@ func printUsage() {
 	fmt.Println("  --gzip                 - gzip-compress responses when the client accepts it")
 	fmt.Println("  --max-conns=N          - Cap simultaneous connections (0 = unlimited)")
 	fmt.Println("  --workers=N            - Parallel build workers (default: one per CPU; 0 = off/sequential)")
-	fmt.Println("  --mem-limit=SIZE       - Soft memory limit, e.g. 512MiB, 1GiB (runtime GC target)")
+	fmt.Println("  --mem-limit=SIZE       - Soft memory limit for the process, e.g. 512MiB, 1GiB, or none (default: 90% of a cgroup limit)")
+	fmt.Println("  --cpu-limit=N          - Use at most N CPUs; also caps --workers")
+	fmt.Println("  --gc-percent=N         - GC heap headroom (Go default 100; lower = smaller heap, more GC work)")
 	fmt.Println("")
 	fmt.Println("Output Control:")
 	fmt.Println("  --sitemap-off          - Disable sitemap.xml generation")
@@ -2248,12 +2267,13 @@ func boolFlagTargets(cfg *config.Config) map[string]*bool {
 		"--search-index": &cfg.SearchIndex, "--seo": &cfg.SEO,
 		"--webmcp": &cfg.WebMCP,
 		"--strict": &cfg.Strict, "--route-manifest": &cfg.RouteManifest, // #62
-		"--edit":        &cfg.Edit,        // GO-102: the preview server becomes an editor
-		"--incremental": &cfg.Incremental, // GO-094: narrow a build to what changed
-		"--notify":      &cfg.Notify,      // #1.8.16 announce new/changed posts
-		"--mddb-watch":  &cfg.Mddb.Watch,  // bool flag, not an =value flag (GO-018)
-		"--clean":       &cfg.Clean,
-		"--quiet":       &cfg.Quiet, "-q": &cfg.Quiet,
+		"--edit":         &cfg.Edit,         // GO-102: the preview server becomes an editor
+		"--incremental":  &cfg.Incremental,  // GO-094: narrow a build to what changed
+		"--notify":       &cfg.Notify,       // #1.8.16 announce new/changed posts
+		"--mddb-watch":   &cfg.Mddb.Watch,   // bool flag, not an =value flag (GO-018)
+		"--mddb-trusted": &cfg.Mddb.Trusted, // skip the default sanitizer for MDDB content (SEC-003)
+		"--clean":        &cfg.Clean,
+		"--quiet":        &cfg.Quiet, "-q": &cfg.Quiet,
 		// External sources (docs/EXTERNAL_SOURCES.md)
 		"--offline":                  &cfg.ExternalSources.Offline,
 		"--refresh-external-sources": &cfg.ExternalSources.Refresh,

@@ -8,8 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
+
+	"github.com/spagu/ssg/internal/resources"
 )
 
 // ProfileFileName is where --profile=json writes the report.
@@ -35,6 +38,41 @@ type ProfileReport struct {
 	Pages    []PageTiming   `json:"pages"`
 	Notes    []string       `json:"notes,omitempty"`
 	Extra    map[string]any `json:"extra,omitempty"`
+	// Memory is what the process took, for tuning resources: (#384).
+	Memory *ProfileMemory `json:"memory,omitempty"`
+}
+
+// ProfileMemory is the process's memory use at the end of a build.
+type ProfileMemory struct {
+	// PeakRSS is the most resident memory held, in bytes; 0 where the system
+	// cannot say (Windows).
+	PeakRSS int64 `json:"peak_rss_bytes"`
+	// GCCycles counts completed garbage collections: the cost a lower
+	// resources.memory or gc_percent trades heap for.
+	GCCycles uint32 `json:"gc_cycles"`
+}
+
+// readMemory reads both now. Peak RSS and the GC count only grow, so the
+// values at report time are the build's.
+func readMemory() ProfileMemory {
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	return ProfileMemory{PeakRSS: resources.PeakRSS(), GCCycles: ms.NumGC}
+}
+
+// memory is the process's memory use now.
+func (p *Profile) memory() *ProfileMemory {
+	m := p.readMemory()
+	return &m
+}
+
+// String is the report line: "peak RSS 412 MiB · 37 GC cycles".
+func (m ProfileMemory) String() string {
+	gc := fmt.Sprintf("%d GC cycles", m.GCCycles)
+	if m.PeakRSS <= 0 {
+		return gc
+	}
+	return "peak RSS " + resources.FormatSize(m.PeakRSS) + " · " + gc
 }
 
 // Report builds the JSON view. version is the ssg that produced it; at is the
@@ -48,6 +86,7 @@ func (p *Profile) Report(version string, at time.Time) ProfileReport {
 		Steps:    p.Steps(),
 		Counters: p.Counters(),
 		Pages:    p.Pages(),
+		Memory:   p.memory(),
 	}
 }
 
@@ -56,10 +95,9 @@ func (p *Profile) WriteJSON(dir, version string, at time.Time) (string, error) {
 	if p == nil {
 		return "", nil
 	}
-	data, err := json.MarshalIndent(p.Report(version, at), "", "  ")
-	if err != nil {
-		return "", err
-	}
+	// Numbers, strings and times, and an Extra a profile never sets: the
+	// report always marshals.
+	data, _ := json.MarshalIndent(p.Report(version, at), "", "  ")
 	path := filepath.Join(dir, ProfileFileName)
 	// #nosec G306 -- a build report beside the project, readable like the logs
 	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
@@ -119,6 +157,7 @@ func (p *Profile) WriteText(w io.Writer, at time.Time) {
 		}
 		line("   Counters: %s\n", strings.Join(parts, " · "))
 	}
+	line("   Memory: %s\n", p.memory())
 	pages := p.Pages()
 	if len(pages) == 0 {
 		return

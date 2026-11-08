@@ -7,6 +7,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-08
+
+### Changed
+
+- **License: Business Source License 1.1** replaces BSD-3-Clause from this
+  version on. Production use stays free of charge. A non-commercial site has no
+  further condition; a commercial site — a business, a shop, paid advertising,
+  a site built for a client — keeps the "Built with ssg" notice, unless a
+  commercial license says otherwise. Offering ssg itself — as a hosted service,
+  inside a paid product, as a white-labelled copy — needs a commercial license;
+  building sites for clients does not, and redistributing ssg under the license
+  stays free. Your content and the sites you generate are yours. Each version becomes
+  BSD-3-Clause again four years after its release (1.9.0 on 2030-10-31). There
+  is no price list; the launch grant is free for everyone, and a later change
+  can apply to later versions only. Versions up to 1.8.85 remain BSD-3-Clause.
+  The reasons, the FAQ and how to arrange a commercial license are in
+  [docs/LICENSING.md](docs/LICENSING.md). The SPDX identifier (`BUSL-1.1`) is
+  updated in the Docker image labels, the snap, the RPM spec, the Homebrew
+  formula and the FreeBSD/OpenBSD port Makefiles; the GitHub Action and
+  `install.sh` print one line about the license after installing.
+- **`mem_limit` is now an alias of `resources.memory`** and applies to every
+  command, not only the server; an invalid size stops the command (it was a
+  warning). `--mem-limit` writes `resources.memory`, so the flag beats the file.
+  Default worker pools follow `GOMAXPROCS` instead of the raw CPU count, which
+  is the same number unless a CPU limit is in effect.
+
+### Added
+
+- **`attribution`** (default `true`) writes `<meta name="generator" content="ssg">` into every page's head and `Built with <a href="https://ssg.tradik.com/">ssg</a>`
+  before `</body>`, unless the theme has a notice of its own (an element with
+  `data-ssg-attribution`, or any link to the project page). AMP pages and web
+  stories are exempt, redirect stubs get the meta tag only. `attribution: false`
+  removes both; a non-commercial site may, a commercial one under a commercial
+  license only. The bundled
+  `apidoc` and `ssgtheme` mark their existing footer credit, so they render as
+  before; every other theme gains the notice at the end of `<body>`, styled
+  through `.ssg-attribution`. The golden corpora are re-baselined for it.
+- **`mddb.trusted`** (`--mddb-trusted`, default `false`). An MDDB build now
+  runs rendered content through the HTML sanitizer unless the server is marked
+  trusted, so a compromised or shared MDDB server cannot plant `<script>` in the
+  generated pages (SEC-003). `sanitize_html: true` still forces the sanitizer.
+  **Output changes** for an MDDB site that relied on raw HTML: set
+  `mddb.trusted: true` to keep it.
+- **Pinned and verified online themes** (SEC-005). `online_theme` accepts
+  `repo@ref` for GitHub and GitLab, fetching that tag, branch or commit instead
+  of the moving main branch. `online_theme_sha256` (`--online-theme-sha256`,
+  action input `online-theme-sha256`) is the archive's expected SHA-256: a
+  mismatch stops the build before anything is extracted. Without it the build
+  warns and prints the sum it saw.
+- **`og_cards`**: a social preview card for every page without a
+  `featured_image`. Each card shows the title, the category and the site's name,
+  1200×630 PNG (or JPEG), drawn at build time in pure Go with no browser and no
+  service. Off by default, and the site states the look: `text_color` and
+  `background` (or `background_image`) are required, otherwise the build stops
+  naming the missing key. Optional: accent colour, font, overlay, logo, format.
+  The build warns when contrast is under WCAG AA. Cards
+  are cached in `.ssg-cache/ogcards/`, and the file name carries the card's key,
+  so a changed title is a new URL that the platforms fetch again. With `seo:
+  true` the card becomes `og:image`, `twitter:image` and the JSON-LD `image`,
+  with `og:image:width`/`height`. Themes read it as `.Page.OGCard`, and
+  `ssgtheme` uses it. The `webp`/`avif` passes skip the card directory (new
+  `SkipDirs` option), because previews must stay PNG/JPEG. See
+  [docs/CONFIGURATION.md](docs/CONFIGURATION.md#a-card-for-every-page-og_cards).
+- **The GitHub Action verifies the ssg binary** against the release's
+  `checksums.sha256` before extracting it, as `install.sh` already did; a
+  mismatch or a missing entry fails the step (SEC-005).
+- **`sitemaps:` and `feeds:` select by external source and by URL prefix**
+  (#386). `source:` also names an `external_sources` entry: a `mode: content`
+  page now records the source it was built from (`Page.ExternalSource`), so a
+  site generated from records can give each source its own sitemap. `prefix:`
+  (a path or a list) matches the URL path after `base_path` and any language
+  prefix, whole segments only, so `/net/` does not claim `/netbsd/x/`; it works
+  for every kind of URL. A `source:` that is neither a content folder nor an
+  external source now fails the build instead of writing nothing. See
+  [docs/CONFIGURATION.md](docs/CONFIGURATION.md#splitting-the-sitemap-sitemaps-sitemap_max_urls).
+- **`resources:` — a CPU and memory ceiling for every command** (#384):
+  build, `--watch`, `--http`, `ssg mcp`, `ssg daemon`, `ssg migrate`.
+  `cpu` (`--cpu-limit`) caps `GOMAXPROCS` and every worker pool, `build_workers`
+  included, so the external encoders stay inside it; `memory` (`--mem-limit`) is
+  a soft limit for the whole process; `gc_percent` (`--gc-percent`) sets the
+  collector's headroom. Without a configured memory ssg fits 90% of a cgroup v2
+  `memory.max`; `memory: none` opts out. The effective limits are printed once
+  at startup (on stderr for `ssg mcp`). `--profile` now reports peak RSS and
+  GC cycles (`memory` in `build-profile.json`). New package
+  `internal/resources`. See
+  [docs/CONFIGURATION.md](docs/CONFIGURATION.md#running-on-a-small-machine-resources).
+
+### Fixed
+
+- **`webp_keep_original` keeps share cards on the original** (#385). Since
+  1.8.77 the site's own absolute URLs are rewritten to `.webp`, which also caught
+  a theme's hard-coded `og:image`/`twitter:image` `.png` even though the PNG is
+  still published. With `webp_keep_original: true` those two metas are no
+  longer rewritten — some link-preview consumers (LinkedIn's Post Inspector
+  among them) do not render WebP. Page images, srcsets and JSON-LD still move to
+  WebP; replace mode (the default) is unchanged.
+- **Platform icons stay PNG under `webp: true`** (#392). The WebP pass
+  rewrote `<link rel="apple-touch-icon">` to the `.webp` sibling. In replace
+  mode it also deleted the PNG. iOS and iPadOS take only a PNG touch icon,
+  so the home-screen icon broke. Icons are now neither converted nor
+  re-pointed. That covers what pages link as `icon`, `shortcut icon`,
+  `apple-touch-icon(-precomposed)` or `mask-icon`, and the `icons` listed in a
+  web app manifest (linked, or `manifest.webmanifest` / `site.webmanifest` /
+  `manifest.json` at the root). The same PNG used as an `<img>` stays PNG
+  too. A `.webp` left by an earlier build no longer attracts the link.
+- **`markdown_publish` leaves out the pages the site keeps out of search**
+  (#393). A `robots: noindex` page, a `sitemap: no` page, a redirect and the 404
+  page get no Markdown copy, no `text/markdown` alternate and no `llms.txt`
+  line. That is the sitemap's own rule. A page whose own `outputs:` lists
+  `markdown` still gets its copy, but `llms.txt` does not list it while it says
+  `noindex`.
+- **A `noindex` page no longer takes over the home page silently** (#394). A
+  page at `/` replaces the theme's home page since #129. A WordPress export
+  often keeps the old static front page as `link: "https://example.com/"` with
+  `robots: noindex`, so an upgraded site shipped a noindexed home page with no
+  warning. The build now stops and names the file: remove its `link:` to keep
+  the theme's home page, or remove the `noindex` to make it the front page. A
+  root redirect and the old `sitemap: "no"` workaround still pass. The
+  front-page line now reads `🏠 Front page: home.md — replaces the theme's home
+  page`.
+
+### Security
+
+- **`golang.org/x/crypto` v0.58.1-0.20261009181718-2f1f834330b2** — drops the
+  unmaintained `openpgp` package (GO-2026-5932). ssg never imported it;
+  govulncheck now reports no findings at module level either.
+
 ## [1.8.85] - 2026-10-30
 
 Fixes from the documentation audit of 1.8.84: the docs were checked against
@@ -6141,7 +6268,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.8.85...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/spagu/ssg/compare/v1.8.85...v1.9.0
 [1.8.85]: https://github.com/spagu/ssg/compare/v1.8.84...v1.8.85
 [1.8.84]: https://github.com/spagu/ssg/compare/v1.8.83...v1.8.84
 [1.8.83]: https://github.com/spagu/ssg/compare/v1.8.82...v1.8.83

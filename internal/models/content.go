@@ -91,10 +91,16 @@ type Page struct {
 	// collection, in a content section (#361). Empty for files, whose section is
 	// their directory.
 	Section string `yaml:"-" json:"-"`
+	// ExternalSource is the external_sources entry a `mode: content` page was
+	// built from, so `source: <name>` in sitemaps and feeds can select it (#386).
+	ExternalSource string `yaml:"-" json:"-"`
 	// AudioURL is the site-relative URL of the article read aloud, and
 	// AudioLength its size in bytes, when tts produced one (1.8.65).
 	AudioURL    string `yaml:"-" json:"-"`
 	AudioLength int64  `yaml:"-" json:"-"`
+	// OGCard is the site-relative URL of the social preview card drawn for a
+	// page without a featured image, when og_cards is on (1.9.0).
+	OGCard string `yaml:"-" json:"-"`
 
 	// SEO and metadata fields
 	Description    string            `yaml:"description"`
@@ -389,11 +395,8 @@ func (p *Page) ComputeReadingStats() {
 		p.ReadingTime = 0
 		return
 	}
-	minutes := (words + wordsPerMinute - 1) / wordsPerMinute
-	if minutes < 1 {
-		minutes = 1
-	}
-	p.ReadingTime = minutes
+	// Rounded up, so any prose (words > 0) reads in at least one minute.
+	p.ReadingTime = (words + wordsPerMinute - 1) / wordsPerMinute
 }
 
 // countProseWords counts whitespace-separated words in s, treating each markup

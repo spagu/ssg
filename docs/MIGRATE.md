@@ -465,6 +465,7 @@ only designs.
 | `--rate-limit MS` | Milliseconds between the engine's requests |
 | `--engine-arg A` | Hand A to the engine verbatim; repeatable |
 | `--no-crawl` | Skip the SEO/marketing crawl (faster; no tracking ids, social profiles or icons) |
+| `--cpu-limit N`, `--mem-limit SIZE`, `--gc-percent N` | CPU and memory ceiling for the migration (1.9.0). See [Running on a small machine](CONFIGURATION.md#running-on-a-small-machine-resources) |
 | `--quiet`, `-q` | Suppress progress output |
 | `--list` | List built-in providers with versions |
 

@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.8.x">
+      <option value="1.8.85">1.8.85 — 2026-10-30</option>
       <option value="1.8.84">1.8.84 — 2026-10-30</option>
       <option value="1.8.83">1.8.83 — 2026-10-30</option>
       <option value="1.8.82">1.8.82 — 2026-10-28</option>
@@ -218,6 +219,64 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.0">
+
+### 1.9.0 — read the license change
+
+**The license changes from BSD-3-Clause to the Business Source License 1.1.**
+Nothing is charged: production use stays free. A non-commercial site has no
+condition at all; a commercial site keeps the "Built with ssg" notice, which
+ssg now writes for you. Only selling ssg itself (hosting it as a service,
+bundling it in a paid product, white-labelling) needs a commercial license. Your content and your sites are yours. Each version becomes
+BSD-3-Clause four years after its release. Versions up to 1.8.85 stay BSD. If
+your organisation cannot accept BUSL, pin `v1.8.85`. Everything else is in
+[LICENSING.md](LICENSING.md).
+
+What changes in the output: every page gains `<meta name="generator">` and, at
+the end of `<body>`, `<p class="ssg-attribution">Built with <a href="https://ssg.tradik.com/">ssg</a></p>`.
+To put it in your footer instead, write it there and mark the element with
+`data-ssg-attribution`; the generated one then disappears. Style the generated
+one via `.ssg-attribution`. `attribution: false` removes it — freely on a
+non-commercial site, under a commercial license on a commercial one.
+
+A few more things, if they apply:
+
+- **An MDDB build now sanitizes its content.** Rendered HTML from MDDB goes
+  through the same UGC policy as `sanitize_html`, so `<script>`, `style`
+  attributes and unlisted embeds are stripped. If the server holds only your
+  own content and pages relied on raw HTML, set `mddb.trusted: true` (or pass
+  `--mddb-trusted`) to get the old output back.
+- **`webp_keep_original: true` keeps share cards on the original.**
+  `og:image` and `twitter:image` point at the `.png`/`.jpg` again, as they did
+  for theme-written URLs before 1.8.77. Pages, srcsets and JSON-LD still use WebP.
+- **`online_theme` can be pinned and checked.** Nothing changes unless you
+  set it: `repo@ref` fetches a tag or commit, `online_theme_sha256` verifies the
+  archive. The build now prints a warning, with the sum, when a theme is not
+  verified. The GitHub Action checks the ssg binary against
+  `checksums.sha256` and fails on a mismatch.
+- **A `sitemaps:` entry with an unknown `source:` now stops the build.** It
+  used to write nothing and say the file matched no URLs. `source:` now also
+  accepts an `external_sources` name, and the new `prefix:` selects by URL
+  path; fix the typo, or use `prefix:` for what the old name was meant to
+  select.
+- **`mem_limit` / `--mem-limit` applies to every command**, not only `--http`,
+  and a value that is not a size stops the command instead of being ignored
+  with a warning. In a container without a configured limit, ssg now sets a
+  soft limit at 90% of the cgroup's `memory.max`; `resources: {memory: none}`
+  turns that off. See [Running on a small machine](CONFIGURATION.md#running-on-a-small-machine-resources).
+- **A `noindex` page at `/` now stops the build.** Since 1.8.x such a page
+  replaced the theme's home page and shipped it noindex. WordPress exports
+  often carry the old static front page that way. Remove its `link:` to keep
+  the theme's home page, or remove the `noindex` to keep it as the front page.
+- **`markdown_publish` skips the pages the site hides.** `noindex`,
+  `sitemap: no`, redirects and the 404 page lose their `.md` copy and their
+  `llms.txt` line. A page that needs its copy can list `outputs: [html,
+  markdown]`.
+- **Touch icons and favicons stay PNG under `webp: true`.** The PNG is
+  published even in replace mode, and its `<link>` is not rewritten.
+
+</div>
 
 <div class="upgrade-step" data-since="1.8.85">
 

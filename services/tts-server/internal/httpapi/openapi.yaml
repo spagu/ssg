@@ -12,8 +12,8 @@ info:
     request needs `Authorization: Bearer <key>`. Voice management needs a key
     from `TTS_ADMIN_KEYS`; admin keys are accepted wherever an API key is.
   license:
-    name: BSD-3-Clause
-    identifier: BSD-3-Clause
+    name: BUSL-1.1
+    identifier: BUSL-1.1
 servers:
   - url: /
 security:

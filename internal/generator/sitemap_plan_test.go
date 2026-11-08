@@ -172,7 +172,9 @@ func TestSitemapSplitsAboveTheCeiling(t *testing.T) {
 // no URLs is a fetch that teaches a crawler nothing.
 func TestEmptyDeclaredSitemapIsNotWritten(t *testing.T) {
 	cfg := planSite(t, func(cfg *Config) {
-		cfg.Sitemaps = []models.SitemapSpec{{Path: "/sitemap-nothing.xml", Source: "no-such-root"}}
+		// A valid selection that happens to select nothing; an unknown source
+		// name fails the build instead (#386).
+		cfg.Sitemaps = []models.SitemapSpec{{Path: "/sitemap-nothing.xml", Prefix: models.PathList{"/no-such-section/"}}}
 	})
 
 	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "sitemap-nothing.xml")); err == nil {

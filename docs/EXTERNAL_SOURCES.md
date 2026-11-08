@@ -438,6 +438,28 @@ does not parse is warned about, record by record.
   mapping names but the record does not have** is warned about and left empty.
   `content_errors: strict` promotes both to build failures.
 
+### A sitemap and a feed per source
+
+Every page a source builds remembers the source's name (1.9.0), so `source:`
+in [`sitemaps:`](CONFIGURATION.md#splitting-the-sitemap-sitemaps-sitemap_max_urls)
+and `feeds:` selects it like a content folder, and `prefix:` splits a source
+further by URL:
+
+```yaml
+sitemaps:
+  - path: /sitemap-openbsd.xml
+    prefix: /openbsd/
+  - path: /sitemap-ports.xml
+    source: ports        # the external_sources entry, minus what /openbsd/ took
+```
+
+Each `<url>` keeps its record's date wherever it lands: `content_map.modified`,
+falling back to `content_map.date`. In `sitemap.xml`, each split file's entry
+gets the newest date among its URLs. A record with neither field mapped has no
+`<lastmod>`, the same as a Markdown page without a date. The build time is
+never used. Map `modified:` to the field your data updates, so each URL's
+`<lastmod>` changes when its record does.
+
 ### `content_format`
 
 `markdown` (the default) and `html` both pass the body to the same renderer

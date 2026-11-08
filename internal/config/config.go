@@ -48,7 +48,12 @@ type MddbConfig struct {
 	// non-loopback host — a container network that never leaves the host is
 	// the same trust boundary as loopback, spelled with a service name. Off by
 	// default; the same opt-in `external_sources` already take (#201).
-	AllowHTTP     bool `yaml:"allow_http" toml:"allow_http" json:"allow_http"`
+	AllowHTTP bool `yaml:"allow_http" toml:"allow_http" json:"allow_http"`
+	// Trusted marks the MDDB server's content as written by the site's own
+	// authors. Off by default: documents from MDDB are run through the HTML
+	// sanitizer (sanitize_html), so a compromised or shared server cannot plant
+	// <script> in the generated pages (SEC-003).
+	Trusted       bool `yaml:"trusted" toml:"trusted" json:"trusted"`
 	WatchInterval int  `yaml:"watch_interval" toml:"watch_interval" json:"watch_interval"` // Watch interval in seconds (default: 30)
 	// Sources reads several collections in one build, each with its own
 	// metadata filter, content type and section (#361). Empty means the one
@@ -150,6 +155,9 @@ type Config struct {
 	// Template Engine
 	Engine      string `yaml:"engine" toml:"engine" json:"engine"`                   // go, pongo2, mustache, handlebars
 	OnlineTheme string `yaml:"online_theme" toml:"online_theme" json:"online_theme"` // URL to download theme
+	// OnlineThemeSHA256 is the expected SHA-256 of the online_theme archive; a
+	// mismatch stops the build before anything is extracted (SEC-005).
+	OnlineThemeSHA256 string `yaml:"online_theme_sha256" toml:"online_theme_sha256" json:"online_theme_sha256"`
 
 	// Server & Development
 	HTTP  bool   `yaml:"http" toml:"http" json:"http"`
@@ -185,7 +193,10 @@ type Config struct {
 	// headers are applied automatically; these tune the rest.
 	Gzip     bool   `yaml:"gzip" toml:"gzip" json:"gzip"`                // gzip-compress responses on the fly
 	MaxConns int    `yaml:"max_conns" toml:"max_conns" json:"max_conns"` // cap concurrent connections (0 = unlimited)
-	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // soft runtime memory limit, e.g. "512MiB"
+	MemLimit string `yaml:"mem_limit" toml:"mem_limit" json:"mem_limit"` // alias of resources.memory, which wins when both are set (#384)
+
+	// Resources is the CPU and memory ceiling every command runs under (#384).
+	Resources ResourcesConfig `yaml:"resources" toml:"resources" json:"resources"`
 
 	// BuildWorkers caps concurrency for the parallelizable build stages (WebP
 	// image conversion first). Unset ⇒ one worker per CPU (use the whole machine);
@@ -513,6 +524,11 @@ type Config struct {
 	// at all. A theme that emits its own feed link already suppresses injection;
 	// this is the explicit form of that (#86).
 	FeedAutodiscovery *bool `yaml:"feed_autodiscovery" toml:"feed_autodiscovery" json:"feed_autodiscovery"`
+
+	// Attribution keeps the "Built with ssg" notice and the generator meta tag
+	// in every page (nil/true). Turning it off is allowed under a commercial
+	// license only; see docs/LICENSING.md (1.9.0).
+	Attribution *bool `yaml:"attribution" toml:"attribution" json:"attribution"`
 
 	// Syntax highlighting via Chroma (AX-001).
 	Highlight      bool   `yaml:"highlight" toml:"highlight" json:"highlight"`
@@ -891,6 +907,9 @@ type Config struct {
 	CookMode CookModeConfig `yaml:"cook_mode" toml:"cook_mode" json:"cook_mode"`
 	// HeadingAnchors appends a "#" self-link to each heading with an id (#364).
 	HeadingAnchors HeadingAnchorsConfig `yaml:"heading_anchors" toml:"heading_anchors" json:"heading_anchors"`
+	// OGCards draws a social preview image for every page without one of its
+	// own (1.9.0). See og_cards.go and internal/ogcard.
+	OGCards OGCardsConfig `yaml:"og_cards" toml:"og_cards" json:"og_cards"`
 
 	// WebPush writes the web app manifest and the subscribe script the
 	// web-push worker needs (#368).
@@ -1413,9 +1432,7 @@ func normalizeYAMLLanguages(data []byte) ([]byte, []ssgi18n.LanguageConfig, erro
 			codes[j] = expanded[j].Code
 		}
 		var replacement yaml.Node
-		if err := replacement.Encode(codes); err != nil {
-			return data, nil, err
-		}
+		_ = replacement.Encode(codes) // a []string always encodes
 		root.Content[i+1] = &replacement
 		out, err := yaml.Marshal(&doc)
 		return out, expanded, err
@@ -1520,6 +1537,13 @@ func (o *OutputsSpec) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	return json.Unmarshal(data, &o.PerType)
+}
+
+// SanitizesHTML reports whether rendered content goes through the HTML
+// sanitizer: when sanitize_html asks for it, and for every MDDB build whose
+// server is not marked mddb.trusted (SEC-003).
+func (c *Config) SanitizesHTML() bool {
+	return c.SanitizeHTML || (c.Mddb.Enabled && !c.Mddb.Trusted)
 }
 
 // MarkdownCacheEnabled reports whether conversions are kept between builds.

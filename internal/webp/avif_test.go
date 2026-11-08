@@ -162,10 +162,7 @@ func TestGeneratedVariantsAreNotSources(t *testing.T) {
 	pngFixture(t, filepath.Join(root, "hero.png"), 100, 80)
 	pngFixture(t, filepath.Join(root, "hero-480.png"), 100, 80)
 
-	sources, err := avifSources(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	sources := avifSources(root, nil)
 	for _, s := range sources {
 		if strings.Contains(filepath.Base(s), "-480") {
 			t.Errorf("a generated variant was treated as a source: %s", s)

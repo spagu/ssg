@@ -1225,7 +1225,7 @@ func TestUpdateReferencesOnSite(t *testing.T) {
 	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := UpdateReferencesOnSite(tmpDir, "https://example.com/"); err != nil {
+	if err := UpdateReferencesOnSite(tmpDir, "https://example.com/", false); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(htmlPath); string(got) != want {

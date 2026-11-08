@@ -104,8 +104,9 @@ func (g *Generator) partitionSitemaps(entries []sitemapEntry) ([]sitemapFile, []
 	var rest []sitemapEntry
 	for _, e := range entries {
 		placed := false
+		sitePath := g.sitePath(e.loc)
 		for i, spec := range specs {
-			if sitemapSpecMatches(spec, e) {
+			if sitemapSpecMatches(spec, e, sitePath) {
 				files[i].entries = append(files[i].entries, e)
 				placed = true
 				break

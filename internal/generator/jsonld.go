@@ -57,9 +57,8 @@ func (g *Generator) mergedSchema(page models.Page, isPost bool) map[string]inter
 	merged = deepMergeLD(merged, page.Schema)
 	g.fillRecipeFromContent(merged, page.Content)
 	g.fillRecipeCategory(merged, page)
-	if _, ok := merged["@context"]; !ok {
-		merged["@context"] = "https://schema.org"
-	}
+	// "@context" is always present: derivedLD sets it, and deepMergeLD only
+	// adds or replaces keys, never removes one.
 	return merged
 }
 
@@ -85,8 +84,8 @@ func (g *Generator) derivedLD(page models.Page, isPost bool, canonical string) m
 	if page.Locale != "" {
 		ld["inLanguage"] = page.Locale
 	}
-	if page.FeaturedImage != "" {
-		ld["image"] = g.socialURL(page.FeaturedImage)
+	if image := pageImage(page); image != "" {
+		ld["image"] = g.socialURL(image)
 	}
 	if !isPost {
 		return ld

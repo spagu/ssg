@@ -141,3 +141,30 @@ func TestConvertWithoutCwebp(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// TestUpdateReferencesOnSiteKeepOriginal covers #385: with webp_keep_original
+// the PNG share card is still published, so og:image and twitter:image keep
+// pointing at it (some link-preview consumers do not render WebP), while the
+// page body and JSON-LD still move to the .webp.
+func TestUpdateReferencesOnSiteKeepOriginal(t *testing.T) {
+	tmpDir := t.TempDir()
+	writeWebpFixtures(t, tmpDir, "images/og-card.webp")
+	html := `<meta property="og:image" content="https://example.com/images/og-card.png" />
+<meta name="twitter:image" content="/images/og-card.png" />
+<img src="/images/og-card.png">
+<script type="application/ld+json">{"image":"https://example.com/images/og-card.png"}</script>`
+	want := `<meta property="og:image" content="https://example.com/images/og-card.png" />
+<meta name="twitter:image" content="/images/og-card.png" />
+<img src="/images/og-card.webp">
+<script type="application/ld+json">{"image":"https://example.com/images/og-card.webp"}</script>`
+	htmlPath := filepath.Join(tmpDir, "index.html")
+	if err := os.WriteFile(htmlPath, []byte(html), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateReferencesOnSite(tmpDir, "https://example.com", true); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(htmlPath); string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

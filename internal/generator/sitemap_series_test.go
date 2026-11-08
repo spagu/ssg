@@ -105,7 +105,7 @@ func TestSeriesIsSelectableByName(t *testing.T) {
 	if err := g.validateSitemapSpecs(); err != nil {
 		t.Fatalf("series is not a valid include name: %v", err)
 	}
-	if !sitemapSpecMatches(g.config.Sitemaps[0], sitemapEntry{kind: kindSeries}) {
+	if !sitemapSpecMatches(g.config.Sitemaps[0], sitemapEntry{kind: kindSeries}, "") {
 		t.Error("a series entry is not claimed by a spec including it")
 	}
 }

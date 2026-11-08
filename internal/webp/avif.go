@@ -45,6 +45,8 @@ type AVIFOptions struct {
 	Force   bool
 	Quiet   bool
 	Workers int
+	// SkipDirs are output-relative directories left as they are (1.9.0).
+	SkipDirs []string
 }
 
 // avifTargetPath maps an image path to its .avif sibling, stripping the
@@ -85,10 +87,7 @@ func ConvertDirectoryAVIF(dir string, opts AVIFOptions) (int, error) {
 		opts.Speed = 6
 	}
 
-	sources, err := avifSources(dir)
-	if err != nil {
-		return 0, err
-	}
+	sources := avifSources(dir, opts.SkipDirs)
 
 	var (
 		mu    sync.Mutex
@@ -121,11 +120,17 @@ func ConvertDirectoryAVIF(dir string, opts AVIFOptions) (int, error) {
 // both encoders' artefacts. The WebP pass replaces originals in place unless
 // keep_original is set, so converting first is the only ordering that always
 // has a source to work from.
-func avifSources(dir string) ([]string, error) {
+//
+// The walk callback never returns an error (an unreadable subtree is skipped,
+// not fatal), so neither does this.
+func avifSources(dir string, skip []string) []string {
 	var out []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
 			return nil //nolint:nilerr // an unreadable subtree is not worth failing the build
+		}
+		if info.IsDir() {
+			return skipDir(dir, path, skip)
 		}
 		switch strings.ToLower(filepath.Ext(path)) {
 		case ".jpg", ".jpeg", ".png":
@@ -138,7 +143,7 @@ func avifSources(dir string) ([]string, error) {
 		}
 		return nil
 	})
-	return out, err
+	return out
 }
 
 // isVariantName reports whether a file is a generated -<width> derivative.

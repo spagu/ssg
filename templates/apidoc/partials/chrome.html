@@ -115,7 +115,7 @@
         <p>{{ with .Vars.copyright }}{{ . }}{{ else }}&copy; {{ $name }}{{ end }}{{ with .Vars.repository_url }} · <a href="{{ . }}">Source</a>{{ end }}
             · <a href="/sitemap.xml">Sitemap</a>{{ if .Vars.version }} · Version {{ .Vars.version }}{{ end }}</p>
         {{/* The credit link; variables.ssg_credit: false removes it. */}}
-        {{ if ne (printf "%v" .Vars.ssg_credit) "false" }}<p>Built with <a href="https://ssg.tradik.com/">SSG</a>.</p>{{ end }}
+        {{ if ne (printf "%v" .Vars.ssg_credit) "false" }}<p data-ssg-attribution>Built with <a href="https://ssg.tradik.com/" rel="generator">SSG</a>.</p>{{ end }}
     </footer>
     <script src="/js/main.js" defer></script>
 {{end}}

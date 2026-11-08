@@ -81,6 +81,19 @@ GitHub, GitLab and direct ZIP URLs are accepted. Only ZIP archives are
 extracted — a tar URL is rejected up front rather than downloaded in full and
 then failing.
 
+A theme's templates run during the build, so pin what you download. Append
+`@ref` to a repository URL to fetch a tag, branch or commit instead of the
+moving main branch, and give the archive's SHA-256:
+
+```bash
+ssg my-blog some-theme example.com \
+  --online-theme=https://github.com/user/some-theme@v1.2.0 \
+  --online-theme-sha256=<sha256 of the archive>
+```
+
+A wrong sum stops the build before anything is extracted. Without a sum the
+build warns and prints the sum it saw, so the first run tells you what to pin.
+
 **Themes laid out for other generators often work.** An archive whose templates
 live under `layouts/` alongside `static/` or `assets/` — the conventional
 layout for Hugo themes — is converted into SSG's structure during extraction, so
@@ -192,6 +205,22 @@ both land at `output/css/style.css` — **the static file wins**: it is copied
 last and overwrites the theme's copy. Use this to override a single theme asset
 per project; keep static paths clear of the theme's `css/`, `js/` and `images/`
 if you do not intend to shadow it.
+
+## The "Built with ssg" notice
+
+From 1.9.0 every page carries `<meta name="generator">` and a visible
+`Built with <a href="https://ssg.tradik.com/">ssg</a>` before `</body>` — the
+one condition of the [license](LICENSING.md). A theme that wants the notice in
+its own footer writes it there and marks the element with
+`data-ssg-attribution`; the generator then adds nothing:
+
+```html
+<footer>… <p data-ssg-attribution>Built with <a href="https://ssg.tradik.com/" rel="generator">ssg</a></p></footer>
+```
+
+Any link to `https://ssg.tradik.com/` in the page counts as well. The generated
+notice has the class `ssg-attribution`, for the theme's CSS. `attribution: false`
+removes it; a commercial site may do that under a commercial license only.
 
 ## Template loading and sharing
 
@@ -463,6 +492,8 @@ Individual content fields are flattened at the root:
 | `.Category` | `string` — the primary category name |
 | `.Tags` | `[]string` — names already |
 | `.FeaturedImage` | Hero/social image |
+| `.OGCard` | Site-relative URL of the social card drawn for a page without `.FeaturedImage` when `og_cards` is on; empty otherwise. A theme writing its own `og:image` uses `(or .Page.FeaturedImage .Page.OGCard)` |
+| `.ExternalSource` | Name of the `external_sources` entry a `mode: content` page was built from; empty for content files and MDDB documents (1.9.0) |
 | `.Layout`, `.Template` | Content template selection fields |
 | `.WordCount`, `.ReadingTime` | Computed reading statistics |
 | `.HasMath`, `.TOC` | Optional authoring output |

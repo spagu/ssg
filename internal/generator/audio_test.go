@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -298,5 +299,59 @@ func TestListenHelperAndEmptySlot(t *testing.T) {
 	g.config.Listen.FullPlayer = true
 	if got := string(g.listenBlock(audio)); !strings.HasPrefix(got, `<audio class="ssg-audio"`) {
 		t.Errorf("full player = %s", got)
+	}
+}
+
+// TestAudioWriteFailures: a page with nothing to read is skipped, and a cache
+// or output that cannot be written, or a directory outside the output, fails
+// the build instead of shipping a page that names a missing MP3.
+func TestAudioWriteFailures(t *testing.T) {
+	srv := newTTSServer(t)
+	cases := map[string]func(tmp string) AudioOptions{
+		"cache is a file": func(tmp string) AudioOptions {
+			root := filepath.Join(tmp, "cache-file")
+			mustWrite(t, root, "x")
+			return AudioOptions{Client: audioClient(t, srv.URL), CacheRoot: root}
+		},
+		"output dir is a file": func(tmp string) AudioOptions {
+			mustWrite(t, filepath.Join(tmp, "output", "audio"), "x")
+			return AudioOptions{Client: audioClient(t, srv.URL), CacheRoot: filepath.Join(tmp, "cache")}
+		},
+		"dir escapes the output": func(tmp string) AudioOptions {
+			return AudioOptions{Client: audioClient(t, srv.URL), CacheRoot: filepath.Join(tmp, "cache"), Dir: "../outside"}
+		},
+	}
+	for name, opts := range cases {
+		tmp := writeAudioSite(t)
+		if _, err := buildAudioSite(t, tmp, opts(tmp), ListenOptions{}, false); err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+
+	// An empty post has nothing to read: no MP3, no error.
+	tmp := writeAudioSite(t)
+	mustWrite(t, filepath.Join(tmp, "content", "site", "posts", "news", "empty.md"),
+		"---\ntitle: Empty\nslug: empty\nstatus: publish\ntype: post\ndate: 2026-09-29\n---\n")
+	out, err := buildAudioSite(t, tmp, AudioOptions{Client: audioClient(t, srv.URL), CacheRoot: filepath.Join(tmp, "cache")}, ListenOptions{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(out, "audio", "2026-09-29-empty.mp3")); err == nil {
+		t.Error("an empty post was read aloud")
+	}
+}
+
+// TestAudioBreakerIsReportedOnce: while the API's circuit is open, the first
+// page says so and the rest stay quiet; each is published without audio.
+func TestAudioBreakerIsReportedOnce(t *testing.T) {
+	g := &Generator{config: Config{Quiet: true, Audio: AudioOptions{OnFailure: "skip"}}}
+	var stats audioStats
+	for range 2 {
+		if err := g.audioFallback(&models.Page{Link: "/a/"}, fmt.Errorf("tts: %w", tts.ErrCircuitOpen), &stats); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !stats.breakerNoted || stats.missing != 2 {
+		t.Errorf("stats %+v", stats)
 	}
 }

@@ -126,6 +126,11 @@ readable:
 `--config=FILE` (or `--config FILE`) reads a projects file other than
 `./.ssg_projects`.
 
+`--cpu-limit=N`, `--mem-limit=SIZE` and `--gc-percent=N` limit the daemon
+process itself (1.9.0). Each project is an ordinary `ssg --watch` process and
+takes its limits from its own `resources:` block; see
+[Running on a small machine](CONFIGURATION.md#running-on-a-small-machine-resources).
+
 ## Running it as a service
 
 The daemon is a plain foreground process, so any supervisor can own it:

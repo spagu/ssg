@@ -742,7 +742,7 @@ func TestDownloadWithMockServer(t *testing.T) {
 	destDir := filepath.Join(tmpDir, "theme")
 
 	// Download from mock server
-	err := Download(server.URL+"/theme.zip", destDir)
+	err := Download(server.URL+"/theme.zip", destDir, "")
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
@@ -767,7 +767,7 @@ func TestDownloadHTTPError(t *testing.T) {
 
 	destDir := filepath.Join(tmpDir, "theme")
 
-	err := Download(server.URL+"/nonexistent.zip", destDir)
+	err := Download(server.URL+"/nonexistent.zip", destDir, "")
 	if err == nil {
 		t.Error("Expected error for HTTP 404")
 	}
@@ -777,7 +777,7 @@ func TestDownloadInvalidURL(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Try to download from invalid URL
-	err := Download("http://invalid.localhost.test:99999/theme.zip", filepath.Join(tmpDir, "theme"))
+	err := Download("http://invalid.localhost.test:99999/theme.zip", filepath.Join(tmpDir, "theme"), "")
 	if err == nil {
 		t.Error("Expected error for invalid URL")
 	}
@@ -796,7 +796,7 @@ func TestDownloadInvalidZip(t *testing.T) {
 
 	destDir := filepath.Join(tmpDir, "theme")
 
-	err := Download(server.URL+"/invalid.zip", destDir)
+	err := Download(server.URL+"/invalid.zip", destDir, "")
 	if err == nil {
 		t.Error("Expected error for invalid zip")
 	}
@@ -1035,7 +1035,7 @@ func TestDownloadServerError500(t *testing.T) {
 	defer server.Close()
 
 	tmpDir := t.TempDir()
-	downloadErr := Download(server.URL+"/theme.zip", filepath.Join(tmpDir, "theme"))
+	downloadErr := Download(server.URL+"/theme.zip", filepath.Join(tmpDir, "theme"), "")
 	if downloadErr == nil {
 		t.Error("Expected error for HTTP 500")
 	}
@@ -1105,7 +1105,7 @@ func TestDownloadIOCopyError(t *testing.T) {
 	defer server.Close()
 
 	tmpDir := t.TempDir()
-	downloadErr := Download(server.URL+"/theme.zip", filepath.Join(tmpDir, "theme"))
+	downloadErr := Download(server.URL+"/theme.zip", filepath.Join(tmpDir, "theme"), "")
 	if downloadErr == nil {
 		t.Error("Expected error when server cuts connection mid-stream")
 	}
@@ -1129,7 +1129,7 @@ func TestDownloadGitHubURL(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	gitHubURL := server.URL + "/user/repo/archive/refs/heads/main.zip"
-	downloadErr := Download(gitHubURL, filepath.Join(tmpDir, "theme"))
+	downloadErr := Download(gitHubURL, filepath.Join(tmpDir, "theme"), "")
 	if downloadErr != nil {
 		t.Fatalf("Download failed: %v", downloadErr)
 	}
@@ -1177,7 +1177,7 @@ func TestDownloadRejectsTarGz(t *testing.T) {
 	defer server.Close()
 
 	for _, ext := range []string{".tar.gz", ".tgz"} {
-		err := Download(server.URL+"/theme"+ext, filepath.Join(t.TempDir(), "out"))
+		err := Download(server.URL+"/theme"+ext, filepath.Join(t.TempDir(), "out"), "")
 		if err == nil {
 			t.Fatalf("expected error for %s URL", ext)
 		}
@@ -1211,7 +1211,7 @@ func TestDownloadMainToMasterFallback(t *testing.T) {
 	defer server.Close()
 
 	destDir := filepath.Join(t.TempDir(), "theme")
-	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", destDir)
+	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", destDir, "")
 	if err != nil {
 		t.Fatalf("Download with master fallback failed: %v", err)
 	}
@@ -1234,7 +1234,7 @@ func TestDownloadMainAndMasterFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", filepath.Join(t.TempDir(), "out"))
+	err := Download(server.URL+"/user/repo/archive/refs/heads/main.zip", filepath.Join(t.TempDir(), "out"), "")
 	if err == nil {
 		t.Fatal("expected error when both main and master fail")
 	}
@@ -1258,7 +1258,7 @@ func TestDownloadConvertsHugoTheme(t *testing.T) {
 	defer server.Close()
 
 	destDir := filepath.Join(t.TempDir(), "theme")
-	if err := Download(server.URL+"/hugo.zip", destDir); err != nil {
+	if err := Download(server.URL+"/hugo.zip", destDir, ""); err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
 
@@ -1285,7 +1285,7 @@ func TestDownloadHugoConversionWarning(t *testing.T) {
 	defer server.Close()
 
 	destDir := filepath.Join(t.TempDir(), "theme")
-	if err := Download(server.URL+"/broken-hugo.zip", destDir); err != nil {
+	if err := Download(server.URL+"/broken-hugo.zip", destDir, ""); err != nil {
 		t.Fatalf("Download should succeed despite conversion failure, got: %v", err)
 	}
 }
@@ -1302,7 +1302,7 @@ func TestDownloadArchiveCreateTempError(t *testing.T) {
 	// Point TMPDIR at a non-existent directory so os.CreateTemp fails.
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 
-	_, err := downloadArchive(server.Client(), server.URL+"/theme.zip")
+	_, _, err := downloadArchive(server.Client(), server.URL+"/theme.zip")
 	if err == nil {
 		t.Fatal("expected error when temp file cannot be created")
 	}

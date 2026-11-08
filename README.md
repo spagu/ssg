@@ -7,7 +7,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/spagu/ssg?style=flat&color=blue)](https://github.com/spagu/ssg/releases)
 [![Docker](https://github.com/spagu/ssg/actions/workflows/docker.yml/badge.svg)](https://github.com/spagu/ssg/actions/workflows/docker.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/spagu/ssg/badge)](https://scorecard.dev/viewer/?uri=github.com/spagu/ssg)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 
 SSG is a fast static site generator written in Go. It turns Markdown with YAML
 frontmatter into a complete website with clean URLs, templates, feeds, search,
@@ -253,7 +253,7 @@ For predictable results, pages and posts should define `title`, `status` and
 | `aliases` | list | Previous paths that `301` to this item (and, by default, get a redirect stub) |
 | `alias_stubs` | bool | Per-page override: `false` = 301 only (no duplicate copy), `true` = force a stub |
 | `schema` | map | Override/extend this page's generated JSON-LD (deep-merged, per-page wins) |
-| `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion) |
+| `featured_image` | string | Hero image; also the `og:image`, `twitter:image` and JSON-LD `image` (follows WebP conversion). Without one, `og_cards` draws a card |
 | `layout` | string | Page layout name; `redirect` also marks sitemap exclusion |
 | `template` | string | Page template file override |
 | `robots` | string | Robots directive; `noindex` also excludes from sitemap |
@@ -399,7 +399,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | `apidoc` theme | A documentation-only theme: guides and references in one sidebar, search, "On this page", light/dark, WCAG 2.2 AA ([templates/apidoc/README.md](templates/apidoc/README.md)) |
 | Read aloud | A "Listen" button with the visitor's own browser voice, and/or an MP3 per article from a TTS API at build time — cached, with a jingle, a fallback when the API is down, a podcast feed, and a self-hostable Docker TTS server ([docs/AUDIO.md](docs/AUDIO.md)) |
 | Taxonomies | Custom dynamic taxonomies with term archives, metadata, per-term feeds and template helpers ([docs/TAXONOMIES.md](docs/TAXONOMIES.md)) |
-| SEO and migration | Sitemap, robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting |
+| SEO and migration | Sitemap (split per content folder, external source or URL prefix with `sitemaps:`), robots.txt, aliases, configurable permalinks, canonical URLs, link checking, `.md` link rewriting; a social preview card (`og:image`) drawn at build time for every page without its own image (`og_cards`, [docs/CONFIGURATION.md](docs/CONFIGURATION.md#a-card-for-every-page-og_cards)) |
 | Site migration | `ssg migrate wordpress <url>` — scaffold + content pull (wpexporter) + build in one command; completes `title`/`description`/`timezone`/`colors` from the source site; pages, posts, media, a theme's own post types and reader comments; `--watch --http` migrates live in the browser ([docs/MIGRATE.md](docs/MIGRATE.md)) |
 | Front page | A content page at `/` (what a WordPress static front page exports as) becomes the site's front page; `posts_page:` gives the generated listing a home of its own |
 | Content repair | `ssg repair --fix` rewrites source Markdown a page-builder export left indented **or fenced** into a code block; `check_markup` reports both on every build ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#validating-the-built-output)) |
@@ -413,7 +413,8 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Localisation | Full i18n: translation keys, dictionaries + `t`, language routing, `hreflang`/`x-default` in the head and in the sitemap (front pages and post listings included), per-language feeds each advertised on its own language's pages, search, `language_sections:` to assign a language to a whole directory, `upper`/`lower`/`title` for a switcher's labels ([docs/I18N.md](docs/I18N.md)) |
 | Content sources | Local Markdown or MDDB over HTTP/gRPC, including watched remote content |
 | Output | Directory/flat pages, JSON output, feeds, search index, ZIP, tar.gz and tar.xz |
-| Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, resource limits, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
+| Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
+| Resource limits | `resources:` caps CPUs and memory for every command — build, watch, server, `mcp`, `daemon`, `migrate` — and fits a container's cgroup memory limit by itself; `--profile` reports peak RSS and GC cycles ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#running-on-a-small-machine-resources)) |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
 | AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles, find-then-edit tools that cost the size of the change rather than the file, an optional MDDB-backed search, and an approve-then-PR git flow ([docs/MCP.md](docs/MCP.md)) |
 
@@ -450,7 +451,8 @@ templates/my-theme/
 ```
 
 Missing standard templates receive built-in fallbacks. Themes may also be
-downloaded with `--online-theme=<URL>`.
+downloaded with `--online-theme=<URL>` — pin one with `repo@ref` and
+`--online-theme-sha256=<sum>`, since its templates run during the build.
 
 Common Go template values:
 
@@ -635,6 +637,7 @@ Development workflow and review requirements are in
 | [docs/MIGRATE.md](docs/MIGRATE.md) | `ssg migrate`: providers, content selection, live `--watch --http` mode |
 | [docs/DAEMON.md](docs/DAEMON.md) | `ssg daemon`: several projects watched by one process, reloaded in place |
 | [docs/MCP_TRANSPORTS.md](docs/MCP_TRANSPORTS.md) | `ssg mcp` over stdio and Streamable HTTP, and how to expose it safely |
+| [docs/LICENSING.md](docs/LICENSING.md) | The Business Source License in practice: free use with the "Built with ssg" notice, your sites are yours, BSD after four years |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Configuration and advanced feature guide |
 | [docs/I18N.md](docs/I18N.md) | Internationalisation: translations, dictionaries, language routing |
 | [docs/TAXONOMIES.md](docs/TAXONOMIES.md) | Dynamic taxonomies: definitions, term metadata, archives, helpers |
@@ -662,4 +665,16 @@ and [deployment-aware local preview](blog/local-preview-should-not-lie.md).
 
 ## License
 
-SSG is distributed under the [BSD 3-Clause License](LICENSE).
+From 1.9.0 SSG is distributed under the [Business Source License 1.1](LICENSE):
+free to use, modify and redistribute, including in production. Non-commercial
+sites have no further condition; a commercial site keeps the "Built with ssg"
+notice the generator writes (a theme may place its own, marked
+`data-ssg-attribution`), unless a commercial license says otherwise. Selling ssg
+itself — as a hosted service, inside a paid product or as a white-labelled copy
+— needs a commercial license; building sites for clients does not.
+Your content and the sites you generate are yours. Each version becomes
+BSD-3-Clause again four years after its release. There is no price list: the
+launch grant is free; if that ever changes it will be announced ahead and apply
+to new versions only. Details, the FAQ and how to remove the notice under a
+commercial license: [docs/LICENSING.md](docs/LICENSING.md). Versions up to
+1.8.85 remain BSD-3-Clause.

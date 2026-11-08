@@ -49,10 +49,8 @@ func minifyHTMLString(s string, keepComments []string) string {
 		return placeholder
 	}
 	s = minIgnoreBlockRe.ReplaceAllStringFunc(s, func(match string) string {
-		if inner := minIgnoreBlockRe.FindStringSubmatch(match); len(inner) > 1 {
-			return preserve(inner[1])
-		}
-		return match
+		// The pattern has one group, so a match always carries it.
+		return preserve(minIgnoreBlockRe.FindStringSubmatch(match)[1])
 	})
 	s = minPreserveTagRe.ReplaceAllStringFunc(s, preserve)
 	s = minHTMLCommentRe.ReplaceAllStringFunc(s, func(match string) string {
@@ -226,7 +224,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 		// home/listing context carries no Content, so it is skipped and never
 		// advertises a file that was not written.
 		if page.Content != "" {
-			if g.config.MarkdownPublish {
+			if g.publishesMarkdown(*page) {
 				s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 			}
 			s = injectAlternates(s, g.alternateLinks(*page, s))
@@ -253,6 +251,8 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	// site with `seo: false` got none at all despite having consented. The two
 	// were always separate decisions; only the code had them tangled.
 	s = g.injectAnalytics(s)
+	// The licence's one condition, written into the page (1.9.0).
+	s = g.injectAttribution(s)
 	// Feed autodiscovery is injected for every page, not only those with a page
 	// context. The SEO block runs only for posts and pages, so the site homepage
 	// — the first place a reader or a subscription tool looks — never advertised

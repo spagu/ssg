@@ -21,6 +21,10 @@ With this on, every page is published a second time as clean Markdown:
 - A root **`llms.txt`** index listing every page and pointing at its Markdown
   copy (the [llms.txt](https://llmstxt.org) convention).
 
+Pages the site keeps out of search are left out of all four. That means
+`robots: noindex`, `sitemap: no`, redirects and the 404 page, the same rule as
+the sitemap (1.9.0). Agents are not sent where crawlers were told not to go.
+
 The published copy is the Markdown you wrote — an H1 title followed by the body
 — not an HTML→Markdown round-trip, so nothing is lost or re-guessed. Listing
 pages (the home page, archives) carry no source Markdown and are skipped.

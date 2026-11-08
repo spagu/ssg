@@ -23,7 +23,7 @@ func TestValueFlagsBothFormsParity(t *testing.T) {
 		{"timezone", "--timezone", "Europe/Warsaw", func(c *config.Config) string { return c.Timezone }},
 		{"default-language", "--default-language", "pl", func(c *config.Config) string { return c.DefaultLanguage }},
 		{"static-dir", "--static-dir", "assets", func(c *config.Config) string { return c.StaticDir }},
-		{"mem-limit", "--mem-limit", "512MiB", func(c *config.Config) string { return c.MemLimit }},
+		{"mem-limit", "--mem-limit", "512MiB", func(c *config.Config) string { return c.Resources.Memory }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

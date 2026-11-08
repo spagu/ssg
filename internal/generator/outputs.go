@@ -349,10 +349,13 @@ func (g *Generator) formatsFor(page models.Page) []string {
 			list = g.outputs.perType[""]
 		}
 	}
+	// A page the site keeps out of search gets no Markdown copy from the
+	// site-wide list (#393); its own outputs: list may still ask for one.
+	hidden := len(page.Outputs) == 0 && excludeFromSitemap(page)
 	out := make([]string, 0, len(list))
 	for _, name := range list {
 		name = strings.ToLower(strings.TrimSpace(name))
-		if name == FormatHTML || name == "" {
+		if name == FormatHTML || name == "" || (hidden && name == FormatMarkdown) {
 			continue
 		}
 		if _, ok := g.outputs.formats[name]; ok {
@@ -407,10 +410,7 @@ func (g *Generator) alternateLinks(page models.Page, existing string) string {
 // extension. That is the convention GO-085 established for Markdown, kept here
 // so every format is addressed the same way.
 func outputURLFor(page models.Page, format OutputFormat) string {
-	url := page.GetURL()
-	if url == "" {
-		return ""
-	}
+	url := page.GetURL() // never empty: every address starts with "/"
 	if strings.HasSuffix(url, "/") {
 		// A page with no slug resolves to "//" rather than "/", and a doubled
 		// slash in a published href is a different URL from the one meant.

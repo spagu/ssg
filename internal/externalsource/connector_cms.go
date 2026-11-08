@@ -20,6 +20,9 @@ type CMSImportResult struct {
 	Taxonomies map[string][]string
 	Media      []map[string]interface{}
 	Metadata   map[string]interface{}
+	// Source is the external_sources entry the import came from; the
+	// generator stamps it on every page it merges (#386).
+	Source string
 }
 
 // cmsAdapter imports one CMS database into the unified result.
@@ -61,6 +64,7 @@ func (CMSConnector) Load(src Source) (*Result, error) {
 			FetchedAt: time.Now(), RecordCount: len(imported.Pages) + len(imported.Posts),
 			ContentType: src.Adapter}}
 	if src.Mode == "content" {
+		imported.Source = src.Name
 		res.CMS = imported // the generator merges this into the site
 	}
 	return res, nil

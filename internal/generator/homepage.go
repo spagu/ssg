@@ -117,7 +117,9 @@ func (g *Generator) reportFrontPage(page *models.Page, prefix string, listed boo
 	if page == nil || g.config.Quiet {
 		return
 	}
-	fmt.Printf("   🏠 Front page: %s\n", frontPageLabel(*page))
+	// Named as a replacement, because it is one: the theme's index.html no
+	// longer renders this root (#394).
+	fmt.Printf("   🏠 Front page: %s — replaces the theme's home page\n", frontPageLabel(*page))
 	switch {
 	case listed:
 		fmt.Printf("      Post listing: /%s/\n", strings.Trim(prefix, "/"))

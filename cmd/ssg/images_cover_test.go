@@ -175,11 +175,8 @@ func TestWantsFormatIgnoresSpacingAndCase(t *testing.T) {
 func TestRunAVIFWarnsInsteadOfFailingWhenTheEncoderIsMissing(t *testing.T) {
 	icovNoTools(t)
 	cfg := &config.Config{ImageFormats: []string{"avif"}, OutputDir: t.TempDir()}
-	var err error
-	out := icovCaptureStdout(t, func() { err = runAVIF(cfg) })
-	if err != nil {
-		t.Fatalf("a missing avifenc must not fail the build: %v", err)
-	}
+	// runAVIF has no error to return: a missing encoder is a warning.
+	out := icovCaptureStdout(t, func() { runAVIF(cfg) })
 	for _, want := range []string{"avifenc is not installed", "libavif-bin", "still publishes WebP"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("warning missing %q, got:\n%s", want, out)
@@ -187,7 +184,7 @@ func TestRunAVIFWarnsInsteadOfFailingWhenTheEncoderIsMissing(t *testing.T) {
 	}
 	// --quiet means quiet: no advice on a stream the operator is parsing.
 	quiet := &config.Config{ImageFormats: []string{"avif"}, OutputDir: cfg.OutputDir, Quiet: true}
-	if out := icovCaptureStdout(t, func() { _ = runAVIF(quiet) }); out != "" {
+	if out := icovCaptureStdout(t, func() { runAVIF(quiet) }); out != "" {
 		t.Errorf("quiet build printed %q", out)
 	}
 }
@@ -200,11 +197,7 @@ func TestRunAVIFReportsHowManyDerivativesItWrote(t *testing.T) {
 	icovPNG(t, filepath.Join(out, "hero.png"), 24, 16)
 	icovStubTools(t, "avifenc")
 	cfg := &config.Config{ImageFormats: []string{"avif"}, OutputDir: out}
-	var err error
-	printed := icovCaptureStdout(t, func() { err = runAVIF(cfg) })
-	if err != nil {
-		t.Fatalf("runAVIF: %v", err)
-	}
+	printed := icovCaptureStdout(t, func() { runAVIF(cfg) })
 	if _, statErr := os.Stat(filepath.Join(out, "hero.avif")); statErr != nil {
 		t.Fatalf("the encoder was never asked for hero.avif: %v", statErr)
 	}

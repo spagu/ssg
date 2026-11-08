@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.8.85" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.0" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -290,13 +290,14 @@ and reload the \fB\-\-http\fR preview as well; one process then serves the previ
 serves the MCP endpoint and watches the tree, with every rebuild serialised. See
 \fBdocs/MCP.md\fR and \fBdocs/MCP_TRANSPORTS.md\fR.
 .TP
-.B ssg daemon \fR[\fB\-\-config\fR \fIFILE\fR] [\fB\-\-once\fR] [\fB\-\-quiet\fR]
+.B ssg daemon \fR[\fB\-\-config\fR \fIFILE\fR] [\fB\-\-once\fR] [\fB\-\-quiet\fR] [\fB\-\-cpu\-limit\fR=\fIN\fR] [\fB\-\-mem\-limit\fR=\fISIZE\fR]
 Watch several projects from one process. Reads \fB.ssg_projects\fR (YAML,
 override with \fB\-\-config\fR), which lists each project's directory and
 optionally its own config file, port, host and extra flags; a port implies a
 server, and \fBdisabled: true\fR keeps a project in the file without running it.
 Each project runs an ordinary \fBssg \-\-watch\fR in its own directory, with its
-output tagged by project name.
+output tagged by project name, under its own \fBresources:\fR block; the
+daemon's \fB\-\-cpu\-limit\fR and \fB\-\-mem\-limit\fR limit the daemon itself.
 .IP
 Editing the projects file reloads the fleet in place: a project whose settings
 did not change keeps running and keeps its port, and only what changed is
@@ -331,7 +332,13 @@ Non-Go engines render the theme's own templates verbatim in that engine's syntax
 .TP
 .BR \-\-online\-theme =\fIURL
 Download theme from a URL. Supports GitHub, GitLab repositories, or direct
-ZIP file URLs.
+ZIP file URLs. A repository URL may pin a tag, branch or commit as
+\fIrepo\fB@\fIref\fR; without one the moving main branch is fetched.
+.TP
+.BR \-\-online\-theme\-sha256 =\fIHEX
+Expected SHA-256 of the theme archive (\fBonline_theme_sha256\fR). A mismatch
+stops the build before anything is extracted; without it the build warns and
+prints the archive's sum so it can be pinned.
 .SS MDDB Content Source
 .TP
 .BR \-\-mddb\-url =\fIURL
@@ -365,6 +372,10 @@ Watch MDDB for content changes and rebuild automatically.
 .TP
 .BR \-\-mddb\-watch\-interval =\fISEC
 Polling interval for MDDB watch mode in seconds (default: 30).
+.TP
+.B \-\-mddb\-trusted
+Trust the MDDB server's content (\fBmddb.trusted\fR). Without it an MDDB build
+runs rendered content through the HTML sanitizer, as \fB\-\-sanitize\-html\fR does.
 .SS Server & Development
 .TP
 .B \-\-http
@@ -457,10 +468,24 @@ gzip-compress responses when the client sends \fBAccept\-Encoding: gzip\fR.
 Cap the number of simultaneous connections (\fB0\fR = unlimited).
 .TP
 .BR \-\-workers =\fIN
-Parallel build workers (default: one per CPU; \fB0\fR = sequential).
+Parallel build workers (default: one per usable CPU; \fB0\fR = sequential).
+Capped at \fB\-\-cpu\-limit\fR.
 .TP
 .BR \-\-mem\-limit =\fISIZE
-Runtime GC soft memory target, e.g. \fB512MiB\fR, \fB1GiB\fR.
+Soft memory limit for the whole process, e.g. \fB512MiB\fR, \fB1GiB\fR, or
+\fBnone\fR. Applies to every command (build, \fB\-\-watch\fR, \fB\-\-http\fR,
+\fBmcp\fR, \fBdaemon\fR, \fBmigrate\fR). Unset, ssg fits 90% of a cgroup v2
+\fBmemory.max\fR. Config: \fBresources.memory\fR (alias \fBmem_limit\fR).
+The limit is soft: the collector works harder near it, it does not refuse
+allocations.
+.TP
+.BR \-\-cpu\-limit =\fIN
+Use at most \fIN\fR CPUs (\fBGOMAXPROCS\fR) and at most \fIN\fR workers, which
+also bounds the external image encoders. Config: \fBresources.cpu\fR.
+.TP
+.BR \-\-gc\-percent =\fIN
+Garbage-collector heap headroom (Go default \fB100\fR; lower = smaller heap,
+more GC work; \fB\-1\fR = off). Config: \fBresources.gc_percent\fR.
 .SS Output Control
 .TP
 .B \-\-sitemap\-off
@@ -573,7 +598,8 @@ pages that use it.
 .TP
 .B \-\-sanitize\-html
 Sanitize raw HTML embedded in markdown through the bluemonday UGC policy
-(strips \fB<script>\fR and other unsafe markup).
+(strips \fB<script>\fR and other unsafe markup). On by default for MDDB
+builds unless \fB\-\-mddb\-trusted\fR is given.
 .TP
 .BR \-\-timezone =\fIZONE
 Render content dates (permalink \fB:year/:month/:day\fR tokens and the
@@ -839,6 +865,13 @@ Opt in to generator-level OpenGraph/Twitter/JSON-LD injection into pages that la
 their own tags (non-destructive). Off by default since v1.8.2; the legacy
 \fB\-\-seo\-off\fR flag and \fBseo_off\fR config key force it off and print a
 deprecation warning.
+The config key \fBog_cards\fR (no flag; off by default) draws a 1200\(mu630 PNG card
+(title, category, site name) for every page without a \fBfeatured_image\fR,
+at build time, under \fB/og/\fR, and names it in \fBog:image\fR,
+\fBtwitter:image\fR and the JSON-LD \fBimage\fR. \fBtext_color\fR and
+\fBbackground\fR (or \fBbackground_image\fR) are required; font, accent,
+overlay, logo and format are optional. Cards are cached in
+\fB.ssg\-cache/ogcards/\fR and skipped by the WebP/AVIF passes.
 .SS Internationalization
 .TP
 .BR \-\-languages =\fILIST
@@ -872,7 +905,9 @@ AVIF quality, 1\-100 (default: 45).
 .B \-\-webp\-keep\-original
 Emit each \fB.webp\fR next to its original instead of replacing it. Safe for
 themes with hardcoded \fB.png\fR/\fB.jpg\fR references (favicons, logos,
-og:image). The default replaces originals (historical behaviour).
+og:image). The default replaces originals (historical behaviour). With it,
+\fBog:image\fR and \fBtwitter:image\fR keep pointing at the original, which
+link-preview consumers without WebP support need.
 .TP
 .B \-\-reconvert\-images
 Force reconversion of images even if WebP versions already exist.
@@ -1469,4 +1504,10 @@ Full documentation: https://github.com/spagu/ssg
 .br
 Redirects and headers: docs/DEPLOYMENT.md; Workers: docs/WORKERS.md
 .SH LICENSE
-BSD 3-Clause License. See LICENSE file for details.
+Business Source License 1.1 (from 1.9.0; 1.8.85 and earlier: BSD 3-Clause).
+Production use is free. A commercial site keeps the "Built with ssg" notice
+ssg writes; \fBattribution: false\fR is permitted on non-commercial sites, and
+on commercial ones under a commercial license only. Offering ssg itself as a
+hosted service, inside a paid product or as a white-labelled copy needs a
+commercial license. Each version becomes BSD-3-Clause four years
+after its release. See LICENSE and docs/LICENSING.md.

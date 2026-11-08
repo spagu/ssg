@@ -21,10 +21,11 @@ import (
 )
 
 // resolveWorkers maps a configured worker count onto a concrete pool size:
-// 0 (or less) means one worker per CPU; anything else is used as-is.
+// 0 (or less) means one worker per usable CPU (GOMAXPROCS, which a CPU limit
+// lowers, #384); anything else is used as-is.
 func resolveWorkers(n int) int {
 	if n < 1 {
-		return runtime.NumCPU()
+		return runtime.GOMAXPROCS(0)
 	}
 	return n
 }
@@ -45,6 +46,12 @@ type ConvertOptions struct {
 	// Each image is independent (own source → own .webp), so the output is
 	// identical to the sequential build regardless of worker count.
 	Workers int
+	// SkipDirs are output-relative directories left as they are: social
+	// preview cards must stay PNG/JPEG, which every platform renders (1.9.0).
+	SkipDirs []string
+	// Origin ("https://example.com") lets an icon linked by its absolute URL
+	// be recognised as the site's own. Platform icons are never converted (#392).
+	Origin string
 }
 
 // ConvertDirectory converts all JPG/PNG images in a directory to WebP
@@ -61,15 +68,21 @@ func ConvertDirectory(dir string, opts ConvertOptions) (converted int, savedByte
 		opts.Quality = 60
 	}
 
+	// Platform icons keep their format: iOS takes only a PNG touch icon (#392).
+	icons := platformIcons(dir, opts.Origin)
+
 	// First pass: collect images that need conversion, delete originals if webp exists
 	var imagePaths []string
 	var skipped int
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
 		}
+		if info.IsDir() {
+			return skipDir(dir, path, opts.SkipDirs)
+		}
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+		if (ext == ".jpg" || ext == ".jpeg" || ext == ".png") && !icons[filepath.Clean(path)] {
 			webpPath := webpTargetPath(path)
 			// If WebP already exists, skip conversion (unless Force reconvert);
 			// in replace mode the leftover original is deleted, in keep mode it stays.
@@ -486,9 +499,13 @@ func isRemoteURL(ref string) bool {
 // root resolves "/"-absolute ones. origin, when set ("https://example.com"),
 // marks absolute URLs of the site itself as local: og:image must be absolute
 // (#350), and an absolute og:image still has to follow its image to .webp.
+// keepSocial leaves og:image / twitter:image alone: with webp_keep_original the
+// PNG/JPEG is still published, and link-preview consumers that do not render
+// WebP (LinkedIn among them) need it (#385).
 type refRewriter struct {
 	baseDir, root, origin string
 	webpSet               map[string]bool
+	keepSocial            bool
 }
 
 func (r refRewriter) local(ref string) string {
@@ -557,7 +574,7 @@ func (r refRewriter) imageRefs(content string) string {
 	// above miss them — the exact gap that left og:image pointing at a removed
 	// .jpg (#64). Rewrite the content URL of og:image / twitter:image metas only.
 	out = socialImageMetaRe.ReplaceAllStringFunc(out, func(tag string) string {
-		if !socialImageMetaTag(tag) {
+		if r.keepSocial || !socialImageMetaTag(tag) {
 			return tag
 		}
 		return metaContentRe.ReplaceAllStringFunc(tag, func(attr string) string {
@@ -587,27 +604,31 @@ func (r refRewriter) imageRefs(content string) string {
 // whose converted .webp target exists are rewritten, remote URLs and prose are
 // left alone (GO-017), and extensions are matched case-insensitively (GO-016).
 func UpdateReferences(dir string) error {
-	return UpdateReferencesOnSite(dir, "")
+	return UpdateReferencesOnSite(dir, "", false)
 }
 
 // UpdateReferencesOnSite is UpdateReferences for a site served at origin
 // ("https://example.com"): absolute URLs of the site itself are rewritten too,
 // and stay absolute — og:image and twitter:image are written that way (#350).
-func UpdateReferencesOnSite(dir, origin string) error {
+// keepOriginal (webp_keep_original) leaves the social preview metas pointing at
+// the original, which is still published next to the .webp (#385). A platform
+// icon is never re-pointed, even at a .webp left by an earlier build (#392).
+func UpdateReferencesOnSite(dir, origin string, keepOriginal bool) error {
 	webpSet, err := collectWebpSet(dir)
 	if err != nil {
 		return err
 	}
+	for icon := range platformIcons(dir, origin) {
+		delete(webpSet, webpTargetPath(icon))
+	}
 
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Lowercased so .HTML/.CSS files are processed too (GO-017).
+		// Lowercased so .HTML/.CSS files are processed too (GO-017). A walk
+		// error is returned; a directory or another file type is skipped (err
+		// is nil then).
 		ext := strings.ToLower(filepath.Ext(path))
-		if info.IsDir() || (ext != ".html" && ext != ".css") {
-			return nil
+		if err != nil || info.IsDir() || (ext != ".html" && ext != ".css") {
+			return err
 		}
 
 		content, err := os.ReadFile(path) // #nosec G304,G122 -- CLI tool reads user's output files
@@ -615,11 +636,27 @@ func UpdateReferencesOnSite(dir, origin string) error {
 			return err
 		}
 
-		r := refRewriter{baseDir: filepath.Dir(path), root: dir, origin: strings.TrimRight(origin, "/"), webpSet: webpSet}
+		r := refRewriter{baseDir: filepath.Dir(path), root: dir, origin: strings.TrimRight(origin, "/"), webpSet: webpSet, keepSocial: keepOriginal}
 		newContent := r.imageRefs(string(content))
 		if newContent != string(content) {
 			return os.WriteFile(path, []byte(newContent), info.Mode()) // #nosec G703,G122 -- CLI tool writes user's output files
 		}
 		return nil
 	})
+}
+
+// skipDir returns filepath.SkipDir when path, a directory under root, is one
+// of skip (output-relative, slash-separated), so a walk leaves it alone.
+func skipDir(root, path string, skip []string) error {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return nil //nolint:nilerr // a path outside root is not ours to skip
+	}
+	rel = filepath.ToSlash(rel)
+	for _, s := range skip {
+		if s = strings.Trim(s, "/"); s != "" && rel == s {
+			return filepath.SkipDir
+		}
+	}
+	return nil
 }

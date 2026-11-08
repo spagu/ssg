@@ -33,7 +33,7 @@ func TestSitemapSpecMatches(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := sitemapSpecMatches(c.spec, c.entry); got != c.want {
+			if got := sitemapSpecMatches(c.spec, c.entry, ""); got != c.want {
 				t.Errorf("got %v, want %v", got, c.want)
 			}
 		})

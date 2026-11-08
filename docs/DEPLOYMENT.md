@@ -654,6 +654,10 @@ Since v1.8.5 the action logs the resolved version on every run (a `::notice::`
 when `latest` was used) and exposes it as the `version` output, so unpinned
 builds are at least traceable.
 
+Since 1.9.0 the action checks the downloaded archive against the release's
+`checksums.sha256` before extracting it, as `install.sh` does. A mismatch, or a
+release without an entry for the archive, fails the step.
+
 ### Building a config-driven site
 
 Point the action at your config file. Everything a real site keeps there —
@@ -695,7 +699,8 @@ The action intentionally exposes a stable subset of the complete CLI:
 | `minify` | no | `false` | Enable all minification |
 | `clean` | no | `false` | Clean before build |
 | `engine` | no | `go` | Template engine |
-| `online-theme` | no | empty | Theme download URL |
+| `online-theme` | no | empty | Theme download URL; `repo@ref` pins a tag or commit |
+| `online-theme-sha256` | no | empty | Expected SHA-256 of the theme archive; a mismatch fails the build |
 | `deploy` | no | empty | Native provider |
 | `deploy-project` | no | empty | Provider project/site |
 | `deploy-branch` | no | empty | Provider branch |

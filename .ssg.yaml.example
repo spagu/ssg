@@ -35,7 +35,14 @@ tls_domain: ""       # Domain(s) for autocert, comma-separated
 http3: false         # Serve HTTP/3 (QUIC) alongside HTTP/2 (requires TLS)
 gzip: false          # gzip-compress responses when the client accepts it
 max_conns: 0         # Cap simultaneous connections (0 = unlimited)
-mem_limit: ""        # Runtime GC soft memory target, e.g. "512MiB", "1GiB"
+mem_limit: ""        # Alias of resources.memory (which wins when both are set)
+
+# CPU and memory ceiling for every command: build, --watch, --http, mcp, daemon, migrate.
+# Ceilings, not guarantees: Go's memory limit is soft. docs/CONFIGURATION.md#running-on-a-small-machine-resources
+# resources:
+#   cpu: 2              # GOMAXPROCS cap; also caps build_workers (--cpu-limit=N)
+#   memory: 512MiB      # Soft limit; unset = 90% of a cgroup memory.max, "none" = no limit (--mem-limit)
+#   gc_percent: 50      # GC heap headroom, Go default 100 (--gc-percent=N)
 
 # Server access control (config-only; SSO/LDAP deliberately not implemented)
 server_auth: ""      # "" (open) | basic | jwt
@@ -56,6 +63,10 @@ sitemap_max_urls: 0  # Per-file URL ceiling (0 = the protocol's 50,000); a large
 #     source: blog                  # whatever matches none goes to sitemap-main.xml, never dropped.
 #   - path: /sitemap-archives.xml
 #     include: [categories, tags, series, authors]   # also: home, listing, pages, posts, static, taxonomies
+#   - path: /sitemap-ports.xml
+#     source: ports                 # source: also names an external_sources entry
+#   - path: /sitemap-openbsd.xml
+#     prefix: [/openbsd/]           # URL path prefix(es), whole segments: /net/ ≠ /netbsd/
 robots_off: false    # Disable robots.txt generation
 
 # A 404.html is generated when the site does not provide one. Without it, static
@@ -287,6 +298,18 @@ static_sources: []   # Extra verbatim roots; an HTML document among them may add
 #   theme_color: "#0f172a"
 #   verification:               # merged per key with a migration's tokens, not replaced
 #     google-site-verification: "…"
+
+# og_cards:          # A 1200×630 social card (title, category, site name) for every page
+                     # without a featured_image, drawn at build time → /og/<page>-<key>.png.
+#   text_color: "#FFFFFF"       # required
+#   background: "#202124"       # required unless background_image is set
+#   accent_color: "#8AB4F8"     # default text_color
+#   background_image: assets/card-bg.jpg
+#   overlay: 0.6                # 0..1 over the background image
+#   logo: static/logo.png
+#   font: assets/Inter-Bold.ttf # default Go Bold (Latin, Greek, Cyrillic)
+#   format: png                 # or jpeg
+#   sections: [posts, pages]
 
 # Extra feeds beyond `feed: true` (#86). Each picks its own posts, path and
 # format: atom (default), rss (2.0) or json (JSON Feed 1.1). Selection criteria

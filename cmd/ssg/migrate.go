@@ -23,6 +23,7 @@ import (
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/migrate"
+	"github.com/spagu/ssg/internal/resources"
 )
 
 // migrateFetch is the provider-call seam so command-level tests never spawn
@@ -36,13 +37,16 @@ var migrateFetch = func(p migrate.Provider, rawURL string, opts migrate.Options)
 var migrateBlock = func() { select {} }
 
 type migrateFlags struct {
-	content  []string
-	watch    bool
-	http     bool
-	quiet    bool
-	noCrawl  bool
-	allMedia bool
-	source   string
+	// resources is the CPU and memory ceiling from --cpu-limit, --mem-limit
+	// and --gc-percent (#384); migrate has no site config to read it from.
+	resources resources.Request
+	content   []string
+	watch     bool
+	http      bool
+	quiet     bool
+	noCrawl   bool
+	allMedia  bool
+	source    string
 	// Credentials for the source CMS. Held here and handed to the engine —
 	// never written into .ssg.yaml, which is a file people commit (#132).
 	authUser      string
@@ -105,6 +109,9 @@ func runMigrate(args []string) int {
 	flags, code := parseMigrateFlags(args[2:])
 	if code >= 0 {
 		return code
+	}
+	if !applyResources(flags.resources, flags.quiet, func(f string, a ...any) { fmt.Printf(f, a...) }) {
+		return 2
 	}
 	return executeMigrate(provider, rawURL, u.Hostname(), flags)
 }
@@ -329,6 +336,21 @@ func migrateValueFlags(f *migrateFlags) map[string]func(string) int {
 		"--rate-limit": f.setRateLimit,
 		"--engine-arg": f.addEngineArg,
 		"--port":       f.setPort,
+		"--mem-limit":  f.setResource("--mem-limit"),
+		"--cpu-limit":  f.setResource("--cpu-limit"),
+		"--gc-percent": f.setResource("--gc-percent"),
+	}
+}
+
+// setResource reads one resource flag's value; a value that is not a number
+// stops the command (#384).
+func (f *migrateFlags) setResource(name string) func(string) int {
+	return func(v string) int {
+		if _, ok := parseResourceFlag(name+"="+v, &f.resources); !ok {
+			errf("❌ %s=%s is not a number\n", name, v)
+			return 2
+		}
+		return -1
 	}
 }
 
@@ -531,6 +553,10 @@ flags:
                      bundled copy plus ~/go/bin, ~/.local/bin and ~/bin — so an
                      engine you installed yourself is used instead of waiting
                      for the next snap rebuild. SSG_WPEXPORTER does the same.
+   --cpu-limit N     use at most N CPUs
+   --mem-limit SIZE  soft memory limit, e.g. 1GiB, or none (default: 90% of
+                     a cgroup limit)
+   --gc-percent N    GC heap headroom (Go default 100)
    --quiet, -q       suppress progress output
 
 Credentials are handed to the engine and never written to .ssg.yaml.

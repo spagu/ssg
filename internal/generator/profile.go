@@ -74,6 +74,9 @@ type Profile struct {
 	total time.Duration
 	// now is the clock, injectable so a test can assert exact durations.
 	now func() time.Time
+	// readMemory reads the process's memory use, injectable for the same
+	// reason (#384).
+	readMemory func() ProfileMemory
 }
 
 // NewProfile starts a profile. mode selects the report; an empty mode means
@@ -87,7 +90,7 @@ func NewProfile(mode string) *Profile {
 
 // newProfileWithClock is NewProfile with the clock supplied, for tests.
 func newProfileWithClock(now func() time.Time) *Profile {
-	p := &Profile{counters: map[string]int64{}, now: now}
+	p := &Profile{counters: map[string]int64{}, now: now, readMemory: readMemory}
 	p.start = now()
 	return p
 }

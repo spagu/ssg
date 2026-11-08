@@ -140,31 +140,6 @@ func TestServingOnADeadListenerIsReported(t *testing.T) {
 	awaitReports(t, reports, "Server error", "HTTP/3 server error")
 }
 
-// TestAMemoryLimitIsAnnouncedOrRefused: a limit that does not parse must not be
-// applied silently, and one that does must say what it set.
-func TestAMemoryLimitIsAnnouncedOrRefused(t *testing.T) {
-	if out := captureStderr(t, func() { applyMemLimit("not-a-size", false) }); !strings.Contains(out, "invalid --mem-limit") {
-		t.Errorf("stderr = %q", out)
-	}
-	out, err := captureStdout(func() error {
-		applyMemLimit("256MiB", false)
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "Soft memory limit") {
-		t.Errorf("stdout = %q", out)
-	}
-}
-
-// TestAByteSizeWithANonNumericValueIsAnError: "MiB" is a unit, not a number.
-func TestAByteSizeWithANonNumericValueIsAnError(t *testing.T) {
-	if _, err := parseByteSize("lots-of-MiB"); err == nil {
-		t.Error("a non-numeric size must be an error")
-	}
-}
-
 // TestAGzipWriterWritesItsHeaderOnce: a second WriteHeader is a no-op, or the
 // stripped Content-Length comes back and desynchronises the connection.
 func TestAGzipWriterWritesItsHeaderOnce(t *testing.T) {

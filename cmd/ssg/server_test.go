@@ -120,31 +120,6 @@ func TestBuildServerHandler(t *testing.T) {
 	}
 }
 
-func TestParseByteSize(t *testing.T) {
-	cases := map[string]int64{
-		"512MiB":  512 << 20,
-		"1GiB":    1 << 30,
-		"256KiB":  256 << 10,
-		"1048576": 1048576,
-		"10MB":    10_000_000,
-	}
-	for in, want := range cases {
-		got, err := parseByteSize(in)
-		if err != nil || got != want {
-			t.Errorf("parseByteSize(%q) = %d,%v want %d", in, got, err, want)
-		}
-	}
-	if _, err := parseByteSize("nonsense"); err == nil {
-		t.Error("expected error for invalid size")
-	}
-}
-
-func TestApplyMemLimit(t *testing.T) {
-	applyMemLimit("", true)        // no-op
-	applyMemLimit("128MiB", true)  // valid
-	applyMemLimit("garbage", true) // invalid, warns quietly
-}
-
 func TestAutocertCacheDir(t *testing.T) {
 	dir := autocertCacheDir()
 	if dir == "" {

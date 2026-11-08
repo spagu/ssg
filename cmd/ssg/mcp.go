@@ -107,6 +107,10 @@ func runMCP(args []string) int {
 
 	cfg := loadConfig(rest)
 	parseFlags(rest, cfg)
+	// stdout is the MCP stdio channel, so the limits are named on stderr.
+	if !applyResources(resourceRequest(cfg), cfg.Quiet, func(f string, a ...any) { errf(f, a...) }) {
+		return 2
+	}
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
 	downloadOnlineTheme(cfg)
