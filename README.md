@@ -678,3 +678,6 @@ launch grant is free; if that ever changes it will be announced ahead and apply
 to new versions only. Details, the FAQ and how to remove the notice under a
 commercial license: [docs/LICENSING.md](docs/LICENSING.md). Versions up to
 1.8.85 remain BSD-3-Clause.
+
+`ssg --version` names the license on its second line, and `ssg --license`
+prints the terms in brief.

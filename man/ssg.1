@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.0" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.1" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -998,7 +998,11 @@ into the \fB.Data.*\fR template namespace, nested by subdirectory.
 Suppress all output; only exit codes indicate success or failure.
 .TP
 .BR \-\-version ", " \-v
-Print the version and exit.
+Print the version, then a line naming the license, and exit.
+.TP
+.B \-\-license
+Print the license (Business Source License 1.1, BUSL-1.1), what it allows and
+where its text is, and exit.
 .TP
 .BR \-\-help ", " \-h
 Print usage information and exit.

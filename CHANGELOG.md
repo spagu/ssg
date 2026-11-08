@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-09
+
+### Added
+
+- **The license is named next to the version.** `ssg --version` prints a
+  second line, `License: Business Source License 1.1 (BUSL-1.1)`. The first
+  line is unchanged, so scripts that read it still work. The new
+  `ssg --license` prints the terms in a few lines and points at `LICENSE` and
+  `docs/LICENSING.md`. The help text, the hint a bare `ssg` prints, and the
+  first line of a build log (`🧱 ssg 1.9.1 · BUSL-1.1`) name it too. Someone
+  who installed `latest` sees the change from BSD without reading the
+  repository.
+
+### Fixed
+
+- **`{{.OGCard}}` is set in page templates** (#395). The card was drawn and
+  stored on the page, but the flat map a page template receives copied
+  `FeaturedImage` and not `OGCard`. A theme that writes its own `og:image` got
+  an empty value on pages and fell back to the site-wide image, so the drawn
+  cards were never referenced. Posts and `.Page.OGCard` were not affected.
+  `.ExternalSource`, documented in the same table, was missing from the map
+  too and is set now.
+
+### Changed
+
+- **Dependencies:** `go-jose/v4` 4.1.9, `pgx/v5` 5.12.0, `goldmark` 1.8.7,
+  `modernc.org/sqlite` 1.62.0 (`modernc.org/libc` 1.80.1), and the `golang:1.27.3-alpine`
+  builder image at its new digest. Replaces Dependabot PRs #387–#391.
+
 ## [1.9.0] - 2026-11-08
 
 ### Changed

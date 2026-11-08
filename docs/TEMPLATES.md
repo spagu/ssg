@@ -492,7 +492,7 @@ Individual content fields are flattened at the root:
 | `.Category` | `string` — the primary category name |
 | `.Tags` | `[]string` — names already |
 | `.FeaturedImage` | Hero/social image |
-| `.OGCard` | Site-relative URL of the social card drawn for a page without `.FeaturedImage` when `og_cards` is on; empty otherwise. A theme writing its own `og:image` uses `(or .Page.FeaturedImage .Page.OGCard)` |
+| `.OGCard` | Site-relative URL of the social card drawn for a page without `.FeaturedImage` when `og_cards` is on; empty otherwise. A theme writing its own `og:image` uses `(or .FeaturedImage .OGCard)` in any template, or `(or .Page.FeaturedImage .Page.OGCard)`. The flat form works in page templates from 1.9.1 (#395) |
 | `.ExternalSource` | Name of the `external_sources` entry a `mode: content` page was built from; empty for content files and MDDB documents (1.9.0) |
 | `.Layout`, `.Template` | Content template selection fields |
 | `.WordCount`, `.ReadingTime` | Computed reading statistics |
