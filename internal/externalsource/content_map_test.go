@@ -459,6 +459,9 @@ func TestContentMapEndToEnd(t *testing.T) {
 	if imports[0].Posts[0].Slug != "product-w-1" {
 		t.Errorf("slug = %q", imports[0].Posts[0].Slug)
 	}
+	if imports[0].Source != "products" {
+		t.Errorf("the import does not name its source (#386): %q", imports[0].Source)
+	}
 	// The data namespace still holds the records: a mapped source is pages AND
 	// data, so a template can still iterate it.
 	if reg.Results["products"].Data == nil {

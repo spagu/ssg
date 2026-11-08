@@ -79,6 +79,7 @@ func mapRecordsIfContent(src Source, result *Result) ([]string, error) {
 	if err != nil {
 		return nil, fail(src, "content_map", err)
 	}
+	imported.Source = src.Name
 	result.CMS = imported
 	result.Metadata.RecordCount = len(imported.Pages) + len(imported.Posts)
 	return warnings, nil

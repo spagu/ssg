@@ -52,10 +52,13 @@ type sitemapEntry struct {
 	changefreq string
 	priority   string
 	kind       sitemapKind
-	// source is the content root a page or post came from, which is what
-	// `source: blog` in a declared sitemap selects on. Empty for everything
-	// that is not a content document.
-	source string
+	// source is the content root a page or post came from, section its MDDB
+	// section and external the external_sources entry that built it: what
+	// `source: blog` in a declared sitemap selects on (#386). All empty for
+	// everything that is not a content document.
+	source   string
+	section  string
+	external string
 }
 
 // archiveEntry is the shape every archive listing shares.

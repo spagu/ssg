@@ -65,12 +65,9 @@ func (g *Generator) generateAudio() error {
 		return nil
 	}
 	g.log("🎧 Reading articles aloud...")
-	jingle, err := g.audioJingle()
-	if err != nil {
-		return err
-	}
+	jingle := g.audioJingle()
 	var stats audioStats
-	for _, pages := range g.audioPageSets() {
+	for _, pages := range g.pageSets(g.config.Audio.Sections, "posts") {
 		for i := range *pages {
 			if err := g.audioForPage(&(*pages)[i], jingle, &stats); err != nil {
 				return err
@@ -81,11 +78,11 @@ func (g *Generator) generateAudio() error {
 	return nil
 }
 
-// audioPageSets is the page lists sections names: posts unless told otherwise.
-func (g *Generator) audioPageSets() []*[]models.Page {
-	sections := g.config.Audio.Sections
+// pageSets is the page lists sections names ("posts", "pages"), or the
+// defaults when it names none. Shared by audio and social cards.
+func (g *Generator) pageSets(sections []string, defaults ...string) []*[]models.Page {
 	if len(sections) == 0 {
-		sections = []string{"posts"}
+		sections = defaults
 	}
 	var sets []*[]models.Page
 	for _, s := range sections {
@@ -102,26 +99,27 @@ func (g *Generator) audioPageSets() []*[]models.Page {
 // audioCacheDir is .ssg-cache/tts (or under the configured root).
 func (g *Generator) audioCacheDir() string { return cache.Dir(g.config.Audio.CacheRoot, "tts") }
 
-// audioJingle returns the intro, downloading it once per jingle URL.
-func (g *Generator) audioJingle() ([]byte, error) {
+// audioJingle returns the intro, downloading it once per jingle URL. A
+// jingle that cannot be had is nil: a missing intro never stops the build.
+func (g *Generator) audioJingle() []byte {
 	u := strings.TrimSpace(g.config.Audio.JingleURL)
 	if u == "" {
-		return nil, nil
+		return nil
 	}
 	sum := sha256.Sum256([]byte(u))
 	name := "jingle-" + hex.EncodeToString(sum[:8]) + ".mp3"
 	path := filepath.Join(g.audioCacheDir(), name)
 	if data, err := os.ReadFile(path); err == nil { // #nosec G304 -- our own cache file
-		return data, nil
+		return data
 	}
 	data, err := tts.FetchJingle(context.Background(), u, g.config.Audio.Timeout)
 	if err != nil {
 		// A missing intro is not worth a missing episode: say so and go on.
 		g.log("   ⚠️  " + err.Error() + " — articles are read without it")
-		return nil, nil
+		return nil
 	}
 	_ = cache.WriteAtomicBytes(g.audioCacheDir(), name, 0o644, data)
-	return data, nil
+	return data
 }
 
 // audioForPage makes, reuses or falls back for one page's audio.
@@ -224,11 +222,17 @@ func audioKey(describe, lang string, jingle []byte, text string) string {
 // audioName is the page's MP3 file name, derived from its URL:
 // /2026/09/30/hello/ → 2026-09-30-hello.mp3, the front page → index.mp3.
 func audioName(p models.Page) string {
+	return pageFileStem(p) + ".mp3"
+}
+
+// pageFileStem is a file name for something made from a page, derived from
+// its URL: /2026/09/30/hello/ → 2026-09-30-hello, the front page → index.
+func pageFileStem(p models.Page) string {
 	name := strings.ToLower(strings.Trim(p.GetURL(), "/"))
 	name = strings.TrimSuffix(name, ".html")
 	name = strings.Trim(audioNameRe.ReplaceAllString(strings.ReplaceAll(name, "/", "-"), "-"), "-.")
 	if name == "" {
 		name = "index"
 	}
-	return name + ".mp3"
+	return name
 }

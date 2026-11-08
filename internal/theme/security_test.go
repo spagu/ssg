@@ -158,7 +158,7 @@ func TestDownloadStopsRedirectLoop(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := Download(srv.URL+"/loop.zip", filepath.Join(t.TempDir(), "out"))
+	err := Download(srv.URL+"/loop.zip", filepath.Join(t.TempDir(), "out"), "")
 	if err == nil {
 		t.Fatal("expected error on redirect loop")
 	}
@@ -173,7 +173,7 @@ func TestDownloadRejectsOversizedArchive(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := Download(srv.URL+"/big.zip", filepath.Join(t.TempDir(), "out"))
+	err := Download(srv.URL+"/big.zip", filepath.Join(t.TempDir(), "out"), "")
 	if err == nil {
 		t.Fatal("expected error for oversized archive")
 	}

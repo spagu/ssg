@@ -41,7 +41,8 @@ func TestParseBoolFlags(t *testing.T) {
 		{"--minify-css", func(c *config.Config) bool { return c.MinifyCSS }, true},
 		{"--minify-js", func(c *config.Config) bool { return c.MinifyJS }, true},
 		{"--sourcemap", func(c *config.Config) bool { return c.SourceMap }, true},
-		{"--mddb-watch", func(c *config.Config) bool { return c.Mddb.Watch }, true}, // GO-018
+		{"--mddb-watch", func(c *config.Config) bool { return c.Mddb.Watch }, true},     // GO-018
+		{"--mddb-trusted", func(c *config.Config) bool { return c.Mddb.Trusted }, true}, // SEC-003
 		{"--clean", func(c *config.Config) bool { return c.Clean }, true},
 		{"--quiet", func(c *config.Config) bool { return c.Quiet }, true},
 		{"-q", func(c *config.Config) bool { return c.Quiet }, true},
@@ -132,6 +133,7 @@ func TestParseEqualFlags(t *testing.T) {
 		{"host", "--host=0.0.0.0", func(c *config.Config) interface{} { return c.Host }, "0.0.0.0"},
 		{"engine", "--engine=pongo2", func(c *config.Config) interface{} { return c.Engine }, "pongo2"},
 		{"online-theme", "--online-theme=https://example.com/t", func(c *config.Config) interface{} { return c.OnlineTheme }, "https://example.com/t"},
+		{"online-theme-sha256", "--online-theme-sha256=abc123", func(c *config.Config) interface{} { return c.OnlineThemeSHA256 }, "abc123"},
 		{"post-url-format", "--post-url-format=slug", func(c *config.Config) interface{} { return c.PostURLFormat }, "slug"},
 		{"timezone", "--timezone=Europe/Warsaw", func(c *config.Config) interface{} { return c.Timezone }, "Europe/Warsaw"},
 		{"mddb-url", "--mddb-url=http://localhost:11023", func(c *config.Config) interface{} { return c.Mddb.URL }, "http://localhost:11023"},

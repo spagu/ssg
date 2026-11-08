@@ -49,10 +49,8 @@ func minifyHTMLString(s string, keepComments []string) string {
 		return placeholder
 	}
 	s = minIgnoreBlockRe.ReplaceAllStringFunc(s, func(match string) string {
-		if inner := minIgnoreBlockRe.FindStringSubmatch(match); len(inner) > 1 {
-			return preserve(inner[1])
-		}
-		return match
+		// The pattern has one group, so a match always carries it.
+		return preserve(minIgnoreBlockRe.FindStringSubmatch(match)[1])
 	})
 	s = minPreserveTagRe.ReplaceAllStringFunc(s, preserve)
 	s = minHTMLCommentRe.ReplaceAllStringFunc(s, func(match string) string {
@@ -226,7 +224,7 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 		// home/listing context carries no Content, so it is skipped and never
 		// advertises a file that was not written.
 		if page.Content != "" {
-			if g.config.MarkdownPublish {
+			if g.publishesMarkdown(*page) {
 				s = injectMarkdownAlternate(s, markdownLeaf(page.GetURL()))
 			}
 			s = injectAlternates(s, g.alternateLinks(*page, s))

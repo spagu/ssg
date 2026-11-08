@@ -87,7 +87,11 @@ inputs:
     required: false
     default: "go"
   online-theme:
-    description: "Download theme from URL (GitHub, GitLab, or direct ZIP)"
+    description: "Download theme from URL (GitHub, GitLab, or direct ZIP); pin a tag/commit with repo@ref"
+    required: false
+    default: ""
+  online-theme-sha256:
+    description: "Expected SHA-256 of the online-theme archive; a mismatch fails the build before extraction"
     required: false
     default: ""
   deploy:
@@ -210,6 +214,32 @@ runs:
           exit 1
         fi
 
+        # Verify the archive against the release's checksums.sha256 (SEC-005),
+        # the same list install.sh and the Homebrew formula read. A mismatch or a
+        # missing entry always fails: an unverified binary is never installed.
+        SUMS_URL="https://github.com/spagu/ssg/releases/download/${VERSION}/checksums.sha256"
+        if ! curl --proto '=https' --proto-redir =https -fsSL \
+          --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 2 --retry-all-errors \
+          "$SUMS_URL" -o /tmp/ssg-checksums.sha256; then
+          echo "::error::Could not download checksums.sha256 for $VERSION; refusing to install an unverified binary"
+          exit 1
+        fi
+        EXPECTED=$(awk -v n="$ARCHIVE" '$2 == n || $2 == "*"n {print $1}' /tmp/ssg-checksums.sha256)
+        if [[ -z "$EXPECTED" ]]; then
+          echo "::error::checksums.sha256 for $VERSION has no entry for $ARCHIVE"
+          exit 1
+        fi
+        if command -v sha256sum &> /dev/null; then
+          ACTUAL=$(sha256sum "/tmp/$ARCHIVE" | awk '{print $1}')
+        else
+          ACTUAL=$(shasum -a 256 "/tmp/$ARCHIVE" | awk '{print $1}')
+        fi
+        if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+          echo "::error::Checksum mismatch for $ARCHIVE: expected $EXPECTED, got $ACTUAL"
+          exit 1
+        fi
+        echo "🔒 Checksum verified ($ARCHIVE)"
+
         # Extract
         if [[ "$OS" == "windows" ]]; then
           unzip -q "/tmp/$ARCHIVE" -d /tmp/ssg-bin
@@ -292,6 +322,7 @@ runs:
         IN_CLEAN: ${{ inputs.clean }}
         IN_ENGINE: ${{ inputs.engine }}
         IN_ONLINE_THEME: ${{ inputs.online-theme }}
+        IN_ONLINE_THEME_SHA256: ${{ inputs.online-theme-sha256 }}
         IN_DEPLOY: ${{ inputs.deploy }}
         IN_DEPLOY_PROJECT: ${{ inputs.deploy-project }}
         IN_DEPLOY_BRANCH: ${{ inputs.deploy-branch }}
@@ -339,6 +370,9 @@ runs:
         fi
         if [[ -n "$IN_ONLINE_THEME" ]]; then
           FLAGS+=(--online-theme="$IN_ONLINE_THEME")
+        fi
+        if [[ -n "$IN_ONLINE_THEME_SHA256" ]]; then
+          FLAGS+=(--online-theme-sha256="$IN_ONLINE_THEME_SHA256")
         fi
         # Native deploy (secrets are read from the job environment by the ssg binary).
         if [[ -n "$IN_DEPLOY" ]]; then

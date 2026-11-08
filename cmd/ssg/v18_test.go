@@ -92,8 +92,8 @@ func TestServerAndArchiveFlags(t *testing.T) {
 	if !cfg.Gzip || !cfg.HTTP3 || !cfg.SanitizeHTML || !cfg.TarGz || !cfg.TarXz {
 		t.Errorf("bool server/archive flags not parsed")
 	}
-	if cfg.MaxConns != 50 || cfg.MemLimit != "256MiB" {
-		t.Errorf("MaxConns/MemLimit not parsed: %d %q", cfg.MaxConns, cfg.MemLimit)
+	if cfg.MaxConns != 50 || cfg.Resources.Memory != "256MiB" {
+		t.Errorf("MaxConns/MemLimit not parsed: %d %q", cfg.MaxConns, cfg.Resources.Memory)
 	}
 }
 

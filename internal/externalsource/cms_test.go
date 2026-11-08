@@ -80,6 +80,9 @@ func TestWordPressAdapter(t *testing.T) {
 	if imp == nil || len(imp.Posts) != 2 || len(imp.Pages) != 1 {
 		t.Fatalf("imported = %+v", imp)
 	}
+	if imp.Source != "wordpress" {
+		t.Errorf("the import does not name its source (#386): %q", imp.Source)
+	}
 	post := imp.Posts[0]
 	if post.Title != "Hello world" || post.Slug != "hello-world" || post.Status != "publish" ||
 		post.Category != "News" || post.Tags[0] != "golang" || post.Author != 1 {

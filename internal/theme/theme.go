@@ -3,6 +3,8 @@ package theme
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,8 +28,13 @@ var (
 	maxEntries         = 10000             // archive entry count
 )
 
-// Download downloads a theme from a URL (GitHub repo or direct archive)
-func Download(url, destDir string) error {
+// Download downloads a theme from a URL (GitHub repo or direct archive) and
+// extracts it into destDir. A GitHub/GitLab repo URL may pin a tag, branch or
+// commit as "repo@ref"; without one the moving main branch is fetched.
+// wantSHA256, when set, is the archive's expected SHA-256 (hex): a mismatch
+// stops before anything is extracted (SEC-005). Without it the download is
+// trusted as served, and a warning says so.
+func Download(url, destDir, wantSHA256 string) error {
 	// GO-028: the only extractor is ZIP; a tar archive would download fully
 	// and then always fail with "not a valid zip file", so reject it up front.
 	if strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, ".tgz") {
@@ -51,7 +58,7 @@ func Download(url, destDir string) error {
 		},
 	}
 
-	tmpPath, err := downloadArchive(client, archiveURL)
+	tmpPath, sum, err := downloadArchive(client, archiveURL)
 	if err != nil {
 		// GO-040: repos whose default branch is master 404 on the hardcoded
 		// main-branch archive URL; retry once with master before giving up.
@@ -60,11 +67,15 @@ func Download(url, destDir string) error {
 			return err
 		}
 		fmt.Printf("   ⚠️  main branch failed (%v); retrying %s...\n", err, fallbackURL)
-		if tmpPath, err = downloadArchive(client, fallbackURL); err != nil {
+		if tmpPath, sum, err = downloadArchive(client, fallbackURL); err != nil {
 			return err
 		}
 	}
 	defer func() { _ = os.Remove(tmpPath) }()
+
+	if err := verifySHA256(sum, wantSHA256); err != nil {
+		return err
+	}
 
 	// Extract
 	fmt.Printf("📦 Extracting theme to %s...\n", destDir)
@@ -85,28 +96,47 @@ func Download(url, destDir string) error {
 	return nil
 }
 
+// verifySHA256 compares the archive's SHA-256 with the expected one (SEC-005).
+// An empty expectation is allowed and warned about: the theme is then trusted
+// as the server delivered it.
+func verifySHA256(got, want string) error {
+	want = strings.ToLower(strings.TrimSpace(want))
+	if want == "" {
+		fmt.Printf("   ⚠️  theme archive not verified (sha256 %s); pin it with online_theme_sha256\n", got)
+		return nil
+	}
+	if got != want {
+		return fmt.Errorf("theme archive checksum mismatch: expected sha256 %s, got %s; refusing to extract", want, got)
+	}
+	fmt.Println("   🔒 theme archive sha256 verified")
+	return nil
+}
+
 // downloadArchive fetches archiveURL into a temporary file and returns its
-// path; the caller removes the file when done. The temp file's Close error is
-// checked because a failed write-side Close can mean truncated data (GO-040).
-func downloadArchive(client *http.Client, archiveURL string) (string, error) {
+// path and SHA-256 (hex); the caller removes the file when done. The temp
+// file's Close error is checked because a failed write-side Close can mean
+// truncated data (GO-040).
+func downloadArchive(client *http.Client, archiveURL string) (string, string, error) {
 	resp, err := client.Get(archiveURL) // #nosec G107 -- CLI tool downloads user-specified theme URL
 	if err != nil {
-		return "", fmt.Errorf("downloading theme: %w", err)
+		return "", "", fmt.Errorf("downloading theme: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download theme: HTTP %d", resp.StatusCode)
+		return "", "", fmt.Errorf("failed to download theme: HTTP %d", resp.StatusCode)
 	}
 
 	// Save to temp file
 	tmpFile, err := os.CreateTemp("", "theme-*.zip")
 	if err != nil {
-		return "", fmt.Errorf("creating temp file: %w", err)
+		return "", "", fmt.Errorf("creating temp file: %w", err)
 	}
 
 	// SEC-006: cap the total downloaded size; +1 lets us detect an overflow.
-	written, err := io.Copy(tmpFile, io.LimitReader(resp.Body, maxTotalSize+1))
+	// SEC-005: hash while writing, so the archive is read once.
+	h := sha256.New()
+	written, err := io.Copy(io.MultiWriter(tmpFile, h), io.LimitReader(resp.Body, maxTotalSize+1))
 	if cerr := tmpFile.Close(); err == nil {
 		err = cerr
 	}
@@ -115,9 +145,9 @@ func downloadArchive(client *http.Client, archiveURL string) (string, error) {
 	}
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", fmt.Errorf("saving theme archive: %w", err)
+		return "", "", fmt.Errorf("saving theme archive: %w", err)
 	}
-	return tmpFile.Name(), nil
+	return tmpFile.Name(), hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // masterFallbackURL returns the master-branch variant of a GitHub/GitLab
@@ -136,31 +166,41 @@ func masterFallbackURL(archiveURL string) string {
 	return ""
 }
 
-// convertToArchiveURL converts a GitHub repo URL to a ZIP archive URL
+// convertToArchiveURL converts a GitHub/GitLab repo URL to a ZIP archive URL.
+// "repo@ref" pins a tag, branch or commit (SEC-005); a bare repo URL follows
+// the main branch, with the master fallback of masterFallbackURL.
 func convertToArchiveURL(url string) string {
 	// Already a direct URL
 	if strings.HasSuffix(url, ".zip") || strings.HasSuffix(url, ".tar.gz") {
 		return url
 	}
-
-	// GitHub repo URL: https://github.com/user/repo
-	if strings.Contains(url, "github.com") {
-		// Remove trailing slash
-		url = strings.TrimSuffix(url, "/")
-		// Remove .git suffix
-		url = strings.TrimSuffix(url, ".git")
-		// Convert to archive URL (main branch)
-		return url + "/archive/refs/heads/main.zip"
+	isGitHub, isGitLab := strings.Contains(url, "github.com"), strings.Contains(url, "gitlab.com")
+	if !isGitHub && !isGitLab {
+		return url
 	}
-
-	// GitLab repo URL
-	if strings.Contains(url, "gitlab.com") {
-		url = strings.TrimSuffix(url, "/")
-		url = strings.TrimSuffix(url, ".git")
-		return url + "/-/archive/main/archive.zip"
+	repo, ref := splitRef(strings.TrimSuffix(url, "/"))
+	repo = strings.TrimSuffix(repo, ".git")
+	if isGitHub {
+		if ref == "" {
+			return repo + "/archive/refs/heads/main.zip"
+		}
+		return repo + "/archive/" + ref + ".zip"
 	}
+	if ref == "" {
+		ref = "main"
+	}
+	return repo + "/-/archive/" + ref + "/archive.zip"
+}
 
-	return url
+// splitRef splits "https://host/user/repo@ref" into the repo URL and the ref.
+// Only the last path segment is looked at, so an "@" elsewhere is left alone.
+func splitRef(url string) (repo, ref string) {
+	slash := strings.LastIndex(url, "/")
+	at := strings.LastIndex(url, "@")
+	if at <= slash || at == len(url)-1 {
+		return url, ""
+	}
+	return url[:at], url[at+1:]
 }
 
 // extractZip extracts a ZIP archive to destination directory

@@ -84,6 +84,7 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 		ReadingTime: p.ReadingTime,
 		Sticky:      p.Sticky,
 		Source:      p.SourceFile,
+		Hidden:      excludeFromSitemap(p),
 		Outputs:     sitegraph.Outputs{HTML: p.GetURL()},
 	}
 	if !p.Date.IsZero() {
@@ -147,7 +148,7 @@ func (g *Generator) graphTranslations(p models.Page) []sitegraph.Translation {
 // graphOutputs names the representations this page publishes besides its HTML.
 func (g *Generator) graphOutputs(p models.Page, url string) sitegraph.Outputs {
 	out := sitegraph.Outputs{HTML: url}
-	if g.config.MarkdownPublish {
+	if g.publishesMarkdown(p) {
 		out.Markdown = markdownURLFor(p, g.config.Domain)
 	}
 	if g.pageWantsOutput(p, "json") && strings.HasSuffix(url, "/") {

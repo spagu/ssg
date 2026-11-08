@@ -37,7 +37,7 @@
     <meta property="og:title" content="{{ .Title }}">
     <meta property="og:description" content="{{ .Desc }}">
     <meta property="og:url" content="{{ $canonical }}">
-    {{/* The card image: this page's own if it has one, the site's declared
+    {{/* The card image: this page's own (or its drawn og_cards card) if it has one, the site's declared
          default otherwise (#264). The theme asked for summary_large_image — a
          format defined by having an image — and then never named one, so every
          page posted as a bare text card. With no image anywhere, the card type

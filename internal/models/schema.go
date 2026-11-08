@@ -67,8 +67,11 @@ type SitemapSpec struct {
 
 	// Selection — optional, combined with AND; none of them claims everything
 	// still unclaimed.
-	Source  string   `yaml:"source" toml:"source" json:"source"`    // a content_sources path / content folder
+	Source  string   `yaml:"source" toml:"source" json:"source"`    // a content folder, MDDB section or external_sources name (#386)
 	Include []string `yaml:"include" toml:"include" json:"include"` // pages, posts, categories, tags, authors, taxonomies, static, home, listing
+	// Prefix selects by URL path, after the base path and any language
+	// prefix, whole segments only: /net/ does not claim /netbsd/ (#386).
+	Prefix PathList `yaml:"prefix" toml:"prefix" json:"prefix"`
 }
 
 // FeedSpec is one declared syndication feed (#86). It answers two questions the
@@ -86,7 +89,8 @@ type FeedSpec struct {
 	Format string `yaml:"format" toml:"format" json:"format"` // atom (default) | rss | json
 
 	// Selection — all optional, combined with AND.
-	Source     string   `yaml:"source" toml:"source" json:"source"`             // a content_sources path / content folder
+	Source     string   `yaml:"source" toml:"source" json:"source"`             // a content folder, MDDB section or external_sources name (#386)
+	Prefix     PathList `yaml:"prefix" toml:"prefix" json:"prefix"`             // URL path prefix(es), as in SitemapSpec (#386)
 	Categories []string `yaml:"categories" toml:"categories" json:"categories"` // category name or slug
 	Tags       []string `yaml:"tags" toml:"tags" json:"tags"`
 	Type       string   `yaml:"type" toml:"type" json:"type"` // "post" (default) or "page"

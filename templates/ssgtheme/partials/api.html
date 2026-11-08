@@ -14,7 +14,7 @@
     "Title" $title
     "Desc" .Page.Excerpt
     "Canonical" (printf "/%s/" .Page.Slug)
-    "Image" .Page.FeaturedImage
+    "Image" (or .Page.FeaturedImage .Page.OGCard)
     "OgType" "article"
     "Ctx" .) }}
 </head>

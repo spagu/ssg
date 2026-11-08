@@ -38,6 +38,22 @@ func markdownLeaf(u string) string {
 	}
 }
 
+// publishesMarkdown reports whether a page gets its Markdown copy, its
+// text/markdown alternate and its llms.txt line. A page kept out of the
+// sitemap gets none of the three: noindex, sitemap: no, a redirect, or the
+// 404 page. Otherwise llms.txt would point agents at exactly what the site asked
+// crawlers to skip (#393). A page whose own outputs: list names markdown still
+// gets its copy.
+func (g *Generator) publishesMarkdown(p models.Page) bool {
+	if !g.config.MarkdownPublish {
+		return false
+	}
+	if g.outputs != nil {
+		return g.publishesFormat(p, FormatMarkdown)
+	}
+	return !excludeFromSitemap(p) // a bare Generator, before the registry loads
+}
+
 // pageMarkdown returns the clean Markdown document for a page: an H1 title
 // (unless the body already opens with one) followed by the authored source.
 // AI punctuation is normalised when clean_special_chars is on.
@@ -103,8 +119,8 @@ func writeSection(b *strings.Builder, heading string, pages []sitegraph.Page) {
 	var lines []string
 	for _, p := range pages {
 		url := p.Outputs.Markdown
-		if url == "" {
-			continue
+		if url == "" || p.Hidden {
+			continue // no copy, or a page the site keeps out of search (#393)
 		}
 		title := p.Title
 		if title == "" {

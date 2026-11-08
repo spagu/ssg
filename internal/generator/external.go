@@ -55,8 +55,8 @@ func (g *Generator) loadExternalSources() error {
 // overwriting IDs the local metadata already defines.
 func (g *Generator) mergeCMSContent() {
 	for _, imp := range g.cmsImports {
-		g.siteData.Pages = append(g.siteData.Pages, imp.Pages...)
-		g.siteData.Posts = append(g.siteData.Posts, imp.Posts...)
+		g.siteData.Pages = append(g.siteData.Pages, stampSource(imp.Pages, imp.Source)...)
+		g.siteData.Posts = append(g.siteData.Posts, stampSource(imp.Posts, imp.Source)...)
 		if g.siteData.Authors == nil {
 			g.siteData.Authors = map[int]models.Author{}
 		}
@@ -70,6 +70,18 @@ func (g *Generator) mergeCMSContent() {
 				len(imp.Pages), len(imp.Posts), len(imp.Authors))
 		}
 	}
+}
+
+// stampSource records which external source built each page, so `source:`
+// in sitemaps and feeds can select it (#386). An import without a name (a
+// test fixture) leaves the pages as they are.
+func stampSource(pages []models.Page, source string) []models.Page {
+	for i := range pages {
+		if pages[i].ExternalSource == "" {
+			pages[i].ExternalSource = source
+		}
+	}
+	return pages
 }
 
 // externalFuncs exposes the external-source template helpers.

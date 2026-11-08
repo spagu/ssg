@@ -77,6 +77,9 @@ func TestGitRunnerRefusesARelativeGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", ".")
+	// With Go's ErrDot check off, LookPath returns the relative git; the
+	// runner's own check must refuse it then too.
+	t.Setenv("GODEBUG", "execerrdot=0")
 
 	run := gitRunner()
 	if run == nil {
@@ -86,7 +89,7 @@ func TestGitRunnerRefusesARelativeGit(t *testing.T) {
 	if err == nil {
 		t.Fatalf("a relative git must be refused, got %q", out)
 	}
-	if !strings.Contains(err.Error(), "git") {
+	if !strings.Contains(err.Error(), "non-absolute") {
 		t.Errorf("error = %v", err)
 	}
 }

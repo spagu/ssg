@@ -10,8 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,8 +49,7 @@ func startServerAsync(cfg *config.Config) {
 
 // serveOnClaimedPort runs the server on an already-bound listener.
 func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
-	applyMemLimit(cfg.MemLimit, cfg.Quiet)
-
+	// The memory limit is applied at startup for every command now (#384).
 	addr, url, exposed := resolveListenAddr(cfg.Host, cfg.Port)
 	mode := serverTLSMode(cfg)
 
@@ -428,46 +425,6 @@ func gzipMiddleware(next http.Handler) http.Handler {
 		defer func() { _ = gz.Close() }()
 		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, gz: gz}, r)
 	})
-}
-
-// applyMemLimit sets a soft runtime memory limit from a human size (e.g. "512MiB").
-func applyMemLimit(s string, quiet bool) {
-	if s == "" {
-		return
-	}
-	bytes, err := parseByteSize(s)
-	if err != nil || bytes <= 0 {
-		if !quiet {
-			errf("⚠️  invalid --mem-limit %q: %v\n", s, err)
-		}
-		return
-	}
-	debug.SetMemoryLimit(bytes)
-	if !quiet {
-		fmt.Printf("   🧠 Soft memory limit: %s\n", s)
-	}
-}
-
-// parseByteSize parses sizes like "512MiB", "1GiB", "256MB", "1048576".
-func parseByteSize(s string) (int64, error) {
-	s = strings.TrimSpace(s)
-	units := []struct {
-		suffix string
-		mult   int64
-	}{
-		{"GiB", 1 << 30}, {"MiB", 1 << 20}, {"KiB", 1 << 10},
-		{"GB", 1e9}, {"MB", 1e6}, {"KB", 1e3}, {"B", 1},
-	}
-	for _, u := range units {
-		if strings.HasSuffix(s, u.suffix) {
-			n, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(s, u.suffix)), 64)
-			if err != nil {
-				return 0, err
-			}
-			return int64(n * float64(u.mult)), nil
-		}
-	}
-	return strconv.ParseInt(s, 10, 64)
 }
 
 // noDirListing serves files but refuses to invent a directory index (#146).

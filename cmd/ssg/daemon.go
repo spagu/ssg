@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/spagu/ssg/internal/daemon"
+	"github.com/spagu/ssg/internal/resources"
 )
 
 // daemonPollInterval is how often the projects file is checked for edits. A
@@ -40,6 +41,10 @@ type daemonFlags struct {
 	// once builds the fleet's set of projects, reports it and exits — enough to
 	// check a projects file in CI without leaving anything running.
 	once bool
+	// resources is the supervisor's own ceiling (#384), from --cpu-limit,
+	// --mem-limit and --gc-percent. Each project is an ordinary `ssg --watch`
+	// process and applies its own `resources:` block.
+	resources resources.Request
 }
 
 // runDaemon supervises every project in the projects file until told to stop.
@@ -47,6 +52,9 @@ func runDaemon(args []string) int {
 	flags, code := parseDaemonFlags(args)
 	if code >= 0 {
 		return code
+	}
+	if !applyResources(flags.resources, flags.quiet, func(f string, a ...any) { fmt.Printf(f, a...) }) {
+		return 2
 	}
 
 	cfg, err := daemon.Load(flags.config)
@@ -184,6 +192,7 @@ func parseDaemonFlags(args []string) (daemonFlags, int) {
 		case arg == "--config" && i+1 < len(args):
 			f.config = args[i+1]
 			i++
+		case isResourceFlag(arg, &f.resources):
 		default:
 			errf("❌ unknown flag %q\n\n", arg)
 			printDaemonUsage()
@@ -200,11 +209,17 @@ func printDaemonUsage() {
 	fmt.Print(`ssg daemon — watch several projects from one process
 
 Usage:
-   ssg daemon [--config FILE] [--once] [--quiet]
+   ssg daemon [--config FILE] [--once] [--quiet] [--cpu-limit=N] [--mem-limit=SIZE]
 
-   --config FILE   projects file (default: ` + daemon.DefaultConfigFile + `)
-   --once          print what would run and exit — a projects file check for CI
-   --quiet         suppress the daemon's own output; projects still log
+   --config FILE       projects file (default: ` + daemon.DefaultConfigFile + `)
+   --once              print what would run and exit — a projects file check for CI
+   --quiet             suppress the daemon's own output; projects still log
+   --cpu-limit=N       use at most N CPUs in the daemon itself
+   --mem-limit=SIZE    soft memory limit for the daemon itself, e.g. 256MiB, or
+                       none (default: 90% of a cgroup limit)
+   --gc-percent=N      GC heap headroom (Go default 100)
+                       Each project is its own ssg process and applies its own
+                       resources: block.
 
 A projects file:
 
