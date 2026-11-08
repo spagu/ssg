@@ -56,6 +56,9 @@ covers only the steps; the changelog covers everything else.
   <label for="upgrade-from"><strong>I am upgrading from</strong></label>
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
+    <optgroup label="1.9.x">
+      <option value="1.9.0">1.9.0 — 2026-11-08</option>
+    </optgroup>
     <optgroup label="1.8.x">
       <option value="1.8.85">1.8.85 — 2026-10-30</option>
       <option value="1.8.84">1.8.84 — 2026-10-30</option>
@@ -219,6 +222,18 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.1">
+
+### 1.9.1 — nothing to do
+
+Replace the binary. `ssg --version` prints a second line naming the license.
+A script that reads only the first line is unaffected. A script that takes the
+last word of the whole output should read the first line only, for example
+`ssg --version | head -1`. The first line of a build log now ends with the
+license identifier (`🧱 ssg 1.9.1 · BUSL-1.1`).
+
+</div>
 
 <div class="upgrade-step" data-since="1.9.0">
 

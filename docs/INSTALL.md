@@ -332,8 +332,9 @@ Where there is no package for the release yet — a FreeBSD jail, say — Go
 installs a tagged version straight from the module:
 
 ```bash
-go install github.com/spagu/ssg/cmd/ssg@v1.8.74
-ssg --version        # ssg version 1.8.74
+go install github.com/spagu/ssg/cmd/ssg@v1.9.1
+ssg --version        # ssg version 1.9.1
+                     # License: Business Source License 1.1 (BUSL-1.1); …
 ```
 
 Since 1.8.74 such a binary reports the version it was installed at; before,
@@ -347,8 +348,9 @@ binary lands in `$(go env GOPATH)/bin`.
 After installation, verify SSG is working:
 
 ```bash
-# Check version
+# Check the version and the license
 ssg --version
+ssg --license
 
 # Quick test
 mkdir -p test-site/{content/my-site,templates/simple}

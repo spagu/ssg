@@ -86,8 +86,8 @@ func TestParseSpecialFlagsVersion(t *testing.T) {
 			cmd := exec.Command(os.Args[0], "-test.run=TestParseSpecialFlagsVersion")
 			cmd.Env = append(os.Environ(), "TEST_SPECIAL_FLAG=1", "TEST_FLAG_ARG="+flag)
 			out, _ := cmd.CombinedOutput()
-			if !strings.Contains(string(out), "ssg version") {
-				t.Errorf("expected version output, got: %s", out)
+			if !strings.HasPrefix(string(out), "ssg version") || !strings.Contains(string(out), "License: Business Source License 1.1 (BUSL-1.1)") {
+				t.Errorf("expected the version, then the license, got: %s", out)
 			}
 		})
 	}

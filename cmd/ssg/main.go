@@ -518,6 +518,7 @@ func validateRequiredFields(args []string, cfg *config.Config) {
 		reportMissingSettings(cfg, sourceOptional)
 		// Point at --help rather than dumping the whole thing after the error.
 		errln("   Run `ssg --help` for options, `ssg --version` for the version.")
+		errf("   ssg %s · %s\n", Version, licenseLine())
 		os.Exit(1)
 	}
 }
@@ -1067,7 +1068,12 @@ func selectWatchRunner(cfg *config.Config, runner, field, value string) {
 func parseSpecialFlags(arg string) bool {
 	switch arg {
 	case "--version", "-v":
+		// The first line stays as scripts parse it; the license follows.
 		fmt.Printf("ssg version %s\n", Version)
+		fmt.Println(licenseLine())
+		os.Exit(0)
+	case "--license":
+		writeLicense(os.Stdout)
 		os.Exit(0)
 	case "--help", "-h":
 		printUsage()
@@ -1762,6 +1768,7 @@ func zipAddEntry(zw *zip.Writer, sourceDir, path string, info os.FileInfo) error
 
 func printUsage() {
 	fmt.Println("SSG - Static Site Generator")
+	fmt.Printf("Version %s · %s\n", Version, licenseLine())
 	fmt.Println("")
 	fmt.Println("Usage: ssg <source> <template> <domain> [options]")
 	fmt.Println("       ssg --config .ssg.yaml")
@@ -1973,6 +1980,7 @@ func printUsage() {
 	fmt.Println("Other:")
 	fmt.Println("  --quiet, -q            - Suppress output (only exit codes)")
 	fmt.Println("  --version, -v          - Show version")
+	fmt.Println("  --license              - Show the license and what it allows")
 	fmt.Println("  --help, -h             - Show this help")
 	fmt.Println("")
 	fmt.Println("Every value flag accepts both --flag=value and --flag value (GO-053).")
@@ -2184,7 +2192,7 @@ func knownFlagNames(cfg *config.Config) map[string]bool {
 // standaloneFlagNames are the options handled outside the tables: the ones with
 // their own branch in parseBoolFlags/parseSpecialFlags.
 var standaloneFlagNames = []string{
-	"--help", "-h", "--version", "-v", "--auto-reload", "--no-auto-reload",
+	"--help", "-h", "--version", "-v", "--license", "--auto-reload", "--no-auto-reload",
 	markdownCacheFlag, noMarkdownCacheFlag,
 	"--profile", "--build-report",
 	"--check-links", "--check-images", "--check-meta", "--check-schema",
@@ -2296,7 +2304,7 @@ func logRunningVersion(cfg *config.Config) {
 	if cfg.Quiet {
 		return
 	}
-	fmt.Printf("🧱 ssg %s\n", Version)
+	fmt.Printf("🧱 ssg %s · %s\n", Version, licenseSPDX)
 }
 
 // toGeneratorOutputs converts the configured custom output formats (GO-092).

@@ -102,6 +102,9 @@ indexes recognise it.
 
 ## Questions
 
+**How do I check which license my binary is under?** `ssg --version` names it
+on its second line, and `ssg --license` prints the terms in brief (from 1.9.1).
+
 **Is ssg open source?** Not in the OSI sense, from 1.9.0: a license that
 conditions production use is not an open source license. The source is public,
 and each version becomes open source (BSD-3-Clause) four years after release.
