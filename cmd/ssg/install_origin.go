@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spagu/ssg/internal/snapenv"
 )
 
 // installOrigin is one way ssg reaches a machine.
@@ -73,8 +75,7 @@ func detectInstallOrigin(exe string) installOrigin {
 // every process a snap starts — including a Go toolchain run from inside one —
 // so the variable alone proves nothing; the executable has to live under it.
 func isSnapInstall(exe string) bool {
-	snap := os.Getenv("SNAP")
-	return snap != "" && exe != "" && strings.HasPrefix(exe, snap+string(os.PathSeparator))
+	return snapenv.RootOf(exe) != ""
 }
 
 // isHomebrewInstall covers both prefixes Homebrew uses (Apple silicon and

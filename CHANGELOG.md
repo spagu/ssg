@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.9.2] - 2026-11-08
 
+### Fixed
+
+- **A hook whose program is missing stops the build before it renders**
+  (#397). Every `pre_build` and `post_build` hook's program is looked up first.
+  A `post_build` hook that called a missing program used to fail only after
+  every page had rendered. In the snap, the error now says why: strict
+  confinement hides programs installed on the host (`node`, `python`), whatever
+  `PATH` says, and names the install methods that can run them. `post_page`
+  hooks keep their non-fatal behaviour and carry the same explanation when they
+  fail. The snap detection the migrate engine search and the upgrade hint
+  already did is now one package, `internal/snapenv`, used by all three.
+
 ### Changed
 
 - **CI tests a release once, not three times.** A release used to run Test,

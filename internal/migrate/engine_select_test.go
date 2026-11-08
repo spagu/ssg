@@ -5,6 +5,7 @@ package migrate
 // never execute one: the version banner comes through the Version seam.
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -405,5 +406,27 @@ func TestSnapEngineRunsFromAnOrdinaryInstall(t *testing.T) {
 	}
 	if len(choice.Skipped) != 0 {
 		t.Errorf("nothing to pass over: %v", choice.Skipped)
+	}
+}
+
+// TestConfinedSnapRootWithoutExecutable: when the executable path cannot be
+// read the process is treated as unconfined, the safe default for the search.
+func TestConfinedSnapRootWithoutExecutable(t *testing.T) {
+	t.Setenv("SNAP", "/snap/ssg/1")
+	executablePath = func() (string, error) { return "", errors.New("no /proc") }
+	t.Cleanup(func() { executablePath = os.Executable })
+	if got := confinedSnapRoot(); got != "" {
+		t.Fatalf("confinedSnapRoot = %q, want empty", got)
+	}
+}
+
+// TestResolvedSnapWrapperIsSkipped: a PATH hit is trusted as executable, but a
+// confined ssg still passes over a snapd wrapper and says why.
+func TestResolvedSnapWrapperIsSkipped(t *testing.T) {
+	snapEnv(t, t.TempDir())
+	s := &engineSearch{seen: map[string]bool{}}
+	s.resolved("/snap/bin/wpexporter", "PATH")
+	if len(s.found) != 0 || len(s.skipped) != 1 || !strings.Contains(s.skipped[0], snapWrapperReason) {
+		t.Fatalf("found=%v skipped=%v, want the wrapper skipped with its reason", s.found, s.skipped)
 	}
 }

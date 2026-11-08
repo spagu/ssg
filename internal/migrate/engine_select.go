@@ -26,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spagu/ssg/internal/snapenv"
 )
 
 // engineEnvVar names the engine outside any flag, for a shell or CI that would
@@ -44,22 +46,14 @@ var (
 )
 
 // confinedSnapRoot returns the snap ssg is running inside, or "" when it is not
-// confined.
-//
-// $SNAP alone does not answer that: it is set for EVERY snap process, so an ssg
-// built or launched from inside the Go snap sees a $SNAP that has nothing to do
-// with it, and would go looking for an engine under someone else's tree. The
-// test that settles it is whether this executable lives under that root.
+// confined — so an ssg launched from inside another snap never goes looking
+// for an engine under someone else's tree (snapenv.RootOf).
 func confinedSnapRoot() string {
-	snap := os.Getenv("SNAP")
-	if snap == "" {
-		return ""
-	}
 	exe, err := executablePath()
-	if err != nil || !strings.HasPrefix(exe, snap+string(os.PathSeparator)) {
+	if err != nil {
 		return ""
 	}
-	return snap
+	return snapenv.RootOf(exe)
 }
 
 // engineCandidate is one wpexporter ssg might run, with where it came from so
