@@ -33,7 +33,7 @@ GOFLAGS=-v
 VERSION := $(shell cat VERSION 2>/dev/null)
 LDFLAGS=-s -w -X main.Version=$(VERSION)
 
-.PHONY: all help deps tidy version-sync version-check test-workers \
+.PHONY: all help deps tidy version-sync version-check test-workers test-story \
         build build-linux build-freebsd build-darwin build-windows build-openbsd build-all \
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
@@ -136,6 +136,11 @@ test: ## 🧪 Run tests
 	@echo "${BLUE}🧪 Running tests...${RESET}"
 	@$(GO) test -v -race -coverprofile=coverage.out ./...
 	@echo "${GREEN}✅ Tests passed${RESET}"
+
+test-story: ## 🧪 Run the story presentation's script tests (Node >= 20; pronunciation rules)
+	@echo "${BLUE}🧪 Running story script tests...${RESET}"
+	@node --test internal/generator/testdata/story/say.test.cjs
+	@echo "${GREEN}✅ Story script tests passed${RESET}"
 
 test-workers: ## 🧪 Run the worker tests that have them (Node >= 23; web-push, contact-form)
 	@echo "${BLUE}🧪 Running worker tests...${RESET}"

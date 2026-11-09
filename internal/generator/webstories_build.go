@@ -32,6 +32,8 @@ type storyBuild struct {
 	stories []*webStory
 	byPost  map[string]string
 	skips   map[string][]string
+	// narrationNoted: a missing tts: is reported once, not per story.
+	narrationNoted bool
 }
 
 // newStoryBuild starts a build with the options already defaulted.
@@ -124,6 +126,8 @@ func (b *storyBuild) story(c storyCandidate, path, featured string, photos []str
 		CTALabel: b.g.storyCTALabel(lang), CTAURL: b.g.storyArticleURL(p),
 		Post: p, Site: b.g.siteData,
 	}
+	b.storyExtras(&ctx, c)
+	b.narrate(&ctx, path, lang)
 	return &webStory{ctx: ctx, path: path, prefix: p.LangPrefix, lang: lang,
 		date: p.Date, source: storySourceFile(p), poster: poster}, nil
 }

@@ -37,6 +37,8 @@ type WebStoriesOptions struct {
 	MinImages     int    // images a post needs, featured included; default 2
 	CTA           string // the last page's link text; default "Read the full article"
 	WebP          bool   // cut WebP images (the site converts to WebP); JPEG otherwise
+	// Narration records each page through tts: and advances with it (1.9.4).
+	Narration bool
 }
 
 // Story dimensions: Google's poster is 3:4 at 640×853, a page 9:16.
@@ -109,6 +111,7 @@ func normalizeStoriesURL(u string) string {
 // and the hub renders like any other page.
 func (g *Generator) generateWebStories() error {
 	g.webStories = storySet{}
+	g.storyUsed.Store(false) // story mode's assets: written again only if a page uses them
 	if !g.config.WebStories.Enabled {
 		return nil
 	}

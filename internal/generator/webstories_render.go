@@ -38,6 +38,9 @@ type StoryPage struct {
 	Image   StoryImage
 	Alt     string
 	Caption string
+	Widgets []StoryWidget // story: widgets flying in (1.9.4)
+	Audio   string        // the page's recorded narration (1.9.4)
+	Advance string        // auto-advance-after, "6.4s", when narrated
 }
 
 // StoryContext is what story.html renders: the built-in template's context,
@@ -57,6 +60,14 @@ type StoryContext struct {
 	CTAURL        string // the article
 	Post          models.Page
 	Site          *models.SiteData
+	// From the post's story: settings (1.9.4); empty without them.
+	Header   *StoryLogo   // the site's logo over every page
+	Footer   *StoryFooter // promos rotating at the bottom, and a page of them
+	Recipe   *StoryRecipe // the ingredients as a pull-up panel
+	Music    string       // today's track, when the pages are not narrated
+	ExtraCSS template.CSS // the footer's rotation
+	// RecommendedLabel titles the footer's page when it has no label.
+	RecommendedLabel string
 }
 
 // StoryCard is one story on the hub, for a theme's web-stories layout.

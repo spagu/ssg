@@ -819,6 +819,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		APIDocs:                buildAPIDocsOptions(cfg.APIDocs),
 		Resume:                 generator.ResumeOptions(cfg.Resume),
 		WebStories:             buildWebStoriesOptions(cfg),
+		Story:                  buildStoryOptions(cfg.Story),
 		PrettyURLs:             cfg.PrettyURLs,
 		ContentExclude:         cfg.ContentExclude,
 		SitemapPruneCanonical:  cfg.SitemapPruneCanonical,

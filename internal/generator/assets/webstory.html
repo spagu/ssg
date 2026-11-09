@@ -16,31 +16,67 @@ amp-story-grid-layer.text{align-content:end;padding:0 24px 64px}
 h1,h2{font-size:2.2em;line-height:1.15;margin:0 0 .3em;font-weight:700}
 p{font-size:1.4em;line-height:1.35;margin:0}
 .publisher{font-family:Arial,Helvetica,sans-serif;font-size:.85em;letter-spacing:.06em;text-transform:uppercase;color:#e8eaed;margin-bottom:.8em}
+amp-story-page.has-footer amp-story-grid-layer.text{padding-bottom:156px}
+amp-story-grid-layer.brand{align-content:start;padding:44px 16px 0}
+.brand amp-img{filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
+amp-story-grid-layer.widgets{align-content:start;padding:96px 16px 0;justify-items:end}
+.widget{background:#fffaf3;color:#202124;border-left:4px solid #1a73e8;border-radius:12px;padding:12px 14px;max-width:78%;margin-bottom:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-family:Arial,Helvetica,sans-serif}
+.widget .stat{display:block;font-size:2em;line-height:1;color:#1967d2;margin-bottom:4px}
+.widget h3{font-size:1em;margin:0 0 4px}.widget p{font-size:.95em;line-height:1.35}
+.widget-quote p{font-style:italic;font-family:Georgia,serif;font-size:1.05em}
+.recipe{font-family:Arial,Helvetica,sans-serif;color:#202124;padding:4px 4px 24px}
+.recipe h3{font-family:Georgia,serif;font-size:1.5em;margin:0 0 8px}
+.recipe ul{margin:0;padding-left:1.1em}.recipe li{margin:4px 0;line-height:1.4}
+amp-story-grid-layer.footer{align-content:end;padding:0 16px 96px}
+.strip{position:relative;height:44px;background:rgba(32,33,36,.85);border-radius:10px;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+.strip small{position:absolute;left:10px;top:4px;font-size:.6em;letter-spacing:.08em;text-transform:uppercase;color:#dadce0}
+.strip .slot{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;gap:8px;padding:12px 10px 0;color:#fff;text-decoration:none;font-size:.8em;opacity:0;visibility:hidden;animation:story-rot 8s linear infinite}
+.strip .slot amp-img{flex:none;border-radius:4px}
+amp-story-grid-layer.dark{background:#202124}
+amp-story-grid-layer.promos{align-content:center;padding:24px;gap:12px;font-family:Arial,Helvetica,sans-serif}
+.promos h2{font-size:1.8em;margin:0 0 8px}
+.promo{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;background:rgba(255,255,255,.08);border-radius:12px;padding:10px 12px}
+.promo amp-img{flex:none;border-radius:8px}.promo span{font-size:1em;line-height:1.3}
+{{.ExtraCSS}}
 </style>
 </head>
 <body>
-<amp-story standalone title="{{.Title}}" publisher="{{.Publisher}}" publisher-logo-src="{{.PublisherLogo.URL}}" poster-portrait-src="{{.Poster.URL}}">
-<amp-story-page id="{{.Cover.ID}}">
+<amp-story standalone supports-landscape title="{{.Title}}" publisher="{{.Publisher}}" publisher-logo-src="{{.PublisherLogo.URL}}" poster-portrait-src="{{.Poster.URL}}"{{if .Music}} background-audio="{{.Music}}"{{end}}>
+<amp-story-page id="{{.Cover.ID}}"{{template "story-page-attrs" .Cover}}{{if .Footer}} class="has-footer"{{end}}>
 {{template "story-image" .Cover}}
 <amp-story-grid-layer template="fill" class="scrim"></amp-story-grid-layer>
 <amp-story-grid-layer template="vertical" class="text">
 <p class="publisher">{{.Publisher}}</p>
 <h1>{{.Title}}</h1>
 </amp-story-grid-layer>
+{{template "story-chrome" .}}{{template "story-recipe" .Recipe}}
 </amp-story-page>
-{{range .Pages}}<amp-story-page id="{{.ID}}">
+{{range .Pages}}<amp-story-page id="{{.ID}}"{{template "story-page-attrs" .}}{{if $.Footer}} class="has-footer"{{end}}>
 {{template "story-image" .}}
 {{if .Caption}}<amp-story-grid-layer template="fill" class="scrim"></amp-story-grid-layer>
 <amp-story-grid-layer template="vertical" class="text">
 <p>{{.Caption}}</p>
 </amp-story-grid-layer>
-{{end}}</amp-story-page>
-{{end}}<amp-story-page id="{{.CTA.ID}}">
+{{end}}{{if .Widgets}}<amp-story-grid-layer template="vertical" class="widgets">
+{{range .Widgets}}<div class="widget widget-{{.Type}}" animate-in="fly-in-top" animate-in-delay="{{.Delay}}">{{if .Stat}}<b class="stat">{{.Stat}}</b>{{end}}{{if .Title}}<h3>{{.Title}}</h3>{{end}}{{if .Text}}<p>{{.Text}}</p>{{end}}</div>
+{{end}}</amp-story-grid-layer>
+{{end}}{{template "story-chrome" $}}{{template "story-recipe" $.Recipe}}
+</amp-story-page>
+{{end}}{{with .Footer}}<amp-story-page id="recommended" auto-advance-after="10s">
+<amp-story-grid-layer template="fill" class="dark"></amp-story-grid-layer>
+<amp-story-grid-layer template="vertical" class="promos">
+<h2>{{if .Label}}{{.Label}}{{else}}{{$.RecommendedLabel}}{{end}}</h2>
+{{range .Items}}<a class="promo" href="{{.URL}}">{{if .Image}}<amp-img src="{{.Image}}" width="56" height="56" layout="fixed" alt=""></amp-img>{{end}}<span>{{.Text}}</span></a>
+{{end}}</amp-story-grid-layer>
+{{template "story-recipe" $.Recipe}}
+</amp-story-page>
+{{end}}<amp-story-page id="{{.CTA.ID}}"{{template "story-page-attrs" .CTA}}{{if .Footer}} class="has-footer"{{end}}>
 {{template "story-image" .CTA}}
 <amp-story-grid-layer template="fill" class="scrim"></amp-story-grid-layer>
 <amp-story-grid-layer template="vertical" class="text">
 <h2>{{.Title}}</h2>
 </amp-story-grid-layer>
+{{template "story-chrome" .}}
 <amp-story-page-outlink layout="nodisplay">
 <a href="{{.CTAURL}}">{{.CTALabel}}</a>
 </amp-story-page-outlink>
@@ -48,6 +84,17 @@ p{font-size:1.4em;line-height:1.35;margin:0}
 </amp-story>
 </body>
 </html>
-{{end}}{{define "story-image"}}<amp-story-grid-layer template="fill">
+{{end}}{{define "story-page-attrs"}}{{if .Audio}} background-audio="{{.Audio}}"{{end}}{{if .Advance}} auto-advance-after="{{.Advance}}"{{end}}{{end}}
+{{define "story-chrome"}}{{with .Header}}<amp-story-grid-layer template="vertical" class="brand">
+<amp-img src="{{.URL}}" height="{{.Height}}" width="auto" layout="fixed-height" alt="{{.Alt}}"></amp-img>
+</amp-story-grid-layer>
+{{end}}{{with .Footer}}<amp-story-grid-layer template="vertical" class="footer">
+<div class="strip">{{if .Label}}<small>{{.Label}}</small>{{end}}{{range .Items}}<a class="slot" href="{{.URL}}">{{if .Image}}<amp-img src="{{.Image}}" width="28" height="28" layout="fixed" alt=""></amp-img>{{end}}<span>{{.Text}}</span></a>{{end}}</div>
+</amp-story-grid-layer>
+{{end}}{{end}}
+{{define "story-recipe"}}{{with .}}<amp-story-page-attachment layout="nodisplay" theme="light" cta-text="{{.Label}}">
+<div class="recipe"><h3>{{.Label}}</h3><ul>{{range .Ingredients}}<li>{{.}}</li>{{end}}</ul></div>
+</amp-story-page-attachment>{{end}}{{end}}
+{{define "story-image"}}<amp-story-grid-layer template="fill">
 <amp-img src="{{.Image.URL}}" width="{{.Image.Width}}" height="{{.Image.Height}}" layout="responsive" alt="{{.Alt}}"></amp-img>
 </amp-story-grid-layer>{{end}}

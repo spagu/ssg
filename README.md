@@ -391,7 +391,8 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Blog | Pagination, tags, categories, series, reading time, Atom feeds, related content |
 | API docs from code | `api_docs:` reads JavaScript (and TypeScript declarations) with their doc comments into pages of the site — packages, modules, classes, cross-links, source links — plus `api.json`, `check_api`, and MCP/WebMCP tools for agents; no Node needed for JS. `@example` blocks can run in the browser (`playground:`) ([docs/API_DOCS.md](docs/API_DOCS.md)) |
 | API docs for Go, PHP, Python | The same pages from Go (standard library parser), PHP and Python (built-in declaration scanners): nothing to install, language detected from `go.mod`, `composer.json`, `pyproject.toml` ([docs/API_LANGUAGES.md](docs/API_LANGUAGES.md)) |
-| Web Stories | Google Web Stories (AMP) from your posts: cover, captioned photo pages, a link back to the article, a hub page and sitemap entries ([docs/WEB_STORIES.md](docs/WEB_STORIES.md)) |
+| Web Stories | Google Web Stories (AMP) from your posts: cover, captioned photo pages, a link back to the article, a hub page and sitemap entries; with `narration: true` each page is read aloud ([docs/WEB_STORIES.md](docs/WEB_STORIES.md)) |
+| Story mode | Articles as a reading companion and fullscreen presentation: reading bar, photo stage, widgets, narrator with pronunciation rules, music by date, share and deep links, the same slides as the Web Story ([docs/STORY.md](docs/STORY.md)) |
 | Print / PDF and Cook Mode | A print button with a clean print stylesheet and a printable recipe card, and a full-screen step-by-step recipe view that keeps the screen awake; every theme, built from the Recipe structured data ([docs/PRINT_AND_COOK_MODE.md](docs/PRINT_AND_COOK_MODE.md)) |
 | Résumé / CV | A [Schema Resume](https://schema-resume.org) JSON document as a page in any theme, with ProfilePage/Person JSON-LD and the document at `/cv/resume.json`; contact details stay private by default ([docs/RESUME.md](docs/RESUME.md)) |
 | Recipes and structured data | Recipe fields from the post (ingredients, method, category), `faq:` → FAQPage, ItemList on listings, ProfilePage for authors, Organization from `marketing:` ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#recipes)) |
@@ -622,6 +623,7 @@ Development workflow and review requirements are in
 | [docs/API_DOCS.md](docs/API_DOCS.md) | API documentation from JavaScript/TypeScript code: configuration, doc comments, links, live examples, themes, `api.json`, agents |
 | [docs/API_LANGUAGES.md](docs/API_LANGUAGES.md) | API docs for Go, PHP and Python: what each reader understands and its limits |
 | [docs/WEB_STORIES.md](docs/WEB_STORIES.md) | Google Web Stories from posts: what is generated, images, theming, validation |
+| [docs/STORY.md](docs/STORY.md) | Story mode: the presentation on articles, its settings, rules, narrator, pronunciation, music, events |
 | [docs/PRINT_AND_COOK_MODE.md](docs/PRINT_AND_COOK_MODE.md) | The Print / PDF button, the printable recipe card and Cook Mode |
 | [docs/RESUME.md](docs/RESUME.md) | A CV from a Schema Resume document: page, structured data, privacy |
 | [docs/REST_API_DOCS.md](docs/REST_API_DOCS.md) | REST API documentation from OpenAPI: pages, the Try it console, checks, theming |

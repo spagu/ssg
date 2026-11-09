@@ -929,6 +929,10 @@ type Config struct {
 	// WebStories makes a Google Web Story (AMP) from each selected post and
 	// a hub listing them (1.8.72). See webstories.go and docs/WEB_STORIES.md.
 	WebStories WebStoriesConfig `yaml:"web_stories" toml:"web_stories" json:"web_stories"`
+	// Story turns articles into a reading companion and a fullscreen
+	// presentation, the same slides the Web Story uses (1.9.4). See story.go
+	// and docs/STORY.md.
+	Story StoryConfig `yaml:"story" toml:"story" json:"story"`
 
 	// Notifications POST each newly published (or changed) post to user-defined
 	// webhook destinations (point them at a social API, an automation service, or

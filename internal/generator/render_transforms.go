@@ -237,6 +237,8 @@ func (g *Generator) transformHTMLPage(s string, page *models.Page, isPost bool) 
 	s = g.injectComponentAssets(s)
 	// Print / PDF and Cook Mode, before Listen so the buttons read in order (1.8.72).
 	s = g.pageToolsHTMLString(s, page, isPost)
+	// The reading companion and presentation, where story: selects the page (1.9.4).
+	s = g.storyHTMLString(s, page, isPost)
 	// The article read aloud: the MP3 player or the browser button, where the
 	// theme did not place one, and the button's script (1.8.65).
 	s = g.listenHTMLString(s, page)
