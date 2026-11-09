@@ -345,11 +345,15 @@ type Config struct {
 	SchemaDefaults map[string]map[string]interface{} // per-section structured-data defaults (#110)
 	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
-	CheckLinks  string
-	CheckImages string
-	CheckMarkup string
-	CheckMeta   string
-	CheckSchema string // validate emitted JSON-LD: "" | warn | strict (#111)
+	CheckLinks string
+	// PendingImageFormats are the formats the post-build pass writes beside
+	// each raster image (webp, avif): a link to x.webp resolves when x.jpg is
+	// there, since the link check runs before that pass (#405).
+	PendingImageFormats []string
+	CheckImages         string
+	CheckMarkup         string
+	CheckMeta           string
+	CheckSchema         string // validate emitted JSON-LD: "" | warn | strict (#111)
 	// CheckSchemaRecommended also lists missing recommended properties, as
 	// advice that never fails the build.
 	CheckSchemaRecommended bool

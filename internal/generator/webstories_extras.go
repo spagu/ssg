@@ -208,6 +208,29 @@ func (g *Generator) storyMusic(v any) string {
 	return ""
 }
 
+// backgroundAudio is a story's soundtrack: the post's `story_audio:` (false
+// turns it off), else today's track from its story: settings, else
+// web_stories.background_audio (#403).
+func (b *storyBuild) backgroundAudio(p models.Page, today string) string {
+	switch v := p.Extra["story_audio"].(type) {
+	case bool:
+		if !v {
+			return ""
+		}
+	case string:
+		if v = strings.TrimSpace(v); v != "" {
+			return b.g.storyAssetURL(v)
+		}
+	}
+	if today != "" {
+		return today
+	}
+	if a := strings.TrimSpace(b.opts.BackgroundAudio); a != "" {
+		return b.g.storyAssetURL(a)
+	}
+	return ""
+}
+
 // storyToday is story.js's date rule.
 func storyToday(a map[string]any, now time.Time) bool {
 	if dates, _ := a["dates"].([]any); len(dates) > 0 {

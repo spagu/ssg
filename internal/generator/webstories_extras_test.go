@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spagu/ssg/internal/models"
 	"github.com/spagu/ssg/internal/tts"
 )
 
@@ -256,5 +257,49 @@ func TestWebStoryPagesCap(t *testing.T) {
 	story := mustRead(t, filepath.Join(cfg.OutputDir, "web-stories", "chocolate-cake", "index.html"))
 	if strings.Contains(story, `id="page-3"`) || !strings.Contains(story, `id="page-2"`) {
 		t.Error("pages: 2 makes two photo pages")
+	}
+}
+
+// TestWebStoryLogoFromProjectRoot: publisher_logo may be written from the
+// project root, naming the directory it sits in (#402).
+func TestWebStoryLogoFromProjectRoot(t *testing.T) {
+	cfg, _ := buildStorySite(t, func(c *Config) {
+		c.WebStories.PublisherLogo = filepath.Join(c.ContentDir, c.Source, "media", "logo.png")
+	})
+	if _, err := os.Stat(filepath.Join(cfg.OutputDir, "web-stories", "chocolate-cake", "index.html")); err != nil {
+		t.Errorf("a logo path from the project root makes stories: %v", err)
+	}
+}
+
+// TestWebStoryBackgroundAudio: web_stories.background_audio for every story,
+// a post's story_audio over it, story_audio: false for silence (#403).
+func TestWebStoryBackgroundAudio(t *testing.T) {
+	cfg, _ := buildStorySite(t, func(c *Config) { c.WebStories.BackgroundAudio = "audio/theme.mp3" })
+	story := mustRead(t, filepath.Join(cfg.OutputDir, "web-stories", "chocolate-cake", "index.html"))
+	if !strings.Contains(story, `background-audio="https://example.com/audio/theme.mp3"`) {
+		t.Error("the site-wide soundtrack is set")
+	}
+	g := &Generator{config: Config{Domain: "example.com"}}
+	b := &storyBuild{g: g, opts: WebStoriesOptions{BackgroundAudio: "/site.mp3"}}
+	for _, tt := range []struct {
+		name  string
+		extra map[string]any
+		today string
+		want  string
+	}{
+		{"site", nil, "", "https://example.com/site.mp3"},
+		{"today's track wins", nil, "https://x/t.mp3", "https://x/t.mp3"},
+		{"the post's own", map[string]any{"story_audio": "/own.mp3"}, "https://x/t.mp3", "https://example.com/own.mp3"},
+		{"off", map[string]any{"story_audio": false}, "https://x/t.mp3", ""},
+		{"true keeps the default", map[string]any{"story_audio": true}, "", "https://example.com/site.mp3"},
+		{"blank keeps the default", map[string]any{"story_audio": " "}, "", "https://example.com/site.mp3"},
+	} {
+		if got := b.backgroundAudio(models.Page{Extra: tt.extra}, tt.today); got != tt.want {
+			t.Errorf("%s = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+	b.opts.BackgroundAudio = ""
+	if got := b.backgroundAudio(models.Page{}, ""); got != "" {
+		t.Errorf("nothing set = %q", got)
 	}
 }

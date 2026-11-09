@@ -55,7 +55,8 @@ func (b *storyBuild) prepareLogo() bool {
 	}
 	src := b.g.storyImageSource(b.opts.PublisherLogo, models.Page{})
 	if src == "" {
-		b.g.log(fmt.Sprintf("   ⚠️  web_stories: publisher_logo %q is not an image of this site — no stories were made", b.opts.PublisherLogo))
+		b.g.log(fmt.Sprintf("   ⚠️  web_stories: publisher_logo %q was not found — looked for it in %s (a path inside one of them, or from the project root) — no stories were made",
+			b.opts.PublisherLogo, strings.Join(b.g.imageSearchDirs(), ", ")))
 		return false
 	}
 	logo, err := b.cut(src, storyLogoSize, storyLogoSize)
@@ -127,6 +128,8 @@ func (b *storyBuild) story(c storyCandidate, path, featured string, photos []str
 		Post: p, Site: b.g.siteData,
 	}
 	b.storyExtras(&ctx, c)
+	ctx.BackgroundAudio = b.backgroundAudio(p, ctx.Music)
+	ctx.Music = ctx.BackgroundAudio
 	b.narrate(&ctx, path, lang)
 	return &webStory{ctx: ctx, path: path, prefix: p.LangPrefix, lang: lang,
 		date: p.Date, source: storySourceFile(p), poster: poster}, nil

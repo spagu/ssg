@@ -200,7 +200,7 @@
     // Taps, holds and swipes on the photo are story-touch.js's; without it
     // a click moves on.
     box.addEventListener("click", function (e) { if (!S.touch && !e.target.closest("a")) go(at + 1); });
-    document.body.appendChild(show);
+    (S.layer || document.body).appendChild(show);
     addEventListener("resize", function () { if (!show.hidden) refit(); }); // rotating a phone changes the answer
     show.addEventListener("keydown", keys);
     document.addEventListener("fullscreenchange", function () {
@@ -319,7 +319,7 @@
     show.hidden = true;
     document.documentElement.style.overflow = "";
     document.documentElement.classList.remove("story-showing");
-    show.querySelectorAll(".story-recipe").forEach(function (w) { document.body.appendChild(w); });
+    show.querySelectorAll(".story-recipe").forEach(function (w) { (S.layer || document.body).appendChild(w); });
     if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
     var s = list[at];
     if (s && s.el && cfg.returnToText !== false) {
@@ -335,7 +335,7 @@
   if (cfg.footer && cfg.footer.reading !== false && S.stage.parentNode) {
     var under = ad(cfg.footer);
     under.classList.add("story-ad-reading");
-    document.body.appendChild(under);
+    (S.layer || document.body).appendChild(under);
   }
 
   window.ssgStoryShow = begin;

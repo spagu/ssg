@@ -82,19 +82,42 @@
     if (!on && baseVolume != null) { S.audio.volume = baseVolume; baseVolume = null; }
   }
 
+  // A browser without a working voice (no voices installed, as in headless
+  // Chromium or a minimal Linux desktop) ends or fails each utterance at
+  // once without ever starting it. Reading on would race the presentation to
+  // its last card, so the narrator gives up instead: it stops, hands the pace
+  // back to the slideshow's timer and no longer starts with the presentation.
+  var NO_START = 4000; // ms an utterance may take to begin
+  var broken = false;
+  function fail() {
+    broken = true;
+    stop();
+    S.emit("narrator", { on: false, failed: true });
+    if (S.show && S.show.open()) S.show.play(true);
+  }
+
   // say queues one utterance and calls next when it ends — unless the run
-  // was stopped or restarted meanwhile (run changes).
+  // was stopped or restarted meanwhile (run changes), or it never began.
   function say(text, onStart, next) {
-    var my = run;
+    var my = run, started = false;
+    var watchdog = setTimeout(function () { if (my === run && reading && !started) fail(); }, NO_START);
     var u = new SpeechSynthesisUtterance(S.pronounce ? S.pronounce(text) : text); // "100g" → "100 gramów"; the subtitle keeps what is written
     var v = voice();
     if (v) u.voice = v;
     u.lang = v ? v.lang : lang;
     u.rate = saved.rate || cfg.rate;
     u.pitch = cfg.pitch;
-    u.onstart = function () { if (my === run) onStart(); };
-    u.onend = function () { if (my === run && reading) next(); };
-    u.onerror = function (e) { if (my === run && reading && e.error !== "interrupted" && e.error !== "canceled") next(); };
+    u.onstart = function () { started = true; clearTimeout(watchdog); if (my === run) onStart(); };
+    u.onend = function () {
+      clearTimeout(watchdog);
+      if (my !== run || !reading) return;
+      if (started) next(); else fail();
+    };
+    u.onerror = function (e) {
+      clearTimeout(watchdog);
+      if (my !== run || !reading || e.error === "interrupted" || e.error === "canceled") return;
+      if (started) next(); else fail();
+    };
     synth.speak(u);
   }
 
@@ -267,6 +290,7 @@
   // resume carries on from there.
   function pause(on) { if (reading) { if (on) synth.pause(); else synth.resume(); } }
   S.narrator = { start: start, stop: stop, pause: pause, toggle: toggle, reading: function () { return reading; },
+    available: function () { return !broken; },
     blocks: function () { return blocks; },
     block: function () { return reading ? blocks[idx] : null; } };
 })();

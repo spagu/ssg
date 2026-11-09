@@ -245,10 +245,33 @@ func (g *Generator) refResolves(ref, htmlDir string) bool {
 	if !v && g.config.PrettyURLs.Enabled() {
 		v = refTargetExistsPretty(target, strings.HasSuffix(ref, "/"))
 	}
+	if !v {
+		v = g.pendingImageExists(target)
+	}
 	if g.refCache != nil {
 		g.refCache[key] = v
 	}
 	return v
+}
+
+// pendingImageExists reports whether target is a .webp or .avif the
+// post-build image pass will write from a raster image beside it (#405).
+func (g *Generator) pendingImageExists(target string) bool {
+	ext := strings.ToLower(filepath.Ext(target))
+	pending := false
+	for _, f := range g.config.PendingImageFormats {
+		pending = pending || ext == "."+strings.ToLower(f)
+	}
+	if !pending {
+		return false
+	}
+	base := strings.TrimSuffix(target, filepath.Ext(target))
+	for _, src := range []string{".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"} {
+		if refTargetExists(base+src, false) {
+			return true
+		}
+	}
+	return false
 }
 
 // refTargetExists checks a resolved link-checker target on disk.

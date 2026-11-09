@@ -91,7 +91,16 @@ func (g *Generator) storyImageCandidates(ref string, p models.Page) []string {
 			paths = append(paths, path.Join(filepath.ToSlash(rel), local))
 		}
 	}
-	paths = append(paths, strings.TrimPrefix(path.Clean("/"+local), "/"))
+	rooted := strings.TrimPrefix(path.Clean("/"+local), "/")
+	paths = append(paths, rooted)
+	// A path from the project root (assets/logo.png) names the same file as
+	// one inside the directory it starts with (logo.png), #402.
+	for _, dir := range g.imageSearchDirs() {
+		d := strings.Trim(path.Clean(filepath.ToSlash(dir)), "/")
+		if rest, ok := strings.CutPrefix(rooted, d+"/"); ok && d != "." && rest != "" {
+			paths = append(paths, rest)
+		}
+	}
 	var out []string
 	for _, c := range paths {
 		if full := storySizeSuffixRe.ReplaceAllString(c, "$1"); full != c {

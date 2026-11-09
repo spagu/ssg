@@ -15,7 +15,8 @@ func buildWebStoriesOptions(cfg *config.Config) generator.WebStoriesOptions {
 	return generator.WebStoriesOptions{
 		Enabled: w.Enabled, Sections: w.Sections, URL: w.URL, PublisherLogo: w.PublisherLogo,
 		Pages: w.Pages, MinImages: w.MinImages, CTA: w.CTA, Narration: w.Narration,
-		WebP: cfg.WebP || wantsFormat(cfg, "webp"),
+		BackgroundAudio: w.BackgroundAudio,
+		WebP:            cfg.WebP || wantsFormat(cfg, "webp"),
 	}
 }
 

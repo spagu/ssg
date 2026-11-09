@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.5] - 2026-11-09
+
+### Added
+
+- **`web_stories.background_audio`: a soundtrack for Web Stories** (#403).
+  - It is a site path (a file in `static/`) or a URL, rendered as
+    `amp-story background-audio`. Viewers hear it after tapping the speaker.
+  - A post's `story_audio:` front matter overrides it, and
+    `story_audio: false` makes that post's story silent. A post's own story
+    mode `audio` track for the day comes before it.
+  - `StoryContext` gains `.BackgroundAudio` for themes with their own
+    `story.html`.
+
+### Fixed
+
+- **`web_stories.publisher_logo` accepts a path from the project root**
+  (#402): `assets/logo.png` now works as well as `logo.png`. When the logo is
+  not found, the warning lists the directories it looked in. It used to say the
+  file was "not an image of this site", which sent you looking for a
+  file-format problem. The docs now say how the path is resolved.
+
+Story mode (#405, found while switching it on for a live site):
+
+- **The buttons fit on a phone.** The labelled controls were 504px wide at
+  390px and ran off the left edge. Below 700px they now show only their icons,
+  keep their names for screen readers, and wrap inside the gutters.
+- **Accent-coloured text meets WCAG contrast.** The widget's big number used
+  the brand accent on the paper, which is 2.5:1 for a typical orange. It now
+  uses `--story-accent-text`, which defaults to the accent mixed half with
+  black. `theme.accent_text` sets it outright, and `theme` keys in snake_case
+  now reach their custom property.
+- **Widget text uses the widget's colours.** A site's own `p`/`h3` colours
+  (light grey for a dark page) no longer apply on the widget's light paper.
+- **A narrator without a voice no longer jumps to the end.** In a browser
+  with no working speech voice, each utterance ended at once and the
+  presentation raced to its closing card. The narrator now gives up when its
+  first utterance fails or does not start within 4 s: it stops, hands the pace
+  back to the slideshow timer, and stops starting with the presentation.
+- **Landmarks and names.** Everything story mode adds sits in one named region.
+  The photo stage has a name before its first photograph. Widgets are notes,
+  not unnamed `<aside>` landmarks.
+- **`check_links` accepts `.webp` and `.avif` references** that the post-build
+  image pass will write from a `.jpg` or `.png` already in the output, as a
+  Web Story's logo and promotion images from `story:` settings do. The check
+  runs before that pass, so it reported them as broken.
+
 ## [1.9.4] - 2026-11-09
 
 ### Added

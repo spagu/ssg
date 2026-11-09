@@ -19,26 +19,32 @@ import (
 // on the field. renderContent still warms it before rendering, but that warm-up
 // is now an optimization rather than the thing keeping this correct
 // (BUILD-PARALLEL follow-up).
+// imageSearchDirs are the directories an image path is looked up in, in
+// order: the spec's four, plus every extra Markdown root, so an image kept
+// beside content in a content_sources directory resolves like one beside the
+// primary source (CONTENT-002).
+func (g *Generator) imageSearchDirs() []string {
+	staticDir := g.config.StaticDir
+	if staticDir == "" {
+		staticDir = defaultStaticDir
+	}
+	dirs := []string{
+		"assets",
+		staticDir,
+		filepath.Join(g.config.ContentDir, g.config.Source),
+		filepath.Join(g.config.TemplatesDir, g.config.Template),
+	}
+	for _, src := range g.config.ContentSources {
+		if src.Path != "" {
+			dirs = append(dirs, src.Path)
+		}
+	}
+	return dirs
+}
+
 func (g *Generator) imageProcessor() *images.Processor {
 	g.imagesOnce.Do(func() {
-		staticDir := g.config.StaticDir
-		if staticDir == "" {
-			staticDir = defaultStaticDir
-		}
-		// Search order per the spec, plus every extra Markdown root: an image kept
-		// beside content in a content_sources directory resolves like one beside
-		// the primary source (CONTENT-002).
-		dirs := []string{
-			"assets",
-			staticDir,
-			filepath.Join(g.config.ContentDir, g.config.Source),
-			filepath.Join(g.config.TemplatesDir, g.config.Template),
-		}
-		for _, src := range g.config.ContentSources {
-			if src.Path != "" {
-				dirs = append(dirs, src.Path)
-			}
-		}
+		dirs := g.imageSearchDirs()
 		// The configured qualities apply here exactly as in the --webp and
 		// image_formats pipeline; without them helper output silently used the
 		// image package's defaults (#375).

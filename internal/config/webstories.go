@@ -34,6 +34,9 @@ type WebStoriesConfig struct {
 	// Narration records what each page says through `tts:` and moves the
 	// page on when it has been read (1.9.4).
 	Narration bool `yaml:"narration" toml:"narration" json:"narration"`
+	// BackgroundAudio is the stories' soundtrack: a file the site serves
+	// (static/) or a URL. A post's `story_audio:` overrides it (1.9.5, #403).
+	BackgroundAudio string `yaml:"background_audio" toml:"background_audio" json:"background_audio"`
 }
 
 // webStoriesFields decodes the mapping form without recursing into the

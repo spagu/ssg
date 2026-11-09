@@ -41,7 +41,7 @@ amp-story-grid-layer.promos{align-content:center;padding:24px;gap:12px;font-fami
 </style>
 </head>
 <body>
-<amp-story standalone supports-landscape title="{{.Title}}" publisher="{{.Publisher}}" publisher-logo-src="{{.PublisherLogo.URL}}" poster-portrait-src="{{.Poster.URL}}"{{if .Music}} background-audio="{{.Music}}"{{end}}>
+<amp-story standalone supports-landscape title="{{.Title}}" publisher="{{.Publisher}}" publisher-logo-src="{{.PublisherLogo.URL}}" poster-portrait-src="{{.Poster.URL}}"{{if .BackgroundAudio}} background-audio="{{.BackgroundAudio}}"{{end}}>
 <amp-story-page id="{{.Cover.ID}}"{{template "story-page-attrs" .Cover}}{{if .Footer}} class="has-footer"{{end}}>
 {{template "story-image" .Cover}}
 <amp-story-grid-layer template="fill" class="scrim"></amp-story-grid-layer>
