@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.3" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.4" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -1140,12 +1140,16 @@ Templates get \fB.SSG.Version\fR beside \fB.BuildTime\fR.
 \fB\-\-build\-report\fR[=\fIFILE\fR] (\fBbuild_report:\fR) writes the build's version,
 duration and page count to \fIFILE\fR (default \fBbuild.json\fR) in the output
 directory.
-.SH PRINT, COOK MODE AND WEB STORIES
+.SH PRINT, COOK MODE, WEB STORIES AND STORY MODE
 \fBprint.enabled: true\fR adds a Print / PDF button and print stylesheet, and a
 recipe card on Recipe pages. \fBcook_mode: true\fR adds a step-by-step view on
 Recipe pages. \fBweb_stories.enabled: true\fR (with \fBpublisher_logo\fR)
-makes a Google Web Story from each selected post. See
-docs/PRINT_AND_COOK_MODE.md and docs/WEB_STORIES.md.
+makes a Google Web Story from each selected post; \fBweb_stories.narration:
+true\fR records each page through \fBtts:\fR. \fBstory: true\fR turns articles
+into a reading companion and fullscreen presentation (reading bar, photo stage,
+widgets, narrator with pronunciation rules, music by date, share); a post adds
+settings in \fBstory:\fR front matter or \fI<name>.story.yaml\fR. See
+docs/PRINT_AND_COOK_MODE.md, docs/WEB_STORIES.md and docs/STORY.md.
 .SH RESUME
 \fBresume.file\fR names a Schema Resume (schema-resume.org) JSON document.
 It becomes a page at \fBresume.url\fR (default \fB/cv/\fR) that renders in

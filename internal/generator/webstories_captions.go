@@ -23,6 +23,8 @@ var storyCopy = map[string]string{
 	"cta":             defaultStoryCTA,
 	"hub_title":       "Web Stories",
 	"hub_description": "Web Stories from {{site}}",
+	"ingredients":     "Ingredients",
+	"recommended":     "Recommended",
 }
 
 // storyTagsShown is how many tags one caption names.

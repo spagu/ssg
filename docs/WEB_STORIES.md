@@ -19,6 +19,7 @@ web_stories:
   # pages: 4                               # photo pages between the cover and the last page
   # min_images: 2                          # images a post needs, featured included
   # cta: Read the full article             # the last page's link text
+  # narration: true                        # record each page through tts: (1.9.4)
 ```
 
 `web_stories: true` is shorthand for `enabled: true`, but a story cannot be
@@ -33,6 +34,7 @@ made without `publisher_logo`, so you will normally write the mapping.
 | `pages` | `4` | The most photo pages a story has between the cover and the last page. |
 | `min_images` | `2` | How many distinct images (the featured one included) a post needs to get a story. |
 | `cta` | `Read the full article` | The last page's link text. Overrides the i18n catalog. |
+| `narration` | `false` | Record what each page says through the site's [`tts:`](AUDIO.md) service. The page moves on when its recording ends (see [Narration](#narration)). |
 
 ## What is generated
 
@@ -63,6 +65,46 @@ Captions are hooks taken from what the post already declares, in this order:
 - its excerpt (or description), as plain text cut at 140 characters.
 
 The method — the post's body text — is never used.
+
+Every story supports landscape (`supports-landscape`, 1.9.4): on a desktop
+screen it fills the window, not a phone-shaped column.
+
+### From story settings
+
+When [`story:`](STORY.md) also selects the post (1.9.4), the AMP story takes
+from the post's story settings what AMP, which allows no script, can show:
+
+| From | In the Web Story |
+|------|------------------|
+| `slideshow.header.logo` (`text`, `logo_height`) | the logo over every page |
+| `widgets` with a `stat`, `title` or `text` | up to two per photo page, flying in. A `recipe` widget is left out: the ingredients panel shows it instead |
+| `slideshow.footer` (`label`, `items` of `link`, `text`, `image`) | the promotions rotating at the bottom of every page, by CSS, and a page listing them before the last |
+| `audio` | today's track as the story's background music (the same date windows) |
+| the post's `Recipe` structured data | `recipeIngredient` as an "Ingredients" panel the reader pulls up. Never the method |
+
+A post without `story:` gets none of these, so existing stories do not change.
+
+### Narration
+
+With `narration: true` and a working [`tts:`](AUDIO.md), each page's text is
+recorded at build time:
+
+- the cover reads the title;
+- a photo page reads its caption;
+- the last page reads its link text.
+
+The recordings use the same [pronunciation rules](STORY.md#pronunciation) as
+story mode's narrator. They are written as `<url><slug>/narration/<page>.mp3`
+and played as the page's `background-audio`. Each page moves on 0.6 s after its
+recording ends.
+
+Recordings are cached under `.ssg-cache/story-narration/` by text and voice, so
+a rebuild does not call the service again. If a recording fails, the build
+reports that page, which keeps AMP's default timing. Without `tts:` the build
+says so once and makes the stories silent.
+
+AMP plays page audio and story audio at full volume over each other, so a
+narrated story leaves today's music out.
 
 ### Images
 
@@ -138,6 +180,8 @@ web_stories:
   cta: "Przeczytaj cały przepis"
   hub_title: "Relacje"
   hub_description: "Relacje z {{site}}"
+  ingredients: "Składniki"         # the recipe panel (1.9.4)
+  recommended: "Polecamy"          # the footer's page when it has no label (1.9.4)
 ```
 
 Durations use the units of the `duration` template helper for the story's
@@ -164,9 +208,12 @@ Its context (`StoryContext`):
 | `.Pages` | The photo pages. |
 | `.CTA`, `.CTALabel`, `.CTAURL` | The last page, its link text, the article's URL. |
 | `.Post`, `.Site` | The post and the site, as in other templates. |
+| `.Header`, `.Footer`, `.Recipe`, `.Music`, `.ExtraCSS`, `.RecommendedLabel` | From the post's `story:` settings (1.9.4); empty without them. `.Header` has `.URL`, `.Height`, `.Alt`; `.Footer` has `.Label` and `.Items` (`.URL`, `.Image`, `.Text`); `.Recipe` has `.Label` and `.Ingredients`. |
 
 An image has `.URL` (as the story writes it), `.Path` (rooted on the site),
-`.Width` and `.Height`; a page has `.ID`, `.Image`, `.Alt` and `.Caption`.
+`.Width` and `.Height`; a page has `.ID`, `.Image`, `.Alt`, `.Caption`, and
+since 1.9.4 `.Widgets` (`.Type`, `.Stat`, `.Title`, `.Text`, `.Delay`),
+`.Audio` and `.Advance` (the narration and its `auto-advance-after`).
 
 A story is written as rendered: none of the head, analytics, feed-link, listen,
 component, math, diagram or WebMCP injections is added, because AMP allows no

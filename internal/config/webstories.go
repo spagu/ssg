@@ -31,6 +31,9 @@ type WebStoriesConfig struct {
 	MinImages int `yaml:"min_images" toml:"min_images" json:"min_images"`
 	// CTA is the last page's link text; default "Read the full article".
 	CTA string `yaml:"cta" toml:"cta" json:"cta"`
+	// Narration records what each page says through `tts:` and moves the
+	// page on when it has been read (1.9.4).
+	Narration bool `yaml:"narration" toml:"narration" json:"narration"`
 }
 
 // webStoriesFields decodes the mapping form without recursing into the

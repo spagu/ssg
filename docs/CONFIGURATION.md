@@ -1765,8 +1765,25 @@ Google Web Stories (AMP) made from posts. See [WEB_STORIES.md](WEB_STORIES.md).
 | `web_stories.pages` | `4` | Most photo pages between the cover and the last page. |
 | `web_stories.min_images` | `2` | Distinct images (featured included) a post needs. |
 | `web_stories.cta` | `Read the full article` | Last page's link text (overrides the i18n catalog). |
+| `web_stories.narration` | `false` | Record each page's text through `tts:`; pages advance with it (1.9.4). |
 
 Images are WebP when `webp: true` or `image_formats` includes `webp`, JPEG otherwise.
+
+#### Story mode
+
+A reading companion and fullscreen presentation on articles, with narrator,
+music, share and deep links, feeding the same slides to the Web Story (1.9.4).
+See [STORY.md](STORY.md).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `story.enabled` | `false` | `story: true` turns it on; a mapping turns it on unless it says `enabled: false`. |
+| `story.sections` | `[posts]` | `posts`, `pages`, or a content directory (`posts/recipes`). |
+| `story.rules` | — | `{when: {category, tags, section, contains}, set: {…}}`: settings for the pages a rule matches. |
+| `story.*` | — | Every other key goes to the page script: `progress`, `stage`, `slides`, `widgets`, `audio`, `narrator`, `slideshow`, `share`, `analytics`, `labels`, `theme`… snake_case or camelCase. |
+
+A post adds its own settings in `story:` front matter or in
+`<name>.story.yaml` beside its source; `story: false` keeps it out.
 
 #### A résumé
 

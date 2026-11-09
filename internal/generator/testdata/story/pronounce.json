@@ -1,0 +1,136 @@
+{
+  "rules": {
+    "{num} g": "{num} gram|gramy|gramów|grama",
+    "{num} kg": "{num} kilogram|kilogramy|kilogramów|kilograma",
+    "{num} l": "{num} litr|litry|litrów|litra",
+    "{num} °C": "{num} stopień|stopnie|stopni|stopnia Celsjusza",
+    "{num}-{num} min": "od {num} do {num} minuta|minuty|minut|minuty",
+    "np.": "na przykład",
+    "½": "pół",
+    "{num} łyżeczka|łyżeczki|łyżeczek": "{num:jedna|dwie} {word}",
+    "{num} łyżeczkę": "{num:jedną|dwie} łyżeczkę",
+    "{num} jajko|jajka|jajek": "{num:jedno|dwa} {word}"
+  },
+  "cases": [
+    [
+      "100g mąki",
+      "100 gramów mąki"
+    ],
+    [
+      "1 g soli",
+      "1 gram soli"
+    ],
+    [
+      "2g",
+      "2 gramy"
+    ],
+    [
+      "22 g",
+      "22 gramy"
+    ],
+    [
+      "12 g",
+      "12 gramów"
+    ],
+    [
+      "1,5 kg jabłek",
+      "1,5 kilograma jabłek"
+    ],
+    [
+      "0.5 l mleka",
+      "0.5 litra mleka"
+    ],
+    [
+      "piec 180°C",
+      "piec 180 stopni Celsjusza"
+    ],
+    [
+      "5 lat temu",
+      "5 lat temu"
+    ],
+    [
+      "100gram",
+      "100gram"
+    ],
+    [
+      "kg",
+      "kg"
+    ],
+    [
+      "10-15 min",
+      "od 10 do 15 minut"
+    ],
+    [
+      "np. masło",
+      "na przykład masło"
+    ],
+    [
+      "½ szklanki",
+      "pół szklanki"
+    ],
+    [
+      "a100g",
+      "a100g"
+    ],
+    [
+      "1 łyżeczka cukru pudru",
+      "jedna łyżeczka cukru pudru"
+    ],
+    [
+      "2 łyżeczki cukru pudru",
+      "dwie łyżeczki cukru pudru"
+    ],
+    [
+      "22 łyżeczki",
+      "dwadzieścia dwie łyżeczki"
+    ],
+    [
+      "12 łyżeczek",
+      "dwanaście łyżeczek"
+    ],
+    [
+      "5 łyżeczek",
+      "pięć łyżeczek"
+    ],
+    [
+      "dodać 1 łyżeczkę",
+      "dodać jedną łyżeczkę"
+    ],
+    [
+      "1,5 łyżeczki",
+      "1,5 łyżeczki"
+    ],
+    [
+      "1 jajko",
+      "jedno jajko"
+    ],
+    [
+      "102 jajka",
+      "sto dwa jajka"
+    ],
+    [
+      "2002 łyżeczki",
+      "dwa tysiące dwie łyżeczki"
+    ],
+    [
+      "1000 łyżeczek",
+      "tysiąc łyżeczek"
+    ],
+    [
+      "5000 łyżeczek",
+      "pięć tysięcy łyżeczek"
+    ],
+    [
+      "1000000 łyżeczek",
+      "1000000 łyżeczek"
+    ],
+    [
+      "0 łyżeczek",
+      "zero łyżeczek"
+    ],
+    [
+      "2łyżeczki",
+      "dwie łyżeczki"
+    ]
+  ]
+}

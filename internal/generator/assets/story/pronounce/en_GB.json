@@ -1,0 +1,96 @@
+{
+ "lang": "en_GB",
+ "about": "Built-in narrator pronunciation rules (British English). A site adds its own or turns one off by setting it to null.",
+ "rules": {
+  "{num} g": "{num} gram|grams",
+  "{num} kg": "{num} kilogram|kilograms",
+  "{num} oz": "{num} ounce|ounces",
+  "{num} lb|lbs": "{num} pound|pounds",
+  "{num} ml": "{num} millilitre|millilitres",
+  "{num} l": "{num} litre|litres",
+  "{num} cm": "{num} centimetre|centimetres",
+  "{num} km": "{num} kilometre|kilometres",
+  "{num} mph": "{num} mile|miles per hour",
+  "{num} °C": "{num} degree|degrees Celsius",
+  "{num} °F": "{num} degree|degrees Fahrenheit",
+  "{num} min|mins": "{num} minute|minutes",
+  "{num} hr|hrs": "{num} hour|hours",
+  "{num} tsp": "{num} teaspoon|teaspoons",
+  "{num} tbsp": "{num} tablespoon|tablespoons",
+  "£{num}": "{num} pound|pounds",
+  "{num}-{num}": "{num} to {num}",
+  "½": "half",
+  "¼": "a quarter",
+  "¾": "three quarters",
+  "e.g.": "for example",
+  "i.e.": "that is",
+  "approx.": "approximately",
+  "etc.": "et cetera",
+  "vs": "versus",
+  "{num}-{num} g": "{num} to {num} gram|grams",
+  "{num}–{num} g": "{num} to {num} gram|grams",
+  "{num}-{num} kg": "{num} to {num} kilogram|kilograms",
+  "{num}–{num} kg": "{num} to {num} kilogram|kilograms",
+  "{num}-{num} oz": "{num} to {num} ounce|ounces",
+  "{num}–{num} oz": "{num} to {num} ounce|ounces",
+  "{num}-{num} lb|lbs": "{num} to {num} pound|pounds",
+  "{num}–{num} lb|lbs": "{num} to {num} pound|pounds",
+  "{num}-{num} ml": "{num} to {num} millilitre|millilitres",
+  "{num}–{num} ml": "{num} to {num} millilitre|millilitres",
+  "{num}-{num} l": "{num} to {num} litre|litres",
+  "{num}–{num} l": "{num} to {num} litre|litres",
+  "{num}-{num} cm": "{num} to {num} centimetre|centimetres",
+  "{num}–{num} cm": "{num} to {num} centimetre|centimetres",
+  "{num}-{num} km": "{num} to {num} kilometre|kilometres",
+  "{num}–{num} km": "{num} to {num} kilometre|kilometres",
+  "{num}-{num} mph": "{num} to {num} mile|miles per hour",
+  "{num}–{num} mph": "{num} to {num} mile|miles per hour",
+  "{num}-{num} °C": "{num} to {num} degree|degrees Celsius",
+  "{num}–{num} °C": "{num} to {num} degree|degrees Celsius",
+  "{num}-{num} °F": "{num} to {num} degree|degrees Fahrenheit",
+  "{num}–{num} °F": "{num} to {num} degree|degrees Fahrenheit",
+  "{num}-{num} min|mins": "{num} to {num} minute|minutes",
+  "{num}–{num} min|mins": "{num} to {num} minute|minutes",
+  "{num}-{num} hr|hrs": "{num} to {num} hour|hours",
+  "{num}–{num} hr|hrs": "{num} to {num} hour|hours",
+  "{num}-{num} tsp": "{num} to {num} teaspoon|teaspoons",
+  "{num}–{num} tsp": "{num} to {num} teaspoon|teaspoons",
+  "{num}-{num} tbsp": "{num} to {num} tablespoon|tablespoons",
+  "{num}–{num} tbsp": "{num} to {num} tablespoon|tablespoons",
+  "{num}–{num}": "{num} to {num}"
+ },
+ "examples": [
+  [
+   "250g flour",
+   "250 grams flour"
+  ],
+  [
+   "1 g",
+   "1 gram"
+  ],
+  [
+   "bake at 180°C",
+   "bake at 180 degrees Celsius"
+  ],
+  [
+   "10-15 mins",
+   "10 to 15 minutes"
+  ],
+  [
+   "2 tbsp sugar",
+   "2 tablespoons sugar"
+  ],
+  [
+   "£5 entry",
+   "5 pounds entry"
+  ],
+  [
+   "e.g. tents",
+   "for example tents"
+  ],
+  [
+   "60 mph",
+   "60 miles per hour"
+  ]
+ ]
+}

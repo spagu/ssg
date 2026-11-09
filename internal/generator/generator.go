@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -404,6 +405,8 @@ type Config struct {
 	Listen ListenOptions
 	// WebStories makes an AMP web story from each selected post (1.8.72).
 	WebStories WebStoriesOptions
+	// Story adds the reading companion and presentation to articles (1.9.4).
+	Story StoryOptions
 	// Print adds the Print / PDF button and print stylesheet; CookMode the
 	// step-by-step recipe view (1.8.72).
 	Print    PrintOptions
@@ -572,6 +575,7 @@ type Generator struct {
 	bracketRes        map[string]bracketShortcodeRes // per-shortcode bracket regexes, compiled once (PERF-006)
 	shortcodeFailures []string                       // shortcodes that failed to render (issue #37)
 	webStories        storySet                       // this build's web stories (1.8.72)
+	storyUsed         atomic.Bool                    // a page got the story presentation (1.9.4)
 	linkRewriteKeys   []string                       // link_rewrites prefixes, longest first (LINK-002)
 	linkRewriteOnce   sync.Once                      // built on the render pool, so memoize under a Once
 	gitOnce           sync.Once                      // guards the single git-log scan (PERF-001)
@@ -1161,6 +1165,9 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
+	if err := g.profile.Measure("Story assets", g.writeStoryAssets); err != nil {
+		return fmt.Errorf("writing story assets: %w", err)
+	}
 	if err := g.profile.Measure("Sitemap and robots", g.generateSitemapAndRobots); err != nil {
 		return err
 	}

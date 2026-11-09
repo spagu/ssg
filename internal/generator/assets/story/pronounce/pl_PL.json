@@ -1,0 +1,162 @@
+{
+ "lang": "pl_PL",
+ "about": "Wbudowane reguły wymowy lektora (polski). Strona dodaje własne albo wyłącza którąś, ustawiając ją na null.",
+ "rules": {
+  "{num} g": "{num} gram|gramy|gramów|grama",
+  "{num} dag": "{num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num} dkg": "{num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num} kg": "{num} kilogram|kilogramy|kilogramów|kilograma",
+  "{num} ml": "{num} mililitr|mililitry|mililitrów|mililitra",
+  "{num} l": "{num} litr|litry|litrów|litra",
+  "{num} mm": "{num} milimetr|milimetry|milimetrów|milimetra",
+  "{num} cm": "{num} centymetr|centymetry|centymetrów|centymetra",
+  "{num} km": "{num} kilometr|kilometry|kilometrów|kilometra",
+  "{num} °C": "{num} stopień|stopnie|stopni|stopnia Celsjusza",
+  "{num} st.": "{num} stopień|stopnie|stopni|stopnia",
+  "{num} %": "{num} procent|procent|procent|procent",
+  "{num} zł": "{num} złoty|złote|złotych|złotego",
+  "{num} min": "{num:jedna|dwie} minuta|minuty|minut|minuty",
+  "{num} godz.": "{num:jedna|dwie} godzina|godziny|godzin|godziny",
+  "{num} sek.": "{num:jedna|dwie} sekunda|sekundy|sekund|sekundy",
+  "{num} szt.": "{num:jedna|dwie} sztuka|sztuki|sztuk|sztuki",
+  "{num} łyż.": "{num:jedna|dwie} łyżka|łyżki|łyżek|łyżki",
+  "{num} łyżecz.": "{num:jedna|dwie} łyżeczka|łyżeczki|łyżeczek|łyżeczki",
+  "{num} op.": "{num:jedno|dwa} opakowanie|opakowania|opakowań|opakowania",
+  "{num} łyżka|łyżki|łyżek|łyżeczka|łyżeczki|łyżeczek|szklanka|szklanki|szklanek|szczypta|szczypty|szczypt|paczka|paczki|paczek|kostka|kostki|kostek|garść|garści|puszka|puszki|puszek|torebka|torebki|torebek|sztuka|sztuki|sztuk|minuta|minuty|minut|godzina|godziny|godzin|sekunda|sekundy|sekund|porcja|porcje|porcji|warstwa|warstwy|warstw|cytryna|cytryny|cytryn|pomarańcza|pomarańcze|pomarańczy|laska|laski|lasek": "{num:jedna|dwie} {word}",
+  "{num} łyżkę|łyżeczkę|szklankę|szczyptę|paczkę|kostkę|puszkę|torebkę|minutę|godzinę|sekundę|porcję|warstwę|cytrynę|pomarańczę|laskę": "{num:jedną|dwie} {word}",
+  "{num} łyżką|łyżeczką|szklanką|szczyptą|paczką|kostką|puszką|torebką|minutą|godziną|porcją|warstwą": "{num:jedną|dwiema} {word}",
+  "{num} jajko|jajka|jajek|opakowanie|opakowania|opakowań|żółtko|żółtka|żółtek|białko|białka|białek|jabłko|jabłka|jabłek": "{num:jedno|dwa} {word}",
+  "{num}-{num}": "{num}, {num}",
+  "1/2": "pół",
+  "½": "pół",
+  "1/4": "ćwierć",
+  "¼": "ćwierć",
+  "3/4": "trzy czwarte",
+  "¾": "trzy czwarte",
+  "np.": "na przykład",
+  "ok.": "około",
+  "tzw.": "tak zwany",
+  "itp.": "i tym podobne",
+  "itd.": "i tak dalej",
+  "m.in.": "między innymi",
+  "tj.": "to jest",
+  "wg": "według",
+  "ew.": "ewentualnie",
+  "pt.": "pod tytułem",
+  "{num}-{num} g": "{num}, {num} gram|gramy|gramów|grama",
+  "{num}–{num} g": "{num}, {num} gram|gramy|gramów|grama",
+  "{num}-{num} dag": "{num}, {num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num}–{num} dag": "{num}, {num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num}-{num} dkg": "{num}, {num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num}–{num} dkg": "{num}, {num} dekagram|dekagramy|dekagramów|dekagrama",
+  "{num}-{num} kg": "{num}, {num} kilogram|kilogramy|kilogramów|kilograma",
+  "{num}–{num} kg": "{num}, {num} kilogram|kilogramy|kilogramów|kilograma",
+  "{num}-{num} ml": "{num}, {num} mililitr|mililitry|mililitrów|mililitra",
+  "{num}–{num} ml": "{num}, {num} mililitr|mililitry|mililitrów|mililitra",
+  "{num}-{num} l": "{num}, {num} litr|litry|litrów|litra",
+  "{num}–{num} l": "{num}, {num} litr|litry|litrów|litra",
+  "{num}-{num} mm": "{num}, {num} milimetr|milimetry|milimetrów|milimetra",
+  "{num}–{num} mm": "{num}, {num} milimetr|milimetry|milimetrów|milimetra",
+  "{num}-{num} cm": "{num}, {num} centymetr|centymetry|centymetrów|centymetra",
+  "{num}–{num} cm": "{num}, {num} centymetr|centymetry|centymetrów|centymetra",
+  "{num}-{num} km": "{num}, {num} kilometr|kilometry|kilometrów|kilometra",
+  "{num}–{num} km": "{num}, {num} kilometr|kilometry|kilometrów|kilometra",
+  "{num}-{num} °C": "{num}, {num} stopień|stopnie|stopni|stopnia Celsjusza",
+  "{num}–{num} °C": "{num}, {num} stopień|stopnie|stopni|stopnia Celsjusza",
+  "{num}-{num} st.": "{num}, {num} stopień|stopnie|stopni|stopnia",
+  "{num}–{num} st.": "{num}, {num} stopień|stopnie|stopni|stopnia",
+  "{num}-{num} %": "{num}, {num} procent|procent|procent|procent",
+  "{num}–{num} %": "{num}, {num} procent|procent|procent|procent",
+  "{num}-{num} zł": "{num}, {num} złoty|złote|złotych|złotego",
+  "{num}–{num} zł": "{num}, {num} złoty|złote|złotych|złotego",
+  "{num}-{num} min": "{num:jedna|dwie}, {num:jedna|dwie} minuta|minuty|minut|minuty",
+  "{num}–{num} min": "{num:jedna|dwie}, {num:jedna|dwie} minuta|minuty|minut|minuty",
+  "{num}-{num} godz.": "{num:jedna|dwie}, {num:jedna|dwie} godzina|godziny|godzin|godziny",
+  "{num}–{num} godz.": "{num:jedna|dwie}, {num:jedna|dwie} godzina|godziny|godzin|godziny",
+  "{num}-{num} sek.": "{num:jedna|dwie}, {num:jedna|dwie} sekunda|sekundy|sekund|sekundy",
+  "{num}–{num} sek.": "{num:jedna|dwie}, {num:jedna|dwie} sekunda|sekundy|sekund|sekundy",
+  "{num}-{num} szt.": "{num:jedna|dwie}, {num:jedna|dwie} sztuka|sztuki|sztuk|sztuki",
+  "{num}–{num} szt.": "{num:jedna|dwie}, {num:jedna|dwie} sztuka|sztuki|sztuk|sztuki",
+  "{num}-{num} łyż.": "{num:jedna|dwie}, {num:jedna|dwie} łyżka|łyżki|łyżek|łyżki",
+  "{num}–{num} łyż.": "{num:jedna|dwie}, {num:jedna|dwie} łyżka|łyżki|łyżek|łyżki",
+  "{num}-{num} łyżecz.": "{num:jedna|dwie}, {num:jedna|dwie} łyżeczka|łyżeczki|łyżeczek|łyżeczki",
+  "{num}–{num} łyżecz.": "{num:jedna|dwie}, {num:jedna|dwie} łyżeczka|łyżeczki|łyżeczek|łyżeczki",
+  "{num}-{num} op.": "{num:jedno|dwa}, {num:jedno|dwa} opakowanie|opakowania|opakowań|opakowania",
+  "{num}–{num} op.": "{num:jedno|dwa}, {num:jedno|dwa} opakowanie|opakowania|opakowań|opakowania",
+  "{num}-{num} łyżka|łyżki|łyżek|łyżeczka|łyżeczki|łyżeczek|szklanka|szklanki|szklanek|szczypta|szczypty|szczypt|paczka|paczki|paczek|kostka|kostki|kostek|garść|garści|puszka|puszki|puszek|torebka|torebki|torebek|sztuka|sztuki|sztuk|minuta|minuty|minut|godzina|godziny|godzin|sekunda|sekundy|sekund|porcja|porcje|porcji|warstwa|warstwy|warstw|cytryna|cytryny|cytryn|pomarańcza|pomarańcze|pomarańczy|laska|laski|lasek": "{num:jedna|dwie}, {num:jedna|dwie} {word}",
+  "{num}–{num} łyżka|łyżki|łyżek|łyżeczka|łyżeczki|łyżeczek|szklanka|szklanki|szklanek|szczypta|szczypty|szczypt|paczka|paczki|paczek|kostka|kostki|kostek|garść|garści|puszka|puszki|puszek|torebka|torebki|torebek|sztuka|sztuki|sztuk|minuta|minuty|minut|godzina|godziny|godzin|sekunda|sekundy|sekund|porcja|porcje|porcji|warstwa|warstwy|warstw|cytryna|cytryny|cytryn|pomarańcza|pomarańcze|pomarańczy|laska|laski|lasek": "{num:jedna|dwie}, {num:jedna|dwie} {word}",
+  "{num}-{num} łyżkę|łyżeczkę|szklankę|szczyptę|paczkę|kostkę|puszkę|torebkę|minutę|godzinę|sekundę|porcję|warstwę|cytrynę|pomarańczę|laskę": "{num:jedną|dwie}, {num:jedną|dwie} {word}",
+  "{num}–{num} łyżkę|łyżeczkę|szklankę|szczyptę|paczkę|kostkę|puszkę|torebkę|minutę|godzinę|sekundę|porcję|warstwę|cytrynę|pomarańczę|laskę": "{num:jedną|dwie}, {num:jedną|dwie} {word}",
+  "{num}-{num} łyżką|łyżeczką|szklanką|szczyptą|paczką|kostką|puszką|torebką|minutą|godziną|porcją|warstwą": "{num:jedną|dwiema}, {num:jedną|dwiema} {word}",
+  "{num}–{num} łyżką|łyżeczką|szklanką|szczyptą|paczką|kostką|puszką|torebką|minutą|godziną|porcją|warstwą": "{num:jedną|dwiema}, {num:jedną|dwiema} {word}",
+  "{num}-{num} jajko|jajka|jajek|opakowanie|opakowania|opakowań|żółtko|żółtka|żółtek|białko|białka|białek|jabłko|jabłka|jabłek": "{num:jedno|dwa}, {num:jedno|dwa} {word}",
+  "{num}–{num} jajko|jajka|jajek|opakowanie|opakowania|opakowań|żółtko|żółtka|żółtek|białko|białka|białek|jabłko|jabłka|jabłek": "{num:jedno|dwa}, {num:jedno|dwa} {word}",
+  "{num}–{num}": "{num}, {num}"
+ },
+ "examples": [
+  [
+   "1 łyżeczka cukru pudru",
+   "jedna łyżeczka cukru pudru"
+  ],
+  [
+   "2 łyżeczki cukru pudru",
+   "dwie łyżeczki cukru pudru"
+  ],
+  [
+   "1 min",
+   "jedna minuta"
+  ],
+  [
+   "2 min",
+   "dwie minuty"
+  ],
+  [
+   "10-15 min",
+   "dziesięć, piętnaście minut"
+  ],
+  [
+   "Dodać 1 łyżeczkę proszku",
+   "Dodać jedną łyżeczkę proszku"
+  ],
+  [
+   "z 1 łyżką wody",
+   "z jedną łyżką wody"
+  ],
+  [
+   "2–3 łyżki soku",
+   "dwie, trzy łyżki soku"
+  ],
+  [
+   "250g mąki",
+   "250 gramów mąki"
+  ],
+  [
+   "1,5 kg jabłek",
+   "1,5 kilograma jabłek"
+  ],
+  [
+   "piec w 180°C",
+   "piec w 180 stopni Celsjusza"
+  ],
+  [
+   "2 jajka",
+   "dwa jajka"
+  ],
+  [
+   "1 jajko",
+   "jedno jajko"
+  ],
+  [
+   "½ szklanki",
+   "pół szklanki"
+  ],
+  [
+   "ok. 45 min",
+   "około czterdzieści pięć minut"
+  ],
+  [
+   "5 lat temu",
+   "5 lat temu"
+  ]
+ ]
+}

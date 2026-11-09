@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-11-09
+
+### Added
+
+- **Story mode** (`story:`, [docs/STORY.md](docs/STORY.md)). Articles become
+  a reading companion and a fullscreen presentation. Everything runs in the
+  page's own scripts, written once to `/assets/ssg-story/`.
+  - **Reading:** a reading bar with the time left, a photo stage that follows
+    the paragraph being read, and widgets anchored to passages (tips, numbers,
+    quotes, a recipe card with ticks and a step counter).
+  - **Presentation:** fullscreen slides with title and closing cards, a header
+    and a footer for promotions or an ad, autoplay, transitions, and gestures
+    like phone stories.
+  - **Narrator:** the browser's voice, with the paragraph highlighted,
+    subtitles, and the reader's choice of voice and speed.
+  - **Music:** chosen by date window (`MM-DD`, full dates for moving feasts, a
+    playlist in random order), quieter while the narrator speaks.
+  - **Sharing:** the Web Share API with a menu fallback, `#story=N` deep links,
+    `ssg-story` events, `dataLayer` analytics and Media Session.
+  - **Settings layers:** a page's settings are the site's, then every
+    `story.rules` entry that matches it (by category, tags, section or text),
+    then `<name>.story.yaml` beside the post, then its `story:` front matter.
+    `slides`, `widgets`, `figure_skip` and `hide` add up across layers.
+    `story: false` keeps a post out. Keys may be `snake_case` or `camelCase`.
+- **Pronunciation rules for the narrator.** Built-in sets for Polish and
+  British English: units, spoons and cups, °C, ranges, fractions and
+  abbreviations. Sites and posts add rules in `narrator.pronounce` or turn one
+  off with `null`.
+  - The syntax covers plural forms in CLDR order (`gram|gramy|gramów|grama`)
+    and numbers in words in the noun's gender (`{num:jedna|dwie}`: "1 łyżeczka"
+    is read "jedna łyżeczka", "2 min" is read "dwie minuty").
+  - The page and the subtitles keep the written text. Abbreviations the rules
+    know no longer end a sentence.
+  - The browser's engine and the Go engine run the same tests: `make
+    test-story` and `go test`.
+- **Narrated Web Stories:** `web_stories.narration: true` records each page's
+  text (title, captions, link) through `tts:`, with the same pronunciation
+  rules. Each page moves on when its recording ends (`auto-advance-after`).
+  Recordings are cached by text and voice, and a failed page keeps AMP's
+  default timing.
+- **Web Stories take what AMP allows from the post's `story:` settings:** the
+  header's logo on every page, widgets flying in over the photographs, the
+  footer's promotions rotating by CSS plus a page listing them, today's music,
+  and the recipe's `recipeIngredient` as an "Ingredients" panel (never the
+  method). A post without `story:` gets none of this. New i18n keys:
+  `web_stories.ingredients` and `web_stories.recommended`.
+- `tts.Duration`: the playing time of an MP3, counted from its frame headers.
+- `make test-story` runs the story scripts' tests (Node).
+
+### Changed
+
+- **Web Stories support landscape** (`supports-landscape`). On a desktop screen
+  a story fills the window instead of a phone-shaped column. This changes the
+  output of every story.
+
 ## [1.9.3] - 2026-11-09
 
 ### Fixed

@@ -26,11 +26,15 @@ var (
 )
 
 // assertAMPStory checks what the AMP validator rejects most often.
+// ampLayoutRe is the layouts a story's images use: full-bleed photographs,
+// and the logo and promo thumbnails at a fixed size (1.9.4).
+var ampLayoutRe = regexp.MustCompile(` layout="(?:responsive|fixed|fixed-height)"`)
+
 func assertAMPStory(t *testing.T, s string) {
 	t.Helper()
 	for _, want := range []string{"<!doctype html>", `<html amp lang="`, `<meta charset="utf-8">`, ampBoilerplate,
 		`<meta name="viewport" content="width=device-width`, `<link rel="canonical" href="`,
-		`<amp-story standalone title="`, ` publisher="`, ` publisher-logo-src="`, ` poster-portrait-src="`,
+		`<amp-story standalone supports-landscape title="`, ` publisher="`, ` publisher-logo-src="`, ` poster-portrait-src="`,
 		`<amp-story-page-outlink layout="nodisplay">`} {
 		if !strings.Contains(s, want) {
 			t.Errorf("AMP story lacks %q", want)
@@ -49,10 +53,13 @@ func assertAMPStory(t *testing.T, s string) {
 		t.Errorf("amp-custom: %d block(s)", len(styles))
 	}
 	for _, img := range ampImgRe.FindAllString(s, -1) {
-		for _, attr := range []string{" width=", " height=", ` layout="responsive"`, " alt="} {
+		for _, attr := range []string{" width=", " height=", ` layout="`, " alt="} {
 			if !strings.Contains(img, attr) {
 				t.Errorf("%s lacks %s", img, attr)
 			}
+		}
+		if !ampLayoutRe.MatchString(img) {
+			t.Errorf("%s: layout must be responsive, fixed or fixed-height", img)
 		}
 	}
 }
