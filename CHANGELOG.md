@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-11-09
+
+### Fixed
+
+- **WebP rewriting reaches lazy-load attributes** (#400). With `webp: true`,
+  `data-src`, `data-srcset` and `data-bg` follow their image to `.webp` like
+  `src` and `srcset` do, so images a script promotes later (a carousel slide,
+  a lightbox, a lazy loader) no longer stay on the `.jpg`, and templates no
+  longer need to hard-code `.webp` names. As with every other reference, a
+  value moves only when its `.webp` was actually written; other prefixed
+  attributes (`data-original`, `x-src`) stay untouched. This changes output for
+  sites using those attributes.
+- **The cookie-consent dialog no longer scrolls the page when it opens**
+  (#399). Focus moves to its first button with `preventScroll`. Before the
+  stylesheet applies, the dialog sits at the end of `<body>`, and a plain
+  `focus()` scrolled a first visit to the bottom of the page.
+- **A tag publishes its release again.** v1.9.2 built its binaries but skipped
+  the DEB and RPM packages, the GitHub release and the Homebrew tap: those jobs
+  relied on the implicit `success()`, which counts the checks skipped by the
+  1.9.2 *Already tested* gate as not successful. They now check the result of
+  the job they need directly. v1.9.2 shipped as Docker and Snap only; 1.9.3 is
+  the first release with the tested-once pipeline end to end.
+
 ## [1.9.2] - 2026-11-08
 
 ### Fixed
@@ -6325,7 +6348,10 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.3...HEAD
+[1.9.3]: https://github.com/spagu/ssg/compare/v1.9.2...v1.9.3
+[1.9.2]: https://github.com/spagu/ssg/compare/v1.9.1...v1.9.2
+[1.9.1]: https://github.com/spagu/ssg/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/spagu/ssg/compare/v1.8.85...v1.9.0
 [1.8.85]: https://github.com/spagu/ssg/compare/v1.8.84...v1.8.85
 [1.8.84]: https://github.com/spagu/ssg/compare/v1.8.83...v1.8.84

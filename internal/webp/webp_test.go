@@ -1136,13 +1136,19 @@ func TestUpdateReferencesUppercaseFiles(t *testing.T) {
 	}
 }
 
-// TestUpdateReferencesDataSrcUntouched covers GO-017 scoping: only src/srcset/
-// href attributes are rewritten, so data-src (lazy-load) keeps its value.
-func TestUpdateReferencesDataSrcUntouched(t *testing.T) {
+// TestUpdateReferencesLazyLoadAttrs covers #400: data-src, data-srcset and
+// data-bg follow their image to .webp like src/srcset, a missing conversion
+// keeps the original, and other prefixed names stay untouched (GO-017).
+func TestUpdateReferencesLazyLoadAttrs(t *testing.T) {
 	tmpDir := t.TempDir()
-	writeWebpFixtures(t, tmpDir, "lazy.webp")
+	writeWebpFixtures(t, tmpDir, "lazy.webp", "lazy-2x.webp", "bg.webp")
 
-	orig := `<img data-src="lazy.jpg" alt="l">`
+	orig := `<img data-src="lazy.jpg" data-srcset="lazy.jpg 1x, lazy-2x.png 2x" alt="l">` +
+		`<div data-bg='/bg.jpeg'></div><img data-src="gone.jpg">` +
+		`<img data-original="lazy.jpg" x-src="lazy.jpg">`
+	want := `<img data-src="lazy.webp" data-srcset="lazy.webp 1x, lazy-2x.webp 2x" alt="l">` +
+		`<div data-bg='/bg.webp'></div><img data-src="gone.jpg">` +
+		`<img data-original="lazy.jpg" x-src="lazy.jpg">`
 	htmlPath := filepath.Join(tmpDir, "index.html")
 	if err := os.WriteFile(htmlPath, []byte(orig), 0644); err != nil {
 		t.Fatalf("Failed to write HTML: %v", err)
@@ -1152,8 +1158,8 @@ func TestUpdateReferencesDataSrcUntouched(t *testing.T) {
 		t.Fatalf("UpdateReferences failed: %v", err)
 	}
 	out, _ := os.ReadFile(htmlPath)
-	if string(out) != orig {
-		t.Errorf("data-src must stay untouched, got: %s", out)
+	if string(out) != want {
+		t.Errorf("lazy-load attributes:\n got: %s\nwant: %s", out, want)
 	}
 }
 

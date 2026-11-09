@@ -440,9 +440,11 @@ func (c *srcsetContext) rewriteImgTag(tag, htmlDir string) string {
 }
 
 // imageRefAttrRe captures src/srcset/href attribute values (double- or single-
-// quoted). The leading separator class scopes rewriting to real attributes, so
-// prose text and prefixed attributes like data-src are never touched (GO-017).
-var imageRefAttrRe = regexp.MustCompile(`(?i)(?:^|[\s"'>])(?:src|srcset|href)\s*=\s*("[^"]*"|'[^']*')`)
+// quoted), plus the lazy-load forms data-src, data-srcset and data-bg that a
+// script promotes later — a carousel slide, a lightbox, a lazy loader (#400).
+// The leading separator class scopes rewriting to real attributes, so prose
+// text and other prefixed names (x-src, data-original) are never touched (GO-017).
+var imageRefAttrRe = regexp.MustCompile(`(?i)(?:^|[\s"'>])(?:src|srcset|href|data-src|data-srcset|data-bg)\s*=\s*("[^"]*"|'[^']*')`)
 
 // cssURLRe captures url(...) references in stylesheets and inline <style> blocks (GO-017).
 var cssURLRe = regexp.MustCompile(`(?i)url\(\s*("[^"]*"|'[^']*'|[^'")]+)\)`)
