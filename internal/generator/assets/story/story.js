@@ -14,6 +14,7 @@
   var column = document.querySelector(cfg.column || cfg.content || "article");
   var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   var labels = Object.assign({ left: "{n} min left", done: "Finished", present: "Presentation",
+    stage: "Photographs from the article", tools: "Story",
     sound: "Sound", close: "Close", pause: "Pause", play: "Play", prev: "Previous", next: "Next" }, cfg.labels);
   var trigger = cfg.trigger || 0.45; // the reading line, as a fraction of the viewport
 
@@ -77,7 +78,7 @@
 
   // ---- theme: every YAML theme key becomes a --story-* property ----------
   Object.keys(cfg.theme || {}).forEach(function (k) {
-    root.style.setProperty("--story-" + k.replace(/[A-Z]/g, function (c) { return "-" + c.toLowerCase(); }), cfg.theme[k]);
+    root.style.setProperty("--story-" + k.replace(/_/g, "-").replace(/[A-Z]/g, function (c) { return "-" + c.toLowerCase(); }), cfg.theme[k]);
   });
   if (cfg.safeTop) root.style.setProperty("--story-safe-top", cfg.safeTop);
   root.style.setProperty("--story-ms", (reduced ? 0 : seconds(cfg.transitionTime, 0.9) * 1000) + "ms");
@@ -177,14 +178,24 @@
     }
   }
 
+  // Everything story mode adds to the page sits in one named region, so a
+  // screen reader finds it as a landmark and no content floats outside one.
+  // Its children are fixed-positioned; the region itself takes no space.
+  var layer = document.createElement("div");
+  layer.className = "story-layer";
+  layer.setAttribute("role", "region");
+  layer.setAttribute("aria-label", labels.tools);
+  document.body.appendChild(layer);
+
   // ---- stage ---------------------------------------------------------------
   var stageCfg = cfg.stage || {};
   var stage = document.createElement("div");
   stage.className = "story-stage";
   stage.setAttribute("role", "img");
+  stage.setAttribute("aria-label", labels.stage);
   stage.tabIndex = 0;
   var stageFrames = slides.map(function (s) { var f = frame(s); stage.appendChild(f); return f; });
-  if (slides.length) document.body.appendChild(stage);
+  if (slides.length) layer.appendChild(stage);
   column.classList.add("story-content-host");
   if (stageCfg.width) root.style.setProperty("--story-stage-width", stageCfg.width);
   if (stageCfg.leftSpace) root.style.setProperty("--story-left-space", stageCfg.leftSpace);
@@ -205,8 +216,9 @@
 
   // ---- widgets -------------------------------------------------------------
   var widgets = (cfg.widgets || []).map(function (w) {
-    var el = document.createElement("aside");
+    var el = document.createElement("div"); // not <aside>: one landmark per tip would be noise
     el.className = "story-widget";
+    el.setAttribute("role", "note");
     el.dataset.type = w.type || "card";
     el.dataset.slot = (w.position || "bottom-right").split("-")[0];
     el.setAttribute("aria-live", "polite");
@@ -221,7 +233,7 @@
     if (pos[0] === "center") { el.style.top = "50%"; el.style.translate = "0 -50%"; } else el.style[pos[0]] = dy;
     if (w.width) el.style.width = w.width;
     Object.assign(el.style, w.style || {});
-    document.body.appendChild(el);
+    layer.appendChild(el);
     var at = w.always ? content : find(w.at), until = w.until ? find(w.until) : null;
     if (at && !until && !w.always) { // default: until the next heading after the anchor
       var all = Array.prototype.slice.call(content.querySelectorAll("h2, h3"));
@@ -263,8 +275,8 @@
   bar.className = "story-bar"; bar.dataset.pos = prog.position || "top"; bar.appendChild(fill);
   var time = document.createElement("div");
   time.className = "story-time"; time.setAttribute("aria-live", "off");
-  if (prog.bar !== false) document.body.appendChild(bar);
-  if (prog.timeLeft !== false) document.body.appendChild(time);
+  if (prog.bar !== false) layer.appendChild(bar);
+  if (prog.timeLeft !== false) layer.appendChild(time);
   function updateProgress() {
     var r = content.getBoundingClientRect();
     var p = Math.min(1, Math.max(0, (line() - r.top) / r.height));
@@ -364,10 +376,10 @@
     var sc = cfg.slideshow || {}, here = sc.startAt === "current";
     window.ssgStoryShow(here ? Math.max(0, current) : 0, !here);
     var n = window.ssgStory.narrator;
-    if (n && sc.narrate !== false && !n.reading()) n.start({ fromTop: !here });
+    if (n && sc.narrate !== false && !n.reading() && n.available()) n.start({ fromTop: !here });
   }
   if (slides.length) controls.appendChild(button(labels.present, "M3 5h18v11H3zM8 20h8v-2H8zM10 8v5l4-2.5z", present));
-  document.body.appendChild(controls);
+  layer.appendChild(controls);
   stage.addEventListener("click", present);
   stage.addEventListener("keydown", function (e) { if (e.key === "Enter") present(); });
 
@@ -380,7 +392,7 @@
       swap(stage, stageFrames, current, idx, idx >= 0 && slides[idx].effect);
       current = idx;
       stage.classList.toggle("is-on", idx >= 0);
-      stage.setAttribute("aria-label", idx >= 0 ? (slides[idx].alt || slides[idx].caption || "") : "");
+      stage.setAttribute("aria-label", (idx >= 0 && (slides[idx].alt || slides[idx].caption)) || labels.stage);
     }
     updateWidgets();
     updateProgress();
@@ -405,7 +417,7 @@
     document.dispatchEvent(new CustomEvent("ssg-story", { detail: Object.assign({ type: type }, detail) }));
   }
 
-  window.ssgStory = { cfg: cfg, slides: slides, labels: labels, frame: frame, swap: swap, load: load, emit: emit, present: present, widgets: widgets,
+  window.ssgStory = { cfg: cfg, layer: layer, slides: slides, labels: labels, frame: frame, swap: swap, load: load, emit: emit, present: present, widgets: widgets,
     content: content, controls: controls, readable: readable, refresh: function () { queue(); }, stage: stage, slideFor: slideFor, line: line,
     seconds: seconds, sound: sound, audio: audio, button: button, reduced: reduced,
     soundOn: function () { return soundBtn.getAttribute("aria-pressed") === "true"; } };

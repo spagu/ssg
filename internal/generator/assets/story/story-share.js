@@ -50,7 +50,7 @@
       var show = box.closest(".story-show");
       if (show.requestFullscreen && !document.fullscreenElement) show.requestFullscreen().catch(function () {});
       if (S.audio && !S.soundOn() && (S.cfg.audio || {}).withPresentation !== false) S.sound(true);
-      if (S.narrator && (S.cfg.slideshow || {}).narrate !== false) S.narrator.start({ fromTop: S.show.at() === 0 });
+      if (S.narrator && (S.cfg.slideshow || {}).narrate !== false && S.narrator.available()) S.narrator.start({ fromTop: S.show.at() === 0 });
     });
     b.classList.add("story-start");
     box.appendChild(b);

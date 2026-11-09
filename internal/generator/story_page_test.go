@@ -293,3 +293,23 @@ func TestWriteStoryAssetsError(t *testing.T) {
 		t.Error("no error writing over a directory")
 	}
 }
+
+// TestPendingImageExists: a link to x.webp resolves when x.jpg is in the
+// output and the post-build pass writes WebP; never without that pass (#405).
+func TestPendingImageExists(t *testing.T) {
+	out := t.TempDir()
+	if err := os.WriteFile(filepath.Join(out, "a.jpg"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	g := &Generator{config: Config{OutputDir: out}}
+	if g.refResolves("/a.webp", out) {
+		t.Error("no pending pass, no .webp")
+	}
+	g = &Generator{config: Config{OutputDir: out, PendingImageFormats: []string{"webp"}}}
+	if !g.refResolves("/a.webp", out) {
+		t.Error("a.webp comes from a.jpg")
+	}
+	if g.refResolves("/a.avif", out) || g.refResolves("/b.webp", out) || g.refResolves("/a.gif", out) {
+		t.Error("only the pending formats, and only from a source that exists")
+	}
+}

@@ -67,7 +67,9 @@ story:
 ```
 
 Keys may be written `snake_case` (ssg's style) or `camelCase`; the page script
-receives camelCase. The keys inside `pronounce`, `labels` and `theme` are data
+receives camelCase. With `webp: true` (or `image_formats`), a path may name the
+`.webp` the build will write. `check_links` accepts it when the source `.jpg`
+or `.png` is there, because the link check runs before the conversion. The keys inside `pronounce`, `labels` and `theme` are data
 and are passed as written. Paths such as `/media/logo.png` are site paths.
 
 ## Options
@@ -79,7 +81,7 @@ and are passed as written. Paths such as `/media/logo.png` are site paths.
 | `safe_top` | space kept free under a sticky site header (`96px`) |
 | `transition`, `transition_time` | `crossfade`, `slide`, `zoom`, `blur` or `kenburns`, and its length |
 | `figures`, `figure_skip`, `figure_min_width` | inline `<figure>`s join the slides; selectors to skip; the smallest width that counts |
-| `theme` | each key becomes `--story-<key>` (`accent`, `ink`, `paper`, `font`, `title_font`, `radius`) |
+| `theme` | each key becomes `--story-<key>` (`accent`, `accent_text`, `ink`, `paper`, `font`, `title_font`, `radius`). `accent_text` is the accent used as text on the paper. Its default is the accent mixed half with black, which keeps a bright brand colour at 4.5:1 or better |
 | `progress` | `bar`, `position` (`top` or `bottom`), `time_left`, `words_per_minute` |
 | `stage` | `side`, `width`, `min_width` (below it: a thumbnail), `hide_figures` |
 | `slides` | `{image, at, caption, alt, duration}`. `at` is a CSS selector or `text:…`, the first block containing that text |
@@ -143,6 +145,22 @@ written. Abbreviations the rules know (`e.g.`, `np.`, `łyż.`) do not end a
 sentence. The built-in sets live in `internal/generator/assets/story/pronounce/`.
 Every set's `examples` are tests that the browser's engine (`make test-story`)
 and the Go engine (`go test ./internal/generator`) must both pass.
+
+## Accessibility
+
+- **One named region:** everything story mode adds to the page (stage,
+  widgets, reading bar, buttons, the presentation) sits in a single region named
+  by `labels.tools` (default "Story").
+- **Named stage:** the stage is an image named after the photograph on show,
+  or `labels.stage` before the first one.
+- **Widgets are notes, not landmarks.** They take the widget's ink colour
+  whatever colours the site's theme gives `p` and `h3`.
+- **Phone layout:** below 700px the buttons show only their icons, keep their
+  names for screen readers, and wrap inside the gutters.
+- **Browsers without a voice:** in a browser without a working voice (no voices
+  installed), the narrator gives up after its first utterance fails or never
+  starts. The presentation then keeps to its own timer and stops starting the
+  narrator. The `narrator` event carries `failed: true`.
 
 ## Events
 

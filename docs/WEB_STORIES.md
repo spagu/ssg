@@ -20,6 +20,7 @@ web_stories:
   # min_images: 2                          # images a post needs, featured included
   # cta: Read the full article             # the last page's link text
   # narration: true                        # record each page through tts: (1.9.4)
+  # background_audio: /audio/theme.mp3     # the stories' soundtrack (1.9.5)
 ```
 
 `web_stories: true` is shorthand for `enabled: true`, but a story cannot be
@@ -28,12 +29,13 @@ made without `publisher_logo`, so you will normally write the mapping.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `enabled` | `false` | Turn the feature on. |
-| `publisher_logo` | — | A square image of at least 96×96 px, as a path the image pipeline finds: `assets/`, the static directory, the content source directory, the theme directory. AMP rejects a story without one, so without it the build prints a warning and makes **no** stories. |
+| `publisher_logo` | — | A square image of at least 96×96 px. ssg looks it up inside `assets/`, the static directory, the content source directory and the theme directory, in that order. A file at `assets/logo.png` can be written `logo.png` or, from the project root, `assets/logo.png` (since 1.9.5). AMP rejects a story without a logo, so without one the build makes **no** stories and its warning lists the directories it looked in. |
 | `sections` | `[posts]` | `posts`, `pages`, or a content directory such as `posts/recipes` (that directory and everything below it). |
 | `url` | `/web-stories/` | Where the hub lives; each story is at `<url><slug>/`. |
 | `pages` | `4` | The most photo pages a story has between the cover and the last page. |
 | `min_images` | `2` | How many distinct images (the featured one included) a post needs to get a story. |
 | `cta` | `Read the full article` | The last page's link text. Overrides the i18n catalog. |
+| `background_audio` | — | The stories' soundtrack (`amp-story background-audio`): a file the site serves, as a site path (`/audio/theme.mp3`, kept in `static/`), or a URL. The viewer hears it after tapping the speaker icon. A post's `story_audio:` front matter overrides it, and `story_audio: false` makes that post's story silent. A post's own [story mode](STORY.md) `audio` track for the day comes before it. A narrated story plays no soundtrack. (1.9.5) |
 | `narration` | `false` | Record what each page says through the site's [`tts:`](AUDIO.md) service. The page moves on when its recording ends (see [Narration](#narration)). |
 
 ## What is generated
@@ -208,6 +210,7 @@ Its context (`StoryContext`):
 | `.Pages` | The photo pages. |
 | `.CTA`, `.CTALabel`, `.CTAURL` | The last page, its link text, the article's URL. |
 | `.Post`, `.Site` | The post and the site, as in other templates. |
+| `.BackgroundAudio` | The soundtrack's URL, empty when there is none (1.9.5). `.Music` is the same value under its 1.9.4 name. |
 | `.Header`, `.Footer`, `.Recipe`, `.Music`, `.ExtraCSS`, `.RecommendedLabel` | From the post's `story:` settings (1.9.4); empty without them. `.Header` has `.URL`, `.Height`, `.Alt`; `.Footer` has `.Label` and `.Items` (`.URL`, `.Image`, `.Text`); `.Recipe` has `.Label` and `.Ingredients`. |
 
 An image has `.URL` (as the story writes it), `.Path` (rooted on the site),

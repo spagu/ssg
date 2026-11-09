@@ -3,6 +3,10 @@
    them on <html>, so a site restyles the whole thing without touching CSS. */
 :root {
   --story-accent: #ee8c31;
+  /* The accent as text on --story-paper: half the accent, half black, which
+     keeps a bright orange or yellow brand colour at 4.5:1 or better
+     (WCAG 1.4.3). theme.accent_text sets it outright. */
+  --story-accent-text: color-mix(in srgb, var(--story-accent) 50%, #000);
   --story-ink: #1d1b19;
   --story-paper: #fffaf3;
   --story-stage-width: 40vw;
@@ -108,12 +112,23 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
 .story-widget.is-on { opacity: 1; transform: none; pointer-events: auto; }
 .story-widget h3 { margin: 0 0 .3rem; font-size: 1rem; }
 .story-widget p { margin: 0; }
-.story-widget .story-stat { font: 700 2rem/1 var(--story-font); color: var(--story-accent); }
+/* A site's own p/h3/li colours are meant for its page background, not for the
+   widget's paper: inside a widget the text takes the widget's ink (#405). */
+.story-widget h3, .story-widget h4, .story-widget p, .story-widget li,
+.story-widget label, .story-widget span:not(.story-stat) { color: inherit; }
+.story-widget .story-stat { font: 700 2rem/1 var(--story-font); color: var(--story-accent-text); }
 .story-widget[data-type="quote"] { font-style: italic; font-size: 1.05rem; }
 
 /* ---- controls ----------------------------------------------------------- */
 .story-controls {
   position: fixed; right: 16px; bottom: 16px; z-index: 61; display: flex; gap: 8px;
+}
+/* On a phone the labelled buttons do not fit in one row: icons only, the
+   label kept for screen readers, wrapping inside the gutters (#405). */
+@media (max-width: 700px) {
+  .story-controls { left: 12px; right: 12px; bottom: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .story-controls .story-btn { font-size: 0; gap: 0; padding: .7rem; }
+  .story-controls .story-btn svg { width: 1.15rem; height: 1.15rem; }
 }
 .story-btn {
   display: inline-flex; align-items: center; gap: .45rem; border: 0; cursor: pointer;
@@ -244,7 +259,7 @@ html.story-side.story-left .story-ad-reading { right: auto; left: var(--story-st
 }
 .story-recipe-step {
   margin: .5rem 0 0 !important; font: 700 .8rem/1 var(--story-font); letter-spacing: .04em;
-  color: var(--story-accent-text, var(--story-accent));
+  color: var(--story-accent-text);
 }
 .story-recipe h4 { margin: .9rem 0 .3rem; font: 700 .78rem/1.2 var(--story-font); text-transform: uppercase; letter-spacing: .08em; }
 .story-recipe ul { list-style: none; margin: 0; padding: 0; }

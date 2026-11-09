@@ -803,6 +803,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
+		PendingImageFormats:    pendingImageFormats(cfg),
 		PostsPage:              cfg.PostsPage,
 		Title:                  cfg.Title,
 		Description:            cfg.Description,
@@ -1537,6 +1538,18 @@ func runWebP(cfg *config.Config, prof *generator.Profile) error {
 }
 
 // wantsFormat reports whether image_formats names a format.
+// pendingImageFormats are the formats runWebP will write after the build.
+func pendingImageFormats(cfg *config.Config) []string {
+	var out []string
+	if cfg.WebP || wantsFormat(cfg, "webp") {
+		out = append(out, "webp")
+	}
+	if wantsFormat(cfg, "avif") {
+		out = append(out, "avif")
+	}
+	return out
+}
+
 func wantsFormat(cfg *config.Config, name string) bool {
 	for _, f := range cfg.ImageFormats {
 		if strings.EqualFold(strings.TrimSpace(f), name) {

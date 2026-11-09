@@ -73,7 +73,7 @@ func (b *storyBuild) narrate(ctx *StoryContext, path, lang string) {
 	}
 	page(&ctx.CTA, ctx.CTALabel)
 	if narrated {
-		ctx.Music = ""
+		ctx.Music, ctx.BackgroundAudio = "", ""
 	}
 }
 

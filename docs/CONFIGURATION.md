@@ -1759,12 +1759,13 @@ Google Web Stories (AMP) made from posts. See [WEB_STORIES.md](WEB_STORIES.md).
 | Key | Default | Description |
 |-----|---------|-------------|
 | `web_stories.enabled` | `false` | Make a story from each selected post with a featured image. `web_stories: true` is shorthand. |
-| `web_stories.publisher_logo` | — | Square image, at least 96×96, found like `imageResize` sources. Required: without it no story is made (build warning). |
+| `web_stories.publisher_logo` | — | Square image, at least 96×96, found like `imageResize` sources: inside `assets/`, the static dir, the content source or the theme, or from the project root (`assets/logo.png`). Required: without it no story is made (the warning lists where it looked). |
 | `web_stories.sections` | `[posts]` | `posts`, `pages`, or a content directory (`posts/recipes`). |
 | `web_stories.url` | `/web-stories/` | The hub; stories live at `<url><slug>/`. |
 | `web_stories.pages` | `4` | Most photo pages between the cover and the last page. |
 | `web_stories.min_images` | `2` | Distinct images (featured included) a post needs. |
 | `web_stories.cta` | `Read the full article` | Last page's link text (overrides the i18n catalog). |
+| `web_stories.background_audio` | — | The stories' soundtrack, a site path or URL. A post's `story_audio:` overrides it (`false`: silent) (1.9.5). |
 | `web_stories.narration` | `false` | Record each page's text through `tts:`; pages advance with it (1.9.4). |
 
 Images are WebP when `webp: true` or `image_formats` includes `webp`, JPEG otherwise.

@@ -40,7 +40,7 @@ func mustReadBytes(t *testing.T, path string) []byte {
 
 func TestStoryBuildLogo(t *testing.T) {
 	g := storyBuildGen(t)
-	for logo, want := range map[string]string{"missing.png": "is not an image of this site", "broken.png": "publisher_logo:"} {
+	for logo, want := range map[string]string{"missing.png": "was not found — looked for it in assets, ", "broken.png": "publisher_logo:"} {
 		g.config.WebStories.PublisherLogo = logo
 		g.config.Quiet = false
 		var ok bool
