@@ -1031,7 +1031,8 @@ with `rel="manifest"` or sit at the root as `manifest.webmanifest`,
 
 By default WebP conversion **replaces** each original in the output (the
 historical behaviour): `logo.png` becomes `logo.webp` and references are
-rewritten to match. Rewriting covers `<img src>`/`srcset`, `href`, CSS
+rewritten to match. Rewriting covers `<img src>`/`srcset`, the lazy-load
+`data-src`/`data-srcset`/`data-bg` attributes (since 1.9.3), `href`, CSS
 `url(...)`, the `og:image`/`twitter:image` social-preview metas and the JSON-LD
 `image` value — so share previews follow the conversion instead of pointing at a
 removed `.jpg`. Only references SSG cannot resolve to a local file stay on the

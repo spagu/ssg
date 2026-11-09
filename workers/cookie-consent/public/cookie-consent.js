@@ -352,8 +352,12 @@
         if (stored.c.indexOf(i.getAttribute("data-cat")) !== -1) i.checked = true;
       });
     }
+    // preventScroll: the dialog is appended at the end of <body>, and before
+    // its fixed positioning applies (CSS not loaded yet) a plain focus()
+    // scrolls the page down to it on first visit (#399). The dialog is fixed,
+    // so it is visible wherever the page stays.
     var first = dlg.querySelector("button");
-    if (first) first.focus();
+    if (first) first.focus({ preventScroll: true });
   }
 
   function close(wrap) {

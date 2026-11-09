@@ -18,7 +18,8 @@ It is compliant, not decorative:
 - **Keyboard-safe modal.** Per the ARIA APG modal dialog pattern, Tab and
   Shift+Tab cycle inside the dialog instead of escaping to the page behind, and
   closing it (a choice, or Escape) returns focus to the element that opened it —
-  a `data-cookie-settings` link, say.
+  a `data-cookie-settings` link, say. Opening it moves focus to its first
+  button without scrolling the page.
 - **Localised.** English, Polish, German, French and Hindi built in, picked
   from `<html lang>` (falling back to `defaultLang`); `i18n.<lang>` in the
   config overrides single strings or adds a language.
