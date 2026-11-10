@@ -24,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   after it, or its alt text. `figures: true` (the default) still takes only
   `<figure>`s and paragraphs holding nothing but a photo. The docs now say
   that the Presentation button needs at least one slide.
+- **An assistant can turn on the features added since 1.8.16** (#410).
+  `designer_config_set` (MCP) now also accepts:
+  - switches: `story`, `listen`, `print`, `cook_mode`, `heading_anchors`,
+    `og_cards`, `breadcrumbs`;
+  - publishing for agents: `markdown_publish`, `site_graph`, `webmcp`,
+    `search_index`, `outputs`;
+  - `image_formats`, `clean_special_chars`, `autolink_list_items`,
+    `strip_md_link_text`;
+  - the share identity, key by key: `marketing.og_site_name`, `og_image`,
+    `twitter_site`, `theme_color`, `logo`, `favicon`, `apple_touch_icon`.
+
+  A switch writes `<key>.enabled`, so the feature's other settings stay as the
+  author wrote them; a key already written as `listen: true` stays a scalar.
+  Lists are given comma-separated (`"webp,avif"`). A list never replaces a
+  mapping (`outputs:` per content type): that write is refused.
+  `marketing.verification` (search-console tokens) stays refused. `webp`
+  stays on the list.
 
 ### Fixed
 

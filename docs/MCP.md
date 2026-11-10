@@ -68,7 +68,12 @@ Writes are confined to the template and asset directories. The designer cannot
 edit content, delete files, or write outside those directories.
 
 `designer_config_set` is deliberately narrow — an allow-list of presentation
-keys such as the theme, the Mermaid theme, the highlight style and minification.
+keys such as the theme, the highlight style and minification. It also covers
+switches for story mode, the Listen, Print and Cook Mode buttons, heading
+anchors, share cards and breadcrumbs, and the files published for agents
+(`markdown_publish`, `site_graph`, `webmcp`). A switch writes `<key>.enabled`
+and leaves the feature's other settings alone. The full list is in
+[CONFIGURATION.md](CONFIGURATION.md#designer-owned-configuration-keys).
 **Secrets, deployment, server, endpoints, hooks and URL structure are neither
 readable nor writable.** Call `designer_config_read` first: it returns the key
 names, the current values and what each one does.
