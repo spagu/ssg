@@ -61,15 +61,15 @@ type StoryContext struct {
 	Post          models.Page
 	Site          *models.SiteData
 	// From the post's story: settings (1.9.4); empty without them.
-	Header   *StoryLogo   // the site's logo over every page
-	Footer   *StoryFooter // promos rotating at the bottom, and a page of them
-	Recipe   *StoryRecipe // the ingredients as a pull-up panel
-	Music    string       // the soundtrack; BackgroundAudio by its 1.9.4 name
+	Header *StoryLogo   // the site's logo over every page
+	Footer *StoryFooter // promos rotating at the bottom, and a page of them
+	Recipe *StoryRecipe // the ingredients as a pull-up panel
+	Music  string       // the soundtrack; BackgroundAudio by its 1.9.4 name
 	// BackgroundAudio is the story's soundtrack (amp-story background-audio):
 	// the post's story_audio, else today's story: audio, else
 	// web_stories.background_audio; empty when narrated (1.9.5, #403).
 	BackgroundAudio string
-	ExtraCSS template.CSS // the footer's rotation
+	ExtraCSS        template.CSS // the footer's rotation
 	// RecommendedLabel titles the footer's page when it has no label.
 	RecommendedLabel string
 }

@@ -104,16 +104,29 @@
       var f = img.closest("figure");
       if (!f) { // a paragraph holding nothing but the photo
         var p = img.closest("p");
-        if (!p || !content.contains(p) || readable(p)) return;
-        p.classList.add("story-fig");
-        f = p;
+        if (p && content.contains(p) && !readable(p)) {
+          p.classList.add("story-fig");
+          f = p;
+        } else if (cfg.figures === "all") {
+          // Any photo in the text (#407): Markdown ![](), WordPress's bare
+          // <img> or a photo inside a paragraph of text. It stays where it is
+          // on the page; only the slide is added.
+          var a = img.parentElement;
+          f = a && a.tagName === "A" && a.children.length === 1 ? a : img;
+        } else return;
       }
       if (hosts.indexOf(f) === -1) hosts.push(f);
     });
     hosts.forEach(function (f) {
-      var img = Array.prototype.filter.call(f.querySelectorAll("img"), storyImg)[0];
+      var img = f.tagName === "IMG" ? f : Array.prototype.filter.call(f.querySelectorAll("img"), storyImg)[0];
       if (!img || slides.some(function (s) { return s.image === imgSrc(img); })) return;
-      var cap = f.querySelector("figcaption");
+      var cap = f.querySelector && f.querySelector("figcaption");
+      if (!cap && !f.classList.contains("story-fig") && f.tagName !== "FIGURE") {
+        // A bare photo's caption: the <em> right after it, as WordPress and
+        // Markdown write one, else its alt text.
+        var next = f.nextElementSibling;
+        cap = next && next.tagName === "EM" ? next : { textContent: img.alt || "" };
+      }
       // A marker before the figure keeps its place: a figure hidden on wide
       // screens (hideFigures) has no position of its own.
       var mark = document.createElement("span");

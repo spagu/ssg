@@ -18,12 +18,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   narrator speaks, the music still drops to `narrator.duck` of the current
   level, and moving the slider mid-sentence keeps it lowered. New label:
   `labels.music`.
+- **`story.figures: all`: any photo in the article becomes a slide** (#407).
+  This covers a photo inside a paragraph of text and a bare `<img>`, as
+  Markdown and WordPress content has them. Its caption is the `<em>` right
+  after it, or its alt text. `figures: true` (the default) still takes only
+  `<figure>`s and paragraphs holding nothing but a photo. The docs now say
+  that the Presentation button needs at least one slide.
 
 ### Fixed
 
+- **The title card's photo loads on staging** (#408). `og:image` is absolute
+  on the production domain. On any other host (a staging copy,
+  `ssg --http`, before a DNS move), the presentation now loads the same path
+  from the host the page is on. A card photo that still fails falls back to
+  the first slide. `byline: auto` takes the `<time>` inside the meta line
+  when there is one, instead of the whole line with its links.
 - **The settings panel opens above the presentation's photo and sponsor
   strip.** Opened from the presentation's bar, the voice, speed and subtitles
   panel was cut off under both.
+
+### Changed
+
+- Dependencies: quic-go 0.65.0, golang.org/x/image 0.48.0, x/text 0.44.0,
+  x/sync 0.25.0, x/sys 0.50.0.
 
 ## [1.9.5] - 2026-11-09
 

@@ -63,6 +63,9 @@ func TestStoryBuild(t *testing.T) {
 	if share, _ := settings["share"].(map[string]any); share["webStory"] != "/web-stories/chocolate-cake/" {
 		t.Errorf("the post links its Web Story: %v", settings["share"])
 	}
+	if settings["siteHost"] != "example.com" {
+		t.Errorf("the script knows the site's own host: %v", settings["siteHost"])
+	}
 	for _, f := range append(append([]string{}, storyScripts...), storyStyles...) {
 		if !strings.Contains(post, "/assets/ssg-story/"+f+"?v="+storyAssetVersion) {
 			t.Errorf("page does not load %s", f)
