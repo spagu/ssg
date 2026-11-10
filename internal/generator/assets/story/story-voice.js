@@ -12,7 +12,8 @@
   var S = window.ssgStory;
   if (!S || S.cfg.narrator === false || !("speechSynthesis" in window)) return;
   var cfg = Object.assign({ voice: "", rate: 1, pitch: 1, duck: 0.3, subtitles: true, title: true }, S.cfg.narrator);
-  var L = Object.assign({ listen: "Listen", stop: "Stop", voice: "Voice", speed: "Speed", subtitles: "Subtitles" }, S.cfg.labels);
+  var L = Object.assign({ listen: "Listen", stop: "Stop", voice: "Voice", speed: "Speed", subtitles: "Subtitles",
+    music: "Music volume" }, S.cfg.labels);
   var synth = window.speechSynthesis;
   var lang = (document.documentElement.lang || "en").toLowerCase().replace("_", "-");
   var KEY = "ssg-story-voice";
@@ -61,7 +62,7 @@
   }
 
   // ---- state -----------------------------------------------------------------
-  var reading = false, run = 0, idx = 0, baseVolume = null;
+  var reading = false, run = 0, idx = 0;
   var buttons = [];
 
   function mark(b) {
@@ -76,11 +77,8 @@
   // Subtitles are on unless the config or the reader turned them off.
   function subsOn() { return cfg.subtitles && saved.subs !== false; }
   function subtitle(t) { if (S.show) S.show.subtitle(subsOn() ? t : ""); }
-  function duck(on) {
-    if (!S.audio || !S.soundOn()) return;
-    if (on && baseVolume == null) { baseVolume = S.audio.volume; S.audio.volume = baseVolume * cfg.duck; }
-    if (!on && baseVolume != null) { S.audio.volume = baseVolume; baseVolume = null; }
-  }
+  // The music steps down while the narrator speaks (story.js keeps the level).
+  function duck(on) { if (S.duck) S.duck(on ? cfg.duck : 1); }
 
   // A browser without a working voice (no voices installed, as in headless
   // Chromium or a minimal Linux desktop) ends or fails each utterance at
@@ -234,6 +232,20 @@
       l.appendChild(pair[1]);
       wrap.appendChild(l);
     });
+    if (S.audio && S.setMusicLevel) { // the music's own level, for this reader
+      var vol = document.createElement("input");
+      vol.type = "range"; vol.min = "0"; vol.max = "100"; vol.step = "5";
+      vol.value = String(Math.round(S.musicLevel() * 100));
+      vol.setAttribute("aria-label", L.music);
+      vol.addEventListener("input", function () { S.setMusicLevel(vol.value / 100); });
+      document.addEventListener("ssg-story", function (e) {
+        if (e.detail.type === "volume" && document.activeElement !== vol) vol.value = String(Math.round(e.detail.level * 100));
+      });
+      var vl = document.createElement("label");
+      vl.appendChild(document.createTextNode(L.music));
+      vl.appendChild(vol);
+      wrap.appendChild(vl);
+    }
     var sl = document.createElement("label");
     sl.className = "story-voice-check";
     sl.appendChild(subs);

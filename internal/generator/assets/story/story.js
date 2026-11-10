@@ -330,9 +330,32 @@
       audio.play().catch(function () {});
     });
   }
+  // The music's level: the reader's own (the settings panel's slider, kept in
+  // this browser), else the track's `volume`, else `music_volume`, else 0.4.
+  // While the narrator speaks it is lowered by `duckBy`.
+  var MUSIC_KEY = "ssg-story-music", readerLevel = null, duckBy = 1;
+  try {
+    var kept = parseFloat(localStorage.getItem(MUSIC_KEY));
+    if (kept >= 0 && kept <= 1) readerLevel = kept;
+  } catch (e) { /* private mode: the configured level */ }
+  function level() {
+    if (readerLevel != null) return readerLevel;
+    var v = cfg.audio && cfg.audio.volume != null ? cfg.audio.volume : cfg.musicVolume;
+    return v == null ? 0.4 : Math.min(1, Math.max(0, +v));
+  }
+  function setLevel(v) {
+    readerLevel = Math.min(1, Math.max(0, v));
+    try { localStorage.setItem(MUSIC_KEY, String(readerLevel)); } catch (e) { /* keep it for this page */ }
+    if (audio && !audio.paused) audio.volume = readerLevel * duckBy;
+    emit("volume", { level: readerLevel });
+  }
+  function duck(by) {
+    duckBy = by;
+    if (audio && !audio.paused) fade(level() * duckBy);
+  }
   function sound(on) {
     if (!audio) return;
-    var vol = cfg.audio.volume == null ? 0.4 : cfg.audio.volume;
+    var vol = level() * duckBy;
     // A browser that blocks sound before the visitor touches the page
     // rejects play(); the button then says "off", as it is.
     if (on) {
@@ -420,5 +443,6 @@
   window.ssgStory = { cfg: cfg, layer: layer, slides: slides, labels: labels, frame: frame, swap: swap, load: load, emit: emit, present: present, widgets: widgets,
     content: content, controls: controls, readable: readable, refresh: function () { queue(); }, stage: stage, slideFor: slideFor, line: line,
     seconds: seconds, sound: sound, audio: audio, button: button, reduced: reduced,
+    musicLevel: level, setMusicLevel: setLevel, duck: duck,
     soundOn: function () { return soundBtn.getAttribute("aria-pressed") === "true"; } };
 })();

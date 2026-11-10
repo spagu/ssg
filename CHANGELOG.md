@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.6] - 2026-11-10
+
+### Added
+
+- **Music volume in story mode.** The settings panel (the gear button) has a
+  *Music volume* slider. The reader's level is kept in their browser and wins
+  over the configured one. `story.music_volume` sets the default level for
+  tracks without their own `volume` (0.4 when neither is set). While the
+  narrator speaks, the music still drops to `narrator.duck` of the current
+  level, and moving the slider mid-sentence keeps it lowered. New label:
+  `labels.music`.
+
+### Fixed
+
+- **The settings panel opens above the presentation's photo and sponsor
+  strip.** Opened from the presentation's bar, the voice, speed and subtitles
+  panel was cut off under both.
+
 ## [1.9.5] - 2026-11-09
 
 ### Added

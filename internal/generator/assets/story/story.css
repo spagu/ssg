@@ -157,6 +157,9 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
 .story-show-bar {
   display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   background: #0d0c0b; font: 600 .8rem/1 var(--story-font);
+  /* Above the photo and the sponsor strip: the settings panel opens upwards
+     out of the bar and must not slide under either. */
+  position: relative; z-index: 10;
 }
 .story-show-bar .story-btn { background: #24211e; box-shadow: none; padding: .55rem .8rem; }
 .story-dots { display: flex; gap: 6px; flex: 1; }
@@ -247,6 +250,8 @@ html.story-side.story-left .story-ad-reading { right: auto; left: var(--story-st
 }
 .story-voice-panel[hidden] { display: none; }
 .story-voice-panel label { display: grid; gap: 4px; }
+.story-voice-panel { z-index: 10; }
+.story-voice-panel input[type="range"] { width: 100%; accent-color: var(--story-accent); }
 .story-voice-panel select { font: inherit; font-weight: 400; padding: .4rem; border-radius: 6px; border: 1px solid #b9b0a5; background: #fff; color: #1d1b19; }
 
 /* ---- recipe widget ------------------------------------------------------- */

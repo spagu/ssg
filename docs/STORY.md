@@ -87,11 +87,12 @@ and are passed as written. Paths such as `/media/logo.png` are site paths.
 | `slides` | `{image, at, caption, alt, duration}`. `at` is a CSS selector or `text:…`, the first block containing that text |
 | `widgets` | `{at, type, stat, title, text, until}`. Types: `card` (default), `stat`, `quote`, `recipe` |
 | `audio` | one track or a list; the first whose window holds today plays (see below) |
+| `music_volume` | the music's level from 0 to 1 when a track sets no `volume` (default `0.4`) |
 | `narrator` | `voice`, `rate`, `pitch`, `duck`, `subtitles`, `title`, `pronounce`, `pronounce_defaults` |
 | `slideshow` | `title`, `header`, `footer`, `end`, `autoplay`, `interval`, `loop`, `fit`, `gestures`, `return_to_text` |
 | `share` | `networks` (facebook, x, whatsapp, telegram, linkedin, pinterest, email, copy), `native` |
 | `analytics` | `prefix` of the `dataLayer` events (default `story_`) |
-| `labels` | every text on screen: `left`, `done`, `present`, `listen`, `stop`, `share`… |
+| `labels` | every text on screen: `left`, `done`, `present`, `listen`, `stop`, `share`, `music`… |
 
 ### Music by date
 
@@ -104,7 +105,14 @@ story:
 ```
 
 A window is `MM-DD` (and may wrap the new year) or `YYYY-MM-DD`. A playlist
-plays in random order. Browsers start sound only after a click, so music
+plays in random order.
+
+**Volume.** A track's `volume` (0 to 1) sets how loud it plays, and
+`music_volume` is the level for tracks that set none (default 0.4). The reader
+can change it with the *Music volume* slider in the settings panel (the gear
+button). That level is remembered in their browser and wins over the
+configured one. While the narrator speaks, the music drops to `narrator.duck`
+of the current level (default 30%). Browsers start sound only after a click, so music
 begins with the presentation or the reader's Sound button. ssg ships no music.
 Use tracks you hold the rights to.
 
