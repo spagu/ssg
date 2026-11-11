@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--story-accent-on-dark`: the accent mixed 35% with white, about 8:1 there.
   `theme.accent_on_dark` sets it outright, as `accent_text` does for text on
   the paper.
+- **The end of an article clears story mode's buttons** (#413). The floating
+  controls and the time left covered the page's footer and the "Built with
+  ssg" notice. A page with story mode now has room under its body: 5rem, and
+  7.5rem on a phone, where the buttons can wrap to two rows.
 
 ## [1.9.6] - 2026-11-10
 

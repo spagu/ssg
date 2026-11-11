@@ -127,10 +127,14 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
 .story-controls {
   position: fixed; right: 16px; bottom: 16px; z-index: 61; display: flex; gap: 8px;
 }
+/* The buttons and the time left float over the page's last lines; room under
+   the body lets the footer (and its "Built with ssg") scroll clear of them. */
+body:has(.story-controls) { padding-bottom: 5rem; }
 /* On a phone the labelled buttons do not fit in one row: icons only, the
    label kept for screen readers, wrapping inside the gutters (#405). */
 @media (max-width: 700px) {
   .story-controls { left: 12px; right: 12px; bottom: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  body:has(.story-controls) { padding-bottom: 7.5rem; }
   .story-controls .story-btn { font-size: 0; gap: 0; padding: .7rem; }
   .story-controls .story-btn svg { width: 1.15rem; height: 1.15rem; }
 }
