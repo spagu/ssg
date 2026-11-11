@@ -118,6 +118,11 @@ func (g *Generator) storyFinish(settings map[string]any, page models.Page) {
 	}
 	delete(narrator, "pronounceDefaults")
 	settings["narrator"] = narrator
+	// The script serves the site's own absolute URLs (og:image) from the host
+	// the page is on, so a staging copy does not reach for production (#408).
+	if host := hostOnly(g.config.Domain); host != "" {
+		settings["siteHost"] = host
+	}
 	if href := g.webStories.byPost[page.GetURL()]; href != "" {
 		share, _ := settings["share"].(map[string]any)
 		if share == nil {

@@ -104,16 +104,29 @@
       var f = img.closest("figure");
       if (!f) { // a paragraph holding nothing but the photo
         var p = img.closest("p");
-        if (!p || !content.contains(p) || readable(p)) return;
-        p.classList.add("story-fig");
-        f = p;
+        if (p && content.contains(p) && !readable(p)) {
+          p.classList.add("story-fig");
+          f = p;
+        } else if (cfg.figures === "all") {
+          // Any photo in the text (#407): Markdown ![](), WordPress's bare
+          // <img> or a photo inside a paragraph of text. It stays where it is
+          // on the page; only the slide is added.
+          var a = img.parentElement;
+          f = a && a.tagName === "A" && a.children.length === 1 ? a : img;
+        } else return;
       }
       if (hosts.indexOf(f) === -1) hosts.push(f);
     });
     hosts.forEach(function (f) {
-      var img = Array.prototype.filter.call(f.querySelectorAll("img"), storyImg)[0];
+      var img = f.tagName === "IMG" ? f : Array.prototype.filter.call(f.querySelectorAll("img"), storyImg)[0];
       if (!img || slides.some(function (s) { return s.image === imgSrc(img); })) return;
-      var cap = f.querySelector("figcaption");
+      var cap = f.querySelector && f.querySelector("figcaption");
+      if (!cap && !f.classList.contains("story-fig") && f.tagName !== "FIGURE") {
+        // A bare photo's caption: the <em> right after it, as WordPress and
+        // Markdown write one, else its alt text.
+        var next = f.nextElementSibling;
+        cap = next && next.tagName === "EM" ? next : { textContent: img.alt || "" };
+      }
       // A marker before the figure keeps its place: a figure hidden on wide
       // screens (hideFigures) has no position of its own.
       var mark = document.createElement("span");
@@ -330,9 +343,32 @@
       audio.play().catch(function () {});
     });
   }
+  // The music's level: the reader's own (the settings panel's slider, kept in
+  // this browser), else the track's `volume`, else `music_volume`, else 0.4.
+  // While the narrator speaks it is lowered by `duckBy`.
+  var MUSIC_KEY = "ssg-story-music", readerLevel = null, duckBy = 1;
+  try {
+    var kept = parseFloat(localStorage.getItem(MUSIC_KEY));
+    if (kept >= 0 && kept <= 1) readerLevel = kept;
+  } catch (e) { /* private mode: the configured level */ }
+  function level() {
+    if (readerLevel != null) return readerLevel;
+    var v = cfg.audio && cfg.audio.volume != null ? cfg.audio.volume : cfg.musicVolume;
+    return v == null ? 0.4 : Math.min(1, Math.max(0, +v));
+  }
+  function setLevel(v) {
+    readerLevel = Math.min(1, Math.max(0, v));
+    try { localStorage.setItem(MUSIC_KEY, String(readerLevel)); } catch (e) { /* keep it for this page */ }
+    if (audio && !audio.paused) audio.volume = readerLevel * duckBy;
+    emit("volume", { level: readerLevel });
+  }
+  function duck(by) {
+    duckBy = by;
+    if (audio && !audio.paused) fade(level() * duckBy);
+  }
   function sound(on) {
     if (!audio) return;
-    var vol = cfg.audio.volume == null ? 0.4 : cfg.audio.volume;
+    var vol = level() * duckBy;
     // A browser that blocks sound before the visitor touches the page
     // rejects play(); the button then says "off", as it is.
     if (on) {
@@ -420,5 +456,6 @@
   window.ssgStory = { cfg: cfg, layer: layer, slides: slides, labels: labels, frame: frame, swap: swap, load: load, emit: emit, present: present, widgets: widgets,
     content: content, controls: controls, readable: readable, refresh: function () { queue(); }, stage: stage, slideFor: slideFor, line: line,
     seconds: seconds, sound: sound, audio: audio, button: button, reduced: reduced,
+    musicLevel: level, setMusicLevel: setLevel, duck: duck,
     soundOn: function () { return soundBtn.getAttribute("aria-pressed") === "true"; } };
 })();

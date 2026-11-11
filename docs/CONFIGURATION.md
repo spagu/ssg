@@ -2887,15 +2887,28 @@ Presentation does not live in templates alone — the theme, the syntax-highligh
 style, whether diagrams render. So the designer gets `designer_config_read` and
 `designer_config_set` over a **narrow allow-list** of presentation settings:
 
-`template`, `templates_dir`, `static_dir`, `mermaid`, `mermaid_theme`,
-`mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`,
-`math`, `toc`, `toc_depth`, `minify_html`, `minify_css`, `minify_js`,
-`minify_all`, `pretty_html`, `sourcemap`, `fingerprint`, `paginate`, `webp`,
-`webp_quality`, `image_sizes_attr`.
+| Kind | Keys |
+|---|---|
+| Site | `title`, `description` |
+| Theme and rendering | `template`, `templates_dir`, `static_dir`, `mermaid`, `mermaid_theme`, `mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`, `math`, `toc`, `toc_depth`, `paginate` |
+| Text | `clean_special_chars`, `autolink_list_items`, `strip_md_link_text` |
+| Output | `minify_html`, `minify_css`, `minify_js`, `minify_all`, `pretty_html`, `sourcemap`, `fingerprint` |
+| Images | `webp`, `webp_quality`, `image_formats`, `image_sizes_attr` |
+| Switches (1.9.6) | `story`, `listen`, `print`, `cook_mode`, `heading_anchors`, `og_cards`, `breadcrumbs` |
+| For agents (1.9.6) | `markdown_publish`, `site_graph`, `webmcp`, `search_index`, `outputs` |
+| Share identity (1.9.6) | `marketing.og_site_name`, `marketing.og_image`, `marketing.twitter_site`, `marketing.theme_color`, `marketing.logo`, `marketing.favicon`, `marketing.apple_touch_icon` |
+
+A **switch** takes `true` or `false` and writes `<key>.enabled`, so the
+feature's other settings (a story's slideshow, the Listen button's voice) stay
+as you wrote them. A switch you wrote as `heading_anchors: true` stays a
+scalar. `designer_config_read` shows a switch by its `enabled` alone. **Lists**
+(`image_formats`, `outputs`) are given comma-separated, `"webp,avif"`. A list
+never replaces a mapping: `outputs:` written per content type is refused, and
+you edit it in the file.
 
 Every other key is refused by construction — secrets (API keys, tokens,
-`jwt_secret`, auth), deployment, server, endpoints, hooks, `sass_binary` (an
-executable path) and all content/URL structure. `designer_config_read` shows only
+`jwt_secret`, auth, `marketing.verification`), deployment, server, endpoints,
+hooks, `sass_binary` (an executable path) and all content/URL structure. `designer_config_read` shows only
 the writable keys, so the rest of the file is never even surfaced to the model.
 
 Three properties make this safe to hand over:

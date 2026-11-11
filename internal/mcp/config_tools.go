@@ -11,63 +11,10 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/spagu/ssg/internal/config"
 )
-
-// configKey is one presentation setting the designer may change.
-type configKey struct {
-	kind string // "bool", "int" or "string"
-	desc string
-}
-
-// designerConfigKeys is the complete set of writable keys. Anything absent here
-// is refused — notably every secret (`ai.*.key`, `mcp.git.token`, `jwt_secret`,
-// auth), deployment, server, endpoint, hook and URL-structure setting, plus
-// `sass_binary` (an executable path).
-//
-// The test for membership is not "is it about rendering" but: does it carry a
-// secret, change where the site deploys, what the server does, or what a URL
-// is? The site's own name and description fail all four, and they are what a
-// designer or content manager most obviously expects to edit — asking an
-// assistant to change the site title used to dead-end, with hardcoding the
-// string into four templates as the only MCP-reachable answer (#212).
-//
-// `language` and `author` were suggested alongside them and are deliberately
-// absent: neither exists as a top-level config key. `default_language` does,
-// but it drives i18n, URL prefixes and hreflang — a URL-structure setting, and
-// so refused by the rule above rather than by oversight.
-var designerConfigKeys = map[string]configKey{
-	"title":                  {"string", "the site's name, used in <title>, og:site_name and feeds"},
-	"description":            {"string", "the site's description, used in the meta description and feeds"},
-	"template":               {"string", "theme name used to render the site"},
-	"templates_dir":          {"string", "directory themes are loaded from"},
-	"static_dir":             {"string", "directory copied verbatim into the output"},
-	"mermaid":                {"bool", "render mermaid diagrams"},
-	"mermaid_theme":          {"string", "mermaid built-in theme (default, neutral, dark, forest, base)"},
-	"mermaid_background":     {"string", "mermaid background colour, e.g. \"#ffffff\""},
-	"highlight":              {"bool", "syntax-highlight fenced code blocks"},
-	"highlight_style":        {"string", "syntax-highlight colour scheme"},
-	"highlight_line_numbers": {"bool", "show line numbers in highlighted code"},
-	"math":                   {"bool", "render KaTeX math"},
-	"toc":                    {"bool", "generate a table of contents"},
-	"toc_depth":              {"int", "heading depth the table of contents covers"},
-	"minify_html":            {"bool", "minify generated HTML"},
-	"minify_css":             {"bool", "minify generated CSS"},
-	"minify_js":              {"bool", "minify generated JS"},
-	"minify_all":             {"bool", "minify HTML, CSS and JS together"},
-	"pretty_html":            {"bool", "indent generated HTML for readability"},
-	"sourcemap":              {"bool", "emit source maps for compiled assets"},
-	"fingerprint":            {"bool", "content-hash asset filenames for cache busting"},
-	"paginate":               {"int", "posts per page in listings"},
-	"webp":                   {"bool", "generate WebP variants of images"},
-	"webp_quality":           {"int", "WebP encoder quality (1-100)"},
-	"image_sizes_attr":       {"string", "default sizes attribute for responsive images"},
-}
 
 // configTools returns the designer's configuration tools. They exist only when a
 // config file is known; without one there is nothing to edit.
@@ -85,14 +32,15 @@ func (s *Server) configTools() []tool {
 		{
 			name: "designer_config_set",
 			description: "DESIGNER · Change one presentation setting in the site configuration (e.g. " +
-				"the theme, the mermaid theme, the highlight style, minification). CAN: set the keys " +
+				"the theme, the highlight style, story mode, the Listen button, share cards). CAN: set the keys " +
 				"listed by designer_config_read. CANNOT: touch secrets (API keys, tokens, passwords), " +
 				"deployment, server, endpoints, hooks, or content/URL structure — those are refused. " +
 				"The file is validated after the edit and the change is rolled back if it would leave " +
 				"the configuration invalid. Comments and key order in the file are preserved.",
 			schema: objectSchema(map[string]any{
-				"key":   stringProp("Setting to change, e.g. \"mermaid_theme\" (must be one from designer_config_read)"),
-				"value": stringProp("New value; \"true\"/\"false\" for switches, a number for counts, otherwise text"),
+				"key": stringProp("Setting to change, e.g. \"mermaid_theme\" (must be one from designer_config_read)"),
+				"value": stringProp("New value; \"true\"/\"false\" for switches, a number for counts, " +
+					"comma-separated for lists (\"webp,avif\"), otherwise text"),
 			}, "key", "value"),
 			handler: s.configSet,
 		},
@@ -112,7 +60,7 @@ func (s *Server) configRead(map[string]any) toolResult {
 		if !set {
 			val = "(not set — the built-in default applies)"
 		}
-		fmt.Fprintf(&b, "  %-22s = %-24s %s (%s)\n", k, val, def.desc, def.kind)
+		fmt.Fprintf(&b, "  %-28s = %-24s %s (%s)\n", k, val, def.desc, def.kind)
 	}
 	b.WriteString("\nEverything else in the file — secrets, deployment, server, endpoints, hooks,\n" +
 		"content and URL structure — is read-only for you and will be refused.")
@@ -140,7 +88,7 @@ func (s *Server) configSet(args map[string]any) toolResult {
 	if err != nil {
 		return errResult("could not read " + path + ": " + err.Error())
 	}
-	updated, err := config.SetYAMLKey(before, key, typed)
+	updated, err := writeConfigKey(before, key, def.kind, typed)
 	if err != nil {
 		return errResult("could not update " + path + ": " + err.Error())
 	}
@@ -168,19 +116,6 @@ func sortedConfigKeys() []string {
 	return keys
 }
 
-// typedConfigValue converts the string argument to the key's declared type, so
-// the written YAML holds a real bool/int rather than a quoted string.
-func typedConfigValue(kind, raw string) (interface{}, error) {
-	switch kind {
-	case "bool":
-		return strconv.ParseBool(raw)
-	case "int":
-		return strconv.Atoi(raw)
-	default:
-		return raw, nil
-	}
-}
-
 // readConfigValues returns the current values of the writable keys, formatted for
 // display. Only those keys are read — the rest of the file is never surfaced.
 func readConfigValues(path string) (map[string]string, error) {
@@ -194,9 +129,37 @@ func readConfigValues(path string) (map[string]string, error) {
 	}
 	out := map[string]string{}
 	for k := range designerConfigKeys {
-		if v, ok := doc[k]; ok {
-			out[k] = fmt.Sprintf("%v", v)
+		if v, ok := lookupConfigValue(doc, k); ok {
+			out[k] = displayConfigValue(v)
 		}
 	}
 	return out, nil
+}
+
+// lookupConfigValue follows a dotted key ("marketing.logo") into the decoded file.
+func lookupConfigValue(doc map[string]interface{}, key string) (interface{}, bool) {
+	var cur interface{} = doc
+	for _, seg := range strings.Split(key, ".") {
+		m, ok := cur.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		if cur, ok = m[seg]; !ok {
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+// displayConfigValue shows a switch's mapping by its `enabled` alone: the rest
+// of it is the author's, and may hold paths or text the model need not see.
+func displayConfigValue(v interface{}) string {
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return fmt.Sprintf("%v", v)
+	}
+	if on, set := m["enabled"]; set {
+		return fmt.Sprintf("enabled: %v", on)
+	}
+	return "(settings in the file)"
 }

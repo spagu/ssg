@@ -80,18 +80,19 @@ and are passed as written. Paths such as `/media/logo.png` are site paths.
 | `trigger` | the reading line, as a fraction of the viewport (default `0.45`) |
 | `safe_top` | space kept free under a sticky site header (`96px`) |
 | `transition`, `transition_time` | `crossfade`, `slide`, `zoom`, `blur` or `kenburns`, and its length |
-| `figures`, `figure_skip`, `figure_min_width` | inline `<figure>`s join the slides; selectors to skip; the smallest width that counts |
+| `figures`, `figure_skip`, `figure_min_width` | photos in the article join the slides. `true` (default) takes `<figure>`s and paragraphs holding only a photo; `all` also takes a photo inside a paragraph of text or on its own, as Markdown and WordPress write them, captioned by the `<em>` right after it or its alt text. Then come selectors to skip and the smallest width that counts. The Presentation button appears only on a page with at least one slide |
 | `theme` | each key becomes `--story-<key>` (`accent`, `accent_text`, `ink`, `paper`, `font`, `title_font`, `radius`). `accent_text` is the accent used as text on the paper. Its default is the accent mixed half with black, which keeps a bright brand colour at 4.5:1 or better |
 | `progress` | `bar`, `position` (`top` or `bottom`), `time_left`, `words_per_minute` |
 | `stage` | `side`, `width`, `min_width` (below it: a thumbnail), `hide_figures` |
 | `slides` | `{image, at, caption, alt, duration}`. `at` is a CSS selector or `text:…`, the first block containing that text |
 | `widgets` | `{at, type, stat, title, text, until}`. Types: `card` (default), `stat`, `quote`, `recipe` |
 | `audio` | one track or a list; the first whose window holds today plays (see below) |
+| `music_volume` | the music's level from 0 to 1 when a track sets no `volume` (default `0.4`) |
 | `narrator` | `voice`, `rate`, `pitch`, `duck`, `subtitles`, `title`, `pronounce`, `pronounce_defaults` |
-| `slideshow` | `title`, `header`, `footer`, `end`, `autoplay`, `interval`, `loop`, `fit`, `gestures`, `return_to_text` |
+| `slideshow` | `title`, `header`, `footer`, `end`, `autoplay`, `interval`, `loop`, `fit`, `gestures`, `return_to_text`. The title card's `image: auto` takes `og:image`. On another host than the site's `domain` (staging, `ssg --http`) it loads from the host the page is on, and falls back to the first slide if it fails. `byline: auto` takes the `<time>` in the theme's `.post-meta` when there is one |
 | `share` | `networks` (facebook, x, whatsapp, telegram, linkedin, pinterest, email, copy), `native` |
 | `analytics` | `prefix` of the `dataLayer` events (default `story_`) |
-| `labels` | every text on screen: `left`, `done`, `present`, `listen`, `stop`, `share`… |
+| `labels` | every text on screen: `left`, `done`, `present`, `listen`, `stop`, `share`, `music`… |
 
 ### Music by date
 
@@ -104,7 +105,14 @@ story:
 ```
 
 A window is `MM-DD` (and may wrap the new year) or `YYYY-MM-DD`. A playlist
-plays in random order. Browsers start sound only after a click, so music
+plays in random order.
+
+**Volume.** A track's `volume` (0 to 1) sets how loud it plays, and
+`music_volume` is the level for tracks that set none (default 0.4). The reader
+can change it with the *Music volume* slider in the settings panel (the gear
+button). That level is remembered in their browser and wins over the
+configured one. While the narrator speaks, the music drops to `narrator.duck`
+of the current level (default 30%). Browsers start sound only after a click, so music
 begins with the presentation or the reader's Sound button. ssg ships no music.
 Use tracks you hold the rights to.
 

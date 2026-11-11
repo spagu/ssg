@@ -417,7 +417,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Server | File watching, gzip, TLS, automatic certificates, HTTP/2, HTTP/3, basic/JWT auth, IP allow/block lists and per-IP rate limiting |
 | Resource limits | `resources:` caps CPUs and memory for every command — build, watch, server, `mcp`, `daemon`, `migrate` — and fits a container's cgroup memory limit by itself; `--profile` reports peak RSS and GC cycles ([docs/CONFIGURATION.md](docs/CONFIGURATION.md#running-on-a-small-machine-resources)) |
 | Automation | Lifecycle hooks, Git-derived modification dates, GitHub Action and native deployment |
-| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles, find-then-edit tools that cost the size of the change rather than the file, an optional MDDB-backed search, and an approve-then-PR git flow ([docs/MCP.md](docs/MCP.md)) |
+| AI assistance | Build-time `[ai …]` shortcode (models + agents with rules/skills, cached answers), `ssg mcp` development server with designer and content-manager roles (the designer can also switch on story mode, Listen, share cards and the files published for agents), find-then-edit tools that cost the size of the change rather than the file, an optional MDDB-backed search, and an approve-then-PR git flow ([docs/MCP.md](docs/MCP.md)) |
 
 ## Templates
 

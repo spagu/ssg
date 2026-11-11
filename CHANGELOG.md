@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.6] - 2026-11-10
+
+### Added
+
+- **Music volume in story mode.** The settings panel (the gear button) has a
+  *Music volume* slider. The reader's level is kept in their browser and wins
+  over the configured one. `story.music_volume` sets the default level for
+  tracks without their own `volume` (0.4 when neither is set). While the
+  narrator speaks, the music still drops to `narrator.duck` of the current
+  level, and moving the slider mid-sentence keeps it lowered. New label:
+  `labels.music`.
+- **`story.figures: all`: any photo in the article becomes a slide** (#407).
+  This covers a photo inside a paragraph of text and a bare `<img>`, as
+  Markdown and WordPress content has them. Its caption is the `<em>` right
+  after it, or its alt text. `figures: true` (the default) still takes only
+  `<figure>`s and paragraphs holding nothing but a photo. The docs now say
+  that the Presentation button needs at least one slide.
+- **An assistant can turn on the features added since 1.8.16** (#410).
+  `designer_config_set` (MCP) now also accepts:
+  - switches: `story`, `listen`, `print`, `cook_mode`, `heading_anchors`,
+    `og_cards`, `breadcrumbs`;
+  - publishing for agents: `markdown_publish`, `site_graph`, `webmcp`,
+    `search_index`, `outputs`;
+  - `image_formats`, `clean_special_chars`, `autolink_list_items`,
+    `strip_md_link_text`;
+  - the share identity, key by key: `marketing.og_site_name`, `og_image`,
+    `twitter_site`, `theme_color`, `logo`, `favicon`, `apple_touch_icon`.
+
+  A switch writes `<key>.enabled`, so the feature's other settings stay as the
+  author wrote them; a key already written as `listen: true` stays a scalar.
+  Lists are given comma-separated (`"webp,avif"`). A list never replaces a
+  mapping (`outputs:` per content type): that write is refused.
+  `marketing.verification` (search-console tokens) stays refused. `webp`
+  stays on the list.
+
+### Fixed
+
+- **The title card's photo loads on staging** (#408). `og:image` is absolute
+  on the production domain. On any other host (a staging copy,
+  `ssg --http`, before a DNS move), the presentation now loads the same path
+  from the host the page is on. A card photo that still fails falls back to
+  the first slide. `byline: auto` takes the `<time>` inside the meta line
+  when there is one, instead of the whole line with its links.
+- **The settings panel opens above the presentation's photo and sponsor
+  strip.** Opened from the presentation's bar, the voice, speed and subtitles
+  panel was cut off under both.
+
+### Changed
+
+- Dependencies: quic-go 0.65.0, golang.org/x/image 0.48.0, x/text 0.44.0,
+  x/sync 0.25.0, x/sys 0.50.0.
+
 ## [1.9.5] - 2026-11-09
 
 ### Added

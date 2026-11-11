@@ -27,7 +27,16 @@
   // card builds the title and end slides: text over an optional image.
   function card(c, kind) {
     var f = el("figure", "story-frame story-card story-card-" + kind);
-    if (c.image) { var img = el("img"); img.dataset.src = c.image; img.alt = ""; f.appendChild(img); }
+    if (c.image) {
+      var img = el("img"); img.dataset.src = c.image; img.alt = "";
+      // A card photo that fails (a host it cannot reach) gives way to the
+      // first slide's, once (#408).
+      var first = S.slides[0] && S.slides[0].image;
+      img.addEventListener("error", function () {
+        if (first && img.getAttribute("src") !== first) img.src = first;
+      });
+      f.appendChild(img);
+    }
     var t = el("div", "story-card-text");
     if (c.kicker) t.appendChild(el("p", "story-kicker", c.kicker));
     if (c.title) t.appendChild(el(kind === "title" ? "h1" : "h2", "", c.title));
@@ -51,6 +60,10 @@
     if (t === true) t = {};
     var h1 = document.querySelector("h1");
     var by = document.querySelector(S.cfg.bylineSelector || ".post-meta");
+    // Inside the meta line, the date alone when it is marked up: the line
+    // often carries links too ("… Watch as a story"), #408.
+    var when = by && by.querySelector("time, [itemprop=datePublished]");
+    if (when) by = when;
     var title = auto(t.title, h1 ? h1.textContent.trim() : document.title);
     return { kind: "title", duration: t.duration || "5s", image: cardImage(t.image),
       kicker: t.kicker, title: title,
@@ -68,7 +81,19 @@
   // pageImage is the page's share image (og:image), else the first slide.
   function pageImage() {
     var og = document.querySelector('meta[property="og:image"]');
-    return og && og.content ? og.content : (S.slides[0] && S.slides[0].image) || "";
+    return og && og.content ? sameHost(og.content) : (S.slides[0] && S.slides[0].image) || "";
+  }
+  // sameHost serves the site's own absolute URL from the host the page is on:
+  // og:image names the production domain, which a staging copy or
+  // `ssg --http` cannot rely on (#408). Other hosts' URLs pass unchanged.
+  function sameHost(u) {
+    var site = (S.cfg.siteHost || "").replace(/^www\./, "").toLowerCase();
+    try {
+      var url = new URL(u, location.href);
+      var host = url.host.replace(/^www\./, "").toLowerCase();
+      if (site && host === site && url.host !== location.host) return url.pathname + url.search;
+    } catch (e) { /* not a URL: leave it */ }
+    return u;
   }
   // lead makes a subtitle from the meta description: its first sentence,
   // without the title some sites repeat in front of it ("Babka – Dzisiaj…").
