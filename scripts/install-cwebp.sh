@@ -39,7 +39,7 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 name="libwebp-${webpVersion}-${webpArch}"
-curl -fsSL --retry 3 --connect-timeout 10 --max-time 120 \
+curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 --connect-timeout 10 --max-time 120 \
   -o "$tmp/$name.tar.gz" "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/$name.tar.gz"
 echo "$webpSum  $tmp/$name.tar.gz" | sha256sum -c --quiet -
 tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
