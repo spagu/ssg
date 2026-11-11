@@ -2,8 +2,9 @@
 # Multi-stage build for minimal image size
 
 # Stage 1: Build
-# Pinned to 1.27.3-alpine. Not below 1.27.3: earlier releases carry stdlib
-# advisories this code reaches (crypto/x509: GO-2026-6809, fixed in 1.27.3;
+# Pinned to 1.27.4-alpine. Not below 1.27.4: earlier releases carry stdlib
+# advisories this code reaches (net/http MaxBytesReader: GO-2026-6859, fixed in
+# 1.27.4; crypto/x509: GO-2026-6809, fixed in 1.27.3;
 # net/http, HTTP/2, crypto/tls and html/template: GO-2026-6599..6613, fixed in
 # 1.27.2).
 #
@@ -16,7 +17,7 @@
 #
 # The annotation that would silence the rule cannot go here: a trailing comment
 # on a FROM line is parsed as extra arguments and fails the build.
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
 
 # Provided automatically by buildx.
 ARG TARGETARCH

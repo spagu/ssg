@@ -223,6 +223,17 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.9.7">
+
+### 1.9.7 — upgrade; from source, Go 1.27.4
+
+Replace the binary, package or image: it is built with Go 1.27.4, which fixes
+an HTTP/1 server crash in `net/http` (GO-2026-6859). `ssg --http` and
+`ssg mcp --listen` were exposed to it. Building ssg from source now needs
+**Go 1.27.4**.
+
+</div>
+
 <div class="upgrade-step" data-since="1.9.1">
 
 ### 1.9.1 — nothing to do

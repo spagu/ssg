@@ -50,10 +50,10 @@ env:
   # v2.13.1 was the first release built on 1.27; 1.27.2 also needs v2.14.0,
   # whose x/tools reads the export data version 5 it writes.
   #
-  # Never below 1.27.3: earlier releases carry stdlib advisories govulncheck
-  # finds reachable from this code (crypto/x509: GO-2026-6809; net/http and
+  # Never below 1.27.4: earlier releases carry stdlib advisories govulncheck
+  # finds reachable from this code (net/http: GO-2026-6859; crypto/x509: GO-2026-6809; net/http and
   # HTTP/2, crypto/tls, html/template: GO-2026-6599..6613).
-  GO_VERSION: "1.27.3"
+  GO_VERSION: "1.27.4"
   # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

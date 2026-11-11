@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ssg" notice. A page with story mode now has room under its body: 5rem, and
   7.5rem on a phone, where the buttons can wrap to two rows.
 
+### Security
+
+- **Go 1.27.4** (GO-2026-6859). Go 1.27.3's `net/http` could crash an HTTP/1
+  server through a `MaxBytesReader` header race. govulncheck finds it
+  reachable from `ssg --http`, `ssg mcp --listen` and every outbound request.
+  ssg is now built with Go 1.27.4, and the `go` directive asks for it, so
+  building from source needs Go 1.27.4 (see UPGRADING). The Docker images use
+  `golang:1.27.4-alpine`.
+
 ## [1.9.6] - 2026-11-10
 
 ### Added
