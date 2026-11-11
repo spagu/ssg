@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.7] - 2026-11-11
+
+### Fixed
+
+- **Slide labels and card kickers are readable with a dark brand colour**
+  (#411). In the presentation, the label above a photo's caption and the
+  title card's kicker used the raw accent over the dark caption gradient.
+  With `theme.accent: "#00695c"` that came to about 2:1. They now use
+  `--story-accent-on-dark`: the accent mixed 35% with white, about 8:1 there.
+  `theme.accent_on_dark` sets it outright, as `accent_text` does for text on
+  the paper.
+
 ## [1.9.6] - 2026-11-10
 
 ### Added

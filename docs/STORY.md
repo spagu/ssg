@@ -81,7 +81,7 @@ and are passed as written. Paths such as `/media/logo.png` are site paths.
 | `safe_top` | space kept free under a sticky site header (`96px`) |
 | `transition`, `transition_time` | `crossfade`, `slide`, `zoom`, `blur` or `kenburns`, and its length |
 | `figures`, `figure_skip`, `figure_min_width` | photos in the article join the slides. `true` (default) takes `<figure>`s and paragraphs holding only a photo; `all` also takes a photo inside a paragraph of text or on its own, as Markdown and WordPress write them, captioned by the `<em>` right after it or its alt text. Then come selectors to skip and the smallest width that counts. The Presentation button appears only on a page with at least one slide |
-| `theme` | each key becomes `--story-<key>` (`accent`, `accent_text`, `ink`, `paper`, `font`, `title_font`, `radius`). `accent_text` is the accent used as text on the paper. Its default is the accent mixed half with black, which keeps a bright brand colour at 4.5:1 or better |
+| `theme` | each key becomes `--story-<key>` (`accent`, `accent_text`, `accent_on_dark`, `ink`, `paper`, `font`, `title_font`, `radius`). `accent_text` is the accent used as text on the paper. Its default is the accent mixed half with black, which keeps a bright brand colour at 4.5:1 or better. `accent_on_dark` is the accent over a photo's caption and on the cards. Its default is the accent mixed 35% with white, which keeps a dark brand colour readable there (1.9.7) |
 | `progress` | `bar`, `position` (`top` or `bottom`), `time_left`, `words_per_minute` |
 | `stage` | `side`, `width`, `min_width` (below it: a thumbnail), `hide_figures` |
 | `slides` | `{image, at, caption, alt, duration}`. `at` is a CSS selector or `text:…`, the first block containing that text |
