@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   controls and the time left covered the page's footer and the "Built with
   ssg" notice. A page with story mode now has room under its body: 5rem, and
   7.5rem on a phone, where the buttons can wrap to two rows.
+- **The GitHub Action and the docs site build through an Ubuntu mirror
+  outage.** On 2026-11-11, `azure.archive.ubuntu.com` stopped resolving on
+  GitHub's runners for over an hour, and every job that installed `cwebp`
+  with apt failed. `scripts/install-cwebp.sh` now tries apt first and then
+  falls back to Google's libwebp 1.6.0 release, pinned by SHA-256. AVIF has no
+  fallback: ssg skips the format with a warning.
 
 ### Security
 

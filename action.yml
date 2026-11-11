@@ -260,6 +260,7 @@ runs:
       shell: bash
       env:
         IN_IMAGE_FORMATS: ${{ inputs.image-formats }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         echo "📦 Installing image tools..."
         # Only what the build will actually use. avifenc pulls a set of codecs
@@ -268,24 +269,15 @@ runs:
         # AVIF must not pay for it.
         WANT_AVIF=0
         case ",$IN_IMAGE_FORMATS," in *,avif,*) WANT_AVIF=1 ;; esac
-        # Bounded, because an unreachable distro mirror used to hang here until
-        # the job's own 20-minute budget ran out — reported as a timeout with no
-        # cause, on a step whose only job is installing one package. Failing in
-        # five minutes and naming the reason is worth more than the extra tries.
+        # apt is bounded, because an unreachable distro mirror used to hang
+        # here until the job's own 20-minute budget ran out.
+        # When the mirror is down, scripts/install-cwebp.sh takes cwebp from
+        # Google's libwebp release instead, so the outage does not stop the build.
         if [[ "$RUNNER_OS" == "Linux" ]]; then
-          if ! sudo timeout 300 apt-get update \
-                 -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
-            echo "::error::apt-get update failed or timed out — the distribution mirror is unreachable."
-            echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
-            exit 1
-          fi
-          PKGS="webp"
-          if [[ "$WANT_AVIF" == "1" ]]; then PKGS="$PKGS libavif-bin"; fi
-          if ! sudo timeout 300 apt-get install -y --no-install-recommends $PKGS \
-                 -o Acquire::Retries=3 -o Acquire::http::Timeout=20; then
-            echo "::error::Installing $PKGS failed or timed out — the distribution mirror is unreachable."
-            echo "::error::This is a runner/network problem, not a build failure. Re-run the job."
-            exit 1
+          if [[ "$WANT_AVIF" == "1" ]]; then
+            bash "$ACTION_PATH/scripts/install-cwebp.sh" libavif-bin
+          else
+            bash "$ACTION_PATH/scripts/install-cwebp.sh"
           fi
         elif [[ "$RUNNER_OS" == "macOS" ]]; then
           brew install webp

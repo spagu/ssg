@@ -100,11 +100,11 @@ jobs:
         # mirror-sync race in one of them fails `apt-get update` outright — it
         # broke this deploy once with "File has unexpected size (1411 != 1410)".
         # Updating only the Ubuntu sources keeps an unrelated vendor's repository
-        # from blocking a release.
+        # from blocking a release, and when the Ubuntu mirror itself is down the
+        # script installs cwebp from Google's libwebp release.
         run: |
           sudo rm -f /etc/apt/sources.list.d/*.list
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends webp
+          scripts/install-cwebp.sh
 
       - name: Build ssg from this commit
         run: go build -ldflags "-s -w -X main.Version=$(cat VERSION)" -o build/ssg ./cmd/ssg
