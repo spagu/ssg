@@ -60,8 +60,16 @@ func readMemory() ProfileMemory {
 	return ProfileMemory{PeakRSS: resources.PeakRSS(), GCCycles: ms.NumGC}
 }
 
-// memory is the process's memory use now.
+// memory is the memory use Finish took, or the process's use now while the
+// build runs. Reading it live on every report made two writes of one
+// finished profile differ whenever a GC ran between them.
 func (p *Profile) memory() *ProfileMemory {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mem != nil {
+		m := *p.mem
+		return &m
+	}
 	m := p.readMemory()
 	return &m
 }

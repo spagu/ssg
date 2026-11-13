@@ -28,3 +28,22 @@ func TestProfileReportsMemory(t *testing.T) {
 		t.Errorf("readMemory = %+v", m)
 	}
 }
+
+// TestProfileMemoryFixedAtFinish: a finished profile reports the memory Finish
+// took, however much the process allocates or collects afterwards, so two
+// writes of one report are byte-identical.
+func TestProfileMemoryFixedAtFinish(t *testing.T) {
+	p := newProfileWithClock(time.Now)
+	calls := uint32(0)
+	p.readMemory = func() ProfileMemory { calls++; return ProfileMemory{GCCycles: calls} }
+	if m := p.memory(); m.GCCycles != 1 {
+		t.Errorf("a running build reads live: %+v", m)
+	}
+	p.Finish()
+	p.Finish()
+	for i := 0; i < 2; i++ {
+		if m := p.memory(); m.GCCycles != 2 {
+			t.Errorf("after Finish, read %d = %+v", i, m)
+		}
+	}
+}

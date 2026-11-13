@@ -42,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   found and the tag's release stopped. The binary now goes through `SOURCES`.
   The RPM header also said `License: MIT`; it is `BUSL-1.1`, as for every
   release since 1.9.0.
+- **`ssg profile` reports one memory reading per build.** Peak RSS and GC
+  cycles were read again on every report, so the text summary and
+  `ssg-profile.json` of one build could disagree, and two writes of one
+  report differed whenever a GC ran in between. `Finish` now takes the reading
+  once, at the end of the build, as it does the total time.
 
 ### Security
 

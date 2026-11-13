@@ -77,6 +77,9 @@ type Profile struct {
 	// readMemory reads the process's memory use, injectable for the same
 	// reason (#384).
 	readMemory func() ProfileMemory
+	// mem is the memory use Finish took, so every report of a finished
+	// build shows the same numbers; nil until then.
+	mem *ProfileMemory
 }
 
 // NewProfile starts a profile. mode selects the report; an empty mode means
@@ -160,6 +163,10 @@ func (p *Profile) Finish() {
 	defer p.mu.Unlock()
 	if p.total == 0 {
 		p.total = p.now().Sub(p.start)
+	}
+	if p.mem == nil {
+		m := p.readMemory()
+		p.mem = &m
 	}
 }
 
