@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read instead (`.Post.Schema`, `.Page.AliasStubs`). The 1.8.85 entry and
   UPGRADING now mark it as breaking for themes. A record field of another
   parsed name (`title`, `date`) in `.Extra` is legitimate and not reported.
+- **RPM packages build with rpm 4.20.** The release runner's rpm now builds
+  in `BUILD/<name>-<version>-build`, so the binary copied to `BUILD/` was not
+  found and the tag's release stopped. The binary now goes through `SOURCES`.
+  The RPM header also said `License: MIT`; it is `BUSL-1.1`, as for every
+  release since 1.9.0.
 
 ### Security
 

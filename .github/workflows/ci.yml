@@ -611,14 +611,17 @@ jobs:
           ARCH="${{ matrix.rpmarch }}"
 
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cp ssg ~/rpmbuild/BUILD/
+          # The binary goes to SOURCES: rpm 4.20 (ubuntu-latest from
+          # 2026-11) builds in BUILD/<name>-<version>-build, so a file copied
+          # to BUILD/ is no longer at %{_builddir}.
+          cp ssg ~/rpmbuild/SOURCES/
 
           cat > ~/rpmbuild/SPECS/ssg.spec << EOF
           Name:           ssg
           Version:        ${VERSION}
           Release:        1
           Summary:        Fast static site generator
-          License:        MIT
+          License:        BUSL-1.1
           URL:            https://github.com/spagu/ssg
 
           %description
@@ -626,7 +629,7 @@ jobs:
 
           %install
           mkdir -p %{buildroot}%{_bindir}
-          install -m 755 %{_builddir}/ssg %{buildroot}%{_bindir}/ssg
+          install -m 755 %{_sourcedir}/ssg %{buildroot}%{_bindir}/ssg
 
           %files
           %{_bindir}/ssg

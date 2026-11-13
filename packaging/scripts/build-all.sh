@@ -135,7 +135,7 @@ Version:        ${VERSION}
 Release:        1%{?dist}
 Summary:        Static Site Generator
 
-License:        MIT
+License:        BUSL-1.1
 URL:            https://github.com/spagu/ssg
 Source0:        ssg-${VERSION}-linux-${arch}.tar.gz
 
