@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with apt failed. `scripts/install-cwebp.sh` now tries apt first and then
   falls back to Google's libwebp 1.6.0 release, pinned by SHA-256. AVIF has no
   fallback: ssg skips the format with a warning.
+- **A theme still reading `schema` or `alias_stubs` from `.Extra` gets a
+  warning** (#416). 1.8.85 (#378) took both keys out of `.Extra`, and its
+  entry did not say this breaks such a theme: the lookup comes back empty, the
+  template's fallback renders, and the build passes. In the reported case an
+  in-page video player became a plain link on 86 posts for two weeks. The
+  build now names the file and line of every such lookup and the field to
+  read instead (`.Post.Schema`, `.Page.AliasStubs`). The 1.8.85 entry and
+  UPGRADING now mark it as breaking for themes. A record field of another
+  parsed name (`title`, `date`) in `.Extra` is legitimate and not reported.
 
 ### Security
 
@@ -37,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ssg is now built with Go 1.27.4, and the `go` directive asks for it, so
   building from source needs Go 1.27.4 (see UPGRADING). The Docker images use
   `golang:1.27.4-alpine`.
+
+### Dependencies
+
+- `docker/login-action` 4.7.0 → 4.8.0 in the Docker workflow (#414).
+- `softprops/action-gh-release` 3.0.3 → 3.0.4 in CI (#415).
 
 ## [1.9.6] - 2026-11-10
 
@@ -442,7 +456,10 @@ the code, and these are the places where the code was wrong.
   fields too (the taxonomy as `.Category`, an empty `.Posts`, a one-page
   `.Pager`), and `simple` ships `taxonomy.html` and `taxonomy-term.html`, the
   latter with the term's own canonical instead of `/category/<slug>/`.
-- **Front matter the parser reads stays out of `.Extra`** (#378). `schema` and
+- **Front matter the parser reads stays out of `.Extra`** (#378). **Breaking
+  for themes:** `index .Page.Extra "schema"` (or `.Post.Extra`) is now empty,
+  without an error; read `.Page.Schema` / `.Post.Schema` and
+  `.Page.AliasStubs` instead (noted in 1.9.7, #416). `schema` and
   `alias_stubs` were parsed and also copied into `Extra`, so they reached the
   template root a second time. The list of known keys is now built from the
   front-matter struct itself, so a new field cannot leak again. `--watch` also

@@ -163,14 +163,14 @@ func TestReportStructuredMeta(t *testing.T) {
 }
 
 // TestWarnTemplateScriptContextFindings: an unreadable entry is skipped and a
-// <title> inside a script is reported.
+// <title> inside a script and a parsed key looked up in .Extra are reported.
 func TestWarnTemplateScriptContextFindings(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "dir.html"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mustWrite(t, filepath.Join(dir, "index.html"),
-		"<html><head>\n<script src=\"/a.js\">\n<title>{{.Site.Title}}</title>\n</script>\n</head></html>\n")
+		"<html><head>\n<script src=\"/a.js\">\n<title>{{.Site.Title}}</title>\n</script>\n</head>\n{{index .Page.Extra \"schema\"}}</html>\n")
 	edgeGen(t, Config{}).warnTemplateScriptContext(dir)
 }
 
