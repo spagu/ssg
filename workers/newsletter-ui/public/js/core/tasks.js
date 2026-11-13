@@ -35,7 +35,7 @@ export function createPoller({ tick, interval, visible = () => true, timers = gl
     start: () => run(),
     wake() {
       if (stopped || timer !== null || running || !visible()) return;
-      run();
+      void run(); // run() reports tick failures through onError
     },
     stop() {
       stopped = true;

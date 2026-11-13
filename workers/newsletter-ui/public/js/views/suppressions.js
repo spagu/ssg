@@ -77,7 +77,8 @@ export default async function suppressions(app, root, route) {
   const list = slot();
   const chart = slot();
   const more = slot();
-  const reload = () => suppressions(app, root, route);
+  // A reload that fails is shown in the view with a Retry, like a first load.
+  const reload = () => suppressions(app, root, route).catch((e) => mount(root, errorBlock(app, e, reload)));
   const search = (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.currentTarget));
@@ -112,7 +113,7 @@ export default async function suppressions(app, root, route) {
     if (!ok) return;
     if ((await busy(app, e.currentTarget, () => api.del(`suppressions/${s.emailHash}`, complaint ? { confirm: true } : undefined))) !== undefined) {
       app.notify(t("sup.lifted", { email: name }));
-      reload();
+      await reload();
     }
   };
   const table = () =>

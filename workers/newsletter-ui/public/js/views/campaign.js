@@ -94,7 +94,7 @@ export default async function campaign(app, root, route) {
     uncertain.node,
     preview.node,
   ]);
-  preview.refresh();
+  void preview.refresh(); // draws its own error state
 
   const loadStats = async () => {
     if (!c.startedAt) return;

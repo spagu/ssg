@@ -51,7 +51,9 @@ export default async function subscriber(app, root, route) {
     mount(root, [pageHead(app, t("sub.title"), { back }), errorBlock(app, e, () => subscriber(app, root, route))]);
     return;
   }
-  const reload = () => subscriber(app, root, route);
+  // A reload that fails (network, a 5xx) is shown in the view with a Retry,
+  // like the router does for a first load — never a silent unhandled rejection.
+  const reload = () => subscriber(app, root, route).catch((e) => mount(root, errorBlock(app, e, reload)));
 
   const save = async (e) => {
     e.preventDefault();
@@ -66,7 +68,7 @@ export default async function subscriber(app, root, route) {
     if (!(await confirmDialog(app, { title: t("sub.unsub.title", { email: s.email }), body: t("sub.unsub.body", { email: s.email }), confirm: t("sub.unsub.go") }))) return;
     if (await busy(app, e.target, () => api.post(`subscribers/${encodeURIComponent(id)}/unsubscribe`))) {
       app.notify(t("sub.unsub.done", { email: s.email }));
-      reload();
+      await reload();
     }
   };
   const resend = async (e) => {

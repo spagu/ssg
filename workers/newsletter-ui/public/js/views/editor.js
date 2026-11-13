@@ -69,8 +69,7 @@ export default async function editor(app, root, route, campaign = null) {
         if (!quiet) app.notify(t("editor.saved"));
       }
       status.set(t("editor.savedAt", { at: new Date().toLocaleTimeString(app.lang, { hour: "2-digit", minute: "2-digit" }) }));
-      preview.refresh();
-      return true;
+      void preview.refresh(); // draws its own error state; a save is not undone by it
     } catch (e) {
       status.set(h("span", { class: "bad" }, errorText(app, e)));
       return false;
@@ -137,6 +136,6 @@ export default async function editor(app, root, route, campaign = null) {
     h("div", { class: "editor" }, h("section", { class: "card", "aria-label": t("editor.form") }, form), preview.node),
   ]);
   status.set(c ? t("editor.allSaved") : t("editor.notYet"));
-  if (c) preview.refresh();
+  if (c) void preview.refresh();
   else preview.empty();
 }

@@ -151,4 +151,9 @@ async function boot() {
   await route();
 }
 
-boot();
+// Nothing is translated yet if boot itself fails (the strings did not load),
+// so this one message is plain English; the router handles everything after.
+boot().catch((e) => {
+  console.error(e);
+  $("view").textContent = "The panel could not start. Reload the page; if it keeps failing, check that its files are deployed.";
+});
