@@ -1,0 +1,2213 @@
+{
+ "_comment": "Frozen answers of the newsletter template as released in 1.9.7 (main c867868), produced by running test/compat-scenarios.ts against that release. Do not regenerate to make a test pass: a difference is a change in behaviour for every existing install.",
+ "scenarios": {
+  "sign-up errors (JSON)": {
+   "calls": [
+    {
+     "step": "array body",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid_body\"}",
+     "fetches": []
+    },
+    {
+     "step": "malformed JSON",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid_body\"}",
+     "fetches": []
+    },
+    {
+     "step": "text/plain",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid_body\"}",
+     "fetches": []
+    },
+    {
+     "step": "no Turnstile secret",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"not_configured\"}",
+     "fetches": []
+    },
+    {
+     "step": "no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"not_configured\"}",
+     "fetches": []
+    },
+    {
+     "step": "invalid email",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid_email\"}",
+     "fetches": []
+    },
+    {
+     "step": "header smuggling",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid_email\"}",
+     "fetches": []
+    },
+    {
+     "step": "no consent",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"consent_required\"}",
+     "fetches": []
+    },
+    {
+     "step": "consent without its text",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"consent_required\"}",
+     "fetches": []
+    },
+    {
+     "step": "no captcha token",
+     "status": 403,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"captcha_failed\"}",
+     "fetches": []
+    },
+    {
+     "step": "captcha refused",
+     "status": 403,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"captcha_failed\"}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"bad\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    }
+   ],
+   "rows": []
+  },
+  "sign-up errors (form, localised page)": {
+   "calls": [
+    {
+     "step": "no Turnstile secret",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=3e6bc7e2800ddce5aa070a258d78e2a99350447dc4ec95413c9ecfd228f97de2 h1=Zapis nie powiódł się p=Zapis do newslettera jest chwilowo niedostępny.",
+     "fetches": []
+    },
+    {
+     "step": "invalid email",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=a0df3e067f8d176f5c25b5bf9c82ed43a48bf8858d3c35edc3f640e2ca13f549 h1=Zapis nie powiódł się p=Wróć i wpisz poprawny adres e-mail.",
+     "fetches": []
+    },
+    {
+     "step": "no consent",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=5496c206cfbb91bd36775f45c35898678d281362df45ba748d1279debcbb7d53 h1=Zapis nie powiódł się p=Wróć i zaznacz zgodę, aby się zapisać.",
+     "fetches": []
+    },
+    {
+     "step": "captcha refused",
+     "status": 403,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=8d0ab8cb373a0f0c08a45e7fb0c5c1ebd5f14d9b2bbea546bbe3fd8982985f65 h1=Zapis nie powiódł się p=Weryfikacja antyspamowa nie powiodła się. Wróć i spróbuj ponownie.",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"bad\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "language field wins",
+     "status": 422,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=11cb8a8da2577f3c4a9a0bc2a39b49a29b9d74452c9a5e9fe3bf10c995f725f6 h1=सदस्यता पूरी नहीं हुई p=कृपया वापस जाकर एक मान्य ईमेल पता दर्ज करें।",
+     "fetches": []
+    }
+   ],
+   "rows": []
+  },
+  "single opt-in": {
+   "calls": [
+    {
+     "step": "new (JSON)",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "confirmed again: unchanged",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "shared TURNSTILE_SECRET",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"shared\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "form → 303 default",
+     "status": 303,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "location",
+       "/#newsletter-thanks"
+      ]
+     ],
+     "body": "",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"t\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "form → 303 {lang}",
+     "status": 303,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "location",
+       "/pl/thanks/"
+      ]
+     ],
+     "body": "",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"t\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "form → 303 map",
+     "status": 303,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "location",
+       "/thanks/"
+      ]
+     ],
+     "body": "",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"t\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "salted hashes",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000003",
+     "email": "form@example.com",
+     "status": "confirmed",
+     "language": null,
+     "source_page": null,
+     "tags": "a",
+     "consent_text": "Yes",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "S3CVut8EKU5zmL3iByxRdpvA5QovVHmew-gNMld8ocY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000004",
+     "email": "lang@example.com",
+     "status": "confirmed",
+     "language": "pl",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Tak",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "6xA1Wn-kye4TOF2Cp8zxFjtgharP9Bk-Y4it0vccQWY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000005",
+     "email": "map@example.com",
+     "status": "confirmed",
+     "language": "de",
+     "source_page": "/de/",
+     "tags": "",
+     "consent_text": "Yes",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "i7DV-h9EaY6z2P0iR2yRttsAJUpvlLneAyhNcpe84QY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "confirmed",
+     "language": "en",
+     "source_page": "/en/post/",
+     "tags": "news,launch",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000006",
+     "email": "salted@example.com",
+     "status": "confirmed",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "K1B1mr_kCS5TeJ3C5wwxVnugxeoPNFl-o8jtEjdcgaY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": "88b40ba85127d36fb9e4fbecee4e4fd23f9aa15d09133eea3484ce172296200e",
+     "ua_hash": "dcc33108f936aa36506f6ebad0a4d3b3008f3139110b46aad4ca6b83d05e6c7e"
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000002",
+     "email": "second@example.com",
+     "status": "confirmed",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "double opt-in via Resend": {
+   "calls": [
+    {
+     "step": "new → pending, mail",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"Example News <news@example.com>\",\"to\":\"reader@example.com\",\"subject\":\"Confirm your newsletter subscription\",\"text\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}"
+      }
+     ]
+    },
+    {
+     "step": "pending again within 15 min: no mail",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "pending after 16 min: mail again",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"Example News <news@example.com>\",\"to\":\"reader@example.com\",\"subject\":\"Potwierdź zapis do newslettera\",\"text\":\"Ktoś — mamy nadzieję, że Ty — poprosił o newsletter na ten adres.\\n\\nAby potwierdzić, otwórz link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nJeśli to nie Ty, zignoruj tę wiadomość: bez potwierdzenia nic nie wyślemy.\"}"
+      }
+     ]
+    },
+    {
+     "step": "confirm page",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=25b9268b81f833ba17e75d046a3481b3349e9da597ed3f663fa23c35eb72e44f h1=Potwierdź subskrypcję p=Potwierdź, że chcesz otrzymywać newsletter. form=/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "fetches": []
+    },
+    {
+     "step": "confirm",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=dfed924939d39dc22ea0a69175f16390ea24fd1a0bf0341d8c57c352591d9555 h1=Potwierdź subskrypcję p=Dziękujemy — subskrypcja została potwierdzona.",
+     "fetches": []
+    },
+    {
+     "step": "confirm page after",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=dfed924939d39dc22ea0a69175f16390ea24fd1a0bf0341d8c57c352591d9555 h1=Potwierdź subskrypcję p=Dziękujemy — subskrypcja została potwierdzona.",
+     "fetches": []
+    },
+    {
+     "step": "confirm again",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=dfed924939d39dc22ea0a69175f16390ea24fd1a0bf0341d8c57c352591d9555 h1=Potwierdź subskrypcję p=Dziękujemy — subskrypcja została potwierdzona.",
+     "fetches": []
+    },
+    {
+     "step": "confirmed again: nothing",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "one-click",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unsubscribed",
+     "fetches": []
+    },
+    {
+     "step": "old confirm link after unsubscribe",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=79a8de2533f4d0c9cd6ba2c4f4f6205dcb1df25fe8bb4c899d54a39e452a5574 h1=Potwierdź subskrypcję p=Ten link jest już nieaktualny. Mógł wygasnąć albo został już użyty.",
+     "fetches": []
+    },
+    {
+     "step": "unsubscribed → pending, mail",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"Example News <news@example.com>\",\"to\":\"reader@example.com\",\"subject\":\"Confirm your newsletter subscription\",\"text\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}"
+      }
+     ]
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:16:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:16:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": "2026-03-01T10:16:00.000Z",
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "double opt-in via MailChannels": {
+   "calls": [
+    {
+     "step": "no sender name",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.mailchannels.net/tx/v1/send",
+       "method": "POST",
+       "headers": [
+        [
+         "x-api-key",
+         "mc_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"personalizations\":[{\"to\":[{\"email\":\"reader@example.com\"}]}],\"from\":{\"email\":\"news@example.com\"},\"subject\":\"Confirm your newsletter subscription\",\"content\":[{\"type\":\"text/plain\",\"value\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}]}"
+      }
+     ]
+    },
+    {
+     "step": "with sender name",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.mailchannels.net/tx/v1/send",
+       "method": "POST",
+       "headers": [
+        [
+         "x-api-key",
+         "mc_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"personalizations\":[{\"to\":[{\"email\":\"named@example.com\"}]}],\"from\":{\"email\":\"news@example.com\",\"name\":\"Example News\"},\"subject\":\"Confirm your newsletter subscription\",\"content\":[{\"type\":\"text/plain\",\"value\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}]}"
+      }
+     ]
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000002",
+     "email": "named@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": "2026-03-01T10:00:00.000Z",
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": "2026-03-01T10:00:00.000Z",
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "provider refuses or is unreachable": {
+   "calls": [
+    {
+     "step": "Resend 500: still ok, nothing marked",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"news@example.com\",\"to\":\"reader@example.com\",\"subject\":\"Confirm your newsletter subscription\",\"text\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}"
+      }
+     ]
+    },
+    {
+     "step": "network error",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"news@example.com\",\"to\":\"other@example.com\",\"subject\":\"Confirm your newsletter subscription\",\"text\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}"
+      }
+     ]
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000002",
+     "email": "other@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    },
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "confirm endpoint": {
+   "calls": [
+    {
+     "step": "pending",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"news@example.com\",\"to\":\"reader@example.com\",\"subject\":\"Confirm your newsletter subscription\",\"text\":\"Someone — hopefully you — asked to receive our newsletter at this address.\\n\\nTo confirm, open this link:\\nhttps://example.com/api/newsletter/confirm?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\\n\\nIf it was not you, ignore this email: without confirmation nothing will be sent.\"}"
+      }
+     ]
+    },
+    {
+     "step": "GET no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=2a80b74d1653d1bcd377b818b03b89f29b74da88995d7846ea93593955a64bc5 h1=Confirm your subscription p=Newsletter sign-up is not available at the moment.",
+     "fetches": []
+    },
+    {
+     "step": "POST no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=2a80b74d1653d1bcd377b818b03b89f29b74da88995d7846ea93593955a64bc5 h1=Confirm your subscription p=Newsletter sign-up is not available at the moment.",
+     "fetches": []
+    },
+    {
+     "step": "GET malformed token",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=c598e91f90630b00853d28aed047cbf6e1b4733ec04efe36eb84ab330e2794cf h1=Confirm your subscription p=This link is not valid any more. It may have expired or already been used.",
+     "fetches": []
+    },
+    {
+     "step": "GET unknown token",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=c598e91f90630b00853d28aed047cbf6e1b4733ec04efe36eb84ab330e2794cf h1=Confirm your subscription p=This link is not valid any more. It may have expired or already been used.",
+     "fetches": []
+    },
+    {
+     "step": "POST unknown token",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=c598e91f90630b00853d28aed047cbf6e1b4733ec04efe36eb84ab330e2794cf h1=Confirm your subscription p=This link is not valid any more. It may have expired or already been used.",
+     "fetches": []
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "pending",
+     "language": "en",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": null,
+     "unsubscribed_at": null,
+     "confirm_sent_at": "2026-03-01T10:00:00.000Z",
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "unsubscribe endpoint": {
+   "calls": [
+    {
+     "step": "subscribed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "GET no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=6a430de01badc0052a06c02dd6bdf1156e25b2c020d0edb83342aa4f2329e956 h1=Wypisz się p=Zapis do newslettera jest chwilowo niedostępny.",
+     "fetches": []
+    },
+    {
+     "step": "one-click no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "not configured",
+     "fetches": []
+    },
+    {
+     "step": "button no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=899511a979ea3697ffd2217ee2257f74d50e940a68d88e13dc0bd3192946b7b4 h1=Unsubscribe p=Newsletter sign-up is not available at the moment.",
+     "fetches": []
+    },
+    {
+     "step": "GET unknown",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=e853810e12842c4709db952e3ab30b74d840e7789347917909f0bd345820c13c h1=Wypisz się p=Ten link jest już nieaktualny. Mógł wygasnąć albo został już użyty.",
+     "fetches": []
+    },
+    {
+     "step": "GET malformed token",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=e853810e12842c4709db952e3ab30b74d840e7789347917909f0bd345820c13c h1=Wypisz się p=Ten link jest już nieaktualny. Mógł wygasnąć albo został już użyty.",
+     "fetches": []
+    },
+    {
+     "step": "one-click malformed token",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unknown token",
+     "fetches": []
+    },
+    {
+     "step": "GET subscribed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=dbad5b00be6badf712ff579ce1f637629b16e8b16acee50e4a843194cbf69949 h1=Wypisz się p=Czy na pewno nie chcesz już otrzymywać newslettera? form=/api/newsletter/unsubscribe?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "fetches": []
+    },
+    {
+     "step": "one-click unknown",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unknown token",
+     "fetches": []
+    },
+    {
+     "step": "button unknown",
+     "status": 404,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=305fbe44885ced49d1dfb8e7b760cc88d5de78bf968906a921945f740b80b53a h1=Unsubscribe p=This link is not valid any more. It may have expired or already been used.",
+     "fetches": []
+    },
+    {
+     "step": "button",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=181d5b40feeaca4ac410775e9f79d867f2788a62f3f0ecf5abf1cc93e1cbd0c0 h1=Wypisz się p=Wypisano Cię z newslettera. Nie wyślemy Ci kolejnych wiadomości.",
+     "fetches": []
+    },
+    {
+     "step": "one-click repeat keeps the first time",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unsubscribed",
+     "fetches": []
+    },
+    {
+     "step": "GET unsubscribed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-security-policy",
+       "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      ],
+      [
+       "content-type",
+       "text/html; charset=utf-8"
+      ],
+      [
+       "referrer-policy",
+       "no-referrer"
+      ],
+      [
+       "x-robots-tag",
+       "noindex, nofollow"
+      ]
+     ],
+     "body": "html sha256=181d5b40feeaca4ac410775e9f79d867f2788a62f3f0ecf5abf1cc93e1cbd0c0 h1=Wypisz się p=Wypisano Cię z newslettera. Nie wyślemy Ci kolejnych wiadomości.",
+     "fetches": []
+    },
+    {
+     "step": "one-click multipart",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unsubscribed",
+     "fetches": []
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "unsubscribed",
+     "language": "pl",
+     "source_page": null,
+     "tags": "",
+     "consent_text": "Send me the newsletter",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:01:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": "2026-03-01T10:01:00.000Z",
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  },
+  "admin endpoint": {
+   "calls": [
+    {
+     "step": "confirmed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "no language",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":false}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      }
+     ]
+    },
+    {
+     "step": "pending",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"confirm\":true}",
+     "fetches": [
+      {
+       "url": "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+       "method": "POST",
+       "headers": [],
+       "body": "[[\"secret\",\"ts-secret\"],[\"response\",\"tok\"],[\"remoteip\",\"192.0.2.10\"]]"
+      },
+      {
+       "url": "https://api.resend.com/emails",
+       "method": "POST",
+       "headers": [
+        [
+         "authorization",
+         "Bearer re_test"
+        ],
+        [
+         "content-type",
+         "application/json"
+        ]
+       ],
+       "body": "{\"from\":\"news@example.com\",\"to\":\"pending@example.com\",\"subject\":\"Potwierdź zapis do newslettera\",\"text\":\"Ktoś — mamy nadzieję, że Ty — poprosił o newsletter na ten adres.\\n\\nAby potwierdzić, otwórz link:\\nhttps://example.com/api/newsletter/confirm?token=S3CVut8EKU5zmL3iByxRdpvA5QovVHmew-gNMld8ocY\\n\\nJeśli to nie Ty, zignoruj tę wiadomość: bez potwierdzenia nic nie wyślemy.\"}"
+      }
+     ]
+    },
+    {
+     "step": "unsubscribed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "text/plain; charset=utf-8"
+      ]
+     ],
+     "body": "unsubscribed",
+     "fetches": []
+    },
+    {
+     "step": "no password configured",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"admin not configured\"}",
+     "fetches": []
+    },
+    {
+     "step": "no credentials",
+     "status": 401,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"unauthorized\"}",
+     "fetches": []
+    },
+    {
+     "step": "wrong password",
+     "status": 401,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"unauthorized\"}",
+     "fetches": []
+    },
+    {
+     "step": "malformed Basic",
+     "status": 401,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"unauthorized\"}",
+     "fetches": []
+    },
+    {
+     "step": "Access without a token",
+     "status": 401,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"Cloudflare Access required\"}",
+     "fetches": []
+    },
+    {
+     "step": "no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"newsletter not configured\"}",
+     "fetches": []
+    },
+    {
+     "step": "counts",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"total\":3,\"byStatus\":{\"pending\":1,\"confirmed\":1,\"unsubscribed\":1},\"byLanguage\":{\"en\":{\"pending\":0,\"confirmed\":1,\"unsubscribed\":0},\"pl\":{\"pending\":1,\"confirmed\":0,\"unsubscribed\":0},\"unknown\":{\"pending\":0,\"confirmed\":0,\"unsubscribed\":1}}}",
+     "fetches": []
+    },
+    {
+     "step": "CSV default",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-disposition",
+       "attachment; filename=\"newsletter-confirmed-2026-03-01.csv\""
+      ],
+      [
+       "content-type",
+       "text/csv; charset=utf-8"
+      ]
+     ],
+     "body": "﻿email,status,language,tags,source_page,consent_text,consent_at,created_at,confirmed_at,unsubscribed_at,unsubscribe_url\r\nreader@example.com,confirmed,en,news,,\"He said \"\"yes\"\",\nthen left\",2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,,https://example.com/api/newsletter/unsubscribe?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\r\n",
+     "fetches": []
+    },
+    {
+     "step": "CSV pending",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-disposition",
+       "attachment; filename=\"newsletter-pending-2026-03-01.csv\""
+      ],
+      [
+       "content-type",
+       "text/csv; charset=utf-8"
+      ]
+     ],
+     "body": "﻿email,status,language,tags,source_page,consent_text,consent_at,created_at,confirmed_at,unsubscribed_at,unsubscribe_url\r\npending@example.com,pending,pl,,/pl/,Send me the newsletter,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,,,https://example.com/api/newsletter/unsubscribe?token=S3CVut8EKU5zmL3iByxRdpvA5QovVHmew-gNMld8ocY\r\n",
+     "fetches": []
+    },
+    {
+     "step": "CSV confirmed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-disposition",
+       "attachment; filename=\"newsletter-confirmed-2026-03-01.csv\""
+      ],
+      [
+       "content-type",
+       "text/csv; charset=utf-8"
+      ]
+     ],
+     "body": "﻿email,status,language,tags,source_page,consent_text,consent_at,created_at,confirmed_at,unsubscribed_at,unsubscribe_url\r\nreader@example.com,confirmed,en,news,,\"He said \"\"yes\"\",\nthen left\",2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,,https://example.com/api/newsletter/unsubscribe?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\r\n",
+     "fetches": []
+    },
+    {
+     "step": "CSV unsubscribed",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-disposition",
+       "attachment; filename=\"newsletter-unsubscribed-2026-03-01.csv\""
+      ],
+      [
+       "content-type",
+       "text/csv; charset=utf-8"
+      ]
+     ],
+     "body": "﻿email,status,language,tags,source_page,consent_text,consent_at,created_at,confirmed_at,unsubscribed_at,unsubscribe_url\r\nnolang@example.com,unsubscribed,,,,'=1+1,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,https://example.com/api/newsletter/unsubscribe?token=q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY\r\n",
+     "fetches": []
+    },
+    {
+     "step": "CSV all",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-disposition",
+       "attachment; filename=\"newsletter-all-2026-03-01.csv\""
+      ],
+      [
+       "content-type",
+       "text/csv; charset=utf-8"
+      ]
+     ],
+     "body": "﻿email,status,language,tags,source_page,consent_text,consent_at,created_at,confirmed_at,unsubscribed_at,unsubscribe_url\r\nreader@example.com,confirmed,en,news,,\"He said \"\"yes\"\",\nthen left\",2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,,https://example.com/api/newsletter/unsubscribe?token=CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY\r\nnolang@example.com,unsubscribed,,,,'=1+1,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,https://example.com/api/newsletter/unsubscribe?token=q9D1Gj9kia7T-B1CZ4yx1vsgRWqPtNn-I0htkrfcASY\r\npending@example.com,pending,pl,,/pl/,Send me the newsletter,2026-03-01T10:00:00.000Z,2026-03-01T10:00:00.000Z,,,https://example.com/api/newsletter/unsubscribe?token=S3CVut8EKU5zmL3iByxRdpvA5QovVHmew-gNMld8ocY\r\n",
+     "fetches": []
+    },
+    {
+     "step": "CSV bad status",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"status must be pending, confirmed, unsubscribed or all\"}",
+     "fetches": []
+    },
+    {
+     "step": "purge invalid JSON",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"invalid JSON\"}",
+     "fetches": []
+    },
+    {
+     "step": "purge wrong action",
+     "status": 400,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"action must be purge\"}",
+     "fetches": []
+    },
+    {
+     "step": "purge without retention",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"purged\":0}",
+     "fetches": []
+    },
+    {
+     "step": "purge with retention",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"ok\":true,\"purged\":2}",
+     "fetches": []
+    },
+    {
+     "step": "counts after purge",
+     "status": 200,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"total\":1,\"byStatus\":{\"pending\":0,\"confirmed\":1,\"unsubscribed\":0},\"byLanguage\":{\"en\":{\"pending\":0,\"confirmed\":1,\"unsubscribed\":0}}}",
+     "fetches": []
+    },
+    {
+     "step": "POST no credentials",
+     "status": 401,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"unauthorized\"}",
+     "fetches": []
+    },
+    {
+     "step": "POST no database",
+     "status": 503,
+     "headers": [
+      [
+       "cache-control",
+       "no-store"
+      ],
+      [
+       "content-type",
+       "application/json"
+      ]
+     ],
+     "body": "{\"error\":\"newsletter not configured\"}",
+     "fetches": []
+    }
+   ],
+   "rows": [
+    {
+     "id": "00000000-0000-4000-8000-000000000001",
+     "email": "reader@example.com",
+     "status": "confirmed",
+     "language": "en",
+     "source_page": null,
+     "tags": "news",
+     "consent_text": "He said \"yes\",\nthen left",
+     "consent_at": "2026-03-01T10:00:00.000Z",
+     "token": "CzBVep_E6Q4zWH2ix-wRNluApcrvFDleg6jN8hc8YYY",
+     "created_at": "2026-03-01T10:00:00.000Z",
+     "updated_at": "2026-03-01T10:00:00.000Z",
+     "confirmed_at": "2026-03-01T10:00:00.000Z",
+     "unsubscribed_at": null,
+     "confirm_sent_at": null,
+     "ip_hash": null,
+     "ua_hash": null
+    }
+   ]
+  }
+ }
+}

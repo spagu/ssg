@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- Decorative: a spreadsheet sliding into an inbox tray. -->
+<ellipse cx="80" cy="110" rx="58" ry="6" fill="#bcaaa4" opacity=".5"/>
+<g transform="rotate(-8 70 40)"><rect x="38" y="10" width="64" height="58" rx="4" fill="#ffffff" stroke="#8d6e63" stroke-width="2"/>
+<path d="M38 26h64M38 40h64M38 54h64M60 10v58M82 10v58" stroke="#d7ccc8" stroke-width="2"/>
+<rect x="38" y="10" width="64" height="16" rx="4" fill="#b2dfdb"/></g>
+<path d="M28 72h30l6 10h32l6-10h30v26a6 6 0 0 1-6 6H34a6 6 0 0 1-6-6z" fill="#00897b"/>
+<path d="M80 52v22m-8-8 8 8 8-8" fill="none" stroke="#e64a19" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

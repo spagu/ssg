@@ -78,6 +78,13 @@ examples/*/output/
 # Local wrangler dev artifacts (miniflare state, generated config)
 .wrangler/
 /wrangler.toml
+# Running wrangler inside a worker template (e.g. `npx wrangler dev` in
+# workers/newsletter-ui): local secrets, an npm install, generated types.
+# go:embed takes everything under workers/, so none of it may sit there.
+.dev.vars
+.dev.vars.*
+node_modules/
+worker-configuration.d.ts
 
 # Build-throughput benchmark corpora (scripts/bench-build.sh, make bench)
 ssg-bench/

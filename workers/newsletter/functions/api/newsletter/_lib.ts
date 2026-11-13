@@ -2,8 +2,10 @@
 // out of the Pages route table — it is imported, never served.
 
 import { verifyAccess } from "./_access";
+import { transportOf, transportProblem } from "./_transport";
+import type { MailEnv } from "./_transport";
 
-export interface Env {
+export interface Env extends MailEnv {
   NEWSLETTER_DB: D1Database;
   NEWSLETTER_TURNSTILE_SECRET?: string; // this worker's own Turnstile secret
   TURNSTILE_SECRET?: string; // shared fallback, read only when the prefixed one is unset
@@ -13,14 +15,12 @@ export interface Env {
   NEWSLETTER_ACCESS_AUD?: string; // Cloudflare Access application AUD tag
   NEWSLETTER_THANKS_URL?: string; // where a plain form POST is sent: "/{lang}/thanks/" or a JSON map
   NEWSLETTER_RETENTION_DAYS?: string; // purge pending/unsubscribed rows after N days (0/unset = keep)
-  // Double opt-in. Set a sender and ONE provider key and every new sign-up is
-  // `pending` until the confirmation link is followed; without them it is
-  // single opt-in. Deliberately prefixed with no unprefixed fallback: a shared
-  // RESEND_API_KEY set for contact-form must not switch this flow on (#325).
-  NEWSLETTER_MAIL_FROM?: string; // verified sender, e.g. "news@example.com"
-  NEWSLETTER_MAIL_FROM_NAME?: string; // optional display name
-  NEWSLETTER_RESEND_API_KEY?: string; // Resend
-  NEWSLETTER_MAILCHANNELS_API_KEY?: string; // MailChannels Email API
+  // Double opt-in: the NEWSLETTER_MAIL_* / _RESEND_ / _MAILCHANNELS_ / _SMTP_
+  // settings come from MailEnv (_transport.ts). Set a sender and ONE transport
+  // and every new sign-up is `pending` until the confirmation link is
+  // followed; without them it is single opt-in. Deliberately prefixed with no
+  // unprefixed fallback: a shared RESEND_API_KEY set for contact-form must not
+  // switch this flow on (#325).
 }
 
 export const json = (data: unknown, status = 200): Response =>
@@ -80,10 +80,21 @@ export function isToken(raw: unknown): raw is string {
 }
 
 // doubleOptIn reports whether confirmation mail can be sent: a sender plus one
-// provider key. The answer is global, so returning it to every caller says
-// nothing about whether a particular address was already subscribed.
+// usable transport (a Resend or MailChannels key, or an SMTP host whose
+// settings can work). The answer is global, so returning it to every caller
+// says nothing about whether a particular address was already subscribed.
 export function doubleOptIn(env: Env): boolean {
-  return !!env.NEWSLETTER_MAIL_FROM && !!(env.NEWSLETTER_RESEND_API_KEY || env.NEWSLETTER_MAILCHANNELS_API_KEY);
+  return !!env.NEWSLETTER_MAIL_FROM && transportOf(env) !== null && transportProblem(env) === null;
+}
+
+// mailConfigProblem: double opt-in was asked for (a sender and a transport are
+// set) but the transport can never send. Such an install must not fall back
+// to single opt-in — that would confirm addresses with no proof of consent —
+// nor accept sign-ups that stay `pending` forever: the sign-up endpoint
+// refuses them as not configured. null when there is nothing wrong (or no mail
+// configuration at all, which is single opt-in as it always was).
+export function mailConfigProblem(env: Env): string | null {
+  return env.NEWSLETTER_MAIL_FROM ? transportProblem(env) : null;
 }
 
 // retentionDays reads NEWSLETTER_RETENTION_DAYS; 0 (the default) keeps rows.

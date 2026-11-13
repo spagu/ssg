@@ -1,0 +1,1537 @@
+openapi: 3.1.0
+info:
+  title: newsletter-ui admin API
+  version: 1.9.8
+  summary: The admin API, panel back end and provider webhooks of the ssg newsletter-ui worker.
+  description: |
+    Every path is relative to the worker's base path, `NEWSLETTER_UI_BASE`
+    (default `/newsletter-admin`). Routes under `/api/` need admin
+    authentication (Cloudflare Access or HTTP Basic) and, for every method
+    other than GET and HEAD, the header `x-newsletter-admin: 1` (CSRF guard);
+    a request without it is answered `403`. Routes under `/hooks/` are public:
+    each verifies its own signature, or carries no person at all (the click
+    redirect).
+
+    Errors are JSON `{"error": "<snake_case_code>", "detail": "…"}`; some add
+    fields named in the route. Lists answer `{items, nextCursor}`; pass
+    `nextCursor` back as `cursor` until it is null.
+
+    Answers common to every `/api/` route, not repeated below: `401` (no or
+    wrong credentials), `403` (missing CSRF header, or Access denied), `404`
+    (no such route), `405` (wrong method, with `allow`), `429` (the
+    RATE_LIMITER binding or the failed-login lockout, with `retry-after`),
+    `500 internal_error`, and `503` (no admin auth configured, the database
+    unreachable, or — for routes that need it — the `subscribers` table of the
+    `newsletter` template missing: `{"error": "newsletter not installed",
+    "hint": "…"}`).
+
+    workers/newsletter-ui/test/openapi.test.ts fails when a route in
+    src/routes.ts is missing here, or this file lists one that does not exist.
+  license:
+    name: Business Source License 1.1
+    identifier: BUSL-1.1
+servers:
+  - url: https://example.com/newsletter-admin
+    description: Your site's origin plus NEWSLETTER_UI_BASE
+
+security:
+  - basicAuth: []
+  - cloudflareAccess: []
+
+tags:
+  - name: health
+    description: "Configuration and schema state"
+  - name: subscribers
+    description: "The subscribers table of the newsletter template: list, edit, erase, export"
+  - name: import
+    description: "CSV import of a subscriber list"
+  - name: campaigns
+    description: "Campaign drafts, preview, test send and the state machine"
+  - name: engine
+    description: "The send engine: progress, dead letters, uncertain sends"
+  - name: statistics
+    description: "Counts only; nobody is tracked"
+  - name: feed
+    description: "Campaign drafts from posts on the site's feed"
+  - name: confirmations
+    description: "Double opt-in mail for pending subscribers"
+  - name: suppressions
+    description: "Addresses that get no campaign"
+  - name: settings
+    description: "Read-only configuration and the SMTP connection test"
+  - name: hooks
+    description: "Public routes: provider webhooks (signed) and the click redirect"
+
+paths:
+  /api/health:
+    get:
+      operationId: health
+      tags: [health]
+      summary: Configuration and schema state; answers without the subscribers table
+      responses:
+        "200":
+          description: Health
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /api/subscribers:
+    get:
+      operationId: listSubscribers
+      tags: [subscribers]
+      summary: List subscribers, newest first
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/SubscriberStatus" } }
+        - { name: language, in: query, schema: { type: string, examples: [pl, pt-BR] } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: q, in: query, description: Part of the address, schema: { type: string } }
+        - $ref: "#/components/parameters/Limit200"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of subscribers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Subscriber" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/subscribers.csv:
+    get:
+      operationId: exportSubscribersCSV
+      tags: [subscribers]
+      summary: The list as CSV (the template's columns; suppressed addresses left out)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [confirmed, pending, unsubscribed, all], default: confirmed }
+      responses:
+        "200":
+          description: UTF-8 CSV with a byte-order mark, CRLF, formula cells prefixed with an apostrophe
+          content:
+            text/csv:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/subscribers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getSubscriber
+      tags: [subscribers]
+      summary: One person, with consent, sends and suppression
+      responses:
+        "200":
+          description: The subscriber
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriberDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: patchSubscriber
+      tags: [subscribers]
+      summary: Change tags and/or language (nothing else is editable)
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags:
+                  oneOf:
+                    - { type: array, items: { type: string }, maxItems: 10 }
+                    - { type: string, description: Comma-separated }
+                language: { type: [string, "null"] }
+      responses:
+        "200": { $ref: "#/components/responses/SubscriberChanged" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: eraseSubscriber
+      tags: [subscribers]
+      summary: GDPR erasure — the row and its sends go, a hash-only suppression stays
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      responses:
+        "200":
+          description: Erased
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, erased]
+                properties:
+                  ok: { const: true }
+                  erased: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/subscribers/{id}/unsubscribe:
+    post:
+      operationId: unsubscribeSubscriber
+      tags: [subscribers]
+      summary: Unsubscribe by hand (the same change as the public link)
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - $ref: "#/components/parameters/Csrf"
+      responses:
+        "200": { $ref: "#/components/responses/SubscriberChanged" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/subscribers/{id}/export:
+    get:
+      operationId: exportSubscriber
+      tags: [subscribers]
+      summary: GDPR access — everything stored about the person, as a JSON download
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Attachment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriberDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/import/preview:
+    post:
+      operationId: importPreview
+      tags: [import]
+      summary: What an import would do; writes nothing
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody: { $ref: "#/components/requestBodies/Import" }
+      responses:
+        "200":
+          description: The plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportPreview" }
+        "400": { $ref: "#/components/responses/ImportError" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+        "415": { $ref: "#/components/responses/BadRequest" }
+
+  /api/import:
+    post:
+      operationId: importRun
+      tags: [import]
+      summary: Import a subscriber list (all rows or none)
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody: { $ref: "#/components/requestBodies/Import" }
+      responses:
+        "200":
+          description: Written
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ImportPreview"
+                  - type: object
+                    required: [imported, suppressionsAdded, status]
+                    properties:
+                      imported: { type: integer, description: Subscriber rows written }
+                      suppressionsAdded: { type: integer }
+                      status: { type: string, enum: [confirmed, pending], description: What active rows became }
+        "400": { $ref: "#/components/responses/ImportError" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+        "415": { $ref: "#/components/responses/BadRequest" }
+
+  /api/stats/subscribers:
+    get:
+      operationId: subscriberStats
+      tags: [statistics]
+      summary: Counts by status and language, and sign-ups / unsubscribes per UTC day
+      parameters:
+        - $ref: "#/components/parameters/Days"
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days: { type: integer }
+                  total: { type: integer }
+                  byStatus: { type: object, additionalProperties: { type: integer } }
+                  byLanguage: { type: object, additionalProperties: { type: integer } }
+                  series:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day: { type: string, format: date }
+                        signups: { type: integer }
+                        unsubscribes: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List campaigns, newest first, bodies omitted
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/CampaignStatus" } }
+        - $ref: "#/components/parameters/Cursor"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: A page of campaigns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Campaign" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create a draft
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignWrite" }
+      responses:
+        "201": { $ref: "#/components/responses/CampaignCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/campaigns/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: One campaign
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Edit a draft
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignWrite" }
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteCampaign
+      tags: [campaigns]
+      summary: Delete a draft or cancelled campaign, with its send records and links
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/campaigns/{id}/duplicate:
+    post:
+      operationId: duplicateCampaign
+      tags: [campaigns]
+      summary: A new draft with the same content, sender and segment
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "201": { $ref: "#/components/responses/CampaignCreated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/campaigns/{id}/preview:
+    post:
+      operationId: previewCampaign
+      tags: [campaigns]
+      summary: The mail exactly as a reader would get it, and who would get it
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      requestBody: { $ref: "#/components/requestBodies/Language" }
+      responses:
+        "200":
+          description: Rendered mail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/RenderedMail"
+                  - type: object
+                    properties:
+                      recipients: { $ref: "#/components/schemas/Recipients" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/campaigns/{id}/test:
+    post:
+      operationId: testCampaign
+      tags: [campaigns]
+      summary: Send the preview, subject prefixed "[TEST] ", to one address (10 per hour)
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                to: { type: string, format: email }
+                language: { type: string, default: en }
+      responses:
+        "200": { $ref: "#/components/responses/Sent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TestLimit" }
+        "502": { $ref: "#/components/responses/SendFailed" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/campaigns/{id}/schedule:
+    post:
+      operationId: scheduleCampaign
+      tags: [campaigns]
+      summary: Validate everything a send needs, then draft → scheduled
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                at: { type: string, format: date-time, description: Omitted or in the past = now }
+      responses:
+        "200":
+          description: Scheduled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Campaign"
+                  - type: object
+                    properties:
+                      recipients: { $ref: "#/components/schemas/Recipients" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/campaigns/{id}/unschedule:
+    post:
+      operationId: unscheduleCampaign
+      tags: [campaigns]
+      summary: scheduled → draft
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/campaigns/{id}/pause:
+    post:
+      operationId: pauseCampaign
+      tags: [campaigns]
+      summary: sending → paused (takes effect at the next message)
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/campaigns/{id}/resume:
+    post:
+      operationId: resumeCampaign
+      tags: [campaigns]
+      summary: paused → sending
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/campaigns/{id}/cancel:
+    post:
+      operationId: cancelCampaign
+      tags: [campaigns]
+      summary: scheduled | sending | paused → cancelled
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200": { $ref: "#/components/responses/CampaignOk" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/engine/status:
+    get:
+      operationId: engineStatus
+      tags: [engine]
+      summary: The send engine at a glance
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EngineStatus" }
+
+  /api/campaigns/{id}/progress:
+    get:
+      operationId: campaignProgress
+      tags: [engine]
+      summary: One campaign's progress, from the send ledger
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Progress" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/campaigns/{id}/uncertain:
+    get:
+      operationId: listUncertain
+      tags: [engine]
+      summary: Sends that were in flight when their consumer died
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - $ref: "#/components/parameters/Limit200"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Uncertain sends
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        subscriberId: { type: string }
+                        email: { type: [string, "null"], description: null when the subscriber was erased since }
+                        claimedAt: { type: string, format: date-time }
+                        safeResend: { type: boolean }
+                  nextCursor: { type: [string, "null"] }
+                  transport: { $ref: "#/components/schemas/Transport" }
+                  safeResend: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/campaigns/{id}/uncertain/resend:
+    post:
+      operationId: resendUncertain
+      tags: [engine]
+      summary: One more attempt through the normal path, same idempotency key
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      requestBody: { $ref: "#/components/requestBodies/Ids" }
+      responses:
+        "200":
+          description: Re-queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resent: { type: integer }
+                  ranges: { type: integer }
+                  safeResend: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/campaigns/{id}/uncertain/dismiss:
+    post:
+      operationId: dismissUncertain
+      tags: [engine]
+      summary: Close uncertain rows as skipped ("dismissed")
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      requestBody: { $ref: "#/components/requestBodies/Ids" }
+      responses:
+        "200":
+          description: Dismissed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dismissed: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/feed/posts:
+    get:
+      operationId: listFeedPosts
+      tags: [feed]
+      summary: Posts on the site's feed, with the campaign made from each
+      responses:
+        "200":
+          description: Up to 50 posts in feed order
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        guid: { type: string }
+                        title: { type: string }
+                        link: { type: string }
+                        summary: { type: string }
+                        published: { type: [string, "null"] }
+                        language: { type: [string, "null"] }
+                        campaign:
+                          type: [object, "null"]
+                          properties:
+                            id: { type: string }
+                            status: { $ref: "#/components/schemas/CampaignStatus" }
+                  nextCursor: { type: "null" }
+                  feedUrl: { type: string }
+        "502": { $ref: "#/components/responses/FeedError" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/campaigns/from-post:
+    post:
+      operationId: campaignFromPost
+      tags: [feed]
+      summary: A draft from one post (never sent or scheduled by itself)
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [guid]
+              properties:
+                guid: { type: string }
+                confirm: { type: boolean, description: Make another campaign from a post that already has one }
+      responses:
+        "201": { $ref: "#/components/responses/CampaignCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { $ref: "#/components/responses/FeedError" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/subscribers/confirmations:
+    post:
+      operationId: sendConfirmations
+      tags: [confirmations]
+      summary: Mail the confirmation to pending subscribers never mailed, one batch per call
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                after: { type: string, description: The previous answer's next }
+      responses:
+        "200":
+          description: One batch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: integer }
+                  failed: { type: integer }
+                  skipped: { type: integer }
+                  failures:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        detail: { type: string }
+                        temporary: { type: boolean }
+                  remaining: { type: integer }
+                  next: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { $ref: "#/components/responses/SendFailed" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/subscribers/{id}/confirmation:
+    post:
+      operationId: resendConfirmation
+      tags: [confirmations]
+      summary: Re-send one confirmation mail (15-minute throttle per address)
+      parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200": { $ref: "#/components/responses/Sent" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "502": { $ref: "#/components/responses/SendFailed" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+  /api/campaigns/{id}/stats:
+    get:
+      operationId: campaignStats
+      tags: [statistics]
+      summary: One campaign's statistics (counts only, nobody tracked)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CampaignStats" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/stats/campaigns:
+    get:
+      operationId: campaignsStats
+      tags: [statistics]
+      summary: Started campaigns, newest first, with their headline numbers
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        subject: { type: string }
+                        status: { $ref: "#/components/schemas/CampaignStatus" }
+                        total: { type: integer }
+                        sent: { type: integer }
+                        failed: { type: integer }
+                        skipped: { type: integer }
+                        pending: { type: integer }
+                        uncertain: { type: integer }
+                        unsubscribes: { type: integer }
+                        clicks: { type: [integer, "null"] }
+                        startedAt: { type: [string, "null"] }
+                        finishedAt: { type: [string, "null"] }
+                        durationSeconds: { type: [integer, "null"] }
+                  nextCursor: { type: [string, "null"] }
+                  windowDays: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /hooks/c/{campaign}/{link}:
+    parameters:
+      - { name: campaign, in: path, required: true, schema: { type: string } }
+      - { name: link, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{16}$" } }
+    get:
+      operationId: clickRedirect
+      tags: [hooks]
+      summary: Click redirect — counts one click, stores nothing about the request
+      security: []
+      responses:
+        "302": { description: To the link's stored target, headers: { location: { schema: { type: string } } } }
+        "404": { description: No such campaign/link pair }
+    head:
+      operationId: clickRedirectHead
+      tags: [hooks]
+      summary: The same redirect, not counted (scanners)
+      security: []
+      responses:
+        "302": { description: To the link's stored target }
+        "404": { description: No such campaign/link pair }
+
+  /api/suppressions:
+    get:
+      operationId: listSuppressions
+      tags: [suppressions]
+      summary: The suppression list, newest change first
+      parameters:
+        - { name: reason, in: query, schema: { $ref: "#/components/schemas/SuppressionReason" } }
+        - { name: q, in: query, description: Part of a kept address, schema: { type: string } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit200"
+      responses:
+        "200":
+          description: A page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Suppression" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    post:
+      operationId: addSuppression
+      tags: [suppressions]
+      summary: Suppress one address by hand (the stronger reason stays)
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                reason: { type: string, enum: [manual, hard, complaint], default: manual }
+      responses:
+        "200": { $ref: "#/components/responses/SuppressionOk" }
+        "201": { $ref: "#/components/responses/SuppressionOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/suppressions/import/preview:
+    post:
+      operationId: suppressionImportPreview
+      tags: [suppressions]
+      summary: What a suppression CSV import would add; writes nothing
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      requestBody: { $ref: "#/components/requestBodies/Csv" }
+      responses:
+        "200":
+          description: The plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuppressionImport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+
+  /api/suppressions/import:
+    post:
+      operationId: suppressionImportRun
+      tags: [suppressions]
+      summary: Import suppressions (hard by default, complaint also unsubscribes, manual)
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      requestBody: { $ref: "#/components/requestBodies/Csv" }
+      responses:
+        "200":
+          description: Written
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuppressionImport"
+                  - type: object
+                    properties:
+                      imported: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+
+  /api/suppressions/{hash}:
+    delete:
+      operationId: deleteSuppression
+      tags: [suppressions]
+      summary: "Lift a suppression; a complaint needs {\"confirm\": true}"
+      parameters:
+        - { name: hash, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{64}$" } }
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirm: { type: boolean }
+      responses:
+        "204": { description: Lifted }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/stats/suppressions:
+    get:
+      operationId: suppressionStats
+      tags: [statistics]
+      summary: Suppressions by reason, and created per UTC day
+      parameters:
+        - $ref: "#/components/parameters/Days"
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days: { type: integer }
+                  total: { type: integer }
+                  byReason: { type: object, additionalProperties: { type: integer } }
+                  softCounting: { type: integer, description: Addresses with soft bounces below the limit }
+                  series:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day: { type: string, format: date }
+                        hard: { type: integer }
+                        soft: { type: integer }
+                        complaint: { type: integer }
+                        manual: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /hooks/resend:
+    post:
+      operationId: resendHook
+      tags: [hooks]
+      summary: Resend webhook (Svix signature); bounces, complaints, deliveries
+      security: []
+      parameters:
+        - { name: svix-id, in: header, required: true, schema: { type: string } }
+        - { name: svix-timestamp, in: header, required: true, schema: { type: string } }
+        - { name: svix-signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { $ref: "#/components/responses/HookOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/BadSignature" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+        "503": { $ref: "#/components/responses/HookNotConfigured" }
+
+  /hooks/mailchannels:
+    post:
+      operationId: mailchannelsHook
+      tags: [hooks]
+      summary: MailChannels webhook (RFC 9421 HTTP Message Signature, Ed25519)
+      security: []
+      parameters:
+        - { name: content-digest, in: header, required: true, schema: { type: string } }
+        - { name: signature-input, in: header, required: true, schema: { type: string } }
+        - { name: signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { type: object } }
+      responses:
+        "200": { $ref: "#/components/responses/HookOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/BadSignature" }
+        "413": { $ref: "#/components/responses/TooLarge" }
+        "503": { $ref: "#/components/responses/HookNotConfigured" }
+
+  /api/settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: What the worker is configured with; secrets only as booleans
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+
+  /api/settings/smtp-test:
+    post:
+      operationId: smtpTest
+      tags: [settings]
+      summary: Open and close an SMTP session exactly as a send would, sending nothing
+      parameters: [{ $ref: "#/components/parameters/Csrf" }]
+      responses:
+        "200":
+          description: The session's outcome (ok may be false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  transport: { const: smtp }
+                  stage: { type: string }
+                  tls: { type: string, enum: [implicit, starttls] }
+                  authenticated: { type: boolean }
+                  reply: { type: string, description: What the server said; the client's lines are never recorded }
+                  detail: { type: string }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TestLimit" }
+        "503": { $ref: "#/components/responses/NotReady" }
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: NEWSLETTER_ADMIN_PASSWORD, any user name. Failed logins per IP are limited (NEWSLETTER_AUTH_MAX_FAILURES per NEWSLETTER_AUTH_WINDOW_MINUTES).
+    cloudflareAccess:
+      type: apiKey
+      in: header
+      name: Cf-Access-Jwt-Assertion
+      description: Set by Cloudflare Access in front of the worker (NEWSLETTER_ACCESS_TEAM + NEWSLETTER_ACCESS_AUD); the CF_Authorization cookie is accepted too.
+
+  parameters:
+    Csrf:
+      name: x-newsletter-admin
+      in: header
+      required: true
+      description: Required on every non-GET/HEAD request under /api/ (CSRF guard); without it the answer is 403.
+      schema: { const: "1" }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Cursor:
+      name: cursor
+      in: query
+      description: The previous answer's nextCursor (opaque)
+      schema: { type: string }
+    Limit200:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Days:
+      name: days
+      in: query
+      schema: { type: integer, enum: [30, 90, 365], default: 30 }
+
+  requestBodies:
+    Import:
+      required: true
+      description: |
+        The file itself (`text/csv`, UTF-8 or UTF-16 with BOM; options in the
+        query: consentSource, confirmed, dateOrder, mapping as URL-encoded
+        JSON) or JSON with the file in `csv`.
+      content:
+        text/csv:
+          schema: { type: string }
+        application/json:
+          schema:
+            type: object
+            required: [csv]
+            properties:
+              csv: { type: string }
+              consentSource: { type: string, description: Where and how these people consented; stored as consent_text }
+              confirmed: { type: boolean, default: false }
+              dateOrder: { type: string, enum: [dmy, mdy] }
+              mapping:
+                type: object
+                description: role → header name, or null to switch a role off
+                additionalProperties: { type: [string, "null"] }
+    Csv:
+      required: true
+      content:
+        text/csv:
+          schema: { type: string }
+        application/json:
+          schema:
+            type: object
+            required: [csv]
+            properties:
+              csv: { type: string }
+    Language:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              language: { type: string, default: en }
+    Ids:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ids: { type: array, items: { type: string }, minItems: 1, maxItems: 1000, description: Omitted = all }
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Not allowed in the current state (invalid_transition, not_draft, not_deletable, already_exists, not_pending, suppressed, confirm_required, not_resendable, not_smtp)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooLarge:
+      description: too_large / too_many_rows
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotReady:
+      description: A setting is missing or unusable (no_site_url, no_sender, no_transport, transport_unusable, no_feed_url, feed_not_https, no_sockets)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TestLimit:
+      description: test_limit — 10 test sends per hour for the whole worker
+      headers: { retry-after: { schema: { type: string } } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: rate_limited (the minute's send budget is used up) or confirm_throttled
+      headers: { retry-after: { schema: { type: string } } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SendFailed:
+      description: send_failed — the transport refused
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Error"
+              - type: object
+                properties:
+                  temporary: { type: boolean }
+    FeedError:
+      description: feed_unavailable, feed_redirect, feed_content_type, feed_too_large, unsupported_charset, invalid_feed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ImportError:
+      description: Invalid import (consent_source_required, empty_file, missing_email_column, invalid_mapping, invalid_date_order, ambiguous_date_format with columns and detected)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Error"
+              - type: object
+                properties:
+                  columns: { type: array, items: { type: string } }
+                  detected: { $ref: "#/components/schemas/ImportDetected" }
+    Sent:
+      description: Handed to the transport
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { const: true }
+              transport: { $ref: "#/components/schemas/Transport" }
+    SubscriberChanged:
+      description: The subscriber after the change
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { const: true }
+              changed: { type: boolean }
+              subscriber: { $ref: "#/components/schemas/SubscriberDetail" }
+    CampaignOk:
+      description: The campaign
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Campaign" }
+    CampaignCreated:
+      description: The new draft
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Campaign" }
+    SuppressionOk:
+      description: 201 when new, 200 when it was already there
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              suppression: { $ref: "#/components/schemas/Suppression" }
+    HookOk:
+      description: Applied (a redelivered event counts once)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { const: true }
+              applied: { type: integer }
+              duplicate: { type: integer }
+              ignored: { type: integer }
+    BadSignature:
+      description: invalid_signature — missing or wrong, or a timestamp more than 5 minutes off; nothing written
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    HookNotConfigured:
+      description: hook_not_configured — its secret or key is not set (never open)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: snake_case code }
+        detail: { type: string }
+        hint: { type: string }
+    SubscriberStatus: { type: string, enum: [pending, confirmed, unsubscribed] }
+    CampaignStatus: { type: string, enum: [draft, scheduled, sending, paused, sent, cancelled] }
+    SuppressionReason: { type: string, enum: [hard, soft, complaint, manual] }
+    Transport: { type: [string, "null"], enum: [resend, mailchannels, smtp, null] }
+    Health:
+      type: object
+      properties:
+        ok: { type: boolean }
+        schemaVersion: { type: integer }
+        subscribersTable: { type: boolean }
+        auth: { type: string, enum: [access, basic] }
+        bindings:
+          type: object
+          properties:
+            queue: { type: boolean }
+            rateLimiter: { type: boolean }
+            assets: { type: boolean }
+        hint: { type: string }
+    Subscriber:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        status: { $ref: "#/components/schemas/SubscriberStatus" }
+        language: { type: [string, "null"] }
+        tags: { type: array, items: { type: string } }
+        sourcePage: { type: [string, "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        confirmedAt: { type: [string, "null"] }
+        unsubscribedAt: { type: [string, "null"] }
+    SubscriberDetail:
+      allOf:
+        - $ref: "#/components/schemas/Subscriber"
+        - type: object
+          properties:
+            consentText: { type: string }
+            consentAt: { type: string }
+            confirmSentAt: { type: [string, "null"] }
+            sends:
+              type: array
+              items:
+                type: object
+                properties:
+                  campaignId: { type: string }
+                  subject: { type: [string, "null"] }
+                  status: { type: string }
+                  attempts: { type: integer }
+                  error: { type: [string, "null"] }
+                  claimedAt: { type: string }
+                  sentAt: { type: [string, "null"] }
+            suppression:
+              type: [object, "null"]
+              properties:
+                reason: { $ref: "#/components/schemas/SuppressionReason" }
+                source: { type: [string, "null"] }
+                count: { type: integer }
+                createdAt: { type: string }
+                updatedAt: { type: string }
+    Entry:
+      type: object
+      properties:
+        line: { type: integer }
+        email: { type: string }
+    ImportDetected:
+      type: object
+      properties:
+        delimiter: { type: string }
+        headerless: { type: boolean }
+        headers: { type: array, items: { type: string }, description: Every header in file order (added in 1.9.8) }
+        columns: { type: object, additionalProperties: { type: [string, "null"] } }
+        ignored:
+          type: array
+          items:
+            type: object
+            properties:
+              header: { type: string }
+              code: { type: string, enum: [name_not_stored, used_elsewhere, not_recognised], description: Added in 1.9.8 }
+              reason: { type: string, description: English text to show }
+        ambiguous:
+          type: array
+          items:
+            type: object
+            properties:
+              role: { type: string }
+              chosen: { type: string }
+              alsoMatched: { type: array, items: { type: string } }
+        dateOrder:
+          type: object
+          description: The date order used, per date column role
+          additionalProperties: { type: string, enum: [dmy, mdy] }
+    ImportPreview:
+      type: object
+      properties:
+        total: { type: integer }
+        counts:
+          type: object
+          properties:
+            new: { type: integer }
+            duplicate: { type: integer }
+            existing: { type: integer }
+            suppressed: { type: integer }
+            invalid: { type: integer }
+        sample: { type: object, additionalProperties: { type: array, items: { $ref: "#/components/schemas/Entry" } } }
+        invalid:
+          type: array
+          items:
+            type: object
+            properties:
+              line: { type: integer }
+              reason: { type: string, enum: [invalid_email, invalid_language, invalid_tags, invalid_status] }
+              value: { type: string }
+        detected: { $ref: "#/components/schemas/ImportDetected" }
+        classCounts:
+          type: object
+          properties:
+            toConfirm: { type: integer }
+            toPending: { type: integer }
+            toUnsubscribed: { type: integer }
+            toSuppress: { type: integer }
+            toSuppressExisting: { type: integer }
+            toStrengthen: { type: integer, description: Suppressed addresses whose suppression the file raises (added in 1.9.8) }
+        classSample: { type: object, additionalProperties: { type: array, items: { $ref: "#/components/schemas/Entry" } } }
+        dateWarnings:
+          type: array
+          items:
+            type: object
+            properties:
+              line: { type: integer }
+              column: { type: string }
+              value: { type: string }
+              reason: { type: string, enum: [unparseable, future] }
+        dateWarningCount: { type: integer }
+        sourceWarnings: { type: integer }
+        sourceWarningSample:
+          type: array
+          items:
+            type: object
+            properties:
+              line: { type: integer }
+              value: { type: string }
+    Segment:
+      type: object
+      properties:
+        languages: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string } }
+        tagMode: { type: string, enum: [any, all] }
+    CampaignWrite:
+      type: object
+      properties:
+        subject: { type: string, maxLength: 250 }
+        body: { type: string }
+        bodyFormat: { type: string, enum: [markdown, html] }
+        textOverride: { type: [string, "null"] }
+        fromEmail: { type: [string, "null"] }
+        fromName: { type: [string, "null"] }
+        segment: { $ref: "#/components/schemas/Segment" }
+    Campaign:
+      type: object
+      properties:
+        id: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        bodyFormat: { type: string, enum: [markdown, html] }
+        textOverride: { type: [string, "null"] }
+        fromEmail: { type: [string, "null"] }
+        fromName: { type: [string, "null"] }
+        segment: { $ref: "#/components/schemas/Segment" }
+        status: { $ref: "#/components/schemas/CampaignStatus" }
+        scheduledAt: { type: [string, "null"] }
+        startedAt: { type: [string, "null"] }
+        finishedAt: { type: [string, "null"] }
+        totalCount: { type: integer }
+        sentCount: { type: integer }
+        failedCount: { type: integer }
+        sourcePost: { type: [string, "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    Recipients:
+      type: object
+      properties:
+        total: { type: integer }
+        byLanguage: { type: object, additionalProperties: { type: integer } }
+    RenderedMail:
+      type: object
+      properties:
+        subject: { type: string }
+        html: { type: string }
+        text: { type: string }
+        headers: { type: object, additionalProperties: { type: string } }
+    Progress:
+      type: object
+      properties:
+        id: { type: string }
+        subject: { type: string }
+        status: { $ref: "#/components/schemas/CampaignStatus" }
+        total: { type: integer }
+        sent: { type: integer }
+        failed: { type: integer }
+        skipped: { type: integer }
+        claimed: { type: integer }
+        uncertain: { type: integer }
+        remaining: { type: integer }
+        error: { type: [string, "null"] }
+        startedAt: { type: [string, "null"] }
+        finishedAt: { type: [string, "null"] }
+    EngineStatus:
+      type: object
+      properties:
+        campaigns: { type: array, items: { $ref: "#/components/schemas/Progress" } }
+        deadLetters:
+          type: object
+          properties:
+            count: { type: integer }
+            lastAt: { type: [string, "null"] }
+        uncertainTotal: { type: integer, description: Uncertain sends across all campaigns (added in 1.9.8) }
+        rate:
+          type: object
+          properties:
+            perMinute: { type: integer }
+            minute: { type: string }
+            used: { type: integer }
+        batchSize: { type: integer }
+        staleMinutes: { type: integer }
+        maxAttempts: { type: integer }
+        queue: { type: boolean }
+    CampaignStats:
+      type: object
+      properties:
+        id: { type: string }
+        subject: { type: string }
+        status: { $ref: "#/components/schemas/CampaignStatus" }
+        recipients:
+          type: object
+          properties:
+            total: { type: integer }
+            sent: { type: integer }
+            failed: { type: integer }
+            skipped: { type: integer }
+            pending: { type: integer }
+            uncertain: { type: integer }
+        bounces:
+          type: object
+          description: Always null counts with a detail — a bounce cannot be credited to a campaign without guessing
+          properties:
+            hard: { type: "null" }
+            soft: { type: "null" }
+            complaints: { type: "null" }
+            detail: { type: string }
+        unsubscribes:
+          type: object
+          properties:
+            count: { type: integer }
+            windowDays: { type: integer }
+            attribution: { const: time-window }
+        clicks:
+          type: object
+          properties:
+            tracking: { type: boolean }
+            total: { type: integer }
+            links:
+              type: array
+              items:
+                type: object
+                properties:
+                  linkId: { type: string }
+                  url: { type: string }
+                  clicks: { type: integer }
+        timing:
+          type: object
+          properties:
+            scheduledAt: { type: [string, "null"] }
+            startedAt: { type: [string, "null"] }
+            finishedAt: { type: [string, "null"] }
+            durationSeconds: { type: [integer, "null"] }
+    Suppression:
+      type: object
+      properties:
+        emailHash: { type: string }
+        email: { type: [string, "null"], description: null for an erased address (hash only) }
+        reason: { $ref: "#/components/schemas/SuppressionReason" }
+        count: { type: integer }
+        source: { type: [string, "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    SuppressionImport:
+      type: object
+      properties:
+        total: { type: integer }
+        counts:
+          type: object
+          properties:
+            new: { type: integer }
+            duplicate: { type: integer }
+            existing: { type: integer }
+            invalid: { type: integer }
+        sample: { type: object, additionalProperties: { type: array, items: { $ref: "#/components/schemas/Entry" } } }
+        invalid: { type: array, items: { type: object } }
+    Settings:
+      type: object
+      properties:
+        transport: { $ref: "#/components/schemas/Transport" }
+        transportProblem: { type: [string, "null"], description: Why the configured transport can never send (added in 1.9.8) }
+        sender:
+          type: object
+          properties:
+            email: { type: [string, "null"] }
+            name: { type: [string, "null"] }
+        siteUrl: { type: [string, "null"] }
+        siteUrlValid: { type: boolean }
+        keys:
+          type: object
+          properties:
+            resend: { type: boolean }
+            mailchannels: { type: boolean }
+        smtp:
+          type: [object, "null"]
+          properties:
+            host: { type: string }
+            port: { type: integer }
+            user: { type: [string, "null"] }
+            passwordSet: { type: boolean }
+            helo: { type: [string, "null"] }
+        engine:
+          type: object
+          properties:
+            rate: { type: integer }
+            batchSize: { type: integer }
+            staleMinutes: { type: integer }
+            maxAttempts: { type: integer }
+            queue: { type: boolean }
+            deadLetterQueue: { type: string }
+        clicks:
+          type: object
+          properties:
+            tracking: { type: boolean }
+            unsubscribeWindowDays: { type: integer }
+        bounces:
+          type: object
+          properties:
+            softLimit: { type: integer }
+        webhooks:
+          type: object
+          properties:
+            resend: { type: boolean }
+            mailchannels: { type: boolean }
+        feedUrl: { type: [string, "null"] }
+        confirmBatch: { type: integer }
+        importMaxRows: { type: integer }
+        auth: { type: string, enum: [access, basic] }
+        base: { type: [string, "null"] }
+        schemaVersion: { type: integer }

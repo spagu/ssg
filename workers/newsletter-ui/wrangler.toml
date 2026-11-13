@@ -1,0 +1,110 @@
+# newsletter-ui — a standalone Cloudflare Worker, deployed on its own:
+#   cd workers/newsletter-ui
+#   1. database_id below: the SAME id as the `newsletter` template's D1
+#      (`npx wrangler d1 list` shows it; create it with
+#      `npx wrangler d1 create ssg-newsletter` if you have none yet)
+#   2. npx wrangler queues create ssg-newsletter-send
+#      npx wrangler queues create ssg-newsletter-send-dlq
+#   3. admin auth: Access vars below, or `npx wrangler secret put NEWSLETTER_ADMIN_PASSWORD`
+#   4. routes below: your domain, then `npx wrangler deploy`
+# Full guide: README.md in this directory.
+
+# Placeholders to replace are marked <…>.
+name = "ssg-newsletter-ui"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# The worker must own exactly the base path (NEWSLETTER_UI_BASE) on your site,
+# so it never shadows a page. Keep both in step.
+routes = [
+  { pattern = "<example.com>/newsletter-admin*", zone_name = "<example.com>" },
+]
+
+[[d1_databases]]
+binding = "NEWSLETTER_DB"
+database_name = "ssg-newsletter"
+database_id = "<paste-the-newsletter-d1-database-id>"
+
+# Every minute: the send engine starts scheduled campaigns from here.
+[triggers]
+crons = ["* * * * *"]
+
+[[queues.producers]]
+binding = "NEWSLETTER_QUEUE"
+queue = "ssg-newsletter-send"
+
+[[queues.consumers]]
+queue = "ssg-newsletter-send"
+# One job per invocation: a job is already a batch of NEWSLETTER_SEND_BATCH
+# messages sized to the per-invocation limits (subrequests, D1 queries), and
+# several jobs in one invocation would share — and overrun — those limits.
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 5
+# A job that keeps failing ends up here, visible, instead of disappearing.
+dead_letter_queue = "ssg-newsletter-send-dlq"
+
+# The dead-letter queue is consumed by this worker too: each job is recorded in
+# send_dead_letters (the panel's count). Its range is re-queued by the cron.
+[[queues.consumers]]
+queue = "ssg-newsletter-send-dlq"
+max_batch_size = 10
+max_retries = 3
+
+# Per-IP request volume for everything except {base}/hooks/ (provider webhooks
+# call from many addresses; their signature protects them). Optional: delete
+# the block to run without it. Failed logins are limited separately, in D1.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1101"          # any id unique within your account
+simple = { limit = 120, period = 60 }   # period is 10 or 60 seconds
+
+# The panel. run_worker_first sends every request through the worker, so the
+# panel files sit behind the same authentication as the API.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+NEWSLETTER_UI_BASE = "/newsletter-admin"
+# Admin auth — the same names as the `newsletter` template; pick ONE:
+#   (a) HTTP Basic: `npx wrangler secret put NEWSLETTER_ADMIN_PASSWORD`
+#   (b) Cloudflare Access (recommended): an Access application covering the
+#       base path, then set both:
+# NEWSLETTER_ACCESS_TEAM = "<myteam>"
+# NEWSLETTER_ACCESS_AUD = "<application-aud>"
+# NEWSLETTER_AUTH_MAX_FAILURES = "10"   # Basic only: failed logins per IP…
+# NEWSLETTER_AUTH_WINDOW_MINUTES = "10" # …per window, also the lockout length
+# NEWSLETTER_IMPORT_MAX_ROWS = "20000"   # rows per CSV import (1 KiB of body per row)
+# Campaigns — the same mail names as the `newsletter` template:
+# NEWSLETTER_SITE_URL = "https://<example.com>"   # the site's origin; needed to preview, test, schedule
+# NEWSLETTER_MAIL_FROM = "news@<example.com>"     # default sender (a campaign may set its own)
+# NEWSLETTER_MAIL_FROM_NAME = "<Example News>"
+# NEWSLETTER_SMTP_HOST = "<smtp.example.com>"     # own mail server (used when no provider key is set)
+# NEWSLETTER_SMTP_PORT = "587"                    # 465 = TLS, 587 = STARTTLS; 25 is blocked
+# NEWSLETTER_SMTP_USER = "<mailer@example.com>"
+# Send engine — README "Limits per Cloudflare plan" has the numbers per plan:
+# NEWSLETTER_SEND_RATE = "60"            # messages per minute, whole worker
+# NEWSLETTER_SEND_BATCH = "10"           # messages per queue job; 10 fits Workers Free (50 D1 queries per invocation)
+# NEWSLETTER_SEND_STALE_MINUTES = "30"   # a range older than this is re-queued; a claim older than this becomes `uncertain` (never re-sent automatically)
+# NEWSLETTER_SEND_MAX_ATTEMPTS = "3"     # tries per recipient on temporary failures
+# NEWSLETTER_BOUNCE_BREAKER_MIN = "5"    # hard bounces in one batch before the campaign pauses …
+# NEWSLETTER_BOUNCE_BREAKER_PERCENT = "50"  # … if they are also this share of the batch's messages
+# NEWSLETTER_DEAD_LETTER_QUEUE = "ssg-newsletter-send-dlq"   # if you renamed the queue above
+# Campaign from a post, confirmation mail for pending imports:
+# NEWSLETTER_FEED_URL = "/feed.xml"      # the site feed: a path on NEWSLETTER_SITE_URL or an https:// URL
+# NEWSLETTER_CONFIRM_BATCH = "10"        # confirmation mails per call; shares NEWSLETTER_SEND_RATE with campaigns
+# Campaign statistics — README "Statistics and privacy" says what is counted:
+# NEWSLETTER_TRACK_CLICKS = "true"              # count clicks per link (no person tracked); default off
+# NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS = "14"     # an unsubscribe is credited to the last send within this many days
+# Bounces — docs/BOUNCES.md:
+# NEWSLETTER_SOFT_BOUNCE_LIMIT = "3"     # soft bounces in a row before an address is suppressed
+
+# Secrets (never here — `npx wrangler secret put <NAME>`):
+#   NEWSLETTER_ADMIN_PASSWORD   admin password, auth mode (a)
+#   NEWSLETTER_HASH_SALT        optional; salts the short-lived failed-login records
+#   NEWSLETTER_RESEND_API_KEY / NEWSLETTER_MAILCHANNELS_API_KEY / NEWSLETTER_SMTP_PASSWORD
+#                               the mail transport; first set wins: Resend → MailChannels → SMTP
+#   NEWSLETTER_RESEND_WEBHOOK_SECRET      "whsec_…" of the Resend webhook ({base}/hooks/resend); unset → 503
+#   NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY   MailChannels' Ed25519 public key, PEM ({base}/hooks/mailchannels); unset → 503

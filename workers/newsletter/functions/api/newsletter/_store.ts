@@ -6,7 +6,8 @@
 //   (new) ──sign-up──▶ confirmed                               (single opt-in)
 //   pending | confirmed ──unsubscribe──▶ unsubscribed ──sign-up──▶ as (new)
 
-import { Env, newToken, retentionDays } from "./_lib";
+import { newToken, retentionDays } from "./_lib";
+import type { Env } from "./_lib";
 
 export interface Signup {
   email: string;

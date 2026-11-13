@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- Decorative: an envelope behind an open barrier — nothing blocked. -->
+<ellipse cx="80" cy="110" rx="58" ry="6" fill="#bcaaa4" opacity=".5"/>
+<rect x="44" y="40" width="72" height="50" rx="5" fill="#ffffff" stroke="#8d6e63" stroke-width="2"/>
+<path d="m46 43 34 26 34-26" fill="none" stroke="#a1887f" stroke-width="2" stroke-linejoin="round"/>
+<rect x="20" y="66" width="8" height="40" rx="2" fill="#8d6e63"/>
+<g transform="rotate(-62 24 70)"><rect x="24" y="64" width="96" height="10" rx="3" fill="#ffffff" stroke="#8d6e63" stroke-width="1.5"/><path d="M36 64h12l-8 10H28zM64 64h12l-8 10H56zM92 64h12l-8 10H84z" fill="#e64a19"/></g>
+</svg>

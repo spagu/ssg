@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.8] - 2026-11-13
+
+### Added
+
+- **Your own mail server for the newsletter.** The `newsletter` template's
+  confirmation mail can now go through any SMTP server, next to Resend and
+  MailChannels. Port 465 uses TLS from the first byte; 587 (the default)
+  upgrades with STARTTLS, and a server that does not offer it gets no password
+  and no mail. Login is `AUTH PLAIN` or `AUTH LOGIN`. Port 25 is refused,
+  because Cloudflare blocks it. The first transport configured wins, in the
+  order Resend → MailChannels → SMTP, so a site that already has a provider
+  key keeps sending through it. New settings: `NEWSLETTER_SMTP_HOST`,
+  `NEWSLETTER_SMTP_PORT`, `NEWSLETTER_SMTP_USER`, `NEWSLETTER_SMTP_HELO`
+  (vars) and `NEWSLETTER_SMTP_PASSWORD` (secret).
+- **`newsletter-ui`: send the newsletter from your own Cloudflare account.**
+  A new template, `ssg new worker newsletter-ui`: a standalone Worker on the
+  `newsletter` template's D1 database, deployed with `npx wrangler deploy`.
+  It is a separate Worker because Pages Functions have no cron trigger and
+  no queue consumer, and a campaign needs both.
+  - *A panel in the browser* under `/newsletter-admin/` (configurable), in
+    English, Polish, Hindi, German and French, light and dark, WCAG 2.2 AA,
+    with nothing loaded from another origin. Behind Cloudflare Access or a
+    password, with a per-IP lockout after failed logins and a CSRF header on
+    every change.
+  - *Subscribers*: list, search, edit tags and language, unsubscribe, GDPR
+    export and erasure, a CSV export that leaves suppressed addresses out,
+    and an import that reads lists exported from common mailing tools as they
+    are (delimiter, encoding, columns, statuses and dates are detected, and
+    the preview shows what each row will become). An import never undoes an
+    unsubscribe and never touches an existing row. A pending import can be
+    sent the template's own confirmation mail.
+  - *Campaigns*: Markdown or HTML, a segment by language and tags, a preview
+    that is exactly the mail, test sends, scheduling, pause, resume, cancel,
+    and a draft made from a post on the site's feed.
+  - *Sending*: a cron trigger and a queue send the list in batches at a rate
+    you set, through the same three transports. Each reader gets a campaign
+    at most once. If a consumer dies mid-send, that one message is shown as
+    *uncertain* for you to re-send or dismiss; it is never repeated by
+    itself. A batch where most addresses bounce pauses the campaign instead
+    of suppressing the list.
+  - *Bounces and complaints* come from the SMTP reply, from signed Resend
+    and MailChannels webhooks, or from a CSV. They fill a suppression list
+    that every send obeys.
+  - *Statistics* are counts per campaign, plus optional click counts per
+    link. There is no open pixel and nothing that points at a person.
+  - The whole API is described in OpenAPI 3.1 (`openapi.yaml`); a test keeps
+    it in step with the routes.
+
+  New settings, all optional except where the README says otherwise:
+  `NEWSLETTER_UI_BASE`, `NEWSLETTER_SITE_URL`,
+  `NEWSLETTER_AUTH_MAX_FAILURES`, `NEWSLETTER_AUTH_WINDOW_MINUTES`,
+  `NEWSLETTER_SEND_RATE`, `NEWSLETTER_SEND_BATCH`,
+  `NEWSLETTER_SEND_STALE_MINUTES`, `NEWSLETTER_SEND_MAX_ATTEMPTS`,
+  `NEWSLETTER_BOUNCE_BREAKER_MIN`, `NEWSLETTER_BOUNCE_BREAKER_PERCENT`,
+  `NEWSLETTER_DEAD_LETTER_QUEUE`, `NEWSLETTER_SOFT_BOUNCE_LIMIT`,
+  `NEWSLETTER_TRACK_CLICKS`, `NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS`,
+  `NEWSLETTER_FEED_URL`, `NEWSLETTER_CONFIRM_BATCH`,
+  `NEWSLETTER_IMPORT_MAX_ROWS` (vars);
+  `NEWSLETTER_RESEND_WEBHOOK_SECRET` and
+  `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` (secrets); the bindings
+  `NEWSLETTER_QUEUE`, `RATE_LIMITER` and `ASSETS`. It reads the
+  `newsletter` template's existing names for everything they share:
+  `NEWSLETTER_DB`, `NEWSLETTER_ADMIN_PASSWORD`, `NEWSLETTER_ACCESS_TEAM`,
+  `NEWSLETTER_ACCESS_AUD`, `NEWSLETTER_HASH_SALT`, `NEWSLETTER_MAIL_FROM`,
+  `NEWSLETTER_MAIL_FROM_NAME`, the provider keys and the SMTP settings.
+- **Worker tests in `make test-workers` and in CI.** The target now runs the
+  `newsletter` and `newsletter-ui` suites too. A new `Workers` workflow runs
+  it on pull requests that change `workers/`, in one job; main and tag runs
+  do not repeat it.
+
+### Changed
+
+- **`newsletter`: an SMTP host next to a sender now means double opt-in.**
+  Before, `NEWSLETTER_SMTP_HOST` did not exist, so a site with
+  `NEWSLETTER_MAIL_FROM` and an SMTP host but no provider key confirmed
+  sign-ups at once. Now they stay `pending` until the confirmation link sent
+  through that server is followed.
+- **`newsletter`: mail settings that can never send are refused.** With
+  `NEWSLETTER_MAIL_FROM` set and SMTP chosen on port 25, a port that is not a
+  number, a user without a password or an invalid EHLO name, the sign-up
+  answers `not_configured` (503) and logs why. It does not fall back to
+  single opt-in, which would confirm addresses without proof of consent.
+- **The build refuses a standalone Worker under `worker:` / `workers:`.** A
+  directory with its own `wrangler.toml`, no `functions/` and no
+  `pages_build_output_dir` (as `newsletter-ui` is) stops the build with a
+  message saying to deploy it with `npx wrangler deploy`. Copied into the
+  site's `functions/`, its sources and tests would have become public routes.
+- **`ssg new worker` prints deploy steps for such a template** instead of a
+  `worker:` block; for the ten Pages Functions templates it prints exactly
+  what it did before.
+- **Existing `newsletter` installs need no migration.** The `subscribers`
+  table is unchanged, and nothing in this release alters, indexes or drops it.
+  A new backward-compatibility suite runs every endpoint scenario (sign-up as
+  JSON and as a form with each error, single and double opt-in, sign-up again
+  when confirmed, pending or unsubscribed, confirm, unsubscribe including
+  RFC 8058 one-click, admin counts, the CSV for each status, purge). It
+  checks the answers against those recorded from 1.9.7: status, headers,
+  JSON, the HTML pages byte for byte, the CSV header row and cells, and the
+  rows left behind. Only the two changes above differ. A site with only a
+  Resend key or only a MailChannels key sends a byte-identical provider
+  request. `newsletter-ui` is run against the table exactly as 1.9.7 created
+  it: every route, the cron, a whole campaign, an import, a webhook and an
+  erasure leave its definition untouched. The ten earlier worker templates
+  scaffold byte for byte as before. Two log lines name the provider now
+  (`resend returned 500` where they said `provider returned 500`).
 ## [1.9.7] - 2026-11-11
 
 ### Fixed
@@ -6559,7 +6664,12 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.3...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.8...HEAD
+[1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8
+[1.9.7]: https://github.com/spagu/ssg/compare/v1.9.6...v1.9.7
+[1.9.6]: https://github.com/spagu/ssg/compare/v1.9.5...v1.9.6
+[1.9.5]: https://github.com/spagu/ssg/compare/v1.9.4...v1.9.5
+[1.9.4]: https://github.com/spagu/ssg/compare/v1.9.3...v1.9.4
 [1.9.3]: https://github.com/spagu/ssg/compare/v1.9.2...v1.9.3
 [1.9.2]: https://github.com/spagu/ssg/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/spagu/ssg/compare/v1.9.0...v1.9.1

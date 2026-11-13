@@ -25,6 +25,13 @@ Makefile
 *_test.go
 coverage.*
 
+# Local wrangler runs inside a worker template: secrets, npm installs, state
+# (workers/ itself stays: the binary embeds the templates)
+**/.dev.vars
+**/.dev.vars.*
+**/node_modules
+**/.wrangler
+
 # Agent/IDE config
 .agent/
 

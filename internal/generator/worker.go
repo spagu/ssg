@@ -108,6 +108,10 @@ func (g *Generator) generateWorkerFiles() error {
 		}
 		switch mode {
 		case workerModeFunctions:
+			if isStandaloneWorkerDir(dir) {
+				return fmt.Errorf("worker %s: %s is a standalone Worker (its own wrangler.toml, no functions/) — "+
+					"deploy it with `npx wrangler deploy` from that directory and remove it from the worker/workers config", label, dir)
+			}
 			if err := g.copyFunctionsTree(dir, label, seen); err != nil {
 				return err
 			}
@@ -234,6 +238,23 @@ func sanitizeWorkerName(name string) string {
 		return "worker"
 	}
 	return name
+}
+
+// isStandaloneWorkerDir reports whether dir is a Worker deployed on its own
+// (`wrangler deploy`, e.g. the newsletter-ui template, GO-123) rather than a
+// Pages Functions source: it has a wrangler.toml, no functions/ tree, and the
+// config is not a Pages one. Copying such a directory into the site's
+// functions/ would turn its sources and tests into public routes and publish
+// its panel files, so the build refuses it instead.
+func isStandaloneWorkerDir(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, "wrangler.toml")) // #nosec G304 -- path from the project's own configured worker dir
+	if err != nil {
+		return false
+	}
+	if fi, err := os.Stat(filepath.Join(dir, "functions")); err == nil && fi.IsDir() {
+		return false
+	}
+	return !strings.Contains(string(data), "pages_build_output_dir")
 }
 
 // copyFunctionsTree copies a Pages Functions source tree into output/functions.

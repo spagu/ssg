@@ -1,0 +1,68 @@
+/* Layout: the shell (sidebar on wide screens, a top bar with a menu below
+ * 900px), the page heading, and the grids views use. Works from 320px wide
+ * without horizontal page scroll: wide tables scroll inside their own region. */
+
+.shell { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--surface) calc(var(--sidebar) - 1px), var(--border) calc(var(--sidebar) - 1px), var(--border) var(--sidebar), transparent var(--sidebar)); }
+
+.sidebar {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 20px 14px;
+}
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.drawer { display: flex; flex-direction: column; flex: 1; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; padding: 0 8px 18px; }
+.brand img { width: 32px; height: 32px; }
+.brand-name { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
+
+#nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+#nav-list a {
+  display: flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: var(--radius);
+  color: var(--text); text-decoration: none; font-weight: 500;
+}
+#nav-list a:hover { background: var(--surface-sunk); }
+#nav-list a[aria-current="page"] { background: var(--primary-soft); color: var(--on-primary-soft); font-weight: 700; box-shadow: inset 4px 0 0 var(--primary); }
+#nav-list .nav-help { margin-top: 12px; border-top: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); }
+
+.prefs { margin-top: auto; padding: 16px 8px 0; display: grid; gap: 4px; font-size: .9rem; }
+.prefs label { color: var(--text-muted); margin-top: 6px; }
+
+#menu-toggle { display: none; }
+
+main { padding: 28px clamp(16px, 3vw, 40px) 64px; min-width: 0; max-width: 1360px; width: 100%; }
+#notice:empty { display: none; }
+#notice { position: sticky; top: 8px; z-index: 5; margin-bottom: 16px; }
+#notice .callout { display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgb(0 0 0 / .12); }
+#notice .callout p { margin: 0; }
+
+.page-head { margin-bottom: 20px; }
+.page-head-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; }
+.page-head h1 { margin: 0; overflow-wrap: anywhere; }
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lead { color: var(--text-muted); max-width: 70ch; margin-top: 8px; }
+.back { display: inline-block; margin-bottom: 8px; font-size: .95rem; }
+
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.chart-grid > .range-charts { display: contents; }
+.chart-grid.tight { gap: 12px; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.settings-grid, .help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--gap); align-items: start; }
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 8px 0 12px; }
+
+@media (max-width: 1100px) {
+  .editor { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .shell { display: block; background: none; }
+  .sidebar { position: sticky; z-index: 10; height: auto; max-height: 100vh; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .brand { padding: 0; }
+  #menu-toggle { display: inline-flex; }
+  .drawer { display: none; padding-top: 12px; }
+  body.nav-open .drawer { display: flex; }
+  .prefs { grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding-top: 16px; }
+  .prefs label { margin: 0; }
+  main { padding: 20px 16px 48px; }
+  #notice { top: 68px; }
+}

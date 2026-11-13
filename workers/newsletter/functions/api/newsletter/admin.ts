@@ -7,7 +7,8 @@
 // (NEWSLETTER_ACCESS_TEAM + NEWSLETTER_ACCESS_AUD), exactly like the comments
 // worker's moderation endpoints.
 
-import { Env, json, requireAdmin } from "./_lib";
+import { json, requireAdmin } from "./_lib";
+import type { Env } from "./_lib";
 import { ensureSchema } from "./_schema";
 import { purgeExpired } from "./_store";
 import { toCSV } from "./_csv";

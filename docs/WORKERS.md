@@ -112,15 +112,51 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `cookie-consent` | GDPR/UK cookie banner: edge geo (EEA+UK), granular categories, script-gating, Consent Mode v2, optional audit log; ships a starter `cookie-policy.md`. `ssgtheme` wires it from `variables.cookie_consent` rather than literal HTML — see [its README](../workers/cookie-consent/README.md) |
 | `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
 | `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
-| `newsletter` | Newsletter / waitlist sign-up in D1: Turnstile, required consent stored with its wording, identical answer for new and existing addresses, RFC 8058 one-click unsubscribe, optional double opt-in (Resend or MailChannels), admin counts + CSV export, retention purge, IP/UA kept only as salted hashes. Ships a form that works without JavaScript. See [its README](../workers/newsletter/README.md) |
+| `newsletter` | Newsletter / waitlist sign-up in D1: Turnstile, required consent stored with its wording, identical answer for new and existing addresses, RFC 8058 one-click unsubscribe, optional double opt-in (Resend, MailChannels or your own SMTP server), admin counts + CSV export, retention purge, IP/UA kept only as salted hashes. Ships a form that works without JavaScript. See [its README](../workers/newsletter/README.md) |
 | `web-push` | Browser notifications about new posts: subscriptions in D1, `POST /api/push/notify` (key-gated, called from CI after a deploy) reads the feed and sends one message per new post, RFC 8291 encryption and RFC 8292 VAPID with WebCrypto only, dead subscriptions removed. Ships `sw.js` and `push.js`; pair it with `web_push: true`. See [its README](../workers/web-push/README.md) |
 | `rate-limit` | `functions/_middleware.ts` — a request budget for every Function in the project, including ones added later. Exact and free through the Workers Rate Limiting binding, KV as a fallback. See [its README](../workers/rate-limit/README.md) |
+| `newsletter-ui` | **Standalone Worker**, not Pages Functions (see below). Sends the `newsletter` template's list, on the same D1 database: a browser panel and admin API, campaigns (Markdown or HTML, segments, preview, test send, a draft from a feed post), a send engine on a cron trigger and a queue (rate limit, each reader at most once, uncertain sends shown instead of repeated), bounces and complaints from SMTP replies, signed Resend/MailChannels webhooks or a CSV, CSV import of lists from other tools, statistics without tracking anyone. Cloudflare Access or HTTP Basic with a per-IP failed-login lockout, CSRF header on every write, its own tables, never alters `subscribers`. API in OpenAPI 3.1. See [its README](../workers/newsletter-ui/README.md) |
 
 ```sh
 ssg new worker stripe-checkout
 ```
 
 Each template ships a `README.md` listing the secrets it needs.
+
+### Pages Functions vs a standalone Worker
+
+Every template above except `newsletter-ui` is a set of **Pages Functions**:
+a `functions/` tree that the build copies into the site, deployed together with
+the pages by `wrangler pages deploy`, configured through `worker:`/`workers:`
+and a `wrangler.snippet.toml` that `ssg new wrangler` folds into the site's
+config.
+
+`newsletter-ui` is a **standalone Worker**: it ships its own `wrangler.toml`
+(`main = "src/index.ts"`) and is deployed on its own, from its directory:
+
+```sh
+ssg new worker newsletter-ui
+cd workers/newsletter-ui
+# database_id = the same D1 id as the newsletter template
+npx wrangler queues create ssg-newsletter-send
+npx wrangler queues create ssg-newsletter-send-dlq
+npx wrangler deploy
+```
+
+It exists because Pages Functions only answer requests. They have no cron
+trigger and cannot consume a queue, and a newsletter campaign needs both: the
+cron starts scheduled campaigns, and the queue sends them in batches that
+survive a failure, can be paused and resumed, and end up in a dead-letter queue
+instead of disappearing. The two workers share one D1 database
+(`NEWSLETTER_DB`): `newsletter` owns `subscribers`, `newsletter-ui` owns its own
+tables and never changes that one.
+
+For a template like this, `ssg new worker` prints deploy steps instead of a
+`worker:` block, and `ssg new wrangler` leaves it out of the site's
+`wrangler.toml`. Listing such a directory under `worker:`/`workers:` stops the
+build with an error. Copying it into `functions/` would turn its sources and
+tests into public routes. The rule: a directory with a `wrangler.toml`, no
+`functions/` and no `pages_build_output_dir` is standalone.
 
 ### Bounding how often they can be called
 
@@ -189,6 +225,30 @@ starts storing records again. New projects should set the prefixed names. The
 same rule applies to anything that switches behaviour on: the newsletter's
 double opt-in keys (`NEWSLETTER_RESEND_API_KEY`, `NEWSLETTER_MAILCHANNELS_API_KEY`)
 deliberately have no unprefixed fallback.
+
+`newsletter-ui` is a separate Worker, so it has its own environment: set its
+secrets with `wrangler secret put` (not `wrangler pages secret put`) from
+`workers/newsletter-ui/`. It reads the **same names** as the `newsletter`
+admin, so one set of values serves both:
+
+| Template | Secret / variable | Purpose |
+|---|---|---|
+| `newsletter-ui` | `NEWSLETTER_ADMIN_PASSWORD` (secret) | HTTP Basic admin password, when Access is not used |
+| `newsletter-ui` | `NEWSLETTER_ACCESS_TEAM` + `NEWSLETTER_ACCESS_AUD` (vars) | Cloudflare Access instead of a password (recommended) |
+| `newsletter-ui` | `NEWSLETTER_HASH_SALT` (secret, optional) | salts the short-lived failed-login records |
+| `newsletter-ui` | `NEWSLETTER_UI_BASE` (var) | path prefix, default `/newsletter-admin` |
+| `newsletter`, `newsletter-ui` | `NEWSLETTER_SMTP_PASSWORD` (secret) + `NEWSLETTER_SMTP_HOST`, `_PORT`, `_USER`, `_HELO` (vars) | your own SMTP server as the mail transport, used when neither provider key is set (order: Resend → MailChannels → SMTP); port 465 or 587, never 25 |
+| `newsletter-ui` | `NEWSLETTER_RESEND_WEBHOOK_SECRET`, `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` (secrets) | verify the bounce/complaint webhooks |
+
+The full list of `newsletter-ui` variables (send rate, batch size, click
+counting, feed URL, …) is the "Configuration" table in
+[its README](../workers/newsletter-ui/README.md#configuration).
+
+**Tests.** Templates with a `test/` directory (`contact-form`, `web-push`,
+`newsletter`, `newsletter-ui`) run with `make test-workers` — Node 23.6 or
+newer, no npm packages. Pull requests that change `workers/` run the same
+target in CI (the `Workers` workflow). `newsletter`'s `compat-*` tests pin
+every endpoint to its 1.9.7 answers, so an existing install keeps working.
 
 ## Local development
 

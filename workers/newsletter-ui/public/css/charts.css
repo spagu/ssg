@@ -1,0 +1,55 @@
+/* Charts. Colour follows the entity (k-<key>), the same in every chart:
+ * sign-ups, confirmed and sent are c1; unsubscribes c2; pending, skipped
+ * and manual c3; failed and hard bounces c4; uncertain and soft c5;
+ * complaints c2. Text never wears a series colour — labels stay ink. */
+
+.chart { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 18px 12px; min-width: 0; display: flex; flex-direction: column; }
+.chart .chart-title { margin: 0 0 4px; font-size: 1.05rem; }
+.chart-summary { color: var(--text-muted); font-size: .93rem; margin-bottom: 10px; }
+.chart-empty { padding: 18px; border: 1px dashed var(--control); border-radius: var(--radius); color: var(--text-muted); margin: 0; }
+.chart .plot { min-width: 0; }
+.chart .data-toggle { align-self: flex-start; margin: 6px 0 0 -10px; padding-inline: 10px; }
+.chart .table-scroll { margin-top: 8px; max-height: 340px; overflow-y: auto; }
+
+.chart-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-svg text { font-family: var(--font-ui); fill: var(--text-muted); font-size: 12px; }
+.chart-svg .direct-label { fill: var(--text); font-weight: 600; font-size: 12.5px; }
+.chart-svg .bar-label { fill: var(--text); font-weight: 600; font-size: 13px; }
+.chart-svg .bar-value { fill: var(--text); font-size: 12.5px; }
+.grid line { stroke: var(--grid); stroke-width: 1; }
+.axis { stroke: var(--axis); stroke-width: 1.5; }
+.track { fill: var(--surface-sunk); stroke: var(--border); stroke-width: 1; }
+
+.k-signups, .k-confirmed, .k-sent, .k-clicks, .k-solid { --k: var(--c1); }
+.k-unsubscribes, .k-unsubscribed, .k-complaint { --k: var(--c2); }
+.k-pending, .k-skipped, .k-manual { --k: var(--c3); }
+.k-failed, .k-hard { --k: var(--c4); }
+.k-uncertain, .k-soft { --k: var(--c5); }
+.fill { fill: var(--k); }
+.stroke { stroke: var(--k); fill: none; }
+.seg { stroke: var(--surface); stroke-width: 0; }
+.tex { stroke: var(--surface); stroke-width: 1.6; opacity: .75; }
+.tex-dot { fill: var(--surface); opacity: .8; }
+
+.line { stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.line.dashed { stroke-dasharray: 7 5; }
+.area { fill: var(--k); opacity: .12; stroke: none; }
+.marker { stroke: var(--surface); stroke-width: 2; }
+.cursor { stroke: var(--text); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; }
+.cursor.on { opacity: .8; }
+.line-plot { border-radius: var(--radius); }
+.readout { min-height: 1.5em; margin: 4px 0 0; font-size: .92rem; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0; margin: 0 0 8px; font-size: .9rem; }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { flex: none; overflow: visible; }
+
+.progress { margin: 4px 0 8px; }
+.progress-svg { display: block; width: 100%; height: 18px; }
+.progress-text { margin: 6px 0 0; font-weight: 600; }
+
+@media (forced-colors: active) {
+  .fill, .area { fill: CanvasText; }
+  .stroke { stroke: CanvasText; }
+  .tex, .tex-dot { stroke: Canvas; fill: Canvas; }
+}

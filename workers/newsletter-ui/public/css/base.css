@@ -1,0 +1,61 @@
+/* Base: type, links, focus, and the accessibility helpers every view relies on. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-ui);
+  font-size: 100%;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  /* Focus is never hidden under the sticky bar or a sticky notice (WCAG
+   * 2.4.11). js/main.js sets --sticky-cover to their measured height; the
+   * fallback is the one-line bar. */
+  scroll-padding-top: calc(var(--sticky-cover, 60px) + 12px);
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); min-width: 320px; }
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; margin: 0 0 .5em; letter-spacing: -.005em; }
+h1 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.2rem); }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0 0 .75em; }
+code, pre, .mono { font-family: var(--font-mono); font-size: .92em; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+a { color: var(--primary); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* One focus style for everything: 3px ring in a colour reserved for focus,
+ * offset so it stays visible on any fill (WCAG 2.4.7, 2.4.13). */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+/* Headings and regions take focus only so screen readers announce them on
+ * navigation; they are not controls, so they get no ring. */
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, main[tabindex="-1"]:focus { outline: none; }
+
+.num, .tile-value, .count-n, table, .progress-text, .bar-value, .ticks { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+.note { color: var(--text-muted); font-size: .92rem; max-width: 72ch; }
+.hint { color: var(--text-muted); font-size: .88rem; margin: .25em 0 0; }
+
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.skip {
+  position: absolute; left: 8px; top: -60px; z-index: 50;
+  background: var(--surface); color: var(--primary); padding: 10px 14px; border-radius: var(--radius);
+  border: 2px solid var(--primary); font-weight: 600;
+}
+.skip:focus { top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+@media (forced-colors: active) {
+  .chip, .btn, .callout, .card { border: 1px solid CanvasText; }
+}
