@@ -6536,8 +6536,10 @@ func (g *Generator) reportStructuredMeta(docs []mddb.Document) {
 
 // warnTemplateScriptContext names a theme file whose <title> sits inside a
 // script block, where html/template escapes values as JavaScript and they
-// render quoted (#152). Read from the theme's own files rather than the parsed
-// tree, because the defect is about where the tags are, which parsing discards.
+// render quoted (#152), and a `.Extra` lookup of front matter the parser keeps
+// in its own field, which is always empty (#416). Read from the theme's own
+// files rather than the parsed tree, because the defect is about where the
+// tags are, which parsing discards.
 func (g *Generator) warnTemplateScriptContext(templatePath string) {
 	if g.config.Quiet {
 		return
@@ -6550,6 +6552,9 @@ func (g *Generator) warnTemplateScriptContext(templatePath string) {
 				continue
 			}
 			for _, f := range checkTemplateScriptContext(filepath.Base(file), string(src)) {
+				fmt.Printf("   ⚠️  %s\n", f.Message())
+			}
+			for _, f := range checkTemplateExtraKeys(filepath.Base(file), string(src)) {
 				fmt.Printf("   ⚠️  %s\n", f.Message())
 			}
 		}

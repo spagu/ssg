@@ -344,7 +344,8 @@ a working example of everything above:
 - `shortcode_errors: strict` and `--check-links=strict` gate the deploy: an
   unrenderable shortcode or a dead internal link fails the run, and SSG deploys
   only after a successful generate, so a broken page never reaches the CDN.
-- `cwebp` is installed in the runner because the hero image is encoded as WebP.
+- `cwebp` is installed in the runner because the hero image is encoded as WebP
+  (from Ubuntu, or from Google's libwebp release when the mirror is down).
 
 Setup is two repository secrets and nothing else:
 
@@ -705,6 +706,12 @@ The action intentionally exposes a stable subset of the complete CLI:
 | `deploy-project` | no | empty | Provider project/site |
 | `deploy-branch` | no | empty | Provider branch |
 | `deploy-target` | no | empty | Git/FTP/SFTP target |
+
+On Linux the action installs `cwebp` from Ubuntu's archive. When that mirror
+is unreachable, it takes `cwebp` from Google's libwebp release instead, pinned
+by version and SHA-256 (`scripts/install-cwebp.sh`, 1.9.7), so a mirror outage
+does not stop the build. The AVIF encoder has no such fallback: during an
+outage ssg skips AVIF with a warning and still writes WebP.
 
 Inputs are passed through environment variables and validated before being
 added to the command argument array.

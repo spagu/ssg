@@ -65,7 +65,7 @@ install the one you download.
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.9.6
+VERSION=1.9.7
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg_${VERSION}_amd64.deb
@@ -97,7 +97,7 @@ install the one you download.
 ```bash
 # Pick the version you want — see all releases (incl. previous versions):
 # https://github.com/spagu/ssg/releases
-VERSION=1.9.6
+VERSION=1.9.7
 
 # AMD64 (x86_64)
 wget https://github.com/spagu/ssg/releases/download/v${VERSION}/ssg-${VERSION}-1.x86_64.rpm
@@ -322,7 +322,7 @@ doas mv ssg /usr/local/bin/
 
 ### Requirements
 
-- Go 1.27.3 or later
+- Go 1.27.4 or later
 - Git
 
 ### Build and Install

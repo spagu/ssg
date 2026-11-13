@@ -223,6 +223,21 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.9.7">
+
+### 1.9.7 — upgrade; from source, Go 1.27.4
+
+Replace the binary, package or image: it is built with Go 1.27.4, which fixes
+an HTTP/1 server crash in `net/http` (GO-2026-6859). `ssg --http` and
+`ssg mcp --listen` were exposed to it. Building ssg from source now needs
+**Go 1.27.4**.
+
+If the build warns that a template looks up `"schema"` or `"alias_stubs"` in
+`.Extra`, that part of your theme has been broken since 1.8.85: see that
+step below and read the field the warning names.
+
+</div>
+
 <div class="upgrade-step" data-since="1.9.1">
 
 ### 1.9.1 — nothing to do
@@ -306,6 +321,12 @@ Replace the binary. Two fixes can change what you see:
 - **SQL sources with `mode: content` and several queries** need
   `transform.select` naming the query whose rows become pages; such a source
   used to build one broken page and is now refused at config time.
+- **Themes (breaking):** `schema` and `alias_stubs` are no longer in
+  `.Extra`. `index .Page.Extra "schema"` (or `.Post.Extra`, or
+  `.Extra.alias_stubs`) now returns nothing, without an error, and the
+  template's fallback renders. Read `.Page.Schema` / `.Post.Schema` and
+  `.Page.AliasStubs` instead. From 1.9.7 the build warns about each such
+  lookup (#416).
 
 Image helper variants (`resize`, `srcset`, `picture`) without a quality of
 their own are re-encoded once, at your `webp_quality` / `avif_quality` (60 / 45

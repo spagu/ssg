@@ -7,6 +7,10 @@
      keeps a bright orange or yellow brand colour at 4.5:1 or better
      (WCAG 1.4.3). theme.accent_text sets it outright. */
   --story-accent-text: color-mix(in srgb, var(--story-accent) 50%, #000);
+  /* The accent as text over a photograph's dark caption gradient and the
+     cards: a third accent, two thirds white, so a dark brand colour stays
+     at 4.5:1 or better there too (#411). theme.accent_on_dark sets it. */
+  --story-accent-on-dark: color-mix(in srgb, var(--story-accent) 35%, #fff);
   --story-ink: #1d1b19;
   --story-paper: #fffaf3;
   --story-stage-width: 40vw;
@@ -86,7 +90,7 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
   background: linear-gradient(transparent, rgba(0, 0, 0, .72));
 }
 .story-frame figcaption b { display: block; font-size: .7rem; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--story-accent); margin-bottom: .25rem; }
+  text-transform: uppercase; color: var(--story-accent-on-dark); margin-bottom: .25rem; }
 
 /* transitions — the frame entering gets .is-in, the one leaving loses it */
 .story-fx-slide .story-frame { transform: translateX(8%); }
@@ -123,10 +127,14 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
 .story-controls {
   position: fixed; right: 16px; bottom: 16px; z-index: 61; display: flex; gap: 8px;
 }
+/* The buttons and the time left float over the page's last lines; room under
+   the body lets the footer (and its "Built with ssg") scroll clear of them. */
+body:has(.story-controls) { padding-bottom: 5rem; }
 /* On a phone the labelled buttons do not fit in one row: icons only, the
    label kept for screen readers, wrapping inside the gutters (#405). */
 @media (max-width: 700px) {
   .story-controls { left: 12px; right: 12px; bottom: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  body:has(.story-controls) { padding-bottom: 7.5rem; }
   .story-controls .story-btn { font-size: 0; gap: 0; padding: .7rem; }
   .story-controls .story-btn svg { width: 1.15rem; height: 1.15rem; }
 }
@@ -192,7 +200,7 @@ html.story-mini .story-stage .story-frame figcaption { display: none; }
   font: 700 clamp(2rem, 5vw, 4.2rem)/1.08 var(--story-title-font, Georgia, serif); margin: .3em 0;
   text-wrap: balance;
 }
-.story-kicker { font: 700 .8rem/1 var(--story-font); letter-spacing: .2em; text-transform: uppercase; color: var(--story-accent); }
+.story-kicker { font: 700 .8rem/1 var(--story-font); letter-spacing: .2em; text-transform: uppercase; color: var(--story-accent-on-dark); }
 .story-subtitle { font: 400 clamp(1rem, 1.8vw, 1.35rem)/1.45 var(--story-font); opacity: .92; }
 .story-byline { font: 600 .85rem/1 var(--story-font); opacity: .75; margin-top: 1.4rem; }
 .story-cta { margin-top: 1.6rem; text-decoration: none; background: var(--story-accent); color: var(--story-ink); font-size: 1rem; padding: .9rem 1.4rem; }

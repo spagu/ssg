@@ -587,6 +587,7 @@ executing "page.html" at <.Page.TOC>: can't evaluate field TOC in type interface
 | `.Pager`, `.Posts` | **only on a page with `paginate:` in its frontmatter** — this page's pager and slice, the same shape an archive gets; nil / absent elsewhere, so guard with `{{ with .Pager }}` in a shared layout |
 | `.Title`, `.Slug`, `.Date`, `.Description`, `.Tags`, `.Content`, `.Translations`, … | both root and `.Page`/`.Post` |
 | custom frontmatter (`lead:`) | root as `.lead`, or **`.Page.Extra.lead`** |
+| front matter ssg reads itself (`schema:`, `alias_stubs:`, `title:` …) | its own field only — **`.Page.Schema`**, **`.Page.AliasStubs`**; never `.Extra` (since 1.8.85; the build warns about `index .Page.Extra "schema"`, #416) |
 | a mapped record's fields (external source with `content_map`) | root, or `.Page.Extra` / `.Post.Extra` — every field, mapped or not |
 | `.BreadcrumbSchema` | the derived `BreadcrumbList`, ready for `{{ toJSON .BreadcrumbSchema }}` in a theme that writes its own JSON-LD; nil on the front page |
 | `.Page.IsNotFound` | true on the error page (slug `404`, written as `/404.html`) — the one page to mark `noindex` and give no canonical |

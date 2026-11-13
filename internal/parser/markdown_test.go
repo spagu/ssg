@@ -747,3 +747,13 @@ func TestKnownFieldsCoverFrontmatter(t *testing.T) {
 		t.Errorf("extra = %v", extra)
 	}
 }
+
+// TestLeftExtra: exactly the keys #378 took out of Extra are reported (#416).
+func TestLeftExtra(t *testing.T) {
+	if len(leftExtra) != 2 || !LeftExtra("schema") || !LeftExtra("alias_stubs") {
+		t.Errorf("leftExtra = %v", leftExtra)
+	}
+	if LeftExtra("title") || LeftExtra("rating") {
+		t.Error("a key that never reached Extra, or a custom one, must not be reported")
+	}
+}

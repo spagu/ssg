@@ -2,7 +2,7 @@
 
 COMMENT=	Fast static site generator written in Go
 
-V=		1.9.6
+V=		1.9.7
 DISTNAME=	ssg-${V}
 
 CATEGORIES=	www

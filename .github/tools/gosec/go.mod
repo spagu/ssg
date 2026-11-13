@@ -4,7 +4,7 @@
 // with -mod=readonly. Dependabot (gomod) keeps it current.
 module github.com/spagu/ssg/tools/gosec
 
-go 1.27.3
+go 1.27.4
 
 tool github.com/securego/gosec/v2/cmd/gosec
 

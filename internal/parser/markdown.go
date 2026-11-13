@@ -280,13 +280,31 @@ var knownFields = map[string]bool{
 	"taxonomies": true, "sticky": true, "paginate": true,
 }
 
+// leftExtra holds the PageFrontmatter keys the hand-written list above
+// missed: until 1.8.85 they reached Extra as well, so a theme may still look
+// them up there (#378, #416). Filled in init; no key can join it later,
+// because a new struct field is known from the start.
+var leftExtra = map[string]bool{}
+
 func init() {
 	t := reflect.TypeOf(PageFrontmatter{})
 	for i := 0; i < t.NumField(); i++ {
 		if name, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ","); name != "" && name != "-" {
+			if !knownFields[name] {
+				leftExtra[name] = true
+			}
 			knownFields[name] = true
 		}
 	}
+}
+
+// LeftExtra reports whether key reached Extra until 1.8.85 and is now read
+// only into its page field (`schema`, `alias_stubs`). A theme that still
+// looks it up in .Extra gets nil without an error; the generator warns about
+// such a lookup (#416). Other parsed keys never reached Extra, so a record
+// field of that name in .Extra is legitimate and not reported.
+func LeftExtra(key string) bool {
+	return leftExtra[key]
 }
 
 // extractExtraFields returns fields not in knownFields
