@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- Decorative: an open sign-up card waiting for its first address. -->
+<ellipse cx="80" cy="110" rx="58" ry="6" fill="#bcaaa4" opacity=".5"/>
+<rect x="30" y="20" width="100" height="78" rx="8" fill="#ffffff" stroke="#8d6e63" stroke-width="2"/>
+<rect x="42" y="34" width="52" height="7" rx="3.5" fill="#d7ccc8"/>
+<rect x="42" y="50" width="76" height="16" rx="4" fill="#efebe9" stroke="#a1887f" stroke-width="1.5" stroke-dasharray="4 3"/>
+<rect x="42" y="74" width="40" height="14" rx="4" fill="#00897b"/>
+<circle cx="126" cy="24" r="14" fill="#ff8a65"/>
+<path d="M126 17v14M119 24h14" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+</svg>

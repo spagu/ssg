@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- The panel's mark: a folded letter with a fold line in the focus colour. -->
+<rect x="2" y="6" width="28" height="20" rx="3" fill="#00695c"/>
+<path d="M3.5 8.5 16 18l12.5-9.5" fill="none" stroke="#e0f2f1" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="25" cy="23" r="5" fill="#ff8a65" stroke="#ffffff" stroke-width="1.5"/>
+</svg>

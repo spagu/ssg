@@ -4,7 +4,10 @@ A newsletter or waitlist sign-up for an SSG site: addresses in Cloudflare D1,
 Turnstile on the form, consent recorded with its wording, one-click unsubscribe
 (RFC 8058), optional double opt-in. Scaffold it with `ssg new worker newsletter`.
 
-It collects the list; it does not send the newsletter. Export the confirmed
+It collects the list; sending the newsletter is the job of its companion,
+[`newsletter-ui`](../newsletter-ui/README.md) — a standalone Worker on the same
+D1 database with a panel, campaigns, a send engine and bounce handling
+(`ssg new worker newsletter-ui`). Without it, export the confirmed
 subscribers as CSV and mail them with whatever you already use — each row
 carries the unsubscribe URL that mailer needs.
 
@@ -37,8 +40,12 @@ workers/newsletter/
 ├── functions/api/newsletter/unsubscribe.ts    GET page + POST unsubscribe (RFC 8058)
 ├── functions/api/newsletter/admin.ts          GET counts / CSV, POST purge
 ├── functions/api/newsletter/_*.ts             shared modules (not routes)
+├── functions/api/newsletter/_transport.ts     mail: Resend → MailChannels → SMTP, one interface
+├── functions/api/newsletter/_smtp*.ts         the SMTP client (cloudflare:sockets)
+├── functions/api/newsletter/_mime.ts          message checks + MIME rendering
 ├── public/newsletter-form.html                the form snippet (also a demo page)
-└── public/newsletter.js                       optional progressive enhancement
+├── public/newsletter.js                       optional progressive enhancement
+└── test/                                      Node tests (not deployed; see *Tests*)
 ```
 
 `public/` is served from the site root: `/newsletter.js`, and the demo at
@@ -118,16 +125,32 @@ the browser's `Accept-Language`, then English. Links never act on a GET.
 
 ## Single or double opt-in
 
-Without a mail provider it is **single opt-in**: a valid sign-up is `confirmed`
+Without a mail transport it is **single opt-in**: a valid sign-up is `confirmed`
 at once. That means anyone can put any address on the list (Turnstile only stops
 bots doing it in bulk). In Germany and for many senders elsewhere, double opt-in
 is the expected standard.
 
-Set `NEWSLETTER_MAIL_FROM` and **one** provider key and every new or returning
+Set `NEWSLETTER_MAIL_FROM` and **one** transport and every new or returning
 sign-up is `pending` until the confirmation link is followed:
 
 - `NEWSLETTER_RESEND_API_KEY` — Resend; or
-- `NEWSLETTER_MAILCHANNELS_API_KEY` — MailChannels Email API.
+- `NEWSLETTER_MAILCHANNELS_API_KEY` — MailChannels Email API; or
+- `NEWSLETTER_SMTP_HOST` (+ user and password) — your own mail server, see
+  [Mail transports](#mail-transports).
+
+**Mail settings that can never send are refused, not ignored.** When
+`NEWSLETTER_MAIL_FROM` is set and the chosen transport is SMTP with a setting
+no server could fix — port `25`, a port that is not a number or outside
+1–65535, `NEWSLETTER_SMTP_USER` without `NEWSLETTER_SMTP_PASSWORD`, an invalid
+`NEWSLETTER_SMTP_HELO` — the sign-up endpoint answers `not_configured` (`503`
+JSON, or the localized error page for a form post) and logs why
+(`newsletter: sign-up refused, double opt-in is configured but cannot send:
+smtp: …`). It does not fall back to single opt-in, which would confirm
+addresses without proof of consent, and it does not store sign-ups that would
+stay `pending` forever. Installs with a Resend or MailChannels key, and
+installs with no mail settings at all, behave exactly as before.
+`transportProblem(env)` in `_transport.ts` answers the question (a string
+saying what is wrong, or `null`) without connecting.
 
 The names are prefixed on purpose, with no fallback to contact-form's
 `RESEND_API_KEY`: a shared key set for another template must not switch this
@@ -138,9 +161,75 @@ Re-submitting a **confirmed** address changes nothing (an unauthenticated reques
 must not rewrite someone's entry). Re-submitting a pending or unsubscribed one is
 a fresh sign-up: new consent, `unsubscribed_at` cleared, same token.
 
+## Mail transports
+
+The confirmation mail goes through the first transport configured, in this
+order: **Resend → MailChannels → SMTP**. The order is fixed on purpose: a site
+that already has a Resend or MailChannels key keeps sending through it, even
+after SMTP settings are added next to it. Every transport gets the same
+message, and a message is refused — never repaired — when an address, the
+subject, the sender name or a header holds a CR or LF (header injection).
+
+**SMTP** talks to your own server (or any provider's submission port) over a
+Cloudflare TCP socket (`cloudflare:sockets`):
+
+| Port | Connection |
+|---|---|
+| `465` | TLS from the first byte |
+| `587` (default) | plain, then `STARTTLS`; any other port is treated the same way |
+| `25` | refused with a message — Cloudflare blocks outbound port 25 |
+
+TLS is required: a server on 587 that does not offer `STARTTLS` gets no
+password and no mail. Login uses `AUTH PLAIN`, or `AUTH LOGIN` when only that
+is offered; leave `NEWSLETTER_SMTP_USER` unset for a server that relays without
+login. Each command waits at most 10 seconds for a reply. A `4xx` reply, a
+dropped connection or a timeout counts as temporary, a `5xx` as permanent; the
+log line names the SMTP code and the step (`smtp 550 at RCPT TO: …`).
+
+Messages are UTF-8, `text/plain` (or `multipart/alternative` with an HTML
+part), quoted-printable, with RFC 2047 encoded subject and sender name,
+`Message-ID` and `Date`. `EHLO` names the sender's domain unless
+`NEWSLETTER_SMTP_HELO` says otherwise.
+
+A message may carry an optional `idempotencyKey` (1–256 visible ASCII
+characters; the confirmation mail sends none). Resend receives it as the
+`Idempotency-Key` header and, by its documentation, sends a message at most
+once per key within 24 hours. The MailChannels Email API documents no such
+mechanism, so it is not sent there. Over SMTP the key becomes a deterministic
+`Message-ID` — a hint some receivers de-duplicate on, not a guarantee.
+Without a key every request is byte for byte what it was before.
+`honoursIdempotencyKey(env)` says whether the configured transport itself
+guarantees the de-duplication (Resend only).
+
+Resend refuses a keyed request with `409` in two documented cases, told
+apart by the error `name` in the JSON body: `invalid_idempotent_request` (the
+key was used in the last 24 hours with a different payload — a message under
+it was already accepted) returns `{ok: true, duplicate: true}`, so a caller
+that reads only `ok` treats it as sent; `concurrent_idempotent_requests` (a
+request with this key is still in progress) and any other or unreadable `409`
+are temporary. A request without a key reads a `409` as before (permanent).
+
+Whether `cloudflare:sockets` is available to Pages Functions could not be
+verified: Cloudflare's [TCP sockets](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)
+page documents `connect()` for Workers and says nothing about Pages Functions
+(checked 2026-11-13), and no live deployment was tried for this release. If
+the import fails, the worker logs it once and the confirmation mail is not
+sent (sign-ups still work, as `pending`). The same page confirms that port 25
+is blocked and that connections to Cloudflare's own IP ranges are refused.
+`newsletter-ui` is a Worker, where sockets are documented.
+
+**Deliverability is the mail server's job.** It signs DKIM, and for a
+newsletter that signature must cover `List-Unsubscribe` and
+`List-Unsubscribe-Post` (RFC 8058) — check the server's list of signed
+headers. SPF and DMARC belong to the sender domain's DNS: the server that
+sends must be allowed by SPF, and the DKIM domain must align with the `From`
+domain for DMARC.
+
 ## Sending: the RFC 8058 headers
 
-Put the row's `unsubscribe_url` from the CSV in every message:
+`newsletter-ui` adds these headers to every campaign message by itself. If you
+mail the CSV with another tool, put the row's `unsubscribe_url` in every
+message:
 
 ```
 List-Unsubscribe: <https://example.com/api/newsletter/unsubscribe?token=YOUR_ROWS_TOKEN>
@@ -167,7 +256,10 @@ Or put `/api/newsletter/admin*` behind **Cloudflare Access** and set
 Access JWT instead of a password, exactly as the comments worker does. The CSV
 is UTF-8 with a BOM (so Excel shows Polish and Hindi correctly), and any cell
 starting with `=`, `+`, `-` or `@` is prefixed with `'` so a spreadsheet cannot
-run it as a formula.
+run it as a formula. This export does not know the suppression list (bounces,
+complaints, erasures) kept by the `newsletter-ui` worker — if you run it, mail
+from its `GET {base}/api/subscribers.csv` instead, which leaves suppressed
+addresses out.
 
 ## Retention
 
@@ -209,6 +301,7 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 | `NEWSLETTER_ADMIN_PASSWORD` | admin endpoint password (unless Cloudflare Access is used) |
 | `NEWSLETTER_RESEND_API_KEY` | optional — double opt-in via Resend |
 | `NEWSLETTER_MAILCHANNELS_API_KEY` | optional — double opt-in via MailChannels |
+| `NEWSLETTER_SMTP_PASSWORD` | optional — the SMTP login password |
 
 `[vars]`:
 
@@ -216,13 +309,57 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 |---|---|
 | `NEWSLETTER_THANKS_URL` | where a form post goes: `/{lang}/thanks/`, or a JSON map `{"en":"/thanks/","pl":"/pl/dziekujemy/","default":"/thanks/"}`. Unset: back to the sign-up page at `#newsletter-thanks` |
 | `NEWSLETTER_RETENTION_DAYS` | purge pending/unsubscribed rows after N days (`0` = keep) |
-| `NEWSLETTER_MAIL_FROM` | sender for confirmation mail; with a provider key, enables double opt-in |
+| `NEWSLETTER_MAIL_FROM` | sender for confirmation mail; with a transport, enables double opt-in |
 | `NEWSLETTER_MAIL_FROM_NAME` | optional sender display name |
+| `NEWSLETTER_SMTP_HOST` | your mail server; used only when no Resend or MailChannels key is set |
+| `NEWSLETTER_SMTP_PORT` | `465` (TLS) or `587` (STARTTLS, the default); `25` or a non-number makes sign-ups answer `not_configured` |
+| `NEWSLETTER_SMTP_USER` | SMTP login (with the `NEWSLETTER_SMTP_PASSWORD` secret) |
+| `NEWSLETTER_SMTP_HELO` | optional `EHLO` name; default: the domain of `NEWSLETTER_MAIL_FROM` |
 | `NEWSLETTER_ACCESS_TEAM`, `NEWSLETTER_ACCESS_AUD` | Cloudflare Access for the admin endpoint |
 
 Prefer `NEWSLETTER_TURNSTILE_SECRET` over the shared `TURNSTILE_SECRET`: every
 worker in one Pages project reads the same environment — see *Secrets* in
 [docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
+
+## Backward compatibility
+
+An install deployed before 1.9.8 keeps working after the template is updated,
+with no migration and no new setting:
+
+- the `subscribers` table is the same schema v1, and nothing in this round
+  alters, indexes or drops it (`newsletter-ui` included);
+- every endpoint answers as before — status codes, headers, JSON bodies, the
+  HTML pages byte for byte, the CSV header row and cell rules — and leaves the
+  same rows behind;
+- an install with only a Resend key, or only a MailChannels key, sends the
+  confirmation mail with a byte-identical provider request.
+
+Two behaviours changed on purpose, both only for settings that did nothing
+before: an SMTP host next to `NEWSLETTER_MAIL_FROM` now makes sign-ups double
+opt-in through SMTP (it used to be ignored, so sign-ups were confirmed at
+once), and SMTP settings that can never send make sign-ups answer
+`not_configured` (see *Single or double opt-in*). The provider name in two log
+lines changed too (`resend returned 500` where it said `provider returned
+500`).
+
+The `compat-*` tests enforce this: they run every endpoint scenario against
+the current code and compare the answers with `test/compat-golden.json`,
+recorded from the 1.9.7 release.
+
+## Tests
+
+The mail code is tested against an in-memory SMTP server and a fake `fetch`;
+the endpoints run on a real SQLite database (`node:sqlite`, the engine D1 is
+built on). Node 23.6 or newer runs the TypeScript directly; nothing to
+install. From the repository root (or `make test-workers` for every
+template):
+
+```sh
+node --import ./workers/newsletter/test/resolve.mjs --test 'workers/newsletter/test/*.test.ts'
+```
+
+`_transport.ts`, `_smtp.ts`, `_smtpwire.ts` and `_mime.ts` import nothing
+else from this worker, so they can be copied unchanged into another template.
 
 ## Privacy notes
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- Decorative: a calm postbox with a tick on its flag. -->
+<ellipse cx="80" cy="108" rx="54" ry="6" fill="#bcaaa4" opacity=".5"/>
+<rect x="72" y="62" width="10" height="46" rx="2" fill="#8d6e63"/>
+<path d="M44 34a22 22 0 0 1 44 0v34H44z" fill="#26a69a"/>
+<path d="M66 12a22 22 0 0 1 22 22v34H66z" fill="#00897b"/>
+<rect x="50" y="46" width="22" height="5" rx="2.5" fill="#004d40"/>
+<rect x="92" y="18" width="4" height="40" rx="2" fill="#8d6e63"/>
+<path d="M96 18h26v16H96z" fill="#ff8a65"/>
+<path d="m103 26 4 4 8-8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

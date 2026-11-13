@@ -57,6 +57,13 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.9.x">
+      <option value="1.9.7">1.9.7 — 2026-11-11</option>
+      <option value="1.9.6">1.9.6 — 2026-11-10</option>
+      <option value="1.9.5">1.9.5 — 2026-11-09</option>
+      <option value="1.9.4">1.9.4 — 2026-11-09</option>
+      <option value="1.9.3">1.9.3 — 2026-11-09</option>
+      <option value="1.9.2">1.9.2 — 2026-11-08</option>
+      <option value="1.9.1">1.9.1 — 2026-11-08</option>
       <option value="1.9.0">1.9.0 — 2026-11-08</option>
     </optgroup>
     <optgroup label="1.8.x">
@@ -222,6 +229,31 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.8">
+
+### 1.9.8 — nothing to do, unless you list a standalone Worker under `workers:`
+
+Replace the binary. A `newsletter` install needs no migration and no new
+setting: its table, its endpoints and its mail requests are unchanged (a test
+suite compares them with 1.9.7). Two things, if they apply:
+
+- **A directory under `worker:` / `workers:` that has its own
+  `wrangler.toml`, no `functions/` and no `pages_build_output_dir` now stops
+  the build.** It is a standalone Worker; before, its files were copied into
+  the site's `functions/` and became public routes. Deploy it with
+  `npx wrangler deploy` from its directory and remove it from the config.
+- **`newsletter` with SMTP settings.** With `NEWSLETTER_MAIL_FROM` set, an
+  `NEWSLETTER_SMTP_HOST` now switches on double opt-in through that server,
+  and SMTP settings that can never send (port 25, a port that is not a
+  number, a user without a password) make sign-ups answer `not_configured`.
+  Both settings are new in this release, so only a site that had set them in
+  advance is affected.
+
+To send the newsletter from Cloudflare, see the new `newsletter-ui` template
+(`ssg new worker newsletter-ui`).
+
+</div>
 
 <div class="upgrade-step" data-since="1.9.7">
 

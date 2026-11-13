@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Newsletter admin</title>
+  <meta name="description" content="Administration panel for the site's newsletter: subscribers, CSV import, campaigns, sending progress and the suppression list.">
+  <!-- An admin page: never indexed, never sends a Referer, and deliberately
+       carries no analytics or tag manager — an authenticated admin tool is
+       not measured. The worker sends the same rules as headers; these cover a
+       copy opened from disk. -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#00695c" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="generator" content="ssg newsletter-ui">
+  <link rel="icon" href="img/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/charts.css">
+  <!-- Overrides without editing the panel: {"lang": "pl", "i18n": {"pl": {"nav.dashboard": "Start"}}}.
+       A JSON block is data, never executed, so the CSP needs no exception for it. -->
+  <script id="newsletter-admin-config" type="application/json">{}</script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip" id="skip" href="#main">Skip to content</a>
+  <div class="shell">
+    <!-- One banner landmark for the brand, the navigation and the preferences:
+         on wide screens a sidebar, below 900px a bar whose Menu button opens it. -->
+    <header class="sidebar" id="sidebar">
+      <div class="bar">
+        <a class="brand" href="#/"><img src="img/mark.svg" alt="" width="32" height="32"><span class="brand-name">Newsletter admin</span></a>
+        <button type="button" class="btn" id="menu-toggle" aria-expanded="false" aria-controls="drawer">Menu</button>
+      </div>
+      <div class="drawer" id="drawer">
+        <nav id="nav" aria-label="Main"><ul id="nav-list"></ul></nav>
+        <section class="prefs" id="prefs" aria-label="Preferences"></section>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <div id="notice" role="status" aria-live="polite"></div>
+      <div id="view">
+        <noscript><p>The newsletter admin needs JavaScript. Until it runs, the API under api/ answers on its own (see the worker's README).</p></noscript>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

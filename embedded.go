@@ -16,9 +16,12 @@ var EmbeddedThemes embed.FS
 // EmbeddedWorkers carries the batteries-included Cloudflare Pages Functions
 // templates scaffolded by `ssg new worker <template>` (GO-066): contact-form,
 // stripe-checkout, dynamic-price, conversions-proxy, cookie-consent, comments,
-// republish-trigger, rate-limit and newsletter. A new directory under workers/
-// registers itself — `ssg new worker` lists whatever is embedded. They live at
-// the module root for the same go:embed reason as the themes above.
+// republish-trigger, rate-limit, newsletter and web-push — plus newsletter-ui,
+// a standalone Worker that ships its own wrangler.toml and is deployed with
+// `wrangler deploy` rather than merged into the site's Pages build (GO-123).
+// A new directory under workers/ registers itself — `ssg new worker` lists
+// whatever is embedded. They live at the module root for the same go:embed
+// reason as the themes above.
 //
 // `all:` is required, not a plain `//go:embed workers`: a Pages Function whose
 // filename starts with `_` (a shared, non-routed module like comments'

@@ -174,7 +174,7 @@ the reserved single verbs):
 | Command | Purpose |
 |---|---|
 | `ssg init [name] [--domain example.com]` | Scaffold a ready-to-build project without overwriting anything |
-| `ssg new worker <template>` | Scaffold a Cloudflare Pages Functions template into `workers/<template>/` |
+| `ssg new worker <template>` | Scaffold a Cloudflare Pages Functions template into `workers/<template>/` (or a standalone Worker such as `newsletter-ui`, with its deploy steps) |
 | `ssg new wrangler` | Write a starter `wrangler.toml` for the configured workers |
 | `ssg import redirects <file>` | Convert a Next.js `redirects()` rule set into a `redirects:` block |
 | `ssg migrate <provider> <url>` | Migrate a live site into a project ([docs/MIGRATE.md](docs/MIGRATE.md)) |
@@ -408,6 +408,7 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Staying current | Every build's first line names the binary that produced it; `ssg self-update-check` says whether a newer release is out and prints the upgrade command for **your** install — snap, Homebrew, apt, dnf, Docker or the releases page. It never self-updates and never contacts the network on its own ([docs/INSTALL.md](docs/INSTALL.md#staying-up-to-date)) |
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), **served by the built-in preview** so a rule can be checked before it ships, `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, newsletter sign-up, web push notifications, rate limit, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Newsletter sending | `newsletter-ui`, a standalone Worker on the sign-up template's D1 database: a panel, campaigns from Markdown or a post, a send engine (cron + queue) through Resend, MailChannels or your own SMTP server, each reader mailed at most once, bounces and complaints, statistics without tracking anyone ([its README](workers/newsletter-ui/README.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |

@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.7" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.8" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -117,8 +117,15 @@ and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBcookie-consent\fR, \fBcomments\fR, \fBrepublish-trigger\fR, \fBnewsletter\fR,
 \fBrate-limit\fR and \fBweb-push\fR (browser notifications about new posts; the
 config key \fBweb_push: true\fR writes \fBmanifest.webmanifest\fR and puts the
-subscribe script in every page's head). Run without a template name it lists
-the templates and exits 2.
+subscribe script in every page's head). \fBnewsletter-ui\fR is different: a
+standalone Worker with its own \fBwrangler.toml\fR (newsletter admin panel and
+API, cron and queue, on the \fBnewsletter\fR template's D1 database). For it the
+command prints deploy steps (\fBnpx wrangler deploy\fR from its directory)
+instead of a \fBworker:\fR block; the build refuses such a directory under
+\fBworker:\fR/\fBworkers:\fR. Both newsletter templates send mail through
+Resend, MailChannels or your own SMTP server (ports 465 or 587; Cloudflare
+blocks 25), chosen in that order. Run without a template name it lists the
+templates and exits 2.
 .TP
 .B ssg new wrangler \fR[\fB\-\-config=\fIFILE\fR]
 Write a starter \fBwrangler.toml\fR for the workers the configuration declares

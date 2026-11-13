@@ -8,8 +8,16 @@
 # [vars]
 # NEWSLETTER_THANKS_URL = "/{lang}/thanks/"  # or a JSON map: '{"en":"/thanks/","pl":"/pl/dziekujemy/","default":"/thanks/"}'
 # NEWSLETTER_RETENTION_DAYS = "0"            # 0 = keep; N = purge pending/unsubscribed rows untouched for N days
-# NEWSLETTER_MAIL_FROM = "news@example.com"  # with a provider key below: double opt-in
+# NEWSLETTER_MAIL_FROM = "news@example.com"  # with a transport (key below or SMTP): double opt-in
 # NEWSLETTER_MAIL_FROM_NAME = "Example News"
+#
+# Your own mail server — used only when neither provider key below is set
+# (order: Resend → MailChannels → SMTP). 465 = TLS, 587 = STARTTLS; port 25
+# is blocked by Cloudflare and refused.
+# NEWSLETTER_SMTP_HOST = "smtp.example.com"
+# NEWSLETTER_SMTP_PORT = "587"
+# NEWSLETTER_SMTP_USER = "news@example.com"
+# NEWSLETTER_SMTP_HELO = "example.com"       # optional; default: the sender's domain
 #
 # Admin auth — pick ONE:
 #   (a) HTTP Basic: set the NEWSLETTER_ADMIN_PASSWORD secret (below).
@@ -25,3 +33,4 @@
 #   NEWSLETTER_ADMIN_PASSWORD       admin endpoint password (auth mode (a))
 #   NEWSLETTER_RESEND_API_KEY       optional — double opt-in mail via Resend
 #   NEWSLETTER_MAILCHANNELS_API_KEY optional — double opt-in mail via MailChannels
+#   NEWSLETTER_SMTP_PASSWORD        optional — SMTP login password

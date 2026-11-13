@@ -1,0 +1,52 @@
+# Worker template tests (Node, no npm dependencies): `make test-workers`.
+#
+# The templates under workers/ are TypeScript run by Cloudflare, not part of
+# the Go binary's tests, so CI used to leave them to `make test-workers` on a
+# developer's machine. The newsletter templates send mail and hold personal
+# data — including the backward-compatibility suite that proves an existing
+# `newsletter` install keeps working — so a pull request that changes them
+# runs their tests here.
+#
+# Minutes cost money: one job, pull requests only, and only when something
+# under workers/ (or this file) changed. Main and tag runs never repeat it — a
+# merge carries the code its pull request already tested.
+
+name: Workers
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "workers/**"
+      - ".github/workflows/workers.yml"
+  workflow_dispatch:
+
+env:
+  # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Worker tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The tests run TypeScript directly and use node:sqlite and synchronous
+      # module hooks: Node 23.6 or newer. 26 is the current LTS.
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+
+      - name: Run the worker tests
+        run: make test-workers

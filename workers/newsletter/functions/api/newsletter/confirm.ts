@@ -7,7 +7,8 @@
 // in a message, and a GET that confirmed would complete a sign-up somebody
 // else made for this address — the very thing double opt-in exists to prevent.
 
-import { Env, isToken } from "./_lib";
+import { isToken } from "./_lib";
+import type { Env } from "./_lib";
 import { ensureSchema } from "./_schema";
 import { findBy, confirm, purgeExpired } from "./_store";
 import { STRINGS, pickLang } from "./_i18n";

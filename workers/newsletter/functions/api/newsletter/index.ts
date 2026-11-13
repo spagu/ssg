@@ -10,7 +10,8 @@
 // to find out who is on the list. A form post is answered with a 303 to the
 // thank-you URL; a JSON call with JSON.
 
-import { Env, json, saltedHash, turnstileSecret, verifyTurnstile, doubleOptIn } from "./_lib";
+import { json, saltedHash, turnstileSecret, verifyTurnstile, doubleOptIn, mailConfigProblem } from "./_lib";
+import type { Env } from "./_lib";
 import { readBody, text, normaliseEmail, normaliseLang, normaliseTags, normalisePath, isConsent, thanksURL } from "./_input";
 import { ensureSchema } from "./_schema";
 import { subscribe, purgeExpired } from "./_store";
@@ -39,12 +40,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (!body?.isForm) return json({ error: code }, STATUS[code]);
     const lang = pickLang(request, language);
     const t = STRINGS[lang];
-    return message(lang, t.errorTitle, code === "invalid_body" ? t.not_configured : t[code], STATUS[code]);
+    // invalid_body never gets here: an unreadable body is not known to be a form.
+    return message(lang, t.errorTitle, t[code as Exclude<ErrorCode, "invalid_body">], STATUS[code]);
   };
 
   if (!body) return fail("invalid_body");
   const secret = turnstileSecret(env);
   if (!env.NEWSLETTER_DB || !secret) return fail("not_configured");
+  // Mail settings that can never send: refused, not quietly single opt-in.
+  const mailProblem = mailConfigProblem(env);
+  if (mailProblem) {
+    console.error(`newsletter: sign-up refused, double opt-in is configured but cannot send: ${mailProblem}`);
+    return fail("not_configured");
+  }
 
   const email = normaliseEmail(fields.email);
   if (!email) return fail("invalid_email");

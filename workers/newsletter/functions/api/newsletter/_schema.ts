@@ -11,7 +11,7 @@
 // a guarded ALTER TABLE after the batch, the way the comments worker added
 // parent_id.
 
-import { Env } from "./_lib";
+import type { Env } from "./_lib";
 
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS subscribers (

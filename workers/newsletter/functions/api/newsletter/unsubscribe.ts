@@ -13,7 +13,8 @@
 // The GET never unsubscribes by itself: mail scanners fetch every link in a
 // message, and a GET that acted would unsubscribe readers who clicked nothing.
 
-import { Env, isToken } from "./_lib";
+import { isToken } from "./_lib";
+import type { Env } from "./_lib";
 import { ensureSchema } from "./_schema";
 import { findBy, unsubscribe, purgeExpired } from "./_store";
 import { STRINGS, pickLang } from "./_i18n";
