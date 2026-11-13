@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`ssgtheme` rounds the corners of images in article bodies.** Images,
+  video and embeds inside `.prose` (posts, pages, docs) take their radius from
+  the new `--radius-media` token (12 px by default; `0` restores square
+  corners). Status badges are not rounded.
+
 ## [1.9.8] - 2026-11-13
 
 ### Added

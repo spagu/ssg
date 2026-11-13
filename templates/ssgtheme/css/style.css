@@ -676,6 +676,27 @@ a:hover {
   margin-block: var(--space-8);
 }
 
+/* Content media gets soft corners everywhere the theme renders an article
+   body: posts, pages and docs. One token (--radius-media) changes them all. */
+.prose img,
+.prose picture,
+.prose video,
+.prose iframe {
+  border-radius: var(--radius-media);
+}
+
+/* A <picture> only clips its <img> when it is its own box. */
+.prose picture {
+  overflow: hidden;
+}
+
+/* Status badges are tiny and already shaped; rounding them again turns them
+   into pills. */
+.prose img[src*="shields.io"],
+.prose img[src*="badge"] {
+  border-radius: 0;
+}
+
 .pager {
   display: flex;
   flex-wrap: wrap;

@@ -71,6 +71,10 @@ hard-codes a font size.
 Every length comes from a token (`--space-*`, `--radius-*`). Motion is capped at
 200 ms and disabled entirely under `prefers-reduced-motion: reduce`.
 
+Images, video and embeds inside an article body (`.prose`) have rounded
+corners from `--radius-media` (default `--radius-lg`, 12 px); set it to `0` for
+square media. Status badges are left as they are.
+
 ## Accessibility (WCAG 2.2)
 
 - All body text meets AAA, all other text and UI meets AA, in both schemes.
