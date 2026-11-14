@@ -30,6 +30,7 @@ import type { Env } from "../../_lib";
 import { beyond } from "../../_perms";
 import { getRole } from "../../_roles";
 import { findUserByEmail } from "../../_users";
+import { byCodeUnit } from "../../_perms";
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const caller = await authorize(request, env, "auth:invite");
@@ -74,7 +75,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!(await getGroup(env, id))) return notFound("group");
     perms.push(...(await groupPermissions(env, id)));
   }
-  const over = beyond(caller.perms, [...new Set(perms)].sort());
+  const over = beyond(caller.perms, [...new Set(perms)].sort(byCodeUnit));
   if (over.length) return escalation(over);
   // GO-140, GO-138: an invitation that hands out `*` (owner) or `auth:*` needs a recent second factor.
   const stepUp = await stepUpWhen(caller, handsOutAdmin(perms));

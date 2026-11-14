@@ -5,7 +5,7 @@
 
 import { href } from "../core/router.js";
 import { h, mount } from "../core/vnode.js";
-import { modulesOf, prefixesOf, toggle, unknownOf, validPermission, wildcardsIn } from "../models/perms.js";
+import { byCodeUnit, modulesOf, prefixesOf, toggle, unknownOf, validPermission, wildcardsIn } from "../models/perms.js";
 import { act, btn, chip, confirmDialog, empty, field, loading, pageHead, slot } from "./ui.js";
 
 export default async function role(app, view, route) {
@@ -21,7 +21,7 @@ export default async function role(app, view, route) {
   ]);
   const r = d.role;
   const modules = modulesOf(reg.items, app.lang);
-  let chosen = [...r.permissions].sort();
+  let chosen = [...r.permissions].sort(byCodeUnit);
   const warn = slot();
   const extra = slot();
   const pick = slot("picker");

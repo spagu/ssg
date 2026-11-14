@@ -127,3 +127,8 @@ export function timingSafeEqual(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length);
   return diff === 0;
 }
+
+// byCodeUnit orders strings by UTF-16 code units — what a bare .sort() does,
+// made explicit (and locale-independent, unlike localeCompare): permission
+// names, role names and ids must sort the same everywhere, every time.
+export const byCodeUnit = (a: string, b: string): number => Number(a > b) - Number(a < b);

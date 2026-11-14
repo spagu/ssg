@@ -7,7 +7,7 @@
 // the site's other modules go back to the defaults. The preview lists every
 // field that would change, both kinds included, so nothing happens unseen.
 
-import { sha256hex } from "./_lib";
+import { byCodeUnit, sha256hex } from "./_lib";
 import { EXPORT_FORMAT, EXPORT_KIND } from "./_settings-check";
 import type { Imported } from "./_settings-check";
 import { arrange, defaults, sameLabels } from "./_settings";
@@ -58,9 +58,9 @@ export function diff(known: string[], settings: Map<string, Setting>, incoming: 
 // fingerprint: the stored settings as they stand (not who changed them or
 // when), so an import applies only to what its preview was made against.
 export function fingerprint(known: string[], settings: Map<string, Setting>): Promise<string> {
-  const rows = [...known].sort().map((id) => {
+  const rows = [...known].sort(byCodeUnit).map((id) => {
     const s = plain(settings.get(id) ?? defaults(id));
-    return [s.id, s.hidden, s.position, Object.entries(s.labels).sort(), s.note];
+    return [s.id, s.hidden, s.position, Object.entries(s.labels).sort((x, y) => byCodeUnit(x[0], y[0])), s.note];
   });
   return sha256hex(JSON.stringify(rows));
 }

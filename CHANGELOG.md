@@ -187,6 +187,11 @@ New settings, all optional unless a README says otherwise:
 - `.ssg.yaml` — `modules:`, `check_modules`, `admin_theme:`,
   `check_admin_theme`.
 
+- **`check_links_ignore`** in `.ssg.yaml`: site paths the link check skips,
+  exact (`/core/nav.js`) or a prefix ending in `/`. For references that are
+  optional by design — a worker panel loading the `core` worker's files when
+  it is deployed.
+
 ### Changed
 
 - **A site or worker without the new settings behaves as before.** The

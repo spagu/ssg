@@ -3,7 +3,7 @@
 // sensitive ones an owner did not allow. A leading underscore keeps this file
 // out of the Pages route table. Pure functions — no database, no clock.
 
-import { covers } from "./_perms";
+import { byCodeUnit, covers } from "./_perms";
 
 // SENSITIVE is the one definition of what a machine never gets by default:
 //   `*`             everything, in every worker;
@@ -33,7 +33,7 @@ export const machineSensitive = (perm: string, free: readonly string[]): boolean
 // to newsletter:*), sorted: the smallest list that means the same.
 function minimal(perms: Iterable<string>): string[] {
   const all = [...new Set(perms)];
-  return all.filter((p) => !all.some((q) => q !== p && covers([q], p))).sort();
+  return all.filter((p) => !all.some((q) => q !== p && covers([q], p))).sort(byCodeUnit);
 }
 
 // both lists every entry of one list that the other covers — the

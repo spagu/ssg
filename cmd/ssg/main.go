@@ -805,6 +805,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
+		CheckLinksIgnore:       cfg.CheckLinksIgnore,
 		PendingImageFormats:    pendingImageFormats(cfg),
 		PostsPage:              cfg.PostsPage,
 		Title:                  cfg.Title,

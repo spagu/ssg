@@ -63,7 +63,7 @@ export function methodsSection(v: MethodsView, who: Who, lang: Lang, t: Strings,
     return `<tr class="method">${cell(t.colMethod, esc(label) + used)}${cell(t.colDetail, esc(detail || "—"))}${cell(t.colAdded, esc(added))}<td>${action}</td></tr>`;
   };
   const rows = [
-    ...(v.password ? [row(PASSWORD_METHOD, PASSWORD_METHOD, t.passwordIsSet, "—")] : []),
+    ...(v.password ? [row(PASSWORD_METHOD, PASSWORD_METHOD, t.ownSecretIsSet, "—")] : []),
     ...v.identities.map((i) => row(i.id, i.provider, i.email, when(lang, i.linkedAt))),
   ];
   const head = [t.colMethod, t.colDetail, t.colAdded, t.colAction].map((h) => `<th scope="col">${esc(h)}</th>`).join("");

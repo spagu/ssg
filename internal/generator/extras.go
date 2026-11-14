@@ -105,7 +105,7 @@ func (g *Generator) checkLinks() ([]brokenLink, error) {
 			// broken: a theme hardcoding /category/ into canonicals it stamped
 			// on tag and author archives too (#229).
 			ref, underBase := g.siteRelativeRef(ref)
-			if !isInternalRef(ref) {
+			if !isInternalRef(ref) || linkIgnored(ref, g.config.CheckLinksIgnore) {
 				continue
 			}
 			if !underBase {
@@ -201,6 +201,29 @@ func (g *Generator) siteRelativeRef(ref string) (string, bool) {
 }
 
 // isInternalRef reports whether a reference points inside the generated site.
+// linkIgnored reports whether ref (its path, without query or fragment) is a
+// site path the configuration asks the link check to skip: an exact entry, or
+// one ending in "/" that the path starts with.
+func linkIgnored(ref string, ignore []string) bool {
+	if len(ignore) == 0 {
+		return false
+	}
+	p := ref
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	for _, rule := range ignore {
+		rule = strings.TrimSpace(rule)
+		if rule == "" {
+			continue
+		}
+		if p == rule || (strings.HasSuffix(rule, "/") && strings.HasPrefix(p, rule)) {
+			return true
+		}
+	}
+	return false
+}
+
 func isInternalRef(ref string) bool {
 	ref = strings.TrimSpace(ref)
 	if ref == "" || strings.HasPrefix(ref, "#") || strings.HasPrefix(ref, "//") {

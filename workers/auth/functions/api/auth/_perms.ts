@@ -29,7 +29,12 @@ export function parsePermissions(raw: unknown): Parsed {
   if (!Array.isArray(raw)) return { ok: false, detail: "permissions must be an array of strings" };
   const bad = raw.find((p) => !validPermission(p));
   if (bad !== undefined) return { ok: false, detail: `${JSON.stringify(bad)} is not a permission: use worker:action, worker:* or *` };
-  const perms = [...new Set(raw as string[])].sort();
+  const perms = [...new Set(raw as string[])].sort(byCodeUnit);
   if (perms.length > MAX_ROLE_PERMISSIONS) return { ok: false, detail: `at most ${MAX_ROLE_PERMISSIONS} permissions per role` };
   return { ok: true, perms };
 }
+
+// byCodeUnit orders strings by UTF-16 code units — what a bare .sort() does,
+// made explicit (and locale-independent, unlike localeCompare): permission
+// names, role names and ids must sort the same everywhere, every time.
+export const byCodeUnit = (a: string, b: string): number => Number(a > b) - Number(a < b);

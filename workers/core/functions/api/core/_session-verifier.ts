@@ -103,7 +103,7 @@ const remote = new Map<string, { keys: Keys | null; at: number; tried: number; p
 async function remoteKeys(url: string, kid: string, d: Required<Deps>): Promise<Keys | null> {
   const e = remote.get(url) ?? { keys: null, at: 0, tried: -Infinity, pending: null };
   remote.set(url, e);
-  if (e.pending) await e.pending;
+  if (e.pending !== null) await e.pending;
   const live = () => (e.keys && d.now() - e.at < KEY_TTL_MS ? e.keys : null);
   if (live()?.has(kid) || d.now() - e.tried < REFETCH_COOLDOWN_MS) return live();
   e.tried = d.now();
@@ -133,7 +133,7 @@ function tokenOf(request: Request): { token: string; bearer: boolean } {
 export async function verifySession(request: Request, c: AuthConfig, deps: Deps = {}): Promise<Verdict> {
   const d: Required<Deps> = { fetch: deps.fetch ?? ((u, i) => fetch(u, i)), now: deps.now ?? (() => Date.now()) };
   const no = (reason: Reason): Verdict => ({ ok: false, reason });
-  if (c.configProblem || !c.issuer || !c.loginUrl || !c.publicKey === !c.jwksUrl) return no("not_configured");
+  if (c.configProblem || !c.issuer || !c.loginUrl || Boolean(c.publicKey) === Boolean(c.jwksUrl)) return no("not_configured");
   const { token, bearer } = tokenOf(request);
   if (!token) return no("no_session");
   const parts = token.split(".");
@@ -170,7 +170,7 @@ export function configFrom(env: object, prefix: string): AuthConfig | null {
   if (["ISSUER", "AUDIENCE", "PUBLIC_KEY", "JWKS_URL", "LOGIN_URL"].every((n) => !v(n))) return null;
   const c = { issuer: v("ISSUER"), audience: v("AUDIENCE"), publicKey: v("PUBLIC_KEY"), jwksUrl: v("JWKS_URL"), loginUrl: v("LOGIN_URL") };
   const problems = ["ISSUER", "LOGIN_URL"].filter((n) => !v(n)).map((n) => `${prefix}_AUTH_${n} is not set`);
-  if (!c.publicKey === !c.jwksUrl) problems.push(`set exactly one of ${prefix}_AUTH_PUBLIC_KEY and ${prefix}_AUTH_JWKS_URL`);
+  if (Boolean(c.publicKey) === Boolean(c.jwksUrl)) problems.push(`set exactly one of ${prefix}_AUTH_PUBLIC_KEY and ${prefix}_AUTH_JWKS_URL`);
   if (c.jwksUrl && !/^(?:https:\/\/|\/(?![/\\]))/.test(c.jwksUrl)) problems.push(`${prefix}_AUTH_JWKS_URL must be https:// or a path`);
   return { ...c, configProblem: problems.length ? problems.join("; ") : null };
 }

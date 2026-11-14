@@ -66,7 +66,7 @@ export function configProblems(env: Env): Problem[] {
   if (!turnstileSecret(env)) add("no_turnstile_secret");
   const mail = mailConfigProblem(env);
   if (mail) add("mail_unusable", mail);
-  if (!env.NEWSLETTER_ACCESS_TEAM !== !env.NEWSLETTER_ACCESS_AUD) add("access_incomplete");
+  if (Boolean(env.NEWSLETTER_ACCESS_TEAM) !== Boolean(env.NEWSLETTER_ACCESS_AUD)) add("access_incomplete");
   return out;
 }
 

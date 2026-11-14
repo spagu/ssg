@@ -10,6 +10,7 @@
 import { iso } from "./_lib";
 import type { Env } from "./_lib";
 import { OWNER_ROLE_NAME, isOwnerViolation } from "./_rbac-schema";
+import { byCodeUnit } from "./_perms";
 
 export interface Grant {
   id: string;
@@ -147,7 +148,7 @@ export async function permissionSources(env: Env, userId: string): Promise<Prove
   // Default sort = UTF-16 code unit order, the same in every runtime. Labels
   // are unique (one grant per role and target), so the comparator never ties.
   const label = (s: Source) => `${s.roleName}\0${s.via === "group" ? s.groupName : ""}`;
-  return [...out.keys()].sort().map((name) => ({ name, sources: (out.get(name) as Source[]).sort((a, b) => (label(a) < label(b) ? -1 : 1)) }));
+  return [...out.keys()].sort(byCodeUnit).map((name) => ({ name, sources: (out.get(name) as Source[]).sort((a, b) => (label(a) < label(b) ? -1 : 1)) }));
 }
 
 // effectivePermissions is what goes into the access token's `perms`.
@@ -163,5 +164,5 @@ export async function groupPermissions(env: Env, groupId: string): Promise<strin
   )
     .bind(groupId)
     .all<{ permission: string }>();
-  return results.map((r) => r.permission).sort();
+  return results.map((r) => r.permission).sort(byCodeUnit);
 }

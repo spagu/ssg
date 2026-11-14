@@ -67,7 +67,7 @@ export function configProblems(env: Env): Problem[] {
   const codes: string[] = [];
   if (!env.COMMENTS_DB) codes.push("no_database");
   if (!turnstileSecret(env)) codes.push("no_turnstile_secret");
-  if (!env.COMMENTS_ACCESS_TEAM !== !env.COMMENTS_ACCESS_AUD) codes.push("access_incomplete");
+  if (Boolean(env.COMMENTS_ACCESS_TEAM) !== Boolean(env.COMMENTS_ACCESS_AUD)) codes.push("access_incomplete");
   return codes.map((code) => ({ code, text: PROBLEMS[code] }));
 }
 

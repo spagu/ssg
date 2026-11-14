@@ -48,3 +48,22 @@ test("SR-10: the panel sends the CSRF header in every mode (Access needs it on a
     assert.equal(headers(mode, "pw")["x-ssg-auth"], "1", mode);
   }
 });
+
+// The login URL the API names is followed only when it stays on this site, so
+// a tampered or misconfigured answer cannot send the moderator elsewhere.
+test("panel: toLogin follows a same-site login URL only", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../public/comments-admin.js", import.meta.url), "utf8");
+  const body = /function toLogin\(login\) \{\n([\s\S]*?)\n  \}/.exec(src)![1];
+  const run = (login: unknown) => {
+    const went: string[] = [];
+    const window = { location: { origin: "https://example.com", assign: (u: string) => void went.push(u) } };
+    (new Function("window", "login", body) as (w: object, l: unknown) => void)(window, login);
+    return went;
+  };
+  assert.deepEqual(run("/auth/login?next=%2Fcomments-admin.html"), ["/auth/login?next=%2Fcomments-admin.html"]);
+  assert.deepEqual(run("https://example.com/auth/login"), ["/auth/login"]);
+  for (const off of ["https://evil.example.org/login", "//evil.example.org/x", "/\\evil.example.org", "javascript:alert(1)", "http://[::1", undefined, ""]) {
+    assert.deepEqual(run(off), [], String(off));
+  }
+});

@@ -17,6 +17,7 @@ import { passwordEnabled, signInMethods } from "./_provider-methods";
 import { registryOf } from "./_registry";
 import { listRoles } from "./_roles";
 import { serviceSettings } from "./_service-tokens";
+import { byCodeUnit } from "./_perms";
 
 // LEEWAY_SECONDS: the clock leeway every verifier allows (docs/CONTRACT.md).
 export const LEEWAY_SECONDS = 30;
@@ -24,7 +25,7 @@ export const LEEWAY_SECONDS = 30;
 // rolesNeedingFactor: the role names the second-factor policy covers here.
 export async function rolesNeedingFactor(env: Env): Promise<string[]> {
   const roles = new Map((await listRoles(env)).map((r) => [r.name, r.permissions]));
-  return [...factorRoles(env, roles)].sort();
+  return [...factorRoles(env, roles)].sort(byCodeUnit);
 }
 
 // missingFactor: active accounts holding (directly or through a group) a

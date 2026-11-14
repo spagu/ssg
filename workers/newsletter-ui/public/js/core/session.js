@@ -28,6 +28,10 @@ export async function renew(me, { fetch, location }) {
   } catch {
     // offline, or auth down: the login page says what is wrong
   }
-  location.assign(loginTarget(me, location.pathname + location.search + location.hash));
+  const target = loginTarget(me, location.pathname + location.search + location.hash, location.origin);
+  // A login URL off this site is never followed; reloading lets the worker
+  // answer the request itself (a redirect it sets, or its error page).
+  if (target === null) location.reload();
+  else location.assign(target);
   return false;
 }

@@ -21,7 +21,7 @@ test("password / Access: nothing is hidden", () => {
   for (const action of Object.keys(ACTION_NEEDS)) assert.equal(allows(ALL, action), true, action);
   for (const view of Object.keys(VIEW_NEEDS)) assert.equal(viewLacks(ALL, view), null, view);
   assert.equal(account(ALL), null);
-  assert.equal(loginTarget(ALL, "/x"), null);
+  assert.equal(loginTarget(ALL, "/x", "https://example.com"), null);
 });
 
 test("a read-only account: the views to look at, no button that changes anything", () => {
@@ -55,9 +55,15 @@ test("account and login target in auth mode", () => {
   assert.deepEqual(account(me(["*"])), { email: "ada@example.com", logoutUrl: "/api/auth/logout" });
   assert.deepEqual(account(me(["*"], { user: { id: "svc", email: "" } })), { email: "svc", logoutUrl: "/api/auth/logout" });
   assert.equal(account(me(["*"], { user: null })), null);
-  assert.equal(loginTarget(me(["*"]), "/newsletter-admin/#/campaigns?x=1"), "/auth/login?next=%2Fnewsletter-admin%2F%23%2Fcampaigns%3Fx%3D1");
-  assert.equal(loginTarget(me(["*"], { loginUrl: "/login?lang=pl" }), "/a"), "/login?lang=pl&next=%2Fa");
-  assert.equal(loginTarget(me(["*"], { loginUrl: undefined }), "/a"), null);
+  assert.equal(loginTarget(me(["*"]), "/newsletter-admin/#/campaigns?x=1", "https://example.com"), "/auth/login?next=%2Fnewsletter-admin%2F%23%2Fcampaigns%3Fx%3D1");
+  assert.equal(loginTarget(me(["*"], { loginUrl: "/login?lang=pl" }), "/a", "https://example.com"), "/login?lang=pl&next=%2Fa");
+  // Only a login page on this site is followed: never another host, however it is written.
+  assert.equal(loginTarget(me(["*"], { loginUrl: "https://example.com/auth/login" }), "/a", "https://example.com"), "/auth/login?next=%2Fa");
+  for (const off of ["https://evil.example.org/login", "//evil.example.org/login", "/\\evil.example.org", "javascript:alert(1)", "http://example.com/auth/login"]) {
+    assert.equal(loginTarget(me(["*"], { loginUrl: off }), "/a", "https://example.com"), null, off);
+  }
+  assert.equal(loginTarget(me(["*"], { loginUrl: "http://[::1" }), "/a", "https://example.com"), null, "an unparseable URL is not followed");
+  assert.equal(loginTarget(me(["*"], { loginUrl: undefined }), "/a", "https://example.com"), null);
 });
 
 test("the audit actions are the registry's, each with words", () => {
@@ -107,7 +113,8 @@ test("readMe: the answer; a stale auth session reloads; anything else falls back
 
 test("renew: no outside auth mode; refresh then retry; otherwise to the login page", async () => {
   const assigned: string[] = [];
-  const location = { pathname: "/newsletter-admin/", search: "", hash: "#/campaigns", assign: (u: string) => void assigned.push(u) };
+  let reloaded = 0;
+  const location = { origin: "https://example.com", pathname: "/newsletter-admin/", search: "", hash: "#/campaigns", assign: (u: string) => void assigned.push(u), reload: () => void reloaded++ };
   const calls: [string, RequestInit][] = [];
   const ok = async (url: string, init: RequestInit) => (calls.push([url, init]), new Response(null, { status: 200 }));
   assert.equal(await renew(ALL, { fetch: ok, location }), false);
@@ -117,4 +124,7 @@ test("renew: no outside auth mode; refresh then retry; otherwise to the login pa
   assert.equal(await renew(me(["*"]), { fetch: async () => new Response(null, { status: 401 }), location }), false);
   assert.equal(await renew(me(["*"]), { fetch: async () => Promise.reject(new TypeError("offline")), location }), false);
   assert.deepEqual(assigned, ["/auth/login?next=%2Fnewsletter-admin%2F%23%2Fcampaigns", "/auth/login?next=%2Fnewsletter-admin%2F%23%2Fcampaigns"]);
+  assert.equal(await renew(me(["*"], { loginUrl: "https://evil.example.org/login" }), { fetch: async () => new Response(null, { status: 401 }), location }), false);
+  assert.equal(assigned.length, 2, "a login URL off this site is never followed");
+  assert.equal(reloaded, 1, "the page reloads instead, so the worker answers");
 });

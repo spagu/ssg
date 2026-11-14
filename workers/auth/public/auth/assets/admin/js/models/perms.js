@@ -27,7 +27,7 @@ export function modulesOf(items, lang) {
     if (!by.has(item.module)) by.set(item.module, []);
     by.get(item.module).push({ name: item.name, description: describe(item, lang) });
   }
-  return [...by.keys()].sort().map((id) => ({ id, permissions: by.get(id).sort((a, b) => (a.name < b.name ? -1 : 1)) }));
+  return [...by.keys()].sort(byCodeUnit).map((id) => ({ id, permissions: by.get(id).sort((a, b) => (a.name < b.name ? -1 : 1)) }));
 }
 
 // unknownOf: the names in `perms` no module declares (wildcards count as
@@ -45,7 +45,7 @@ export function toggle(perms, name, on) {
   const set = new Set(perms);
   if (on) set.add(name);
   else set.delete(name);
-  return [...set].sort();
+  return [...set].sort(byCodeUnit);
 }
 
 // covered: does `perms` reach `name` only through a wildcard it holds?
@@ -53,4 +53,8 @@ export const coveredByWildcard = (perms, name) => !perms.includes(name) && can(p
 
 // prefixesOf: the worker names a module's permissions use ("newsletter" for
 // the newsletter-ui module) — each gets a "<worker>:*" choice.
-export const prefixesOf = (module) => [...new Set(module.permissions.map((p) => p.name.slice(0, p.name.indexOf(":"))))].sort();
+export const prefixesOf = (module) => [...new Set(module.permissions.map((p) => p.name.slice(0, p.name.indexOf(":"))))].sort(byCodeUnit);
+
+// byCodeUnit orders strings by UTF-16 code units — a bare .sort(), made
+// explicit and locale-independent, so lists sort the same in every browser.
+export const byCodeUnit = (a, b) => Number(a > b) - Number(a < b);

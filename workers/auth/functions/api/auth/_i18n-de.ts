@@ -142,7 +142,7 @@ export const DE: BaseStrings = {
   colMethod: "Anmeldeart",
   colDetail: "Details",
   colAdded: "Verbunden",
-  passwordIsSet: "Gesetzt",
+  ownSecretIsSet: "Gesetzt",
   thisSessionMethod: "Für diese Sitzung verwendet",
   removeMethod: "Entfernen",
   removeMethodLabel: "{method} entfernen",

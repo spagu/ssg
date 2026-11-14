@@ -53,7 +53,7 @@
   function signIn() {
     return fetch(API + "/whoami", { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d.login) window.location.assign(d.login); throw new Error("signin"); });
+      .then(function (d) { toLogin(d.login); throw new Error("signin"); });
   }
 
   function forbidden(permission) {
@@ -114,6 +114,16 @@
     if ($("login")) $("login").hidden = true;
     $("panel").hidden = false;
     load("pending");
+  }
+
+  // toLogin follows the login URL the API names only when it stays on this
+  // site: `auth` lives on the same host, so anything else is a misconfiguration
+  // or a tampered answer, never a place to send the moderator.
+  function toLogin(login) {
+    if (!login) return;
+    var url;
+    try { url = new URL(login, window.location.origin); } catch (e) { return; }
+    if (url.origin === window.location.origin) window.location.assign(url.pathname + url.search + url.hash);
   }
 
   // signedIn draws auth mode: who, and only what the account may do.
@@ -193,9 +203,9 @@
       return r.json().catch(function () { return {}; }).then(function (d) {
         if (r.ok) return d.mode === "auth" ? signedIn(d) : open();
         if (r.status === 401 && d.mode === "auth") {
-          if (retried) { window.location.assign(d.login); return null; }
+          if (retried) { toLogin(d.login); return null; }
           return fetch(REFRESH, { method: "POST", credentials: "same-origin", headers: { "x-ssg-auth": "1" } })
-            .then(function (f) { if (f.ok) return probe(true); window.location.assign(d.login); return null; });
+            .then(function (f) { if (f.ok) return probe(true); toLogin(d.login); return null; });
         }
         if (d.error === "not_configured" || d.error === "auth_unavailable") {
           $("pw").closest("label").hidden = true;

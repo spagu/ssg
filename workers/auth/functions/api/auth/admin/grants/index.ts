@@ -41,7 +41,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const roleId = id(b.roleId);
   const userId = id(b.userId);
   const groupId = id(b.groupId);
-  if (!roleId || !userId === !groupId) return invalid("roleId and exactly one of userId, groupId");
+  if (!roleId || Boolean(userId) === Boolean(groupId)) return invalid("roleId and exactly one of userId, groupId");
   const role = await getRole(env, roleId);
   if (!role) return notFound("role");
   let to: Target;

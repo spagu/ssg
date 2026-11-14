@@ -23,6 +23,7 @@ import { beyond } from "../../../_perms";
 import { readBody } from "../../../_request";
 import { getRole } from "../../../_roles";
 import { findUserByEmail } from "../../../_users";
+import { byCodeUnit } from "../../../_perms";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   const caller = await authorize(request, env, "auth:invite");
@@ -37,7 +38,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   const perms: string[] = [];
   for (const id of inv.roleIds) perms.push(...((await getRole(env, id))?.permissions ?? []));
   for (const id of inv.groupIds) perms.push(...(await groupPermissions(env, id)));
-  const over = beyond(caller.perms, [...new Set(perms)].sort());
+  const over = beyond(caller.perms, [...new Set(perms)].sort(byCodeUnit));
   if (over.length) return escalation(over);
   const stepUp = await stepUpWhen(caller, handsOutAdmin(perms));
   if (stepUp) return stepUp;

@@ -148,7 +148,7 @@ export const EN = {
   colMethod: "Method",
   colDetail: "Details",
   colAdded: "Connected",
-  passwordIsSet: "Set",
+  ownSecretIsSet: "Set",
   thisSessionMethod: "Used for this session",
   removeMethod: "Remove",
   removeMethodLabel: "Remove {method}",

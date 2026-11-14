@@ -142,7 +142,7 @@ export const HI: BaseStrings = {
   colMethod: "तरीका",
   colDetail: "विवरण",
   colAdded: "जोड़ा गया",
-  passwordIsSet: "सेट है",
+  ownSecretIsSet: "सेट है",
   thisSessionMethod: "इस सेशन में इस्तेमाल हुआ",
   removeMethod: "हटाएँ",
   removeMethodLabel: "{method} हटाएँ",

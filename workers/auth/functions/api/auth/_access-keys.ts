@@ -80,7 +80,7 @@ function entryOf(host: string): Entry {
 export async function accessKey(host: string, kid: string, now: number): Promise<CryptoKey | null | "unavailable"> {
   const e = entryOf(host);
   if (now - e.fetchedAt < accessKeyTimes.ttlMs && e.keys.has(kid)) return e.keys.get(kid) as CryptoKey;
-  if (!e.pending && now - e.triedAt >= accessKeyTimes.coolDownMs) {
+  if (e.pending === null && now - e.triedAt >= accessKeyTimes.coolDownMs) {
     e.triedAt = now;
     e.pending = fetchKeys(host).then((fresh) => {
       if (fresh) {
@@ -90,7 +90,7 @@ export async function accessKey(host: string, kid: string, now: number): Promise
       e.pending = null;
     });
   }
-  if (e.pending) await e.pending;
+  if (e.pending !== null) await e.pending;
   if (!e.keys.size || now - e.fetchedAt >= accessKeyTimes.maxStaleMs) return "unavailable";
   return e.keys.get(kid) ?? null;
 }

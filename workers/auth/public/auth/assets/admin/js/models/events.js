@@ -2,6 +2,8 @@
 // EventKind), grouped for the filter, and an event's detail as readable
 // pairs. Pure functions.
 
+import { byCodeUnit } from "./perms.js";
+
 export const EVENT_GROUPS = {
   signin: ["signin", "signin_refused", "invitation_accepted", "account_created", "groups_synced"],
   methods: ["method_linked", "method_unlinked", "password_set", "reset_link_issued"],
@@ -22,7 +24,7 @@ export function detailPairs(detail) {
   if (!detail || typeof detail !== "object") return [];
   return Object.keys(detail)
     .filter((k) => !HIDDEN.has(k) && detail[k] !== null && detail[k] !== undefined && detail[k] !== "")
-    .sort()
+    .sort(byCodeUnit)
     .map((k) => {
       const v = detail[k];
       return [k, typeof v === "object" ? JSON.stringify(v) : String(v)];

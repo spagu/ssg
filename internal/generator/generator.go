@@ -348,6 +348,9 @@ type Config struct {
 	// CheckLinks/CheckImages/CheckMeta are post-build validation modes: "" (off),
 	// "warn" or "strict"; Strict escalates any enabled one to fatal (#75, #76).
 	CheckLinks string
+	// CheckLinksIgnore: site paths the link check skips (exact, or a prefix
+	// ending in "/").
+	CheckLinksIgnore []string
 	// PendingImageFormats are the formats the post-build pass writes beside
 	// each raster image (webp, avif): a link to x.webp resolves when x.jpg is
 	// there, since the link check runs before that pass (#405).

@@ -26,6 +26,7 @@ import { intVar } from "./_lib";
 import type { Env } from "./_lib";
 import { factorRoles, rolesOf, sessionFactor } from "./_mfa-policy";
 import type { Session } from "./_sessions";
+import { byCodeUnit } from "./_perms";
 
 export const PASSWORD_METHOD = "password";
 
@@ -83,18 +84,18 @@ export async function policyView(env: Env, userId: string, method: string, secon
   const sources = await permissionSources(env, userId);
   const roles = rolesOf(sources);
   const factor = secondFactor ? new Set<string>() : factorRoles(env, roles);
-  const needsFactor = [...factor].sort();
+  const needsFactor = [...factor].sort(byCodeUnit);
   const policy = rolePolicy(env);
   if (policy === "invalid") {
     console.error("auth: AUTH_ROLE_METHODS is not a JSON object of role names to method lists; no role counts until it is fixed");
-    return { perms: [], withheld: [...roles.keys()].sort().map((role) => ({ role, methods: [] })), needsFactor };
+    return { perms: [], withheld: [...roles.keys()].sort(byCodeUnit).map((role) => ({ role, methods: [] })), needsFactor };
   }
   const methodOk = (role: string) => policy === null || !policy.has(role) || (policy.get(role) as Set<string>).has(method);
   const perms = sources.filter((p) => p.sources.some((s) => methodOk(s.roleName) && !factor.has(s.roleName))).map((p) => p.name);
   const withheld = [...roles.keys()]
     .filter((r) => !methodOk(r))
-    .sort()
-    .map((role) => ({ role, methods: [...((policy as Map<string, Set<string>>).get(role) as Set<string>)].sort() }));
+    .sort(byCodeUnit)
+    .map((role) => ({ role, methods: [...((policy as Map<string, Set<string>>).get(role) as Set<string>)].sort(byCodeUnit) }));
   return { perms, withheld, needsFactor };
 }
 

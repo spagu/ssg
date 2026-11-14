@@ -1338,6 +1338,7 @@ implemented.
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links: `href`/`src` in HTML, and `url()`/`@import` in stylesheets, reported with the stylesheet and line |
+| `check_links_ignore` | `[]` | config only | Site paths the link check skips: an exact path (`/core/nav.js`) or a prefix ending in `/` (`/core/`). For references that are optional by design, such as a worker panel that loads the `core` worker's files when it is deployed |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |

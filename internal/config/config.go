@@ -588,6 +588,12 @@ type Config struct {
 	// (non-zero exit on a dead internal link) (SEO-005).
 	CheckLinks string `yaml:"check_links" toml:"check_links" json:"check_links"`
 
+	// CheckLinksIgnore lists site paths the link check skips: an exact path
+	// ("/core/nav.js") or a prefix ending in "/" ("/core/"). For references
+	// that are optional by design — a worker panel that loads the core
+	// worker's files when core is deployed and works without them.
+	CheckLinksIgnore []string `yaml:"check_links_ignore" toml:"check_links_ignore" json:"check_links_ignore"`
+
 	// CheckImages validates image alt attributes after build: "" (off), "warn",
 	// "strict", or "strict-decorative". Only an image with NO alt attribute is a
 	// finding — `alt=""` is the correct treatment for a decorative image and stays

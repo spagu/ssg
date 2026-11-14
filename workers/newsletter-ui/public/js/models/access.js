@@ -87,11 +87,21 @@ export function account(me) {
 }
 
 // loginTarget: the login page with `next` = where the admin is now (path,
-// query and the view after "#"); null outside `auth` mode.
-export function loginTarget(me, here) {
+// query and the view after "#"); null outside `auth` mode. The login URL comes
+// from the worker's answer, and it is followed only when it stays on this
+// site (`origin`): `auth` always lives on the same host, so anything else is a
+// misconfiguration or a tampered answer, never a place to send the admin.
+export function loginTarget(me, here, origin) {
   if (me.mode !== "auth" || !me.loginUrl) return null;
-  const sep = me.loginUrl.includes("?") ? "&" : "?";
-  return `${me.loginUrl}${sep}next=${encodeURIComponent(here)}`;
+  let url;
+  try {
+    url = new URL(me.loginUrl, origin);
+  } catch {
+    return null;
+  }
+  if (url.origin !== origin) return null;
+  url.searchParams.set("next", here);
+  return url.pathname + url.search;
 }
 
 // AUDIT_ACTIONS: every action the audit trail records (src/routes.ts `audit`),

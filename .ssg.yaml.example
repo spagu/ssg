@@ -247,6 +247,7 @@ analytics: false     # Render the tracking snippets a migration recorded in
 #   home:          { "@type": WebSite }
 #   pages/recipes: { "@type": Recipe, recipeCuisine: Polish }
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
+# check_links_ignore: [/core/nav.js, /core/theme.css]   # paths the check skips: exact, or a prefix ending in /
 check_schema: ""     # "" (off), "warn" or "strict" — validate emitted JSON-LD against
                      # the properties search engines require (unknown @types pass)
 # check_schema_recommended: true  # also advise on recommended Recipe properties (never fails)

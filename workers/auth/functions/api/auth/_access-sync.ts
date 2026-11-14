@@ -31,6 +31,7 @@ import { ACCESS_METHOD } from "./_access-config";
 import { iso } from "./_lib";
 import type { Env } from "./_lib";
 import { isOwnerViolation } from "./_rbac-schema";
+import { byCodeUnit } from "./_perms";
 
 export interface SyncResult {
   added: string[]; // group names
@@ -102,7 +103,7 @@ export async function syncGroups(env: Env, userId: string, accessGroups: string[
       out.kept.push(g.name);
     }
   }
-  for (const list of [out.added, out.removed, out.kept]) list.sort();
+  for (const list of [out.added, out.removed, out.kept]) list.sort(byCodeUnit);
   return out;
 }
 

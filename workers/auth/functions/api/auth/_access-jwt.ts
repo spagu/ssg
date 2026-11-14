@@ -25,6 +25,7 @@ import type { AccessSetup } from "./_access-config";
 import { accessKey } from "./_access-keys";
 import { readCookie } from "./_cookies";
 import { b64urlDecode } from "./_lib";
+import { byCodeUnit } from "./_perms";
 
 export interface AccessPerson {
   subject: string;
@@ -67,7 +68,7 @@ export function groupsOf(c: Obj): string[] | null {
     const values = typeof g === "string" ? [g] : g && typeof g === "object" ? [(g as Obj).id, (g as Obj).name] : [];
     for (const v of values) if (typeof v === "string" && v.trim() && v.length <= 256) out.add(v.trim());
   }
-  return [...out].sort();
+  return [...out].sort(byCodeUnit);
 }
 
 const notNumberOrFuture = (v: unknown, now: number): boolean => v !== undefined && (typeof v !== "number" || now + SKEW_SECONDS < v);
