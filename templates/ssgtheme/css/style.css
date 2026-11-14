@@ -1005,7 +1005,9 @@ a:hover {
 .docs-layout {
   display: grid;
   gap: var(--space-8);
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr) for the same reason as .post-layout: a bare 1fr track
+     grows to its widest unbreakable content and widens the page on phones. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 1000px) {
@@ -1142,7 +1144,18 @@ a:hover {
 .post-layout {
   display: grid;
   gap: var(--space-8);
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr), not 1fr: a bare 1fr track is never narrower than its
+     widest unbreakable content, so one long code line or URL made the whole
+     column — text, headings, the comment form — wider than a phone screen.
+     The code block scrolls inside its own box instead (.prose pre). */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A grid or flex item's min-width defaults to its content's: the same trap
+   one level down. */
+.post-layout > *,
+.docs-layout > * {
+  min-width: 0;
 }
 
 @media (min-width: 1100px) {
