@@ -24,7 +24,10 @@ import { NOT_SUPPRESSED_SQL, dropHashOnly, findSuppression, suppressionApplies }
 // stays well inside the Workers Free limit of 50 subrequests per invocation.
 export const DEFAULT_CONFIRM_BATCH = 10;
 
-const ELIGIBLE = `s.status = 'pending' AND s.confirm_sent_at IS NULL AND s.id > ? AND ${NOT_SUPPRESSED_SQL("s")}`;
+// ELIGIBLE: pending subscribers never mailed a confirmation, after the id
+// bound to `?` ("" for all), suppressed ones left out. The module summary
+// counts them with it.
+export const ELIGIBLE = `s.status = 'pending' AND s.confirm_sent_at IS NULL AND s.id > ? AND ${NOT_SUPPRESSED_SQL("s")}`;
 
 const rateLimited = () => json({ error: "rate_limited", detail: "the send rate for this minute is used up" }, 429, { "retry-after": String(secondsToNextMinute()) });
 

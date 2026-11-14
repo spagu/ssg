@@ -1,26 +1,42 @@
 openapi: 3.1.0
 info:
   title: newsletter-ui admin API
-  version: 1.9.8
+  version: 1.9.9
   summary: The admin API, panel back end and provider webhooks of the ssg newsletter-ui worker.
   description: |
     Every path is relative to the worker's base path, `NEWSLETTER_UI_BASE`
     (default `/newsletter-admin`). Routes under `/api/` need admin
-    authentication (Cloudflare Access or HTTP Basic) and, for every method
-    other than GET and HEAD, the header `x-newsletter-admin: 1` (CSRF guard);
-    a request without it is answered `403`. Routes under `/hooks/` are public:
-    each verifies its own signature, or carries no person at all (the click
-    redirect).
+    authentication — Cloudflare Access, a session of the `auth` worker, or
+    HTTP Basic, checked in that order (README, "Who can do what") — and, for
+    every method other than GET and HEAD, the header `x-newsletter-admin: 1`
+    (CSRF guard); a request without it is answered `403`. With `auth`
+    sessions a state-changing request must also carry no cross-origin
+    `Origin` or `Sec-Fetch-Site` (`403 cross-origin request refused`).
+    Routes under `/hooks/` are public: each verifies its own signature, or
+    carries no person at all (the click redirect).
+
+    Permissions (GO-137): each operation's `x-permission` names what the
+    caller must hold — a permission from module.json, a list (all of them),
+    `session` (signed in, nothing more) or `public` (no admin at all). With
+    Cloudflare Access or the password every permission is held; with an
+    `auth` session the token's `perms` decide, and a missing one is answered
+    `403 {"error": "forbidden", "permission": "<name>"}`. Every
+    state-changing operation is recorded in the audit trail (`GET /api/audit`).
 
     Errors are JSON `{"error": "<snake_case_code>", "detail": "…"}`; some add
     fields named in the route. Lists answer `{items, nextCursor}`; pass
     `nextCursor` back as `cursor` until it is null.
 
     Answers common to every `/api/` route, not repeated below: `401` (no or
-    wrong credentials), `403` (missing CSRF header, or Access denied), `404`
+    wrong credentials; with `auth`, `{"error": "unauthorized", "reason":
+    "no_session" | "expired" | "invalid_session"}`, and a page request is
+    redirected to the login page instead), `403` (missing CSRF header, Access
+    denied, or a permission missing), `404`
     (no such route), `405` (wrong method, with `allow`), `429` (the
     RATE_LIMITER binding or the failed-login lockout, with `retry-after`),
-    `500 internal_error`, and `503` (no admin auth configured, the database
+    `500 internal_error`, and `503` (no admin auth configured, an incomplete
+    `NEWSLETTER_AUTH_*` set — `{"error": "not_configured", "detail"}` — the
+    `auth` keys unreachable — `auth_unavailable` — the database
     unreachable, or — for routes that need it — the `subscribers` table of the
     `newsletter` template missing: `{"error": "newsletter not installed",
     "hint": "…"}`).
@@ -37,10 +53,13 @@ servers:
 security:
   - basicAuth: []
   - cloudflareAccess: []
+  - authSession: []
 
 tags:
   - name: health
     description: "Configuration and schema state"
+  - name: module
+    description: "The module manifest (module.json): identity, panel, navigation, permissions, endpoints; and the module summary"
   - name: subscribers
     description: "The subscribers table of the newsletter template: list, edit, erase, export"
   - name: import
@@ -61,10 +80,13 @@ tags:
     description: "Read-only configuration and the SMTP connection test"
   - name: hooks
     description: "Public routes: provider webhooks (signed) and the click redirect"
+  - name: access
+    description: "Who is calling, and the audit trail of admin actions"
 
 paths:
   /api/health:
     get:
+      x-permission: newsletter:read
       operationId: health
       tags: [health]
       summary: Configuration and schema state; answers without the subscribers table
@@ -75,8 +97,81 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
 
+  /api/module:
+    get:
+      x-permission: newsletter:read
+      operationId: moduleManifest
+      tags: [module]
+      summary: The module manifest, as in module.json; answers without the subscribers table
+      responses:
+        "200":
+          description: The manifest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModuleManifest" }
+
+  /api/module/summary:
+    get:
+      x-permission: newsletter:read
+      operationId: moduleSummary
+      tags: [module]
+      summary: The module summary (counts, what waits for the admin, configuration problems); answers without the subscribers table
+      description: |
+        Aggregates only, never an address. At most three D1 statements: the
+        status counts, one SELECT of scalar counts, the 30-day sign-up series.
+        Without the subscribers table it answers the campaign and suppression
+        numbers and the problem `no_subscribers_table`.
+      responses:
+        "200":
+          description: The summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModuleSummary" }
+
+  /api/me:
+    get:
+      x-permission: session
+      operationId: me
+      tags: [access]
+      summary: Who the panel is talking for, and what they may do; answers without the subscribers table
+      description: |
+        The panel reads it once at start. `permissions` is `"all"` with the
+        password or Cloudflare Access; with an `auth` session it lists this
+        module's permissions the token grants (wildcards expanded).
+      responses:
+        "200":
+          description: The caller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+
+  /api/audit:
+    get:
+      x-permission: newsletter:settings
+      operationId: listAudit
+      tags: [access]
+      summary: The audit trail of state-changing admin requests, newest first; answers without the subscribers table
+      parameters:
+        - { name: actor, in: query, description: "An account id or address, or `password` / `access` for the rows that name nobody", schema: { type: string } }
+        - { name: action, in: query, description: "An audit action, e.g. campaign.schedule", schema: { type: string } }
+        - $ref: "#/components/parameters/Limit200"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
   /api/subscribers:
     get:
+      x-permission: newsletter:read
       operationId: listSubscribers
       tags: [subscribers]
       summary: List subscribers, newest first
@@ -102,6 +197,7 @@ paths:
 
   /api/subscribers.csv:
     get:
+      x-permission: newsletter:export
       operationId: exportSubscribersCSV
       tags: [subscribers]
       summary: The list as CSV (the template's columns; suppressed addresses left out)
@@ -121,6 +217,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/Id"
     get:
+      x-permission: newsletter:read
       operationId: getSubscriber
       tags: [subscribers]
       summary: One person, with consent, sends and suppression
@@ -132,6 +229,7 @@ paths:
               schema: { $ref: "#/components/schemas/SubscriberDetail" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
+      x-permission: newsletter:edit
       operationId: patchSubscriber
       tags: [subscribers]
       summary: Change tags and/or language (nothing else is editable)
@@ -154,6 +252,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
+      x-permission: newsletter:erase
       operationId: eraseSubscriber
       tags: [subscribers]
       summary: GDPR erasure — the row and its sends go, a hash-only suppression stays
@@ -174,6 +273,7 @@ paths:
 
   /api/subscribers/{id}/unsubscribe:
     post:
+      x-permission: newsletter:edit
       operationId: unsubscribeSubscriber
       tags: [subscribers]
       summary: Unsubscribe by hand (the same change as the public link)
@@ -186,6 +286,7 @@ paths:
 
   /api/subscribers/{id}/export:
     get:
+      x-permission: newsletter:export
       operationId: exportSubscriber
       tags: [subscribers]
       summary: GDPR access — everything stored about the person, as a JSON download
@@ -201,6 +302,7 @@ paths:
 
   /api/import/preview:
     post:
+      x-permission: newsletter:import
       operationId: importPreview
       tags: [import]
       summary: What an import would do; writes nothing
@@ -219,6 +321,7 @@ paths:
 
   /api/import:
     post:
+      x-permission: newsletter:import
       operationId: importRun
       tags: [import]
       summary: Import a subscriber list (all rows or none)
@@ -245,6 +348,7 @@ paths:
 
   /api/stats/subscribers:
     get:
+      x-permission: newsletter:read
       operationId: subscriberStats
       tags: [statistics]
       summary: Counts by status and language, and sign-ups / unsubscribes per UTC day
@@ -274,6 +378,7 @@ paths:
 
   /api/campaigns:
     get:
+      x-permission: newsletter:read
       operationId: listCampaigns
       tags: [campaigns]
       summary: List campaigns, newest first, bodies omitted
@@ -293,6 +398,7 @@ paths:
                   nextCursor: { type: [string, "null"] }
         "400": { $ref: "#/components/responses/BadRequest" }
     post:
+      x-permission: newsletter:edit
       operationId: createCampaign
       tags: [campaigns]
       summary: Create a draft
@@ -310,6 +416,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/Id"
     get:
+      x-permission: newsletter:read
       operationId: getCampaign
       tags: [campaigns]
       summary: One campaign
@@ -317,6 +424,7 @@ paths:
         "200": { $ref: "#/components/responses/CampaignOk" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
+      x-permission: newsletter:edit
       operationId: updateCampaign
       tags: [campaigns]
       summary: Edit a draft
@@ -332,6 +440,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
     delete:
+      x-permission: newsletter:edit
       operationId: deleteCampaign
       tags: [campaigns]
       summary: Delete a draft or cancelled campaign, with its send records and links
@@ -344,6 +453,7 @@ paths:
 
   /api/campaigns/{id}/duplicate:
     post:
+      x-permission: newsletter:edit
       operationId: duplicateCampaign
       tags: [campaigns]
       summary: A new draft with the same content, sender and segment
@@ -354,6 +464,7 @@ paths:
 
   /api/campaigns/{id}/preview:
     post:
+      x-permission: newsletter:read
       operationId: previewCampaign
       tags: [campaigns]
       summary: The mail exactly as a reader would get it, and who would get it
@@ -376,6 +487,7 @@ paths:
 
   /api/campaigns/{id}/test:
     post:
+      x-permission: newsletter:send
       operationId: testCampaign
       tags: [campaigns]
       summary: Send the preview, subject prefixed "[TEST] ", to one address (10 per hour)
@@ -400,6 +512,7 @@ paths:
 
   /api/campaigns/{id}/schedule:
     post:
+      x-permission: newsletter:send
       operationId: scheduleCampaign
       tags: [campaigns]
       summary: Validate everything a send needs, then draft → scheduled
@@ -429,6 +542,7 @@ paths:
 
   /api/campaigns/{id}/unschedule:
     post:
+      x-permission: newsletter:send
       operationId: unscheduleCampaign
       tags: [campaigns]
       summary: scheduled → draft
@@ -440,6 +554,7 @@ paths:
 
   /api/campaigns/{id}/pause:
     post:
+      x-permission: newsletter:send
       operationId: pauseCampaign
       tags: [campaigns]
       summary: sending → paused (takes effect at the next message)
@@ -451,6 +566,7 @@ paths:
 
   /api/campaigns/{id}/resume:
     post:
+      x-permission: newsletter:send
       operationId: resumeCampaign
       tags: [campaigns]
       summary: paused → sending
@@ -462,6 +578,7 @@ paths:
 
   /api/campaigns/{id}/cancel:
     post:
+      x-permission: newsletter:send
       operationId: cancelCampaign
       tags: [campaigns]
       summary: scheduled | sending | paused → cancelled
@@ -473,6 +590,7 @@ paths:
 
   /api/engine/status:
     get:
+      x-permission: newsletter:read
       operationId: engineStatus
       tags: [engine]
       summary: The send engine at a glance
@@ -485,6 +603,7 @@ paths:
 
   /api/campaigns/{id}/progress:
     get:
+      x-permission: newsletter:read
       operationId: campaignProgress
       tags: [engine]
       summary: One campaign's progress, from the send ledger
@@ -499,6 +618,7 @@ paths:
 
   /api/campaigns/{id}/uncertain:
     get:
+      x-permission: newsletter:read
       operationId: listUncertain
       tags: [engine]
       summary: Sends that were in flight when their consumer died
@@ -531,6 +651,7 @@ paths:
 
   /api/campaigns/{id}/uncertain/resend:
     post:
+      x-permission: newsletter:send
       operationId: resendUncertain
       tags: [engine]
       summary: One more attempt through the normal path, same idempotency key
@@ -553,6 +674,7 @@ paths:
 
   /api/campaigns/{id}/uncertain/dismiss:
     post:
+      x-permission: newsletter:send
       operationId: dismissUncertain
       tags: [engine]
       summary: Close uncertain rows as skipped ("dismissed")
@@ -572,6 +694,7 @@ paths:
 
   /api/feed/posts:
     get:
+      x-permission: newsletter:read
       operationId: listFeedPosts
       tags: [feed]
       summary: Posts on the site's feed, with the campaign made from each
@@ -606,6 +729,7 @@ paths:
 
   /api/campaigns/from-post:
     post:
+      x-permission: newsletter:edit
       operationId: campaignFromPost
       tags: [feed]
       summary: A draft from one post (never sent or scheduled by itself)
@@ -630,6 +754,7 @@ paths:
 
   /api/subscribers/confirmations:
     post:
+      x-permission: newsletter:send
       operationId: sendConfirmations
       tags: [confirmations]
       summary: Mail the confirmation to pending subscribers never mailed, one batch per call
@@ -669,6 +794,7 @@ paths:
 
   /api/subscribers/{id}/confirmation:
     post:
+      x-permission: newsletter:send
       operationId: resendConfirmation
       tags: [confirmations]
       summary: Re-send one confirmation mail (15-minute throttle per address)
@@ -683,6 +809,7 @@ paths:
 
   /api/campaigns/{id}/stats:
     get:
+      x-permission: newsletter:read
       operationId: campaignStats
       tags: [statistics]
       summary: One campaign's statistics (counts only, nobody tracked)
@@ -697,6 +824,7 @@ paths:
 
   /api/stats/campaigns:
     get:
+      x-permission: newsletter:read
       operationId: campaignsStats
       tags: [statistics]
       summary: Started campaigns, newest first, with their headline numbers
@@ -739,6 +867,7 @@ paths:
       - { name: campaign, in: path, required: true, schema: { type: string } }
       - { name: link, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{16}$" } }
     get:
+      x-permission: public
       operationId: clickRedirect
       tags: [hooks]
       summary: Click redirect — counts one click, stores nothing about the request
@@ -747,6 +876,7 @@ paths:
         "302": { description: To the link's stored target, headers: { location: { schema: { type: string } } } }
         "404": { description: No such campaign/link pair }
     head:
+      x-permission: public
       operationId: clickRedirectHead
       tags: [hooks]
       summary: The same redirect, not counted (scanners)
@@ -757,6 +887,7 @@ paths:
 
   /api/suppressions:
     get:
+      x-permission: newsletter:read
       operationId: listSuppressions
       tags: [suppressions]
       summary: The suppression list, newest change first
@@ -777,6 +908,7 @@ paths:
                   nextCursor: { type: [string, "null"] }
         "400": { $ref: "#/components/responses/BadRequest" }
     post:
+      x-permission: newsletter:suppress
       operationId: addSuppression
       tags: [suppressions]
       summary: Suppress one address by hand (the stronger reason stays)
@@ -798,6 +930,7 @@ paths:
 
   /api/suppressions/import/preview:
     post:
+      x-permission: [newsletter:import, newsletter:suppress]
       operationId: suppressionImportPreview
       tags: [suppressions]
       summary: What a suppression CSV import would add; writes nothing
@@ -814,6 +947,7 @@ paths:
 
   /api/suppressions/import:
     post:
+      x-permission: [newsletter:import, newsletter:suppress]
       operationId: suppressionImportRun
       tags: [suppressions]
       summary: Import suppressions (hard by default, complaint also unsubscribes, manual)
@@ -835,6 +969,7 @@ paths:
 
   /api/suppressions/{hash}:
     delete:
+      x-permission: newsletter:suppress
       operationId: deleteSuppression
       tags: [suppressions]
       summary: "Lift a suppression; a complaint needs {\"confirm\": true}"
@@ -855,6 +990,7 @@ paths:
 
   /api/stats/suppressions:
     get:
+      x-permission: newsletter:read
       operationId: suppressionStats
       tags: [statistics]
       summary: Suppressions by reason, and created per UTC day
@@ -886,6 +1022,7 @@ paths:
 
   /hooks/resend:
     post:
+      x-permission: public
       operationId: resendHook
       tags: [hooks]
       summary: Resend webhook (Svix signature); bounces, complaints, deliveries
@@ -908,6 +1045,7 @@ paths:
 
   /hooks/mailchannels:
     post:
+      x-permission: public
       operationId: mailchannelsHook
       tags: [hooks]
       summary: MailChannels webhook (RFC 9421 HTTP Message Signature, Ed25519)
@@ -930,6 +1068,7 @@ paths:
 
   /api/settings:
     get:
+      x-permission: newsletter:read
       operationId: getSettings
       tags: [settings]
       summary: What the worker is configured with; secrets only as booleans
@@ -942,6 +1081,7 @@ paths:
 
   /api/settings/smtp-test:
     post:
+      x-permission: newsletter:settings
       operationId: smtpTest
       tags: [settings]
       summary: Open and close an SMTP session exactly as a send would, sending nothing
@@ -976,6 +1116,11 @@ components:
       in: header
       name: Cf-Access-Jwt-Assertion
       description: Set by Cloudflare Access in front of the worker (NEWSLETTER_ACCESS_TEAM + NEWSLETTER_ACCESS_AUD); the CF_Authorization cookie is accepted too.
+    authSession:
+      type: apiKey
+      in: cookie
+      name: __Host-ssg-auth
+      description: The `auth` worker's session (NEWSLETTER_AUTH_*), an ES256 token checked locally with its public key; `perms` decide each operation's x-permission. A service token goes in `Authorization: Bearer` instead.
 
   parameters:
     Csrf:
@@ -1176,6 +1321,40 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
+    Me:
+      type: object
+      required: [mode, user, permissions]
+      properties:
+        mode: { type: string, enum: [password, access, auth] }
+        user:
+          type: [object, "null"]
+          description: The `auth` account; null with the password or Access
+          properties:
+            id: { type: string }
+            email: { type: string }
+        permissions:
+          oneOf:
+            - { const: all }
+            - { type: array, items: { type: string, examples: [newsletter:read] } }
+        loginUrl: { type: string, description: "`auth` mode only: where to sign in again" }
+        logoutUrl: { type: string, description: "`auth` mode only: a form POST signs out" }
+        refreshUrl: { type: string, description: "`auth` mode only: POST (with `x-ssg-auth: 1`) renews the session after a 401" }
+    AuditEntry:
+      type: object
+      required: [id, at, mode, actor, action, target, status]
+      properties:
+        id: { type: string }
+        at: { type: string, format: date-time }
+        mode: { type: string, enum: [password, access, auth] }
+        actor:
+          type: [object, "null"]
+          description: The `auth` account; null with the password or Access (the mode is all that is known)
+          properties:
+            id: { type: string }
+            email: { type: string }
+        action: { type: string, examples: [campaign.schedule, subscriber.erase] }
+        target: { type: [string, "null"], description: "Ids from the path (campaign:<id>, subscriber:<id>, suppression:<hash>), never an address", examples: ["campaign:7f1c…"] }
+        status: { type: integer, description: The HTTP status the request was answered with }
     Error:
       type: object
       required: [error]
@@ -1183,17 +1362,114 @@ components:
         error: { type: string, description: snake_case code }
         detail: { type: string }
         hint: { type: string }
+        permission: { type: string, description: "403 forbidden only: the permission the caller lacks" }
     SubscriberStatus: { type: string, enum: [pending, confirmed, unsubscribed] }
     CampaignStatus: { type: string, enum: [draft, scheduled, sending, paused, sent, cancelled] }
     SuppressionReason: { type: string, enum: [hard, soft, complaint, manual] }
     Transport: { type: [string, "null"], enum: [resend, mailchannels, smtp, null] }
+    ModuleManifest:
+      type: object
+      description: |
+        module.json verbatim. The full format is module.schema.json in the ssg
+        repository (docs/WORKER-MODULES.md); readers ignore fields they do not
+        know and refuse a newer `contract`.
+      required: [id, contract, version, kind, title, description, panel, nav, permissions, endpoints, disable]
+      properties:
+        id: { const: newsletter-ui }
+        contract: { type: integer, minimum: 1 }
+        version: { type: string, examples: ["1.0.0"] }
+        kind: { const: worker }
+        title: { $ref: "#/components/schemas/ModuleText" }
+        description: { $ref: "#/components/schemas/ModuleText" }
+        panel: { type: [string, "null"], description: Relative to the base path }
+        nav:
+          type: array
+          items:
+            type: object
+            required: [label, path, permission]
+            properties:
+              label: { $ref: "#/components/schemas/ModuleText" }
+              path: { type: string, examples: ["/#/campaigns"] }
+              permission: { type: string, examples: ["newsletter:read"] }
+        permissions:
+          type: array
+          items:
+            type: object
+            required: [name, description]
+            properties:
+              name: { type: string, pattern: "^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$" }
+              description: { $ref: "#/components/schemas/ModuleText" }
+        endpoints:
+          type: object
+          additionalProperties: { type: string }
+          examples: [{ manifest: /api/module, health: /api/health, summary: /api/module/summary }]
+        disable: { $ref: "#/components/schemas/ModuleText" }
+    ModuleText:
+      type: object
+      required: [en, pl, hi, de, fr]
+      additionalProperties: { type: string }
+    ModuleSummary:
+      type: object
+      description: |
+        The full format is module-summary.schema.json in the ssg repository
+        (docs/WORKER-MODULES.md, "The summary endpoint"); readers ignore fields
+        they do not know and refuse a newer `contract`. Every text is plain
+        text in the five panel languages.
+      required: [contract, generatedAt, metrics, attention, problems]
+      properties:
+        contract: { type: integer, minimum: 1 }
+        generatedAt: { type: string, format: date-time }
+        metrics:
+          type: array
+          maxItems: 4
+          items:
+            type: object
+            required: [key, label, value]
+            properties:
+              key: { type: string, enum: [confirmed, pending, campaignsInProgress, suppressed] }
+              label: { $ref: "#/components/schemas/ModuleText" }
+              value: { type: number, minimum: 0 }
+        attention:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [severity, text, href]
+            properties:
+              severity: { type: string, enum: [action, warning, info] }
+              text: { $ref: "#/components/schemas/ModuleText" }
+              href: { type: string, description: A panel path relative to the base path, examples: ["/#/campaigns?status=paused", "/#/", "/#/subscribers?status=pending"] }
+        problems:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [code, text]
+            properties:
+              code: { type: string, enum: [no_subscribers_table, no_transport, transport_unusable, no_site_url, no_sender, no_queue] }
+              text: { $ref: "#/components/schemas/ModuleText" }
+        series:
+          type: object
+          description: Sign-ups per UTC day, the last 30 days, oldest first
+          required: [label, points]
+          properties:
+            label: { $ref: "#/components/schemas/ModuleText" }
+            points:
+              type: array
+              maxItems: 90
+              items:
+                type: object
+                required: [day, value]
+                properties:
+                  day: { type: string, format: date }
+                  value: { type: number, minimum: 0 }
     Health:
       type: object
       properties:
         ok: { type: boolean }
         schemaVersion: { type: integer }
         subscribersTable: { type: boolean }
-        auth: { type: string, enum: [access, basic] }
+        auth: { type: string, enum: [access, auth, basic] }
         bindings:
           type: object
           properties:

@@ -1,7 +1,16 @@
-/* Design tokens — the panel's palette and type, in one place.
+/* Design tokens — the panel's palette and type, in one place. Every colour
+ * the panel's CSS uses is a custom property defined here (a test refuses a
+ * colour written anywhere else), so a site theme reaches everything.
+ *
+ * With the `core` worker deployed, index.html loads /core/theme.css right
+ * after this file: the site's own look (GO-152) overrides these values, the
+ * names being the same as core's /core/tokens.css. Without `core` that file
+ * answers 404 and these values stand.
  *
  * Colours are Material colour tokens (2014 palette) and nothing else:
  *   primary   Teal       (800 on light, 200 on dark)
+ *   link      the same Teal as primary until a site theme sets it (links
+ *             follow the theme's accent colour, GO-152)
  *   neutrals  Brown      (a warm "paper" family instead of the usual grey)
  *   focus     Deep Orange 900 / 200 — never used for anything else
  *   status    Red 800 / 200, Orange 900 / 300, Green 800 / 300
@@ -39,6 +48,7 @@
   --on-primary: #ffffff;
   --primary-soft: #e0f2f1; /* Teal 50 */
   --on-primary-soft: #004d40; /* Teal 900 */
+  --link: #00695c;        /* Teal 800: links (GO-152's accent in a theme) */
   --focus: #bf360c;       /* Deep Orange 900 */
   --danger: #c62828;      /* Red 800 */
   --on-danger: #ffffff;
@@ -49,6 +59,13 @@
   --grid: #d7ccc8;        /* Brown 100 */
   --axis: #8d6e63;        /* Brown 400 */
   --c1: #00897b; --c2: #e64a19; --c3: #5e35b1; --c4: #c2185b; --c5: #1565c0;
+  /* The same in both themes, so written once. Not text or marks (the contrast
+   * test does not read them): a notice's drop shadow, the dim behind a
+   * dialog, and the paper a mail preview is drawn on — white whatever the
+   * panel's theme, as most mail programs show a message. */
+  --shadow: rgb(0 0 0 / .12);
+  --backdrop: rgb(18 18 18 / .55);
+  --mail-paper: rgb(255 255 255);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -65,6 +82,7 @@
     --on-primary: #004d40;  /* Teal 900 */
     --primary-soft: #004d40;
     --on-primary-soft: #b2dfdb; /* Teal 100 */
+    --link: #80cbc4;        /* Teal 200 */
     --focus: #ffab91;       /* Deep Orange 200 */
     --danger: #ef9a9a;      /* Red 200 */
     --on-danger: #3e2723;
@@ -91,6 +109,7 @@
   --on-primary: #004d40;
   --primary-soft: #004d40;
   --on-primary-soft: #b2dfdb;
+  --link: #80cbc4;
   --focus: #ffab91;
   --danger: #ef9a9a;
   --on-danger: #3e2723;

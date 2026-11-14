@@ -1,0 +1,65 @@
+/* The site's own look for the admin panels (GO-152), written by ssg from
+ * admin_theme: in the site's configuration. Do not edit: the next build
+ * replaces it. Change the configuration and rebuild instead. */
+
+:root {
+  --primary: #6a1b9a;
+  --on-primary: #ffffff;
+  --primary-soft: #f4e9ff;
+  --on-primary-soft: #51007a;
+  --link: #4d7000;
+  --focus: #4d7000;
+  --c1: #6a1b9a;
+  --c2: #4d7000;
+  --c3: #c2185b;
+  --c4: #1565c0;
+  --c5: #7a4a00;
+  --nav-bg: #6a1b9a;
+  --on-nav: #ffffff;
+  --nav-muted: #e7d6f8;
+  --nav-hover: #8138b4;
+  --nav-control: #ccb0e6;
+  --nav-current: #93bb5c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #ac64e2;
+    --on-primary: #271734;
+    --primary-soft: #3e2c4d;
+    --on-primary-soft: #e7d6f8;
+    --link: #6b9131;
+    --focus: #4f7305;
+    --c1: #8e45c2;
+    --c2: #4f7305;
+    --c3: #d81b60;
+    --c4: #1e88e5;
+    --c5: #9f6200;
+    --nav-bg: #6a1b9a;
+    --on-nav: #ffffff;
+    --nav-muted: #e7d6f8;
+    --nav-hover: #8138b4;
+    --nav-control: #ccb0e6;
+    --nav-current: #93bb5c;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary: #ac64e2;
+  --on-primary: #271734;
+  --primary-soft: #3e2c4d;
+  --on-primary-soft: #e7d6f8;
+  --link: #6b9131;
+  --focus: #4f7305;
+  --c1: #8e45c2;
+  --c2: #4f7305;
+  --c3: #d81b60;
+  --c4: #1e88e5;
+  --c5: #9f6200;
+  --nav-bg: #6a1b9a;
+  --on-nav: #ffffff;
+  --nav-muted: #e7d6f8;
+  --nav-hover: #8138b4;
+  --nav-control: #ccb0e6;
+  --nav-current: #93bb5c;
+}

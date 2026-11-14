@@ -43,7 +43,7 @@ function smtpBox(app, s) {
     "div",
     { class: "smtp-test" },
     h("p", null, t("smtp.lead")),
-    h("button", { type: "button", class: "btn btn-primary", disabled: s.transport !== "smtp", on: { click: run } }, t("smtp.button")),
+    app.can("smtpTest") ? h("button", { type: "button", class: "btn btn-primary", disabled: s.transport !== "smtp", on: { click: run } }, t("smtp.button")) : null,
     s.transport !== "smtp" ? h("p", { class: "hint" }, t("smtp.onlySmtp")) : null,
     h("div", { ref: (el) => (out.el = el) }),
   );

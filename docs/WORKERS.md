@@ -110,18 +110,48 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `dynamic-price` | `GET /api/price/:sku` from KV or an upstream API, plus a client snippet |
 | `conversions-proxy` | `POST /api/track` — server-side Meta CAPI relay with SHA-256-hashed PII |
 | `cookie-consent` | GDPR/UK cookie banner: edge geo (EEA+UK), granular categories, script-gating, Consent Mode v2, optional audit log; ships a starter `cookie-policy.md`. `ssgtheme` wires it from `variables.cookie_consent` rather than literal HTML — see [its README](../workers/cookie-consent/README.md) |
-| `comments` | Comments in D1: Turnstile, moderation panel behind a password, heuristic/Akismet spam filter, no accounts, IP kept only as a salted hash. Ships a widget and an admin page. See [its README](../workers/comments/README.md) |
-| `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated, provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
-| `newsletter` | Newsletter / waitlist sign-up in D1: Turnstile, required consent stored with its wording, identical answer for new and existing addresses, RFC 8058 one-click unsubscribe, optional double opt-in (Resend, MailChannels or your own SMTP server), admin counts + CSV export, retention purge, IP/UA kept only as salted hashes. Ships a form that works without JavaScript. See [its README](../workers/newsletter/README.md) |
-| `web-push` | Browser notifications about new posts: subscriptions in D1, `POST /api/push/notify` (key-gated, called from CI after a deploy) reads the feed and sends one message per new post, RFC 8291 encryption and RFC 8292 VAPID with WebCrypto only, dead subscriptions removed. Ships `sw.js` and `push.js`; pair it with `web_push: true`. See [its README](../workers/web-push/README.md) |
+| `comments` | Comments in D1: Turnstile, heuristic/Akismet spam filter, no reader accounts, IP kept only as a salted hash. Ships a widget and a moderation page behind a shared password, Cloudflare Access or `auth` accounts (read, moderate, delete and import as separate permissions), with a record of who moderated what. See [its README](../workers/comments/README.md) |
+| `republish-trigger` | `POST /api/republish` — one authenticated webhook that fires a CI build on GitHub / GitLab / Gitea (a CMS webhook, cron or curl can redeploy the site). Key-gated (or an `auth` service token holding `republish-trigger:run`), provider token stays server-side, optional KV debounce. See [its README](../workers/republish-trigger/README.md) |
+| `newsletter` | Newsletter / waitlist sign-up in D1: Turnstile, required consent stored with its wording, identical answer for new and existing addresses, RFC 8058 one-click unsubscribe, optional double opt-in (Resend, MailChannels or your own SMTP server), admin counts + CSV export behind a shared password, Cloudflare Access or `auth` accounts, retention purge, IP/UA kept only as salted hashes. Ships a form that works without JavaScript. See [its README](../workers/newsletter/README.md) |
+| `web-push` | Browser notifications about new posts: subscriptions in D1, `POST /api/push/notify` (key-gated or an `auth` service token, called from CI after a deploy) reads the feed and sends one message per new post, RFC 8291 encryption and RFC 8292 VAPID with WebCrypto only, dead subscriptions removed. Ships `sw.js` and `push.js`; pair it with `web_push: true`. See [its README](../workers/web-push/README.md) |
 | `rate-limit` | `functions/_middleware.ts` — a request budget for every Function in the project, including ones added later. Exact and free through the Workers Rate Limiting binding, KV as a fallback. See [its README](../workers/rate-limit/README.md) |
-| `newsletter-ui` | **Standalone Worker**, not Pages Functions (see below). Sends the `newsletter` template's list, on the same D1 database: a browser panel and admin API, campaigns (Markdown or HTML, segments, preview, test send, a draft from a feed post), a send engine on a cron trigger and a queue (rate limit, each reader at most once, uncertain sends shown instead of repeated), bounces and complaints from SMTP replies, signed Resend/MailChannels webhooks or a CSV, CSV import of lists from other tools, statistics without tracking anyone. Cloudflare Access or HTTP Basic with a per-IP failed-login lockout, CSRF header on every write, its own tables, never alters `subscribers`. API in OpenAPI 3.1. See [its README](../workers/newsletter-ui/README.md) |
+| `auth` | Optional accounts for the people who run the site's panels. Invitations are the only way in; each person signs in with a password (PBKDF2-SHA256) or Google, Microsoft, Apple, GitHub, Facebook or Cloudflare Access. Roles and groups hand out `worker:action` permissions; an optional second factor (TOTP, backup codes, passkeys; off until `AUTH_MFA_KEY` is set); service tokens for CI; sign-in, account and admin pages in five languages; an audit log. Sessions are a short ES256 token in a `__Host-` cookie with a rotating refresh token, checked by the other workers locally with the public key. See [its README](../workers/auth/README.md) |
+| `core` | The admin home page at `/core/`: what needs attention in every module, a card per module, the site's build and configuration problems; a shared navigation bar (`/core/nav.js`) the panels include; module order, visibility and labels with the optional `CORE_DB`; the panels in the site's colours from `admin_theme:`. Reads the module registry the build writes when `core` is in `workers:` and asks each module how it is (same host only, timeouts, only the caller's own credential forwarded). Shared password with a lockout, the `auth` worker's session, or Cloudflare Access. Not a security boundary: it never proxies or authorizes for a module. See [its README](../workers/core/README.md) |
+| `newsletter-ui` | **Standalone Worker**, not Pages Functions (see below). Sends the `newsletter` template's list, on the same D1 database: a browser panel and admin API, campaigns (Markdown or HTML, segments, preview, test send, a draft from a feed post), a send engine on a cron trigger and a queue (rate limit, each reader at most once, uncertain sends shown instead of repeated), bounces and complaints from SMTP replies, signed Resend/MailChannels webhooks or a CSV, CSV import of lists from other tools, statistics without tracking anyone. Cloudflare Access, `auth` accounts with per-action permissions and an audit trail, or HTTP Basic with a per-IP failed-login lockout, CSRF header on every write, its own tables, never alters `subscribers`. API in OpenAPI 3.1. See [its README](../workers/newsletter-ui/README.md) |
 
 ```sh
 ssg new worker stripe-checkout
 ```
 
-Each template ships a `README.md` listing the secrets it needs.
+Each template ships a `README.md` listing the secrets it needs, and a
+`module.json` — its module manifest: name and description in five languages,
+admin panel, navigation, the permissions its admin surface distinguishes, and
+how to switch it off. `comments`, `newsletter`, `newsletter-ui`, `auth` and
+`core` also serve it at `…/api/module` behind their admin auth, and all but
+`core` a summary (counts, things that need attention, configuration problems)
+at `…/api/module/summary`. See
+[WORKER-MODULES.md](WORKER-MODULES.md) for the format and how to make your own
+worker a module.
+
+**The module registry.** When one of the workers in `workers:` is the `core`
+worker (its `module.json` has `"id": "core"`), the build reads every listed
+worker's `module.json`, checks it, and writes `functions/_ssg-modules.json` —
+a registry the core Pages Function imports, which wrangler bundles and never
+serves as a static file. Modules the build cannot see, such as a standalone
+Worker deployed on its own, are declared under `modules:`:
+
+```yaml
+modules:
+  - id: newsletter-ui
+    url: /newsletter-admin      # its base path on the same host
+    dir: workers/newsletter-ui  # optional: read its module.json at build time
+```
+
+Without a `core` worker the build writes nothing new and the output is the
+same as before; `modules:` entries then only earn a warning that they have no
+effect. Problems are reported under `check_modules` (`off`, `warn` — the
+default — or `strict`). Details: [WORKER-MODULES.md](WORKER-MODULES.md#the-module-registry),
+keys: [CONFIGURATION.md](CONFIGURATION.md#the-module-registry-modules).
 
 ### Pages Functions vs a standalone Worker
 
@@ -186,6 +216,31 @@ Prefer the `RATE_LIMITER` binding over KV. KV is eventually consistent, so a
 burst arriving at several points of presence at once can overshoot the cap,
 which is exactly the shape a spam run takes.
 
+## Admin sign-in: which mode to choose
+
+`comments`, `newsletter`, `newsletter-ui` and `core` have an admin side, and
+each offers the same three ways in. A worker uses the first one configured,
+in the order **Cloudflare Access → `auth` → password**; with none configured
+its admin routes answer `503`, never open.
+
+| Mode | Choose it when | What you set |
+|---|---|---|
+| **Shared password** | One person runs the site. The simplest setup, and fully supported: one secret per worker, nothing else to deploy | `<PREFIX>_ADMIN_PASSWORD` (secret) |
+| **Cloudflare Access** | You already run Cloudflare Zero Trust and want your identity provider at the edge | `<PREFIX>_ACCESS_TEAM` + `<PREFIX>_ACCESS_AUD` |
+| **`auth`** | Several people, several panels, or different permissions per person (a moderator who may not delete, an editor who may not send) | deploy [`auth`](../workers/auth/README.md), then `<PREFIX>_AUTH_ISSUER`, `<PREFIX>_AUTH_LOGIN_URL` and `<PREFIX>_AUTH_PUBLIC_KEY` (or `_JWKS_URL`) |
+
+The prefixes are `COMMENTS`, `NEWSLETTER` (one set serves both newsletter
+templates) and `CORE`. Access and the password allow every action; with
+`auth` each action needs its permission, and the password is **not accepted**
+while any `<PREFIX>_AUTH_*` variable is set. Delete the password secret when
+you switch, so removing the variables later does not quietly bring it back.
+`web-push` and `republish-trigger` are called by machines: they keep their
+shared key and can also accept an `auth` service token.
+
+A walk-through from one panel with a password to a team with accounts, a
+second factor and the admin home page is in
+[ADMIN-GUIDE.md](ADMIN-GUIDE.md).
+
 ## Secrets
 
 Secrets never live in `.ssg.yaml` or in the Function source — set them per Pages
@@ -217,6 +272,7 @@ Each template now reads its **own prefixed name first**:
 | `contact-form` | `CONTACT_TURNSTILE_SECRET` | yes — existing projects keep working |
 | `comments` | `COMMENTS_TURNSTILE_SECRET` | yes — existing projects keep working |
 | `newsletter` | `NEWSLETTER_TURNSTILE_SECRET` | yes |
+| `auth` | `AUTH_TURNSTILE_SECRET` (after repeated failed logins) | yes |
 | `cookie-consent` | `CONSENT_TURNSTILE_SECRET` (opt-in, audit log only) | **no** — the shared name is ignored |
 
 The fallback means nothing changes for a project that already sets
@@ -234,7 +290,9 @@ admin, so one set of values serves both:
 | Template | Secret / variable | Purpose |
 |---|---|---|
 | `newsletter-ui` | `NEWSLETTER_ADMIN_PASSWORD` (secret) | HTTP Basic admin password, when Access is not used |
-| `newsletter-ui` | `NEWSLETTER_ACCESS_TEAM` + `NEWSLETTER_ACCESS_AUD` (vars) | Cloudflare Access instead of a password (recommended) |
+| `newsletter-ui` | `NEWSLETTER_ACCESS_TEAM` + `NEWSLETTER_ACCESS_AUD` (vars) | Cloudflare Access instead of a password |
+| `newsletter`, `newsletter-ui` | `NEWSLETTER_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` (vars) | accounts of the `auth` worker with per-action permissions (`newsletter:read`, `:edit`, `:send`, …) and, in `newsletter-ui`, an audit trail; checked after Access, before the password, which is then not accepted |
+| `newsletter-ui` | `NEWSLETTER_AUDIT_RETENTION_DAYS` (var) | days the admin audit trail keeps a row, default 365, `0` = forever |
 | `newsletter-ui` | `NEWSLETTER_HASH_SALT` (secret, optional) | salts the short-lived failed-login records |
 | `newsletter-ui` | `NEWSLETTER_UI_BASE` (var) | path prefix, default `/newsletter-admin` |
 | `newsletter`, `newsletter-ui` | `NEWSLETTER_SMTP_PASSWORD` (secret) + `NEWSLETTER_SMTP_HOST`, `_PORT`, `_USER`, `_HELO` (vars) | your own SMTP server as the mail transport, used when neither provider key is set (order: Resend → MailChannels → SMTP); port 465 or 587, never 25 |
@@ -244,11 +302,40 @@ The full list of `newsletter-ui` variables (send rate, batch size, click
 counting, feed URL, …) is the "Configuration" table in
 [its README](../workers/newsletter-ui/README.md#configuration).
 
-**Tests.** Templates with a `test/` directory (`contact-form`, `web-push`,
-`newsletter`, `newsletter-ui`) run with `make test-workers` — Node 23.6 or
-newer, no npm packages. Pull requests that change `workers/` run the same
-target in CI (the `Workers` workflow). `newsletter`'s `compat-*` tests pin
-every endpoint to its 1.9.7 answers, so an existing install keeps working.
+The admin sign-in settings of the other templates, and the secrets of `auth`
+and `core` (both Pages Functions: `wrangler pages secret put`):
+
+| Template | Secret / variable | Purpose |
+|---|---|---|
+| `comments` | `COMMENTS_ADMIN_PASSWORD` (secret) | shared-password moderation |
+| `comments` | `COMMENTS_ACCESS_TEAM` + `COMMENTS_ACCESS_AUD` (vars) | Cloudflare Access |
+| `comments` | `COMMENTS_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` (vars) | `auth` accounts: `comments:read`, `:moderate`, `:delete`, `:import` |
+| `newsletter` | `NEWSLETTER_ADMIN_PASSWORD` (secret), `NEWSLETTER_ACCESS_TEAM` + `_AUD`, `NEWSLETTER_AUTH_*` (vars) | the same three modes, the same names as `newsletter-ui` |
+| `core` | `CORE_ADMIN_PASSWORD` (secret) | shared password, with a per-IP lockout (`CORE_LOGIN_MAX_FAILURES`, `CORE_LOGIN_WINDOW_MINUTES`) |
+| `core` | `CORE_ACCESS_TEAM` + `CORE_ACCESS_AUD`, `CORE_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` (vars) | Cloudflare Access; `auth` accounts, each seeing only the modules it may open |
+| `core` | `CORE_DB` (D1), `CORE_LOGIN_LIMITER` (rate limit) (optional bindings) | module management and a lockout shared by all isolates; a ceiling on password attempts |
+| `web-push` | `PUSH_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` (vars) | accept `auth` service tokens holding `web-push:notify`; `PUSH_KEY` keeps working |
+| `republish-trigger` | `REPUBLISH_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` (vars) | accept `auth` service tokens holding `republish-trigger:run`; `REPUBLISH_KEY` keeps working |
+| `auth` | `AUTH_SIGNING_KEY` (secret, required) | the private signing key from `node workers/auth/scripts/auth-keys.mjs` |
+| `auth` | `AUTH_BOOTSTRAP_TOKEN` (secret) | creates the first owner once; delete it afterwards |
+| `auth` | `AUTH_MFA_KEY` (secret) | switches the second factor on and encrypts the authenticator secrets; `AUTH_MFA_KEY_PREVIOUS` during a rotation, `AUTH_MFA_RESET_TOKEN` for a sole owner's break-glass |
+| `auth` | `AUTH_HASH_SALT`, `AUTH_TURNSTILE_SECRET` (secrets) | salted IP/User-Agent hashes; Turnstile after repeated failures |
+| `auth` | `AUTH_<PROVIDER>_CLIENT_SECRET`, `AUTH_APPLE_PRIVATE_KEY` (secrets) with `AUTH_<PROVIDER>_CLIENT_ID` (vars) | sign-in through Google, Microsoft, GitHub, Facebook, Apple |
+| `auth` | `AUTH_RESEND_API_KEY`, `AUTH_MAILCHANNELS_API_KEY` or `AUTH_SMTP_PASSWORD` (secrets) with `AUTH_MAIL_FROM` | invitation and reset mail; without a transport the link is shown to the administrator |
+
+Every `auth` variable is in the "Configuration" section of
+[its README](../workers/auth/README.md#configuration) and in its
+`wrangler.snippet.toml`; `core`'s in [its README](../workers/core/README.md#variables).
+
+**Tests.** Templates with a `test/` directory (`auth`, `comments`,
+`contact-form`, `core`, `newsletter`, `newsletter-ui`, `republish-trigger`,
+`web-push`) run with `make test-workers`, after the cross-template test of
+every `module.json` and summary (`workers/*.test.ts`) — Node 23.6 or newer,
+no npm packages. Pull requests that change `workers/` run the same target in
+CI (the `Workers` workflow). The `compat-*` tests pin existing answers so an
+existing install keeps working: `newsletter`'s every endpoint as in 1.9.7,
+`comments`' admin endpoints, `web-push`'s `notify` and `republish-trigger`'s
+key check as in 1.9.8.
 
 ## Local development
 

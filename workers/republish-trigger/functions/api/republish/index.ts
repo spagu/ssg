@@ -4,13 +4,16 @@
 //
 // One authenticated request becomes a build on GitHub, GitLab or Gitea, so a
 // CMS webhook, a scheduled cron, or a "Republish" button can rebuild the site
-// without anyone touching the repo. The caller proves itself with REPUBLISH_KEY;
-// the provider token stays server-side and is never exposed.
+// without anyone touching the repo. The caller proves itself with REPUBLISH_KEY
+// or, when REPUBLISH_AUTH_* is set, a service token from the `auth` worker
+// (_auth.ts); the provider token stays server-side and is never exposed.
 
-import { Env, json, requireKey, allowGet, debounce, dispatch } from "./_lib";
+import { authorizeTrigger } from "./_auth";
+import { json, allowGet, debounce, dispatch } from "./_lib";
+import type { Env } from "./_lib";
 
 async function handle(request: Request, env: Env): Promise<Response> {
-  const denied = requireKey(request, env);
+  const denied = await authorizeTrigger(request, env);
   if (denied) return denied;
 
   const throttled = await debounce(env);

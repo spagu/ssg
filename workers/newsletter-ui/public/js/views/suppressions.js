@@ -96,7 +96,9 @@ export default async function suppressions(app, root, route) {
     ),
     list.node,
     more.node,
-    h("div", { class: "two-col" }, h("section", { class: "card" }, addForm(app, reload)), importBox(app, reload)),
+    app.can("suppress") || app.can("importSuppressions")
+      ? h("div", { class: "two-col" }, app.can("suppress") ? h("section", { class: "card" }, addForm(app, reload)) : null, app.can("importSuppressions") ? importBox(app, reload) : null)
+      : null,
   ]);
   list.set(loading(app));
   api.get("stats/suppressions", { days: 90 }).then(
@@ -136,7 +138,7 @@ export default async function suppressions(app, root, route) {
               h("td", { "data-label": t("col.reason") }, chip(app, s.reason, "reason"), s.reason === "soft" ? ` ×${s.count}` : null),
               h("td", { "data-label": t("col.source") }, s.source ?? "—"),
               h("td", { "data-label": t("col.since") }, fmt.date(s.createdAt)),
-              h("td", { "data-label": t("col.action") }, h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("sup.lift.for", { email: suppressionName(s, t) }), on: { click: lift(s) } }, t("sup.lift"))),
+              h("td", { "data-label": t("col.action") }, app.can("lift") ? h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("sup.lift.for", { email: suppressionName(s, t) }), on: { click: lift(s) } }, t("sup.lift")) : "—"),
             ),
           ),
         ),

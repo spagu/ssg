@@ -1,0 +1,42 @@
+{
+  "id": "web-push",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Web push",
+    "pl": "Powiadomienia web push",
+    "hi": "वेब पुश सूचनाएँ",
+    "de": "Web-Push",
+    "fr": "Notifications web push"
+  },
+  "description": {
+    "en": "Browser notifications for new posts: visitors subscribe with one button, and a call after each deploy announces what the feed gained.",
+    "pl": "Powiadomienia w przeglądarce o nowych wpisach: odwiedzający zapisują się jednym przyciskiem, a wywołanie po każdym wdrożeniu ogłasza to, co przybyło w kanale.",
+    "hi": "नई पोस्ट के लिए ब्राउज़र सूचनाएँ: विज़िटर एक बटन से सब्सक्राइब करते हैं, और हर डिप्लॉय के बाद एक कॉल फ़ीड में आई नई चीज़ों की घोषणा करती है।",
+    "de": "Browser-Benachrichtigungen zu neuen Beiträgen: Besucher abonnieren mit einem Klick, und ein Aufruf nach jeder Veröffentlichung kündigt an, was im Feed hinzugekommen ist.",
+    "fr": "Notifications du navigateur pour les nouveaux articles : les visiteurs s'abonnent d'un clic, et un appel après chaque déploiement annonce ce que le flux a gagné."
+  },
+  "panel": null,
+  "nav": [],
+  "permissions": [
+    {
+      "name": "web-push:notify",
+      "description": {
+        "en": "Announce new posts to every subscribed browser.",
+        "pl": "Ogłaszanie nowych wpisów wszystkim zapisanym przeglądarkom.",
+        "hi": "हर सब्सक्राइब किए गए ब्राउज़र को नई पोस्ट की सूचना भेजना।",
+        "de": "Neue Beiträge an jeden abonnierten Browser melden.",
+        "fr": "Annoncer les nouveaux articles à chaque navigateur abonné."
+      }
+    }
+  ],
+  "endpoints": {},
+  "disable": {
+    "en": "Remove workers/web-push from the workers: list in .ssg.yaml, set web_push: false, remove the CI step that calls /api/push/notify and deploy the site again. Subscriptions stay in the D1 database until you delete it.",
+    "pl": "Usuń workers/web-push z listy workers: w .ssg.yaml, ustaw web_push: false, usuń krok CI wywołujący /api/push/notify i wdróż stronę ponownie. Subskrypcje zostają w bazie D1, dopóki jej nie usuniesz.",
+    "hi": "workers/web-push को .ssg.yaml की workers: सूची से हटाएँ, web_push: false सेट करें, /api/push/notify को कॉल करने वाला CI चरण हटाएँ और साइट फिर से डिप्लॉय करें। सब्सक्रिप्शन D1 डेटाबेस में तब तक रहते हैं जब तक आप उसे मिटा नहीं देते।",
+    "de": "Entfernen Sie workers/web-push aus der workers:-Liste in .ssg.yaml, setzen Sie web_push: false, entfernen Sie den CI-Schritt, der /api/push/notify aufruft, und veröffentlichen Sie die Website neu. Die Abonnements bleiben in der D1-Datenbank, bis Sie diese löschen.",
+    "fr": "Retirez workers/web-push de la liste workers: dans .ssg.yaml, mettez web_push: false, supprimez l'étape CI qui appelle /api/push/notify et redéployez le site. Les abonnements restent dans la base D1 jusqu'à ce que vous la supprimiez."
+  }
+}

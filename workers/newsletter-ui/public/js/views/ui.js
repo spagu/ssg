@@ -22,6 +22,7 @@ export function errorText(app, err) {
   if (err.code && app.has(`code.${err.code}`)) return t(`code.${err.code}`, { detail: err.detail ?? "" });
   if (err.kind === "rate") return t("error.rate", { seconds: err.retryAfter ?? 60 });
   if (err.kind === "install") return t("error.install");
+  if (err.kind === "permission") return t("error.permission", { permission: err.permission });
   const base = t(`error.${err.kind}`);
   return err.detail && !["auth", "csrf", "network"].includes(err.kind) ? `${base} ${t("error.detail", { detail: err.detail })}` : base;
 }

@@ -5,7 +5,9 @@
 .shell { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--surface) calc(var(--sidebar) - 1px), var(--border) calc(var(--sidebar) - 1px), var(--border) var(--sidebar), transparent var(--sidebar)); }
 
 .sidebar {
-  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  /* --admin-nav-*: the site's shared bar above the panel (GO-146), measured
+   * by js/main.js; unset without it, so these are the plain 0 and 100vh. */
+  position: sticky; top: var(--admin-nav-sticky, 0px); align-self: start; height: calc(100vh - var(--admin-nav-height, 0px)); overflow-y: auto;
   background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; padding: 20px 14px;
 }
@@ -26,13 +28,18 @@
 
 .prefs { margin-top: auto; padding: 16px 8px 0; display: grid; gap: 4px; font-size: .9rem; }
 .prefs label { color: var(--text-muted); margin-top: 6px; }
+/* GO-137: who is signed in (auth mode only), under the preferences. */
+.account { margin-top: 10px; display: grid; gap: 6px; justify-items: start; }
+.account p { margin: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+/* The shared bar shows who is signed in and its own Sign out: not twice. */
+.admin-nav-signout .account { display: none; }
 
 #menu-toggle { display: none; }
 
 main { padding: 28px clamp(16px, 3vw, 40px) 64px; min-width: 0; max-width: 1360px; width: 100%; }
 #notice:empty { display: none; }
-#notice { position: sticky; top: 8px; z-index: 5; margin-bottom: 16px; }
-#notice .callout { display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgb(0 0 0 / .12); }
+#notice { position: sticky; top: calc(8px + var(--admin-nav-sticky, 0px)); z-index: 5; margin-bottom: 16px; }
+#notice .callout { display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px var(--shadow); }
 #notice .callout p { margin: 0; }
 
 .page-head { margin-bottom: 20px; }
@@ -56,13 +63,14 @@ main { padding: 28px clamp(16px, 3vw, 40px) 64px; min-width: 0; max-width: 1360p
 
 @media (max-width: 900px) {
   .shell { display: block; background: none; }
-  .sidebar { position: sticky; z-index: 10; height: auto; max-height: 100vh; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sidebar { position: sticky; z-index: 10; height: auto; max-height: calc(100vh - var(--admin-nav-height, 0px)); padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
   .brand { padding: 0; }
   #menu-toggle { display: inline-flex; }
   .drawer { display: none; padding-top: 12px; }
   body.nav-open .drawer { display: flex; }
   .prefs { grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; padding-top: 16px; }
   .prefs label { margin: 0; }
+  .account { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: center; }
   main { padding: 20px 16px 48px; }
-  #notice { top: 68px; }
+  #notice { top: calc(68px + var(--admin-nav-sticky, 0px)); }
 }

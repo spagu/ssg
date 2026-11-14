@@ -1,0 +1,46 @@
+/* The accounts admin's views: filters, forms, the permission picker, the
+ * access matrix, the one-time secret box, the danger zone. Tokens only. */
+
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 16px; margin: 0 0 16px; padding: 12px 16px 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.filters .field { flex: 1 1 12rem; }
+.filter-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+.quick { margin: 0 0 16px; }
+
+.form { max-width: 44rem; }
+.form .btn[type="submit"] { margin-top: 8px; }
+.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 12px; margin: 8px 0 16px; }
+.inline-form .field { flex: 0 1 22rem; margin-bottom: 0; }
+.inline-form .btn { margin-top: 8px; }
+.checks { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px 10px; margin: 0 0 14px; min-width: 0; }
+.checks legend { font-weight: 600; padding: 0 4px; }
+.check { display: flex; align-items: flex-start; gap: 6px; min-height: 32px; padding: 4px 0; font-weight: 400; }
+.check input { width: 22px; height: 22px; min-height: 0; margin: 2px 0 0; flex: none; accent-color: var(--primary); }
+.perm code { font-weight: 600; }
+.picker { display: grid; gap: 4px; }
+
+.plain { list-style: none; margin: 0 0 12px; padding: 0; }
+.plain li { padding: 4px 0; overflow-wrap: anywhere; }
+.rows li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding: 6px 0; max-width: 40rem; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.events { margin: 0 0 12px; padding-left: 1.2em; }
+.events li { margin-bottom: 8px; }
+.perm-list { overflow-wrap: anywhere; }
+.detail { overflow-wrap: anywhere; min-width: 14rem; max-width: 28rem; font-size: .88rem; }
+
+.once { border-left-width: 6px; }
+.once label { display: block; }
+.once input { margin: 4px 0 8px; }
+
+.danger-zone { border: 1px solid var(--danger); border-radius: 10px; padding: 16px 20px; }
+
+/* The matrix: the person's column stays while the modules scroll by. A cell
+ * says its level in words; the tint only repeats it. */
+.admin table.matrix th.sticky, .admin table.matrix tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--border); min-width: 12rem; }
+.admin table.matrix thead th.sticky { background: var(--surface-sunk); }
+.lvl { white-space: nowrap; }
+.lvl-all { background: var(--primary-soft); color: var(--on-primary-soft); font-weight: 600; }
+.lvl-some { color: var(--text); }
+.lvl-none { color: var(--text-muted); }
+
+.problems { margin: 8px 0 0; padding-left: 1.2em; }
+.card > h2:first-child, .card > h3:first-child { margin-top: 0; }

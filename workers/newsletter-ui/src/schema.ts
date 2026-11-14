@@ -111,6 +111,25 @@ export const BOUNCE_TABLES = [
   `CREATE INDEX IF NOT EXISTS idx_hook_events_received ON hook_events (received_at)`,
 ];
 
+// The admin audit trail (GO-137), schema version 6: one row per state-changing
+// admin request that reached its handler — who (the `auth` account, or just
+// the mode: "password", "access"), what (the route's audit action), on what
+// (an id from the path, never an address) and when. Purged on write after
+// NEWSLETTER_AUDIT_RETENTION_DAYS (src/audit.ts).
+export const AUDIT_TABLES = [
+  `CREATE TABLE IF NOT EXISTS admin_audit (
+     id          TEXT PRIMARY KEY,
+     at          TEXT NOT NULL,
+     mode        TEXT NOT NULL,
+     actor_id    TEXT,
+     actor_email TEXT,
+     action      TEXT NOT NULL,
+     target      TEXT,
+     status      INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_admin_audit_at ON admin_audit (at, id)`,
+];
+
 export const TABLES = [
   `CREATE TABLE IF NOT EXISTS schema_meta (
      component  TEXT PRIMARY KEY,
@@ -174,6 +193,7 @@ export const TABLES = [
   ...ENGINE_TABLES,
   ...STATS_TABLES,
   ...BOUNCE_TABLES,
+  ...AUDIT_TABLES,
 ];
 
 export interface Migration {
@@ -188,6 +208,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 4, statements: BOUNCE_TABLES }, // GO-127: bounces and webhooks
   // Uncertain sends: a range reopened for re-sends only (src/engine-uncertain.ts).
   { version: 5, statements: ["ALTER TABLE send_batches ADD COLUMN retry_only INTEGER NOT NULL DEFAULT 0"] },
+  { version: 6, statements: AUDIT_TABLES }, // GO-137: the admin audit trail
 ];
 
 export const BASE_VERSION = 1;

@@ -34,6 +34,37 @@ const CONFIRM_RESEND_MS = 15 * 60 * 1000;
 
 const now = (): string => new Date().toISOString();
 
+export const STATUSES = ["pending", "confirmed", "unsubscribed"];
+
+export interface StatusCounts {
+  total: number;
+  byStatus: Record<string, number>;
+  byLanguage: Record<string, Record<string, number>>;
+}
+
+// statusCounts: subscribers by status and by language × status, from one
+// GROUP BY over the (status, language) index — what GET /api/newsletter/admin
+// answers and the module summary's numbers. Every status is present, as 0
+// when nobody has it.
+export async function statusCounts(env: Env): Promise<StatusCounts> {
+  const { results } = await env.NEWSLETTER_DB.prepare(
+    `SELECT status, COALESCE(language, '') AS language, COUNT(*) AS n
+       FROM subscribers GROUP BY status, language`,
+  ).all<{ status: string; language: string; n: number }>();
+
+  const byStatus: Record<string, number> = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  const byLanguage: Record<string, Record<string, number>> = {};
+  let total = 0;
+  for (const r of results) {
+    total += r.n;
+    byStatus[r.status] = (byStatus[r.status] || 0) + r.n;
+    const lang = r.language || "unknown";
+    byLanguage[lang] ??= Object.fromEntries(STATUSES.map((s) => [s, 0]));
+    byLanguage[lang][r.status] = (byLanguage[lang][r.status] || 0) + r.n;
+  }
+  return { total, byStatus, byLanguage };
+}
+
 // subscribe is the idempotent upsert behind POST /api/newsletter. It returns the
 // row's token and whether a confirmation mail should go out. Callers answer
 // every outcome identically, so the response never tells a visitor whether an

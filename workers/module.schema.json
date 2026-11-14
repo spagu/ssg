@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ssg worker module manifest",
+  "description": "module.json at the root of a worker template: what the module is, where its panel lives, which permissions it knows and which endpoints describe it (GO-143). Contract 1. Readers ignore fields they do not know and refuse a manifest whose contract is newer than theirs. Only the keywords type, enum, required, properties, additionalProperties, items, maxItems, minLength, maxLength, pattern, minimum and local $ref are used, and every pattern is valid both as an ECMAScript and as an RE2 (Go) expression.",
+  "type": "object",
+  "required": ["id", "contract", "version", "kind", "title", "description", "panel", "nav", "permissions", "endpoints", "disable"],
+  "properties": {
+    "id": {
+      "description": "The template's directory name.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 64
+    },
+    "contract": {
+      "description": "Version of this manifest format. A new contract number means a reader written for an older one must refuse the manifest.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "version": {
+      "description": "The module's own version (MAJOR.MINOR.PATCH), bumped when its routes, panel or permissions change.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "kind": {
+      "description": "pages-function: merged into the site's Pages build. worker: a standalone Worker with its own wrangler.toml.",
+      "enum": ["pages-function", "worker"]
+    },
+    "title": { "$ref": "#/$defs/text" },
+    "description": { "$ref": "#/$defs/text" },
+    "panel": {
+      "description": "Path of the module's admin panel, relative to the module's base, or null for a module without one.",
+      "type": ["string", "null"],
+      "pattern": "^(?:(?:/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+/?|/)(?:#[A-Za-z0-9._~/?=&-]*)?$",
+      "maxLength": 256
+    },
+    "nav": {
+      "description": "Navigation entries a shared navigation may show for this module.",
+      "type": "array",
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/navItem" }
+    },
+    "permissions": {
+      "description": "Every permission the module's admin surface distinguishes, as worker:action.",
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/permission" }
+    },
+    "endpoints": {
+      "description": "Paths, relative to the module's base, of the endpoints that describe the module. Only endpoints the module really serves are listed.",
+      "type": "object",
+      "properties": {
+        "manifest": { "$ref": "#/$defs/endpointPath" },
+        "health": { "$ref": "#/$defs/endpointPath" },
+        "summary": { "$ref": "#/$defs/endpointPath" },
+        "openapi": { "$ref": "#/$defs/endpointPath" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/endpointPath" }
+    },
+    "disable": {
+      "description": "How to really switch the module off (hiding it in a navigation does not).",
+      "$ref": "#/$defs/text"
+    }
+  },
+  "$defs": {
+    "text": {
+      "description": "One text in the five panel languages; further language codes are allowed.",
+      "type": "object",
+      "required": ["en", "pl", "hi", "de", "fr"],
+      "properties": {
+        "en": { "$ref": "#/$defs/phrase" },
+        "pl": { "$ref": "#/$defs/phrase" },
+        "hi": { "$ref": "#/$defs/phrase" },
+        "de": { "$ref": "#/$defs/phrase" },
+        "fr": { "$ref": "#/$defs/phrase" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/phrase" }
+    },
+    "phrase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "navItem": {
+      "type": "object",
+      "required": ["label", "path", "permission"],
+      "properties": {
+        "label": { "$ref": "#/$defs/text" },
+        "path": {
+          "type": "string",
+          "pattern": "^(?:(?:/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+/?|/)(?:#[A-Za-z0-9._~/?=&-]*)?$",
+          "maxLength": 256
+        },
+        "permission": { "$ref": "#/$defs/permissionName" }
+      }
+    },
+    "permission": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": { "$ref": "#/$defs/permissionName" },
+        "description": { "$ref": "#/$defs/text" }
+      }
+    },
+    "permissionName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$",
+      "maxLength": 64
+    },
+    "endpointPath": {
+      "type": "string",
+      "pattern": "^(?:/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+$",
+      "maxLength": 256
+    }
+  }
+}

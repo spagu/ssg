@@ -77,6 +77,14 @@ function cookie(request: Request, name: string): string {
 // present, or a Response (401/403/503) describing why it was rejected. Callers
 // must have already checked that COMMENTS_ACCESS_TEAM/AUD are configured.
 export async function verifyAccess(request: Request, env: Env): Promise<Response | null> {
+  const who = await accessIdentity(request, env);
+  return who instanceof Response ? who : null;
+}
+
+// accessIdentity is verifyAccess that also hands back the `email` claim of the
+// token it has just verified (null when absent) — recorded as the actor of a
+// moderation (GO-136). Nothing else is read from the token.
+export async function accessIdentity(request: Request, env: Env): Promise<Response | { email: string | null }> {
   const token = request.headers.get("cf-access-jwt-assertion") || cookie(request, "CF_Authorization");
   if (!token) return json({ error: "Cloudflare Access required" }, 401);
 
@@ -121,5 +129,5 @@ export async function verifyAccess(request: Request, env: Env): Promise<Response
   if (typeof payload.exp === "number" && Date.now() / 1000 > payload.exp) {
     return json({ error: "Access token expired" }, 401);
   }
-  return null;
+  return { email: typeof payload.email === "string" && payload.email ? payload.email : null };
 }

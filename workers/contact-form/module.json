@@ -1,0 +1,31 @@
+{
+  "id": "contact-form",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Contact form",
+    "pl": "Formularz kontaktowy",
+    "hi": "संपर्क फ़ॉर्म",
+    "de": "Kontaktformular",
+    "fr": "Formulaire de contact"
+  },
+  "description": {
+    "en": "Receives a contact or job-application form, checks Turnstile and sends the message by email through Resend or MailChannels.",
+    "pl": "Przyjmuje formularz kontaktowy lub aplikacyjny, sprawdza Turnstile i wysyła wiadomość e-mailem przez Resend albo MailChannels.",
+    "hi": "संपर्क या नौकरी-आवेदन फ़ॉर्म लेता है, Turnstile जाँचता है और संदेश Resend या MailChannels से ईमेल करता है।",
+    "de": "Nimmt ein Kontakt- oder Bewerbungsformular entgegen, prüft Turnstile und sendet die Nachricht per E-Mail über Resend oder MailChannels.",
+    "fr": "Reçoit un formulaire de contact ou de candidature, vérifie Turnstile et envoie le message par e-mail via Resend ou MailChannels."
+  },
+  "panel": null,
+  "nav": [],
+  "permissions": [],
+  "endpoints": {},
+  "disable": {
+    "en": "Remove workers/contact-form from the workers: list in .ssg.yaml, take the form out of your pages and deploy the site again. Nothing is stored, so nothing is left behind.",
+    "pl": "Usuń workers/contact-form z listy workers: w .ssg.yaml, wyjmij formularz ze stron i wdróż stronę ponownie. Moduł niczego nie przechowuje, więc nic po nim nie zostaje.",
+    "hi": "workers/contact-form को .ssg.yaml की workers: सूची से हटाएँ, अपने पेजों से फ़ॉर्म निकालें और साइट फिर से डिप्लॉय करें। यह मॉड्यूल कुछ भी सहेजता नहीं, इसलिए कुछ पीछे नहीं छूटता।",
+    "de": "Entfernen Sie workers/contact-form aus der workers:-Liste in .ssg.yaml, nehmen Sie das Formular aus Ihren Seiten und veröffentlichen Sie die Website neu. Das Modul speichert nichts, es bleibt also nichts zurück.",
+    "fr": "Retirez workers/contact-form de la liste workers: dans .ssg.yaml, enlevez le formulaire de vos pages et redéployez le site. Le module ne stocke rien, il ne laisse donc rien derrière lui."
+  }
+}

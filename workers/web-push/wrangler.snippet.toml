@@ -18,8 +18,12 @@
 # PUSH_MAX_ITEMS = "3"                       # most items announced per notify call
 # PUSH_TTL = "86400"                         # seconds a push service holds an undelivered message
 # PUSH_ENDPOINT_HOSTS = ""                   # override the accepted push services (host suffixes, comma-separated)
+# Optional (README "Calling this from CI"): accept service tokens from the auth worker on notify.
+# PUSH_AUTH_ISSUER = "https://example.com/api/auth"
+# PUSH_AUTH_PUBLIC_KEY = '<the AUTH_PUBLIC_KEY= line of scripts/auth-keys.mjs>'   # or PUSH_AUTH_JWKS_URL = "/api/auth/jwks"
+# PUSH_AUTH_LOGIN_URL = "/auth/login"        # required by the shared verifier; never used by notify
 
 # Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
 #   PUSH_VAPID_PRIVATE_KEY   the private half of the VAPID pair (required)
-#   PUSH_KEY                 Bearer token for POST /api/push/notify (required)
+#   PUSH_KEY                 Bearer token for POST /api/push/notify (required unless PUSH_AUTH_* is set)
 #   PUSH_HASH_SALT           optional — salt for the stored User-Agent hash

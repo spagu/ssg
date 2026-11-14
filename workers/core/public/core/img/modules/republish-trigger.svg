@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: a page inside two arrows chasing each other round. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<rect x="22" y="18" width="20" height="26" rx="2" fill="#efebe9" stroke="#a1887f" stroke-width="2"/>
+<rect x="26" y="24" width="12" height="3" rx="1.5" fill="#a1887f"/><rect x="26" y="30" width="9" height="3" rx="1.5" fill="#a1887f"/>
+<path d="M12 30a20 20 0 0 1 34-14" fill="none" stroke="#00897b" stroke-width="4" stroke-linecap="round"/>
+<path d="m46 8 1 9-9 0" fill="none" stroke="#00897b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M52 34a20 20 0 0 1-34 14" fill="none" stroke="#ff8a65" stroke-width="4" stroke-linecap="round"/>
+<path d="m18 56-1-9 9 0" fill="none" stroke="#ff8a65" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

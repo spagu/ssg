@@ -5,7 +5,8 @@
 #      `npx wrangler d1 create ssg-newsletter` if you have none yet)
 #   2. npx wrangler queues create ssg-newsletter-send
 #      npx wrangler queues create ssg-newsletter-send-dlq
-#   3. admin auth: Access vars below, or `npx wrangler secret put NEWSLETTER_ADMIN_PASSWORD`
+#   3. admin auth: Access vars below, `auth` accounts (NEWSLETTER_AUTH_* below),
+#      or `npx wrangler secret put NEWSLETTER_ADMIN_PASSWORD`
 #   4. routes below: your domain, then `npx wrangler deploy`
 # Full guide: README.md in this directory.
 
@@ -68,12 +69,24 @@ run_worker_first = true
 
 [vars]
 NEWSLETTER_UI_BASE = "/newsletter-admin"
-# Admin auth — the same names as the `newsletter` template; pick ONE:
+# Admin auth — the same names as the `newsletter` template; pick ONE
+# (checked in the order Access → auth → password; README "Who can do what"):
 #   (a) HTTP Basic: `npx wrangler secret put NEWSLETTER_ADMIN_PASSWORD`
-#   (b) Cloudflare Access (recommended): an Access application covering the
-#       base path, then set both:
+#       — one person, the simplest setup
+#   (b) Cloudflare Access: an Access application covering the base path,
+#       then set both:
 # NEWSLETTER_ACCESS_TEAM = "<myteam>"
 # NEWSLETTER_ACCESS_AUD = "<application-aud>"
+#   (c) accounts of the `auth` worker on the same host, each with its own
+#       permissions (newsletter:read, :edit, :send, …). Any one of these turns
+#       the mode on; an incomplete set answers 503. With them set the password
+#       is NOT accepted — delete the secret when you switch.
+# NEWSLETTER_AUTH_ISSUER = "https://<example.com>/api/auth"
+# NEWSLETTER_AUTH_LOGIN_URL = "/auth/login"
+# NEWSLETTER_AUTH_PUBLIC_KEY = '<the AUTH_PUBLIC_KEY= line scripts/auth-keys.mjs prints>'   # or:
+# NEWSLETTER_AUTH_JWKS_URL = "/api/auth/jwks"   # exactly one of PUBLIC_KEY / JWKS_URL
+# NEWSLETTER_AUTH_AUDIENCE = "<example.com>"    # optional; default the request's host
+# NEWSLETTER_AUDIT_RETENTION_DAYS = "365"       # audit trail of admin actions; 0 = keep forever
 # NEWSLETTER_AUTH_MAX_FAILURES = "10"   # Basic only: failed logins per IP…
 # NEWSLETTER_AUTH_WINDOW_MINUTES = "10" # …per window, also the lockout length
 # NEWSLETTER_IMPORT_MAX_ROWS = "20000"   # rows per CSV import (1 KiB of body per row)
@@ -84,6 +97,7 @@ NEWSLETTER_UI_BASE = "/newsletter-admin"
 # NEWSLETTER_SMTP_HOST = "<smtp.example.com>"     # own mail server (used when no provider key is set)
 # NEWSLETTER_SMTP_PORT = "587"                    # 465 = TLS, 587 = STARTTLS; 25 is blocked
 # NEWSLETTER_SMTP_USER = "<mailer@example.com>"
+# NEWSLETTER_SMTP_HELO = ""                     # EHLO name; default the sender's domain
 # Send engine — README "Limits per Cloudflare plan" has the numbers per plan:
 # NEWSLETTER_SEND_RATE = "60"            # messages per minute, whole worker
 # NEWSLETTER_SEND_BATCH = "10"           # messages per queue job; 10 fits Workers Free (50 D1 queries per invocation)

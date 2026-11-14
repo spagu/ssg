@@ -19,12 +19,22 @@
 # NEWSLETTER_SMTP_USER = "news@example.com"
 # NEWSLETTER_SMTP_HELO = "example.com"       # optional; default: the sender's domain
 #
-# Admin auth — pick ONE:
+# Admin auth — pick ONE (checked in the order Access → auth → password):
 #   (a) HTTP Basic: set the NEWSLETTER_ADMIN_PASSWORD secret (below).
-#   (b) Cloudflare Access (recommended): put /api/newsletter/admin* behind an
+#   (b) Cloudflare Access: put /api/newsletter/admin* behind an
 #       Access application, then set both:
 # NEWSLETTER_ACCESS_TEAM = "myteam"           # "myteam" or "myteam.cloudflareaccess.com"
 # NEWSLETTER_ACCESS_AUD = "<application-aud>" # the Access application's AUD tag
+#   (c) accounts of the `auth` worker (the same NEWSLETTER_AUTH_* as
+#       newsletter-ui): counts need newsletter:read, the CSV newsletter:export,
+#       the purge newsletter:settings. Any one set turns the mode on; an
+#       incomplete set answers 503; with them set the password is NOT
+#       accepted — delete the secret when you switch.
+# NEWSLETTER_AUTH_ISSUER = "https://example.com/api/auth"
+# NEWSLETTER_AUTH_LOGIN_URL = "/auth/login"
+# NEWSLETTER_AUTH_PUBLIC_KEY = '<the AUTH_PUBLIC_KEY= line scripts/auth-keys.mjs prints>'  # or:
+# NEWSLETTER_AUTH_JWKS_URL = "/api/auth/jwks"   # exactly one of the two
+# NEWSLETTER_AUTH_AUDIENCE = "example.com"      # optional; default the request's host
 
 # Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
 #   NEWSLETTER_TURNSTILE_SECRET     Turnstile secret (required; the shared

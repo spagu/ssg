@@ -29,3 +29,9 @@ Or point at an upstream API instead:
 wrangler pages secret put PRICE_API_URL
 wrangler pages secret put PRICE_API_KEY
 ```
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, and how to switch it off. It is a description only — no secrets, no configuration.
+
+There is no admin surface to put a manifest endpoint behind, so the template ships the file only; the build reads it into the module registry when the site has the [`core`](../core/README.md) worker.

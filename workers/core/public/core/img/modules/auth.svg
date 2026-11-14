@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: a key resting against a round badge with a person. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<circle cx="26" cy="27" r="14" fill="#00897b"/>
+<circle cx="26" cy="23" r="5" fill="#e0f2f1"/>
+<path d="M17 35c2-5 5-7 9-7s7 2 9 7" fill="#e0f2f1"/>
+<circle cx="44" cy="40" r="7" fill="none" stroke="#ff8a65" stroke-width="4"/>
+<path d="M39 45 26 58m4-4 3 3m1-7 3 3" fill="none" stroke="#ff8a65" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: two overlapping speech bubbles, one answering the other. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<path d="M10 16h30a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H22l-8 7v-7h-4a5 5 0 0 1-5-5V21a5 5 0 0 1 5-5z" fill="#00897b"/>
+<rect x="13" y="24" width="22" height="3.5" rx="1.75" fill="#e0f2f1"/>
+<rect x="13" y="31" width="15" height="3.5" rx="1.75" fill="#e0f2f1"/>
+<path d="M34 30h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4h-2v6l-7-6H34a4 4 0 0 1-4-4V34a4 4 0 0 1 4-4z" fill="#ff8a65"/>
+<circle cx="38" cy="40" r="2" fill="#ffffff"/><circle cx="44" cy="40" r="2" fill="#ffffff"/><circle cx="50" cy="40" r="2" fill="#ffffff"/>
+</svg>

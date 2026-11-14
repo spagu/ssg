@@ -1,0 +1,66 @@
+/* The site's own look for the admin panels (GO-152), written by ssg from
+ * admin_theme: in the site's configuration. Do not edit: the next build
+ * replaces it. Change the configuration and rebuild instead. */
+
+:root {
+  --font-ui: "Trebuchet MS", "Noto Sans", "Noto Sans Devanagari", "Nirmala UI", sans-serif;
+  --primary: #776c04;
+  --on-primary: #ffffff;
+  --primary-soft: #f2f0d5;
+  --on-primary-soft: #5e5500;
+  --link: #6a6a6a;
+  --focus: #878787;
+  --c1: #a1963f;
+  --c2: #848484;
+  --c3: #5e35b1;
+  --c4: #c2185b;
+  --c5: #1565c0;
+  --nav-bg: #635a00;
+  --on-nav: #ffffff;
+  --nav-muted: #f9f5ce;
+  --nav-hover: #7a7124;
+  --nav-control: #d2cb8e;
+  --nav-current: #c9c9c9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #fff59d;
+    --on-primary: #272200;
+    --primary-soft: #3b360c;
+    --on-primary-soft: #e4e0ba;
+    --link: #9e9e9e;
+    --focus: #9e9e9e;
+    --c1: #fff59d;
+    --c2: #9e9e9e;
+    --c3: #7e57c2;
+    --c4: #d81b60;
+    --c5: #1e88e5;
+    --nav-bg: #635a00;
+    --on-nav: #ffffff;
+    --nav-muted: #f9f5ce;
+    --nav-hover: #7a7124;
+    --nav-control: #d2cb8e;
+    --nav-current: #c9c9c9;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary: #fff59d;
+  --on-primary: #272200;
+  --primary-soft: #3b360c;
+  --on-primary-soft: #e4e0ba;
+  --link: #9e9e9e;
+  --focus: #9e9e9e;
+  --c1: #fff59d;
+  --c2: #9e9e9e;
+  --c3: #7e57c2;
+  --c4: #d81b60;
+  --c5: #1e88e5;
+  --nav-bg: #635a00;
+  --on-nav: #ffffff;
+  --nav-muted: #f9f5ce;
+  --nav-hover: #7a7124;
+  --nav-control: #d2cb8e;
+  --nav-current: #c9c9c9;
+}

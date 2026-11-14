@@ -1,0 +1,82 @@
+# auth — routes in .ssg.yaml: routes_include: [/api/auth/*, /auth/*], routes_exclude: [/auth/assets/*]
+# It needs its own D1 database (accounts and sessions). Create it and paste the id:
+#   npx wrangler d1 create ssg-auth
+# [[d1_databases]]
+# binding = "AUTH_DB"
+# database_name = "ssg-auth"
+# database_id = "<paste-d1-database-id>"
+
+# [vars]
+# AUTH_PREVIOUS_PUBLIC_KEY = ""          # during a key rotation: the OLD public JWK (see README "Rotating the key")
+# AUTH_ISSUER = ""                       # token `iss`; default https://<site host>/api/auth
+# AUTH_AUDIENCE = ""                     # token `aud`; default the site host
+# AUTH_TOKEN_MINUTES = "10"              # access token lifetime = the longest a revoked session keeps working elsewhere
+# AUTH_SESSION_DAYS = "14"               # refresh token / session lifetime
+# AUTH_REFRESH_GRACE_SECONDS = "30"      # two tabs refreshing at once
+# AUTH_PBKDF2_ITERATIONS = "100000"      # password hash cost; Cloudflare's runtime refuses more (README "Password hashing")
+# AUTH_PASSWORD_MIN = "12"               # minimum password length (characters)
+# AUTH_PASSWORD_MAX = "256"              # maximum password length, enforced before hashing
+# AUTH_LOCK_ACCOUNT_FAILURES = "5"       # failed logins per address before a lock
+# AUTH_LOCK_IP_FAILURES = "20"           # failed logins per IP before a lock
+# AUTH_LOCK_BASE_SECONDS = "30"          # first lock; doubled per further failure
+# AUTH_LOCK_MAX_SECONDS = "3600"         # longest lock
+# AUTH_TURNSTILE_AFTER = "3"             # failures before Turnstile is required (only with a Turnstile secret)
+# AUTH_TURNSTILE_SITE_KEY = ""           # with the secret: the login page shows the widget (CSP allows challenges.cloudflare.com)
+# AUTH_LOGIN_URL = "/auth/login"         # where a failed form login is sent back
+# AUTH_AFTER_LOGIN_URL = "/"             # where a form login goes without `next`
+# AUTH_KNOWN_PERMISSIONS = ""            # JSON: the permissions your other workers declare —
+#                                        #   node workers/auth/scripts/auth-permissions.mjs workers/*/module.json (README "registry");
+#                                        #   add "panel": "/newsletter-admin/" to an entry to link it from /auth/
+# AUTH_INVITE_HOURS = "72"               # invitation link lifetime
+# AUTH_RESET_MINUTES = "60"              # password reset link lifetime
+# AUTH_SERVICE_TOKEN_MAX_DAYS = "365"    # longest expiry of a service token for CI/cron (docs/SERVICE-TOKENS.md)
+# AUTH_SERVICE_ACCESS_MINUTES = "10"     # lifetime of the access token POST /api/auth/token gives a script
+# AUTH_AUDIT_RETENTION_DAYS = "365"      # how long the audit log keeps an event; older ones go as new ones are written (docs/PANEL.md)
+# Login providers (docs/PROVIDERS.md) — each is on only with its id here and its secret set.
+# Redirect URI to register at each: https://<your host>/api/auth/oauth/<provider>/callback
+# AUTH_GOOGLE_CLIENT_ID = ""             # + secret AUTH_GOOGLE_CLIENT_SECRET
+# AUTH_MICROSOFT_CLIENT_ID = ""          # + secret AUTH_MICROSOFT_CLIENT_SECRET
+# AUTH_MICROSOFT_TENANT = "common"       # organizations | consumers | <tenant id>
+# AUTH_APPLE_CLIENT_ID = ""              # the Services ID, e.g. "com.example.web"; + secret AUTH_APPLE_PRIVATE_KEY
+# AUTH_APPLE_TEAM_ID = ""
+# AUTH_APPLE_KEY_ID = ""
+# AUTH_GITHUB_CLIENT_ID = ""             # an OAuth App; + secret AUTH_GITHUB_CLIENT_SECRET
+# AUTH_FACEBOOK_CLIENT_ID = ""           # the App ID; + secret AUTH_FACEBOOK_CLIENT_SECRET
+# AUTH_FACEBOOK_API_VERSION = "v24.0"
+# AUTH_GOOGLE_ALLOWED_DOMAINS = ""       # (any provider) only verified addresses in these domains, e.g. "example.com"
+# AUTH_PASSWORD_LOGIN = "on"             # "off" removes the password as a way in (one method must remain)
+# AUTH_ROLE_METHODS = ""                 # JSON, e.g. {"owner": ["google"]}: the role counts only in sessions started so
+# AUTH_RECENT_SIGNIN_MINUTES = "10"      # sign-in age allowed when adding or removing a sign-in method
+# Cloudflare Access as a way to sign in (docs/ACCESS.md) — put ONLY /auth/access behind an Access application.
+# AUTH_ACCESS_TEAM = ""                  # your team name, e.g. "myteam" for myteam.cloudflareaccess.com (with the AUD)
+# AUTH_ACCESS_AUD = ""                   # that application's Application Audience (AUD) tag
+# AUTH_ACCESS_LINK_BY_EMAIL = "off"      # "on": an unlinked Access identity enters the existing account with its address (risky)
+# AUTH_ACCESS_AUTO_CREATE = "off"        # "on": an unknown Access identity gets an account with the default role only
+# AUTH_ACCESS_DEFAULT_ROLE = ""          # that role's name — never owner, a wildcard or a sensitive permission (503 otherwise)
+# AUTH_ACCESS_ALLOWED_DOMAINS = ""       # only addresses in these domains, e.g. "example.com"
+# The second factor (docs/SECOND-FACTOR.md) — on once the secret AUTH_MFA_KEY is set.
+# AUTH_MFA_ROLES = ""                    # JSON, e.g. {"newsletter-editor": false}: override which roles need a second factor
+# AUTH_STEP_UP_MINUTES = "10"            # how recent a second factor must be for sensitive changes
+# Mail for invitations and reset links (optional; without it the link is shown to the administrator
+# and there is no "forgot password"). The first transport set wins: Resend, MailChannels, SMTP.
+# AUTH_MAIL_FROM = ""                    # verified sender, e.g. "accounts@example.com" (required with a transport)
+# AUTH_MAIL_FROM_NAME = ""               # optional display name
+# AUTH_SMTP_HOST = ""                    # your own mail server
+# AUTH_SMTP_PORT = "587"                 # 465 = TLS from the start, 587 = STARTTLS (25 is blocked by Cloudflare)
+# AUTH_SMTP_USER = ""
+# AUTH_SMTP_HELO = ""                    # EHLO name; default the sender's domain
+
+# Secrets (do NOT put here — set with `wrangler pages secret put <NAME>`):
+#   AUTH_SIGNING_KEY       the private JWK from `node scripts/auth-keys.mjs` (required)
+#   AUTH_BOOTSTRAP_TOKEN   one-time token for creating the first account; delete it afterwards
+#   AUTH_HASH_SALT         optional — salt for the IP / User-Agent hashes stored with sessions
+#   AUTH_TURNSTILE_SECRET  optional — Turnstile after repeated failures (the shared
+#                          TURNSTILE_SECRET is read when it is unset)
+#   AUTH_RESEND_API_KEY / AUTH_MAILCHANNELS_API_KEY / AUTH_SMTP_PASSWORD
+#                          optional — the mail transport for invitations and reset links
+#   AUTH_GOOGLE_CLIENT_SECRET / AUTH_MICROSOFT_CLIENT_SECRET / AUTH_GITHUB_CLIENT_SECRET / AUTH_FACEBOOK_CLIENT_SECRET
+#                          optional — a login provider's client secret
+#   AUTH_APPLE_PRIVATE_KEY optional — Sign in with Apple: the .p8 key (wrangler pages secret put AUTH_APPLE_PRIVATE_KEY < AuthKey_….p8)
+#   AUTH_MFA_KEY           optional — turns the second factor on and encrypts the TOTP secrets (`openssl rand -base64 32`, ≥ 32 characters)
+#   AUTH_MFA_KEY_PREVIOUS  optional — the previous AUTH_MFA_KEY during a rotation
+#   AUTH_MFA_RESET_TOKEN   optional — one-time break-glass for a sole owner who lost every factor; delete it afterwards

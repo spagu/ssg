@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- The sign-in pages' mark: a key on the panel's teal, its bit in the focus colour. -->
+<rect x="1" y="1" width="30" height="30" rx="7" fill="#00695c"/>
+<circle cx="11" cy="16" r="6" fill="none" stroke="#e0f2f1" stroke-width="3"/>
+<path d="M17 16h11M23.5 16v5M27 16v3.5" fill="none" stroke="#ffab91" stroke-width="3" stroke-linecap="round"/>
+</svg>

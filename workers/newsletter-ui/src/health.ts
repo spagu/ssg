@@ -4,7 +4,9 @@
 // every other API route; it names no secrets, only whether they are set.
 
 import type { RouteContext } from "./router";
+import { modeOf } from "./auth";
 import { json } from "./lib";
+import type { Env } from "./lib";
 import { schemaVersion, subscribersReady } from "./schema";
 
 export async function health({ env }: RouteContext): Promise<Response> {
@@ -13,7 +15,7 @@ export async function health({ env }: RouteContext): Promise<Response> {
     ok: subscribers,
     schemaVersion: await schemaVersion(env),
     subscribersTable: subscribers,
-    auth: env.NEWSLETTER_ACCESS_TEAM && env.NEWSLETTER_ACCESS_AUD ? "access" : "basic",
+    auth: authName(env),
     bindings: {
       queue: !!env.NEWSLETTER_QUEUE,
       rateLimiter: !!env.RATE_LIMITER,
@@ -22,6 +24,13 @@ export async function health({ env }: RouteContext): Promise<Response> {
     ...(subscribers ? {} : { hint: MISSING_SUBSCRIBERS }),
   });
 }
+
+// authName: "access", "auth" or "basic" — the password mode keeps the name
+// health and settings have always reported.
+export const authName = (env: Env): string => {
+  const mode = modeOf(env);
+  return mode === "password" ? "basic" : mode;
+};
 
 export const MISSING_SUBSCRIBERS =
   "the subscribers table does not exist yet: deploy the `newsletter` template (ssg new worker newsletter) " +

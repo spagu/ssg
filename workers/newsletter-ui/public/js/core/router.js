@@ -13,6 +13,7 @@ export const ROUTES = [
   ["campaign", "campaigns/:id"],
   ["suppressions", "suppressions"],
   ["settings", "settings"],
+  ["activity", "activity"],
   ["help", "help"],
 ];
 

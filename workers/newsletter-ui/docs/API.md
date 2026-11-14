@@ -8,25 +8,32 @@ and bounces have their own pages: [IMPORT.md](IMPORT.md),
 [SENDING.md](SENDING.md), [BOUNCES.md](BOUNCES.md).
 
 All paths are under the base path (`NEWSLETTER_UI_BASE`, default
-`/newsletter-admin`). Everything under `/api/` needs admin authentication and,
-for any method other than `GET`/`HEAD`, the header `x-newsletter-admin: 1`
-(else `403`). Errors are `{"error": "<snake_case_code>", "detail": "…"}`; list
+`/newsletter-admin`). Everything under `/api/` needs admin authentication
+(Cloudflare Access, an `auth` session or the password — [ACCESS.md](ACCESS.md)),
+the route's permission (`x-permission` in `openapi.yaml`; every one is held
+with Access or the password) and, for any method other than `GET`/`HEAD`, the
+header `x-newsletter-admin: 1` (else `403`). Errors are `{"error": "<snake_case_code>", "detail": "…"}`; list
 endpoints answer `{items, nextCursor}` — pass `nextCursor` back as `cursor`
 until it is `null`.
 
-Answers any `/api/` route can give: `401` (no or wrong credentials), `403`
-(CSRF header missing, Access denied), `404` / `405` (no such route / method,
+Answers any `/api/` route can give: `401` (no or wrong credentials; with
+`auth`, `{"error": "unauthorized", "reason": "no_session" | "expired" |
+"invalid_session"}`, and a page request is redirected to the login page), `403`
+(CSRF header missing, a cross-origin request with `auth`, Access denied, or
+`{"error": "forbidden", "permission": "<name>"}`), `404` / `405` (no such route / method,
 with `allow`), `429` (the `RATE_LIMITER` binding or the failed-login lockout,
 with `retry-after`), `500 internal error` (the details go to the log, never to
 the answer), `503` (no admin auth configured, the database unreachable, or the
 `subscribers` table missing — `{"error": "newsletter not installed", "hint":
-"…"}`; `/api/health` and `/api/settings*` answer without the table).
+"…"}`; `/api/health`, `/api/module`, `/api/module/summary` and `/api/settings*` answer without the table).
 
 ## Health
 
 | Method | Path | Answer |
 |---|---|---|
 | `GET` | `/api/health` | `{ok, schemaVersion, subscribersTable, auth: "access" \| "basic", bindings: {queue, rateLimiter, assets}, hint?}` |
+| `GET` | `/api/module` | `module.json` as is: the module manifest (`id`, `contract`, `version`, `kind`, `title`, `description`, `panel`, `nav`, `permissions`, `endpoints`, `disable`) — see [docs/WORKER-MODULES.md](../../../docs/WORKER-MODULES.md) |
+| `GET` | `/api/module/summary` | The module summary: `{contract, generatedAt, metrics: [{key, label, value}] (confirmed, pending, campaignsInProgress, suppressed), attention: [{severity: "action" \| "warning" \| "info", text, href}], problems: [{code, text}], series?: {label, points: [{day, value}]}}` — counts only, every text in en/pl/hi/de/fr, `href` a panel path such as `/#/campaigns?status=paused`; at most three D1 statements; without the `subscribers` table the problem `no_subscribers_table` and no series — see [docs/WORKER-MODULES.md](../../../docs/WORKER-MODULES.md#the-summary-endpoint) |
 
 ## Subscribers
 
@@ -280,3 +287,13 @@ How the list fills itself, and how to register the webhooks:
 
 Both work without the `subscribers` table. The panel never asks for, stores
 or shows the SMTP password: it is a `wrangler secret`.
+
+## Who is calling, and the audit trail
+
+| Method + path | Permission | Answer |
+|---|---|---|
+| `GET /api/me` | a session | `{mode: "password" \| "access" \| "auth", user: {id, email} \| null, permissions: "all" \| ["newsletter:…"], loginUrl?, logoutUrl?, refreshUrl?}` — the last three in `auth` mode only; `permissions` lists this module's permissions the token grants, wildcards expanded |
+| `GET /api/audit?actor=&action=&cursor=&limit=` | `newsletter:settings` | `{items: [{id, at, mode, actor: {id, email} \| null, action, target, status}], nextCursor}`, newest first; `actor` matches an account id or address, or `password` / `access`; `action` exactly; `400 invalid_limit` / `invalid_cursor` |
+
+Both work without the `subscribers` table. Which action each route records,
+and why a target is never an address: [ACCESS.md](ACCESS.md#the-audit-trail).

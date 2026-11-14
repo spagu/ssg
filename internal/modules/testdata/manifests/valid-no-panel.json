@@ -1,0 +1,34 @@
+{
+  "manifest": {
+    "id": "example",
+    "contract": 1,
+    "version": "1.0.0",
+    "kind": "pages-function",
+    "title": {
+      "en": "Example",
+      "pl": "Example",
+      "hi": "Example",
+      "de": "Example",
+      "fr": "Example"
+    },
+    "description": {
+      "en": "An example module.",
+      "pl": "An example module.",
+      "hi": "An example module.",
+      "de": "An example module.",
+      "fr": "An example module."
+    },
+    "panel": null,
+    "nav": [],
+    "permissions": [],
+    "endpoints": {},
+    "disable": {
+      "en": "Remove it.",
+      "pl": "Remove it.",
+      "hi": "Remove it.",
+      "de": "Remove it.",
+      "fr": "Remove it."
+    }
+  },
+  "errors": []
+}

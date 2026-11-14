@@ -87,10 +87,10 @@ export default async function subscriber(app, root, route) {
     pageHead(app, s.email, {
       back,
       actions: [
-        s.status === "pending" ? btn(t("sub.resend"), resend) : null,
-        s.status !== "unsubscribed" ? btn(t("sub.unsub"), unsubscribe) : null,
-        h("a", { class: "btn", href: api.url(`subscribers/${encodeURIComponent(id)}/export`), download: "" }, t("sub.export")),
-        btn(t("sub.erase"), erase, { variant: "danger" }),
+        s.status === "pending" && app.can("resendConfirmation") ? btn(t("sub.resend"), resend) : null,
+        s.status !== "unsubscribed" && app.can("unsubscribe") ? btn(t("sub.unsub"), unsubscribe) : null,
+        app.can("exportPerson") ? h("a", { class: "btn", href: api.url(`subscribers/${encodeURIComponent(id)}/export`), download: "" }, t("sub.export")) : null,
+        app.can("erase") ? btn(t("sub.erase"), erase, { variant: "danger" }) : null,
       ],
     }),
     s.suppression
@@ -130,7 +130,7 @@ export default async function subscriber(app, root, route) {
           { on: { submit: save } },
           h("div", { class: "field" }, h("label", { for: "s-tags" }, t("col.tags")), h("input", { id: "s-tags", name: "tags", value: s.tags.join(", "), "aria-describedby": "s-tags-hint", autocomplete: "off" }), h("p", { id: "s-tags-hint", class: "hint" }, t("sub.tags.hint"))),
           h("div", { class: "field" }, h("label", { for: "s-lang" }, t("col.language")), h("input", { id: "s-lang", name: "language", value: s.language ?? "", "aria-describedby": "s-lang-hint", autocomplete: "off" }), h("p", { id: "s-lang-hint", class: "hint" }, t("sub.lang.hint"))),
-          h("button", { type: "submit", class: "btn btn-primary" }, t("action.save")),
+          app.can("editSubscriber") ? h("button", { type: "submit", class: "btn btn-primary" }, t("action.save")) : null,
         ),
       ),
     ),

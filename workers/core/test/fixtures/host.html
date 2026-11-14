@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}} — demo panel</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/dev/host.css">
+  <!-- The site's look (GO-152), after the panel's own styles. -->
+  <link rel="stylesheet" href="/core/theme.css">
+</head>
+<body>
+  <!-- The adoption, exactly as a panel does it: one line. -->
+  <script type="module" src="/core/nav.js"></script><ssg-admin-nav current="{{current}}"></ssg-admin-nav>
+  <header><h1>{{title}}</h1></header>
+  <main>
+    <p>A stand-in for a module's own panel. Its stylesheet sets rules for <code>a</code>, <code>nav</code> and <code>button</code> that must not reach the shared bar above, and the page sends a strict content security policy (no inline script or style).</p>
+    <nav aria-label="This panel"><a href="#one">First section</a> <a href="#two">Second section</a></nav>
+    <p><button type="button">A panel button</button></p>
+  </main>
+</body>
+</html>

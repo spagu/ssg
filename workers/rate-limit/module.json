@@ -1,0 +1,31 @@
+{
+  "id": "rate-limit",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Rate limit",
+    "pl": "Limit zapytań",
+    "hi": "रेट लिमिट",
+    "de": "Anfragelimit",
+    "fr": "Limite de requêtes"
+  },
+  "description": {
+    "en": "A request budget for every Function in the project, including the ones added later.",
+    "pl": "Limit zapytań dla każdej funkcji w projekcie, także tych dodanych później.",
+    "hi": "प्रोजेक्ट के हर Function के लिए अनुरोधों की सीमा, बाद में जोड़े गए Functions समेत।",
+    "de": "Ein Anfragebudget für jede Function im Projekt, auch für später hinzugefügte.",
+    "fr": "Un quota de requêtes pour chaque Function du projet, y compris celles ajoutées plus tard."
+  },
+  "panel": null,
+  "nav": [],
+  "permissions": [],
+  "endpoints": {},
+  "disable": {
+    "en": "Remove workers/rate-limit from the workers: list in .ssg.yaml and deploy the site again. Every Function is then unbounded again, as before it was added.",
+    "pl": "Usuń workers/rate-limit z listy workers: w .ssg.yaml i wdróż stronę ponownie. Każda funkcja znów będzie bez limitu, jak przed jego dodaniem.",
+    "hi": "workers/rate-limit को .ssg.yaml की workers: सूची से हटाएँ और साइट फिर से डिप्लॉय करें। इसके बाद हर Function फिर से बिना सीमा के होगा, जैसे इसे जोड़ने से पहले था।",
+    "de": "Entfernen Sie workers/rate-limit aus der workers:-Liste in .ssg.yaml und veröffentlichen Sie die Website neu. Danach ist jede Function wieder unbegrenzt, wie vor dem Hinzufügen.",
+    "fr": "Retirez workers/rate-limit de la liste workers: dans .ssg.yaml et redéployez le site. Chaque Function redevient alors illimitée, comme avant son ajout."
+  }
+}

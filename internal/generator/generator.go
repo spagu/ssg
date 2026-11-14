@@ -25,6 +25,7 @@ import (
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/spagu/ssg/internal/admintheme"
 	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/apimodel"
 	"github.com/spagu/ssg/internal/apisource"
@@ -36,6 +37,7 @@ import (
 	"github.com/spagu/ssg/internal/images"
 	"github.com/spagu/ssg/internal/mddb"
 	"github.com/spagu/ssg/internal/models"
+	"github.com/spagu/ssg/internal/modules"
 	"github.com/spagu/ssg/internal/notify"
 	"github.com/spagu/ssg/internal/parser"
 	"github.com/spagu/ssg/internal/taxonomy"
@@ -483,6 +485,16 @@ type Config struct {
 	// supersedes Worker. Use ResolvedWorkers to read whichever is configured.
 	Worker  WorkerConfig
 	Workers []WorkerConfig
+	// Modules are modules deployed outside this build (`modules:`), and
+	// CheckModules reports problems with them and with the bundled workers'
+	// manifests: "" (warn), "off", "warn" or "strict". Both matter only when
+	// a worker is the core worker (GO-144, modules_registry.go).
+	Modules      []modules.Ref
+	CheckModules string
+	// AdminTheme is `admin_theme:` (GO-152, admin_theme.go), nil when absent;
+	// CheckAdminTheme reports its findings like CheckModules.
+	AdminTheme      *admintheme.Config
+	CheckAdminTheme string
 }
 
 // ResolvedWorkers returns Workers when set, else the singular Worker wrapped as
@@ -748,6 +760,10 @@ type Generator struct {
 	// every template as .BuildTime. Rendering never reads a clock, so two pages
 	// of one build cannot disagree about when they were built (#186).
 	buildTime time.Time
+
+	// publicBefore: the output files the workers' public/ trees land on, as
+	// they were before this build wrote anything (#420, worker_public.go).
+	publicBefore map[string]stamp
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -1117,6 +1133,9 @@ func (g *Generator) Generate() error {
 	if err := g.cleanOutputIfRequested(); err != nil {
 		return err
 	}
+	// Before anything is written: what a worker's public file may replace
+	// without it being a clash (#420).
+	g.snapshotWorkerPublic()
 
 	if err := g.loadPhase(); err != nil {
 		return err

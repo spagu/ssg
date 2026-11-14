@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: a bell with two small waves, ringing. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<path d="M32 12a13 13 0 0 1 13 13v10l5 7H14l5-7V25a13 13 0 0 1 13-13z" fill="#00897b"/>
+<rect x="29" y="8" width="6" height="6" rx="3" fill="#00897b"/>
+<path d="M26 45a6 6 0 0 0 12 0z" fill="#ff8a65"/>
+<path d="M50 16a14 14 0 0 1 4 9M14 16a14 14 0 0 0-4 9" fill="none" stroke="#ff8a65" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -35,3 +35,20 @@ CREATE INDEX IF NOT EXISTS idx_comments_url_status
 -- The moderation queue: everything pending, newest first.
 CREATE INDEX IF NOT EXISTS idx_comments_status
   ON comments (status, created_at);
+
+-- Who moderated what (GO-136): one row per approve, spam, delete, purge or
+-- import. actor = the auth account id, the Cloudflare Access email, or the mode
+-- ("password", "access") when no person is known. comment_id is NULL for a
+-- purge or an import; detail holds how many rows they changed.
+CREATE TABLE IF NOT EXISTS comment_events (
+  id          TEXT PRIMARY KEY,          -- uuid
+  comment_id  TEXT,
+  action      TEXT NOT NULL,             -- approve | spam | delete | purge | import
+  actor       TEXT NOT NULL,
+  mode        TEXT NOT NULL,             -- access | auth | password
+  detail      TEXT,
+  created_at  TEXT NOT NULL              -- ISO 8601
+);
+
+CREATE INDEX IF NOT EXISTS idx_comment_events_comment
+  ON comment_events (comment_id, created_at);

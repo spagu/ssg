@@ -99,6 +99,6 @@ export function campaignActions(app, c, { save = null } = {}) {
     duplicate: move("duplicate", (copy) => app.go(href("campaign", { id: copy.id }))),
   };
   return actionsFor(c.status)
-    .filter((a) => a !== "save")
+    .filter((a) => a !== "save" && app.can(a))
     .map((a) => btn(t(`act.${a}`), handlers[a], { variant: a === "schedule" || a === "resume" ? "primary" : a === "delete" || a === "cancel" ? "danger" : "" }));
 }

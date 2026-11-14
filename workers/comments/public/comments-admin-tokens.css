@@ -1,0 +1,46 @@
+/* Design tokens of the moderation panel (comments-admin.html). Every colour
+ * and font comments-admin.css uses is a custom property here, under the same
+ * name as the `core` worker's /core/tokens.css where one exists — so a site
+ * theme (/core/theme.css, GO-152, loaded right after this file) restyles the
+ * panel. Without `core` that file answers 404 and these values stand: the
+ * panel looks exactly as it did when its styles were inline.
+ *
+ * The --comments-* names have no counterpart in core; a theme leaves them. */
+
+:root {
+  color-scheme: light dark;
+  /* The page itself, stated rather than left to the browser's default
+     canvas, so contrast is defined (and checkable) in both schemes. The
+     values are what Chromium painted before: white / #121212. */
+  --bg: #ffffff;
+  --text: #000000;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --primary: #0050a6;       /* the primary button */
+  --link: #0050a6;          /* links (a theme gives them its accent colour) */
+  --on-primary: #fff;
+  --control: #94a3b8;       /* input and button edges */
+  --border: #e2e8f0;        /* comment cards */
+  --text-muted: #475569;    /* a comment's author, page and time */
+  --warning: #b45309;       /* the notice's edge */
+  --comments-rule: #e2e8f0; /* the line above "Import comments" */
+  --comments-faint: #64748b; /* hints and messages */
+  --comments-pressed: #0f172a;    /* the chosen status tab */
+  --on-comments-pressed: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Links and the primary button on the dark background: #0050a6 gave
+       about 2.5:1 there, under WCAG's 4.5:1 for text. */
+    --bg: #121212;
+    --text: #ffffff;
+    --primary: #8ab4f8;
+    --link: #8ab4f8;
+    --on-primary: #0f172a;
+    --border: #334155;
+    --text-muted: #94a3b8;
+    --comments-pressed: #e2e8f0;
+    --on-comments-pressed: #0f172a;
+  }
+}

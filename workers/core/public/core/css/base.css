@@ -1,0 +1,57 @@
+/* Base: type, links, focus, and the accessibility helpers. Every value comes
+ * from a custom property in tokens.css (or theme.css), so a site's branding
+ * restyles the page without touching this file. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-ui);
+  font-size: 100%;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); min-width: 320px; }
+
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; margin: 0 0 .5em; letter-spacing: -.005em; }
+h1 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.2rem); }
+h2 { font-size: 1.35rem; margin-top: 8px; }
+h3 { font-size: 1.1rem; }
+h4 { font-size: 1rem; }
+p { margin: 0 0 .75em; }
+code { font-family: var(--font-mono); font-size: .9em; overflow-wrap: anywhere; }
+
+a { color: var(--link); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* One focus style: a 3px ring in the colour reserved for focus (WCAG 2.4.7,
+ * 2.4.13). Nothing on this page is sticky, so nothing can cover it (2.4.11). */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+h1[tabindex="-1"]:focus, main[tabindex="-1"]:focus { outline: none; }
+
+.num, table, .metrics dd { font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+.small { font-size: .9rem; }
+.note { color: var(--text-muted); font-size: .92rem; max-width: 72ch; }
+
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.skip {
+  position: absolute; left: 8px; top: -60px; z-index: 50;
+  background: var(--surface); color: var(--link); padding: 10px 14px; border-radius: var(--radius);
+  border: 2px solid var(--primary); font-weight: 600;
+}
+.skip:focus { top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+@media (forced-colors: active) {
+  .chip, .btn, .callout, .card { border: 1px solid CanvasText; }
+}

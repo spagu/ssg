@@ -6,7 +6,8 @@
 //
 //   node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs &
 //   node workers/newsletter-ui/test/panel-shots.mjs <out-dir> [axe.min.js]
-//   (ONLY=dashboard,import limits the views; LOCALE=pl-PL the browser language)
+//   (ONLY=dashboard,import limits the views; LOCALE=pl-PL the browser language;
+//   AUTH_AS=editor|reader|… shoots a DEMO_AUTH=1 server as that account)
 //
 // PLAYWRIGHT=/path/to/playwright/index.mjs points at the module when it is not
 // importable by name (default: the global npm install). With an axe-core
@@ -31,7 +32,10 @@ async function chromiumPath() {
   return builds.length ? join(dir, builds[builds.length - 1], "chrome-linux64", "chrome") : undefined;
 }
 const browser = await chromium.launch({ executablePath: await chromiumPath() });
-const api = async (path) => (await fetch(new URL("api/" + path, BASE), { headers: { authorization: "Basic " + btoa("admin:demo") } })).json();
+// AUTH_AS: the dev server runs with DEMO_AUTH=1; the views are shot as that
+// account, the data below is read as the owner.
+const AS = process.env.AUTH_AS ?? null;
+const api = async (path) => (await fetch(new URL("api/" + path, BASE), { headers: AS ? { cookie: "demo-as=owner" } : { authorization: "Basic " + btoa("admin:demo") } })).json();
 const list = (await api("campaigns?limit=50")).items;
 const byStatus = (s) => list.find((c) => c.status === s)?.id;
 const firstSub = (await api("subscribers?limit=1")).items[0].id;
@@ -49,6 +53,7 @@ const VIEWS = [
   ["campaign-sent", `#/campaigns/${list.filter((c) => c.status === "sent")[1]?.id}`],
   ["suppressions", "#/suppressions"],
   ["settings", "#/settings"],
+  ["activity", "#/activity"],
   ["help", "#/help"],
 ];
 // A list as a spreadsheet saves it: semicolons, a name column, day/month
@@ -65,7 +70,7 @@ const CSV = [
 
 // prepare brings a view into the state worth showing.
 async function prepare(page, name) {
-  if (name !== "import-preview") return;
+  if (name !== "import-preview" || !(await page.$("#imp-file"))) return;
   await page.setInputFiles("#imp-file", { name: "old-list.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
   await page.waitForSelector("input[name=dateOrder]");
   await page.check("input[value=dmy]");
@@ -99,7 +104,8 @@ const report = {};
 
 for (const theme of ["light", "dark"]) {
   for (const [size, viewport] of SIZES) {
-    const context = await browser.newContext({ viewport, colorScheme: theme, httpCredentials: { username: "admin", password: "demo" }, locale: process.env.LOCALE ?? "en-GB", reducedMotion: "reduce" });
+    const context = await browser.newContext({ viewport, colorScheme: theme, ...(AS ? {} : { httpCredentials: { username: "admin", password: "demo" } }), locale: process.env.LOCALE ?? "en-GB", reducedMotion: "reduce" });
+    if (AS) await context.addCookies([{ name: "demo-as", value: AS, url: BASE }]);
     const page = await context.newPage();
     page.on("pageerror", (e) => console.error("pageerror", e.message));
     page.on("console", (m) => m.type() === "error" && console.error("console", m.text()));

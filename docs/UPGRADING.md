@@ -57,6 +57,7 @@ covers only the steps; the changelog covers everything else.
   <select id="upgrade-from">
     <option value="">— choose your current version —</option>
     <optgroup label="1.9.x">
+      <option value="1.9.8">1.9.8 — 2026-11-13</option>
       <option value="1.9.7">1.9.7 — 2026-11-11</option>
       <option value="1.9.6">1.9.6 — 2026-11-10</option>
       <option value="1.9.5">1.9.5 — 2026-11-09</option>
@@ -229,6 +230,60 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.9">
+
+### 1.9.9 — nothing to do; check a few things if they apply
+
+Replace the binary. Nothing needs a new setting or a migration: the new
+`auth` and `core` workers do nothing until you scaffold, deploy and configure
+them, every existing worker keeps its shared password and Cloudflare Access
+exactly as they were, and a site without a `core` worker gets no new output
+files. Check these, if they apply:
+
+- **A page or static file at a path a worker's `public/` also ships now stops
+  the build** (#420), naming both files. Before, the worker's copy silently
+  replaced yours. With the new `core` worker this means a page of your own
+  at `/core/`; with `comments`, a file of your own at
+  `/comments-admin.html`, `/comments-admin.js`, `/comments-admin.css` or
+  `/comments-admin-tokens.css`. Give your page another `link:`/`slug:`, or
+  leave the worker out. A byte-identical file is not a clash.
+- **`comments` or `newsletter` behind Cloudflare Access: scripts that write.**
+  A `POST` to `/api/comments/admin` or `/api/comments/import` now needs the
+  header `x-ssg-auth: 1`; the `newsletter` purge must carry this site's
+  `Origin` (or `Sec-Fetch-Site: same-origin`). The panels send these
+  already; a cron or script calling through an Access service token must add
+  them, or it gets `403`. Password mode is unchanged.
+- **`comments`: a customised `comments-admin.html`.** The page's script and
+  styles moved into `comments-admin.js`, `comments-admin.css` and
+  `comments-admin-tokens.css`, and the page carries a strict CSP. A copy you
+  edited keeps working only if it loads those files; start again from the
+  template's page.
+- **`newsletter-ui` creates one table**, `admin_audit` (schema version 6), on
+  its first request, and from then on records every state-changing admin
+  request. `subscribers` is untouched. `NEWSLETTER_AUDIT_RETENTION_DAYS`
+  (365) sets how long rows are kept.
+- **The panels ask for `/core/nav.js` and `/core/theme.css`.** Without the
+  `core` worker both answer 404 and nothing changes on the page.
+
+Optional, when you want them:
+
+- **Several people, or different permissions per person:** deploy `auth`
+  (`ssg new worker auth`, then [its README](../workers/auth/README.md)), set
+  `AUTH_MFA_KEY` and enrol every owner in a second factor, invite the
+  others, then set `<PREFIX>_AUTH_ISSUER`, `<PREFIX>_AUTH_LOGIN_URL` and
+  `<PREFIX>_AUTH_PUBLIC_KEY` on each worker that should accept those
+  sessions. While any `<PREFIX>_AUTH_*` variable is set, that worker's shared
+  password is refused; delete the password secret once `auth` works.
+- **One admin home for every panel:** `ssg new worker core`, add it to
+  `workers:`, list a standalone `newsletter-ui` under `modules:`, and pick
+  one of its three sign-in modes. `admin_theme:` gives the panels the site's
+  colours.
+
+Which sign-in to choose: [WORKERS.md](WORKERS.md#admin-sign-in-which-mode-to-choose);
+a walk-through: [ADMIN-GUIDE.md](ADMIN-GUIDE.md).
+
+</div>
 
 <div class="upgrade-step" data-since="1.9.8">
 

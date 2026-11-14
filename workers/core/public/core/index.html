@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Site administration</title>
+  <meta name="description" content="The site's administration home page: what needs attention in every module, how each module is doing, which modules the navigation shows and in what order, and the build, sign-in and configuration facts in one place.">
+  <!-- An admin page: never indexed, never sends a Referer, and deliberately
+       carries no analytics or tag manager — an authenticated admin tool is
+       not measured. A static page served by Pages carries no headers of its
+       own, so the content security policy is set here: nothing inline,
+       nothing from another origin. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#004d40" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="generator" content="ssg core">
+  <link rel="icon" href="img/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="tokens.css">
+  <!-- The site's own look (GO-152); empty until admin_theme is configured. -->
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/chart.css">
+  <link rel="stylesheet" href="css/appearance.css">
+  <link rel="stylesheet" href="css/manage.css">
+  <!-- Settings without editing the page: {"lang": "pl", "loginUrl": "/auth/login",
+       "i18n": {"pl": {"app.title": "Zaplecze"}}}. A JSON block is data, never
+       executed, so the policy needs no exception for it. -->
+  <script id="core-admin-config" type="application/json">{}</script>
+  <script type="module" src="/core/nav.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header>
+    <a class="skip" id="skip" href="#main">Skip to content</a>
+    <ssg-admin-nav current="core"></ssg-admin-nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <div id="notice" class="visually-hidden" role="status" aria-live="polite"></div>
+    <div id="view">
+      <noscript><p>The admin home page needs JavaScript. The API under /api/core/ answers on its own (see the core worker's README).</p></noscript>
+    </div>
+  </main>
+</body>
+</html>

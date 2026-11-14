@@ -891,6 +891,21 @@ type Config struct {
 	// than one (e.g. a cookie-consent worker and a comments worker). When set it
 	// supersedes the singular `worker:`; see ResolvedWorkers (GO-076).
 	Workers []WorkerConfig `yaml:"workers" toml:"workers" json:"workers"`
+	// Modules declares modules the build cannot see — a standalone Worker
+	// deployed on its own — for the module registry the core worker reads
+	// (GO-144). See modules.go.
+	Modules []ModuleConfig `yaml:"modules" toml:"modules" json:"modules"`
+	// CheckModules reports problems with module manifests and `modules:`
+	// entries: "" (warn, the default), "off", "warn" or "strict". Findings
+	// only exist on a site with a core worker or a `modules:` list.
+	CheckModules string `yaml:"check_modules" toml:"check_modules" json:"check_modules"`
+	// AdminTheme is the admin panels' look (GO-152, admin_theme.go); nil
+	// when the section is absent. CheckAdminTheme reports a logo or font
+	// file missing from the output, token overrides that fail contrast, and
+	// an admin_theme without a core worker: "" (warn), "off", "warn",
+	// "strict".
+	AdminTheme      *AdminThemeConfig `yaml:"admin_theme" toml:"admin_theme" json:"admin_theme"`
+	CheckAdminTheme string            `yaml:"check_admin_theme" toml:"check_admin_theme" json:"check_admin_theme"`
 
 	// AI wires build-time AI queries used by the [ai …] content shortcode: named
 	// models (endpoint, key, model id) plus a content-addressed cache so answers
@@ -1275,6 +1290,7 @@ func Load(path string) (*Config, error) {
 	// `outputs:` arrives as a list or a map; both land in the fields the
 	// generator reads (GO-092).
 	cfg.applyOutputsSpec()
+	cfg.BuildReport = buildReportFile(cfg.BuildReport)
 
 	// Apply minify_all
 	if cfg.MinifyAll {
@@ -1665,4 +1681,23 @@ type ResumeConfig struct {
 	// Contact publishes the e-mail, phone and street address (page, JSON-LD
 	// and resume.json). Off by default: they are taken out.
 	Contact bool `yaml:"contact" toml:"contact" json:"contact"`
+}
+
+// DefaultBuildReport is the report file `build_report: true` stands for — the
+// same name the bare --build-report flag writes (generator.DefaultBuildReport;
+// a test keeps the two equal, as config cannot import the generator).
+const DefaultBuildReport = "build.json"
+
+// buildReportFile reads build_report as YAML/TOML users write it (#421): a
+// boolean is the switch the bare --build-report flag is, so `true` means the
+// default build.json and `false` means no report — never a file named "true"
+// or "false". Anything else is the file name, as before.
+func buildReportFile(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "yes", "on":
+		return DefaultBuildReport
+	case "false", "no", "off":
+		return ""
+	}
+	return v
 }

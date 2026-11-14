@@ -188,3 +188,24 @@ CREATE TABLE IF NOT EXISTS hook_events (
 
 CREATE INDEX IF NOT EXISTS idx_hook_events_received
   ON hook_events (received_at);
+
+-- ---------------------------------------------------------------------------
+-- Schema version 6 (GO-137): the admin audit trail.
+
+-- One row per state-changing admin request that reached its handler. The
+-- target is an id from the path (campaign, subscriber, suppression hash),
+-- never an address, so an erasure leaves nothing of the person here. Purged
+-- on write after NEWSLETTER_AUDIT_RETENTION_DAYS (default 365).
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id          TEXT PRIMARY KEY,
+  at          TEXT NOT NULL,               -- ISO 8601, UTC
+  mode        TEXT NOT NULL,               -- auth | password | access
+  actor_id    TEXT,                        -- the auth account id (auth mode only)
+  actor_email TEXT,                        -- the auth account's address (auth mode only)
+  action      TEXT NOT NULL,               -- the route's audit action, e.g. campaign.schedule
+  target      TEXT,                        -- e.g. campaign:<id>, subscriber:<id>
+  status      INTEGER NOT NULL             -- the HTTP status the request was answered with
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_at
+  ON admin_audit (at, id);

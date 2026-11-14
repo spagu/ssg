@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.8" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.9" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -117,15 +117,25 @@ and print the \fBworker:\fR config block. Templates: \fBcontact-form\fR,
 \fBcookie-consent\fR, \fBcomments\fR, \fBrepublish-trigger\fR, \fBnewsletter\fR,
 \fBrate-limit\fR and \fBweb-push\fR (browser notifications about new posts; the
 config key \fBweb_push: true\fR writes \fBmanifest.webmanifest\fR and puts the
-subscribe script in every page's head). \fBnewsletter-ui\fR is different: a
+subscribe script in every page's head), \fBauth\fR (accounts, roles and
+permissions for the people who run the panels, an optional second factor,
+service tokens; \fBcomments\fR, \fBnewsletter\fR, \fBnewsletter-ui\fR,
+\fBweb-push\fR and \fBrepublish-trigger\fR accept its sessions when their
+\fI<PREFIX>\fB_AUTH_*\fR variables are set, beside their shared password and
+Cloudflare Access) and \fBcore\fR (the admin home page at \fB/core/\fR, a shared
+navigation bar for the panels, module management and \fBadmin_theme\fR).
+Every template carries a \fBmodule.json\fR describing it (docs/WORKER-MODULES.md).
+\fBnewsletter-ui\fR is different: a
 standalone Worker with its own \fBwrangler.toml\fR (newsletter admin panel and
 API, cron and queue, on the \fBnewsletter\fR template's D1 database). For it the
 command prints deploy steps (\fBnpx wrangler deploy\fR from its directory)
 instead of a \fBworker:\fR block; the build refuses such a directory under
 \fBworker:\fR/\fBworkers:\fR. Both newsletter templates send mail through
 Resend, MailChannels or your own SMTP server (ports 465 or 587; Cloudflare
-blocks 25), chosen in that order. Run without a template name it lists the
-templates and exits 2.
+blocks 25), chosen in that order. When \fB./workers/core\fR holds the core
+worker, one more line says how the new template joins its module registry
+(for a standalone Worker, the \fBmodules:\fR entry to add). Run without a
+template name it lists the templates and exits 2.
 .TP
 .B ssg new wrangler \fR[\fB\-\-config=\fIFILE\fR]
 Write a starter \fBwrangler.toml\fR for the workers the configuration declares
@@ -979,7 +989,28 @@ meta-refresh stub pages. \fBheaders:\fR overrides or extends the generated
 \fB_headers\fR blocks per path pattern; a pattern matching a built-in block is
 merged into it header by header, and an empty value removes a header. \fBworker:\fR wires a Cloudflare Pages
 Functions directory (or a prebuilt \fB_worker.js\fR) into the output and generates
-\fB_routes.json\fR. See \fBssg\fR(1) CONFIGURATION FILE and the docs.
+\fB_routes.json\fR. When one of the workers has a \fBmodule.json\fR with
+\fBid: "core"\fR, the build also writes \fBfunctions/_ssg\-modules.json\fR, a
+module registry only the core Pages Function reads (wrangler bundles it and
+never serves \fBfunctions/\fR): the bundled workers' manifests, the modules
+listed under \fBmodules:\fR (\fBid\fR, \fBurl\fR \(em a path on the same host
+\(em and optional \fBdir\fR), and the templates not in use. Without a core
+worker nothing new is written. \fBcheck_modules: off|warn|strict\fR (default
+\fBwarn\fR) reports invalid manifests, duplicate ids and colliding paths. See
+docs/WORKER-MODULES.md.
+A worker's \fBpublic/\fR files are copied after everything else; one that
+lands on a file the build already wrote (a page, a static file, a generated
+file) stops the build and names both, unless the two are identical.
+\fBadmin_theme:\fR (\fBname\fR, \fBlogo\fR, \fBlogo_dark\fR, \fBmain\fR,
+\fBaccent\fR, \fBfont\fR, \fBfont_body\fR, \fBfont_files\fR, \fBtokens\fR)
+gives the admin panels the site's look: with a core worker the build derives
+a light and a dark palette meeting WCAG 2.2 contrast from the two colours and
+writes it as \fBcore/theme.css\fR and the registry's \fBtheme\fR. Colours are
+opaque hex; logo and font files must be paths on the site's own host; an
+invalid value stops the build. \fBcheck_admin_theme: off|warn|strict\fR
+(default \fBwarn\fR) reports missing logo or font files, overrides that break
+contrast, and \fBadmin_theme\fR without a core worker.
+See \fBssg\fR(1) CONFIGURATION FILE and the docs.
 .SS Paths
 .TP
 .BR \-\-content\-dir =\fIPATH

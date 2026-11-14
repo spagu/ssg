@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- Decorative: the admin home's mark: four tiles, one in the accent colour. -->
+<rect x="2" y="2" width="13" height="13" rx="3" fill="#004d40"/>
+<rect x="17" y="2" width="13" height="13" rx="3" fill="#00897b"/>
+<rect x="2" y="17" width="13" height="13" rx="3" fill="#00897b"/>
+<rect x="17" y="17" width="13" height="13" rx="3" fill="#ff8a65"/>
+</svg>

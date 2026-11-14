@@ -62,6 +62,10 @@ export async function campaignProgress({ env, params }: RouteContext): Promise<R
   return row ? json(toProgress(row)) : json({ error: "not_found" }, 404);
 }
 
+// UNCERTAIN_COUNT: sends that may or may not have gone out, across every
+// campaign. Shared with the module summary.
+export const UNCERTAIN_COUNT = "SELECT COUNT(*) AS n FROM campaign_sends WHERE status = 'uncertain'";
+
 // GET /api/engine/status → {campaigns, deadLetters: {count, lastAt}, rate:
 // {perMinute, minute, used}, batchSize, staleMinutes, maxAttempts, queue}.
 export async function engineStatus({ env }: RouteContext): Promise<Response> {
@@ -72,7 +76,7 @@ export async function engineStatus({ env }: RouteContext): Promise<Response> {
   const dead = (await db.prepare("SELECT COUNT(*) AS n, MAX(received_at) AS last FROM send_dead_letters").first()) as { n: number; last: string | null };
   // Across every campaign, finished ones included: an uncertain send waits
   // for the admin whatever state its campaign is in.
-  const uncertain = (await db.prepare("SELECT COUNT(*) AS n FROM campaign_sends WHERE status = 'uncertain'").first()) as { n: number };
+  const uncertain = (await db.prepare(UNCERTAIN_COUNT).first()) as { n: number };
   const cfg = engineConfig(env);
   const usage = await rateUsage(env);
   return json({

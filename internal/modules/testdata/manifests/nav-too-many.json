@@ -1,0 +1,193 @@
+{
+  "manifest": {
+    "id": "example",
+    "contract": 1,
+    "version": "1.0.0",
+    "kind": "pages-function",
+    "title": {
+      "en": "Example",
+      "pl": "Example",
+      "hi": "Example",
+      "de": "Example",
+      "fr": "Example"
+    },
+    "description": {
+      "en": "An example module.",
+      "pl": "An example module.",
+      "hi": "An example module.",
+      "de": "An example module.",
+      "fr": "An example module."
+    },
+    "panel": "/example-admin.html",
+    "nav": [
+      {
+        "label": {
+          "en": "N0",
+          "pl": "N0",
+          "hi": "N0",
+          "de": "N0",
+          "fr": "N0"
+        },
+        "path": "/p0",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N1",
+          "pl": "N1",
+          "hi": "N1",
+          "de": "N1",
+          "fr": "N1"
+        },
+        "path": "/p1",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N2",
+          "pl": "N2",
+          "hi": "N2",
+          "de": "N2",
+          "fr": "N2"
+        },
+        "path": "/p2",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N3",
+          "pl": "N3",
+          "hi": "N3",
+          "de": "N3",
+          "fr": "N3"
+        },
+        "path": "/p3",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N4",
+          "pl": "N4",
+          "hi": "N4",
+          "de": "N4",
+          "fr": "N4"
+        },
+        "path": "/p4",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N5",
+          "pl": "N5",
+          "hi": "N5",
+          "de": "N5",
+          "fr": "N5"
+        },
+        "path": "/p5",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N6",
+          "pl": "N6",
+          "hi": "N6",
+          "de": "N6",
+          "fr": "N6"
+        },
+        "path": "/p6",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N7",
+          "pl": "N7",
+          "hi": "N7",
+          "de": "N7",
+          "fr": "N7"
+        },
+        "path": "/p7",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N8",
+          "pl": "N8",
+          "hi": "N8",
+          "de": "N8",
+          "fr": "N8"
+        },
+        "path": "/p8",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N9",
+          "pl": "N9",
+          "hi": "N9",
+          "de": "N9",
+          "fr": "N9"
+        },
+        "path": "/p9",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N10",
+          "pl": "N10",
+          "hi": "N10",
+          "de": "N10",
+          "fr": "N10"
+        },
+        "path": "/p10",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N11",
+          "pl": "N11",
+          "hi": "N11",
+          "de": "N11",
+          "fr": "N11"
+        },
+        "path": "/p11",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "N12",
+          "pl": "N12",
+          "hi": "N12",
+          "de": "N12",
+          "fr": "N12"
+        },
+        "path": "/p12",
+        "permission": "example:read"
+      }
+    ],
+    "permissions": [
+      {
+        "name": "example:read",
+        "description": {
+          "en": "Read.",
+          "pl": "Read.",
+          "hi": "Read.",
+          "de": "Read.",
+          "fr": "Read."
+        }
+      }
+    ],
+    "endpoints": {
+      "manifest": "/api/example/module"
+    },
+    "disable": {
+      "en": "Remove it.",
+      "pl": "Remove it.",
+      "hi": "Remove it.",
+      "de": "Remove it.",
+      "fr": "Remove it."
+    }
+  },
+  "errors": [
+    "manifest.nav: at most 12 entries"
+  ]
+}

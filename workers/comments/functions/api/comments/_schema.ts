@@ -27,6 +27,18 @@ const STATEMENTS = [
    )`,
   `CREATE INDEX IF NOT EXISTS idx_comments_url_status ON comments (url, status, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_comments_status ON comments (status, created_at)`,
+  // Who moderated what (GO-136, _events.ts): a new table, so databases created
+  // before it get it here — no existing column changes.
+  `CREATE TABLE IF NOT EXISTS comment_events (
+     id          TEXT PRIMARY KEY,
+     comment_id  TEXT,
+     action      TEXT NOT NULL,
+     actor       TEXT NOT NULL,
+     mode        TEXT NOT NULL,
+     detail      TEXT,
+     created_at  TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_comment_events_comment ON comment_events (comment_id, created_at)`,
 ];
 
 let ready: Promise<void> | null = null;
