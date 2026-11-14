@@ -1,0 +1,141 @@
+/* Design tokens shared by the admin panels — served by the `core` worker as
+ * /core/tokens.css. The starting palette is newsletter-ui's, token for token,
+ * so a panel and the home page match; the navigation tokens (--nav-*) are
+ * added for the shared bar (nav.js / nav.css).
+ *
+ * EVERYTHING visual is a custom property here, with a light and a dark value:
+ * a site's branding (GO-152) overrides them in /core/theme.css, loaded after
+ * this file, and nothing else has to change.
+ *
+ * Colours are Material colour tokens (2014 palette) and nothing else:
+ *   primary   Teal       (800 on light, 200 on dark) — GO-152's "main"
+ *   link      the same Teal as primary until a theme sets it — GO-152's
+ *             "accent" colours links
+ *   neutrals  Brown      (a warm "paper" family instead of the usual grey)
+ *   focus     Deep Orange 900 / 200 — GO-152's "accent"; never used for state
+ *   status    Red 800 / 200, Orange 900 / 300, Green 800 / 300 — fixed, never
+ *             branded: red always means an error
+ *   charts    Teal 600, Deep Orange 700, Deep Purple 600, Pink 700, Blue 800
+ *             (dark: Teal 400, Deep Orange 600, Deep Purple 400, Pink 600,
+ *             Blue 600)
+ *   nav       Teal 900 bar, white text, Teal 100 secondary text, Teal 200
+ *             control edges, Deep Orange 200 for the current page and focus —
+ *             the same in both themes: the bar is its own dark surface
+ * Every text/background pair is at least 4.5:1 and every control boundary
+ * 3:1 in both themes; test/home-contrast.test.ts computes the ratios from
+ * this file, so a change that breaks one fails the tests.
+ *
+ * Type: no web fonts (nothing may load from elsewhere, and an admin tool
+ * should not wait for one). Headings use a transitional serif stack; the rest
+ * a humanist system sans with Devanagari fallbacks for Hindi. */
+
+:root {
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Noto Sans", "Noto Sans Devanagari", "Nirmala UI", Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", "Noto Serif", "Noto Serif Devanagari", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+
+  --radius: 6px;
+  --gap: 16px;
+
+  color-scheme: light;
+  --bg: #efebe9;          /* Brown 50 */
+  --surface: #ffffff;
+  --surface-sunk: #efebe9; /* Brown 50 */
+  --text: #3e2723;        /* Brown 900 */
+  --text-muted: #5d4037;  /* Brown 700 */
+  --border: #d7ccc8;      /* Brown 100, decorative only */
+  --control: #8d6e63;     /* Brown 400, input and button edges */
+  --primary: #00695c;     /* Teal 800 */
+  --on-primary: #ffffff;
+  --primary-soft: #e0f2f1; /* Teal 50 */
+  --on-primary-soft: #004d40; /* Teal 900 */
+  --link: #00695c;        /* Teal 800: links (GO-152's accent in a theme) */
+  --focus: #bf360c;       /* Deep Orange 900 */
+  --danger: #c62828;      /* Red 800 */
+  --on-danger: #ffffff;
+  --critical: #c62828;    /* Red 800 */
+  --warning: #e65100;     /* Orange 900 */
+  --ok: #2e7d32;          /* Green 800 */
+  --info: #00695c;        /* Teal 800 */
+  --grid: #d7ccc8;        /* Brown 100 */
+  --axis: #8d6e63;        /* Brown 400 */
+  --c1: #00897b; --c2: #e64a19; --c3: #5e35b1; --c4: #c2185b; --c5: #1565c0;
+  /* The same in both themes, so written once, as in newsletter-ui. Not text
+   * or marks (the contrast test does not read them): a drop shadow, the dim
+   * behind a dialog, and the paper a mail preview is drawn on. */
+  --shadow: rgb(0 0 0 / .12);
+  --backdrop: rgb(18 18 18 / .55);
+  --mail-paper: rgb(255 255 255);
+  --nav-bg: #004d40;      /* Teal 900 */
+  --on-nav: #ffffff;
+  --nav-muted: #b2dfdb;   /* Teal 100 */
+  --nav-hover: #00695c;   /* Teal 800 */
+  --nav-control: #80cbc4; /* Teal 200 */
+  --nav-current: #ffab91; /* Deep Orange 200 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121212;
+    --surface: #1e1e1e;
+    --surface-sunk: #121212;
+    --text: #efebe9;        /* Brown 50 */
+    --text-muted: #d7ccc8;  /* Brown 100 */
+    --border: #4e342e;      /* Brown 800 */
+    --control: #a1887f;     /* Brown 300 */
+    --primary: #80cbc4;     /* Teal 200 */
+    --on-primary: #004d40;  /* Teal 900 */
+    --primary-soft: #004d40;
+    --on-primary-soft: #b2dfdb; /* Teal 100 */
+    --link: #80cbc4;        /* Teal 200 */
+    --focus: #ffab91;       /* Deep Orange 200 */
+    --danger: #ef9a9a;      /* Red 200 */
+    --on-danger: #3e2723;
+    --critical: #ef9a9a;
+    --warning: #ffb74d;     /* Orange 300 */
+    --ok: #81c784;          /* Green 300 */
+    --info: #80cbc4;
+    --grid: #3e2723;        /* Brown 900 */
+    --axis: #a1887f;
+    --c1: #26a69a; --c2: #f4511e; --c3: #7e57c2; --c4: #d81b60; --c5: #1e88e5;
+    --nav-bg: #004d40;
+    --on-nav: #ffffff;
+    --nav-muted: #b2dfdb;
+    --nav-hover: #00695c;
+    --nav-control: #80cbc4;
+    --nav-current: #ffab91;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface-sunk: #121212;
+  --text: #efebe9;
+  --text-muted: #d7ccc8;
+  --border: #4e342e;
+  --control: #a1887f;
+  --primary: #80cbc4;
+  --on-primary: #004d40;
+  --primary-soft: #004d40;
+  --on-primary-soft: #b2dfdb;
+  --link: #80cbc4;
+  --focus: #ffab91;
+  --danger: #ef9a9a;
+  --on-danger: #3e2723;
+  --critical: #ef9a9a;
+  --warning: #ffb74d;
+  --ok: #81c784;
+  --info: #80cbc4;
+  --grid: #3e2723;
+  --axis: #a1887f;
+  --c1: #26a69a; --c2: #f4511e; --c3: #7e57c2; --c4: #d81b60; --c5: #1e88e5;
+  --nav-bg: #004d40;
+  --on-nav: #ffffff;
+  --nav-muted: #b2dfdb;
+  --nav-hover: #00695c;
+  --nav-control: #80cbc4;
+  --nav-current: #ffab91;
+}

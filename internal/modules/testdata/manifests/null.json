@@ -1,0 +1,6 @@
+{
+  "manifest": null,
+  "errors": [
+    "manifest: must be object, not null"
+  ]
+}

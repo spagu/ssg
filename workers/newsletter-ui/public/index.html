@@ -18,6 +18,11 @@
   <meta name="generator" content="ssg newsletter-ui">
   <link rel="icon" href="img/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/tokens.css">
+  <!-- The site's own look, when the `core` worker is deployed on this host
+       (GO-152): custom properties only, after the panel's tokens so they win.
+       Without `core` it answers 404 and the tokens above stand. Same origin,
+       so the CSP's style-src 'self' allows it. -->
+  <link rel="stylesheet" href="/core/theme.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
@@ -29,6 +34,12 @@
 </head>
 <body>
   <a class="skip" id="skip" href="#main">Skip to content</a>
+  <!-- The site's shared admin bar (GO-146): which module; the sidebar below
+       is where in this one. Served by the `core` worker from the site root of
+       this host — 'self' for the CSP. Without `core` the script answers 404,
+       the element stays empty and zero pixels tall, and the panel is as it
+       always was. A module script is deferred: it never delays the panel. -->
+  <script type="module" src="/core/nav.js"></script><ssg-admin-nav current="newsletter-ui"></ssg-admin-nav>
   <div class="shell">
     <!-- One banner landmark for the brand, the navigation and the preferences:
          on wide screens a sidebar, below 900px a bar whose Menu button opens it. -->
@@ -38,7 +49,7 @@
         <button type="button" class="btn" id="menu-toggle" aria-expanded="false" aria-controls="drawer">Menu</button>
       </div>
       <div class="drawer" id="drawer">
-        <nav id="nav" aria-label="Main"><ul id="nav-list"></ul></nav>
+        <nav id="nav" aria-label="Newsletter sections"><ul id="nav-list"></ul></nav>
         <section class="prefs" id="prefs" aria-label="Preferences"></section>
       </div>
     </header>

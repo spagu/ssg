@@ -1,0 +1,31 @@
+{
+  "id": "stripe-checkout",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Stripe checkout",
+    "pl": "Płatności Stripe",
+    "hi": "Stripe चेकआउट",
+    "de": "Stripe-Bezahlung",
+    "fr": "Paiement Stripe"
+  },
+  "description": {
+    "en": "Creates Stripe Checkout sessions for one-time payments and subscriptions, and verifies Stripe's webhook signatures.",
+    "pl": "Tworzy sesje Stripe Checkout dla płatności jednorazowych i subskrypcji oraz weryfikuje podpisy webhooków Stripe.",
+    "hi": "एक बार के भुगतान और सब्सक्रिप्शन के लिए Stripe Checkout सेशन बनाता है, और Stripe के वेबहुक सिग्नेचर की जाँच करता है।",
+    "de": "Erstellt Stripe-Checkout-Sitzungen für Einmalzahlungen und Abonnements und prüft die Webhook-Signaturen von Stripe.",
+    "fr": "Crée des sessions Stripe Checkout pour les paiements ponctuels et les abonnements, et vérifie les signatures des webhooks Stripe."
+  },
+  "panel": null,
+  "nav": [],
+  "permissions": [],
+  "endpoints": {},
+  "disable": {
+    "en": "Remove workers/stripe-checkout from the workers: list in .ssg.yaml, take the checkout buttons out of your pages and deploy the site again, then delete the webhook endpoint in the Stripe dashboard.",
+    "pl": "Usuń workers/stripe-checkout z listy workers: w .ssg.yaml, wyjmij przyciski płatności ze stron i wdróż stronę ponownie, a potem usuń endpoint webhooka w panelu Stripe.",
+    "hi": "workers/stripe-checkout को .ssg.yaml की workers: सूची से हटाएँ, अपने पेजों से चेकआउट बटन निकालें और साइट फिर से डिप्लॉय करें, फिर Stripe डैशबोर्ड में वेबहुक एंडपॉइंट मिटाएँ।",
+    "de": "Entfernen Sie workers/stripe-checkout aus der workers:-Liste in .ssg.yaml, nehmen Sie die Bezahl-Buttons aus Ihren Seiten und veröffentlichen Sie die Website neu; löschen Sie danach den Webhook-Endpunkt im Stripe-Dashboard.",
+    "fr": "Retirez workers/stripe-checkout de la liste workers: dans .ssg.yaml, enlevez les boutons de paiement de vos pages et redéployez le site, puis supprimez le point de terminaison du webhook dans le tableau de bord Stripe."
+  }
+}

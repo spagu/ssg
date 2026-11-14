@@ -19,6 +19,7 @@ lives behind the same authentication as the API. Back to the
 | Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
 | Suppressions | `#/suppressions?reason=&q=` | new suppressions by reason over 90 days, list, add, lift (a complaint asks for an explicit yes), CSV import with preview |
 | Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test |
+| Activity | `#/activity?actor=&action=` | the audit trail: who changed what, newest first, filtered by account and action (`GET /api/audit`, `newsletter:settings`) |
 | Help | `#/help` | what each part does, where configuration lives, how to read the charts |
 
 Routing is in the hash, so a deep link or a reload works under any
@@ -47,10 +48,67 @@ are not loaded in the preview (`img-src 'self'`); a test send shows them. Only
 the language and theme are kept in `localStorage` (and the chart period in
 `sessionStorage`); never a token, an address or a file.
 
-**Errors** are words with a way out: 401 → sign in again (Access or the
-password), 429 → the wait, 503 → the missing setting or "deploy the
+**Permissions**. At start the panel reads `GET api/me` once. With
+the password or Cloudflare Access it holds every permission and looks as it
+always did. With `auth` accounts it hides the navigation entries and the
+buttons the account cannot use (`js/models/access.js`: `VIEW_NEEDS`,
+`ACTION_NEEDS`), names the account under the preferences with a **Sign out**
+button (a form POST to the `auth` worker), and a view the account may not
+open says which permission is missing. Hiding is a courtesy; the worker
+refuses every call on its own. A `401` from the API makes the panel ask
+`auth` once for a new token and retry (`js/core/session.js`), else go to the
+login page, which brings the admin back to the same view. See
+[ACCESS.md](ACCESS.md).
+
+**Errors** are words with a way out: 401 → sign in again (Access, the
+password or the login page), 403 with a permission → the permission the
+account lacks, 429 → the wait, 503 → the missing setting or "deploy the
 newsletter template first", a failed fetch → check the connection; each with
 Try again. Every destructive action names its object and its consequence.
+
+## The site's shared admin bar (`core`)
+
+With the [`core`](../../core/README.md) worker deployed on the same host, a
+bar appears above the panel: the site's name, **Admin home**, one link per
+module panel the account may open (this one marked as the current page) and,
+in the `auth` mode, who is signed in with **Sign out**. Two navigation levels,
+two jobs: the bar says *which module* (`<nav>` "Site administration"), the
+panel's sidebar *where in this one* (`<nav>` "Newsletter sections"). "Skip to
+content" stays the first stop and passes both.
+
+**Without `core` nothing changes** — not a pixel (checked against screenshots
+taken before the bar existed): `/core/nav.js` and `/core/theme.css` answer
+404, the empty `<ssg-admin-nav>` is zero pixels tall, the panel's own code
+logs nothing. The browser itself notes the two failed requests in its
+console, as for any missing file.
+
+How it is wired (`public/index.html`):
+
+1. `css/tokens.css`, then `<link rel="stylesheet" href="/core/theme.css">`,
+   then the panel's other stylesheets. The theme is custom properties only and
+   comes right after the tokens so its values win; every colour the panel
+   draws — buttons, links, focus ring, charts — is a token
+   (`test/panel-tokens.test.ts` refuses a colour written anywhere else).
+2. Right after the skip link, the one-line adoption:
+   `<script type="module" src="/core/nav.js"></script><ssg-admin-nav current="newsletter-ui"></ssg-admin-nav>`.
+   A module script is deferred and never delays the panel.
+3. **CSP unchanged.** The panel lives under its base path (`/newsletter-admin/`)
+   in a standalone Worker; the bar and theme are served by `core` from the
+   site root of the same host — same origin, so `script-src 'self'`,
+   `style-src 'self'` and `connect-src 'self'` already allow them. Nothing was
+   loosened (`test/panel-html.test.ts` pins the policy).
+
+What the panel adjusts when the bar is there (`js/core/admin-nav.js`, measured
+whenever the bar's size changes): the sidebar is shortened by the bar's height
+so the preferences stay on screen; the scroll padding that keeps focus clear of
+sticky things (WCAG 2.4.11) adds the bar only if it is ever made sticky (today
+it scrolls away); and when the bar shows its own **Sign out**, the panel's
+"Signed in as / Sign out" under the preferences is hidden rather than shown
+twice. The panel keeps its own brand ("Newsletter admin"): the bar names the
+site, the panel names the module — neither repeats the other.
+
+The local preview shows it: `DEMO_CORE=1` (bar), `DEMO_CORE=theme` (bar and a
+demo site theme), with or without `DEMO_AUTH=1` (below).
 
 ## Charts
 
@@ -91,6 +149,9 @@ the reasoning, are in `public/css/tokens.css`, and chart colours per entity in
   for results, modal dialogs with Escape, captioned tables with `scope`,
   reduced motion honoured, 320 px wide without horizontal page scroll (lists
   become cards).
+- **Tokens only.** No colour is written outside `public/css/tokens.css`; the
+  names are those of `core`'s `/core/tokens.css`, so a site theme
+  (`/core/theme.css`, loaded right after) restyles the whole panel.
 - **Colour is never the only signal**: series differ by dash, marker or
   texture, states by a word.
 
@@ -116,9 +177,16 @@ refuses addresses containing "bounce", the cron every 15 s:
 ```sh
 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
 # → http://localhost:8787/newsletter-admin/  (any user name, password "demo")
+DEMO_AUTH=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
+# → the same in `auth` mode: /auth/login offers owner, editor, sender, reader, none
+DEMO_CORE=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
+# → with the `core` worker's files at /core/ and a stand-in /api/core/modules: the shared bar
+#   (DEMO_CORE=theme also serves a demo site theme as /core/theme.css)
 ```
 
 `test/panel-shots.mjs` (not part of the test run; needs Playwright installed
 on the machine, never as a dependency here) takes screenshots of every view,
 light and dark, at 1440×900 and 390×844, and runs axe-core when given its
-file: `node workers/newsletter-ui/test/panel-shots.mjs <out-dir> [axe.min.js]`.
+file: `node workers/newsletter-ui/test/panel-shots.mjs <out-dir> [axe.min.js]`. With
+`AUTH_AS=editor` (or any account above) it shoots a `DEMO_AUTH=1` server as
+that account.

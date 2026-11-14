@@ -14,7 +14,8 @@ with `ssg new worker newsletter-ui`.
 More detail lives next to this file:
 [API reference](docs/API.md) ([`openapi.yaml`](openapi.yaml), OpenAPI 3.1) ·
 [how sending works](docs/SENDING.md) · [importing a list](docs/IMPORT.md) ·
-[bounces and webhooks](docs/BOUNCES.md) · [the panel](docs/PANEL.md).
+[bounces and webhooks](docs/BOUNCES.md) · [the panel](docs/PANEL.md) ·
+[who can do what](docs/ACCESS.md).
 
 ## What it is
 
@@ -81,7 +82,8 @@ Everything below runs from `workers/newsletter-ui/` with `npx wrangler`
 4. **Mail.** Set `NEWSLETTER_SITE_URL` and `NEWSLETTER_MAIL_FROM` in `[vars]`
    and one transport — `npx wrangler secret put NEWSLETTER_RESEND_API_KEY`,
    or `NEWSLETTER_MAILCHANNELS_API_KEY`, or `NEWSLETTER_SMTP_HOST` /
-   `_PORT` / `_USER` plus the `NEWSLETTER_SMTP_PASSWORD` secret. These are the
+   `_PORT` / `_USER` (and optionally `_HELO`) plus the
+   `NEWSLETTER_SMTP_PASSWORD` secret. These are the
    `newsletter` template's names; set the same values there and its
    confirmation mail goes the same way. For SMTP: port `465` (TLS) or `587`
    (STARTTLS); port 25 is blocked by Cloudflare and refused. The sender
@@ -123,7 +125,9 @@ names are the `newsletter` template's, so one set of values serves both.
 | `ASSETS` | assets binding | `./public` | the panel |
 | `NEWSLETTER_UI_BASE` | var | `/newsletter-admin` | the path the worker owns; keep `routes` in step |
 | `NEWSLETTER_ACCESS_TEAM`, `NEWSLETTER_ACCESS_AUD` | var | — | Cloudflare Access (both, or neither) |
-| `NEWSLETTER_ADMIN_PASSWORD` | secret | — | HTTP Basic, when Access is not set |
+| `NEWSLETTER_ADMIN_PASSWORD` | secret | — | HTTP Basic, when neither Access nor `auth` is set |
+| `NEWSLETTER_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` | var | — | accounts of the `auth` worker ("Who can do what"); any one set turns the mode on, an incomplete set is `503` |
+| `NEWSLETTER_AUDIT_RETENTION_DAYS` | var | `365` | days the audit trail keeps a row; `0` keeps them forever |
 | `NEWSLETTER_AUTH_MAX_FAILURES` | var | `10` | failed Basic logins per IP … |
 | `NEWSLETTER_AUTH_WINDOW_MINUTES` | var | `10` | … per window, also the lockout length |
 | `NEWSLETTER_HASH_SALT` | secret | — | salts the short-lived failed-login records |
@@ -162,7 +166,7 @@ Everything lives under `NEWSLETTER_UI_BASE`:
 | Path | What | Auth |
 |---|---|---|
 | `{base}/` and its files | the panel (`public/`) | admin |
-| `{base}/api/…` | admin API, JSON | admin + CSRF header |
+| `{base}/api/…` | admin API, JSON | admin + the route's permission + CSRF header |
 | `{base}/hooks/…` | provider webhooks and the click redirect | none; each verifies its signature or carries no person |
 | anything else | `404` | — |
 
@@ -176,12 +180,16 @@ page of your site.
   window, that IP gets `429` for one window, even with the right password —
   otherwise the lock would only change the error code of a wrong guess. The
   count lives in `auth_attempts`, keyed by a hash of the IP.
-- With neither configured, every admin request is `503`. Nothing is open by
-  default.
+- **`auth` accounts:** the session of the `auth` worker on the same host,
+  checked locally with its public key; each route needs its permission
+  (next section). With `auth` configured the password is not accepted.
+- With none configured, every admin request is `503`. Nothing is open by
+  default. The order is Access → `auth` → password.
 - **CSRF.** Every request other than `GET`/`HEAD` must send
   `x-newsletter-admin: 1`, or it is refused with `403`. A form on another site
   can make the browser send your credentials or Access cookie along, but it
-  cannot add a header.
+  cannot add a header. With `auth` a cross-origin `Origin` or
+  `Sec-Fetch-Site` is refused too.
 - **Headers.** Every response carries `cache-control: no-store`,
   `x-robots-tag: noindex, nofollow`, `referrer-policy: no-referrer`,
   `x-content-type-options: nosniff`, `x-frame-options: DENY` and a CSP with no
@@ -233,6 +241,62 @@ The `newsletter` template's admin endpoint (`/api/newsletter/admin*`) takes
 the same two variables. Add that path to the first application as a second
 destination and one AUD covers both; or give it its own application and set
 that application's AUD in the Pages project.
+
+## Who can do what
+
+Three ways in; pick by how many people run the newsletter:
+
+| Mode | Set | Permissions | Which to choose |
+|---|---|---|---|
+| Shared password | secret `NEWSLETTER_ADMIN_PASSWORD` | everything | one person — the simplest setup, nothing else to deploy |
+| Cloudflare Access | `NEWSLETTER_ACCESS_TEAM` + `_AUD` | everything | you already run Cloudflare Zero Trust |
+| `auth` accounts | `NEWSLETTER_AUTH_*` | each account's own | several people, or different permissions for different people |
+
+The password is a first-class mode and stays one. More than one person,
+more than one panel, or different permissions → see the `auth` worker
+(`ssg new worker auth`).
+
+What each permission (from [`module.json`](module.json)) lets an account do:
+
+| Permission | Actions |
+|---|---|
+| `newsletter:read` | overview, subscribers, campaigns and statistics, suppression list, configuration, a campaign's preview |
+| `newsletter:edit` | campaign drafts (new, from a post, edit, duplicate, delete); a subscriber's tags and language; unsubscribe someone |
+| `newsletter:send` | test send, schedule, unschedule, pause, resume, cancel; re-send or dismiss uncertain sends; confirmation mail |
+| `newsletter:import` | import a subscriber list (with `newsletter:suppress`: a suppression list) |
+| `newsletter:export` | CSV of the list, one person's data |
+| `newsletter:erase` | erase a person's data |
+| `newsletter:suppress` | add or lift a suppression |
+| `newsletter:settings` | SMTP connection test, the audit trail (Activity) |
+
+`newsletter:*` holds all of them. Every route states its permission in
+`src/routes.ts`; the full route table, `/api/me`, the panel's behaviour and
+the variables are in [docs/ACCESS.md](docs/ACCESS.md). A missing permission
+answers `403 {"error": "forbidden", "permission": "…"}`; the panel hides what
+the account cannot use and names what is missing. The cron and the queue
+need no session; the hooks stay public.
+
+**The audit trail.** Every state-changing admin request is recorded in the
+worker's own table `admin_audit`: who (the `auth` account, or just
+`password` / `access`), what (`campaign.schedule`, `subscriber.erase`, …),
+on what (an id — never an address, so an erasure leaves nothing of the
+person), when, and the answer. Panel: **Activity**; API: `GET {base}/api/audit`
+(`newsletter:settings`). Kept `NEWSLETTER_AUDIT_RETENTION_DAYS` (365) days.
+
+**Switching from the password to `auth`:**
+
+1. Deploy `auth` on the same host as the panel, invite the people, give each
+   a role with the permissions above.
+2. Set `NEWSLETTER_AUTH_ISSUER`, `NEWSLETTER_AUTH_LOGIN_URL` and
+   `NEWSLETTER_AUTH_PUBLIC_KEY` in `wrangler.toml`; deploy. The panel now
+   sends a browser without a session to the login page.
+3. Sign in as each kind of account and check what it sees.
+4. **Remove the password when you switch:** `npx wrangler secret delete
+   NEWSLETTER_ADMIN_PASSWORD` (and `npx wrangler pages secret delete
+   NEWSLETTER_ADMIN_PASSWORD` for the `newsletter` template). While `auth` is
+   configured the password is not accepted — accepting it would bypass every
+   permission — but if the `NEWSLETTER_AUTH_*` variables were ever removed,
+   it would quietly become the way in again. Nothing removes it for you.
 
 ## Sending and its guarantees
 
@@ -331,7 +395,7 @@ import cannot bring them back. Say so in your privacy policy.
 ## The panel and local preview
 
 `{base}/` in a browser: overview, subscribers, import, campaigns with an
-editor and live progress, suppressions, settings, help — in English, Polish,
+editor and live progress, suppressions, settings, activity, help — in English, Polish,
 Hindi, German and French, light and dark, no framework, nothing loaded from
 another origin. Details, security model and charts: [PANEL.md](docs/PANEL.md).
 
@@ -342,6 +406,10 @@ and a pretend SMTP server:
 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
 # → http://localhost:8787/newsletter-admin/  (any user name, password "demo")
 ```
+
+`DEMO_AUTH=1` runs it with `auth` accounts instead of the password: pick an
+owner, editor, sender, reader or an account with no permission at
+`/auth/login`, and see what each one is shown.
 
 ## Abuse protection
 
@@ -457,11 +525,16 @@ workers/newsletter-ui/
 ├── wrangler.toml     the Worker: D1, cron, queue + dead-letter queue, rate limit, assets
 ├── schema.sql        this worker's own tables (created on first use anyway)
 ├── openapi.yaml      the API, OpenAPI 3.1
+├── module.json       the module manifest, served at {base}/api/module
+│                     (the summary: {base}/api/module/summary, src/module-summary.ts)
 ├── docs/             API, sending, import, bounces, panel
 ├── public/           the panel: index.html, css/, js/, img/
 ├── src/index.ts      entry points: fetch, scheduled, queue
 ├── src/app.ts        the request pipeline: base path → schema → hooks → rate limit → auth → CSRF → route / panel
-├── src/routes.ts     the route registry, one line per route
+├── src/routes.ts     the route registry, one line per route: permission and audit action included
+├── src/auth.ts       admin sign-in: Access → auth → password; src/permissions.ts, src/me.ts
+├── src/audit.ts      the audit trail: written from the pipeline, GET {base}/api/audit
+├── src/session-verifier.ts  byte-identical copy of workers/auth/portable/session-verifier.ts
 ├── src/mail/         byte-identical copies of the `newsletter` template's mail modules
 ├── src/…             one feature per group of files: subscriber*, import*, campaign*, engine*,
 │                     bounce*, hook*, suppression*, stats*, click*, feed*, confirm*, render*, settings
@@ -490,14 +563,21 @@ panel's logic is tested the same way (`test/panel-*.test.ts`, with a tiny DOM
 stand-in); for its coverage add
 `--test-coverage-include='workers/newsletter-ui/public/**'`.
 `test/compat-subscribers.test.ts` is the backward-compatibility guarantee
-above; `test/openapi.test.ts` keeps `openapi.yaml` and `src/routes.ts` in step.
+above; `test/openapi.test.ts` keeps `openapi.yaml` and `src/routes.ts` in step
+(each operation's `x-permission` included). `test/route-registry.test.ts`
+runs every route against a session without its permission, with exactly
+it and as the owner; `test/auth-copies.test.ts` keeps the verifier copy
+byte-identical and runs `workers/auth`'s verifier suites against it.
 Pull requests that change `workers/` run `make test-workers` in CI (the
 `Workers` workflow).
 
 **Extending.** A route is one line in `src/routes.ts`; the handler gets
-`{request, env, ctx, url, params}` and returns a `Response`, and the pipeline
-adds auth, CSRF, headers, 404/405 and the missing-subscribers 503 (set
-`needsSubscribers: false` only for a route that must work without the table).
+`{request, env, ctx, url, params, admin}` and returns a `Response`, and the
+pipeline adds auth, the permission check, CSRF, the audit row, headers,
+404/405 and the missing-subscribers 503 (set `needsSubscribers: false` only
+for a route that must work without the table). Every route names its
+`permission` (one from `module.json`); a state-changing one also its `audit`
+action, or `audit: false` when it changes nothing.
 Document it in `openapi.yaml` — the test insists. A cron task goes in
 `CRON_TASKS`, a queue job handler in `JOB_HANDLERS` (`src/jobs.ts`); a
 throwing job is retried with backoff and dead-lettered after `max_retries`.
@@ -517,3 +597,26 @@ and the tokens, with their reasoning, in `public/css/tokens.css`:
 - WCAG 2.2 AA: text ≥ 4.5:1, controls and chart marks ≥ 3:1 —
   `test/panel-contrast.test.ts` checks every pair in both themes; a 3 px
   focus ring; targets ≥ 40 px; colour is never the only signal.
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, its panel and navigation, the permissions its admin surface distinguishes, and how to switch it off. It is a description only — no secrets, no configuration.
+
+| Permission | Allows |
+|---|---|
+| `newsletter:read` | View subscribers, counts, campaigns and statistics. |
+| `newsletter:edit` | Edit campaign drafts, and a subscriber's tags and language. |
+| `newsletter:send` | Send a test, schedule, pause and resume a campaign, and retry uncertain sends — mail that reaches real people. |
+| `newsletter:import` | Import subscribers and suppression lists from a file. |
+| `newsletter:export` | Download subscribers as CSV and export one person's data. |
+| `newsletter:erase` | Erase a person's data for good (right to erasure). |
+| `newsletter:suppress` | Add addresses to the suppression list and lift a suppression. |
+| `newsletter:settings` | Maintenance: test the SMTP connection and run the retention purge now. |
+
+With the shared password or Cloudflare Access whoever passes may do everything; with `auth` each action needs its permission (*Who can do what*).
+
+It also serves the manifest at `GET {base}/api/module`, behind the worker's admin auth like every `/api/` route, without needing the `subscribers` table. `src/module.ts` imports `module.json` directly; wrangler bundles it.
+
+### Summary
+
+`GET {base}/api/module/summary` answers the module summary (format in [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md#the-summary-endpoint)) an admin home page shows: `confirmed`, `pending`, `campaignsInProgress` and `suppressed`; things to do — campaigns paused by the send engine (`action`, `/#/campaigns?status=paused`), uncertain sends (`action`, `/#/`), pending subscribers never sent a confirmation (`action`, `/#/subscribers?status=pending`), dead-lettered jobs (`warning`, `/#/`); the dashboard's configuration warnings as problems (`no_transport`, `transport_unusable`, `no_site_url`, `no_sender`, `no_queue`, and `no_subscribers_table`); and sign-ups per day for 30 days. Labels and problem texts are the panel's own strings in all five languages (`test/module-summary.test.ts` holds them equal). At most three D1 statements — the dashboard's status counts and sign-up series (`src/subscriber-stats.ts`) and one SELECT of scalar counts built from the engine's and the confirmation sender's own SQL — and never an address, subject or engine error text. Behind the worker's admin auth like every `/api/` route; answers without the `subscribers` table. Its `confirmed` and `pending` agree with the `newsletter` template's summary on the same database, and a home page prefers this one when both exist.

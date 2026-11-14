@@ -76,6 +76,29 @@ func TestWorkerConfigSnippet(t *testing.T) {
 	}
 }
 
+// A template whose functions serve more than /api/* declares its routes on the
+// first line of its wrangler.snippet.toml; the printed block must carry them.
+// auth's pages are at /auth/* and its assets must stay plain files — the
+// generic /api/* block left every sign-in page unrouted.
+func TestWorkerConfigSnippetUsesTheTemplatesRoutes(t *testing.T) {
+	snip := workerConfigSnippet("auth")
+	for _, want := range []string{"    - /api/auth/*\n", "    - /auth/*\n", "  routes_exclude:\n    - /auth/assets/*\n"} {
+		if !strings.Contains(snip, want) {
+			t.Errorf("auth snippet lacks %q:\n%s", want, snip)
+		}
+	}
+	if strings.Contains(snip, "    - /api/*\n") {
+		t.Errorf("auth snippet still has the generic /api/*:\n%s", snip)
+	}
+	include, exclude := templateRoutes("contact-form")
+	if !slices.Equal(include, []string{"/api/*"}) || exclude != nil {
+		t.Errorf("a template without the marker = %v %v, want the generic /api/*", include, exclude)
+	}
+	if include, _ := templateRoutes("no-such-template"); !slices.Equal(include, []string{"/api/*"}) {
+		t.Errorf("a missing snippet = %v", include)
+	}
+}
+
 // TestTheRateLimitTemplateShipsWhatItPromises (#220).
 //
 // The other templates are presented as ready to deploy, and one thing was

@@ -30,6 +30,15 @@ export interface Env extends MailEnv {
   NEWSLETTER_HASH_SALT?: string; // salt for the short-lived failed-login records
   NEWSLETTER_AUTH_MAX_FAILURES?: string; // failed Basic logins per IP per window (default 10)
   NEWSLETTER_AUTH_WINDOW_MINUTES?: string; // the window and the lockout length (default 10)
+  // `auth` sessions (GO-137), read by the portable verifier (src/session-verifier.ts):
+  // any one set turns the mode on, an incomplete set is a 503. Shared with the
+  // `newsletter` template. Not the two lines above: those are Basic's lockout.
+  NEWSLETTER_AUTH_ISSUER?: string; // the `iss` to accept, e.g. "https://example.com/api/auth"
+  NEWSLETTER_AUTH_AUDIENCE?: string; // the `aud` to accept; default the request's host
+  NEWSLETTER_AUTH_PUBLIC_KEY?: string; // the `auth` public JWK or JWKS (recommended) …
+  NEWSLETTER_AUTH_JWKS_URL?: string; // … or "/api/auth/jwks" (exactly one of the two)
+  NEWSLETTER_AUTH_LOGIN_URL?: string; // where a page without a session is sent, e.g. "/auth/login"
+  NEWSLETTER_AUDIT_RETENTION_DAYS?: string; // audit rows kept this many days (default 365, 0 = forever)
   NEWSLETTER_IMPORT_MAX_ROWS?: string; // rows per CSV import (default 20000); the byte cap is 1 KiB per row
   // Send engine (GO-126); defaults and reasoning in src/engine-config.ts.
   NEWSLETTER_SEND_RATE?: string; // messages per minute, all campaigns together (default 60)

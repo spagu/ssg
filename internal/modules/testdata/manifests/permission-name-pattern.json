@@ -1,0 +1,71 @@
+{
+  "manifest": {
+    "id": "example",
+    "contract": 1,
+    "version": "1.0.0",
+    "kind": "pages-function",
+    "title": {
+      "en": "Example",
+      "pl": "Example",
+      "hi": "Example",
+      "de": "Example",
+      "fr": "Example"
+    },
+    "description": {
+      "en": "An example module.",
+      "pl": "An example module.",
+      "hi": "An example module.",
+      "de": "An example module.",
+      "fr": "An example module."
+    },
+    "panel": "/example-admin.html",
+    "nav": [
+      {
+        "label": {
+          "en": "Queue",
+          "pl": "Queue",
+          "hi": "Queue",
+          "de": "Queue",
+          "fr": "Queue"
+        },
+        "path": "/example-admin.html",
+        "permission": "example:read"
+      }
+    ],
+    "permissions": [
+      {
+        "name": "example:read",
+        "description": {
+          "en": "Read.",
+          "pl": "Read.",
+          "hi": "Read.",
+          "de": "Read.",
+          "fr": "Read."
+        }
+      },
+      {
+        "name": "Example:Read",
+        "description": {
+          "en": "x",
+          "pl": "x",
+          "hi": "x",
+          "de": "x",
+          "fr": "x"
+        }
+      }
+    ],
+    "endpoints": {
+      "manifest": "/api/example/module"
+    },
+    "disable": {
+      "en": "Remove it.",
+      "pl": "Remove it.",
+      "hi": "Remove it.",
+      "de": "Remove it.",
+      "fr": "Remove it."
+    }
+  },
+  "errors": [
+    "manifest.permissions[1].name: \"Example:Read\" does not match ^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$"
+  ]
+}

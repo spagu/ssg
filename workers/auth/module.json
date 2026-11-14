@@ -1,0 +1,155 @@
+{
+  "id": "auth",
+  "contract": 1,
+  "version": "1.3.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Accounts and sign-in",
+    "pl": "Konta i logowanie",
+    "hi": "खाते और साइन-इन",
+    "de": "Konten und Anmeldung",
+    "fr": "Comptes et connexion"
+  },
+  "description": {
+    "en": "Accounts with passwords or login providers (Google, Microsoft, Apple, GitHub, Facebook), revocable sessions and short signed access tokens that other workers on the same host can verify with a public key.",
+    "pl": "Konta z hasłami albo logowaniem przez dostawców (Google, Microsoft, Apple, GitHub, Facebook), odwoływalne sesje i krótkie podpisane tokeny dostępu, które inne workery na tym samym hoście sprawdzają kluczem publicznym.",
+    "hi": "पासवर्ड या लॉगिन प्रदाताओं (Google, Microsoft, Apple, GitHub, Facebook) वाले खाते, रद्द किए जा सकने वाले सेशन और छोटे हस्ताक्षरित एक्सेस टोकन, जिन्हें उसी होस्ट के दूसरे वर्कर सार्वजनिक कुंजी से जाँच सकते हैं।",
+    "de": "Konten mit Passwort oder Anmeldung über Anbieter (Google, Microsoft, Apple, GitHub, Facebook), widerrufbare Sitzungen und kurzlebige signierte Zugriffstoken, die andere Worker auf demselben Host mit einem öffentlichen Schlüssel prüfen.",
+    "fr": "Comptes avec mot de passe ou fournisseur de connexion (Google, Microsoft, Apple, GitHub, Facebook), sessions révocables et jetons d'accès signés de courte durée que les autres workers du même hôte vérifient avec une clé publique."
+  },
+  "panel": "/auth/admin/",
+  "nav": [
+    {
+      "label": {
+        "en": "People",
+        "pl": "Osoby",
+        "hi": "लोग",
+        "de": "Personen",
+        "fr": "Personnes"
+      },
+      "path": "/auth/admin/#/people",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Invitations",
+        "pl": "Zaproszenia",
+        "hi": "आमंत्रण",
+        "de": "Einladungen",
+        "fr": "Invitations"
+      },
+      "path": "/auth/admin/#/invitations",
+      "permission": "auth:invite"
+    },
+    {
+      "label": {
+        "en": "Groups",
+        "pl": "Grupy",
+        "hi": "समूह",
+        "de": "Gruppen",
+        "fr": "Groupes"
+      },
+      "path": "/auth/admin/#/groups",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Roles",
+        "pl": "Role",
+        "hi": "भूमिकाएँ",
+        "de": "Rollen",
+        "fr": "Rôles"
+      },
+      "path": "/auth/admin/#/roles",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Access matrix",
+        "pl": "Macierz dostępu",
+        "hi": "पहुँच मैट्रिक्स",
+        "de": "Zugriffsmatrix",
+        "fr": "Matrice des accès"
+      },
+      "path": "/auth/admin/#/matrix",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Sessions",
+        "pl": "Sesje",
+        "hi": "सेशन",
+        "de": "Sitzungen",
+        "fr": "Sessions"
+      },
+      "path": "/auth/admin/#/sessions",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Service accounts",
+        "pl": "Konta usług",
+        "hi": "सेवा खाते",
+        "de": "Dienstkonten",
+        "fr": "Comptes de service"
+      },
+      "path": "/auth/admin/#/services",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Audit log",
+        "pl": "Dziennik zdarzeń",
+        "hi": "ऑडिट लॉग",
+        "de": "Prüfprotokoll",
+        "fr": "Journal d'audit"
+      },
+      "path": "/auth/admin/#/audit",
+      "permission": "auth:admin"
+    },
+    {
+      "label": {
+        "en": "Status",
+        "pl": "Stan",
+        "hi": "स्थिति",
+        "de": "Status",
+        "fr": "État"
+      },
+      "path": "/auth/admin/#/status",
+      "permission": "auth:admin"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "auth:admin",
+      "description": {
+        "en": "Manage roles, groups and grants, see where anyone's permissions come from, and end anyone's sessions — control over who may do what in every worker.",
+        "pl": "Zarządzanie rolami, grupami i nadaniami, podgląd, skąd pochodzą czyjekolwiek uprawnienia, i kończenie czyichkolwiek sesji — kontrola nad tym, kto co może w każdym workerze.",
+        "hi": "भूमिकाएँ, समूह और अनुमतियाँ देना प्रबंधित करना, किसी की भी अनुमतियाँ कहाँ से आती हैं यह देखना, और किसी के भी सेशन समाप्त करना — हर वर्कर में कौन क्या कर सकता है, इस पर नियंत्रण।",
+        "de": "Rollen, Gruppen und Zuweisungen verwalten, sehen, woher die Berechtigungen einer Person stammen, und die Sitzungen jeder Person beenden – die Kontrolle darüber, wer in jedem Worker was darf.",
+        "fr": "Gérer les rôles, les groupes et les attributions, voir d'où viennent les autorisations de chacun et mettre fin aux sessions de n'importe qui — le contrôle de qui peut faire quoi dans chaque worker."
+      }
+    },
+    {
+      "name": "auth:invite",
+      "description": {
+        "en": "Invite people to create an account, with roles and groups no wider than one's own.",
+        "pl": "Zapraszanie osób do założenia konta, z rolami i grupami nie szerszymi niż własne.",
+        "hi": "लोगों को खाता बनाने के लिए आमंत्रित करना, ऐसी भूमिकाओं और समूहों के साथ जो अपनी भूमिकाओं से अधिक न हों।",
+        "de": "Personen zur Kontoerstellung einladen, mit Rollen und Gruppen, die nicht weiter reichen als die eigenen.",
+        "fr": "Inviter des personnes à créer un compte, avec des rôles et des groupes qui ne dépassent pas les siens."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/auth/module",
+    "summary": "/api/auth/module/summary"
+  },
+  "disable": {
+    "en": "Remove workers/auth from the workers: list in .ssg.yaml and deploy the site again, after switching every worker that uses it back to Cloudflare Access or its password. Accounts and sessions stay in the D1 database until you delete it.",
+    "pl": "Usuń workers/auth z listy workers: w .ssg.yaml i wdróż stronę ponownie, po przełączeniu każdego workera, który z niego korzysta, z powrotem na Cloudflare Access albo jego hasło. Konta i sesje zostają w bazie D1, dopóki jej nie usuniesz.",
+    "hi": "जो वर्कर इसका उपयोग करते हैं उन्हें पहले Cloudflare Access या उनके पासवर्ड पर वापस लाएँ, फिर workers/auth को .ssg.yaml की workers: सूची से हटाएँ और साइट फिर से डिप्लॉय करें। खाते और सेशन D1 डेटाबेस में तब तक रहते हैं जब तक आप उसे मिटा नहीं देते।",
+    "de": "Stellen Sie zuerst jeden Worker, der ihn nutzt, wieder auf Cloudflare Access oder sein Passwort um, entfernen Sie dann workers/auth aus der workers:-Liste in .ssg.yaml und veröffentlichen Sie die Website neu. Konten und Sitzungen bleiben in der D1-Datenbank, bis Sie diese löschen.",
+    "fr": "Repassez d'abord chaque worker qui l'utilise sur Cloudflare Access ou sur son mot de passe, puis retirez workers/auth de la liste workers: dans .ssg.yaml et redéployez le site. Les comptes et les sessions restent dans la base D1 jusqu'à ce que vous la supprimiez."
+  }
+}

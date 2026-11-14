@@ -1,0 +1,7 @@
+/* A panel's own CSS, deliberately rude: none of it may reach the shared bar. */
+body { margin: 0; font-family: Georgia, serif; background: #fafafa; color: #212121; }
+header, main { padding: 16px 24px; }
+h1 { margin: 0; font-size: 1.8rem; }
+a { color: #b71c1c; font-size: 1.2rem; text-transform: uppercase; }
+nav { border: 4px dashed #6a1b9a; padding: 12px; }
+button { background: #ffeb3b; border: 3px solid #000000; padding: 12px 24px; font-size: 1.1rem; }

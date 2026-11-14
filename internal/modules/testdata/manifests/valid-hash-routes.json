@@ -1,0 +1,70 @@
+{
+  "manifest": {
+    "id": "example",
+    "contract": 1,
+    "version": "1.0.0",
+    "kind": "worker",
+    "title": {
+      "en": "Example",
+      "pl": "Example",
+      "hi": "Example",
+      "de": "Example",
+      "fr": "Example"
+    },
+    "description": {
+      "en": "An example module.",
+      "pl": "An example module.",
+      "hi": "An example module.",
+      "de": "An example module.",
+      "fr": "An example module."
+    },
+    "panel": "/",
+    "nav": [
+      {
+        "label": {
+          "en": "Overview",
+          "pl": "Overview",
+          "hi": "Overview",
+          "de": "Overview",
+          "fr": "Overview"
+        },
+        "path": "/#/",
+        "permission": "example:read"
+      },
+      {
+        "label": {
+          "en": "Campaigns",
+          "pl": "Campaigns",
+          "hi": "Campaigns",
+          "de": "Campaigns",
+          "fr": "Campaigns"
+        },
+        "path": "/#/campaigns?tab=1&x=y",
+        "permission": "example:read"
+      }
+    ],
+    "permissions": [
+      {
+        "name": "example:read",
+        "description": {
+          "en": "Read.",
+          "pl": "Read.",
+          "hi": "Read.",
+          "de": "Read.",
+          "fr": "Read."
+        }
+      }
+    ],
+    "endpoints": {
+      "manifest": "/api/example/module"
+    },
+    "disable": {
+      "en": "Remove it.",
+      "pl": "Remove it.",
+      "hi": "Remove it.",
+      "de": "Remove it.",
+      "fr": "Remove it."
+    }
+  },
+  "errors": []
+}

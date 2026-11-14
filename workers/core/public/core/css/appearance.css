@@ -1,0 +1,48 @@
+/* The Appearance view (js/views/appearance.js). Swatches carry their colour
+ * as an SVG fill; everything else uses the tokens, so the samples show the
+ * scheme in use now. */
+
+.back { margin: 0 0 6px; }
+.colours li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.swatch { width: 40px; height: 24px; flex: none; vertical-align: middle; }
+.swatch.pair { width: 56px; height: 32px; }
+.swatch rect:first-child { stroke: var(--control); stroke-width: 1; }
+
+.logos { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--gap); }
+.logo-box { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); min-width: 0; }
+/* Fixed backgrounds: the logo is previewed on what it will really sit on. */
+.logo-box.on-light { background: #ffffff; color: #3e2723; }
+.logo-box.on-dark { background: #1e1e1e; color: #efebe9; }
+.logo-box.on-bar { background: var(--nav-bg); color: var(--on-nav); }
+.brand-logo { display: block; height: 32px; width: auto; max-width: 160px; object-fit: contain; object-position: left center; }
+.logo-where { font-size: .9rem; font-weight: 600; }
+
+.samples { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
+.field { display: inline-flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.field input { font: inherit; font-weight: 400; color: var(--text); background: var(--surface); border: 1px solid var(--control); border-radius: var(--radius); min-height: 40px; padding: 7px 10px; width: min(100%, 16em); }
+
+.sample-chart { max-width: 560px; }
+.sample-chart .series .line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.sample-chart .s1 .line, .key.s1 .line { stroke: var(--c1); }
+.sample-chart .s1 .mark, .key.s1 .mark { fill: var(--c1); stroke: var(--surface); stroke-width: 1.5; }
+.sample-chart .s2 .line, .key.s2 .line { stroke: var(--c2); stroke-dasharray: 7 5; }
+.sample-chart .s2 .mark, .key.s2 .mark { fill: var(--c2); stroke: var(--surface); stroke-width: 1.5; }
+.key .line { stroke-width: 2.5; }
+.sample-chart .end-label { font-weight: 700; fill: var(--text); }
+.legend { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.key { width: 28px; height: 10px; }
+
+table.contrast td, table.contrast th { vertical-align: middle; }
+table.contrast tr.fails { background: var(--surface-sunk); }
+
+.font-row { margin-bottom: 12px; }
+.font-sample { font-size: 1.3rem; margin-bottom: 4px; }
+.font-sample.font-display { font-family: var(--font-display); }
+.font-sample.font-ui { font-family: var(--font-ui); }
+pre.example { background: var(--surface-sunk); padding: 12px 14px; border-radius: var(--radius); overflow-x: auto; font-family: var(--font-mono); }
+
+@media (forced-colors: active) {
+  .sample-chart .s1 .line, .sample-chart .s2 .line, .key .line { stroke: CanvasText; }
+  .sample-chart .mark, .key .mark { fill: CanvasText; }
+}

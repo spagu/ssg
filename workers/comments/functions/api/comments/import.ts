@@ -4,13 +4,15 @@
 // The canonical target every migration converts into: export your old comment
 // system (or a spreadsheet) to this normalised JSON shape and post it. No
 // captcha and no spam check: this is a trusted admin operation behind the same
-// Basic-auth gate as moderation.
+// gate as moderation (requireAdmin); in auth mode it needs comments:import, and
+// an import that adds rows is recorded with its actor (_events.ts).
 //
 // Idempotent: each row's id is a hash of (url, author, body, created_at) and the
 // insert is INSERT OR IGNORE, so re-posting the same export inserts nothing new
 // instead of duplicating — a failed import is safe to retry.
 
 import { Env, json, sha256hex, normaliseURL, requireAdmin } from "./_lib";
+import { recordBulk } from "./_events";
 import { ensureSchema } from "./_schema";
 
 // One imported comment. Only url/author/body are required; the rest default.
@@ -44,8 +46,8 @@ function isoOrNow(raw: unknown): string {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = await requireAdmin(request, env);
-  if (denied) return denied;
+  const admin = await requireAdmin(request, env, "import");
+  if (admin instanceof Response) return admin;
   if (!env.COMMENTS_DB) return json({ error: "comments not configured" }, 503);
   await ensureSchema(env);
 
@@ -116,6 +118,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const results = await env.COMMENTS_DB.batch(rows.slice(i, i + BATCH));
     for (const r of results) imported += r.meta.changes || 0;
   }
+  await recordBulk(env, admin, "import", imported);
 
   return json({
     ok: true,

@@ -93,3 +93,9 @@ for i in $(seq 1 25); do curl -s -o /dev/null -w '%{http_code}\n' \
 
 With `RATE_LIMIT_MAX = "20"` the first twenty answer normally and the rest
 answer `429`.
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, and how to switch it off. It is a description only — no secrets, no configuration.
+
+There is no admin surface to put a manifest endpoint behind, so the template ships the file only; the build reads it into the module registry when the site has the [`core`](../core/README.md) worker.

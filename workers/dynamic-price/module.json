@@ -1,0 +1,31 @@
+{
+  "id": "dynamic-price",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Live prices",
+    "pl": "Aktualne ceny",
+    "hi": "लाइव कीमतें",
+    "de": "Aktuelle Preise",
+    "fr": "Prix en direct"
+  },
+  "description": {
+    "en": "Serves current prices from a KV namespace or a pricing API, so a static page shows today's amounts without a rebuild.",
+    "pl": "Podaje aktualne ceny z przestrzeni KV albo z API cennika, więc statyczna strona pokazuje dzisiejsze kwoty bez przebudowy.",
+    "hi": "KV नेमस्पेस या किसी प्राइसिंग API से मौजूदा कीमतें देता है, ताकि स्टैटिक पेज बिना दोबारा बिल्ड किए आज की रकम दिखाए।",
+    "de": "Liefert aktuelle Preise aus einem KV-Namespace oder einer Preis-API, damit eine statische Seite ohne Neubau die heutigen Beträge zeigt.",
+    "fr": "Fournit les prix actuels depuis un espace KV ou une API de tarification, pour qu'une page statique affiche les montants du jour sans reconstruction."
+  },
+  "panel": null,
+  "nav": [],
+  "permissions": [],
+  "endpoints": {},
+  "disable": {
+    "en": "Remove workers/dynamic-price from the workers: list in .ssg.yaml, take price.js out of your pages and deploy the site again. The prices stay in the KV namespace until you delete it.",
+    "pl": "Usuń workers/dynamic-price z listy workers: w .ssg.yaml, wyjmij price.js ze stron i wdróż stronę ponownie. Ceny zostają w przestrzeni KV, dopóki jej nie usuniesz.",
+    "hi": "workers/dynamic-price को .ssg.yaml की workers: सूची से हटाएँ, अपने पेजों से price.js निकालें और साइट फिर से डिप्लॉय करें। कीमतें KV नेमस्पेस में तब तक रहती हैं जब तक आप उसे मिटा नहीं देते।",
+    "de": "Entfernen Sie workers/dynamic-price aus der workers:-Liste in .ssg.yaml, nehmen Sie price.js aus Ihren Seiten und veröffentlichen Sie die Website neu. Die Preise bleiben im KV-Namespace, bis Sie diesen löschen.",
+    "fr": "Retirez workers/dynamic-price de la liste workers: dans .ssg.yaml, enlevez price.js de vos pages et redéployez le site. Les prix restent dans l'espace KV jusqu'à ce que vous le supprimiez."
+  }
+}

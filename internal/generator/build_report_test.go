@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/models"
 )
 
@@ -133,5 +134,13 @@ func TestBuildReportIsWorldReadable(t *testing.T) {
 		if info.IsDir() && info.Mode().Perm()&0o001 == 0 {
 			t.Errorf("%s is %v: others cannot enter it", p, info.Mode().Perm())
 		}
+	}
+}
+
+// config.DefaultBuildReport is what `build_report: true` stands for; it must
+// name the same file as the bare --build-report flag (#421).
+func TestDefaultBuildReportMatchesConfig(t *testing.T) {
+	if DefaultBuildReport != config.DefaultBuildReport {
+		t.Fatalf("generator %q != config %q", DefaultBuildReport, config.DefaultBuildReport)
 	}
 }

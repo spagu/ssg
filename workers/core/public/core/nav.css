@@ -1,0 +1,89 @@
+/* The shared admin bar, inside <ssg-admin-nav>'s shadow root (nav.js).
+ *
+ * Every colour, font and size is a custom property read from the host page —
+ * custom properties inherit into a shadow root — with this bar's own default
+ * after the comma, so the bar looks right on a panel that defines none of
+ * them. A panel (or GO-152's /core/theme.css) restyles it by setting:
+ *   --nav-bg, --on-nav, --nav-muted, --nav-hover, --nav-control,
+ *   --nav-current, --font-ui, --radius
+ * The defaults equal /core/tokens.css. The bar is not sticky, so it can never
+ * cover a focused element (WCAG 2.4.11), and every target is at least 40px. */
+
+:host { display: block; }
+:host([hidden]) { display: none; }
+
+* { box-sizing: border-box; }
+
+.bar {
+  background: var(--nav-bg, #004d40);
+  color: var(--on-nav, #ffffff);
+  font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", "Noto Sans", "Noto Sans Devanagari", sans-serif);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 6px clamp(12px, 3vw, 32px);
+}
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+
+a, button { color: inherit; font: inherit; }
+
+.brand {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  font-weight: 700; text-decoration: none; min-width: 0;
+}
+.brand .name { overflow-wrap: anywhere; }
+/* The logo's box: 32px tall, at most 160px wide, the image scaled to fit
+ * whatever its shape (a square mark, a wide wordmark, an SVG without a size). */
+.logo { display: block; height: 32px; width: auto; max-width: 160px; object-fit: contain; object-position: left center; }
+
+.menu { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-width: 0; }
+
+.links { list-style: none; display: flex; flex-wrap: wrap; gap: 2px; margin: 0; padding: 0; }
+.links a {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 12px;
+  border-radius: var(--radius, 6px); text-decoration: none; font-weight: 500;
+  border-bottom: 3px solid transparent;
+}
+.links a:hover { background: var(--nav-hover, #00695c); }
+/* The current panel: bold, an underline bar — never colour alone. */
+.links a[aria-current="page"] { font-weight: 700; border-bottom-color: var(--nav-current, #ffab91); border-radius: var(--radius, 6px) var(--radius, 6px) 0 0; }
+
+.who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--nav-muted, #b2dfdb); }
+.user { overflow-wrap: anywhere; }
+.out { margin: 0; }
+
+button {
+  min-height: 40px; padding: 6px 14px; cursor: pointer; font-weight: 600;
+  background: transparent; border: 1px solid var(--nav-control, #80cbc4); border-radius: var(--radius, 6px);
+}
+button:hover { background: var(--nav-hover, #00695c); }
+
+:focus-visible { outline: 3px solid var(--nav-current, #ffab91); outline-offset: 2px; }
+
+.toggle { display: none; }
+.toggle::after { content: "▾"; margin-left: 6px; }
+.toggle[aria-expanded="true"]::after { content: "▴"; }
+
+/* Narrow screens: the module links fold behind a disclosure button. */
+@media (max-width: 720px) {
+  .bar { display: block; padding: 4px 16px; }
+  .toggle { display: inline-flex; align-items: center; flex: none; }
+  .menu { display: none; padding: 6px 0 10px; }
+  .menu.open { display: grid; gap: 8px; justify-content: stretch; }
+  .links { display: grid; }
+  .links a { display: flex; }
+  .links a[aria-current="page"] { border-bottom: 0; border-left: 4px solid var(--nav-current, #ffab91); border-radius: 0 var(--radius, 6px) var(--radius, 6px) 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+@media (forced-colors: active) {
+  .bar { border-bottom: 1px solid CanvasText; }
+  .links a[aria-current="page"] { border-color: Highlight; }
+}

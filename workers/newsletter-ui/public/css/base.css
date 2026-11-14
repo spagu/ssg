@@ -25,7 +25,7 @@ p { margin: 0 0 .75em; }
 code, pre, .mono { font-family: var(--font-mono); font-size: .92em; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
-a { color: var(--primary); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a { color: var(--link); text-underline-offset: .18em; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
 
 /* One focus style for everything: 3px ring in a colour reserved for focus,
@@ -47,7 +47,7 @@ h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, main[tabindex="-1"]:focus { ou
 
 .skip {
   position: absolute; left: 8px; top: -60px; z-index: 50;
-  background: var(--surface); color: var(--primary); padding: 10px 14px; border-radius: var(--radius);
+  background: var(--surface); color: var(--link); padding: 10px 14px; border-radius: var(--radius);
   border: 2px solid var(--primary); font-weight: 600;
 }
 .skip:focus { top: 8px; }

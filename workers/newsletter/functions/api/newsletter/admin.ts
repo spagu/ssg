@@ -3,17 +3,17 @@
 //   GET  /api/newsletter/admin?format=csv[&status=…]  subscriber export
 //   POST /api/newsletter/admin {"action":"purge"}     run the retention purge now
 //
-// Behind HTTP Basic (NEWSLETTER_ADMIN_PASSWORD) or Cloudflare Access
-// (NEWSLETTER_ACCESS_TEAM + NEWSLETTER_ACCESS_AUD), exactly like the comments
-// worker's moderation endpoints.
+// Behind Cloudflare Access (NEWSLETTER_ACCESS_TEAM + NEWSLETTER_ACCESS_AUD),
+// an `auth` session (NEWSLETTER_AUTH_*, GO-137) or HTTP Basic
+// (NEWSLETTER_ADMIN_PASSWORD) — _lib.ts requireAdmin. With `auth` the counts
+// need newsletter:read, the export newsletter:export, the purge
+// newsletter:settings.
 
-import { json, requireAdmin } from "./_lib";
+import { EXPORT, READ, SETTINGS, json, requireAdmin } from "./_lib";
 import type { Env } from "./_lib";
 import { ensureSchema } from "./_schema";
-import { purgeExpired } from "./_store";
+import { STATUSES, purgeExpired, statusCounts } from "./_store";
 import { toCSV } from "./_csv";
-
-const STATUSES = ["pending", "confirmed", "unsubscribed"];
 
 // The export's columns. unsubscribe_url is what a mail sender puts in each
 // message's List-Unsubscribe header (see the README); the IP / User-Agent
@@ -24,30 +24,16 @@ const COLUMNS = [
 ];
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = await requireAdmin(request, env);
+  const url = new URL(request.url);
+  const csv = url.searchParams.get("format") === "csv";
+  const denied = await requireAdmin(request, env, csv ? EXPORT : READ);
   if (denied) return denied;
   if (!env.NEWSLETTER_DB) return json({ error: "newsletter not configured" }, 503);
   await ensureSchema(env);
 
-  const url = new URL(request.url);
-  if (url.searchParams.get("format") === "csv") return exportCSV(env, url);
+  if (csv) return exportCSV(env, url);
 
-  const { results } = await env.NEWSLETTER_DB.prepare(
-    `SELECT status, COALESCE(language, '') AS language, COUNT(*) AS n
-       FROM subscribers GROUP BY status, language`,
-  ).all<{ status: string; language: string; n: number }>();
-
-  const byStatus: Record<string, number> = Object.fromEntries(STATUSES.map((s) => [s, 0]));
-  const byLanguage: Record<string, Record<string, number>> = {};
-  let total = 0;
-  for (const r of results) {
-    total += r.n;
-    byStatus[r.status] = (byStatus[r.status] || 0) + r.n;
-    const lang = r.language || "unknown";
-    byLanguage[lang] ??= Object.fromEntries(STATUSES.map((s) => [s, 0]));
-    byLanguage[lang][r.status] = (byLanguage[lang][r.status] || 0) + r.n;
-  }
-  return json({ total, byStatus, byLanguage });
+  return json(await statusCounts(env));
 };
 
 // exportCSV builds the file in memory, which is fine for lists of tens of thousands.
@@ -78,7 +64,7 @@ async function exportCSV(env: Env, url: URL): Promise<Response> {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const denied = await requireAdmin(request, env);
+  const denied = await requireAdmin(request, env, SETTINGS);
   if (denied) return denied;
   if (!env.NEWSLETTER_DB) return json({ error: "newsletter not configured" }, 503);
   await ensureSchema(env);

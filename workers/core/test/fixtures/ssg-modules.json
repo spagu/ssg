@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "modules": [
+    {
+      "id": "shop",
+      "kind": null,
+      "base": "/shop",
+      "bundled": false,
+      "contract": null,
+      "version": null,
+      "manifest": null
+    }
+  ],
+  "available": [
+    { "id": "contact-form", "kind": "pages-function", "title": "Contact form" }
+  ],
+  "theme": null
+}

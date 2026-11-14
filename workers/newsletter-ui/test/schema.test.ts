@@ -21,7 +21,7 @@ test("ensureSchema creates the own tables and records the latest version", async
   const d1 = fakeD1();
   await ensureSchema({ NEWSLETTER_DB: d1 } as never);
   assert.deepEqual(tablesOf(d1), [
-    "auth_attempts", "campaign_sends", "campaigns", "click_links", "hook_events", "schema_meta",
+    "admin_audit", "auth_attempts", "campaign_sends", "campaigns", "click_links", "hook_events", "schema_meta",
     "send_batches", "send_dead_letters", "send_plans", "send_rate", "settings", "soft_bounces", "suppressions",
   ]);
   assert.equal(await schemaVersion({ NEWSLETTER_DB: d1 } as never), MIGRATIONS[MIGRATIONS.length - 1].version);

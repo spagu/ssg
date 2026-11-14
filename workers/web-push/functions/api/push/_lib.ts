@@ -8,6 +8,12 @@ export interface Env {
   PUSH_VAPID_PRIVATE_KEY?: string; // secret: base64url, the 32-byte private scalar
   PUSH_SUBJECT?: string; // VAPID contact: "mailto:news@example.com" or an https: URL
   PUSH_KEY?: string; // secret: Bearer token for POST /api/push/notify
+  // GO-141, optional: accept service tokens from the `auth` worker on notify (_auth.ts).
+  PUSH_AUTH_ISSUER?: string;
+  PUSH_AUTH_AUDIENCE?: string;
+  PUSH_AUTH_PUBLIC_KEY?: string;
+  PUSH_AUTH_JWKS_URL?: string;
+  PUSH_AUTH_LOGIN_URL?: string;
   PUSH_FEED_URL?: string; // the feed to announce; default /feed.xml on this origin
   PUSH_MAX_ITEMS?: string; // most items announced per notify call; default 3
   PUSH_TTL?: string; // seconds a push service keeps an undelivered message; default 86400

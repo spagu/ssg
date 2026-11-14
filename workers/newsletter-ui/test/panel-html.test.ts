@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import { handleFetch } from "../src/app.ts";
 import { ensureSchema } from "../src/schema.ts";
+import { CSP } from "../src/lib.ts";
 import { PASSWORD, fakeCtx, makeEnv, req } from "./fakes.ts";
 
 const PUBLIC = new URL("../public/", import.meta.url).pathname;
@@ -56,9 +57,20 @@ test("index.html: nothing the CSP blocks, nothing from another origin", () => {
   }
 });
 
+// GO-146: two references leave this template on purpose — the shared admin
+// bar and the site theme, served by the `core` worker from the site root of
+// the same host (another worker's files, so not in public/). Only these two,
+// only as site-root paths; everything else must exist here.
+const FROM_CORE = ["/core/theme.css", "/core/nav.js"];
+
 test("every file a page, stylesheet or module refers to exists", () => {
   const refs: [string, string][] = [];
-  for (const [, ref] of html.matchAll(/(?:src|href)="([^"#][^"]*)"/g)) refs.push([PUBLIC, ref]);
+  const fromCore: string[] = [];
+  for (const [, ref] of html.matchAll(/(?:src|href)="([^"#][^"]*)"/g)) {
+    if (ref.startsWith("/")) fromCore.push(ref);
+    else refs.push([PUBLIC, ref]);
+  }
+  assert.deepEqual(fromCore, FROM_CORE, "the only absolute references are core's bar and theme");
   for (const file of files(PUBLIC).filter((f) => f.endsWith(".js"))) {
     const text = readFileSync(file, "utf8");
     for (const [, ref] of text.matchAll(/(?:from|import\()\s*["']([^"']+)["']/g)) refs.push([dirname(file), ref]);
@@ -67,6 +79,22 @@ test("every file a page, stylesheet or module refers to exists", () => {
   }
   assert.ok(refs.length > 40);
   for (const [base, ref] of refs) assert.ok(existsSync(normalize(join(base, ref))), `${ref} (from ${base})`);
+});
+
+test("GO-146: core's files exist where the panel expects them (in this repository)", { skip: existsSync(new URL("../../core/public/core/", import.meta.url)) ? false : "workers/core is not next to this copy" }, () => {
+  for (const ref of FROM_CORE) assert.ok(existsSync(new URL(`../../core/public${ref}`, import.meta.url)), ref);
+});
+
+test("GO-146: the shared bar and theme are adopted as core documents, optional and in order", () => {
+  // The theme right after the panel's own tokens (so it overrides them) and
+  // before every stylesheet that uses them.
+  const sheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)].map((m) => m[1]);
+  assert.deepEqual(sheets.slice(0, 3), ["css/tokens.css", "/core/theme.css", "css/base.css"]);
+  // The one-line adoption, a module script (deferred: it never blocks the
+  // panel), right after the skip link so "Skip to content" passes both bars.
+  assert.match(html, /<a class="skip" id="skip" href="#main">[^<]+<\/a>\s*(?:<!--[\s\S]*?-->\s*)?<script type="module" src="\/core\/nav\.js"><\/script><ssg-admin-nav current="newsletter-ui"><\/ssg-admin-nav>\s*<div class="shell">/);
+  // Two navigation landmarks, two names: the bar's is "Site administration".
+  assert.match(html, /<nav id="nav" aria-label="Newsletter sections">/);
 });
 
 test("the worker serves the panel and its files behind auth, with the CSP", async () => {
@@ -85,6 +113,9 @@ test("the worker serves the panel and its files behind auth, with the CSP", asyn
   assert.equal(page.status, 200);
   assert.match(page.headers.get("content-security-policy") ?? "", /script-src 'self'/);
   assert.doesNotMatch(page.headers.get("content-security-policy") ?? "", /unsafe-inline/);
+  // GO-146: the bar comes from /core/ on the same host — 'self' covers the
+  // script, its stylesheet and its request; nothing was loosened for it.
+  assert.equal(CSP, "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
   assert.match(await page.text(), /js\/main\.js/);
   for (const path of ["/js/main.js", "/css/tokens.css", "/img/mark.svg", "/js/strings/hi.js"]) assert.equal((await get(path, PASSWORD)).status, 200, path);
 });

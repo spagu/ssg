@@ -92,7 +92,7 @@ export default async function campaigns(app, root, route) {
   mount(root, [
     pageHead(app, t("camps.title"), {
       lead: t("camps.lead"),
-      actions: [h("a", { class: "btn btn-primary", href: href("campaignNew") }, t("camps.new")), btn(t("posts.button"), postPicker(app, picker))],
+      actions: [app.can("newCampaign") ? h("a", { class: "btn btn-primary", href: href("campaignNew") }, t("camps.new")) : null, app.can("fromPost") ? btn(t("posts.button"), postPicker(app, picker)) : null],
     }),
     picker.node,
     h(

@@ -1,7 +1,10 @@
 // Shared helpers for the comments worker. A leading underscore keeps this file
 // out of the Pages route table — it is imported, never served.
 
-import { verifyAccess } from "./_access";
+import { accessIdentity } from "./_access";
+import { authAdmin, csrfProblem, granted } from "./_admin-auth";
+import type { Admin, Operation } from "./_admin-auth";
+import { configFrom } from "./_session-verifier";
 
 export interface Env {
   COMMENTS_DB: D1Database;
@@ -10,6 +13,12 @@ export interface Env {
   COMMENTS_ADMIN_PASSWORD?: string; // moderation via HTTP Basic (fallback when Access is not set)
   COMMENTS_ACCESS_TEAM?: string; // Cloudflare Access team ("myteam" or "myteam.cloudflareaccess.com")
   COMMENTS_ACCESS_AUD?: string; // Cloudflare Access application AUD tag
+  // Sessions of the `auth` worker (GO-136, workers/auth/docs/CONTRACT.md); any one set turns the mode on.
+  COMMENTS_AUTH_ISSUER?: string; // the `iss` to accept, e.g. https://example.com/api/auth
+  COMMENTS_AUTH_LOGIN_URL?: string; // where a moderator without a session signs in, e.g. /auth/login
+  COMMENTS_AUTH_PUBLIC_KEY?: string; // auth's public JWK or JWKS (recommended) — or:
+  COMMENTS_AUTH_JWKS_URL?: string; // /api/auth/jwks or a same-origin https:// URL
+  COMMENTS_AUTH_AUDIENCE?: string; // the `aud` to accept; default the request's host
   COMMENTS_IP_SALT?: string;
   COMMENTS_ORDER?: string; // "newest" | "oldest"
   COMMENTS_CLOSE_AFTER_DAYS?: string; // auto-close a thread after N days of inactivity (0/unset = never)
@@ -75,11 +84,13 @@ export async function verifyTurnstile(secret: string, token: string, ip: string 
 // "/\" (and any backslash) closes the open-redirect where a browser reads
 // "/\evil.com" as "//evil.com" → https://evil.com/ when a moderator clicks the
 // stored link in the admin panel.
+// Control characters and spaces are refused too (security review SR-11): URL
+// parsers drop tabs and newlines, so "/\t/evil.example" is "//evil.example".
 export function normaliseURL(raw: unknown): string | null {
-  if (typeof raw !== "string" || !raw.startsWith("/") || raw.includes("\\")) return null;
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.includes("\\") || /[\u0000-\u0020\u007f]/.test(raw)) return null;
   if (raw.startsWith("//")) return null;
-  const clean = raw.split(/[?#]/)[0].slice(0, 512);
-  return clean || null;
+  // Never empty: what is left still starts with the "/" checked above.
+  return raw.split(/[?#]/)[0].slice(0, 512);
 }
 
 // Auto-close window in milliseconds (0 = never), from COMMENTS_CLOSE_AFTER_DAYS.
@@ -150,16 +161,35 @@ export async function isSpam(env: Env, author: string, email: string, body: stri
   return heuristicSpam(author, body) >= 0.7;
 }
 
-// requireAdmin gates the moderation endpoints. Two mutually-exclusive modes:
-//   - Cloudflare Access (recommended) when COMMENTS_ACCESS_TEAM + AUD are set:
-//     the panel sits behind your SSO and Access forwards a signed JWT we verify;
-//     there is no shared password to store or rotate.
+// requireAdmin gates the moderation endpoints. Three modes, the first that is
+// configured wins (workers/auth/docs/CONTRACT.md, "Admin modes"):
+//   - Cloudflare Access when COMMENTS_ACCESS_TEAM + AUD are set: the panel sits
+//     behind your SSO and Access forwards a signed JWT we verify;
+//   - auth when any COMMENTS_AUTH_* is set: the `auth` worker's session, with
+//     per-operation permissions (_admin-auth.ts). A half-configured set is a
+//     503 naming what is missing — never a fall-through to the password, and
+//     the password is not accepted while this mode is on (it would let anyone
+//     who knows it past every permission, unrecorded);
 //   - HTTP Basic with COMMENTS_ADMIN_PASSWORD otherwise.
-// Returns null when authorised, or a Response to return otherwise.
-export async function requireAdmin(request: Request, env: Env): Promise<Response | null> {
+// Returns who passed (Admin: mode, user, perms, actor) or the Response to send.
+// `op` checks that operation's permission in auth mode; Access and the
+// password allow every operation, as before.
+export async function requireAdmin(request: Request, env: Env, op?: Operation): Promise<Response | Admin> {
   if (env.COMMENTS_ACCESS_TEAM && env.COMMENTS_ACCESS_AUD) {
-    return verifyAccess(request, env);
+    const who = await accessIdentity(request, env);
+    if (who instanceof Response) return who;
+    // Access lets through any request carrying a valid CF_Authorization
+    // cookie, which the browser attaches by itself — a cross-site or sibling
+    // form included — so a write needs the same CSRF proof as auth mode
+    // (security review SR-10).
+    if (!["GET", "HEAD"].includes(request.method)) {
+      const problem = csrfProblem(request);
+      if (problem) return json({ error: problem }, 403);
+    }
+    return granted("access", who.email);
   }
+  const auth = configFrom(env, "COMMENTS");
+  if (auth) return authAdmin(request, auth, op);
   const expected = env.COMMENTS_ADMIN_PASSWORD;
   if (!expected) return json({ error: "moderation not configured" }, 503);
   const header = request.headers.get("authorization") || "";
@@ -167,7 +197,7 @@ export async function requireAdmin(request: Request, env: Env): Promise<Response
     try {
       const decoded = atob(header.slice(6));
       const pass = decoded.slice(decoded.indexOf(":") + 1);
-      if (timingSafeEqual(pass, expected)) return null;
+      if (timingSafeEqual(pass, expected)) return granted("password", null);
     } catch {
       /* malformed header falls through to a 401 */
     }

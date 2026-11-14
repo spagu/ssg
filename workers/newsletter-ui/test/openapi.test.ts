@@ -53,3 +53,36 @@ test("operations(): reads only paths, ignores schema properties named like metho
   const text = "paths:\n  /a/{id}:\n    get:\n    post:\ncomponents:\n  /b:\n    get:\n";
   assert.deepEqual(operations(text), ["GET /a/:id", "POST /a/:id"]);
 });
+
+// permissions(): "METHOD /path" → the operation's x-permission, as written
+// ("newsletter:read", "[newsletter:import, newsletter:suppress]", "session").
+export function permissions(text: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let [inPaths, path, op] = [false, "", ""];
+  for (const line of text.split("\n")) {
+    if (/^\S/.test(line)) inPaths = line === "paths:";
+    if (!inPaths) continue;
+    const p = /^ {2}(\/\S*):\s*$/.exec(line);
+    if (p) path = p[1].replace(/\{([A-Za-z]+)\}/g, ":$1");
+    const m = /^ {4}(get|put|post|patch|delete|head|options):\s*$/.exec(line);
+    if (m) op = `${m[1].toUpperCase()} ${path}`;
+    const x = /^ {6}x-permission: (.+)$/.exec(line);
+    if (x) out.set(op, x[1].trim());
+  }
+  return out;
+}
+
+test("openapi.yaml: each operation's x-permission is the registry's (GO-137)", () => {
+  const documented = permissions(yaml);
+  for (const r of ROUTES) {
+    const want = typeof r.permission === "string" ? r.permission : `[${r.permission.join(", ")}]`;
+    assert.equal(documented.get(`${r.method} ${r.path}`), want, `${r.method} ${r.path}`);
+  }
+  assert.equal(documented.size, ROUTES.length, "one x-permission per operation");
+  assert.match(yaml, /authSession:\n {6}type: apiKey\n {6}in: cookie\n {6}name: __Host-ssg-auth/);
+});
+
+test("permissions(): reads x-permission per operation, only under paths", () => {
+  const text = "paths:\n  /a:\n    get:\n      x-permission: newsletter:read\n    post:\n      x-permission: [a:b, c:d]\ncomponents:\n  /b:\n    get:\n      x-permission: x\n";
+  assert.deepEqual([...permissions(text)], [["GET /a", "newsletter:read"], ["POST /a", "[a:b, c:d]"]]);
+});

@@ -1338,6 +1338,7 @@ implemented.
 | `schema` | empty | — | Site-wide JSON-LD defaults merged into every page (e.g. a publisher) |
 | `schema_defaults` | empty | — | JSON-LD defaults per content section, so a section can carry an `@type` without every file repeating it |
 | `check_links` | empty | `--check-links[=warn\|strict]` | Validate internal links: `href`/`src` in HTML, and `url()`/`@import` in stylesheets, reported with the stylesheet and line |
+| `check_links_ignore` | `[]` | config only | Site paths the link check skips: an exact path (`/core/nav.js`) or a prefix ending in `/` (`/core/`). For references that are optional by design, such as a worker panel that loads the `core` worker's files when it is deployed |
 | `check_images` | empty | `--check-images[=warn\|strict\|strict-decorative]` | Report images with **no** `alt` attribute |
 | `check_meta` | empty | `--check-meta[=warn\|strict]` | Validate `<title>` and meta description on indexable pages |
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
@@ -1346,6 +1347,8 @@ implemented.
 | `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
 | `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
+| `check_admin_theme` | `warn` | config only | Report problems with `admin_theme`: a logo or font file not in the build output, a `tokens:` override that breaks a contrast or distinctness pair, `admin_theme` without a `core` worker. `off`, `warn` or `strict`. Invalid values are configuration errors regardless — see [the admin panels' look](#admin-panels-look) |
+| `check_modules` | `warn` | config only | Report problems with module manifests and `modules:` entries: an invalid or newer-contract `module.json`, duplicate ids, two modules on one panel path or nested base paths, an `id` that disagrees with its manifest, `modules:` without a `core` worker. `off`, `warn` or `strict`. Silent on a site with neither a `core` worker nor `modules:` — see [the module registry](#the-module-registry-modules) |
 | `check_api` | `""` | config only | Report documentation problems in `api_docs` entries: undocumented exports, dead `{@link}`s, unreadable code, broken OpenAPI `$ref`s and operations. `warn` or `strict` |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
@@ -1354,7 +1357,7 @@ implemented.
 | `content_schemas` | empty | — | Per-type frontmatter contracts, validated at build |
 | `strict` | `false` | `--strict` | Escalate schema violations, link checks and unparseable frontmatter to build failures |
 | `route_manifest` | `false` | `--route-manifest` | Write `routes.json` — every route and its metadata |
-| `build_report` | `` | `--build-report[=FILE]` | Write a JSON report of the build into the output directory: version, duration, pages and files written, content by type. A bare flag writes `build.json` |
+| `build_report` | `` | `--build-report[=FILE]` | Write a JSON report of the build into the output directory: version, duration, pages and files written, content by type. A bare flag writes `build.json`; so does `build_report: true` (`false` writes none) |
 | `profile` | `` | `--profile[=json]` | Report where the build's time went, with peak RSS and GC cycles; `json` also writes `build-profile.json` |
 | `profile_pprof` | `` | `--profile-pprof=DIR` | Also write `cpu.prof` and `heap.prof` for `go tool pprof` |
 | `lastmod_from_git` | `false` | `--lastmod-from-git` | Use Git commit dates in sitemap. Needs `git` on `PATH`; the snap cannot see it (see [CONTENT.md](CONTENT.md#dates)) |
@@ -3096,6 +3099,17 @@ Wires a Cloudflare Pages Function into the build for transactional endpoints
 (payments, forms, dynamic pricing, tracking). Scaffold one with `ssg new worker
 <template>`. Full guide: [WORKERS.md](WORKERS.md).
 
+A worker's `public/` files are copied to the output root after everything
+else the build writes. Since 1.9.9 (#420) a worker file landing on a file the
+build already wrote — a rendered page, a static file, a generated file such as
+a feed or the sitemap — stops the build and names both
+(`output collision at /core/index.html: worker "core" (public/core/index.html)
+and content/pages/core.md are both written there …`), as two pages at one
+address do: only you can say which the site should serve. A byte-identical
+file is not a clash, nor is the worker's own copy left by an earlier build in
+an output that is not cleaned. Two workers providing the same file is an error
+as before.
+
 ```yaml
 worker:
   dir: workers/stripe-checkout
@@ -3103,6 +3117,103 @@ worker:
   routes_include:
     - /api/*
 ```
+
+### The module registry (`modules`)
+
+| Key | Default | Notes |
+|---|---:|---|
+| `modules` | empty | Modules deployed outside this build (a standalone Worker such as `newsletter-ui`), for the `core` worker's registry |
+| `modules[].id` | — | The module's id, as in its `module.json`. Required |
+| `modules[].url` | — | The module's base path on the site's own host (`/newsletter-admin`). Required |
+| `modules[].dir` | empty | Where its `module.json` is, so the build reads and checks it; without it `core` asks the module for its manifest at runtime |
+| `check_modules` | `warn` | `off`, `warn` or `strict` (see the checks table) |
+
+When a worker in `workers:` has a `module.json` with `id: "core"`, the build
+writes a module registry for it: every bundled worker's manifest, the
+`modules:` entries, and the templates this ssg ships that the site does not
+use. Without such a worker nothing new is written and the output is the same
+as before. Details: [WORKER-MODULES.md](WORKER-MODULES.md#the-module-registry).
+
+```yaml
+modules:
+  - id: newsletter-ui
+    url: /newsletter-admin      # the module's base path on the same host
+    dir: workers/newsletter-ui  # optional: read title, navigation, permissions at build time
+```
+
+`url` must be a path on this host: a scheme, a host, `//`, `..`, a backslash,
+a query or a fragment stops the build with the file and the key
+(`.ssg.yaml: modules[0].url "https://…" must be a path on this site's host…`),
+and so does an `id` that is not a module id. Those are errors whatever
+`check_modules` says; the rest are findings under `check_modules`.
+
+### Admin panels' look
+
+The `admin_theme` key.
+
+| Key | Default | Notes |
+|---|---:|---|
+| `admin_theme` | empty | The site's look for the admin panels, served by the `core` worker. Absent: the panels look as shipped |
+| `admin_theme.name` | empty | Plain text, at most 80 characters, shown in the shared navigation instead of "Site admin" |
+| `admin_theme.logo` | empty | A `.svg`, `.png` or `.webp` file on the site's own host (`/img/logo.svg`); shown through `<img>` only, with the name as its alternative text |
+| `admin_theme.logo_dark` | empty | The same for dark backgrounds; the navigation bar (dark in both schemes) shows it when set |
+| `admin_theme.main` | empty | The brand's main colour, `#rgb` or `#rrggbb`: the navigation bar, primary buttons, the current menu item, the first chart series |
+| `admin_theme.accent` | empty | The accent: links, the focus ring, the current-page marker in the bar, the second chart series. Either colour alone derives the other |
+| `admin_theme.font` | empty | Font-family list for headings (`Georgia, serif`) |
+| `admin_theme.font_body` | empty | Font-family list for everything else |
+| `admin_theme.font_files` | empty | `@font-face` files: `family`, `src` (a `.woff2`, `.woff`, `.ttf` or `.otf` on this host), optional `weight` (`400`, `400 700`, `bold`) and `style` (`normal`, `italic`, `oblique`); at most 8 |
+| `admin_theme.tokens` | empty | Advanced: `light:` / `dark:` maps overriding single derived tokens (`primary`, `on-primary`, `primary-soft`, `on-primary-soft`, `link`, `focus`, `c1`–`c5`, `nav-bg`, `on-nav`, `nav-muted`, `nav-hover`, `nav-control`, `nav-current`) |
+| `check_admin_theme` | `warn` | `off`, `warn` or `strict`: a logo or font file missing from the output, an override that breaks a contrast pair, `admin_theme` without a `core` worker |
+
+```yaml
+admin_theme:
+  name: "Anna's Kitchen"
+  logo: /img/logo.svg
+  logo_dark: /img/logo-light-text.svg
+  main: "#1b3a4b"
+  accent: "#e07a5f"
+  font: "Georgia, serif"
+  font_body: '"Brand Sans", system-ui'
+  font_files:
+    - family: "Brand Sans"
+      src: /fonts/brand-sans.woff2
+      weight: "400 700"
+  tokens:
+    dark:
+      focus: "#ffcc80"
+```
+
+Four things to set, the rest is computed. From `main` and `accent` the build
+derives every colour token the panels use for the light and the dark scheme,
+so that text keeps 4.5:1 on its background (links in the accent colour
+included, on the page, on cards and on inset areas) and the focus ring, chart marks
+and the bar's edges 3:1 (WCAG 2.2), the focus ring stays apart from the
+primary colour and every two chart series stay apart. A brand colour that can
+serve its role is used exactly; one that cannot keeps its hue and moves to the
+nearest lightness that works, and the core worker's **Appearance** view
+(`/core/#appearance`) says where and why. Neutral backgrounds and text and the
+state colours (error, warning, success, info) are never themed — red always
+means an error. The result is written as `/core/theme.css` (over the empty file
+the `core` template ships) and as the module registry's `theme`
+([WORKER-MODULES.md](WORKER-MODULES.md#the-panels-look-theme)); panels pick it
+up by loading `/core/theme.css` after their own tokens. Pages visitors see
+(subscription confirmations, unsubscribing) are never themed.
+
+Every value is checked at build time, and one that cannot be used stops the
+build with the file and the key, whatever `check_admin_theme` says: a colour
+that is not opaque hex (an alpha channel is refused — a translucent colour has
+no contrast ratio of its own); a logo or font path that is not a file on this
+host (no scheme, host, `//`, `..`, backslash, query, fragment or space — the
+panels' content security policy allows images and fonts from their own host
+only, and stays that way); a font list outside the grammar (family names,
+quoted or not, and generic families, separated by commas — nothing that could
+end a CSS declaration); a name with control characters or longer than 80
+characters; an unknown token or scheme under `tokens`. The guidelines — how to
+choose the two colours, what is derived, what cannot be set and why — are in
+the [core worker's README](../workers/core/README.md#panel-look-admin_theme).
+
+Without a `core` worker `admin_theme` has no effect (a finding); a site
+without `admin_theme` builds byte for byte as before.
 
 ### Web Push (`web_push`)
 

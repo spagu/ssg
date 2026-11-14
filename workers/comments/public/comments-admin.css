@@ -1,0 +1,37 @@
+/* The moderation panel's styles (comments-admin.html), in a file so the page
+ * runs under a strict CSP (style-src 'self', nothing inline). Colours and
+ * fonts are tokens from comments-admin-tokens.css. */
+
+/* The page column is <main>, not <body>, so the site's shared admin bar
+ * (<ssg-admin-nav>, GO-146) can span the full width above it. Without the bar
+ * the result is the same as the old body rule: main's margins collapse
+ * through the margin-less body. */
+body { margin: 0; font: 15px/1.5 var(--font-ui); background: var(--bg); color: var(--text); }
+main { display: block; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
+h1 { font-size: 1.5rem; }
+/* An element's own display rule outranks the hidden attribute's default;
+   without this the sign-in form stayed on screen after signing in. */
+[hidden] { display: none !important; }
+.login { display: grid; gap: 0.5rem; max-width: 20rem; }
+input, button, select, textarea { font: inherit; padding: 0.5rem 0.75rem; border: 1px solid var(--control); border-radius: 0.5rem; }
+textarea { width: 100%; box-sizing: border-box; font-family: var(--font-mono); }
+button { cursor: pointer; }
+details.import { margin-top: 1.5rem; border-top: 1px solid var(--comments-rule); padding-top: 1rem; }
+details.import summary { cursor: pointer; font-weight: 600; }
+.import-form { display: grid; gap: 0.5rem; margin-top: 0.75rem; }
+.primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.tabs { display: flex; gap: 0.5rem; margin: 1rem 0; }
+.tabs button[aria-pressed="true"] { background: var(--comments-pressed); color: var(--on-comments-pressed); border-color: var(--comments-pressed); }
+.c { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.c-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; color: var(--text-muted); font-size: 0.875rem; }
+.c-author { font-weight: 600; color: inherit; }
+.c-body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.5rem 0; }
+.c-actions { display: flex; gap: 0.5rem; }
+.muted { color: var(--comments-faint); }
+a { color: var(--link); }
+.notice { border: 1px solid var(--warning); border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
+
+/* When the site's shared admin bar (core) shows who is signed in and a
+   sign-out, the panel's own "Signed in as" line would say it twice. The bar
+   sets data-signout on itself once drawn; without core nothing matches. */
+ssg-admin-nav[data-signout] ~ main #who { display: none !important; }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: a jigsaw piece — a module of your own. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<path d="M14 18h12a5 5 0 1 1 10 0h12v12a5 5 0 1 0 0 10v12H36a5 5 0 1 0-10 0H14V40a5 5 0 1 1 0-10z" fill="#00897b"/>
+<circle cx="31" cy="35" r="5" fill="#ff8a65"/>
+</svg>

@@ -80,3 +80,9 @@ From the repository root (Node 23.6+ strips the TypeScript types itself):
 ```sh
 node --import ./workers/contact-form/test/resolve.mjs --test --experimental-test-coverage 'workers/contact-form/test/*.test.ts'
 ```
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, and how to switch it off. It is a description only — no secrets, no configuration.
+
+There is no admin surface to put a manifest endpoint behind, so the template ships the file only; the build reads it into the module registry when the site has the [`core`](../core/README.md) worker.

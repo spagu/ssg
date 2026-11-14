@@ -96,9 +96,9 @@ export default async function subscribers(app, root, route) {
     pageHead(app, t("subs.title"), {
       lead: t("subs.lead"),
       actions: [
-        h("a", { class: "btn", href: api.url("subscribers.csv", { status: exportStatus }), download: "" }, t("subs.export", { status: t(`status.${exportStatus}`) })),
-        h("a", { class: "btn", href: href("import") }, t("nav.import")),
-        runner.button,
+        app.can("exportList") ? h("a", { class: "btn", href: api.url("subscribers.csv", { status: exportStatus }), download: "" }, t("subs.export", { status: t(`status.${exportStatus}`) })) : null,
+        app.can("newsletter:import") ? h("a", { class: "btn", href: href("import") }, t("nav.import")) : null,
+        app.can("confirmations") ? runner.button : null,
       ],
     }),
     runner.node,

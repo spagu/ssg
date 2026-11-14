@@ -1,5 +1,6 @@
 // Cloudflare Pages Function: announce new feed items to every subscriber.
 //   POST /api/push/notify   Authorization: Bearer <PUSH_KEY>
+//                           or Bearer <a service token from auth with web-push:notify> (_auth.ts)
 //
 // Call it after each deploy (see the README for the CI step). It reads the
 // site's feed, compares it with the last item it announced (kept in KV) and
@@ -12,7 +13,8 @@
 // Every message is a request to a push service, so one call makes
 // subscribers × items subrequests; mind your plan's limit per invocation.
 
-import { intVar, json, timingSafeEqual } from "./_lib";
+import { authorizeNotify } from "./_auth";
+import { intVar, json } from "./_lib";
 import type { Env } from "./_lib";
 import { ensureSchema } from "./_schema";
 import { deleteSubscription, listSubscriptions } from "./_store";
@@ -24,10 +26,8 @@ import type { VapidConfig } from "./_webpush";
 const LAST_ITEM = "last-item";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!env.PUSH_KEY) return json({ error: "not_configured" }, 503);
-  const header = request.headers.get("authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!timingSafeEqual(token, env.PUSH_KEY)) return json({ error: "unauthorized" }, 401);
+  const refused = await authorizeNotify(request, env);
+  if (refused) return refused;
   if (!env.PUSH_DB || !env.PUSH_KV || !env.PUSH_SUBJECT || !env.PUSH_VAPID_PUBLIC_KEY || !env.PUSH_VAPID_PRIVATE_KEY) {
     return json({ error: "not_configured" }, 503);
   }

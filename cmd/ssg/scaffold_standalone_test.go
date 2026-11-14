@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -48,11 +50,20 @@ func TestPagesTemplatesScaffoldAsBefore(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("exit %d", code)
 			}
-			want := fmt.Sprintf("✅ Scaffolded worker %q into workers/%s/\n\n", name, name) + fmt.Sprintf(pagesSnippetBefore123, name, name)
+			// A template that declares its own routes (auth: /auth/* pages)
+			// prints them instead of the generic /api/* — checked by
+			// TestWorkerConfigSnippetUsesTheTemplatesRoutes. Every other one
+			// prints exactly what it always did.
+			snippet := fmt.Sprintf(pagesSnippetBefore123, name, name)
+			if include, _ := templateRoutes(name); !slices.Equal(include, []string{"/api/*"}) {
+				snippet = workerConfigSnippet(name)
+			}
+			want := fmt.Sprintf("✅ Scaffolded worker %q into workers/%s/\n\n", name, name) + snippet
 			if out != want {
 				t.Errorf("output changed:\n%s\nwant:\n%s", out, want)
 			}
 			assertSameTree(t, root, filepath.Join("workers", name))
+			assertModuleManifest(t, name)
 		})
 	}
 	if checked < 10 {
@@ -76,6 +87,52 @@ func assertSameTree(t *testing.T, root, dest string) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// assertModuleManifest (GO-143): the one file every template gained in 1.9.9 is
+// its module.json, scaffolded with the rest of the tree, and it names the
+// template it ships in. The format itself is checked by workers/modules.test.ts.
+func assertModuleManifest(t *testing.T, name string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("workers", name, "module.json"))
+	if err != nil {
+		t.Fatalf("scaffold lacks module.json: %v", err)
+	}
+	var m struct {
+		ID       string `json:"id"`
+		Contract int    `json:"contract"`
+	}
+	if err := json.Unmarshal(b, &m); err != nil || m.ID != name || m.Contract != 1 {
+		t.Errorf("module.json: id %q contract %d (%v), want id %q contract 1", m.ID, m.Contract, err, name)
+	}
+}
+
+// TestLooseFilesUnderWorkersAreNotTemplates (GO-143): workers/ also holds the
+// manifest schema, its reader and the cross-template test. Only directories
+// are templates, so none of them is listed or can be scaffolded — and the
+// schema still rides in the binary for the build to read later.
+func TestLooseFilesUnderWorkersAreNotTemplates(t *testing.T) {
+	loose := []string{"module.schema.json", "module-manifest.ts", "modules.test.ts"}
+	for _, f := range loose {
+		if _, err := fs.Stat(ssgroot.EmbeddedWorkers, "workers/"+f); err != nil {
+			t.Errorf("workers/%s is not embedded: %v", f, err)
+		}
+	}
+	for _, name := range availableWorkerTemplates() {
+		if strings.Contains(name, ".") {
+			t.Errorf("%q is listed as a template", name)
+		}
+	}
+	t.Chdir(t.TempDir())
+	for _, f := range loose {
+		_, code := captureGraphOutput(t, func() int { return runNewWorker([]string{f}) })
+		if code != 1 {
+			t.Errorf("ssg new worker %s: exit %d, want 1 (unknown template)", f, code)
+		}
+	}
+	if _, err := os.Stat("workers"); err == nil {
+		t.Error("refusing a loose file must not create workers/")
 	}
 }
 
@@ -103,6 +160,7 @@ func TestNewsletterUIScaffoldsAsStandaloneWorker(t *testing.T) {
 		t.Errorf("a standalone Worker must not be offered a worker: block:\n%s", out)
 	}
 	assertSameTree(t, "workers/newsletter-ui", filepath.Join("workers", "newsletter-ui"))
+	assertModuleManifest(t, "newsletter-ui")
 	if _, err := os.Stat(filepath.Join("workers", "newsletter-ui", "functions")); err == nil {
 		t.Error("newsletter-ui must not ship a functions/ tree")
 	}

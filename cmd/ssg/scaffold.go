@@ -15,10 +15,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	ssgroot "github.com/spagu/ssg"
+	"github.com/spagu/ssg/internal/modules"
 )
 
 // runNewWorker scaffolds the named worker template. Returns a process exit code.
@@ -48,6 +50,8 @@ func runNewWorker(args []string) int {
 		errf("❌ %s already exists — refusing to overwrite\n", dest)
 		return 1
 	}
+	// Looked up before extracting, so scaffolding core itself never counts.
+	hasCore := modules.IsCore(filepath.Join("workers", modules.CoreID))
 	if err := extractWorkerTemplate(root, dest); err != nil {
 		errf("❌ %v\n", err)
 		return 1
@@ -55,9 +59,11 @@ func runNewWorker(args []string) int {
 	fmt.Printf("✅ Scaffolded worker %q into %s/\n\n", name, dest)
 	if toml, err := fs.ReadFile(ssgroot.EmbeddedWorkers, root+"/wrangler.toml"); err == nil {
 		fmt.Print(standaloneWorkerInstructions(name, toml))
+		fmt.Print(coreRegistrationNote(hasCore, name, toml))
 		return 0
 	}
 	fmt.Print(workerConfigSnippet(name))
+	fmt.Print(coreRegistrationNote(hasCore, name, nil))
 	return 0
 }
 
@@ -111,16 +117,65 @@ func extractTemplateFrom(fsys fs.FS, root, dest string) error {
 
 // workerConfigSnippet returns the worker: block to add to .ssg.yaml.
 func workerConfigSnippet(name string) string {
+	include, exclude := templateRoutes(name)
+	var routes strings.Builder
+	routes.WriteString("  routes_include:\n")
+	for _, r := range include {
+		fmt.Fprintf(&routes, "    - %s\n", r)
+	}
+	if len(exclude) > 0 {
+		routes.WriteString("  routes_exclude:\n")
+		for _, r := range exclude {
+			fmt.Fprintf(&routes, "    - %s\n", r)
+		}
+	}
 	return fmt.Sprintf(`Add this to your .ssg.yaml:
 
 worker:
   dir: workers/%s
   mode: functions
-  routes_include:
-    - /api/*
-
+%s
 Then set the secrets listed in workers/%s/README.md via `+"`wrangler pages secret put`"+`.
-`, name, name)
+`, name, routes.String(), name)
+}
+
+// routesMarker opens the first line of a template's wrangler.snippet.toml when
+// the template serves more than /api/* — auth's sign-in pages live at /auth/*,
+// and its stylesheet and script under /auth/assets/ must stay plain files:
+//
+//	# auth — routes in .ssg.yaml: routes_include: [/api/auth/*, /auth/*], routes_exclude: [/auth/assets/*]
+//
+// Without the marker a template gets the generic /api/* it always got.
+const routesMarker = "routes in .ssg.yaml:"
+
+var routeListRE = regexp.MustCompile(`routes_(include|exclude):\s*\[([^\]]*)\]`)
+
+// templateRoutes reads the routes a template declares on that first line, or
+// returns the generic [/api/*] with no exclusions.
+func templateRoutes(name string) (include, exclude []string) {
+	include = []string{"/api/*"}
+	data, err := fs.ReadFile(ssgroot.EmbeddedWorkers, "workers/"+name+"/wrangler.snippet.toml")
+	if err != nil {
+		return include, nil
+	}
+	first, _, _ := strings.Cut(string(data), "\n")
+	if !strings.Contains(first, routesMarker) {
+		return include, nil
+	}
+	for _, m := range routeListRE.FindAllStringSubmatch(first, -1) {
+		var list []string
+		for _, r := range strings.Split(m[2], ",") {
+			if r = strings.TrimSpace(r); r != "" {
+				list = append(list, r)
+			}
+		}
+		if m[1] == "include" && len(list) > 0 {
+			include = list
+		} else if m[1] == "exclude" {
+			exclude = list
+		}
+	}
+	return include, exclude
 }
 
 // standaloneWorkerInstructions tells the user how to deploy a template that is

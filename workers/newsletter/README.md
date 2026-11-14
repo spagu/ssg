@@ -43,6 +43,7 @@ workers/newsletter/
 ├── functions/api/newsletter/_transport.ts     mail: Resend → MailChannels → SMTP, one interface
 ├── functions/api/newsletter/_smtp*.ts         the SMTP client (cloudflare:sockets)
 ├── functions/api/newsletter/_mime.ts          message checks + MIME rendering
+├── functions/api/newsletter/_session-verifier.ts  `auth` sessions: byte-identical copy of workers/auth/portable/
 ├── public/newsletter-form.html                the form snippet (also a demo page)
 ├── public/newsletter.js                       optional progressive enhancement
 └── test/                                      Node tests (not deployed; see *Tests*)
@@ -253,13 +254,75 @@ curl -u :"$NEWSLETTER_ADMIN_PASSWORD" -o list.csv 'https://example.com/api/newsl
 
 Or put `/api/newsletter/admin*` behind **Cloudflare Access** and set
 `NEWSLETTER_ACCESS_TEAM` + `NEWSLETTER_ACCESS_AUD`; the worker then verifies the
-Access JWT instead of a password, exactly as the comments worker does. The CSV
+Access JWT instead of a password, exactly as the comments worker does. Or use
+**accounts of the `auth` worker** (below). The CSV
 is UTF-8 with a BOM (so Excel shows Polish and Hindi correctly), and any cell
 starting with `=`, `+`, `-` or `@` is prefixed with `'` so a spreadsheet cannot
 run it as a formula. This export does not know the suppression list (bounces,
 complaints, erasures) kept by the `newsletter-ui` worker — if you run it, mail
 from its `GET {base}/api/subscribers.csv` instead, which leaves suppressed
 addresses out.
+
+### Who can do what
+
+Three ways in, checked in this order: **Cloudflare Access → `auth` →
+password**. The first one configured decides.
+
+| Mode | Set | Permissions | Which to choose |
+|---|---|---|---|
+| Shared password | secret `NEWSLETTER_ADMIN_PASSWORD` | everything | one person — the simplest setup |
+| Cloudflare Access | `NEWSLETTER_ACCESS_TEAM` + `_AUD` | everything | you already run Cloudflare Zero Trust |
+| `auth` accounts | `NEWSLETTER_AUTH_*` | each account's own | several people, or different permissions |
+
+The password is a first-class mode and stays one. More than one person, more
+than one panel, or different permissions → see the `auth` worker
+([which mode to choose](../../docs/WORKERS.md#admin-sign-in-which-mode-to-choose)).
+
+**Known limitation of the password mode: no brute-force limit.** This
+template does not count failed passwords on `/api/newsletter/admin`, so
+nothing slows down someone guessing it. Use a long random password
+(`openssl rand -base64 24`), and add a limit in front: the
+[`rate-limit`](../rate-limit/README.md) template (its middleware covers the
+admin endpoint like every other Function), Cloudflare Access, or `auth`, whose
+sign-in locks an address and an IP after repeated failures. (`newsletter-ui`
+has its own per-IP lockout.)
+
+With `auth` the worker checks the session cookie of the `auth` worker on the
+same host locally, with its public key
+(`functions/api/newsletter/_session-verifier.ts`, a byte-identical copy of
+`workers/auth/portable/session-verifier.ts`, guarded by
+`test/auth-copies.test.ts`). The variables are the ones `newsletter-ui` reads
+— one set serves both:
+
+| Variable | Meaning |
+|---|---|
+| `NEWSLETTER_AUTH_ISSUER` | required: the `iss` to accept, e.g. `https://example.com/api/auth` |
+| `NEWSLETTER_AUTH_LOGIN_URL` | required: where a browser without a session is sent, e.g. `/auth/login` |
+| `NEWSLETTER_AUTH_PUBLIC_KEY` or `NEWSLETTER_AUTH_JWKS_URL` | exactly one: the public key (recommended) or `/api/auth/jwks` |
+| `NEWSLETTER_AUTH_AUDIENCE` | optional: the `aud` to accept; default the request's host |
+
+| Route | Permission |
+|---|---|
+| `GET /api/newsletter/admin` (counts) | `newsletter:read` |
+| `GET /api/newsletter/admin?format=csv` | `newsletter:export` |
+| `POST /api/newsletter/admin {"action":"purge"}` | `newsletter:settings` |
+| `GET /api/newsletter/module`, `/module/summary` | `newsletter:read` |
+
+A missing permission answers `403 {"error": "forbidden", "permission": "…"}`;
+no session `401` (a browser page: a redirect to the login page); an
+incomplete `NEWSLETTER_AUTH_*` set `503 {"error": "not_configured", "detail":
+"…"}` — never a fall-back to the password. The purge, the one state-changing
+admin request, must come from the site's own origin when it rides on the
+session cookie (`Origin` / `Sec-Fetch-Site`; a service token in
+`Authorization: Bearer` needs neither). With Access or the password nothing
+changed. The public endpoints — sign-up, confirm, unsubscribe — never look at
+any of this.
+
+**Switching from the password:** set the `NEWSLETTER_AUTH_*` variables, deploy,
+check, then **remove the password**: `npx wrangler pages secret delete
+NEWSLETTER_ADMIN_PASSWORD`. While `auth` is configured it is not accepted (it
+would bypass every permission), but if the `auth` variables were ever removed
+it would quietly become the way in again; nothing removes it for you.
 
 ## Retention
 
@@ -298,7 +361,7 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 |---|---|
 | `NEWSLETTER_TURNSTILE_SECRET` | verifies the sign-up token (required; falls back to the shared `TURNSTILE_SECRET` when unset) |
 | `NEWSLETTER_HASH_SALT` | salt for the IP / User-Agent hashes; unset ⇒ neither is stored |
-| `NEWSLETTER_ADMIN_PASSWORD` | admin endpoint password (unless Cloudflare Access is used) |
+| `NEWSLETTER_ADMIN_PASSWORD` | admin endpoint password (unless Cloudflare Access or `auth` is used) |
 | `NEWSLETTER_RESEND_API_KEY` | optional — double opt-in via Resend |
 | `NEWSLETTER_MAILCHANNELS_API_KEY` | optional — double opt-in via MailChannels |
 | `NEWSLETTER_SMTP_PASSWORD` | optional — the SMTP login password |
@@ -316,6 +379,7 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 | `NEWSLETTER_SMTP_USER` | SMTP login (with the `NEWSLETTER_SMTP_PASSWORD` secret) |
 | `NEWSLETTER_SMTP_HELO` | optional `EHLO` name; default: the domain of `NEWSLETTER_MAIL_FROM` |
 | `NEWSLETTER_ACCESS_TEAM`, `NEWSLETTER_ACCESS_AUD` | Cloudflare Access for the admin endpoint |
+| `NEWSLETTER_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` | accounts of the `auth` worker for the admin endpoint ("Who can do what"); shared with `newsletter-ui` |
 
 Prefer `NEWSLETTER_TURNSTILE_SECRET` over the shared `TURNSTILE_SECRET`: every
 worker in one Pages project reads the same environment — see *Secrets* in
@@ -361,6 +425,12 @@ node --import ./workers/newsletter/test/resolve.mjs --test 'workers/newsletter/t
 `_transport.ts`, `_smtp.ts`, `_smtpwire.ts` and `_mime.ts` import nothing
 else from this worker, so they can be copied unchanged into another template.
 
+`test/compat-*.test.ts` pin the answers of 1.9.7 byte for byte and never
+change. `test/auth.test.ts` runs every admin route against no session, a
+session without its permission, exactly it and the owner;
+`test/auth-copies.test.ts` keeps the verifier copy identical to
+`workers/auth/portable/` and runs that worker's verifier suites against it.
+
 ## Privacy notes
 
 Stored per subscriber: the email, status, language, source page, tags, the
@@ -370,3 +440,21 @@ retention you chose. The hashes exist to spot one source signing up hundreds of
 addresses, not to identify anyone; the admin export leaves them out. The pages
 the worker renders send no `Referer` (their URL carries a token), are not cached
 and are marked `noindex`.
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, the permissions its admin surface distinguishes, and how to switch it off. It is a description only — no secrets, no configuration.
+
+| Permission | Allows |
+|---|---|
+| `newsletter:read` | View subscribers, counts, campaigns and statistics. |
+| `newsletter:export` | Download subscribers as CSV and export one person's data. |
+| `newsletter:settings` | Maintenance: test the SMTP connection and run the retention purge now. |
+
+With the shared password or Cloudflare Access whoever passes may do everything; with `auth` each action needs its permission (*Who can do what*).
+
+It also serves the manifest at `GET /api/newsletter/module`, behind the same gate as `/api/newsletter/admin` (Cloudflare Access, an `auth` session holding `newsletter:read`, or `NEWSLETTER_ADMIN_PASSWORD`). The route imports `functions/api/newsletter/_module.ts`, a generated copy of `module.json` (Pages Functions cannot read files at runtime) — edit `module.json` and keep the copy identical.
+
+### Summary
+
+`GET /api/newsletter/module/summary` answers the module summary (format in [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md#the-summary-endpoint)): subscribers `confirmed`, `pending` and `unsubscribed`, and the configuration problems that refuse sign-ups — `no_database`, `no_turnstile_secret`, `mail_unusable` (double opt-in is configured but the transport can never send; the text names why, e.g. SMTP port 25, never a password), `access_incomplete`. No attention items: this template has no panel to link to. One `GROUP BY` (the one `/api/newsletter/admin` answers), behind the same gate, refusing exactly as that endpoint does. `newsletter-ui` reads the same table and reports the same `confirmed` and `pending` numbers; when both are deployed, a home page shows `newsletter-ui`'s summary. With Cloudflare Access, let the Access application cover `/api/newsletter/module*` too.

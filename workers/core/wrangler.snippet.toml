@@ -1,0 +1,57 @@
+# core — the site's module registry at run time, module status, one sign-in,
+# the admin home page (/core/) and the shared navigation (/core/nav.js).
+# The database is optional (see CORE_DB below). Pick ONE sign-in mode (the first configured
+# wins: Access → auth → password; none → every route answers 503).
+
+# [vars]
+#
+# (a) Shared password — the simple start: set the CORE_ADMIN_PASSWORD secret
+#     (below). Optional failed-login lockout tuning:
+# CORE_LOGIN_MAX_FAILURES = "10"     # failed logins per IP per window
+# CORE_LOGIN_WINDOW_MINUTES = "10"   # the window, and how long a lock lasts
+#
+# (b) The `auth` worker — recommended for a team: who is signed in, and each
+#     person sees only the modules their permissions open. All of:
+# CORE_AUTH_ISSUER = "https://example.com/api/auth"
+# CORE_AUTH_LOGIN_URL = "/auth/login"
+# CORE_AUTH_PUBLIC_KEY = '{"kty":"EC","crv":"P-256","x":"…","y":"…"}'   # or, instead:
+# CORE_AUTH_JWKS_URL = "/api/auth/jwks"
+# CORE_AUTH_AUDIENCE = ""            # optional; default: the request's host
+#
+# (c) Cloudflare Access: put /api/core/* behind an Access application, then:
+# CORE_ACCESS_TEAM = "myteam"            # "myteam" or "myteam.cloudflareaccess.com"
+# CORE_ACCESS_AUD = "<application-aud>"  # Access → app → Overview
+#
+# Asking modules how they are:
+# CORE_PROBE_TIMEOUT_MS = "2000"     # per module
+# CORE_STATUS_DEADLINE_MS = "4000"   # for the whole /api/core/status answer
+# CORE_STATUS_CACHE_SECONDS = "15"   # per caller and module, per isolate
+#
+# The site's build report (build_report: in .ssg.yaml), shown on the home page:
+# CORE_BUILD_REPORT_PATH = "/build.json"
+
+# Module management (GO-149, /core/#modules): which modules the navigation and
+# the home page show, their order, labels and notes, the status history, the
+# change log — and a password lockout that holds across isolates. Optional:
+# without it those settings are read-only and everything else works as before.
+# core creates its tables on first use (schema.sql is the same, by hand).
+#   wrangler d1 create core
+# [[d1_databases]]
+# binding = "CORE_DB"
+# database_name = "core"
+# database_id = "<id from wrangler d1 create>"
+#
+# [vars]
+# CORE_HISTORY_DAYS = "90"     # status history kept for
+# CORE_CHANGES_DAYS = "365"    # change log of the settings kept for
+
+# Optional, password mode only: a ceiling on password attempts across isolates.
+# Every request that carries a password counts, so size it for normal use.
+# [[unsafe.bindings]]
+# name = "CORE_LOGIN_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1002"                  # any id unique within this account
+# simple = { limit = 60, period = 60 }   # period is 10 or 60
+
+# Secrets (do NOT put here — `wrangler pages secret put <NAME>`):
+#   CORE_ADMIN_PASSWORD   the shared password (mode (a) only)

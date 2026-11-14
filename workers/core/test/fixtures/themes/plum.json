@@ -1,0 +1,453 @@
+{
+  "name": "Plum & Pine",
+  "logo": "/dev/missing-logo.svg",
+  "logoDark": null,
+  "fontDisplay": null,
+  "fontUi": null,
+  "fontFiles": [],
+  "main": "#6a1b9a",
+  "accent": "#4d7000",
+  "derived": [
+    "accent"
+  ],
+  "light": {
+    "c1": "#6a1b9a",
+    "c2": "#4d7000",
+    "c3": "#c2185b",
+    "c4": "#1565c0",
+    "c5": "#7a4a00",
+    "focus": "#4d7000",
+    "link": "#4d7000",
+    "nav-bg": "#6a1b9a",
+    "nav-control": "#ccb0e6",
+    "nav-current": "#93bb5c",
+    "nav-hover": "#8138b4",
+    "nav-muted": "#e7d6f8",
+    "on-nav": "#ffffff",
+    "on-primary": "#ffffff",
+    "on-primary-soft": "#51007a",
+    "primary": "#6a1b9a",
+    "primary-soft": "#f4e9ff"
+  },
+  "dark": {
+    "c1": "#8e45c2",
+    "c2": "#4f7305",
+    "c3": "#d81b60",
+    "c4": "#1e88e5",
+    "c5": "#9f6200",
+    "focus": "#4f7305",
+    "link": "#6b9131",
+    "nav-bg": "#6a1b9a",
+    "nav-control": "#ccb0e6",
+    "nav-current": "#93bb5c",
+    "nav-hover": "#8138b4",
+    "nav-muted": "#e7d6f8",
+    "on-nav": "#ffffff",
+    "on-primary": "#271734",
+    "on-primary-soft": "#e7d6f8",
+    "primary": "#ac64e2",
+    "primary-soft": "#3e2c4d"
+  },
+  "adjustments": [
+    {
+      "scheme": "both",
+      "token": "nav-current",
+      "requested": "#4d7000",
+      "used": "#93bb5c",
+      "reason": "contrast",
+      "against": "nav-bg"
+    },
+    {
+      "scheme": "dark",
+      "token": "primary",
+      "requested": "#6a1b9a",
+      "used": "#ac64e2",
+      "reason": "contrast",
+      "against": "surface"
+    },
+    {
+      "scheme": "dark",
+      "token": "link",
+      "requested": "#4d7000",
+      "used": "#6b9131",
+      "reason": "contrast",
+      "against": "surface"
+    },
+    {
+      "scheme": "dark",
+      "token": "focus",
+      "requested": "#4d7000",
+      "used": "#4f7305",
+      "reason": "contrast",
+      "against": "surface"
+    },
+    {
+      "scheme": "dark",
+      "token": "c1",
+      "requested": "#6a1b9a",
+      "used": "#8e45c2",
+      "reason": "contrast",
+      "against": "surface"
+    },
+    {
+      "scheme": "dark",
+      "token": "c2",
+      "requested": "#4d7000",
+      "used": "#4f7305",
+      "reason": "contrast",
+      "against": "surface"
+    }
+  ],
+  "checks": [
+    {
+      "scheme": "light",
+      "fg": "primary",
+      "bg": "surface",
+      "ratio": 9.39,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "primary",
+      "bg": "bg",
+      "ratio": 7.92,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "primary",
+      "bg": "surface-sunk",
+      "ratio": 7.92,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "on-primary",
+      "bg": "primary",
+      "ratio": 9.39,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "link",
+      "bg": "surface",
+      "ratio": 5.77,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "link",
+      "bg": "bg",
+      "ratio": 4.87,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "link",
+      "bg": "surface-sunk",
+      "ratio": 4.87,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "on-primary-soft",
+      "bg": "primary-soft",
+      "ratio": 11,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "surface",
+      "bg": "on-primary-soft",
+      "ratio": 12.87,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "on-nav",
+      "bg": "nav-bg",
+      "ratio": 9.39,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-muted",
+      "bg": "nav-bg",
+      "ratio": 6.87,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "on-nav",
+      "bg": "nav-hover",
+      "ratio": 6.64,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-muted",
+      "bg": "nav-hover",
+      "ratio": 4.86,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "light",
+      "fg": "focus",
+      "bg": "surface",
+      "ratio": 5.77,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "focus",
+      "bg": "bg",
+      "ratio": 4.87,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "focus",
+      "bg": "surface-sunk",
+      "ratio": 4.87,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "c1",
+      "bg": "surface",
+      "ratio": 9.39,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "c2",
+      "bg": "surface",
+      "ratio": 5.77,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "c3",
+      "bg": "surface",
+      "ratio": 5.87,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "c4",
+      "bg": "surface",
+      "ratio": 5.74,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "c5",
+      "bg": "surface",
+      "ratio": 7.48,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-current",
+      "bg": "nav-bg",
+      "ratio": 4.24,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-current",
+      "bg": "nav-hover",
+      "ratio": 3,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-control",
+      "bg": "nav-bg",
+      "ratio": 4.88,
+      "minimum": 3
+    },
+    {
+      "scheme": "light",
+      "fg": "nav-control",
+      "bg": "nav-hover",
+      "ratio": 3.45,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "primary",
+      "bg": "surface",
+      "ratio": 4.5,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "primary",
+      "bg": "bg",
+      "ratio": 5.06,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "primary",
+      "bg": "surface-sunk",
+      "ratio": 5.06,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "on-primary",
+      "bg": "primary",
+      "ratio": 4.5,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "link",
+      "bg": "surface",
+      "ratio": 4.54,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "link",
+      "bg": "bg",
+      "ratio": 5.1,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "link",
+      "bg": "surface-sunk",
+      "ratio": 5.1,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "on-primary-soft",
+      "bg": "primary-soft",
+      "ratio": 9.19,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "surface",
+      "bg": "on-primary-soft",
+      "ratio": 12.2,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "on-nav",
+      "bg": "nav-bg",
+      "ratio": 9.39,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-muted",
+      "bg": "nav-bg",
+      "ratio": 6.87,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "on-nav",
+      "bg": "nav-hover",
+      "ratio": 6.64,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-muted",
+      "bg": "nav-hover",
+      "ratio": 4.86,
+      "minimum": 4.5
+    },
+    {
+      "scheme": "dark",
+      "fg": "focus",
+      "bg": "surface",
+      "ratio": 3,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "focus",
+      "bg": "bg",
+      "ratio": 3.37,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "focus",
+      "bg": "surface-sunk",
+      "ratio": 3.37,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "c1",
+      "bg": "surface",
+      "ratio": 3,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "c2",
+      "bg": "surface",
+      "ratio": 3,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "c3",
+      "bg": "surface",
+      "ratio": 3.37,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "c4",
+      "bg": "surface",
+      "ratio": 4.53,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "c5",
+      "bg": "surface",
+      "ratio": 3.35,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-current",
+      "bg": "nav-bg",
+      "ratio": 4.24,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-current",
+      "bg": "nav-hover",
+      "ratio": 3,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-control",
+      "bg": "nav-bg",
+      "ratio": 4.88,
+      "minimum": 3
+    },
+    {
+      "scheme": "dark",
+      "fg": "nav-control",
+      "bg": "nav-hover",
+      "ratio": 3.45,
+      "minimum": 3
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "manifest": [
+    "example"
+  ],
+  "errors": [
+    "manifest: must be object, not array"
+  ]
+}

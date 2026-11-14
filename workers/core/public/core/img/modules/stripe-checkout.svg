@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: a payment card tucked into a shopping basket. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<rect x="16" y="10" width="34" height="22" rx="3" fill="#ff8a65" transform="rotate(-10 33 21)"/>
+<rect x="17" y="17" width="34" height="5" fill="#bf360c" opacity=".55" transform="rotate(-10 33 21)"/>
+<path d="M8 28h48l-6 24a4 4 0 0 1-4 3H18a4 4 0 0 1-4-3z" fill="#00897b"/>
+<path d="M22 34v14m10-14v14m10-14v14" stroke="#e0f2f1" stroke-width="3" stroke-linecap="round"/>
+</svg>

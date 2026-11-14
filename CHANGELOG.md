@@ -7,12 +7,331 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.9] - 2026-11-14
+
+### Added
+
+- **`auth`: accounts for the people who run the site's panels.** A new,
+  optional Pages Functions template (`ssg new worker auth`, D1 database
+  `AUTH_DB`). Until now a panel was either one shared password or Cloudflare
+  Access, and neither knew who did what. With `auth` every person has an
+  account, and every account has its own permissions.
+  - *Invitations are the only way in.* The first owner is created once with a
+    bootstrap secret; everyone else is invited by e-mail (or by a one-time
+    link you pass on when no mail transport is set) with roles no wider than
+    the inviter's own. Nobody can sign up.
+  - *Ways to sign in*, each switched on by its own variables: a password
+    (PBKDF2-SHA256), Google, Microsoft, Apple, GitHub and Facebook (OpenID
+    Connect or OAuth 2.0 with PKCE; the identity is the provider's account id,
+    and an address only opens an invitation when the provider says it is
+    verified), and Cloudflare Access as one more method, with identity from
+    Access and permissions from `auth`. Each person picks their methods and
+    may add or remove one; the last cannot be removed. Methods can be
+    narrowed per role and per address domain.
+  - *Roles, groups, permissions.* A permission is `worker:action`
+    (`comments:moderate`, `newsletter:send`, `newsletter:erase`); a role is a
+    set of them; people and groups get roles. Built-in roles: `owner`,
+    `newsletter-editor`, `newsletter-viewer`, `comments-moderator`. The last
+    active owner cannot be removed, blocked or demoted by any route.
+  - *Sessions.* A short access token signed with ES256 in a `__Host-` cookie
+    (10 minutes by default), a refresh token that rotates on every use and
+    revokes the whole session when an old one comes back, "log out" and "log
+    out everywhere", password change and reset links, failed-login locks per
+    address and per IP, optional Turnstile, CSRF checks that also cover plain
+    HTML forms. The public key is published as a JWKS; the signing key
+    rotates with two public keys side by side.
+  - *A second factor*: authenticator apps (TOTP, with a QR code drawn by the
+    worker), one-time backup codes and passkeys (WebAuthn). Required by
+    default for `owner` and for any role that can send, erase or administer
+    (`AUTH_MFA_ROLES` changes that), asked for again before sensitive changes
+    (step-up), with recovery by another owner and a one-time break-glass
+    secret for a sole owner. **It is off until `AUTH_MFA_KEY` is set** — see
+    Security below.
+  - *Service accounts and machine tokens* for CI, cron and scripts: a long
+    secret shown once, exchanged at `POST /api/auth/token` for a short access
+    token that the other workers check like a person's. Each token has an
+    expiry and may be narrower than its account's roles.
+  - *Pages and a panel*: sign-in, "Your panels" and account pages that work
+    without JavaScript, and an admin panel at `/auth/admin/` (people,
+    invitations, groups, roles, an access matrix, sessions, service
+    accounts, Access group mappings, the audit log and the worker's status).
+    English, Polish, Hindi, German and French, light and dark, WCAG 2.2 AA,
+    a strict CSP, nothing loaded from another origin.
+  - *An audit log* of sign-ins, refusals and every administrative change,
+    kept `AUTH_AUDIT_RETENTION_DAYS` (365) days, with a CSV export.
+- **One sign-in for every panel: the portable session verifier.** Other
+  workers do not call `auth` on each request. They carry a byte-for-byte copy
+  of one import-free file (`workers/auth/portable/session-verifier.ts`, a
+  test in each template keeps it identical) that checks the token locally
+  with the public key. `workers/auth/docs/CONTRACT.md` describes the token,
+  the cookies, every refusal and its HTTP answer, and the order of admin
+  modes, **Access → `auth` → password**, so your own worker can accept the
+  same sessions.
+- **The `auth` mode in five existing templates**, each switched on only by
+  its own `<PREFIX>_AUTH_*` variables:
+  - `comments`: `comments:read`, `comments:moderate`, `comments:delete`,
+    `comments:import`; the panel shows who is signed in and only the actions
+    the account may use; every approve, spam, delete, purge and import is
+    recorded in a new `comment_events` table (who, what, which comment, in
+    which mode).
+  - `newsletter`: counts need `newsletter:read`, the CSV `newsletter:export`,
+    the purge `newsletter:settings`.
+  - `newsletter-ui`: every route of its API names its permission
+    (`newsletter:read`, `:edit`, `:send`, `:import`, `:export`, `:erase`,
+    `:suppress`, `:settings`) and a test fails for a route that does not;
+    the panel reads `GET {base}/api/me` and hides what the account cannot
+    use. A new **Activity** view and `GET {base}/api/audit` show the audit
+    trail: every state-changing admin request, with who, what, on which id
+    (never an address) and the answer.
+  - `web-push` and `republish-trigger`: a service token holding
+    `web-push:notify` / `republish-trigger:run` opens `notify` /
+    `republish`, next to the shared key, which keeps working.
+- **`core`: the site's modules, one admin home and one navigation.** A new,
+  optional Pages Functions template (`ssg new worker core`). It knows which
+  modules the site runs from a registry the build writes, and asks each one
+  how it is.
+  - *The admin home page* at `/core/`: what needs attention across all
+    modules (comments waiting, a campaign the send engine paused, uncertain
+    sends), a card per module with its state and numbers, and the site's
+    basics (the build report, the sign-in mode, configuration problems,
+    module versions).
+  - *The shared navigation*: one line in a panel's HTML
+    (`/core/nav.js`) gives it a bar linking every panel the person may
+    open. `comments`, `newsletter-ui`, the `auth` panel and the home page
+    use it; without `core` it does not appear.
+  - *Module management* with the optional `CORE_DB` database: order,
+    visibility, labels per language and notes, a status history, a change log
+    and settings export and import. Hiding a module is cosmetic, and the page
+    says how to really switch one off.
+  - *Panel theming*: `admin_theme:` in `.ssg.yaml` (a name, a logo, a main
+    colour and an accent, font stacks and same-host font files). The build
+    derives a light and a dark palette in which every pair meets WCAG 2.2
+    contrast, adjusts a colour that cannot and says so, and writes
+    `/core/theme.css`. The **Appearance** view shows the result.
+  - The same three sign-in modes as the other panels. `core` is not a
+    security boundary: it never proxies a request or authorizes anything for
+    a module, asks modules only on its own host and forwards only the
+    caller's own credential.
+- **Module manifests and summaries in every template.** Each template has a
+  `module.json`: its name and description in five languages, its panel,
+  navigation entries, the permissions its admin surface distinguishes, and
+  how to really switch it off (format: `workers/module.schema.json`, guide:
+  `docs/WORKER-MODULES.md`). `comments`, `newsletter`, `newsletter-ui`, `auth`
+  and `core` serve it at `…/api/module` behind their own admin check, and all
+  but `core` serve a summary at `…/api/module/summary`: a few counts, things
+  that need attention and configuration problems, never personal data.
+- **ssg: the module registry and the panels' look.** With `core` in
+  `workers:` the build checks every bundled worker's `module.json` and writes
+  `functions/_ssg-modules.json`, which the core function bundles and which is
+  never served. New keys: `modules:` (`id`, `url`, optional `dir`) declares a
+  standalone Worker such as `newsletter-ui`; `check_modules` (`off`, `warn`,
+  `strict`; default `warn`) reports invalid manifests, duplicate ids and
+  colliding paths; `admin_theme:` (above); `check_admin_theme` (default
+  `warn`) reports a logo or font file missing from the output, a `tokens:`
+  override that breaks contrast, and `admin_theme` without `core`. When
+  `workers/core` exists, `ssg new worker` prints one more line on how the new
+  template joins the registry.
+- **`make test-workers` runs every template that has tests**: `comments`,
+  `auth`, `core`, `republish-trigger`, `web-push`, `contact-form`,
+  `newsletter`, `newsletter-ui`, and the cross-template test of every
+  manifest and summary.
+
+New settings, all optional unless a README says otherwise:
+
+- `auth` — vars: `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_PREVIOUS_PUBLIC_KEY`,
+  `AUTH_TOKEN_MINUTES`, `AUTH_SESSION_DAYS`, `AUTH_REFRESH_GRACE_SECONDS`,
+  `AUTH_PBKDF2_ITERATIONS`, `AUTH_PASSWORD_MIN`, `AUTH_PASSWORD_MAX`,
+  `AUTH_PASSWORD_LOGIN`, `AUTH_LOCK_ACCOUNT_FAILURES`, `AUTH_LOCK_IP_FAILURES`,
+  `AUTH_LOCK_BASE_SECONDS`, `AUTH_LOCK_MAX_SECONDS`, `AUTH_TURNSTILE_AFTER`,
+  `AUTH_TURNSTILE_SITE_KEY`, `AUTH_LOGIN_URL`, `AUTH_AFTER_LOGIN_URL`,
+  `AUTH_KNOWN_PERMISSIONS`, `AUTH_INVITE_HOURS`, `AUTH_RESET_MINUTES`,
+  `AUTH_ROLE_METHODS`, `AUTH_RECENT_SIGNIN_MINUTES`, `AUTH_MFA_ROLES`,
+  `AUTH_STEP_UP_MINUTES`, `AUTH_SERVICE_TOKEN_MAX_DAYS`,
+  `AUTH_SERVICE_ACCESS_MINUTES`, `AUTH_AUDIT_RETENTION_DAYS`,
+  `AUTH_GOOGLE_CLIENT_ID`, `AUTH_MICROSOFT_CLIENT_ID`, `AUTH_MICROSOFT_TENANT`,
+  `AUTH_APPLE_CLIENT_ID`, `AUTH_APPLE_TEAM_ID`, `AUTH_APPLE_KEY_ID`,
+  `AUTH_GITHUB_CLIENT_ID`, `AUTH_FACEBOOK_CLIENT_ID`,
+  `AUTH_FACEBOOK_API_VERSION`, `AUTH_<PROVIDER>_ALLOWED_DOMAINS`,
+  `AUTH_ACCESS_TEAM`, `AUTH_ACCESS_AUD`, `AUTH_ACCESS_LINK_BY_EMAIL`,
+  `AUTH_ACCESS_AUTO_CREATE`, `AUTH_ACCESS_DEFAULT_ROLE`,
+  `AUTH_ACCESS_ALLOWED_DOMAINS`, `AUTH_MAIL_FROM`, `AUTH_MAIL_FROM_NAME`,
+  `AUTH_SMTP_HOST`, `AUTH_SMTP_PORT`, `AUTH_SMTP_USER`, `AUTH_SMTP_HELO`;
+  secrets: `AUTH_SIGNING_KEY` (required), `AUTH_BOOTSTRAP_TOKEN`,
+  `AUTH_HASH_SALT`, `AUTH_TURNSTILE_SECRET` (falls back to
+  `TURNSTILE_SECRET`), `AUTH_MFA_KEY`, `AUTH_MFA_KEY_PREVIOUS`,
+  `AUTH_MFA_RESET_TOKEN`, `AUTH_GOOGLE_CLIENT_SECRET`,
+  `AUTH_MICROSOFT_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_SECRET`,
+  `AUTH_FACEBOOK_CLIENT_SECRET`, `AUTH_APPLE_PRIVATE_KEY`,
+  `AUTH_RESEND_API_KEY`, `AUTH_MAILCHANNELS_API_KEY`, `AUTH_SMTP_PASSWORD`;
+  binding: `AUTH_DB` (D1, required).
+- `core` — vars: `CORE_LOGIN_MAX_FAILURES`, `CORE_LOGIN_WINDOW_MINUTES`,
+  `CORE_AUTH_ISSUER`, `CORE_AUTH_LOGIN_URL`, `CORE_AUTH_PUBLIC_KEY` or
+  `CORE_AUTH_JWKS_URL`, `CORE_AUTH_AUDIENCE`, `CORE_ACCESS_TEAM`,
+  `CORE_ACCESS_AUD`, `CORE_PROBE_TIMEOUT_MS`, `CORE_STATUS_DEADLINE_MS`,
+  `CORE_STATUS_CACHE_SECONDS`, `CORE_BUILD_REPORT_PATH`, `CORE_HISTORY_DAYS`,
+  `CORE_CHANGES_DAYS`; secret: `CORE_ADMIN_PASSWORD`; bindings: `CORE_DB`
+  (D1) and `CORE_LOGIN_LIMITER` (rate limit).
+- `comments` — `COMMENTS_AUTH_ISSUER`, `COMMENTS_AUTH_LOGIN_URL`,
+  `COMMENTS_AUTH_PUBLIC_KEY` or `COMMENTS_AUTH_JWKS_URL`,
+  `COMMENTS_AUTH_AUDIENCE`.
+- `newsletter` and `newsletter-ui` (one set serves both) —
+  `NEWSLETTER_AUTH_ISSUER`, `NEWSLETTER_AUTH_LOGIN_URL`,
+  `NEWSLETTER_AUTH_PUBLIC_KEY` or `NEWSLETTER_AUTH_JWKS_URL`,
+  `NEWSLETTER_AUTH_AUDIENCE`; `newsletter-ui` also
+  `NEWSLETTER_AUDIT_RETENTION_DAYS`.
+- `web-push` — `PUSH_AUTH_ISSUER`, `PUSH_AUTH_LOGIN_URL`,
+  `PUSH_AUTH_PUBLIC_KEY` or `PUSH_AUTH_JWKS_URL`, `PUSH_AUTH_AUDIENCE`.
+- `republish-trigger` — `REPUBLISH_AUTH_ISSUER`, `REPUBLISH_AUTH_LOGIN_URL`,
+  `REPUBLISH_AUTH_PUBLIC_KEY` or `REPUBLISH_AUTH_JWKS_URL`,
+  `REPUBLISH_AUTH_AUDIENCE`.
+- `.ssg.yaml` — `modules:`, `check_modules`, `admin_theme:`,
+  `check_admin_theme`.
+
+- **`check_links_ignore`** in `.ssg.yaml`: site paths the link check skips,
+  exact (`/core/nav.js`) or a prefix ending in `/`. For references that are
+  optional by design — a worker panel loading the `core` worker's files when
+  it is deployed.
+
 ### Changed
 
+- **A site or worker without the new settings behaves as before.** The
+  shared password stays a first-class mode in every worker and nothing warns
+  about it; `auth` and `core` switch on only when you deploy them and set
+  their variables. Without a `core` worker the build writes nothing new: no
+  module registry and no theme (the golden corpora pin the output; the one
+  change to a built site is `ssgtheme`'s rounded media, below). The
+  backward-compatibility suites of `newsletter` and `newsletter-ui` from
+  1.9.8 pass unedited; new suites pin the 1.9.8 answers of the `comments`
+  admin endpoints, `web-push`'s `notify` and `republish-trigger`'s key
+  check. The exceptions, all deliberate:
+  - **With a `<PREFIX>_AUTH_*` variable set, the shared password is refused**
+    in `comments`, `newsletter`, `newsletter-ui` and `core`: accepting it
+    would bypass every permission. A partly set group answers `503` naming
+    what is missing and never falls back to the password. Delete the password
+    secret when you switch, so removing the variables later does not quietly
+    bring it back. (`web-push` and `republish-trigger` keep accepting their
+    key next to service tokens: it opens one action only.)
+  - **Cloudflare Access mode now checks CSRF on writes** in `comments` and
+    `newsletter`. Access lets through any request that carries its cookie,
+    and the browser attaches that cookie by itself. In `comments`, a `POST`
+    to the admin or import endpoint needs `x-ssg-auth: 1` (the panel sends
+    it); in `newsletter`, the purge must come from the site's own origin
+    (`Origin` or `Sec-Fetch-Site: same-origin`). A script that writes through
+    Access with a service token must now send the header or the origin.
+  - **The `comments` moderation page** moved its script and styles into
+    files (`comments-admin.js`, `comments-admin.css`,
+    `comments-admin-tokens.css`) and carries a strict CSP of its own: nothing
+    inline, nothing from another origin. Links are readable in dark mode
+    (they kept the light theme's blue before), and the sign-in form goes away
+    after sign-in instead of staying above the queue.
+  - **`newsletter-ui` keeps an audit trail in every mode**, in a new table
+    `admin_audit` on its D1 database (schema version 6, created by itself;
+    `subscribers` is still untouched). In password and Access mode it records
+    `password` or the Access address as the actor.
+  - **The panels ask for `/core/nav.js` and `/core/theme.css`.** `comments`
+    and `newsletter-ui` load them from the site root; without `core` both
+    answer 404 and the page looks as before.
+  - **New read-only routes** behind each template's existing admin check:
+    `/api/comments/module`, `/api/comments/module/summary` and
+    `/api/comments/admin/whoami`; `/api/newsletter/module` and
+    `/api/newsletter/module/summary`; `{base}/api/module`,
+    `{base}/api/module/summary`, `{base}/api/me` and `{base}/api/audit` in
+    `newsletter-ui`. With Cloudflare Access, extend the Access application to
+    `/api/comments/module*` and `/api/newsletter/module*` if `core` should
+    read them.
+  - **`ssg new worker` writes one more file**, `module.json`, in every
+    template. What it prints is unchanged, except the one extra line when
+    `workers/core` exists.
+  - **A worker's public file that lands on a file the build wrote stops the
+    build** (#420, under Fixed).
 - **`ssgtheme` rounds the corners of images in article bodies.** Images,
   video and embeds inside `.prose` (posts, pages, docs) take their radius from
   the new `--radius-media` token (12 px by default; `0` restores square
   corners). Status badges are not rounded.
+
+### Fixed
+
+- **`build_report: true` writes `build.json`** (#421). In `.ssg.yaml` the
+  boolean was taken as a file name, so the report landed in a file called
+  `true` (and `false` wrote one called `false`). `true`, `yes` and `on` now
+  mean the default `build.json`, like the bare `--build-report` flag;
+  `false`, `no` and `off` mean no report. Any other value is still the file
+  name.
+- **A worker's public file no longer replaces a page silently** (#420). A
+  worker's `public/` files are copied after everything else, and only a clash
+  between two workers was caught: a page at `/core/` would have been replaced
+  by the `core` worker's `/core/index.html` without a word. Now a worker file
+  that lands on any file this build wrote (a page, a static file, a generated
+  file) stops the build and names both, as two pages at one address do. A
+  byte-identical file is not a clash, and neither is a worker's own copy left
+  in the output by an earlier build.
+- **No more false "imports npm package" warnings** (#419). The build read
+  `from "…"` anywhere in a worker's source as an import, so a property or
+  variable named `from` next to a string warned (seven times across the
+  shipped templates, for example in the newsletter's mail modules). Only
+  `import … from` and `export … from` statements are inspected now; a test
+  scans every shipped template.
+- **`comments` and `newsletter` behind Cloudflare Access refuse cross-site
+  writes.** A page on another site could make a signed-in moderator's
+  browser delete comments or run an import (and, in `newsletter`, the purge).
+  See Changed.
+- **A comment URL with a tab or a newline no longer becomes a link to another
+  host** in the moderation panel. Browsers drop those characters, so
+  `/\t/evil.example` read as `//evil.example`. Such URLs are refused when a
+  comment is submitted or imported.
+- **`newsletter-ui`'s password lockout holds under parallel guesses.** A
+  burst of requests could all pass the lock before the first failure was
+  written, and concurrent failures could overwrite each other's count. The
+  count is now one atomic update, and the right password sent after the
+  limit is refused like a wrong one until the lock ends.
+- **Found and fixed in the new code before release.** The sign-in's `next`
+  parameter would have redirected to another host for `/.//evil.example.com`
+  (dot segments collapse to `//`); it is now checked again after
+  normalisation. The independent security review of `auth` and `core` also
+  found, and this release fixes: a rotated refresh token that still counted
+  as a session on some routes; lockouts that a burst of parallel requests
+  could pass; an `auth:admin` who could take owner rights away from
+  co-owners; reset links, owner invitations and Access group mappings that
+  needed no fresh second factor; a verified provider address that matched
+  another invitation after lower-casing; a service token that anyone could
+  lock out by its public id; and two parallel removals of an owner's last two
+  factors. Each has a regression test.
+
+### Security
+
+- **Read the threat model and the review before you deploy `auth`.**
+  `workers/auth/docs/THREAT-MODEL.md` says what `auth` protects, from whom,
+  and what is out of scope (same-origin XSS among it).
+  `workers/auth/docs/SECURITY-REVIEW.md` lists every attack tried, every
+  finding with its severity, fix and test, and what could not be tested
+  (real D1 concurrency, real identity providers). No finding is open above
+  Informational.
+- **Passwords are hashed with PBKDF2-SHA256 at 100 000 iterations**
+  (`AUTH_PBKDF2_ITERATIONS`). That is the most Cloudflare's production
+  runtime accepts, below the current OWASP guidance of 600 000, so locks per
+  address and per IP, a 12-character minimum and the second factor make up
+  for it. One sign-in took about 9 ms of CPU in a local measurement on a fast
+  desktop, close to the Workers Free plan's 10 ms per request, so **use
+  Workers Paid for production** (`workers/auth/docs/SECURITY.md` has the
+  numbers and sources). The stored hash records its cost, so a higher value
+  later re-hashes each account at its next sign-in.
+- **The second factor is off until `AUTH_MFA_KEY` is set.** Without it an
+  owner signs in with a password alone. Set the secret before inviting
+  anyone, and have every owner enrol at once: an owner with no factor yet
+  can enrol on a first-factor sign-in, so whoever holds that password could
+  enrol first and gain the owner role.
+- **Known limit, older than this release:** `comments` and `newsletter` in
+  shared-password mode have no brute-force limit. Put them behind the
+  `rate-limit` template, Cloudflare Access or `auth`. `core` and
+  `newsletter-ui` lock an IP address out after repeated failures.
+- **Service tokens follow the second-factor policy.** A role that people may
+  use only after a second factor (by default any role with a sensitive
+  permission or a `…:send`; see `AUTH_MFA_ROLES`) gives a machine nothing
+  unless the token's `allowSensitive`, set by an owner, lists it. This holds
+  even with the second factor switched off, and it is worked out at every
+  token exchange, so a token whose role later gains such a permission loses
+  that role's permissions at its next exchange. Give a script a narrow role
+  of its own (`workers/auth/docs/SERVICE-TOKENS.md`).
 
 ## [1.9.8] - 2026-11-13
 
@@ -6671,7 +6990,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.8...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.9...HEAD
+[1.9.9]: https://github.com/spagu/ssg/compare/v1.9.8...v1.9.9
 [1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8
 [1.9.7]: https://github.com/spagu/ssg/compare/v1.9.6...v1.9.7
 [1.9.6]: https://github.com/spagu/ssg/compare/v1.9.5...v1.9.6

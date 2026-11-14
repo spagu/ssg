@@ -1,0 +1,10 @@
+/* The site's own look for the admin panels — empty as shipped.
+ *
+ * A panel loads this file AFTER its own tokens:
+ *   <link rel="stylesheet" href="/core/theme.css">
+ * When the site sets admin_theme in .ssg.yaml (GO-152), the build replaces
+ * this file in the output with custom properties computed from a main
+ * colour, an accent and font stacks — every pair checked for contrast (see
+ * the README's "Panel look" section). Without admin_theme it holds no rule
+ * and changes nothing; a site without `core` answers 404 for it, which a
+ * stylesheet survives: the panel keeps its own tokens. */

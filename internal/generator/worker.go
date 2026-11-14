@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/spagu/ssg/internal/fetch"
+	"github.com/spagu/ssg/internal/modules"
 )
 
 // WorkerConfig wires a Worker project into the build.
@@ -74,10 +75,7 @@ func renderRoutesJSON(include, exclude []string) ([]byte, error) {
 		return nil, fmt.Errorf("_routes.json has %d rules, exceeding the Cloudflare Pages limit of %d", len(include)+len(exclude), cfMaxRoutesRules)
 	}
 	doc := routesJSON{Version: 1, Include: include, Exclude: exclude}
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("marshalling _routes.json: %w", err)
-	}
+	out, _ := json.MarshalIndent(doc, "", "  ") // ints and strings: cannot fail
 	return append(out, '\n'), nil
 }
 
@@ -90,11 +88,12 @@ func renderRoutesJSON(include, exclude []string) ([]byte, error) {
 func (g *Generator) generateWorkerFiles() error {
 	workers := g.config.ResolvedWorkers()
 	if len(workers) == 0 {
-		return nil
+		return g.writeModuleRegistry(nil, nil) // a `modules:` list alone is still checked
 	}
 	seen := map[string]string{}       // output-relative functions path -> worker
 	seenPublic := map[string]string{} // output-relative public asset -> worker
 	var include, exclude []string
+	var built []modules.Worker // where each worker's module.json is (GO-144)
 	wroteWorkerJS := ""
 	for i, w := range workers {
 		label := workerLabel(w, i)
@@ -102,6 +101,7 @@ func (g *Generator) generateWorkerFiles() error {
 		if err != nil {
 			return err
 		}
+		built = append(built, modules.Worker{Key: g.workerKey(i), Dir: dir})
 		mode := w.Mode
 		if mode == "" {
 			mode = workerModeFunctions
@@ -165,7 +165,7 @@ func (g *Generator) generateWorkerFiles() error {
 	if err := os.WriteFile(filepath.Join(g.config.OutputDir, "_routes.json"), routes, 0644); err != nil {
 		return fmt.Errorf("worker: writing _routes.json: %w", err)
 	}
-	return nil
+	return g.writeModuleRegistry(built, seen)
 }
 
 // dedupeStrings removes duplicate entries while preserving first-seen order.
@@ -279,39 +279,6 @@ func (g *Generator) copyFunctionsTree(dir, label string, seen map[string]string)
 	return nil
 }
 
-// copyWorkerPublic copies a worker's public/ tree (its client-side assets, e.g.
-// a consent banner's js/css) into the output root, so they are served as static
-// files. A no-op when the worker has no public/. Two workers shipping the same
-// asset path is a hard error, never a silent overwrite.
-func (g *Generator) copyWorkerPublic(dir, label string, seen map[string]string) error {
-	src := filepath.Join(dir, "public")
-	if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
-		return nil
-	}
-	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return err
-		}
-		rel, rerr := filepath.Rel(src, path)
-		if rerr != nil {
-			return rerr
-		}
-		key := filepath.ToSlash(rel)
-		if other, clash := seen[key]; clash {
-			return fmt.Errorf("worker %s and %s both provide public asset %s", label, other, key)
-		}
-		seen[key] = label
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if err := g.copyDir(src, g.config.OutputDir); err != nil {
-		return fmt.Errorf("worker %s: copying public assets: %w", label, err)
-	}
-	return nil
-}
-
 // claimFunctionPaths records each function file this worker will write, erroring
 // when another worker already claimed the same output path.
 func (g *Generator) claimFunctionPaths(src, label string, seen map[string]string) error {
@@ -319,10 +286,7 @@ func (g *Generator) claimFunctionPaths(src, label string, seen map[string]string
 		if err != nil || info.IsDir() {
 			return err
 		}
-		rel, rerr := filepath.Rel(src, path)
-		if rerr != nil {
-			return rerr
-		}
+		rel, _ := filepath.Rel(src, path) // Walk yields paths below src
 		key := filepath.ToSlash(filepath.Join("functions", rel))
 		if other, clash := seen[key]; clash {
 			return fmt.Errorf("worker %s and %s both provide %s — give them distinct routes", label, other, key)
@@ -374,12 +338,16 @@ func isWorkerSourceFile(path string) bool {
 	return false
 }
 
-// importFromRE captures the specifier of any `… from "spec"` clause (import-from
-// or export-from), even when the `import { … }` spans several lines — matching on
-// the `from` clause rather than the opening line is what avoids mis-reading a
-// bare `import {` as a package. sideEffectImportRE captures `import "spec"`.
+// importFromRE captures the specifier of an `import … from "spec"` or
+// `export … from "spec"` statement, even when the braces span several lines —
+// matching on the `from` clause rather than the opening line is what avoids
+// mis-reading a bare `import {` as a package. The match starts at a statement's
+// `import`/`export` keyword and may not cross a quote or a semicolon before
+// `from`: a property or variable named `from` followed by a string elsewhere in
+// the file (`[m.from, "x"]`, `{ from: "a" }`) is code, not an import (#419).
+// sideEffectImportRE captures `import "spec"`.
 var (
-	importFromRE       = regexp.MustCompile(`\bfrom\s*["']([^"']+)["']`)
+	importFromRE       = regexp.MustCompile(`(?m)^\s*(?:import|export)\b[^;'"]*?\bfrom\s*["']([^"']+)["']`)
 	sideEffectImportRE = regexp.MustCompile(`(?m)^\s*import\s*["']([^"']+)["']`)
 )
 

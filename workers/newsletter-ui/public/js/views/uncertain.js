@@ -68,11 +68,13 @@ export async function uncertainSection(app, c, after) {
       ),
     ),
     h("p", { class: "hint" }, t("unc.pickHint")),
-    h(
-      "div",
-      { class: "form-actions" },
-      h("button", { type: "button", class: "btn btn-primary", on: { click: act("resend") } }, t("unc.resend")),
-      h("button", { type: "button", class: "btn", on: { click: act("dismiss") } }, t("unc.dismiss")),
-    ),
+    app.can("uncertain")
+      ? h(
+          "div",
+          { class: "form-actions" },
+          h("button", { type: "button", class: "btn btn-primary", on: { click: act("resend") } }, t("unc.resend")),
+          h("button", { type: "button", class: "btn", on: { click: act("dismiss") } }, t("unc.dismiss")),
+        )
+      : null,
   );
 }

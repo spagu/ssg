@@ -1,0 +1,194 @@
+{
+  "id": "newsletter-ui",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "worker",
+  "title": {
+    "en": "Newsletter admin",
+    "pl": "Panel newslettera",
+    "hi": "न्यूज़लेटर एडमिन",
+    "de": "Newsletter-Verwaltung",
+    "fr": "Administration de la newsletter"
+  },
+  "description": {
+    "en": "The sending side of the newsletter: a panel, campaigns, a send engine with a queue, bounce and complaint handling, statistics.",
+    "pl": "Wysyłkowa część newslettera: panel, kampanie, silnik wysyłki z kolejką, obsługa odbić i skarg, statystyki.",
+    "hi": "न्यूज़लेटर भेजने वाला हिस्सा: पैनल, कैंपेन, कतार वाला भेजने का इंजन, बाउंस और शिकायतों का प्रबंधन, आँकड़े।",
+    "de": "Die Versandseite des Newsletters: Verwaltung, Kampagnen, eine Versand-Engine mit Warteschlange, Umgang mit Bounces und Beschwerden, Statistiken.",
+    "fr": "La partie envoi de la newsletter : panneau, campagnes, moteur d'envoi avec file d'attente, gestion des rebonds et des plaintes, statistiques."
+  },
+  "panel": "/",
+  "nav": [
+    {
+      "label": {
+        "en": "Overview",
+        "pl": "Przegląd",
+        "hi": "सारांश",
+        "de": "Übersicht",
+        "fr": "Vue d'ensemble"
+      },
+      "path": "/#/",
+      "permission": "newsletter:read"
+    },
+    {
+      "label": {
+        "en": "Campaigns",
+        "pl": "Kampanie",
+        "hi": "कैंपेन",
+        "de": "Kampagnen",
+        "fr": "Campagnes"
+      },
+      "path": "/#/campaigns",
+      "permission": "newsletter:read"
+    },
+    {
+      "label": {
+        "en": "Subscribers",
+        "pl": "Subskrybenci",
+        "hi": "सब्सक्राइबर",
+        "de": "Abonnenten",
+        "fr": "Abonnés"
+      },
+      "path": "/#/subscribers",
+      "permission": "newsletter:read"
+    },
+    {
+      "label": {
+        "en": "Import",
+        "pl": "Import",
+        "hi": "इंपोर्ट",
+        "de": "Import",
+        "fr": "Importer"
+      },
+      "path": "/#/import",
+      "permission": "newsletter:import"
+    },
+    {
+      "label": {
+        "en": "Suppressions",
+        "pl": "Blokady",
+        "hi": "ब्लॉक सूची",
+        "de": "Sperrliste",
+        "fr": "Exclusions"
+      },
+      "path": "/#/suppressions",
+      "permission": "newsletter:read"
+    },
+    {
+      "label": {
+        "en": "Settings",
+        "pl": "Ustawienia",
+        "hi": "सेटिंग्स",
+        "de": "Einstellungen",
+        "fr": "Paramètres"
+      },
+      "path": "/#/settings",
+      "permission": "newsletter:settings"
+    },
+    {
+      "label": {
+        "en": "Activity",
+        "pl": "Aktywność",
+        "hi": "गतिविधि",
+        "de": "Aktivität",
+        "fr": "Activité"
+      },
+      "path": "/#/activity",
+      "permission": "newsletter:settings"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "newsletter:read",
+      "description": {
+        "en": "View subscribers, counts, campaigns and statistics.",
+        "pl": "Przeglądanie subskrybentów, liczników, kampanii i statystyk.",
+        "hi": "सब्सक्राइबर, गिनती, कैंपेन और आँकड़े देखना।",
+        "de": "Abonnenten, Zählungen, Kampagnen und Statistiken ansehen.",
+        "fr": "Consulter les abonnés, les compteurs, les campagnes et les statistiques."
+      }
+    },
+    {
+      "name": "newsletter:edit",
+      "description": {
+        "en": "Edit campaign drafts, and a subscriber's tags and language.",
+        "pl": "Edycja szkiców kampanii oraz tagów i języka subskrybenta.",
+        "hi": "कैंपेन ड्राफ़्ट, और किसी सब्सक्राइबर के टैग व भाषा बदलना।",
+        "de": "Kampagnenentwürfe sowie Tags und Sprache eines Abonnenten bearbeiten.",
+        "fr": "Modifier les brouillons de campagne ainsi que les étiquettes et la langue d'un abonné."
+      }
+    },
+    {
+      "name": "newsletter:send",
+      "description": {
+        "en": "Send a test, schedule, pause and resume a campaign, and retry uncertain sends — mail that reaches real people.",
+        "pl": "Wysyłka testowa, planowanie, wstrzymywanie i wznawianie kampanii oraz ponawianie niepewnych wysyłek — poczta, która trafia do prawdziwych ludzi.",
+        "hi": "टेस्ट ईमेल भेजना, कैंपेन शेड्यूल करना, रोकना और फिर से शुरू करना, और अनिश्चित भेजे गए ईमेल दोबारा भेजना — ऐसे ईमेल जो असली लोगों तक पहुँचते हैं।",
+        "de": "Testversand, Kampagnen planen, pausieren und fortsetzen sowie unsichere Zustellungen erneut senden – E-Mails, die echte Menschen erreichen.",
+        "fr": "Envoyer un test, planifier, mettre en pause et reprendre une campagne, renvoyer les envois incertains — des e-mails qui atteignent de vraies personnes."
+      }
+    },
+    {
+      "name": "newsletter:import",
+      "description": {
+        "en": "Import subscribers and suppression lists from a file.",
+        "pl": "Import subskrybentów i list blokad z pliku.",
+        "hi": "फ़ाइल से सब्सक्राइबर और ब्लॉक सूची इंपोर्ट करना।",
+        "de": "Abonnenten und Sperrlisten aus einer Datei importieren.",
+        "fr": "Importer des abonnés et des listes d'exclusion depuis un fichier."
+      }
+    },
+    {
+      "name": "newsletter:export",
+      "description": {
+        "en": "Download subscribers as CSV and export one person's data.",
+        "pl": "Pobieranie subskrybentów jako CSV i eksport danych jednej osoby.",
+        "hi": "सब्सक्राइबर CSV के रूप में डाउनलोड करना और किसी एक व्यक्ति का डेटा एक्सपोर्ट करना।",
+        "de": "Abonnenten als CSV herunterladen und die Daten einer Person exportieren.",
+        "fr": "Télécharger les abonnés en CSV et exporter les données d'une personne."
+      }
+    },
+    {
+      "name": "newsletter:erase",
+      "description": {
+        "en": "Erase a person's data for good (right to erasure).",
+        "pl": "Trwałe usunięcie danych osoby (prawo do usunięcia danych).",
+        "hi": "किसी व्यक्ति का डेटा हमेशा के लिए मिटाना (डेटा मिटाने का अधिकार)।",
+        "de": "Die Daten einer Person endgültig löschen (Recht auf Löschung).",
+        "fr": "Effacer définitivement les données d'une personne (droit à l'effacement)."
+      }
+    },
+    {
+      "name": "newsletter:suppress",
+      "description": {
+        "en": "Add addresses to the suppression list and lift a suppression.",
+        "pl": "Dodawanie adresów do blokad i zdejmowanie blokady.",
+        "hi": "पतों को ब्लॉक सूची में जोड़ना और ब्लॉक हटाना।",
+        "de": "Adressen auf die Sperrliste setzen und eine Sperre aufheben.",
+        "fr": "Ajouter des adresses aux exclusions et lever une exclusion."
+      }
+    },
+    {
+      "name": "newsletter:settings",
+      "description": {
+        "en": "Maintenance: test the SMTP connection, read the audit trail of admin actions, and run the retention purge now.",
+        "pl": "Utrzymanie: test połączenia SMTP, wgląd w dziennik działań administratorów i natychmiastowe czyszczenie danych po okresie przechowywania.",
+        "hi": "रखरखाव: SMTP कनेक्शन जाँचना, एडमिन कार्रवाइयों का ऑडिट लॉग देखना, और रखने की अवधि पूरी कर चुके डेटा की सफ़ाई अभी चलाना।",
+        "de": "Wartung: die SMTP-Verbindung testen, das Protokoll der Verwaltungsaktionen einsehen und die Bereinigung nach Aufbewahrungsfrist sofort starten.",
+        "fr": "Maintenance : tester la connexion SMTP, consulter le journal des actions d'administration et lancer tout de suite la purge selon la durée de conservation."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/module",
+    "health": "/api/health",
+    "summary": "/api/module/summary"
+  },
+  "disable": {
+    "en": "Delete the Worker with npx wrangler delete in workers/newsletter-ui, or in the Cloudflare dashboard. Its own tables stay in the shared D1 database, and the newsletter template keeps collecting sign-ups.",
+    "pl": "Usuń Workera poleceniem npx wrangler delete w katalogu workers/newsletter-ui albo w panelu Cloudflare. Jego tabele zostają we wspólnej bazie D1, a szablon newsletter nadal zbiera zapisy.",
+    "hi": "workers/newsletter-ui में npx wrangler delete से, या Cloudflare डैशबोर्ड में, Worker हटाएँ। उसकी अपनी टेबल साझा D1 डेटाबेस में रहती हैं, और newsletter टेम्पलेट साइन-अप लेता रहता है।",
+    "de": "Löschen Sie den Worker mit npx wrangler delete in workers/newsletter-ui oder im Cloudflare-Dashboard. Seine eigenen Tabellen bleiben in der gemeinsamen D1-Datenbank, und die Vorlage newsletter nimmt weiter Anmeldungen an.",
+    "fr": "Supprimez le Worker avec npx wrangler delete dans workers/newsletter-ui, ou dans le tableau de bord Cloudflare. Ses propres tables restent dans la base D1 partagée, et le modèle newsletter continue de recueillir les inscriptions."
+  }
+}

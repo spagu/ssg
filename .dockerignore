@@ -31,6 +31,10 @@ coverage.*
 **/.dev.vars.*
 **/node_modules
 **/.wrangler
+# Screenshot and coverage outputs of the worker test scripts
+**/*-shots/
+**/admin-walk/
+**/lcov.info
 
 # Agent/IDE config
 .agent/

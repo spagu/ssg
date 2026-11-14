@@ -7,8 +7,14 @@
 //   /api/…    admin auth + CSRF header + per-IP volume limit;
 //   /hooks/…  none of those — mail providers call them from many addresses and
 //             without a browser; each hook verifies the provider's signature.
+//
+// Within /api/, each route names the permission it needs (GO-137); app.ts
+// checks it after authentication, so a route cannot be open to every signed-in
+// account by omission (test/route-registry.test.ts refuses a route without one).
 
+import type { Admin } from "./auth";
 import type { Env } from "./lib";
+import type { Need } from "./permissions";
 
 export interface RouteContext {
   request: Request;
@@ -16,6 +22,7 @@ export interface RouteContext {
   ctx: ExecutionContext;
   url: URL;
   params: Record<string, string>;
+  admin: Admin | null; // who is calling: null on the public /hooks/ routes
 }
 
 export type Handler = (c: RouteContext) => Response | Promise<Response>;
@@ -28,6 +35,14 @@ export interface Route {
   // true (the default) and the table is missing, the route answers 503 with an
   // instruction instead of failing on SQL. /api/health opts out to report it.
   needsSubscribers?: boolean;
+  // GO-137: what the caller must hold — a permission from module.json, several
+  // (all required), SESSION (signed in, nothing more: one's own identity) or
+  // PUBLIC (/hooks/ only). In password and Access modes every one is granted.
+  permission: Need;
+  // GO-137: the audit-trail action a state-changing route records
+  // ("campaign.schedule"), or false for a POST that changes nothing (a preview,
+  // a connection test). Reads have none. Required of every non-GET /api/ route.
+  audit?: string | false;
 }
 
 export type Match =

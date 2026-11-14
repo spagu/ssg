@@ -38,7 +38,9 @@ workers/web-push/
 ├── functions/api/push/key.ts            GET the VAPID public key
 ├── functions/api/push/subscribe.ts      POST a PushSubscription
 ├── functions/api/push/unsubscribe.ts    POST {"endpoint"} to forget it
-├── functions/api/push/notify.ts         POST (Bearer PUSH_KEY): announce new feed items
+├── functions/api/push/notify.ts         POST (Bearer PUSH_KEY or an auth service token): announce new feed items
+├── functions/api/push/_auth.ts          who may call notify: PUSH_KEY and/or a service token from `auth`
+├── functions/api/push/_session-verifier.ts  byte-identical copy of workers/auth/portable/ (never edit here)
 ├── functions/api/push/_*.ts             shared modules (not routes): crypto, feed, store
 ├── public/sw.js                         the service worker: shows and opens notifications
 ├── public/push.js                       the button's behaviour
@@ -124,6 +126,64 @@ sent oldest first so the newest ends up on top. One call makes
 *subscribers × items* requests to push services, which counts against your
 plan's subrequest limit per invocation; `PUSH_MAX_ITEMS` caps the items.
 
+## Calling this from CI
+
+Two ways, and you may set up both:
+
+1. **The shared key** — `PUSH_KEY` as `Authorization: Bearer`, as in step 4.
+   One secret, nothing else to run. It stays a first-class mode.
+2. **A service token from the [`auth`](../auth/README.md) worker** — when you
+   already run `auth`: a token for one CI job, with its own expiry, that you
+   can revoke without touching anyone else, and that carries exactly
+   `web-push:notify`. Set `PUSH_AUTH_*` (below); `PUSH_KEY` then becomes
+   optional.
+
+With both set, both are accepted. That is safe here, unlike in an admin panel:
+the key opens this one action and nothing else, so accepting it beside `auth`
+bypasses no permission. A half-set `PUSH_AUTH_*` answers `503` naming what is
+missing, never a silent fall-back to the key.
+
+Only the `Authorization` header is read in mode 2 — a person's session cookie
+is never accepted here, even with the permission (this endpoint is for
+machines; a "notify now" button for a signed-in person would be a separate,
+CSRF-checked route and is not part of this release). The service token must
+be the short access token from `POST /api/auth/token`, not the `ssgsvc_…`
+secret itself.
+
+| Var | Meaning |
+|---|---|
+| `PUSH_AUTH_ISSUER` | the `iss` to accept, e.g. `https://example.com/api/auth` (required) |
+| `PUSH_AUTH_PUBLIC_KEY` or `PUSH_AUTH_JWKS_URL` | exactly one: the public JWK/JWKS, or `/api/auth/jwks` |
+| `PUSH_AUTH_LOGIN_URL` | required by the shared verifier, e.g. `/auth/login`; never used here (a machine is never redirected) |
+| `PUSH_AUTH_AUDIENCE` | optional; default the request's host |
+
+Answers in mode 2: `401 {"error":"unauthorized","reason":…}` without a valid
+service token, `403 {"error":"forbidden","permission":"web-push:notify"}`
+without the permission. Without `PUSH_AUTH_*` the answers are exactly the old
+ones (`test/compat-notify.test.ts` pins them).
+
+A complete example — once, as an owner signed in to `auth` (cookies in
+`jar.txt`; see [`auth`'s service tokens](../auth/docs/SERVICE-TOKENS.md)):
+
+```sh
+H='-H content-type:application/json -H x-ssg-auth:1 -b jar.txt'
+SA=$(curl -s $H -d '{"name":"ci-web-push"}' https://example.com/api/auth/admin/service-accounts | jq -r .serviceAccount.id)
+ROLE=$(curl -s $H -d '{"name":"push-notifier","permissions":["web-push:notify"]}' https://example.com/api/auth/admin/roles | jq -r .role.id)
+curl -s $H -d "{\"roleId\":\"$ROLE\",\"userId\":\"$SA\"}" https://example.com/api/auth/admin/grants
+curl -s $H -d '{"name":"deploy workflow","expiresInDays":90}' \
+     https://example.com/api/auth/admin/service-accounts/$SA/tokens | jq -r .secret
+# → ssgsvc_… : save it as the CI secret SSG_SERVICE_TOKEN (shown only once)
+```
+
+Then the CI step:
+
+```yaml
+- name: Announce new posts
+  run: |
+    ACCESS=$(curl -fsS -X POST -H "Authorization: Bearer ${{ secrets.SSG_SERVICE_TOKEN }}" https://example.com/api/auth/token | jq -r .accessToken)
+    curl -fsS -X POST -H "Authorization: Bearer $ACCESS" https://example.com/api/push/notify
+```
+
 ## The API
 
 | Endpoint | Does |
@@ -131,7 +191,7 @@ plan's subrequest limit per invocation; `PUSH_MAX_ITEMS` caps the items.
 | `GET /api/push/key` | `{"publicKey":"…"}`, cached 5 minutes |
 | `POST /api/push/subscribe` | stores `PushSubscription.toJSON()`; `201`, or `422` `invalid_subscription` |
 | `POST /api/push/unsubscribe` | `{"endpoint":"…"}`; always `200` `{"ok":true}`, stored or not |
-| `POST /api/push/notify` | `Authorization: Bearer <PUSH_KEY>`; `401` without it, `503` when not configured, `502` when the feed cannot be read |
+| `POST /api/push/notify` | `Authorization: Bearer <PUSH_KEY>` or a service token from `auth` ([Calling this from CI](#calling-this-from-ci)); `401` without it, `403` a service token without `web-push:notify`, `503` when not configured, `502` when the feed cannot be read |
 
 `subscribe` and `unsubscribe` refuse a browser request from another origin
 (`403`).
@@ -141,7 +201,7 @@ plan's subrequest limit per invocation; `PUSH_MAX_ITEMS` caps the items.
 | Secret | Purpose |
 |---|---|
 | `PUSH_VAPID_PRIVATE_KEY` | signs every message (required) |
-| `PUSH_KEY` | Bearer token for `notify` (required) |
+| `PUSH_KEY` | Bearer token for `notify` (required unless `PUSH_AUTH_*` is set) |
 | `PUSH_HASH_SALT` | salt for the User-Agent hash; unset ⇒ nothing stored |
 
 | Var | Effect |
@@ -152,6 +212,7 @@ plan's subrequest limit per invocation; `PUSH_MAX_ITEMS` caps the items.
 | `PUSH_MAX_ITEMS` | most items per notify call; default `3` |
 | `PUSH_TTL` | seconds a push service keeps an undelivered message; default `86400` |
 | `PUSH_ENDPOINT_HOSTS` | accepted push services as host suffixes, comma-separated |
+| `PUSH_AUTH_*` | optional: accept service tokens from `auth` on `notify` ([Calling this from CI](#calling-this-from-ci)) |
 
 | Binding | |
 |---|---|
@@ -178,4 +239,20 @@ node --import ./workers/web-push/test/resolve.mjs --test 'workers/web-push/test/
 `resolve.mjs` lets Node resolve the extensionless imports Pages bundles. The
 suite checks the encryption against the RFC 8291 worked example byte for byte,
 verifies the VAPID signature, and runs every route against in-memory D1, KV and
-push services.
+push services. `compat-notify.test.ts` pins the shared-key answers byte for
+byte; `auth-mode.test.ts` covers service tokens (accepted with the permission,
+`403` without, never from a cookie, both modes at once, half-configured);
+`auth-copies.test.ts` keeps `_session-verifier.ts` identical to
+`workers/auth/portable/` (skipped, with the reason, when scaffolded alone).
+
+## Module manifest
+
+`module.json` describes this template as a module (see [docs/WORKER-MODULES.md](../../docs/WORKER-MODULES.md)): its name and description in five languages, the permissions its admin surface distinguishes, and how to switch it off. It is a description only — no secrets, no configuration.
+
+| Permission | Allows |
+|---|---|
+| `web-push:notify` | Announce new posts to every subscribed browser. |
+
+With `PUSH_AUTH_*` set, a service token from `auth` must hold `web-push:notify` to call `notify` ([Calling this from CI](#calling-this-from-ci)); `PUSH_KEY`, when set, keeps opening it as before.
+
+There is no admin surface to put a manifest endpoint behind, so the template ships the file only; the build reads it into the module registry when the site has the [`core`](../core/README.md) worker.

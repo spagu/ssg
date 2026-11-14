@@ -1,0 +1,110 @@
+/* The accounts admin panel (GO-138): the shell — sidebar navigation on wide
+ * screens, a bar with a Menu button below 900px — and the pieces every view
+ * shares. Loaded after tokens.css, core's theme.css and auth.css; every
+ * colour is a token (no colour is written here), so the site's theme reaches
+ * everything. Links use --link when core's theme defines it, the primary
+ * colour otherwise. */
+
+.admin { display: block; }
+.admin a:not(.btn) { color: var(--link, var(--primary)); }
+.skip { position: absolute; left: 8px; top: -60px; z-index: 30; padding: 10px 14px; background: var(--surface); color: var(--link, var(--primary)); border: 2px solid var(--focus); border-radius: var(--radius); font-weight: 600; }
+.skip:focus { top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.shell { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 16px; }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; text-decoration: none; color: var(--text); font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.admin a.brand { color: var(--text); }
+#menu-toggle { display: none; }
+.drawer { display: flex; flex-direction: column; gap: 20px; }
+#nav-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+#nav-list a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: var(--radius); font-weight: 600; text-decoration: none; color: var(--text); }
+#nav-list a:hover { background: var(--primary-soft); color: var(--on-primary-soft); }
+#nav-list a[aria-current="page"] { background: var(--primary); color: var(--on-primary); }
+.prefs { display: grid; gap: 4px; }
+.prefs select { margin-bottom: 8px; }
+.account { margin: 0; padding-top: 12px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.account p { margin: 0 0 6px; color: var(--text-muted); font-size: .9rem; }
+/* core's shared bar shows who is signed in and its own Sign out: ours goes. */
+ssg-admin-nav[data-signout] ~ .shell .account { display: none; }
+
+.admin main { max-width: 72rem; width: 100%; margin: 0; padding: 24px clamp(16px, 3vw, 40px) 64px; min-width: 0; }
+#notice { position: sticky; top: 0; z-index: 10; }
+#notice .callout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 2px 8px var(--shadow); }
+#notice .callout p { margin: 0; }
+
+select, textarea {
+  font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--control); border-radius: var(--radius);
+  min-height: 44px; padding: 8px 12px; width: 100%; max-width: 26rem;
+}
+textarea { min-height: 4.5rem; max-width: 40rem; }
+.mono, code { font-family: var(--font-mono); }
+input.mono { max-width: 40rem; }
+
+.page-head { margin-bottom: 20px; }
+.page-head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.page-head h1 { margin: 0; overflow-wrap: anywhere; }
+.page-actions, .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.toolbar { margin: 0 0 20px; }
+.back { display: inline-flex; min-height: 32px; align-items: center; margin-bottom: 6px; font-weight: 600; }
+.lead { color: var(--text-muted); max-width: 70ch; margin: 6px 0 0; }
+.sub { display: block; color: var(--text-muted); font-size: .88rem; font-weight: 400; overflow-wrap: anywhere; }
+.empty { color: var(--text-muted); font-style: italic; }
+.loading { color: var(--text-muted); }
+
+h3 { font-size: 1.05rem; margin: 16px 0 8px; }
+.block { margin: 0 0 28px; }
+.block > h2 { font-size: 1.3rem; }
+
+/* Tables keep being tables (auth.css turns its own into cards on phones):
+ * a wide one scrolls inside its own region, which says so. */
+.admin table.data, .admin table.data thead { position: static; width: 100%; height: auto; overflow: visible; clip: auto; }
+.admin table.data { display: table; min-width: 36rem; }
+.admin table.data thead { display: table-header-group; }
+.admin table.data tbody { display: table-row-group; }
+.admin table.data tr { display: table-row; padding: 0; }
+.admin table.data th, .admin table.data td { display: table-cell; padding: 9px 10px; border-top: 1px solid var(--border); width: auto; }
+.admin table.data tbody th { font-weight: 600; min-width: 12rem; overflow-wrap: break-word; }
+.table-wrap { margin: 0 0 16px; }
+.table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.scroll-hint { display: none; margin: 0 0 4px; color: var(--text-muted); font-size: .85rem; }
+@media (max-width: 760px) { .scroll-hint { display: block; } }
+
+/* A chip's words are in the text colour; its tone is the border (3:1 against
+ * the surface), so an orange chip never carries orange text below 4.5:1. */
+.admin .chip { margin: 0 4px 2px 0; color: var(--text); border-color: var(--control); }
+.admin .chip-ok { border-color: var(--ok); }
+.admin .chip-critical { border-color: var(--critical); border-width: 2px; }
+.admin .chip-warning { border-color: var(--warning); border-style: dashed; }
+.admin .chip-info { border-color: var(--info); }
+.chips { margin: 0 0 12px; }
+
+.dialog { border: 1px solid var(--border); border-radius: 10px; padding: 24px; max-width: min(34rem, calc(100vw - 32px)); background: var(--surface); color: var(--text); }
+.dialog::backdrop { background: var(--backdrop); }
+.dialog h2 { font-size: 1.25rem; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.dialog .check { display: flex; gap: 8px; align-items: flex-start; }
+
+@media (max-width: 900px) {
+  .shell { display: block; }
+  .sidebar { position: sticky; top: 0; z-index: 20; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; gap: 0; }
+  #menu-toggle { display: inline-flex; }
+  .drawer { display: none; padding-top: 12px; }
+  .nav-open .drawer { display: flex; }
+  #notice { top: 66px; }
+  html { scroll-padding-top: 80px; }
+}
+
+@media (forced-colors: active) {
+  #nav-list a[aria-current="page"] { outline: 2px solid CanvasText; }
+  .table-scroll, .dialog { border: 1px solid CanvasText; }
+}
+
+/* The heading takes focus after navigation (so a screen reader announces the
+ * view); it is not a control, so no ring on it. */
+.page-head h1:focus { outline: none; }
+.admin table.data .plain { margin: 0; }
+.admin table.data .plain li { padding: 0; }

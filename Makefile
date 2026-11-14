@@ -142,8 +142,13 @@ test-story: ## 🧪 Run the story presentation's script tests (Node >= 20; pronu
 	@node --test internal/generator/testdata/story/say.test.cjs
 	@echo "${GREEN}✅ Story script tests passed${RESET}"
 
-test-workers: ## 🧪 Run the worker tests that have them (Node >= 23.6; web-push, contact-form, newsletter, newsletter-ui)
+test-workers: ## 🧪 Run the worker tests (Node >= 23.6): module manifests of every template, then each template's own suite
 	@echo "${BLUE}🧪 Running worker tests...${RESET}"
+	@node --test 'workers/*.test.ts'
+	@node --import ./workers/comments/test/resolve.mjs --test 'workers/comments/test/*.test.ts'
+	@node --import ./workers/auth/test/resolve.mjs --test 'workers/auth/test/*.test.ts'
+	@node --import ./workers/core/test/resolve.mjs --test 'workers/core/test/*.test.ts'
+	@node --import ./workers/republish-trigger/test/resolve.mjs --test 'workers/republish-trigger/test/*.test.ts'
 	@node --import ./workers/web-push/test/resolve.mjs --test 'workers/web-push/test/*.test.ts'
 	@node --import ./workers/contact-form/test/resolve.mjs --test 'workers/contact-form/test/*.test.ts'
 	@node --import ./workers/newsletter/test/resolve.mjs --test 'workers/newsletter/test/*.test.ts'

@@ -17,6 +17,7 @@ import { engineConfig } from "./engine-rate";
 import { DEFAULT_DLQ } from "./engine-status";
 import { feedSource } from "./feed-fetch";
 import { DEFAULT_MAX_ROWS } from "./import";
+import { authName } from "./health";
 import { basePath, intVar, json } from "./lib";
 import type { Env } from "./lib";
 import { openMailer, transportOf, transportProblem } from "./mail/_transport";
@@ -66,7 +67,7 @@ export function settingsOf(env: Env) {
     feedUrl: "url" in feed ? feed.url.href : null,
     confirmBatch: Math.min(intVar(env.NEWSLETTER_CONFIRM_BATCH, DEFAULT_CONFIRM_BATCH), cfg.rate),
     importMaxRows: intVar(env.NEWSLETTER_IMPORT_MAX_ROWS, DEFAULT_MAX_ROWS),
-    auth: env.NEWSLETTER_ACCESS_TEAM && env.NEWSLETTER_ACCESS_AUD ? "access" : "basic",
+    auth: authName(env),
     base: basePath(env),
   };
 }

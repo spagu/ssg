@@ -2,7 +2,7 @@
 # Install: cd /usr/ports/www/ssg && make install clean
 
 PORTNAME=	ssg
-DISTVERSION=	1.9.8
+DISTVERSION=	1.9.9
 CATEGORIES=	www
 
 MAINTAINER=	spagu@github.com

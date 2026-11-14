@@ -123,7 +123,7 @@ export default async function editor(app, root, route, campaign = null) {
       ),
       preview.count,
     ),
-    h("div", { class: "form-actions" }, h("button", { type: "submit", class: "btn btn-primary" }, t(c ? "editor.save" : "editor.create")), status.node),
+    h("div", { class: "form-actions" }, app.can("save") ? h("button", { type: "submit", class: "btn btn-primary" }, t(c ? "editor.save" : "editor.create")) : null, status.node),
   );
 
   const actions = c ? campaignActions(app, c, { save }) : null;

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ssg worker module summary",
+  "description": "The answer of a module's summary endpoint (endpoints.summary in module.json, GO-148): a few numbers, what needs a person's attention and what is wrong with the configuration, for an admin home page that renders every text as plain text. Contract 1. Aggregates only: no address, name, comment text, token, IP or any other per-person value. Readers ignore fields they do not know and refuse a summary whose contract is newer than theirs. Uses the same keyword subset as module.schema.json, and every pattern is valid both as an ECMAScript and as an RE2 (Go) expression.",
+  "type": "object",
+  "required": ["contract", "generatedAt", "metrics", "attention", "problems"],
+  "properties": {
+    "contract": {
+      "description": "Version of this summary format; independent of the manifest contract.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "generatedAt": {
+      "description": "When the module computed the answer, ISO 8601 in UTC.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,3})?Z$"
+    },
+    "metrics": {
+      "description": "At most four numbers worth a tile.",
+      "type": "array",
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/metric" }
+    },
+    "attention": {
+      "description": "Things that need a person, most serious first, each linking into the module's own panel.",
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/attentionItem" }
+    },
+    "problems": {
+      "description": "Configuration problems, never with a secret's value.",
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/problem" }
+    },
+    "series": { "$ref": "#/$defs/series" }
+  },
+  "$defs": {
+    "text": {
+      "description": "One text in the five panel languages; further language codes are allowed.",
+      "type": "object",
+      "required": ["en", "pl", "hi", "de", "fr"],
+      "properties": {
+        "en": { "$ref": "#/$defs/phrase" },
+        "pl": { "$ref": "#/$defs/phrase" },
+        "hi": { "$ref": "#/$defs/phrase" },
+        "de": { "$ref": "#/$defs/phrase" },
+        "fr": { "$ref": "#/$defs/phrase" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/phrase" }
+    },
+    "phrase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "metric": {
+      "type": "object",
+      "required": ["key", "label", "value"],
+      "properties": {
+        "key": {
+          "description": "Stable camelCase name; two modules reading the same data use the same key for the same number.",
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9]*$",
+          "maxLength": 32
+        },
+        "label": { "$ref": "#/$defs/text" },
+        "value": { "type": "number", "minimum": 0 },
+        "unit": {
+          "description": "Absent for a plain count.",
+          "enum": ["percent", "days"]
+        }
+      }
+    },
+    "attentionItem": {
+      "type": "object",
+      "required": ["severity", "text", "href"],
+      "properties": {
+        "severity": {
+          "description": "action: waits for a person's decision or work. warning: something is going wrong. info: good to know.",
+          "enum": ["action", "warning", "info"]
+        },
+        "text": { "$ref": "#/$defs/text" },
+        "href": {
+          "description": "A path inside the module's own panel, relative to the module's base, like a manifest nav path (an optional #fragment for hash routing); never a URL.",
+          "type": "string",
+          "pattern": "^(?:(?:/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+/?|/)(?:#[A-Za-z0-9._~/?=&-]*)?$",
+          "maxLength": 256
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "required": ["code", "text"],
+      "properties": {
+        "code": {
+          "description": "Stable snake_case identifier of the problem.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 64
+        },
+        "text": { "$ref": "#/$defs/text" }
+      }
+    },
+    "series": {
+      "description": "One short daily series for a small chart.",
+      "type": "object",
+      "required": ["label", "points"],
+      "properties": {
+        "label": { "$ref": "#/$defs/text" },
+        "points": {
+          "description": "Oldest first, one per UTC day.",
+          "type": "array",
+          "maxItems": 90,
+          "items": { "$ref": "#/$defs/point" }
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": ["day", "value"],
+      "properties": {
+        "day": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "value": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

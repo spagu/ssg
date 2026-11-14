@@ -247,6 +247,7 @@ analytics: false     # Render the tracking snippets a migration recorded in
 #   home:          { "@type": WebSite }
 #   pages/recipes: { "@type": Recipe, recipeCuisine: Polish }
 check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (fail build)
+# check_links_ignore: [/core/nav.js, /core/theme.css]   # paths the check skips: exact, or a prefix ending in /
 check_schema: ""     # "" (off), "warn" or "strict" — validate emitted JSON-LD against
                      # the properties search engines require (unknown @types pass)
 # check_schema_recommended: true  # also advise on recommended Recipe properties (never fails)
@@ -542,7 +543,8 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 
 # Cloudflare Worker / Pages Functions beside the static site (GO-065).
 # Scaffold a template with: ssg new worker <contact-form|stripe-checkout|dynamic-price|
-#   conversions-proxy|cookie-consent|comments|republish-trigger|rate-limit|newsletter|web-push>
+#   conversions-proxy|cookie-consent|comments|republish-trigger|rate-limit|newsletter|web-push|
+#   auth|core>   (auth: accounts for the panels; core: the admin home — docs/WORKERS.md)
 # newsletter-ui is a standalone Worker (its own wrangler.toml, `npx wrangler deploy`):
 # never list it here — the build refuses it. See workers/newsletter-ui/README.md.
 # worker:
@@ -551,6 +553,33 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #   routes_include: ["/api/*"]    # paths that invoke the Function (default ["/api/*"])
 #   routes_exclude: []            # paths carved back out to static
 #   wrangler_config: ""           # wrangler config outside the project root
+
+# Module registry for the core worker (docs/WORKER-MODULES.md). Written
+# only when a worker above has a module.json with id "core"; otherwise unused.
+# modules:                          # modules deployed outside this build
+#   - id: newsletter-ui
+#     url: /newsletter-admin        # its base path on the same host — never a URL
+#     dir: workers/newsletter-ui    # optional: read its module.json at build time
+# check_modules: warn               # off | warn (default) | strict
+
+# The admin panels' look, served by the core worker. Every key is
+# optional; without the section the panels look as shipped. Colours derive a
+# full light and dark palette with WCAG 2.2 contrast guaranteed; logo and font
+# files must be on this site's own host. Change it here and rebuild — the
+# core worker's Appearance view (/core/#appearance) shows the result.
+# admin_theme:
+#   name: "Anna's Kitchen"            # plain text, shown in the shared navigation
+#   logo: /img/logo.svg               # .svg/.png/.webp on this host; logo_dark: for dark backgrounds
+#   main: "#1b3a4b"                   # bar, primary buttons, current menu item, first chart series
+#   accent: "#e07a5f"                 # links, focus ring, current-page marker, second chart series
+#   font: "Georgia, serif"            # headings; font_body: everything else
+#   font_files:                       # optional @font-face files on this host
+#     - family: "Brand Serif"
+#       src: /fonts/brand-serif.woff2
+#       weight: "400 700"
+#   tokens:                           # advanced: override single tokens, re-checked
+#     dark: { focus: "#ffcc80" }
+# check_admin_theme: warn           # off | warn (default) | strict
 
 # Shortcodes - reusable content snippets, use {{name}} in markdown
 # Template file is REQUIRED - create your own templates in the theme folder

@@ -1,0 +1,93 @@
+// The module manifest (GO-143) as code. Pages Functions cannot read files at
+// runtime and the site build copies only functions/, so the manifest route
+// imports this copy of module.json (the template root's). Generated: edit
+// module.json, then run UPDATE_MODULE_TWINS=1 node --test 'workers/*.test.ts'
+// in the ssg repository, or copy the JSON here by hand — the two must match.
+// A leading underscore keeps this file out of the Pages route table.
+export const MODULE = {
+  "id": "comments",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Comments",
+    "pl": "Komentarze",
+    "hi": "टिप्पणियाँ",
+    "de": "Kommentare",
+    "fr": "Commentaires"
+  },
+  "description": {
+    "en": "Reader comments stored in D1, protected by Turnstile and held for moderation.",
+    "pl": "Komentarze czytelników zapisywane w D1, chronione przez Turnstile i wstrzymywane do moderacji.",
+    "hi": "पाठकों की टिप्पणियाँ D1 में सहेजी जाती हैं, Turnstile से सुरक्षित रहती हैं और मॉडरेशन तक रोकी जाती हैं।",
+    "de": "Leserkommentare in D1, geschützt durch Turnstile und bis zur Freigabe zurückgehalten.",
+    "fr": "Commentaires des lecteurs stockés dans D1, protégés par Turnstile et retenus jusqu'à la modération."
+  },
+  "panel": "/comments-admin.html",
+  "nav": [
+    {
+      "label": {
+        "en": "Moderation queue",
+        "pl": "Kolejka moderacji",
+        "hi": "मॉडरेशन कतार",
+        "de": "Moderationswarteschlange",
+        "fr": "File de modération"
+      },
+      "path": "/comments-admin.html",
+      "permission": "comments:read"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "comments:read",
+      "description": {
+        "en": "View the comments in the moderation queue: pending, spam and approved.",
+        "pl": "Przeglądanie komentarzy w kolejce moderacji: oczekujących, spamu i zatwierdzonych.",
+        "hi": "मॉडरेशन कतार की टिप्पणियाँ देखना: लंबित, स्पैम और स्वीकृत।",
+        "de": "Kommentare in der Moderationswarteschlange ansehen: ausstehend, Spam und freigegeben.",
+        "fr": "Consulter les commentaires de la file de modération : en attente, spam et approuvés."
+      }
+    },
+    {
+      "name": "comments:moderate",
+      "description": {
+        "en": "Approve a comment or mark it as spam.",
+        "pl": "Zatwierdzanie komentarza albo oznaczanie go jako spam.",
+        "hi": "टिप्पणी स्वीकृत करना या उसे स्पैम चिह्नित करना।",
+        "de": "Einen Kommentar freigeben oder als Spam markieren.",
+        "fr": "Approuver un commentaire ou le marquer comme spam."
+      }
+    },
+    {
+      "name": "comments:delete",
+      "description": {
+        "en": "Delete a comment for good, and run the purge of old spam and pending comments now.",
+        "pl": "Trwałe usuwanie komentarza oraz natychmiastowe czyszczenie starego spamu i oczekujących komentarzy.",
+        "hi": "किसी टिप्पणी को हमेशा के लिए मिटाना, और पुराने स्पैम व लंबित टिप्पणियों की सफ़ाई अभी चलाना।",
+        "de": "Einen Kommentar endgültig löschen und die Bereinigung alter Spam- und ausstehender Kommentare sofort starten.",
+        "fr": "Supprimer définitivement un commentaire et lancer tout de suite la purge des anciens spams et commentaires en attente."
+      }
+    },
+    {
+      "name": "comments:import",
+      "description": {
+        "en": "Import comments in bulk from another system, without the spam check.",
+        "pl": "Masowy import komentarzy z innego systemu, bez sprawdzania spamu.",
+        "hi": "दूसरे सिस्टम से टिप्पणियाँ एक साथ इंपोर्ट करना, बिना स्पैम जाँच के।",
+        "de": "Kommentare gesammelt aus einem anderen System importieren, ohne Spamprüfung.",
+        "fr": "Importer des commentaires en masse depuis un autre système, sans contrôle anti-spam."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/comments/module",
+    "summary": "/api/comments/module/summary"
+  },
+  "disable": {
+    "en": "Remove workers/comments from the workers: list in .ssg.yaml, take the comment widget out of your templates and deploy the site again. The comments stay in the D1 database until you delete it.",
+    "pl": "Usuń workers/comments z listy workers: w .ssg.yaml, wyjmij widżet komentarzy z szablonów i wdróż stronę ponownie. Komentarze zostają w bazie D1, dopóki jej nie usuniesz.",
+    "hi": "workers/comments को .ssg.yaml की workers: सूची से हटाएँ, अपने टेम्पलेट से टिप्पणी विजेट निकालें और साइट फिर से डिप्लॉय करें। टिप्पणियाँ D1 डेटाबेस में तब तक रहती हैं जब तक आप उसे मिटा नहीं देते।",
+    "de": "Entfernen Sie workers/comments aus der workers:-Liste in .ssg.yaml, nehmen Sie das Kommentar-Widget aus Ihren Templates und veröffentlichen Sie die Website neu. Die Kommentare bleiben in der D1-Datenbank, bis Sie diese löschen.",
+    "fr": "Retirez workers/comments de la liste workers: dans .ssg.yaml, enlevez le widget de commentaires de vos modèles et redéployez le site. Les commentaires restent dans la base D1 jusqu'à ce que vous la supprimiez."
+  }
+};

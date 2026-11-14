@@ -24,6 +24,7 @@ import (
 	"time"
 	_ "time/tzdata" // embed the IANA zone db so --timezone works in static/Windows builds (I18N-001)
 
+	"github.com/spagu/ssg/internal/admintheme"
 	"github.com/spagu/ssg/internal/ai"
 	"github.com/spagu/ssg/internal/config"
 	"github.com/spagu/ssg/internal/deploy"
@@ -31,6 +32,7 @@ import (
 	"github.com/spagu/ssg/internal/fetch"
 	"github.com/spagu/ssg/internal/generator"
 	"github.com/spagu/ssg/internal/mddb"
+	"github.com/spagu/ssg/internal/modules"
 	"github.com/spagu/ssg/internal/notify"
 	"github.com/spagu/ssg/internal/theme"
 	"github.com/spagu/ssg/internal/webp"
@@ -803,6 +805,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Breadcrumbs:            buildBreadcrumbOptions(cfg.Breadcrumbs),
 		Notify:                 buildNotifier(cfg),
 		CheckLinks:             cfg.CheckLinks,
+		CheckLinksIgnore:       cfg.CheckLinksIgnore,
 		PendingImageFormats:    pendingImageFormats(cfg),
 		PostsPage:              cfg.PostsPage,
 		Title:                  cfg.Title,
@@ -850,8 +853,12 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		Redirects:              redirectsOf(cfg),
 		// aliases produce meta-refresh stubs by default; alias_stubs: false
 		// keeps only the _redirects 301s (GO-063).
-		AliasStubsOff: cfg.AliasStubs != nil && !*cfg.AliasStubs,
-		Workers:       workersOf(cfg),
+		AliasStubsOff:   cfg.AliasStubs != nil && !*cfg.AliasStubs,
+		Workers:         workersOf(cfg),
+		Modules:         modulesOf(cfg),
+		CheckModules:    cfg.CheckModules,
+		AdminTheme:      adminThemeOf(cfg.AdminTheme),
+		CheckAdminTheme: cfg.CheckAdminTheme,
 		Mddb: generator.MddbConfig{
 			Enabled:    cfg.Mddb.Enabled,
 			URL:        cfg.Mddb.URL,
@@ -900,6 +907,33 @@ func workersOf(cfg *config.Config) []generator.WorkerConfig {
 			RoutesExclude:  w.RoutesExclude,
 			WranglerConfig: w.WranglerConfig,
 		})
+	}
+	return out
+}
+
+// modulesOf converts `modules:` into the generator's type (GO-144), keeping
+// the two packages decoupled like workersOf.
+func modulesOf(cfg *config.Config) []modules.Ref {
+	if len(cfg.Modules) == 0 {
+		return nil
+	}
+	out := make([]modules.Ref, 0, len(cfg.Modules))
+	for _, m := range cfg.Modules {
+		out = append(out, modules.Ref{ID: m.ID, URL: m.URL, Dir: m.Dir})
+	}
+	return out
+}
+
+// adminThemeOf converts `admin_theme:` into the build's type (GO-152),
+// keeping the packages decoupled like workersOf; nil stays nil.
+func adminThemeOf(t *config.AdminThemeConfig) *admintheme.Config {
+	if t == nil {
+		return nil
+	}
+	out := &admintheme.Config{Name: t.Name, Logo: t.Logo, LogoDark: t.LogoDark, Main: t.Main, Accent: t.Accent,
+		Font: t.Font, FontBody: t.FontBody, Tokens: t.Tokens}
+	for _, f := range t.FontFiles {
+		out.FontFiles = append(out.FontFiles, admintheme.FontFileConfig{Family: f.Family, Src: f.Src, Weight: f.Weight, Style: f.Style})
 	}
 	return out
 }

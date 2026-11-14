@@ -10,6 +10,22 @@
 // small delays and refuses any address containing "bounce" (5.1.1) — so a
 // campaign really progresses while you watch. The site's feed is answered
 // from here too. Nothing leaves the machine. PORT=… changes the port.
+//
+// DEMO_AUTH=1 runs it in `auth` mode instead (GO-137): no password; a pretend
+// `auth` worker on the same port signs session tokens with a key made at
+// start. /auth/login lists accounts with different permissions — owner,
+// editor, sender, reader, none — and remembers the pick in a plain `demo-as`
+// cookie; each request then reaches the worker carrying a freshly signed
+// __Host-ssg-auth cookie for that account (a __Host- cookie cannot be set on
+// http://localhost, so the server adds it). Sign-out clears the pick.
+//
+// DEMO_CORE=1 also answers what the `core` worker would on the same host
+// (GO-146): workers/core/public/core/ at /core/ (nav.js, nav.css, theme.css…)
+// and a stand-in for GET /api/core/modules — so the shared admin bar appears
+// above the panel; in DEMO_AUTH mode it shows the account and Sign out.
+// DEMO_CORE=theme serves a demo site theme as /core/theme.css. Without the
+// switch /core/* reaches the worker and answers 404, as on a site without
+// `core`.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -140,6 +156,84 @@ const env = {
 };
 await seedDemo(env);
 
+// --- DEMO_AUTH=1: a pretend `auth` worker --------------------------------
+const ACCOUNTS = {
+  owner: ["*"],
+  editor: ["newsletter:read", "newsletter:edit"],
+  sender: ["newsletter:read", "newsletter:send"],
+  reader: ["newsletter:read"],
+  none: [],
+};
+const authDemo = process.env.DEMO_AUTH === "1" ? await pretendAuth() : null;
+async function pretendAuth() {
+  const enc = new TextEncoder();
+  const b64u = (b) => Buffer.from(b).toString("base64url");
+  const part = (v) => b64u(enc.encode(JSON.stringify(v)));
+  const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const jwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const pub = { crv: "P-256", kty: "EC", x: jwk.x, y: jwk.y };
+  const kid = b64u(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(JSON.stringify(pub)))));
+  delete env.NEWSLETTER_ADMIN_PASSWORD;
+  Object.assign(env, { NEWSLETTER_AUTH_ISSUER: "http://localhost/api/auth", NEWSLETTER_AUTH_PUBLIC_KEY: JSON.stringify(pub), NEWSLETTER_AUTH_LOGIN_URL: "/auth/login" });
+  const sign = async (as, host) => {
+    const now = Math.floor(Date.now() / 1000);
+    const claims = { iss: env.NEWSLETTER_AUTH_ISSUER, aud: host, sub: `u-${as}`, sid: "demo", email: `${as}@example.com`, iat: now, exp: now + 600, ver: 1, perms: ACCOUNTS[as] };
+    const head = `${part({ alg: "ES256", typ: "JWT", kid })}.${part(claims)}`;
+    return `${head}.${b64u(new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, pair.privateKey, enc.encode(head))))}`;
+  };
+  const picked = (headers) => /(?:^|;\s*)demo-as=(\w+)/.exec(headers.get("cookie") ?? "")?.[1];
+  // answer: the pretend auth worker's own pages, or null to pass the request on.
+  async function answer(url, method) {
+    const next = url.searchParams.get("next") || BASE + "/";
+    if (url.pathname === "/auth/login") {
+      const as = url.searchParams.get("as");
+      if (as in ACCOUNTS) return new Response(null, { status: 302, headers: { location: next, "set-cookie": `demo-as=${as}; Path=/; HttpOnly; SameSite=Lax` } });
+      const links = Object.keys(ACCOUNTS).map((a) => `<li><a href="/auth/login?as=${a}&amp;next=${encodeURIComponent(next)}">${a}</a> — ${ACCOUNTS[a].join(", ") || "no permission"}</li>`).join("");
+      return new Response(`<!doctype html><title>Sign in (demo)</title><h1>Sign in as…</h1><ul>${links}</ul>`, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+    if (url.pathname === "/api/auth/logout" && method === "POST") return new Response(null, { status: 303, headers: { location: BASE + "/", "set-cookie": "demo-as=; Path=/; Max-Age=0" } });
+    if (url.pathname === "/api/auth/refresh" && method === "POST") return new Response(null, { status: 204 });
+    return null;
+  }
+  // withSession: the request as the worker sees it, carrying the picked account's token.
+  async function withSession(headers, host) {
+    const as = picked(headers);
+    if (as in ACCOUNTS) headers.set("cookie", `${headers.get("cookie")}; __Host-ssg-auth=${await sign(as, host)}`);
+  }
+  return { answer, withSession };
+}
+
+// --- DEMO_CORE: what the `core` worker serves on this host ------------------
+const CORE = join(here, "..", "..", "core", "public", "core");
+// A demo site theme (GO-152's theme.css will be custom properties only, like
+// this): Indigo instead of Teal as the main colour, Pink (Amber on dark) as
+// the accent: focus and links.
+const DEMO_THEME = `:root { --primary: #283593; --primary-soft: #e8eaf6; --on-primary-soft: #1a237e; --focus: #c51162; --link: #c51162; --info: #283593; --c1: #3949ab;
+  --nav-bg: #1a237e; --nav-hover: #283593; --nav-muted: #c5cae9; --nav-control: #9fa8da; --nav-current: #ffd54f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --primary: #9fa8da; --on-primary: #1a237e; --primary-soft: #1a237e; --on-primary-soft: #c5cae9; --focus: #ffd54f; --link: #ffd54f; --info: #9fa8da; --c1: #7986cb; } }
+:root[data-theme="dark"] { --primary: #9fa8da; --on-primary: #1a237e; --primary-soft: #1a237e; --on-primary-soft: #c5cae9; --focus: #ffd54f; --link: #ffd54f; --info: #9fa8da; --c1: #7986cb; }
+`;
+const coreDemo = process.env.DEMO_CORE ? coreAnswer : null;
+async function coreAnswer(url, headers) {
+  if (url.pathname === "/api/core/modules") {
+    const as = /(?:^|;\s*)demo-as=(\w+)/.exec(headers.get("cookie") ?? "")?.[1];
+    const auth = Boolean(authDemo);
+    return Response.json({
+      mode: auth ? "auth" : "password", user: auth && as ? { id: `u-${as}`, email: `${as}@example.com` } : null, lang: "en",
+      home: "/core/", signOut: auth ? "/api/auth/logout" : null,
+      items: [
+        { id: "comments", kind: "pages-function", title: "Comments", panel: "/comments-admin.html", nav: [], status: "registered" },
+        { id: "newsletter-ui", kind: "worker", title: "Newsletter", panel: `${BASE}/`, nav: [], status: "registered" },
+      ],
+    });
+  }
+  if (process.env.DEMO_CORE === "theme" && url.pathname === "/core/theme.css") return new Response(DEMO_THEME, { headers: { "content-type": TYPES[".css"] } });
+  if (!url.pathname.startsWith("/core/")) return null;
+  const file = normalize(join(CORE, decodeURIComponent(url.pathname.slice("/core/".length))));
+  const body = file.startsWith(CORE) ? await readFile(file).catch(() => null) : null;
+  return body ? new Response(body, { headers: { "content-type": TYPES[extname(file)] ?? "application/octet-stream" } }) : new Response("not found", { status: 404 });
+}
+
 // The site's feed, for "New from a post"; every other outside request fails.
 const FEED = `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><title>Example Kitchen</title><id>https://example.com/</id><updated>2026-11-12T08:00:00Z</updated>
@@ -168,15 +262,17 @@ createServer(async (req, res) => {
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
   headers.set("cf-connecting-ip", "127.0.0.1");
-  const request = new Request(`http://localhost:${PORT}${req.url}`, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body });
+  const url = new URL(`http://localhost:${PORT}${req.url}`);
+  if (authDemo) await authDemo.withSession(headers, url.host);
+  const request = new Request(url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : body });
   let response;
   try {
-    response = await worker.fetch(request, env, ctx);
+    response = (coreDemo && (await coreDemo(url, headers))) || (authDemo && (await authDemo.answer(url, req.method))) || (await worker.fetch(request, env, ctx));
   } catch (e) {
     console.error(e);
     response = new Response("dev server error", { status: 500 });
   }
-  if (response.status === 401 && !response.headers.has("www-authenticate")) response.headers.set("www-authenticate", 'Basic realm="newsletter demo"');
+  if (!authDemo && response.status === 401 && !response.headers.has("www-authenticate")) response.headers.set("www-authenticate", 'Basic realm="newsletter demo"');
   res.writeHead(response.status, Object.fromEntries(response.headers));
   res.end(Buffer.from(await response.arrayBuffer()));
-}).listen(PORT, () => console.log(`newsletter-ui demo: http://localhost:${PORT}${BASE}/  (password: demo)`));
+}).listen(PORT, () => console.log(`newsletter-ui demo: http://localhost:${PORT}${BASE}/  (${authDemo ? "auth mode: pick an account at /auth/login" : "password: demo"}${coreDemo ? `, core: ${process.env.DEMO_CORE}` : ""})`));

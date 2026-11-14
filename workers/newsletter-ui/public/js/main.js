@@ -1,13 +1,16 @@
 // The panel's entry point: language, theme, the shell's words, and routing.
 // DOM glue only — the logic it wires lives in core/, models/ and charts/.
 
+import { ABSENT, applyAdminNav, coverHeight as coverHeightOf, readAdminNav } from "./core/admin-nav.js";
 import { createApi } from "./core/api.js";
 import { createFormat } from "./core/format.js";
+import { readMe, renew } from "./core/session.js";
 import { LANGS, createI18n, pickLang, readConfig } from "./core/i18n.js";
 import { href, isRoute, parse } from "./core/router.js";
 import { LANG_KEY, THEMES, applyTheme, readStored, readTheme, writeStored, writeTheme } from "./core/theme.js";
 import { h, mount } from "./core/vnode.js";
-import { errorBlock } from "./views/ui.js";
+import { ALL, account, allows, navFor, viewLacks } from "./models/access.js";
+import { errorBlock, pageHead } from "./views/ui.js";
 
 const VIEWS = {
   dashboard: () => import("./views/dashboard.js"),
@@ -19,10 +22,11 @@ const VIEWS = {
   campaign: () => import("./views/campaign.js"),
   suppressions: () => import("./views/suppressions.js"),
   settings: () => import("./views/settings.js"),
+  activity: () => import("./views/activity.js"),
   help: () => import("./views/help.js"),
   notFound: () => import("./views/help.js"),
 };
-const NAV = ["dashboard", "subscribers", "import", "campaigns", "suppressions", "settings", "help"];
+const NAV = ["dashboard", "subscribers", "import", "campaigns", "suppressions", "settings", "activity", "help"];
 
 const $ = (id) => document.getElementById(id);
 const storage = (() => {
@@ -40,7 +44,11 @@ async function strings(lang) {
   return lang === "en" ? { en } : { en, [lang]: (await import(`./strings/${lang}.js`)).default };
 }
 
-const app = { api: createApi({ base: new URL(".", location.href).href }) };
+// app.me: who the panel talks for (GO-137, GET api/me); app.can(action) asks
+// models/access.js. Until api/me answers, and with the password or Access,
+// everything is allowed — the worker enforces every permission anyway.
+const app = { me: ALL, can: (action) => allows(app.me, action) };
+app.api = createApi({ base: new URL(".", location.href).href, onUnauthorized: () => renew(app.me, { fetch: (...a) => fetch(...a), location }) });
 let leave = [];
 
 async function setLanguage(lang) {
@@ -62,7 +70,7 @@ function shell() {
   $("prefs").setAttribute("aria-label", t("pref.title"));
   mount(
     $("nav-list"),
-    NAV.map((name) => h("li", null, h("a", { href: href(name), "data-view": name, class: `nav-${name}` }, t(`nav.${name}`)))),
+    navFor(app.me, NAV).map((name) => h("li", null, h("a", { href: href(name), "data-view": name, class: `nav-${name}` }, t(`nav.${name}`)))),
   );
   const theme = readTheme(storage);
   mount($("prefs"), [
@@ -78,7 +86,23 @@ function shell() {
       { id: "pref-theme", on: { change: (e) => (writeTheme(storage, e.target.value), applyTheme(document.documentElement, e.target.value, dark.matches)) } },
       THEMES.map((v) => h("option", { value: v, selected: v === theme }, t(`pref.theme.${v}`))),
     ),
+    signedIn(),
   ]);
+}
+
+// signedIn: in `auth` mode, who is signed in and a sign-out button (a form
+// POST to the auth worker, which then sends the browser back here — and on to
+// the login page). Nothing in the other modes.
+function signedIn() {
+  const who = account(app.me);
+  if (!who) return null;
+  return h(
+    "form",
+    { class: "account", method: "post", action: who.logoutUrl },
+    h("p", null, app.t("account.signedIn", { email: who.email })),
+    h("input", { type: "hidden", name: "next", value: location.pathname }),
+    h("button", { type: "submit", class: "btn btn-quiet" }, app.t("account.signOut")),
+  );
 }
 
 // notify shows an action's result in the status region (polite live region).
@@ -93,16 +117,28 @@ app.notify = (message, level = "ok") => {
 // page. scroll-padding-top keeps a focused control clear of them (WCAG 2.2
 // 2.4.11), so it follows their real height: a two-line notice on a phone is
 // twice as tall as the CSS default assumes. Set through the CSSOM, which the
-// CSP allows (it blocks style attributes, not element.style).
+// CSP allows (it blocks style attributes, not element.style). The site's
+// shared admin bar (GO-146, from `core`) is measured whenever its size changes
+// (core/admin-nav.js); absent, nothing changes.
 const narrow = window.matchMedia("(max-width: 900px)");
+const adminNav = document.querySelector("ssg-admin-nav");
+let nav = ABSENT;
 function coverHeight() {
   // The bar row plus the sidebar's 10px padding and 1px border; not the
   // sidebar itself, which is the whole open menu while the drawer is open.
   const bar = narrow.matches ? document.querySelector(".bar").offsetHeight + 21 : 0;
   const notice = $("notice").childElementCount ? parseFloat(getComputedStyle($("notice")).top) + $("notice").offsetHeight : 0;
-  document.documentElement.style.setProperty("--sticky-cover", `${Math.ceil(Math.max(bar, notice))}px`);
+  document.documentElement.style.setProperty("--sticky-cover", `${coverHeightOf({ bar, notice, nav })}px`);
 }
-if (window.ResizeObserver) new ResizeObserver(coverHeight).observe($("notice"));
+function adminNavChanged() {
+  nav = readAdminNav(adminNav, getComputedStyle);
+  applyAdminNav(document.documentElement, nav);
+  coverHeight();
+}
+if (window.ResizeObserver) {
+  new ResizeObserver(coverHeight).observe($("notice"));
+  if (adminNav) new ResizeObserver(adminNavChanged).observe(adminNav);
+}
 narrow.addEventListener?.("change", coverHeight);
 app.go = (hash) => (location.hash === hash ? route() : (location.hash = hash));
 app.onLeave = (fn) => leave.push(fn);
@@ -121,10 +157,11 @@ async function route() {
     else a.removeAttribute("aria-current");
   }
   const view = $("view");
+  // A view the account may not open (GO-137): say which permission is missing.
+  const missing = viewLacks(app.me, r.name);
   try {
-    const mod = await VIEWS[r.name]();
-    if (token !== current) return;
-    await mod.default(app, view, r);
+    if (missing) mount(view, [pageHead(app, app.t("error.permission.title")), errorBlock(app, { kind: "permission", permission: missing }, null)]);
+    else await show(r, view, token);
   } catch (e) {
     if (token !== current) return;
     mount(view, errorBlock(app, e, route));
@@ -138,8 +175,15 @@ async function route() {
   route.started = true;
 }
 
+// show loads a view's module and renders it, unless the route changed meanwhile.
+async function show(r, view, token) {
+  const mod = await VIEWS[r.name]();
+  if (token === current) await mod.default(app, view, r);
+}
+
 async function boot() {
   applyTheme(document.documentElement, readTheme(storage), dark.matches);
+  app.me = await readMe(app.api, location);
   const lang = pickLang([config.lang, readStored(storage, LANG_KEY), document.documentElement.lang !== "en" ? document.documentElement.lang : null, ...(navigator.languages ?? [navigator.language]), "en"].filter(Boolean));
   await setLanguage(lang);
   $("menu-toggle").addEventListener("click", (e) => {

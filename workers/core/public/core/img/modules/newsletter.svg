@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><!-- Decorative: an envelope with a small chart line rising out of it. -->
+<circle cx="32" cy="32" r="30" fill="#26a69a" opacity=".16"/>
+<rect x="8" y="22" width="40" height="28" rx="4" fill="#00897b"/>
+<path d="m10 25 18 13 18-13" fill="none" stroke="#e0f2f1" stroke-width="3" stroke-linejoin="round"/>
+<path d="M36 18l7-6 5 4 8-8" fill="none" stroke="#ff8a65" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="56" cy="8" r="3.5" fill="#ff8a65"/>
+</svg>

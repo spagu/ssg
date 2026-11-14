@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -161,6 +162,19 @@ func TestBareModuleSpecs(t *testing.T) {
 		`import "./side-effect.css"`:                                             nil,
 		`import "polyfill"`:                                                      {"polyfill"},
 		`const z = 1`:                                                            nil,
+		// `from` followed by a string is only an import inside an import or
+		// export statement (#419): these are ordinary code.
+		"const pair = [m.from, \"stripe\"];":                    nil,
+		"const parts = [\", \", m.from]; const more = [\"a\"];": nil,
+		"send({ to, from: \"news@example.com\" });":             nil,
+		"const from = \"pkg\"; use(from);":                      nil,
+		"// import x from \"commented-out\"":                    nil,
+		"const s = `import x from \"in-a-template\"`;":          nil,
+		// Re-exports are imports too.
+		`export * from "stripe"`:                 {"stripe"},
+		"export {\n  a,\n  b,\n} from \"pkg\";":  {"pkg"},
+		`export { a } from "./local"`:            nil,
+		"  import type { T } from \"types-pkg\"": {"types-pkg"},
 		// Distinct specifiers are de-duplicated.
 		"import a from \"pkg\"\nimport { b } from \"pkg\"": {"pkg"},
 	}
@@ -178,5 +192,43 @@ func TestIsWorkerSourceFile(t *testing.T) {
 	}
 	if isWorkerSourceFile("c.css") {
 		t.Fatal("CSS is not a worker source")
+	}
+}
+
+// The shipped worker templates have no npm dependencies, so none of their
+// sources may be reported as importing a package. This is the regression test
+// for #419, where `from` inside ordinary code (an array holding `m.from`
+// before a string) was read as an import in the newsletter's mail modules.
+func TestShippedWorkerTemplatesHaveNoBareImports(t *testing.T) {
+	root := filepath.Join("..", "..", "workers")
+	scanned := 0
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !isWorkerSourceFile(path) {
+			return nil
+		}
+		data, readErr := os.ReadFile(path) // #nosec G304,G122 -- test walks the repo's own templates
+		if readErr != nil {
+			return readErr
+		}
+		scanned++
+		if specs := bareModuleSpecs(string(data)); len(specs) > 0 {
+			t.Errorf("%s: reported npm imports %q, but the templates import none", path, specs)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanned < 100 {
+		t.Fatalf("scanned only %d source files under %s — the walk is not reaching the templates", scanned, root)
 	}
 }

@@ -407,7 +407,9 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Several projects at once | `ssg daemon` watches every project in `.ssg_projects` from one process; editing the file reloads the fleet in place, leaving untouched projects running ([docs/DAEMON.md](docs/DAEMON.md)) |
 | Staying current | Every build's first line names the binary that produced it; `ssg self-update-check` says whether a newer release is out and prints the upgrade command for **your** install — snap, Homebrew, apt, dnf, Docker or the releases page. It never self-updates and never contacts the network on its own ([docs/INSTALL.md](docs/INSTALL.md#staying-up-to-date)) |
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), **served by the built-in preview** so a rule can be checked before it ships, `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
-| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, newsletter sign-up, web push notifications, rate limit, republish trigger), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, newsletter sign-up, web push notifications, rate limit, republish trigger, accounts, admin home), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
+| Admin accounts | `auth`, an optional worker: invited people only, a password or Google, Microsoft, Apple, GitHub, Facebook or Cloudflare Access, roles with per-action permissions, an optional second factor (TOTP, passkeys), tokens for CI, an audit log. `comments`, `newsletter`, `newsletter-ui`, `web-push` and `republish-trigger` can accept its sessions; their shared password stays fully supported ([its README](workers/auth/README.md), [which sign-in to choose](docs/WORKERS.md#admin-sign-in-which-mode-to-choose)) |
+| Admin home | `core`, an optional worker: one page that shows what needs attention in every panel, a shared navigation bar between panels, module order and visibility, and the panels in the site's own colours (`admin_theme:`). Every template describes itself in a `module.json` ([its README](workers/core/README.md), [docs/WORKER-MODULES.md](docs/WORKER-MODULES.md)) |
 | Newsletter sending | `newsletter-ui`, a standalone Worker on the sign-up template's D1 database: a panel, campaigns from Markdown or a post, a send engine (cron + queue) through Resend, MailChannels or your own SMTP server, each reader mailed at most once, bounces and complaints, statistics without tracking anyone ([its README](workers/newsletter-ui/README.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
@@ -587,6 +589,7 @@ Useful targets — `make help` lists every one of them:
 | `make golden` | Check generated output against the recorded baseline |
 | `make golden-update` | Re-record the baseline after an intended output change |
 | `make determinism` | Check the worker count does not change the output |
+| `make test-workers` | Run the worker templates' tests (Node 23.6 or newer, no npm packages) |
 | `make bench` | Measure build throughput on a synthetic corpus |
 | `make site` | Build this project's own documentation site into `.site/` |
 | `make site-watch` | Serve the documentation site and rebuild on change |

@@ -2,6 +2,7 @@
 // out of the Pages route table — it is imported, never served.
 
 import { verifyAccess } from "./_access";
+import { can, configFrom, denied, forbidden, verifySession } from "./_session-verifier";
 import { transportOf, transportProblem } from "./_transport";
 import type { MailEnv } from "./_transport";
 
@@ -13,6 +14,13 @@ export interface Env extends MailEnv {
   NEWSLETTER_ADMIN_PASSWORD?: string; // admin via HTTP Basic (fallback when Access is not set)
   NEWSLETTER_ACCESS_TEAM?: string; // Cloudflare Access team ("myteam" or "myteam.cloudflareaccess.com")
   NEWSLETTER_ACCESS_AUD?: string; // Cloudflare Access application AUD tag
+  // `auth` sessions (GO-137), shared with newsletter-ui: any one set turns the
+  // mode on, an incomplete set is a 503 (see requireAdmin).
+  NEWSLETTER_AUTH_ISSUER?: string; // the `iss` to accept, e.g. "https://example.com/api/auth"
+  NEWSLETTER_AUTH_AUDIENCE?: string; // the `aud` to accept; default the request's host
+  NEWSLETTER_AUTH_PUBLIC_KEY?: string; // the `auth` public JWK or JWKS (recommended) …
+  NEWSLETTER_AUTH_JWKS_URL?: string; // … or "/api/auth/jwks" (exactly one of the two)
+  NEWSLETTER_AUTH_LOGIN_URL?: string; // where a page without a session is sent, e.g. "/auth/login"
   NEWSLETTER_THANKS_URL?: string; // where a plain form POST is sent: "/{lang}/thanks/" or a JSON map
   NEWSLETTER_RETENTION_DAYS?: string; // purge pending/unsubscribed rows after N days (0/unset = keep)
   // Double opt-in: the NEWSLETTER_MAIL_* / _RESEND_ / _MAILCHANNELS_ / _SMTP_
@@ -103,14 +111,41 @@ export function retentionDays(env: Env): number {
   return Number.isFinite(days) && days > 0 ? days : 0;
 }
 
-// requireAdmin gates the admin endpoint. Two mutually-exclusive modes, as in
-// the comments worker:
-//   - Cloudflare Access (recommended) when NEWSLETTER_ACCESS_TEAM + AUD are set;
-//   - HTTP Basic with NEWSLETTER_ADMIN_PASSWORD otherwise.
-// Returns null when authorised, or a Response to return otherwise.
-export async function requireAdmin(request: Request, env: Env): Promise<Response | null> {
+// The permissions of this template's admin routes (module.json).
+export const READ = "newsletter:read"; // counts, the manifest, the summary
+export const EXPORT = "newsletter:export"; // the CSV export
+export const SETTINGS = "newsletter:settings"; // the retention purge
+
+// requireAdmin gates the admin routes, in the order of the `auth` contract
+// (workers/auth/docs/CONTRACT.md), the same as newsletter-ui:
+//   1. Cloudflare Access when NEWSLETTER_ACCESS_TEAM + AUD are set; a
+//      state-changing request must come from this origin (CSRF, SR-10);
+//   2. `auth` sessions when any NEWSLETTER_AUTH_* is set (GO-137): the token
+//      must hold `permission`. An incomplete set is a 503 naming what is
+//      missing, and with a complete set the password is NOT accepted: it
+//      would bypass the per-action permissions. A state-changing request
+//      carried by the cookie must also come from this origin (CSRF);
+//   3. HTTP Basic with NEWSLETTER_ADMIN_PASSWORD.
+// Modes 1 and 3 grant every permission, as before. Returns null when
+// authorised, or a Response to return otherwise.
+export async function requireAdmin(request: Request, env: Env, permission: string): Promise<Response | null> {
   if (env.NEWSLETTER_ACCESS_TEAM && env.NEWSLETTER_ACCESS_AUD) {
-    return verifyAccess(request, env.NEWSLETTER_ACCESS_TEAM, env.NEWSLETTER_ACCESS_AUD);
+    const refused = await verifyAccess(request, env.NEWSLETTER_ACCESS_TEAM, env.NEWSLETTER_ACCESS_AUD);
+    // Access lets through any request with a valid CF_Authorization cookie,
+    // which the browser attaches by itself: a write must come from this
+    // origin, as in mode 2 (security review SR-10).
+    if (!refused && !["GET", "HEAD"].includes(request.method) && !sameOrigin(request)) return json({ error: "cross-origin request refused" }, 403);
+    return refused;
+  }
+  const auth = configFrom(env, "NEWSLETTER");
+  if (auth) {
+    const v = await verifySession(request, auth);
+    if (!v.ok) return denied(request, auth, v.reason);
+    if (!can(v.perms, permission)) return forbidden(permission);
+    if (v.kind === "user" && !["GET", "HEAD"].includes(request.method) && !sameOrigin(request)) {
+      return json({ error: "cross-origin request refused" }, 403);
+    }
+    return null;
   }
   const expected = env.NEWSLETTER_ADMIN_PASSWORD;
   if (!expected) return json({ error: "admin not configured" }, 503);
@@ -125,6 +160,19 @@ export async function requireAdmin(request: Request, env: Env): Promise<Response
     }
   }
   return json({ error: "unauthorized" }, 401);
+}
+
+// sameOrigin: the CSRF rule for a state-changing request authenticated by the
+// session cookie, as the `auth` worker applies it to its own forms — no
+// cross-origin evidence (an Origin, when sent, is this origin; Sec-Fetch-Site,
+// when sent, is "same-origin") and positive proof of one of the two. Every
+// current browser sends Origin on a POST; a script uses a bearer token.
+export function sameOrigin(request: Request): boolean {
+  const own = new URL(request.url).origin;
+  const origin = request.headers.get("origin");
+  const site = request.headers.get("sec-fetch-site");
+  if ((origin !== null && origin !== own) || (site !== null && site !== "same-origin")) return false;
+  return origin === own || site === "same-origin";
 }
 
 // Constant-time compare that folds a length difference into the accumulator, so

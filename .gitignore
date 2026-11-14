@@ -85,6 +85,12 @@ examples/*/output/
 .dev.vars.*
 node_modules/
 worker-configuration.d.ts
+# The worker templates' preview and screenshot scripts write here by default
+# (test/*-shots.mjs, test/admin-walk.mjs), relative to where they are run;
+# node's --test-reporter=lcov writes lcov.info.
+*-shots/
+admin-walk/
+lcov.info
 
 # Build-throughput benchmark corpora (scripts/bench-build.sh, make bench)
 ssg-bench/

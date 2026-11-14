@@ -1,0 +1,52 @@
+/* The Modules view (js/views/manage.js, GO-149). Every value is a token, so a
+ * site's theme restyles it; every target is at least 40px tall; from 320px
+ * wide nothing scrolls sideways (the snippets scroll inside their box). */
+
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.section-head h2 { margin-bottom: 8px; }
+
+.manage-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--gap); }
+.manage-item { margin: 0; border-left: 5px solid var(--primary); }
+.manage-item.is-hidden { border-left-color: var(--control); border-left-style: dashed; }
+.manage-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 4px; }
+.manage-head h3 { margin: 0; overflow-wrap: anywhere; }
+.own-name { font-family: var(--font-ui); font-size: .95rem; font-weight: 400; }
+.chip-shown { color: var(--ok); }
+.chip-hidden { color: var(--text-muted); border-style: dashed; }
+
+.manage-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin: 10px 0 6px; }
+.switch { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.switch input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--primary); }
+.switch label { font-weight: 600; }
+.move-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.move-group .position { color: var(--text-muted); font-size: .92rem; margin-right: 4px; }
+.btn[aria-disabled="true"] { color: var(--text-muted); cursor: default; }
+.btn[aria-disabled="true"]:hover { background: transparent; color: var(--text-muted); }
+
+details { margin: 6px 0; }
+summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; gap: 6px; }
+details > p, details > form { margin: 4px 0 8px; }
+.edit fieldset { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
+.edit legend { font-weight: 600; padding: 0; }
+.label-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 10px 14px; }
+.label-grid .field { display: flex; }
+.label-grid .field input { width: 100%; }
+.note-label { display: block; font-weight: 600; margin-top: 4px; }
+.edit textarea {
+  display: block; width: 100%; max-width: 60ch; font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--control); border-radius: var(--radius); padding: 8px 10px; resize: vertical; margin-bottom: 8px;
+}
+.admin-note { white-space: pre-line; overflow-wrap: anywhere; background: var(--surface-sunk); border-radius: var(--radius); padding: 8px 12px; }
+
+.available pre.example { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log li { margin-bottom: 6px; overflow-wrap: anywhere; }
+.log li.down { border-left: 4px solid var(--critical); padding-left: 8px; }
+.log li.up { border-left: 4px solid var(--ok); padding-left: 8px; }
+
+input[type="file"] { font: inherit; color: var(--text); max-width: 100%; min-height: 40px; }
+.preview { margin-top: 12px; border-left: 5px solid var(--focus); }
+.preview h3:focus { outline: none; }
+
+@media (forced-colors: active) {
+  .manage-item, .preview, .log li { border-color: CanvasText; }
+}

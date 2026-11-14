@@ -34,6 +34,7 @@ const TEXT: [string, string][] = [
   ["text", "bg"], ["text", "surface"], ["text", "surface-sunk"],
   ["text-muted", "bg"], ["text-muted", "surface"], ["text-muted", "surface-sunk"],
   ["primary", "surface"], ["primary", "bg"], ["on-primary", "primary"],
+  ["link", "surface"], ["link", "bg"], ["link", "surface-sunk"],
   ["on-primary-soft", "primary-soft"], ["surface", "on-primary-soft"],
   ["on-danger", "danger"], ["danger", "surface"], ["critical", "surface"], ["critical", "bg"],
   ["ok", "surface"], ["surface", "text"],
