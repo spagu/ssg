@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The development server prints its address before it starts serving.**
+  The "Starting HTTP server at …" line came from the server's own goroutine
+  and could race a caller that redirects standard output around the start
+  (the race detector caught it in a `ssg migrate --http` test). The line is
+  now printed first, on the caller's side; the text is unchanged.
+
 - **`picostore` product pages name the book's author in the Book JSON-LD.**
   The theme read `author` from `.Extra`, but `author` is a reserved
   front-matter key, so every book said `"author": {"name": ""}`.

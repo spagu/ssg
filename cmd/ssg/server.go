@@ -44,13 +44,30 @@ func startServerAsync(cfg *config.Config) {
 		return
 	}
 
-	go serveOnClaimedPort(cfg, ln)
+	// The start line is printed here, on the caller's goroutine, before the
+	// server's own goroutine exists: printed from that goroutine it raced any
+	// caller that redirects os.Stdout around the call (the race detector caught
+	// it in TestMigrateLiveReportsABuildItCouldNotFinishAndKeepsServing).
+	announceServer(cfg)
+	go runClaimedServer(cfg, ln)
 }
 
 // serveOnClaimedPort runs the server on an already-bound listener.
 func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
+	announceServer(cfg)
+	runClaimedServer(cfg, ln)
+}
+
+// announceServer prints where the server listens.
+func announceServer(cfg *config.Config) {
+	_, url, exposed := resolveListenAddr(cfg.Host, cfg.Port)
+	logServerStart(cfg, url, serverTLSMode(cfg), exposed)
+}
+
+// runClaimedServer serves on an already-bound listener until it stops.
+func runClaimedServer(cfg *config.Config, ln net.Listener) {
 	// The memory limit is applied at startup for every command now (#384).
-	addr, url, exposed := resolveListenAddr(cfg.Host, cfg.Port)
+	addr, _, _ := resolveListenAddr(cfg.Host, cfg.Port)
 	mode := serverTLSMode(cfg)
 
 	// autocert manager is shared between the TCP (HTTP/1.1+2) and QUIC (HTTP/3) servers.
@@ -85,8 +102,6 @@ func serveOnClaimedPort(cfg *config.Config, ln net.Listener) {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-
-	logServerStart(cfg, url, mode, exposed)
 
 	if err := serveOnListener(server, ln, cfg, mode, acm); err != nil && err != http.ErrServerClosed {
 		reportServerErr("❌ Server error: %v\n", err)
