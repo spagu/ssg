@@ -62,6 +62,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # SonarCloud does not analyse this Dockerfile (.sonarcloud.properties
+      # explains why), so hadolint lints it here on every run.
+      - name: Lint the Dockerfile (hadolint)
+        run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < services/smtp-relay/Dockerfile
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
