@@ -5,12 +5,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GIT_VARS, SITE_YAML, site } from "./fixtures.ts";
 import { FakeGitHub } from "./fake-github.ts";
-import { repositoryOf, requireRepository } from "../src/repo.ts";
+import { repositoryOf, requireRepository } from "../portable/repo.ts";
 import { OVERRIDE_HINT, clearSiteCache, compose, loadSiteModel, requireSiteModel } from "../src/site-model.ts";
 import type { SiteState } from "../src/site-model.ts";
-import { CONFIG_FILES, merge, parse, readSiteConfig } from "../src/site-config.ts";
+import { CONFIG_FILES, merge } from "../portable/config-files.ts";
+import { parse, readSiteConfig } from "../src/site-config.ts";
 import { siteKeys } from "../src/site-keys.ts";
-import { OpError } from "../src/ops.ts";
+import { OpError } from "../portable/ops.ts";
 
 async function load(gh: FakeGitHub, env: Record<string, unknown> = {}): Promise<SiteState> {
   const r = repositoryOf({ ...GIT_VARS, ...env } as never, { fetch: gh.fetch });

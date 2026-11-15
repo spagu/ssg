@@ -60,5 +60,8 @@ build-profile.json
 # Self-hosted TTS server: separate Go module with its own Docker build
 # context; keeps a local .env (API keys) and voice models out of the ssg image build.
 services/tts-server/
+# Self-hosted SMTP relay: its own image and build context (GO-189); keeps its
+# secrets/ and tls/ out of the ssg image build.
+services/smtp-relay/
 
 .cache/

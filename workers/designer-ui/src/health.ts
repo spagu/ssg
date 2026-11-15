@@ -1,11 +1,14 @@
 // GET {base}/api/health — whether the worker is wired up, from its own
 // configuration only: no request to the repository host (the summary does
 // that), so it answers the same whoever asks and costs nothing. It names
-// what is missing, never a value — the token above all.
+// what is missing, never a value — the token above all — and the plan whose
+// limits apply ({PREFIX}_PLAN, portable/plan.ts).
 
+import { activePlan } from "../portable/plan";
+import type { ActivePlan } from "../portable/plan";
 import { repoConfigFrom } from "../portable/repo-config";
 import { PREFIX } from "./http";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { SCHEMA } from "./schema";
 
@@ -14,6 +17,7 @@ export interface Health {
   auth: "auth";
   repository: { configured: true; provider: string; branch: string | null } | { configured: false; problem: string };
   schemaVersion: number; // the configuration schema this worker validates against
+  plan: ActivePlan;
   bindings: { assets: boolean; rateLimiter: boolean };
 }
 
@@ -27,6 +31,7 @@ export const healthOp: Op<void, Health> = {
       auth: "auth", // the gate let the request in, so the set is complete
       repository: r.ok ? { configured: true, provider: r.config.provider, branch: r.config.branch } : { configured: false, problem: r.problem },
       schemaVersion: SCHEMA.schemaVersion,
+      plan: activePlan(env),
       bindings: { assets: !!env.ASSETS, rateLimiter: !!env.RATE_LIMITER },
     };
   },

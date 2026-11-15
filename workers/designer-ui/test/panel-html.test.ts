@@ -11,7 +11,7 @@ import { dirname, join, normalize } from "node:path";
 import { ratio } from "../public/js/models/contrast.js";
 import { resolve, valueMap } from "../public/js/models/tokens-css.js";
 import { READ, makeEnv, request, run } from "./fixtures.ts";
-import { CSP } from "../src/http.ts";
+import { CSP } from "../portable/http-kit.ts";
 
 const PUBLIC = new URL("../public/", import.meta.url).pathname;
 const html = readFileSync(join(PUBLIC, "index.html"), "utf8");

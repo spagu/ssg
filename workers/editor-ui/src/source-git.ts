@@ -8,7 +8,7 @@ import { listContent } from "./content-list";
 import { newPathIn } from "./content-new";
 import { readArticle } from "./content-read";
 import { contentScope } from "./content-scope";
-import type { OpContext } from "./ops";
+import type { OpContext } from "../portable/ops";
 import { diffRevisions } from "./revision-diff";
 import { readRevision } from "./revision-read";
 import { listRevisions } from "./revisions";

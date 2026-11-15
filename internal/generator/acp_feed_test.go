@@ -98,6 +98,37 @@ func TestACPFeedRowFields(t *testing.T) {
 	}
 }
 
+// TestACPFeedAvailabilityUnknown (GO-187): a page or feed saying `unknown`
+// is `unknown` in the ACP feed, which OpenAI's product feed accepts, and
+// in_stock in the Merchant row, which has no such value; a stated value and
+// an unstated one keep their old spelling.
+func TestACPFeedAvailabilityUnknown(t *testing.T) {
+	offer := func(sku, availability string) map[string]interface{} {
+		o := map[string]interface{}{"price": "5.00", "priceCurrency": "EUR"}
+		if availability != "" {
+			o["availability"] = availability
+		}
+		return map[string]interface{}{"@type": "Product", "name": sku, "sku": sku, "image": "/x.jpg", "brand": "Example", "offers": o}
+	}
+	g, out := merchantGen(t, []models.Page{
+		productPage("a", offer("A-1", "unknown"), nil),
+		productPage("b", offer("B-1", ""), map[string]interface{}{"merchant": map[string]interface{}{"availability": "Unknown"}}),
+		productPage("c", offer("C-1", "https://schema.org/InStock"), nil),
+		productPage("d", offer("D-1", ""), nil),
+	}, nil)
+	rows, _ := writeACP(t, g, out, models.FeedSpec{Path: "/acp.jsonl"})
+	for sku, want := range map[string]string{"A-1": "unknown", "B-1": "unknown", "C-1": "in_stock", "D-1": "in_stock"} {
+		if got := rows[sku]["availability"]; got != want {
+			t.Errorf("%s availability = %v, want %s", sku, got, want)
+		}
+	}
+	it := merchantItem{availability: "unknown"}
+	applyMerchantFront(&it, nil, true)
+	if it.availability != "in_stock" || !it.stockUnknown || !it.stockUnstated {
+		t.Errorf("Merchant row of an unknown stock = %+v", it)
+	}
+}
+
 // TestACPFeedVariants: a ProductGroup is one row per variant with group_id,
 // listing_has_variations and variant_dict from variesBy; per-offer front
 // matter stays off variants, page-wide front matter reaches them all.
@@ -201,7 +232,7 @@ func TestACPHelpers(t *testing.T) {
 		}
 	}
 	for in, want := range map[string]string{"preorder": "pre_order", "in_stock": "in_stock", "backorder": "backorder"} {
-		if got := acpAvailability(in); got != want {
+		if got := acpAvailability(in, false); got != want {
 			t.Errorf("availability %q = %q", in, got)
 		}
 	}

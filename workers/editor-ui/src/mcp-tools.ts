@@ -14,7 +14,7 @@ import { mediaListOp } from "./media-list";
 import { DATA_NOTE, count, permissionsOf, s, schema, str } from "./mcp-args";
 import type { EditorTool } from "./mcp-args";
 import { WRITE_TOOLS } from "./mcp-write-tools";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { revisionReadOp } from "./revision-read";
 import { revisionsListOp } from "./revisions";

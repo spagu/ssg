@@ -112,6 +112,57 @@ change, so it needs `designer-ui:theme`. How the panel recognises colours,
 fonts and pairs:
 [the README's token contract](../workers/designer-ui/README.md#theme-tokens--the-contract-the-panel-relies-on).
 
+### Preview before publishing
+
+Under the colours, **Preview** shows a page of the site as it is published
+now with the colours and fonts of the tab applied, before anything is
+published: the home page, the latest post (the first entry of the feed the
+home page announces) or any path on the site (`/blog/my-post/`). Choose light
+or dark and a phone's width (390 px); the frame reloads a moment after each
+edit. Only these token values are previewed: changes to templates and
+settings show after the next build. Scripts never run in the preview, so
+menus and other parts that need them stand still.
+
+How it works: the worker fetches that public page of its own host the way an
+anonymous visitor would (no cookie or token of yours is sent; a redirect to
+another host is refused; see the limits below), removes every script, event handler
+and `javascript:` address, adds the tokens as one stylesheet and serves the
+result at `{base}/api/preview`. A token value is applied only when it is a
+plain colour or font stack: no `url(`, no `;`, `{`, `}`, `<`, `\`, `@` or
+`:`, and no `//` (a value such as `image-set("//host/x.png")` would load from
+another host), so such a value is left out of the preview. The answer
+comes with its own policy: no script source, `sandbox`, framed by the panel
+only. The panel shows it in an
+`<iframe sandbox>` without `allow-scripts` or `allow-same-origin`. The site's
+`X-Frame-Options: DENY` stays as it is. Fonts from a font host (they send
+`Access-Control-Allow-Origin`) appear; fonts the site serves itself appear
+only if it sends that header for them, for example in `_headers`:
+
+```text
+/fonts/*
+  Access-Control-Allow-Origin: *
+```
+
+Otherwise the preview shows a fallback font.
+
+Limits. Each preview costs one request to the site (the latest post two
+more: the home page and its feed). Every page and feed it reads is capped by
+`DESIGNER_PLAN`: **256 KiB on Free, 2 MB on Paid**, counted as the bytes
+arrive — the Free plan's 10 ms of CPU sanitizes about that much dense markup
+(a 2 MB page took 75–230 ms, measured in Node). A larger page shows "too large
+to preview on this plan" (`page_too_large`). Each fetch, with its redirects
+and its body, has **10 seconds**; a site that takes longer shows
+`upstream_timeout` (504). The page is read one piece of markup at a time, so
+even 2 MB needs about 20 MB of memory, well inside a Worker's 128 MB.
+
+Pages protected only at Cloudflare's edge: the preview fetches any path of
+its own host anonymously and shows the HTML to anyone with
+`designer-ui:read`. If parts of the site are protected only at the edge
+(Cloudflare Access, WAF rules by IP or country), check on the deployed zone
+whether the Worker's request to its own zone bypasses them; until verified,
+do not rely on edge-only protection for pages a `designer-ui:read` holder
+must not see.
+
 ## Theme files
 
 **Theme files** shows the folder tree of `<templates_dir>/<template>`, a text
@@ -158,8 +209,9 @@ Arguments, the REST routes and the differences from `ssg mcp`'s
 
 ## Limits, local preview and what it protects
 
-- **Limits** are the editor's: at most 10 files and 2 MiB per publication on
-  every Cloudflare plan in this version
+- **Limits** are the editor's, chosen by `DESIGNER_PLAN`: `free` (default)
+  allows 10 files and 2 MiB per publication, `paid` 50 files, 10 MiB per
+  file and 20 MiB in all; any other value answers `503 bad_plan`
   ([EDITOR-OPERATIONS.md](EDITOR-OPERATIONS.md#limits-per-cloudflare-plan)).
 - **Local demo**, no account, no network:
   `node --import ./workers/designer-ui/test/resolve.mjs workers/designer-ui/test/dev-server.mjs`,
@@ -173,8 +225,6 @@ Arguments, the REST routes and the differences from `ssg mcp`'s
 
 ## Not built yet
 
-- A preview of the site with the new colours before publishing; the panel
-  shows the contrast table and samples instead.
 - Pull requests and preview deployments; repository hosts other than GitHub.
 - Writing `.ssg.yaml` itself, workflows or secrets (by design); installing a
   theme from the panel.

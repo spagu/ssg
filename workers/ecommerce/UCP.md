@@ -37,6 +37,8 @@ Base URL in the profile: `https://<your-site>/api/shop/ucp`.
 | `PUT /checkout-sessions/{id}` | update: replaces the whole session |
 | `POST /checkout-sessions/{id}/complete` | pay and place the order |
 | `POST /checkout-sessions/{id}/cancel` | cancel |
+| `GET /orders/{id}` | Get Order (order.md): the full order of a UCP checkout; any other order is `not_found` (since 1.9.11) |
+| `POST /testing/simulate-shipping/{id}` | at the site root, test mode only (below) |
 
 Every route goes through `_ucp-route.ts`, in this order: UCP off → 404; body
 read (at most 64 KiB, else 413); a request budget per credential and address
@@ -61,11 +63,15 @@ are `{code, content}` with an HTTP status; what is wrong with a basket is
 | `SHOP_UCP_HANDLER_ID` | var, optional | this shop's id for its Google Pay handler (default `gpay`) |
 | `SHOP_UCP_WEBHOOK_URL` | var, optional | the platform's order-event URL, https, without credentials; unset = no events |
 | `SHOP_UCP_WEBHOOK_API_KEY` | secret, optional | sent as `X-Goog-Api-Key` with order events |
+| `SHOP_UCP_TEST_MODE` | var, optional | `"true"` = the conformance-suite test mode (below); anything else is off |
+| `SHOP_UCP_SIMULATION_SECRET` | secret, optional | the `Simulation-Secret` of `/testing/simulate-shipping`; unset = that path is a 404 |
 
 With UCP on, a missing `SHOP_UCP_API_KEY`, `STRIPE_SECRET_KEY` or signing
 key, a publishable key that does not start `pk_test_`/`pk_live_`, or no
 merchant id in `PRODUCTION` is a 503 on every route and on the profile —
-closed, never open (`ucpMissing` in `_ucp-auth.ts`).
+closed, never open (`ucpMissing` in `_ucp-auth.ts`). So is the test mode
+next to a live configuration (`sk_live_`/`rk_live_` secret key, `pk_live_`
+publishable key or Google Pay `PRODUCTION`).
 
 **Routing.** Pages sends a path to Functions only when `routes_include`
 names it: add `/.well-known/ucp` next to `/api/shop/*` in the shop's
@@ -86,7 +92,8 @@ rotated key shows up without a deploy. It carries:
 - `ucp.version` `2026-04-08` and one `dev.ucp.shopping` REST service with
   the endpoint above;
 - the capabilities `dev.ucp.shopping.checkout` and
-  `dev.ucp.shopping.order` (the order capability is for the webhooks);
+  `dev.ucp.shopping.order` (the order capability: the webhooks and, since
+  1.9.11, `GET /orders/{id}`);
 - `payment_handlers` with one `com.google.pay` handler (below);
 - `signing_keys`: the public half of `SHOP_UCP_SIGNING_KEY` —
   `{kid, kty: "EC", crv: "P-256", x, y, use: "sig", alg: "ES256"}`, never
@@ -164,6 +171,36 @@ echoed.
   and the order records `consent_waiver = 1`. Whether that counts as the
   buyer's consent where you sell is a legal question for you.
 
+## Test mode for the conformance suite (since 1.9.11)
+
+The UCP conformance suite
+([github.com/Universal-Commerce-Protocol/conformance](https://github.com/Universal-Commerce-Protocol/conformance),
+read at commit `0642adf`, 2026-11-13) drives the shop from a local machine
+with things no real platform sends. `SHOP_UCP_TEST_MODE = "true"`
+(`_ucp-testing.ts`) accepts them, and nothing else changes:
+
+- `UCP-Agent: profile="http://…"` as well as `https://`;
+- an `http://` `SHOP_UCP_WEBHOOK_URL`, for the suite's local receiver;
+- the suite's test payment handler: `handler_id` `mock_payment_handler`,
+  `credential: {type: "token", token}` with `success_token` (paid in full,
+  nothing charged, the payment row's reference starts `test_`, **the
+  product is delivered**) or `fail_token` (answered as `payment_failed`,
+  nothing charged). It is not advertised in the profile. Card numbers
+  (`credential.type: "card"`) are never accepted, test mode or not;
+- `POST /testing/simulate-shipping/{order id}` with `Simulation-Secret`
+  equal to `SHOP_UCP_SIMULATION_SECRET` (403 otherwise): it sends the
+  order's current snapshot again as an order event, with one `shipped`
+  fulfillment event described as simulated, and stores nothing — a
+  download never ships. Pages routes it only with `/testing/*` in
+  `routes_include`.
+
+The X-API-Key is still required: the suite cannot send one, so put
+something in front of the shop that adds it (the run in
+[docs/UCP-OPERATIONS.md](../../docs/UCP-OPERATIONS.md#the-conformance-suite)
+did). Use the mode on a test deployment only: anyone holding the API key
+can take a product for a test payment. It is refused next to a live
+configuration.
+
 ## Where the documents are ambiguous, and what this code does
 
 1. **Which version.** The protocol's latest release on 2026-11-15 was
@@ -173,7 +210,15 @@ echoed.
 2. **Who is calling.** The protocol leaves authentication to the business
    (API key in `X-API-Key`, OAuth 2.0, mTLS or HTTP Message Signatures);
    Google lists an API key, OAuth 2.0 (which it recommends) or mTLS. The
-   shop implements the API key only, compared in constant time.
+   shop implements the API key only, compared in constant time. The protocol
+   makes every method optional ("Authentication is optional and depends on
+   business requirements", checkout-rest.md), so nothing more is required.
+   **mTLS** would be terminated by Cloudflare before the Worker runs (API
+   Shield's mTLS rules on the zone); the Worker only sees what Cloudflare
+   reports about the client certificate, so the check belongs in a zone
+   rule, not in this code, and none is set up here. **OAuth 2.0** would need
+   an authorization server that issues the platform's tokens; the shop has
+   none.
    `UCP-Agent: profile="https://…"` is required on every call and checked for
    shape and the `https` scheme; the platform's profile is **not fetched** —
    the API key already says who is calling.
@@ -210,12 +255,29 @@ echoed.
    completion cannot do. Only Stripe is offered.
 10. **Not implemented**: OAuth 2.0 and mTLS, the fulfillment capability and
     shipping, discounts, cart, identity linking, `requires_escalation`, and
-    the conformance suite's test-only endpoints
-    ([docs/UCP-OPERATIONS.md](../../docs/UCP-OPERATIONS.md#test-before-google-does)).
+    `PUT /orders/{id}` (the suite's order tests write orders that way; the
+    protocol defines only Get Order).
+11. **Fulfillment for downloads.** fulfillment.md: "Fulfillment applies only
+    to items requiring physical delivery. Items not requiring fulfillment
+    (e.g., digital goods) do not need to be assigned to a method." The shop
+    does not advertise `dev.ucp.shopping.fulfillment`; inventing a shipping
+    method for a download would mislead the buyer. Google's certification
+    profile in the suite requires it, so that profile cannot pass.
+12. **The handler's id.** The protocol names the handler by its key,
+    `com.google.pay`; the `id` is the business's own (Google's handler page
+    uses a UUID). The suite's `google` profile looks for `google_pay`, the
+    id of its sample server. The default stays `gpay`, so nothing changes
+    for a shop already set up; `SHOP_UCP_HANDLER_ID = "google_pay"` satisfies
+    the suite. Changing it mid-way breaks a platform's cached instruments
+    for up to the 300 s the profile may be cached.
+13. **`payment` in every checkout response.** Optional in checkout.json;
+    always sent (`{instruments: []}` until the platform has paid), because
+    platforms read it back on update (since 1.9.11).
 
 ## Tests
 
-`test/ucp-*.test.ts` and `test/agent-refund.test.ts`, in the shop's suite.
+`test/ucp-*.test.ts` (`ucp-testmode.test.ts` for the test mode and Get
+Order) and `test/agent-refund.test.ts`, in the shop's suite.
 Real SQL on the D1 fake; Google's platform, Stripe and an order-event
 receiver that verifies the RFC 9421 signature are fakes written from the
 documents above (`test/ucp-helpers.ts`). Nothing was run against Google,

@@ -22,9 +22,9 @@ import { contentScope } from "./content-scope";
 import { RepoError } from "../portable/repo-provider";
 import { mddbConfigFrom, mddbConfigured } from "./mddb-config";
 import { MDDB_PREFIX, isMddbPath } from "./mddb-path";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
-import { SUBREQUESTS, repositoryOf } from "./repo";
+import { OpError } from "../portable/ops";
+import type { OpContext } from "../portable/ops";
+import { repositoryOf } from "../portable/repo";
 import type { DiffInput, RevisionDiff } from "./revision-diff";
 import type { RevisionText } from "./revision-read";
 import type { RevisionPage } from "./revisions";
@@ -87,7 +87,7 @@ export async function listSources(ctx: OpContext, input: ListInput): Promise<Lis
   if (!repositoryOf(ctx.env, ctx.deps).ok && !(input.section && !isMddbPath(input.section))) return (await openMddb(ctx, null)).list(input);
   const s = await contentScope(ctx);
   const mddb = () => openMddb(ctx, s.model);
-  const left = () => SUBREQUESTS - s.repo.provider.used();
+  const left = () => s.repo.plan.subrequests - s.repo.provider.used();
   if (isMddbPath(input.section)) return (await mddb()).list(input, left());
   if (input.section) return tagged(await listContent(s, input));
   if (input.cursor && isMddbPath(decodeCursor(input.cursor))) return (await mddb()).list(input, left());
@@ -97,7 +97,7 @@ export async function listSources(ctx: OpContext, input: ListInput): Promise<Lis
   const source = await mddb();
   if (room < 1) return { ...git, nextCursor: encodeCursor(MDDB_PREFIX) };
   // At least one search: the file list keeps its title reads two short of
-  // SUBREQUESTS (content-list.ts), so this stays within the plan's 50.
+  // the plan's budget (content-list.ts), so this stays within Cloudflare's limit.
   const more = await source.list({ ...input, cursor: null, limit: String(room) }, Math.max(1, left()));
   return { items: [...git.items, ...more.items], nextCursor: more.nextCursor, pending: git.pending, truncated: git.truncated || more.truncated };
 }

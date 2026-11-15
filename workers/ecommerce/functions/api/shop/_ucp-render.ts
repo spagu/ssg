@@ -47,7 +47,9 @@ export async function renderSession(env: Env, row: UcpSessionRow, origin: string
     messages: state.messages,
     links: await links(env, origin),
     expires_at: row.expires_at,
-    ...(details.instrument ? { payment: { instruments: [details.instrument] } } : {}),
+    // Always present, empty until the platform has paid: platforms (and the
+    // conformance suite) read payment.instruments back on every update.
+    payment: { instruments: details.instrument ? [details.instrument] : [] },
     ...(completed
       ? { order: { id: row.order_id, ...(label ? { label: label.number } : {}), permalink_url: permalink(origin, row.order_id!, row.order_key) } }
       : {}),

@@ -6,8 +6,8 @@
 // REST route's.
 
 import type { Json, McpTool } from "../portable/mcp-transport";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import type { Permission } from "./permissions";
 
 // DesignerTool: `permissions` when a tool needs more than its operation's own

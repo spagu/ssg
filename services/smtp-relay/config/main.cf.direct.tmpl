@@ -1,0 +1,8 @@
+
+# ---------------------------------------------------------------- RELAY_MODE=direct
+# Deliver to each recipient domain's MX over port 25. Needs outbound 25, a
+# static IP and a PTR record that matches myhostname (docs/SMTP-SERVER.md).
+# TLS is opportunistic (RFC 3207): most MX servers offer it, none can be
+# required to.
+relayhost =
+smtp_tls_security_level = may

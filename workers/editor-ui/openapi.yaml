@@ -10,7 +10,8 @@ info:
     token in `Authorization: Bearer` — never one in the place of the other
     (`wrong_kind`). Without a complete `EDITOR_AUTH_*` set every path,
     the panel's files included, answers `503 {"error": "auth_not_configured",
-    "detail"}`.
+    "detail"}`. An unknown `EDITOR_PLAN` (neither `free` nor `paid`) answers
+    `503 {"error": "bad_plan", "detail"}` on every path, naming the variable.
 
     Permissions: each operation's `x-permission` names what the caller must
     hold; a missing one is answered `403 {"error": "forbidden", "permission":
@@ -82,7 +83,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [ok, auth, repository, overrides, bindings]
+                required: [ok, auth, repository, overrides, plan, bindings]
                 properties:
                   ok:
                     type: boolean
@@ -107,6 +108,7 @@ paths:
                     properties:
                       contentDirs: { type: boolean }
                       mediaDir: { type: boolean }
+                  plan: { $ref: "#/components/schemas/ActivePlan" }
                   bindings:
                     type: object
                     properties:
@@ -178,7 +180,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [sections, languages, defaultLanguage, shortcodes, media, limits]
+                required: [sections, languages, defaultLanguage, shortcodes, media, plan, limits]
                 properties:
                   sections:
                     type: array
@@ -197,12 +199,8 @@ paths:
                     properties:
                       dir: { type: string }
                       urlBase: { type: string }
-                  limits:
-                    type: object
-                    properties:
-                      maxFilesPerChange: { type: integer }
-                      maxFileBytes: { type: integer }
-                      maxChangeBytes: { type: integer }
+                  plan: { type: string, enum: [free, paid], description: "EDITOR_PLAN: whose limits apply." }
+                  limits: { $ref: "#/components/schemas/ChangeLimits" }
 
   /api/content:
     get:
@@ -373,16 +371,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [dir, urlBase, limits, items, nextCursor, truncated]
+                required: [dir, urlBase, plan, limits, items, nextCursor, truncated]
                 properties:
                   dir: { type: string, description: The media folder in the repository. }
                   urlBase: { type: string, description: "Where the site serves it, e.g. /media/." }
-                  limits:
-                    type: object
-                    properties:
-                      maxFilesPerChange: { type: integer }
-                      maxFileBytes: { type: integer }
-                      maxChangeBytes: { type: integer }
+                  plan: { type: string, enum: [free, paid], description: "EDITOR_PLAN: whose limits apply." }
+                  limits: { $ref: "#/components/schemas/ChangeLimits" }
                   items:
                     type: array
                     items:
@@ -655,7 +649,8 @@ paths:
 
         A modern request must mirror its body in `MCP-Protocol-Version`,
         `Mcp-Method` and (for `tools/call`) `Mcp-Name`. An `Origin` other than
-        this site's is refused `403`. The body may have at most 8 MiB.
+        this site's is refused `403`. The body may have at most 8 MiB (28 MiB with
+        `EDITOR_PLAN = "paid"`).
       requestBody:
         required: true
         content:
@@ -678,12 +673,32 @@ paths:
         "406":
           description: "`-32600` — `Accept` admits no `application/json`."
         "413":
-          description: "`-32600` — the body is larger than 8 MiB."
+          description: "`-32600` — the body is larger than 8 MiB (28 MiB on Paid)."
         "415":
           description: "`-32600` — send `application/json`."
 
 components:
   schemas:
+    ActivePlan:
+      type: object
+      description: |
+        The plan whose limits the worker applies, set by `EDITOR_PLAN`
+        (`free` when unset or empty, or `paid`). An unknown value answers
+        `503 {"error": "bad_plan", "detail"}` on every path.
+      required: [plan, limits, subrequests, maxBody]
+      properties:
+        plan: { type: string, enum: [free, paid] }
+        limits: { $ref: "#/components/schemas/ChangeLimits" }
+        subrequests: { type: integer, description: "Requests one call may make to the repository host (45 Free, 125 Paid)." }
+        maxBody: { type: integer, description: "The largest request body in bytes, REST and MCP (8 MiB Free, 28 MiB Paid)." }
+    ChangeLimits:
+      type: object
+      description: What one publication may carry on the active plan (2 MiB / 10 files Free; 10 MiB per file, 20 MiB, 50 files Paid).
+      required: [maxFilesPerChange, maxFileBytes, maxChangeBytes]
+      properties:
+        maxFilesPerChange: { type: integer }
+        maxFileBytes: { type: integer }
+        maxChangeBytes: { type: integer }
     JsonRpcRequest:
       type: object
       required: [jsonrpc, method]

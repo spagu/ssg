@@ -14,9 +14,9 @@
 import { checkPath } from "../portable/path-policy";
 import { validCommitId } from "../portable/repo-provider";
 import type { HistoryPage } from "../portable/repo-provider";
-import { CONFIG_FILES, OVERLAY_FILE, utf8 } from "./config-read";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { CONFIG_FILES, OVERLAY_FILE, utf8 } from "../portable/config-files";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { validateOverlay } from "./overlay-validate";
 import { PERM } from "./permissions";
 import { redact } from "./redact";

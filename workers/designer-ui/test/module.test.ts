@@ -8,7 +8,8 @@ import { readFileSync } from "node:fs";
 import manifest from "../module.json" with { type: "json" };
 import { DECLARED, PERM, held } from "../src/permissions.ts";
 import { ROUTES } from "../src/routes.ts";
-import { CSP, DEFAULT_BASE } from "../src/http.ts";
+import { CSP } from "../portable/http-kit.ts";
+import { DEFAULT_BASE } from "../src/http.ts";
 
 const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 

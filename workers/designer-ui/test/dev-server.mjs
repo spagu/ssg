@@ -12,6 +12,8 @@
 // DEMO_THEME=builtin uses the built-in "simple" theme instead (Appearance and
 // Files then show the export instruction). DEMO_CORE=1 also serves the
 // `core` worker's /core/ files (the shared admin bar). PORT=… changes the port.
+// The look preview (GO-188) shows the site served on the same port: a built
+// ssg site from DEMO_SITE=<output dir>, else one small page of its own.
 //
 // Accounts: owner (every permission), settings (read + settings), advanced
 // (read + settings + advanced), theme (read + theme), reader (read only).
@@ -27,7 +29,8 @@ const CORE = join(here, "..", "..", "core", "public", "core");
 const PORT = Number(process.env.PORT || 8788);
 const BASE = "/designer";
 
-const { handleFetch } = await import("../src/app.ts");
+const { handleFetch } = await import("../portable/app.ts");
+const { withPreview } = await import("../src/preview-entry.ts");
 const { FakeGitHub, TOKEN } = await import("./fake-github.ts");
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp" };
@@ -121,7 +124,8 @@ const env = {
     },
   },
 };
-const deps = { fetch: gh.fetch };
+// The preview fetches pages of this host: they go to siteAnswer, GitHub to the fake.
+const deps = { fetch: async (u, init) => (new URL(u).origin === ORIGIN ? (await siteAnswer(new URL(u))) ?? new Response("not found", { status: 404 }) : gh.fetch(u, init)) };
 const ORIGIN = `http://localhost:${PORT}`;
 
 // Two publications by two people, through the worker itself, for History.
@@ -158,6 +162,20 @@ async function coreAnswer(url) {
   return body ? new Response(body, { headers: { "content-type": TYPES[extname(file)] ?? "application/octet-stream" } }) : new Response("not found", { status: 404 });
 }
 
+// The public site on this host, as the preview fetches it (never under BASE).
+const DEMO_PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Example Kitchen</title><style>:root{--color-bg-canvas:#fff;--color-fg-primary:#0f172a;--color-accent:#0050a6}body{margin:0;font-family:Georgia,serif;background:var(--color-bg-canvas);color:var(--color-fg-primary)}header{padding:16px 24px;border-bottom:1px solid #ccc}a{color:var(--color-accent)}main{padding:24px}</style></head><body><header><a href="/">Example Kitchen</a></header><main><h1>Bread notes</h1><p>A loaf with more water than last time.</p></main></body></html>';
+async function siteAnswer(url) {
+  if (url.pathname === BASE || url.pathname.startsWith(BASE + "/") || url.pathname.startsWith("/auth/") || url.pathname.startsWith("/api/")) return null;
+  if (!process.env.DEMO_SITE) return url.pathname === "/" ? new Response(DEMO_PAGE, { headers: { "content-type": TYPES[".html"], "x-frame-options": "DENY" } }) : null;
+  const root = normalize(process.env.DEMO_SITE);
+  let file = normalize(join(root, decodeURIComponent(url.pathname)));
+  if (!file.startsWith(root)) return null;
+  if (url.pathname.endsWith("/")) file = join(file, "index.html");
+  const body = await readFile(file).catch(() => null);
+  const type = { ".xml": "application/atom+xml", ".woff2": "font/woff2" }[extname(file)] ?? TYPES[extname(file)] ?? "application/octet-stream";
+  return body ? new Response(body, { headers: { "content-type": type, "x-frame-options": "DENY" } }) : null;
+}
+
 createServer(async (req, res) => {
   const chunks = [];
   for await (const c of req) chunks.push(c);
@@ -169,7 +187,7 @@ createServer(async (req, res) => {
   const request = new Request(url, { method: req.method, headers, body: ["GET", "HEAD"].includes(req.method) ? undefined : Buffer.concat(chunks) });
   let response;
   try {
-    response = (await coreAnswer(url)) || (await authAnswer(url, req.method)) || (await handleFetch(request, env, deps));
+    response = (await coreAnswer(url)) || (await authAnswer(url, req.method)) || (await siteAnswer(url)) || (await withPreview(request, env, (r) => handleFetch(r, env, deps)));
   } catch (e) {
     console.error(e);
     response = new Response("dev server error", { status: 500 });

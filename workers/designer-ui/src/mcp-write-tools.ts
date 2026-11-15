@@ -14,7 +14,7 @@ import { publishOp } from "./publish";
 import { settingsPublishOp } from "./settings-publish";
 import { themePublishOp } from "./theme-publish";
 import type { Call, Json } from "../portable/mcp-transport";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 
 const MESSAGE = s("The commit message: what changed and why. First line at most 200 characters");
 const ONE_COMMIT = " One call = one commit: give several entries in `changes` rather than one call each.";

@@ -106,7 +106,13 @@ with ACP on is a 503 — the routes are closed, never open.
 1. **Version header.** The release is `2026-04-17`, but its RFC text and
    OpenAPI example still say `API-Version: 2026-01-16` (and the checklist
    `2026-01-15`). Accepted: `2026-04-17`, `2026-01-30`, `2026-01-16`; the
-   shapes answered are `2026-04-17`'s.
+   shapes answered are `2026-04-17`'s. `2026-01-15` stays refused (checked
+   again for 1.9.11, GO-187): it appears only in the RFC's compliance
+   checklist (repository head `7fdd78d`, 2026-07-17), no release carries that
+   date (the releases are `2025-09-29`, `2025-12-12`, `2026-01-16`,
+   `2026-01-30`, `2026-04-17`) and the OpenAPI lists no such value. A client
+   that sends it gets `400 unsupported_api_version` with `supported_versions`,
+   as the RFC asks, and can retry with one of them.
 2. **`line_items` or `items`.** The create schema requires `line_items`; the
    examples and the RFC use `items`. Both are read.
 3. **Item quantity.** The schema's `Item` has no `quantity` (and forbids extra

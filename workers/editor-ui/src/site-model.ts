@@ -13,7 +13,7 @@ import { normalizePath } from "../portable/path-policy";
 import type { RepoConfig } from "../portable/repo-config";
 import type { RepoProvider } from "../portable/repo-provider";
 import type { Env } from "./http";
-import { OpError } from "./ops";
+import { OpError } from "../portable/ops";
 import { readSiteConfig } from "./site-config";
 import type { SiteConfig } from "./site-config";
 import { ShapeError, siteKeys } from "./site-keys";

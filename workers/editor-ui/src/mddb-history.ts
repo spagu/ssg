@@ -19,7 +19,7 @@ import type { MddbRevision } from "./mddb-client";
 import { iso } from "./mddb-doc";
 import { mddbPath } from "./mddb-path";
 import type { MddbScope } from "./mddb-scope";
-import { OpError } from "./ops";
+import { OpError } from "../portable/ops";
 import type { DiffInput, DiffSide, RevisionDiff } from "./revision-diff";
 import type { RevisionText } from "./revision-read";
 import type { Revision, RevisionPage } from "./revisions";

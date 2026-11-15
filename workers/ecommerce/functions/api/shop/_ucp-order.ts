@@ -21,6 +21,7 @@ import { ORDER_CAPABILITY, UCP_VERSION } from "./_ucp-http";
 import { breakdown } from "./_ucp-pricing";
 import { lineId, type UcpSessionRow } from "./_ucp-session";
 import { signedHeaders } from "./_ucp-sign";
+import { allowedScheme } from "./_ucp-testing";
 
 /** Where the buyer can see the order: the storefront's own thank-you page,
  *  which needs the order key. */
@@ -115,7 +116,8 @@ export async function enqueueUcpEvent(env: Env, order: Record<string, unknown>, 
 export async function deliverUcpEvent(env: Env, payload: Record<string, unknown>): Promise<void> {
   if (!env.SHOP_UCP_WEBHOOK_URL) throw new Error("SHOP_UCP_WEBHOOK_URL is not set");
   const url = new URL(env.SHOP_UCP_WEBHOOK_URL);
-  if (url.protocol !== "https:") throw new Error("UCP webhook url must be https");
+  // http only for the conformance suite's local receiver, in test mode.
+  if (!allowedScheme(env, url.protocol)) throw new Error("UCP webhook url must be https");
 
   const eventId = String(payload.eventId);
   const body = JSON.stringify(payload.order);

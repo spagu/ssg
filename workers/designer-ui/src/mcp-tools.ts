@@ -14,7 +14,7 @@ import { configReadOp } from "./config-key";
 import { DATA_NOTE, keyOf, permissionsOf, s, schema, str } from "./mcp-args";
 import type { DesignerTool } from "./mcp-args";
 import { WRITE_TOOLS } from "./mcp-write-tools";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { revisionReadOp, revisionsOp } from "./revisions";
 import { can } from "./session-verifier";

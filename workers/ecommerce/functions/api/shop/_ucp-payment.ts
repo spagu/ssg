@@ -29,6 +29,7 @@ import type { Env } from "./_env";
 import { intentOutcome, type ChargeOutcome } from "./_agent-charge";
 import { sha256hex } from "./_lib";
 import { stripeForm } from "./_stripe";
+import { testPayment, type TestPayment } from "./_ucp-testing";
 import type { OrderRow } from "./_types";
 
 export const HANDLER_NAME = "com.google.pay";
@@ -86,31 +87,40 @@ export function googlePayHandler(env: Env, origin: string, merchantName: string)
 }
 
 export type InstrumentReading =
-  | { ok: true; instrument: Record<string, unknown>; stripeToken: string; billingCountry: string | null }
+  | { ok: true; instrument: Record<string, unknown>; stripeToken: string; test: TestPayment | null; billingCountry: string | null }
   | { ok: false; missing: boolean };
 
 const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 
 /** The instrument to charge: the selected one (or the only one), from this
- *  shop's handler, carrying a Stripe card token. `missing` means there was no
- *  payment object at all — a malformed complete, not an ineligible card. */
+ *  shop's handler, carrying a Stripe card token — or, in the conformance test
+ *  mode only, the suite's test handler (_ucp-testing.ts). `missing` means
+ *  there was no payment object at all — a malformed complete, not an
+ *  ineligible card. */
 export function readInstrument(env: Env, payment: unknown): InstrumentReading {
   const list = isObject(payment) && Array.isArray(payment.instruments) ? payment.instruments.filter(isObject) : [];
   if (list.length === 0) return { ok: false, missing: true };
   const chosen = list.find((i) => i.selected === true) ?? (list.length === 1 ? list[0] : undefined);
-  if (!chosen || chosen.handler_id !== handlerId(env)) return { ok: false, missing: false };
-  const credential = chosen.credential;
-  if (!isObject(credential) || credential.type !== "PAYMENT_GATEWAY" || typeof credential.token !== "string") {
-    return { ok: false, missing: false };
-  }
-  const stripeToken = stripeTokenOf(credential.token);
-  if (!stripeToken) return { ok: false, missing: false };
+  if (!chosen) return { ok: false, missing: false };
+  const test = testPayment(env, chosen);
+  const stripeToken = test ? "" : gpayStripeToken(env, chosen);
+  if (!test && !stripeToken) return { ok: false, missing: false };
   // Kept to echo back: everything but the credential, which the protocol
   // marks response-omitted (token_credential.json).
   const { credential: _secret, ...instrument } = chosen;
   const billing = isObject(chosen.billing_address) ? chosen.billing_address.address_country : undefined;
   const billingCountry = typeof billing === "string" && /^[A-Za-z]{2}$/.test(billing) ? billing.toUpperCase() : null;
-  return { ok: true, instrument, stripeToken, billingCountry };
+  return { ok: true, instrument, stripeToken, test, billingCountry };
+}
+
+/** The Stripe token of an instrument from this shop's Google Pay handler, or
+ *  "" when it is not one. */
+function gpayStripeToken(env: Env, chosen: Record<string, unknown>): string {
+  const credential = chosen.credential;
+  if (chosen.handler_id !== handlerId(env) || !isObject(credential) || credential.type !== "PAYMENT_GATEWAY" || typeof credential.token !== "string") {
+    return "";
+  }
+  return stripeTokenOf(credential.token) ?? "";
 }
 
 /** The Stripe token inside Google Pay's tokenization data. Anything else —

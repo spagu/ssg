@@ -21,7 +21,7 @@ import { RepoError } from "../portable/repo-provider";
 import type { Change, Conflict } from "../portable/repo-provider";
 import { PROVIDERS } from "../portable/repo-config";
 import type { RepoConfig } from "../portable/repo-config";
-import { authorOf } from "./author";
+import { authorOf } from "../portable/author";
 import { parseRequest } from "./change-input";
 import type { Content, Planned } from "./change-input";
 import { READ_COST } from "./content-list";
@@ -30,11 +30,10 @@ import { contentPath, contentScope } from "./content-scope";
 import type { ContentScope } from "./content-scope";
 import { NEW_FILE, applyEdit } from "./frontmatter";
 import { checkImageLimits, deletablePath, imageChange } from "./media-change";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import type { Rebuild } from "./rebuild";
 import { PERM } from "./permissions";
-import { SUBREQUESTS } from "./repo";
 import { publishThrough } from "./source";
 
 // origin, rebuild, notice: only on an MDDB publication (mddb-publish.ts).
@@ -90,7 +89,7 @@ async function textOf(s: ContentScope, path: string, version: string | null, con
 
 async function resolve(s: ContentScope, planned: Planned[]): Promise<Resolved> {
   const out: Resolved = { changes: [], yours: new Map(), early: [], kept: [] };
-  checkImageLimits(planned);
+  checkImageLimits(planned, s.repo.plan.limits);
   const edits = planned.filter((p) => p.op !== "delete" && p.content !== null && "edit" in p.content).length;
   if (edits > MAX_FORM_EDITS) throw new OpError("too_large", 413, `at most ${MAX_FORM_EDITS} form edits per publication; send whole texts instead`);
   for (const p of planned) {
@@ -128,7 +127,7 @@ async function resolve(s: ContentScope, planned: Planned[]): Promise<Resolved> {
 // theirsOf: the text on the branch for one conflicting file, within the budget.
 async function theirsOf(s: ContentScope, c: Conflict): Promise<Pick<ConflictFile, "theirs" | "theirsUnread">> {
   if (c.currentBlobId === null) return { theirs: null };
-  if (s.repo.provider.used() + READ_COST > SUBREQUESTS) return { theirs: null, theirsUnread: "budget" };
+  if (s.repo.provider.used() + READ_COST > s.repo.plan.subrequests) return { theirs: null, theirsUnread: "budget" };
   try {
     const theirs = decodeText((await s.repo.provider.read(c.headCommit, c.path)).bytes);
     return theirs === null ? { theirs, theirsUnread: "not_text" } : { theirs };

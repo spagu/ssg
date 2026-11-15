@@ -9,9 +9,9 @@
 // history's author names and messages are never read into the answer.
 
 import { RepoError } from "../portable/repo-provider";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
-import { repositoryOf } from "./repo";
+import { repositoryOf } from "../portable/repo";
 import { loadSiteModel } from "./site-model";
 import type { SiteModel } from "./site-model";
 import { summaryOf } from "./summary-kit";

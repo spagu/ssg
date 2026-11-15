@@ -54,6 +54,7 @@ under `modules:` in `.ssg.yaml` with its base path so `core` shows it.
 | Variable | Kind | Meaning |
 |---|---|---|
 | `EDITOR_BASE` | var | The path the worker owns; default `/editor`. Keep `routes` in step. |
+| `EDITOR_PLAN` | var | `free` (default, also unset or empty) or `paid`: the limits of one publication (below, and [EDITOR-OPERATIONS.md](../../docs/EDITOR-OPERATIONS.md#limits-per-cloudflare-plan)). Any other value: `503 bad_plan` on every path. |
 | `EDITOR_GIT_REPO` | var | `github.com/<owner>/<repo>` — where the site's source lives. |
 | `EDITOR_GIT_BRANCH` | var | The branch publications are committed to; empty = the default branch. |
 | `EDITOR_GIT_TOKEN` | **secret** | The repository token (step 2). |
@@ -181,14 +182,14 @@ reference.
 | Route | Permission | Answer |
 |---|---|---|
 | `GET api/module` | read | The manifest, [`module.json`](module.json). |
-| `GET api/health` | read | What is configured — never a value; no request to GitHub. |
+| `GET api/health` | read | What is configured — never a value; no request to GitHub — and `plan: {plan, limits, subrequests, maxBody}`. |
 | `GET api/module/summary` | read | Days since the content changed, content folders, the branch, problems. |
 | `GET api/me` | read | `{kind, user, permissions, sessionExpiresAt, loginUrl, logoutUrl, refreshUrl}`. |
 | `GET api/content?q=&section=&cursor=&limit=` | read | `{items: [{path, version, size, section, type, language, title, date, draft, loaded}], nextCursor, pending, truncated}` |
 | `GET api/content/new-path?section=&title=` | read | `{path, slug}` — where a new article would go. |
 | `GET api/content/{path}` | read | `{path, version, commit, format, bom, frontmatterRaw, fields, fixed, body}` — `{path}` URL-encoded as one segment. |
 | `POST api/changes` | publish (+ delete for a `delete`, + media for an image) | `201 {commitId, url, branch, files: [{path, version}]}` |
-| `GET api/media?cursor=&limit=` | read | `{dir, urlBase, limits, items: [{path, url, version, size, type}], nextCursor, truncated}` |
+| `GET api/media?cursor=&limit=` | read | `{dir, urlBase, plan, limits, items: [{path, url, version, size, type}], nextCursor, truncated}` |
 | `GET api/media/new-path?name=&type=&hash=` | read | `{path, url, name}` — the canonical path of an image added now. |
 | `GET api/media/references?path=&cursor=` | read | `{path, url, items: [{path}], scanned, total, complete, nextCursor}` |
 | `GET api/revisions/{path}?cursor=` | read | `{path, items: [{commitId, authorName, authorEmail, date, message}], nextCursor}` |
@@ -295,10 +296,12 @@ an image already on the branch is kept, not written again, and is listed in
 **What is accepted.** PNG, JPEG, WebP, GIF and AVIF, recognised by their
 first bytes — never by the name or a type the client sends. SVG, HTML, XML
 and anything else are refused (`reason: markup` or `not_an_image`): an SVG
-served from the site's host can run script there. Limits (Free plan, the
-repository layer's): 10 files per publication, 2 MiB per file and per
-publication; over them `413 too_large` with `limits`, before anything is
-decoded, so the panel can offer to shrink the image.
+served from the site's host can run script there. Limits (the repository
+layer's, per `EDITOR_PLAN`): Free 10 files per publication, 2 MiB per file
+and per publication; Paid 50 files, 10 MiB per file, 20 MiB per publication.
+Over them `413 too_large` with `limits`, before anything is decoded, so the
+panel can offer to shrink the image; the panel reads the active limits from
+`api/site`.
 
 **Polyglots.** A file with a valid image header and HTML appended after it is
 an image to this check and is accepted — as an image. What keeps it harmless
@@ -406,7 +409,7 @@ session (`Mcp-Session-Id` is ignored), no batches; GET is `405`. Methods:
 `server/discover`, `tools/list`, `tools/call`. A 2026-07-28 request must
 mirror its body in `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name`
 (`400 -32020` otherwise). A foreign `Origin` is `403`; the body may have at
-most 8 MiB (`413`). The transport is `portable/mcp-transport.ts` +
+most 8 MiB, 28 MiB with `EDITOR_PLAN = "paid"` (`413`). The transport is `portable/mcp-transport.ts` +
 `portable/mcp-methods.ts`, shared with designer-ui.
 
 **Who.** A script or an assistant: an `auth` service token
@@ -541,6 +544,31 @@ what stands between that token and the people using the panel.
 Delete the Worker (`npx wrangler delete` here, or in the Cloudflare
 dashboard), then revoke `EDITOR_GIT_TOKEN` on GitHub. The site's content
 stays in its repository unchanged.
+
+## Shared code
+
+editor-ui is the **one source** of the code it shares with designer-ui
+(GO-185): everything in `portable/` and the generic panel modules
+`public/js/core/{vnode,router,i18n,api,prefs,session,diff,format,admin-nav}.js`
+and `public/js/panel/{ui,dialog,publish-dialog,diff-view,conflict-view,revisions}.js`,
+plus the fakes `test/fake-github.ts` and `test/fake-git-store.ts`. designer-ui
+holds byte-identical copies, guarded by its `test/editor-copies.test.ts`;
+each template is scaffolded alone by `ssg new worker` and cannot import from
+the other, so the copies are files. Edit here, then copy.
+
+`portable/` is the worker's whole frame: the repository layer and path
+policy, the MCP transport and endpoint (`mcp.ts`), the gate (`gate.ts`),
+operations (`ops.ts`), the fetch pipeline (`app.ts`), the router, the module
+and me endpoints, the repository binding (`repo.ts`), the commit author
+(`author.ts`), the configuration files and overlay merge
+(`config-files.ts`), the YAML reader, and what every answer carries
+(`http-kit.ts`). What differs between the workers is never a copy: a shared
+module reads the template's id, variable prefix, default base and `Env`
+from `src/http.ts`, and its permissions, routes and MCP tools from
+`src/permissions.ts`, `src/routes.ts` and `src/mcp-tools.ts` (plus
+`module.json` and `src/session-verifier.ts`, the `auth` worker's copy). A
+shared module imports nothing else from `src/`; a template that takes
+`portable/` needs those files with those exports.
 
 ## Tests
 

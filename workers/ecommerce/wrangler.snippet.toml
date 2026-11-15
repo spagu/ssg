@@ -123,6 +123,12 @@
 # SHOP_UCP_GPAY_MERCHANT_ID = "…"                 # Google Pay merchant id; required with PRODUCTION
 # SHOP_UCP_HANDLER_ID = "gpay"                    # this shop's id for its Google Pay handler
 # SHOP_UCP_WEBHOOK_URL = "https://webhooks.example.com/v1/order-events"   # without ?key=; unset = no order events
+# Conformance-suite test mode (docs/UCP-OPERATIONS.md). Test deployments only:
+# it delivers products for a test payment and accepts http profiles and
+# webhook URLs. Refused (503) next to a live Stripe key or PRODUCTION.
+# /testing/simulate-shipping also needs the SHOP_UCP_SIMULATION_SECRET secret
+# and /testing/* in routes_include.
+# SHOP_UCP_TEST_MODE = "true"
 
 # ── Secrets ─────────────────────────────────────────────────────────────────
 # Never in this file. Set each with `wrangler pages secret put <NAME>`:
@@ -148,3 +154,5 @@
 #   SHOP_UCP_SIGNING_KEY   (UCP) EC P-256 private JWK with a "kid" that signs order
 #                          events; its public half is published in /.well-known/ucp
 #   SHOP_UCP_WEBHOOK_API_KEY (UCP, optional) sent as X-Goog-Api-Key with order events
+#   SHOP_UCP_SIMULATION_SECRET (UCP test mode only) the Simulation-Secret of
+#                          /testing/simulate-shipping

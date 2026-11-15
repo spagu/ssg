@@ -57,6 +57,13 @@ tags:
       (github.com/agentic-commerce-protocol/agentic-commerce-protocol, spec/2026-04-17/openapi/openapi.agentic_checkout.yaml);
       they are not repeated here. Every call needs `Authorization: Bearer <SHOP_ACP_API_KEY>` and `API-Version`;
       every POST needs `Idempotency-Key`. Errors are the protocol's `{type, code, message, param?}`.
+  - name: ucp
+    description: >-
+      Universal Commerce Protocol checkout (GO-167), off unless SHOP_UCP_ENABLED is "true" (404 otherwise).
+      Bodies are the protocol's own, release 2026-04-08 (github.com/Universal-Commerce-Protocol/ucp,
+      source/services/shopping/rest.openapi.json); they are not repeated here. Every call needs
+      `X-API-Key: <SHOP_UCP_API_KEY>` and `UCP-Agent: profile="https://…"`; protocol errors are `{code, content}`.
+      UCP.md in this template lists the choices; the business profile is GET /.well-known/ucp.
 
 paths:
   /api/shop/products:
@@ -441,6 +448,90 @@ paths:
         "200": { description: The canceled CheckoutSession. }
         "405": { description: Already completed, canceled or expired. }
         "409": { description: A completion is running. }
+
+  /api/shop/ucp/checkout-sessions:
+    post:
+      tags: [ucp]
+      summary: Create a checkout session (UCP create_checkout)
+      security: []
+      responses:
+        "201": { description: The Checkout, priced by the shop (`payment.instruments` empty until paid). }
+        "200": { description: "Nothing in the basket can be sold: `ucp.status: error` with messages, no session." }
+        "400": { description: "Malformed input, or `invalid_profile_url` (UCP-Agent missing or not https; http too in test mode)." }
+        "401": { description: Missing or wrong X-API-Key. }
+        "404": { description: UCP is switched off. }
+        "409": { description: The Idempotency-Key was used with another body, or is still being processed. }
+        "429": { description: Too many requests; see Retry-After. }
+        "503": { description: "UCP is on but a setting is missing, or SHOP_UCP_TEST_MODE next to a live configuration." }
+
+  /api/shop/ucp/checkout-sessions/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [ucp]
+      summary: Get a checkout session (UCP get_checkout)
+      security: []
+      responses:
+        "200": { description: "The Checkout; with `order` once completed; `ucp.status: error` and not_found when there is none." }
+    put:
+      tags: [ucp]
+      summary: Replace a checkout session (UCP update_checkout)
+      security: []
+      responses:
+        "200": { description: The updated Checkout. }
+        "409": { description: The session is completed, canceled or being completed. }
+
+  /api/shop/ucp/checkout-sessions/{id}/complete:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [ucp]
+      summary: Pay with Google Pay through Stripe and place the order (UCP complete_checkout)
+      security: []
+      responses:
+        "200": { description: "Completed, with `order`; or the session with payment_declined / payment_failed / payment_ineligible messages. In test mode the suite's mock_payment_handler is accepted too." }
+        "400": { description: payment.instruments is missing. }
+        "409": { description: Canceled, or another completion is running. }
+
+  /api/shop/ucp/checkout-sessions/{id}/cancel:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [ucp]
+      summary: Cancel a checkout session (UCP cancel_checkout)
+      security: []
+      responses:
+        "200": { description: The canceled Checkout (also for one already canceled). }
+        "409": { description: Completed, or a completion is running. }
+
+  /api/shop/ucp/orders/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [ucp]
+      summary: Get an order a UCP checkout placed (UCP get_order, since 1.9.11)
+      security: []
+      responses:
+        "200": { description: "The full Order (order.json); for any other id `ucp.status: error` with a not_found message." }
+        "401": { description: Missing or wrong X-API-Key. }
+
+  /testing/simulate-shipping/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [ucp]
+      summary: Conformance-suite hook, test mode only (since 1.9.11)
+      description: >-
+        A 404 unless SHOP_UCP_TEST_MODE is "true" and SHOP_UCP_SIMULATION_SECRET is set. Sends the order's
+        snapshot again as an order event with a simulated `shipped` fulfillment event; stores nothing.
+      security: []
+      parameters:
+        - { name: Simulation-Secret, in: header, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "`{status: shipped}`." }
+        "403": { description: Missing or wrong Simulation-Secret. }
+        "404": { description: "Test mode off, no secret configured, or no completed UCP order with this id." }
+        "503": { description: Test mode next to a live configuration. }
 
   /api/shop/admin/me:
     get:

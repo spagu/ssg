@@ -6,9 +6,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ADVANCED, BASE, COOKIE, ORIGIN, READ, SETTINGS, THEME, makeEnv, request, run, site, token } from "./fixtures.ts";
 import { ALL, modern, rpc, tool } from "./mcp-fixtures.ts";
-import { OpError, refusedOf } from "../src/ops.ts";
+import { OpError } from "../portable/ops.ts";
+import { refusedOf } from "../src/settings-publish.ts";
 import { INSTRUCTIONS, TOOLS } from "../src/mcp-tools.ts";
-import { MAX_BODY, SERVER, refusal } from "../src/mcp.ts";
+import { MAX_BODY } from "../portable/http-kit.ts";
+import { SERVER, refusal } from "../portable/mcp.ts";
 import manifest from "../module.json" with { type: "json" };
 
 const READS = ["designer_list", "designer_read", "designer_config_read", "revisions_list", "revision_read"];

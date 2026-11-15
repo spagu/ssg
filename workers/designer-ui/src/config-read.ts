@@ -6,21 +6,17 @@
 // Why a reader in the Worker (GO-178, "Odczyt wartości z .ssg.yaml"): ssg
 // publishes no effective configuration into the repository, and a build
 // artefact would lag the branch the panel edits. So the reader of editor-ui
-// (yaml-lite.ts, a byte copy) reads key by key: a key it cannot follow is
+// (portable/yaml-lite.ts, a byte copy) reads key by key: a key it cannot follow is
 // reported as "set in the file, value not read" with the line, never guessed,
-// and the other keys still read.
+// and the other keys still read. The files, their order, reading them and
+// the overlay merge are portable/config-files.ts, shared with editor-ui.
 
-import { RepoError } from "../portable/repo-provider";
+import { CONFIG_FILES, OVERLAY_FILE, isObject, jsonObject, merge, readText } from "../portable/config-files";
+import type { Doc } from "../portable/config-files";
 import type { RepoProvider } from "../portable/repo-provider";
-import { readKeys } from "./yaml-lite";
-import type { YamlUnsupported } from "./yaml-lite";
-import { SCHEMA } from "./schema";
+import { readKeys } from "../portable/yaml-lite";
+import type { YamlUnsupported } from "../portable/yaml-lite";
 
-// CONFIG_FILES: ssg's own search order (internal/config/config.go).
-export const CONFIG_FILES = [".ssg.yaml", ".ssg.yml", ".ssg.toml", ".ssg.json", "ssg.yaml", "ssg.yml", "ssg.toml", "ssg.json"];
-export const OVERLAY_FILE = SCHEMA.overlayFile; // ".ssg.designer.json"
-
-export type Doc = Record<string, unknown>;
 export type Format = "yaml" | "json" | "toml";
 
 export interface ConfigState {
@@ -36,46 +32,11 @@ export interface ConfigState {
   overlayProblem: string | null;
 }
 
-const isObject = (v: unknown): v is Doc => typeof v === "object" && v !== null && !Array.isArray(v);
-
-// utf8: the bytes as text, or undefined when they are not UTF-8.
-export function utf8(bytes: Uint8Array): string | undefined {
-  try {
-    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
-  } catch {
-    return undefined;
-  }
-}
-
-// readText: the file's text and version at `ref`; null when it does not
-// exist; text undefined when it is not UTF-8. Other host failures are thrown.
-async function readText(provider: RepoProvider, ref: string, path: string): Promise<{ text: string | undefined; blobId: string } | null> {
-  let file;
-  try {
-    file = await provider.read(ref, path);
-  } catch (err) {
-    if (err instanceof RepoError && err.code === "not_found") return null;
-    throw err;
-  }
-  return { text: utf8(file.bytes), blobId: file.blobId };
-}
-
-// jsonObject parses a JSON object, or null. A parse error quotes the text
-// around it, which may hold a secret, so it never leaves this function.
-function jsonObject(body: string): Doc | null {
-  try {
-    const doc: unknown = JSON.parse(body);
-    return isObject(doc) ? doc : null;
-  } catch {
-    return null;
-  }
-}
-
 // TOP_KEY: a top-level "key:" at column 0 — which keys a file sets, even when
 // their values are beyond the reader.
 const TOP_KEY = /^([A-Za-z_][A-Za-z0-9_.-]*)[ \t]*:(?:[ \t]|$)/;
 export const presentKeys = (text: string): string[] =>
-  [...new Set(text.replace(/^﻿/, "").split(/\r?\n/).flatMap((l) => TOP_KEY.exec(l)?.[1] ?? []))];
+  [...new Set(text.replace(/^\uFEFF/, "").split(/\r?\n/).flatMap((l) => TOP_KEY.exec(l)?.[1] ?? []))];
 
 // readYaml reads every top-level key; when the whole file is beyond the
 // reader, key by key, so one odd key costs only itself.
@@ -142,18 +103,6 @@ export async function readConfig(provider: RepoProvider, repoKey: string, branch
   const state: ConfigState = { head, ...(await readFile(provider, head)), ...(await readOverlay(provider, head)) };
   cache.set(key, state);
   return state;
-}
-
-// merge applies an overlay as ssg does (internal/config/overlay.go): mappings
-// merge key by key, anything else replaces, null removes the key.
-export function merge(base: Doc, overlay: Doc): Doc {
-  const out: Doc = { ...base };
-  for (const [k, v] of Object.entries(overlay)) {
-    if (k === "__proto__") continue; // never a key of ssg's (validation refuses it); never a prototype here
-    if (v === null) delete out[k];
-    else out[k] = isObject(v) && isObject(out[k]) ? merge(out[k] as Doc, v) : v;
-  }
-  return out;
 }
 
 // lookup: the value at a path of keys, and whether it is there at all.

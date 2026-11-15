@@ -8,12 +8,12 @@ import { PERM } from "../src/permissions.ts";
 import { languageOf, sectionOf } from "../src/content-place.ts";
 import type { SiteModel } from "../src/site-model.ts";
 import { MAX_CACHED, cachedMeta, clearMetaCache, decodeText, metaOf, remember } from "../src/content-meta.ts";
-import { SERVICE_DOMAIN, authorOf } from "../src/author.ts";
-import type { Caller } from "../src/gate.ts";
+import { SERVICE_DOMAIN, authorOf } from "../portable/author.ts";
+import type { Caller } from "../portable/gate.ts";
 import { commitUrl, conflictOf } from "../src/change-publish.ts";
 import type { ContentScope } from "../src/content-scope.ts";
 import { pathError } from "../src/content-scope.ts";
-import { SUBREQUESTS } from "../src/repo.ts";
+import { SUBREQUEST_BUDGET } from "../portable/plan.ts";
 import { RepoError } from "../portable/repo-provider.ts";
 
 const model = (over: Partial<SiteModel> = {}): SiteModel => ({
@@ -69,7 +69,7 @@ test("conflictOf: theirs within the budget; unread for budget, bytes that are no
     "gone.md": () => { throw new RepoError("not_found"); },
     "boom.md": () => { throw new Error("boom"); },
   };
-  const scope = { repo: { provider: { used: () => used, read: async (_ref: string, p: string) => ({ path: p, blobId: "v", bytes: reads[p]() }) } } } as unknown as ContentScope;
+  const scope = { repo: { plan: { subrequests: SUBREQUEST_BUDGET.free }, provider: { used: () => used, read: async (_ref: string, p: string) => ({ path: p, blobId: "v", bytes: reads[p]() }) } } } as unknown as ContentScope;
   const conflict = (paths: string[]) => new RepoError("conflict", { conflicts: paths.map((path) => ({ path, currentBlobId: path === "new.md" ? null : "v2", headCommit: "c" })) });
   const files = (await conflictOf(scope, conflict(["a.md", "bin.md", "gone.md", "new.md"]), new Map([["a.md", "mine"]]))).extra.files;
   assert.deepEqual(files, [
@@ -78,7 +78,7 @@ test("conflictOf: theirs within the budget; unread for budget, bytes that are no
     { path: "gone.md", yours: null, theirVersion: "v2", theirs: null, theirsUnread: "unavailable" },
     { path: "new.md", yours: null, theirVersion: null, theirs: null },
   ]);
-  used = SUBREQUESTS;
+  used = SUBREQUEST_BUDGET.free;
   assert.deepEqual((await conflictOf(scope, conflict(["a.md"]), new Map())).extra.files, [{ path: "a.md", yours: null, theirVersion: "v2", theirs: null, theirsUnread: "budget" }]);
   used = 0;
   await assert.rejects(conflictOf(scope, conflict(["boom.md"]), new Map()), /boom/);

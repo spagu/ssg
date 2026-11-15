@@ -10,9 +10,10 @@
 import { checkPath } from "../portable/path-policy";
 import { RepoError } from "../portable/repo-provider";
 import type { RepoProvider } from "../portable/repo-provider";
-import { effective, utf8 } from "./config-read";
-import { OpError } from "./ops";
-import type { Op, OpContext } from "./ops";
+import { utf8 } from "../portable/config-files";
+import { effective } from "./config-read";
+import { OpError } from "../portable/ops";
+import type { Op, OpContext } from "../portable/ops";
 import { PERM } from "./permissions";
 import { siteOf } from "./site";
 import type { Site } from "./site";

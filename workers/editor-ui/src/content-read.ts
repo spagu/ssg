@@ -15,8 +15,8 @@ import type { ContentScope } from "./content-scope";
 import { decodeText, metaOf, remember } from "./content-meta";
 import { readFields, splitDocument } from "./frontmatter";
 import type { FieldValue, Format } from "./frontmatter";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { sourceFor } from "./source";
 

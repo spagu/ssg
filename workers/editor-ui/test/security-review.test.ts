@@ -3,8 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import manifest from "../module.json" with { type: "json" };
-import { merge, parse } from "../src/site-config.ts";
-import { inlineValue } from "../src/yaml-scalar.ts";
+import { merge } from "../portable/config-files.ts";
+import { parse } from "../src/site-config.ts";
+import { inlineValue } from "../portable/yaml-scalar.ts";
 import { BASE, ORIGIN, makeEnv, request, run, site } from "./fixtures.ts";
 
 // ssg renders raw HTML written in Markdown (goldmark WithUnsafe), and the

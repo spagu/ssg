@@ -1,0 +1,18 @@
+# Native install (docs/SMTP-SERVER-PI.md): writes Postfix, Cyrus SASL and
+# OpenDKIM configuration from /etc/smtp-relay/smtp-relay.env before either
+# starts. If it fails, neither starts (see the drop-ins): no half-configured
+# server, no AUTH without a certificate.
+[Unit]
+Description=smtp-relay: render Postfix, SASL and OpenDKIM configuration
+Documentation=https://github.com/spagu/ssg/blob/main/docs/SMTP-SERVER-PI.md
+After=local-fs.target
+Before=postfix@-.service opendkim.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/smtp-relay/smtp-relay.env
+ExecStart=/usr/local/share/smtp-relay/bin/render-config.sh
+
+[Install]
+WantedBy=multi-user.target

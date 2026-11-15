@@ -21,10 +21,9 @@ import { contentFolder } from "./content-scope";
 import type { ContentScope } from "./content-scope";
 import { cachedMeta, metaOfBytes, remember } from "./content-meta";
 import type { Meta } from "./content-meta";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
-import { SUBREQUESTS } from "./repo";
 import { languageOf, sectionOf } from "./content-place";
 import { listSources } from "./source";
 
@@ -96,7 +95,7 @@ export async function contentFiles(s: ContentScope, folders: string[]): Promise<
 async function metaFor(s: ContentScope, e: TreeEntry): Promise<Meta | null> {
   const hit = cachedMeta(e.blobId);
   if (hit) return hit;
-  if (s.repo.provider.used() + READ_COST > SUBREQUESTS - READ_COST) return null;
+  if (s.repo.provider.used() + READ_COST > s.repo.plan.subrequests - READ_COST) return null;
   return remember(e.blobId, metaOfBytes((await s.repo.provider.read(s.model.head, e.path)).bytes));
 }
 

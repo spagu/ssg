@@ -1,6 +1,6 @@
-// GO-173: the generic panel modules editor-ui copies from designer-ui
-// (test/designer-copies.test.ts keeps them byte-identical) exercised here in
-// full, on this panel's own copies — core/ (vnode, router, i18n, api, prefs,
+// GO-173: the generic panel modules editor-ui shares with designer-ui (the
+// source since GO-185; designer-ui's test/editor-copies.test.ts keeps its
+// copies byte-identical) exercised here in full — core/ (vnode, router, i18n, api, prefs,
 // session, diff, format, admin-nav) and panel/ (ui, dialog, publish-dialog,
 // diff-view, conflict-view, revisions), plus panel/hunks-view.js, the one
 // generic module editor-ui adds. Dialogs run on test/panel-dom.ts.

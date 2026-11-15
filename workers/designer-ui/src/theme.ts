@@ -14,9 +14,10 @@
 
 import { checkPath, normalizePath } from "../portable/path-policy";
 import type { PathPolicy } from "../portable/path-policy";
-import { CONFIG_FILES, OVERLAY_FILE } from "./config-read";
-import type { ConfigState, Doc } from "./config-read";
-import { OpError } from "./ops";
+import { CONFIG_FILES, OVERLAY_FILE } from "../portable/config-files";
+import type { Doc } from "../portable/config-files";
+import type { ConfigState } from "./config-read";
+import { OpError } from "../portable/ops";
 
 // THEME_EXTENSIONS: text files are read and written as UTF-8, the others as base64.
 export const TEXT_EXTENSIONS = [".html", ".css", ".scss", ".js", ".json", ".svg"];

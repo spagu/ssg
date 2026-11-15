@@ -4,27 +4,30 @@
 
 import { readLimited } from "../portable/mcp-transport";
 import { healthOp } from "./health";
-import { MAX_BODY, mcpOp } from "./mcp";
-import { meOp } from "./me";
-import { moduleOp } from "./module";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
+import { mcpOp } from "../portable/mcp";
+import { meOp } from "../portable/me";
+import { moduleOp } from "../portable/module";
+import { OpError } from "../portable/ops";
+import { activePlan } from "../portable/plan";
+import type { OpContext } from "../portable/ops";
+import { previewOp, previewResponse } from "./preview";
 import { publishOp } from "./publish";
 import { revisionReadOp, revisionsOp } from "./revisions";
-import type { Route } from "./router";
+import type { Route } from "../portable/router";
 import { settingsPublishOp } from "./settings-publish";
 import { settingsReadOp } from "./settings-read";
 import { summaryOp } from "./summary";
 import { themeListOp, themeReadOp } from "./theme-ops";
 import { themePublishOp } from "./theme-publish";
 
-// body: the request's JSON object (400 for anything else; 413 past MAX_BODY,
-// the MCP endpoint's limit). The size is checked first: a declared length,
+// body: the request's JSON object (400 for anything else; 413 past the
+// plan's body limit, portable/plan.ts BODY_LIMIT, the MCP endpoint's too). The size is checked first: a declared length,
 // then the bytes as they arrive (SR-14) — a chunked body is never held whole
 // before its size is known.
 async function body(ctx: OpContext): Promise<Record<string, unknown>> {
-  const raw = await readLimited(ctx.request, MAX_BODY);
-  if (raw === null) throw new OpError("too_large", 413, `the request body is larger than ${MAX_BODY} bytes`);
+  const maxBody = activePlan(ctx.env).maxBody;
+  const raw = await readLimited(ctx.request, maxBody);
+  if (raw === null) throw new OpError("too_large", 413, `the request body is larger than ${maxBody} bytes`);
   let v: unknown;
   try {
     v = JSON.parse(raw);
@@ -50,6 +53,8 @@ export const ROUTES: Route[] = [
   { method: "POST", path: "/api/publish", op: publishOp, input: body },
   { method: "GET", path: "/api/revisions", op: revisionsOp, input: (ctx) => ({ path: query(ctx, "path"), cursor: query(ctx, "cursor") }) },
   { method: "GET", path: "/api/revisions/:commitId", op: revisionReadOp, input: (ctx, p) => ({ commitId: p.commitId, path: query(ctx, "path") }) },
+  // The look preview (GO-188): a page, not JSON; its headers are preview-entry.ts.
+  { method: "GET", path: "/api/preview", op: previewOp, input: (ctx) => ctx.url.searchParams, respond: previewResponse },
   // The MCP endpoint (GO-181): JSON-RPC in, JSON-RPC out — mcpOp answers with its own Response.
   { method: "POST", path: "/mcp", op: mcpOp, respond: (res: Response) => res },
 ];

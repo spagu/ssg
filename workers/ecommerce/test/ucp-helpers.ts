@@ -39,6 +39,8 @@ export function enableUcp(overrides: Record<string, string | undefined> = {}): v
     SHOP_UCP_WEBHOOK_URL: WEBHOOK_URL,
     SHOP_UCP_WEBHOOK_API_KEY: WEBHOOK_API_KEY,
     STRIPE_SECRET_KEY: STRIPE_KEY,
+    SHOP_UCP_TEST_MODE: undefined,
+    SHOP_UCP_SIMULATION_SECRET: undefined,
     ...overrides,
   });
 }

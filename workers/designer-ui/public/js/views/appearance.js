@@ -11,6 +11,7 @@ import { evaluate, pairsOf } from "../models/pairs.js";
 import { findTokensFile, resolve, setToken, tokens, valueMap } from "../models/tokens-css.js";
 import { emptyState, pageHead, slot } from "../panel/ui.js";
 import { contrastTable } from "./contrast-table.js";
+import { previewSection } from "./preview.js";
 import { themeUnavailable } from "./theme-unavailable.js";
 
 const SAMPLE = "Aa Za\u017c\u00f3\u0142\u0107 g\u0119\u015bl\u0105 ja\u017a\u0144 \u2014 \u0928\u092e\u0938\u094d\u0924\u0947 \u2014 0123";
@@ -29,11 +30,13 @@ export default async function appearance(app, view) {
   const text = () => app.themeDrafts.get(path)?.text ?? original;
   const fields = tokens(original);
   const checks = slot("contrast");
+  const preview = previewSection(app, () => tokens(text()));
 
   const update = (next) => {
     app.themeDrafts.setText(file, original, next);
     app.changed();
     drawChecks();
+    preview.refresh();
   };
   const setValue = (name, scheme, value) => {
     const next = setToken(text(), name, scheme, value);
@@ -70,6 +73,7 @@ export default async function appearance(app, view) {
     h("section", { "aria-labelledby": "ap-colours" }, h("h2", { id: "ap-colours" }, t("appearance.colours")), colours.length ? colourTable(colours, t("appearance.coloursCaption")) : h("p", { class: "muted" }, t("appearance.noColours"))),
     fonts.length ? h("section", { "aria-labelledby": "ap-fonts" }, h("h2", { id: "ap-fonts" }, t("appearance.fonts")), fonts.map((f) => fontField(app, f, current.get(f.name).light, canEdit, setValue))) : null,
     ramps.length ? h("details", { class: "card" }, h("summary", null, t("appearance.ramps", { count: ramps.length })), h("p", { class: "note" }, t("appearance.rampsWhy")), colourTable(ramps, t("appearance.rampsCaption"))) : null,
+    preview.node,
   ]);
   drawChecks();
 }

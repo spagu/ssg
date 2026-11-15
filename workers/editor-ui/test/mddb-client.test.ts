@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MAX_CALLS, MAX_RESPONSE, mddbClient } from "../src/mddb-client.ts";
 import type { MddbConfig } from "../src/mddb-config.ts";
-import { OpError } from "../src/ops.ts";
+import { OpError } from "../portable/ops.ts";
 
 const REF = { collection: "blog", key: "k", lang: "en" };
 const config = (apiKey: string | null = "plain-key"): MddbConfig => ({ url: "https://mddb.example.com/base", apiKey, sources: [], lang: null, newLang: "en", allowHttp: false });

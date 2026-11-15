@@ -158,7 +158,11 @@ With it on and something missing (the API key, the Stripe secret key, a
 merchant id in `PRODUCTION`) they are 503. Google's
 [authentication guide](https://developers.google.com/merchant/ucp/guides/overview/authentication)
 offers an API key, OAuth 2.0 (which it recommends) or mTLS; **the shop
-implements the API key only**.
+implements the API key only** — the protocol makes all three optional
+("Authentication is optional and depends on business requirements",
+checkout-rest.md). mTLS, if Google asks for it, would be a Cloudflare zone
+rule in front of the shop, not shop code
+([workers/ecommerce/UCP.md](../workers/ecommerce/UCP.md), ambiguity 2).
 
 | Route under `https://<your-site>/api/shop/ucp` | Operation |
 |---|---|
@@ -167,6 +171,7 @@ implements the API key only**.
 | `PUT /checkout-sessions/{id}` | update |
 | `POST /checkout-sessions/{id}/complete` | pay and place the order |
 | `POST /checkout-sessions/{id}/cancel` | cancel |
+| `GET /orders/{id}` | read an order a UCP checkout placed (since 1.9.11) |
 
 The profile at `https://<your-site>/.well-known/ucp` names this endpoint, the
 checkout and order capabilities, the Google Pay handler and the public half
@@ -175,7 +180,8 @@ of your signing key. Google finds everything else from it.
 ## Step 3: test, then watch it
 
 Testing before Google does, what Google publishes about its checks, the
-monitoring, the "my product disappeared" checklist, how the code handles
+monitoring, the "my product disappeared" checklist, running the UCP
+conformance suite (with the shop's test mode, since 1.9.11) and its results, how the code handles
 security and idempotency, and what was never tried against Google's live
 systems: [UCP-OPERATIONS.md](UCP-OPERATIONS.md). Where the specification left
 room and what the shop's code chose:

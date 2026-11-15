@@ -12,12 +12,20 @@
 // Every request must also carry `UCP-Agent: profile="https://…"` (an RFC 8941
 // Dictionary). It is checked for shape; the platform's profile is not
 // fetched — the API key already says who is calling (UCP.md, ambiguity 2).
+// An `http://` profile is accepted only in the conformance test mode
+// (_ucp-testing.ts), whose own agent runs on localhost.
+//
+// OAuth 2.0 and mTLS are not implemented: the protocol lists them as
+// options ("Businesses MAY require authentication", checkout-rest.md),
+// not requirements. mTLS would be terminated by Cloudflare before the
+// Worker runs; UCP.md, ambiguity 2, says what that would take.
 
 import type { Env } from "./_env";
 import { sha256hex, timingSafeEqual } from "./_lib";
 import { gpayEnvironment } from "./_ucp-payment";
 import { signingJwk } from "./_ucp-sign";
 import { ucpError, type UcpResult } from "./_ucp-http";
+import { allowedScheme, testModeRefused } from "./_ucp-testing";
 
 /** What is missing for UCP to sell, by setting name; empty when nothing is. */
 export function ucpMissing(env: Env): string[] {
@@ -30,6 +38,9 @@ export function ucpMissing(env: Env): string[] {
   // Order webhooks MUST be signed, and the profile must publish the key.
   if (!signingJwk(env)) missing.push("SHOP_UCP_SIGNING_KEY");
   if (gpayEnvironment(env) === "PRODUCTION" && !env.SHOP_UCP_GPAY_MERCHANT_ID) missing.push("SHOP_UCP_GPAY_MERCHANT_ID");
+  // The test mode hands out products without payment: never next to a
+  // configuration that takes real money (_ucp-testing.ts).
+  if (testModeRefused(env)) missing.push("SHOP_UCP_TEST_MODE");
   return missing;
 }
 
@@ -39,12 +50,13 @@ export const notConfigured = (): UcpResult => ({
 });
 
 /** The profile URL from a UCP-Agent header, or null when the header is
- *  missing, not a Dictionary with a quoted `profile`, or not https. */
-export function agentProfile(header: string | null): string | null {
+ *  missing, not a Dictionary with a quoted `profile`, or not https (http as
+ *  well in test mode). */
+export function agentProfile(header: string | null, env: Env): string | null {
   const match = /(?:^|[,;\s])profile="([^"\\]{1,2048})"/.exec(header ?? "");
   if (!match) return null;
   try {
-    return new URL(match[1]!).protocol === "https:" ? match[1]! : null;
+    return allowedScheme(env, new URL(match[1]!).protocol) ? match[1]! : null;
   } catch {
     return null;
   }
@@ -60,7 +72,7 @@ export async function ucpGate(request: Request, env: Env): Promise<UcpResult | n
   if (!given || !timingSafeEqual(await sha256hex(given), await sha256hex(env.SHOP_UCP_API_KEY!))) {
     return ucpError(401, "unauthorized", "A valid X-API-Key is required.");
   }
-  if (!agentProfile(request.headers.get("ucp-agent"))) {
+  if (!agentProfile(request.headers.get("ucp-agent"), env)) {
     return ucpError(400, "invalid_profile_url", 'The UCP-Agent header must be profile="https://…".');
   }
   return null;

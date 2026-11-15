@@ -188,7 +188,7 @@ test("a service account publishes under its own name", async () => {
   const gh = await site();
   const r = await call(gh, "/api/settings/publish", SETTINGS, { kind: "service", json: { message: "nightly", baseBlobId: null, changes: [{ path: ["title"], value: "S" }] } });
   assert.equal(r.status, 200, r.text);
-  assert.deepEqual(gh.store.commits.get(r.body.commitId)!.author.email, "u-ada@service.invalid");
+  assert.deepEqual(gh.store.commits.get(r.body.commitId)!.author.email, "u-ada@service-account.invalid");
 });
 
 test("a map entry: a plain field of an existing entry needs designer-ui:settings; a new entry is a whole thing", async () => {

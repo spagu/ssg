@@ -37,7 +37,10 @@ test("Resend: forged, missing or stale signatures → 401 and nothing written", 
     ["no svix-timestamp", { ...good, "svix-timestamp": "" }],
     ["id changed after signing", { ...good, "svix-id": "msg_other" }],
     ["stale timestamp", await svixHeaders(body, { ts: Math.floor(Date.now() / 1000) - 301 })],
-    ["future timestamp", await svixHeaders(body, { ts: Math.floor(Date.now() / 1000) + 301 })],
+    // A minute past the 300 s window, not one second: the headers are built
+    // here and checked later in the loop, so a one-second margin let a slow
+    // run (or a second boundary) bring the timestamp back inside the window.
+    ["future timestamp", await svixHeaders(body, { ts: Math.floor(Date.now() / 1000) + 360 })],
     ["timestamp not a number", { ...good, "svix-timestamp": "soon" }],
     ["wrong version tag", { ...good, "svix-signature": good["svix-signature"].replace("v1,", "v2,") }],
     ["signature not base64", { ...good, "svix-signature": "v1,%%%" }],

@@ -8,7 +8,7 @@
 
 import { normalizePath } from "../portable/path-policy";
 import type { Raw } from "./site-config";
-import type { YamlValue } from "./yaml-lite";
+import type { YamlValue } from "../portable/yaml-lite";
 
 export interface Section { path: string; type: "page" | "post" }
 export interface Shortcode { name: string; type: string | null; template: string | null; title: string | null }

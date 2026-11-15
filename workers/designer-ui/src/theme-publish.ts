@@ -13,10 +13,11 @@
 // with the conflicting paths (README, decision 4); the provider never forces.
 
 import type { Change } from "../portable/repo-provider";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
-import { authorOf, siteOf } from "./site";
+import { authorOf } from "../portable/author";
+import { siteOf } from "./site";
 import type { Site } from "./site";
 import { allowedPath, themePolicy } from "./theme";
 import { requireTheme } from "./theme-ops";

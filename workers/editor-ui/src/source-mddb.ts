@@ -20,8 +20,8 @@ import { MDDB_PREFIX, mddbPath, parseMddbPath, validCollection, validLang } from
 import { publishMddb } from "./mddb-publish";
 import { mddbScope, revisionOf, sameLang } from "./mddb-scope";
 import type { MddbScope } from "./mddb-scope";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
+import { OpError } from "../portable/ops";
+import type { OpContext } from "../portable/ops";
 import { fileSlug } from "./slug";
 import type { ContentSource } from "./source";
 
