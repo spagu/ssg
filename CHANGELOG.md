@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.10] - 2026-11-15
+
 ### Security
 
 - **Configuration keys that read files or add third-party scripts are no
@@ -7357,7 +7359,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.9...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.10...HEAD
+[1.9.10]: https://github.com/spagu/ssg/compare/v1.9.9...v1.9.10
 [1.9.9]: https://github.com/spagu/ssg/compare/v1.9.8...v1.9.9
 [1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8
 [1.9.7]: https://github.com/spagu/ssg/compare/v1.9.6...v1.9.7
