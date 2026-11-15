@@ -56,8 +56,11 @@ npx wrangler pages secret put STRIPE_WEBHOOK_SECRET
 ```
 
 Point a Stripe webhook at `https://<your-site>/api/shop/webhooks/stripe` for
-`checkout.session.completed`, `checkout.session.expired`,
-`payment_intent.payment_failed` and `charge.refunded`.
+exactly the events the shop handles (the Payments screen lists the same five):
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, `checkout.session.expired` and
+`charge.refunded`. A delayed method (SEPA, a bank transfer) is paid on
+`async_payment_succeeded`, not on `completed`.
 
 Open `/ecommerce-admin/`, sign in with that password, and the panel tells you
 what is still missing. The shared password is one of three ways in — see
@@ -422,19 +425,26 @@ disappears: [docs/ACP.md](../../docs/ACP.md) and
 [docs/ACP-OPERATIONS.md](../../docs/ACP-OPERATIONS.md); for Google's
 Universal Commerce Protocol checkout, [docs/UCP.md](../../docs/UCP.md).
 
-**Where it can be used today** (checked 2026-11-14; partly from industry
-reports rather than official statements, so check with each platform before
-you apply):
+**Where it can be used today** (official pages read 2026-11-15; check with
+each platform before you apply):
 
-- **Microsoft Copilot Checkout** runs ACP checkouts (with Stripe and PayPal).
-  This is the live consumer of an ACP checkout as of that date.
-- **ChatGPT** does not offer in-chat purchase any more: OpenAI's own
-  commerce pages (developers.openai.com/commerce, read 2026-11-14) describe
-  product feeds for discovery, with the purchase on the merchant's website
-  (browser use, ChatGPT Wallet) or through a plugin. The ACP *feed* still
-  matters there; this checkout does not.
-- Google uses its own protocol (UCP, added to ssg separately); Anthropic and
-  DeepSeek had no shopping or checkout protocol to implement on that date.
+- **The protocol's site** ([agenticcommerce.dev](https://www.agenticcommerce.dev/))
+  says each AI platform manages its own process for which businesses take
+  part, and names ChatGPT, where businesses apply.
+- **OpenAI** ([developers.openai.com/commerce](https://developers.openai.com/commerce/))
+  describes product feeds for discovery, with the purchase on the merchant's
+  website (browser use, ChatGPT Wallet) or through a plugin; its feed schema
+  says checkout "requires a separately enabled integration" without saying
+  how it is enabled. The ACP *feed* matters there; this checkout is not
+  described.
+- **Microsoft Copilot Checkout**
+  ([Microsoft Advertising, agentic commerce](https://about.ads.microsoft.com/en/solutions/technology/agentic-commerce))
+  names Microsoft Merchant Center with a UCP-compliant feed as the onboarding
+  path for merchants; the page does not mention ACP.
+- Google uses its own protocol, UCP: [below](#selling-through-googles-agents-ucp).
+
+No platform found on that date documents how a merchant connects its own ACP
+checkout endpoint.
 
 **What it does.** The agent creates, updates, reads, completes and cancels a
 checkout session at `https://<your-site>/api/shop/acp/checkout_sessions…`.
@@ -480,8 +490,40 @@ it). Steps in [ACP.md](ACP.md#the-feed-push).
 **Limitations**: digital products only (stock is unlimited; stock for
 physical goods would be your own system); one payment handler (Stripe SPT —
 no 3-D Secure step, no PayPal); no discounts, affiliate attribution, marketing
-consent or intent traces; refunds made later are not yet sent to the platform
-as `order_update`.
+consent or intent traces. A refund made later is sent to the platform as an
+`order_update` once Stripe's webhook confirms it.
+
+## Selling through Google's agents (UCP)
+
+The shop can also take orders through the
+[Universal Commerce Protocol](https://ucp.dev/) (UCP, release `2026-04-08`),
+the protocol Google's Merchant guides describe for checkout in AI Mode and
+Gemini with Google Pay. Like ACP it is **off** until you switch it on, and was
+tested against fakes built from the published documents, never against
+Google. [UCP.md](UCP.md) has the details — what the specification left open
+and what this code chose, every setting, the business profile and the signing
+key. The owner's step-by-step guide: [docs/UCP.md](../../docs/UCP.md).
+
+**What it does.** The platform creates, reads, updates (`PUT`), completes and
+cancels a checkout session at `https://<your-site>/api/shop/ucp/checkout-sessions…`,
+and reads the shop's business profile at `https://<your-site>/.well-known/ucp`.
+Prices and tax come from the storefront's code. The buyer pays with Google
+Pay, tokenized for Stripe and charged through the shop's `STRIPE_SECRET_KEY`.
+The order goes through the same fulfilment, is stored with `channel: "ucp"`,
+and the platform is sent signed order events (on completion and on a later
+refund) through the outbox.
+
+**Switching it on**: `SHOP_UCP_ENABLED = "true"`,
+`SHOP_UCP_STRIPE_PUBLISHABLE_KEY`, `SHOP_UCP_GPAY_ENVIRONMENT` and, for order
+events, `SHOP_UCP_WEBHOOK_URL` in `[vars]`; `SHOP_UCP_API_KEY`,
+`SHOP_UCP_SIGNING_KEY`, `STRIPE_SECRET_KEY` and optionally
+`SHOP_UCP_WEBHOOK_API_KEY` as secrets (`wrangler.snippet.toml` lists them);
+add `/.well-known/ucp` to the shop's `routes_include`. Off, every UCP path is
+a 404; on with something missing, a 503.
+
+**Limitations**: digital products only; the API key is the only
+authentication (no OAuth 2.0 or mTLS); Google Pay through Stripe is the only
+payment handler; no discounts, shipping, cart or identity linking.
 
 ## Development
 

@@ -5,14 +5,14 @@
 // in the deployment's secrets, so there is nothing to show.
 
 import { api } from "./api.js";
-import { el, notify, when } from "./dom.js";
+import { el, notify, when, withCode } from "./dom.js";
 
 export async function loadGateways() {
   const body = await api.get("/api/shop/admin/gateways");
   const host = document.getElementById("gateway-rows");
 
   host.replaceChildren(...(body.gateways ?? []).map((g) => gatewayCard(g, body.order)));
-  document.getElementById("gateway-note").textContent = body.note ?? "";
+  document.getElementById("gateway-note").replaceChildren(...withCode(body.note));
 }
 
 function gatewayCard(g, order) {
@@ -31,11 +31,11 @@ function gatewayCard(g, order) {
     el("header", {},
       el("div", {},
         el("h3", {}, g.label, " ", el("span", { class: "badge", "data-status": state, text: stateWord })),
-        el("p", { text: g.configured
+        el("p", {}, ...withCode(g.configured
           ? position === 0
             ? "The first button a buyer sees."
             : g.enabled ? "Offered at checkout." : "Configured, but not offered."
-          : `Set ${g.missing.join(" and ")} with \`wrangler pages secret put\`, then reload this screen.` }),
+          : `Set ${g.missing.map((name) => `\`${name}\``).join(" and ")} with \`wrangler pages secret put\`, then reload this screen.`)),
       ),
       g.configured
         ? el("div", { class: "actions" },

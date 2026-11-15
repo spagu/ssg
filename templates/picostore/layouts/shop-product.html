@@ -4,24 +4,30 @@
 {{ $p := .Page }}
 {{ $title := (printf "%s — %s" $p.Title (default .Domain .Vars.shop_name)) }}
     <title>{{ $title }}</title>
+{{/* `author` is a reserved front-matter key: it lands on the page, not in
+     .Extra, so getAuthorName reads it from the page (a registered author's
+     name, or the string as written). No author, no author object — an empty
+     name is invalid structured data. */}}
+{{ $author := getAuthorName $p }}
+{{ $offers := dict
+    "@type" "Offer"
+    "price" (default "" $p.Extra.price)
+    "priceCurrency" (default "EUR" $p.Extra.currency)
+    "availability" "https://schema.org/InStock" }}
+{{ $book := dict
+    "@context" "https://schema.org" "@type" "Book" "name" $p.Title "description" $p.Excerpt
+    "bookFormat" "https://schema.org/EBook" "offers" $offers }}
+{{ if $author }}{{ $book = dict
+    "@context" "https://schema.org" "@type" "Book" "name" $p.Title "description" $p.Excerpt
+    "bookFormat" "https://schema.org/EBook" "offers" $offers
+    "author" (dict "@type" "Person" "name" $author) }}{{ end }}
 {{ template "ps-head" (dict
     "Title" $title
     "Desc" $p.Excerpt
     "Canonical" (printf "/%s/" $p.Slug)
     "Image" $p.FeaturedImage
     "OgType" "product"
-    "Product" (dict
-        "@context" "https://schema.org"
-        "@type" "Book"
-        "name" $p.Title
-        "description" $p.Excerpt
-        "bookFormat" "https://schema.org/EBook"
-        "author" (dict "@type" "Person" "name" (default "" $p.Extra.author))
-        "offers" (dict
-            "@type" "Offer"
-            "price" (default "" $p.Extra.price)
-            "priceCurrency" (default "EUR" $p.Extra.currency)
-            "availability" "https://schema.org/InStock"))
+    "Product" $book
     "Ctx" .) }}
 </head>
 <body>
@@ -36,7 +42,7 @@
 
         <div>
             <h1 data-ssg-edit="frontmatter:title">{{ $p.Title }}</h1>
-            {{ with $p.Extra.author }}<p><strong>{{ . }}</strong></p>{{ end }}
+            {{ with $author }}<p><strong>{{ . }}</strong></p>{{ end }}
 
             {{/* The form works on its own: without JavaScript it posts straight
                  to the checkout endpoint with one line, which answers with a

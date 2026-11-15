@@ -24,6 +24,13 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+/** Text in which `backticked` spans are commands or names, as the API writes
+ *  them: the spans become <code> elements and the rest stays text. Never
+ *  parsed as HTML, so it is safe for any string the API sends. */
+export function withCode(text) {
+  return String(text ?? "").split("`").map((part, i) => (i % 2 === 1 ? el("code", { text: part }) : part)).filter((part) => part !== "");
+}
+
 /** A table cell carrying its own column name, which is what makes the table
  *  readable when it stacks into rows on a narrow screen.
  *

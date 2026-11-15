@@ -33,6 +33,8 @@ image and a changed colour, then does the same through an assistant.
 ship with the two templates: the workers' real code, an in-process stand-in
 for GitHub seeded with an invented site, and demo accounts. They do not come
 from a live Cloudflare deployment, and no real repository was written to.
+All data in them is fictional: the articles, people, accounts and addresses
+were made up for the demo, and every address is on an example domain.
 
 ## The shape: one commit per publication, visible conflicts
 

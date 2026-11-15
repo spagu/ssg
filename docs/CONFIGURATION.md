@@ -604,7 +604,11 @@ the only place that reports it:
 - `seller_privacy_policy` or `seller_tos` missing while a row asks for
   checkout, and any seller URL on this site (`seller_url`, the policies,
   `return_policy`) that does not resolve;
-- `is_eligible_checkout: true` on a row whose `is_eligible_search` is false.
+- `is_eligible_checkout: true` on a row whose `is_eligible_search` is false;
+- a feed with no rows at all, with the likely cause: no selected page has a
+  `schema:` Product (`sku:` and `price:` as plain front matter give no row),
+  or every product lacks a required field. With the check off the build
+  prints one line for it.
 
 `strict` (or `strict: true`) fails the build on any of them. URLs on other
 sites are not fetched.
@@ -615,10 +619,13 @@ the checkout (the REST endpoints, the payment through Stripe's Shared Payment
 Token, the order webhooks) are not part of the build. In 1.9.10 they come from
 the shop worker (`workers/ecommerce`) and a Cloudflare Cron Trigger beside it
 that pushes the feed. Stock in the file is what it was at build time, and
-live inventory stays with the shop. **OpenAI requires a certification of the
-integration before it goes live. That certification has not been done for
-this feed or for the shop worker.** Treat both as a starting point written
-against the published schema, not as a certified integration.
+live inventory stays with the shop. OpenAI's commerce pages, read
+2026-11-15, describe no certification; its feed schema says checkout
+"requires a separately enabled integration" without saying how it is
+enabled, and the protocol's site (agenticcommerce.dev, same date) says each
+AI platform manages its own process. Neither the feed nor the shop worker has
+been tested by any platform: treat both as a starting point written against
+the published schema. Steps and current facts: [ACP.md](ACP.md).
 
 ### Universal Commerce Protocol (UCP) on the Merchant feed
 
@@ -734,7 +741,10 @@ them.
   recommends" both), an `item_group_title` over 150 characters, more than 30
   options, an option name or value over 250 characters, variants of one group
   with different option names or the same combination of values;
-- a `ucp:` feed in which no row is eligible for checkout.
+- a `ucp:` feed in which no row is eligible for checkout;
+- a `ucp:` feed with no rows at all, with the likely cause: no selected page
+  has a `schema:` Product, or every product lacks a required attribute. With
+  the check off the build prints one line for it.
 
 **What the merchant does in Merchant Center** (Google's guide, as read on
 2026-11-14):

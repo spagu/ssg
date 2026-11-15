@@ -123,6 +123,9 @@ func (g *Generator) writeACPFeed(spec models.FeedSpec, rel string) error {
 		fmt.Printf("   ⚠️  %s: %d product(s) left out for a missing required field, %d with an availability no page states; set check_acp: warn for the list\n",
 			rel, len(entries)-len(rows), unstated)
 	}
+	if g.resolveMode(g.config.CheckACP) == "" {
+		g.emptyFeedNotice(rel, len(entries), len(rows), "check_acp")
+	}
 	return g.writeFeedFile(rel, renderACPFeed(rows), len(rows))
 }
 

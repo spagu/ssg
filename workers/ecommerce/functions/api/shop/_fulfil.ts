@@ -18,6 +18,7 @@ import { audit } from "./_audit";
 import { issueTokens } from "./_downloads";
 import { endpointsFor } from "./_hooks";
 import { issueInvoice } from "./_invoice";
+import { invoicePath, issueInvoiceLinkKey } from "./_invoice-page";
 import { newId, nowISO } from "./_lib";
 import { adminNoticeMail, orderPaidMail, type DownloadLink } from "./_mail";
 import { currencyDecimals } from "./_money";
@@ -34,8 +35,8 @@ export interface FulfilContext {
   origin: string;
   actor: string;
   /** The plaintext order key, when the caller has it (the webhook does not).
-   *  Without it the email carries download links but no invoice link, because
-   *  the invoice needs the key. */
+   *  Without it the invoice link in the email carries a key issued for the
+   *  invoice alone (issueInvoiceLinkKey). */
   orderKey?: string;
 }
 
@@ -144,10 +145,12 @@ async function queueOutgoing(
       totalMinor: order.total_minor,
       currency: order.currency,
       downloads,
-      invoiceUrl:
-        ctx.orderKey && invoiceNumber
-          ? `${ctx.origin}/api/shop/invoices/${invoiceNumberToPath(invoiceNumber)}?k=${encodeURIComponent(ctx.orderKey)}`
-          : undefined,
+      // The order key when the caller holds it (ACP, UCP); otherwise — a
+      // webhook, or the owner marking an order paid — a key for this invoice
+      // alone, mailed once and stored only as a hash (_invoice-page.ts).
+      invoiceUrl: invoiceNumber
+        ? `${ctx.origin}${invoicePath(invoiceNumber, ctx.orderKey ?? (await issueInvoiceLinkKey(env, invoiceNumber)))}`
+        : undefined,
       resendUrl: `${ctx.origin}/shop/resend/`,
       replyTo: sellerEmail || undefined,
     });
@@ -219,12 +222,6 @@ async function queueOutgoing(
   }
 
   return queued;
-}
-
-/** Invoice numbers contain slashes by default (FV/2026/000042), which cannot go
- *  in a path segment as they are. */
-export function invoiceNumberToPath(number: string): string {
-  return encodeURIComponent(number);
 }
 
 /** When the money arrived but something about it does not add up, the order

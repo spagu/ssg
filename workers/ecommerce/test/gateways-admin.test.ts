@@ -10,6 +10,8 @@ import { env } from "./_env";
 import { AUTH_VARS, ask, shopEnv as gateEnv, throughGate } from "./admin-fixtures";
 import { beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { mapStripeEvent } from "../functions/api/shop/_stripe";
 import { onRequestGet as readGateways, onRequestPost as writeOrder } from "../functions/api/shop/admin/gateways";
 import { onRequestGet as catalogue } from "../functions/api/shop/products/index";
 import { onRequestPost as checkout } from "../functions/api/shop/checkout";
@@ -102,6 +104,20 @@ describe("what the screen reports", () => {
     assert.equal(stripe.webhookUrl, `${ORIGIN}/api/shop/webhooks/stripe`);
     assert.ok((stripe.events).includes("checkout.session.completed"));
     assert.ok((stripe.events).includes("charge.refunded"));
+  });
+
+  it("asks for exactly the Stripe events the shop handles, and the README asks for the same", async () => {
+    const body = await bodyOf<GatewayList>(
+      (await readGateways(asAdmin(get("/api/shop/admin/gateways")) as never)) as Response,
+    );
+    const events = body.gateways.find((g) => g.name === "stripe")!.events;
+    for (const type of events) {
+      assert.notEqual(mapStripeEvent(type, { payment_status: "paid" }).kind, "ignored", `${type} is handled`);
+    }
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const paragraph = readme.slice(readme.indexOf("Point a Stripe webhook"), readme.indexOf("\n\n", readme.indexOf("Point a Stripe webhook")));
+    const named = [...paragraph.matchAll(/`([a-z_]+\.[a-z_.]+)`/g)].map((m) => m[1]);
+    assert.deepEqual(named, events, "the README lists the panel's events, in the panel's order");
   });
 
   it("says whether a webhook has ever arrived, and when", async () => {

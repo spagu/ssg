@@ -3,6 +3,7 @@
 import { api } from "./api.js";
 import { channelBadge, channelHint, channelName } from "./channels.js";
 import { badge, confirmDestructive, el, money, notify, td, when } from "./dom.js";
+import { bindDownload, fileName } from "./files.js";
 import { bindSortableHeaders, Pager, renderPager } from "./pager.js";
 
 /** One page of orders at a time, sorted by whichever column was asked for. */
@@ -47,6 +48,7 @@ export function bindOrders() {
   });
 
   bindSortableHeaders(document.getElementById("order-table"), pager, redraw);
+  bindDownload(document.getElementById("export-orders"), "shop-orders.csv");
 }
 
 function afterLoad() {
@@ -232,7 +234,19 @@ function paymentList(payments) {
 function invoiceList(invoices) {
   if (invoices.length === 0) return el("p", { class: "muted", text: "None issued." });
   return el("ul", { class: "list-plain" }, ...invoices.map((inv) =>
-    el("li", {}, `${inv.kind === "credit_note" ? "Credit note" : "Invoice"} ${inv.number} · ${when(inv.issued_at)} · ${money(inv.total_minor, inv.currency)}`),
+    el("li", {},
+      // The same page the buyer's link opens, saved with the panel's own
+      // credentials (files.js) — ready to open and print.
+      bindDownload(
+        el("a", {
+          href: `/api/shop/admin/invoices/${encodeURIComponent(inv.number)}`,
+          download: fileName(inv.number, "html"),
+          "data-needs": "ecommerce:read",
+        }, `${inv.kind === "credit_note" ? "Credit note" : "Invoice"} ${inv.number}`),
+        fileName(inv.number, "html"),
+      ),
+      ` · ${when(inv.issued_at)} · ${money(inv.total_minor, inv.currency)}`,
+    ),
   ));
 }
 

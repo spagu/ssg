@@ -287,3 +287,6 @@ CREATE TABLE IF NOT EXISTS ucp_idempotency (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ucp_idempotency_created ON ucp_idempotency (created_at);
+
+-- 7: the buyer's invoice link — only its hash is kept, as with download tokens.
+ALTER TABLE invoices ADD COLUMN link_hash TEXT;

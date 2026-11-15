@@ -687,13 +687,14 @@ Report images with no \fBalt\fR attribute; \fBstrict\fR fails the build and
 Validate the rows of every \fBformat: acp\fR feed (\fBcheck_acp\fR): a missing
 required field, a price without a currency, an availability no page states, a
 duplicate \fBoffer_id\fR, a product or seller policy URL that does not resolve
-in the output; \fBstrict\fR fails the build.
+in the output, a feed with no rows; \fBstrict\fR fails the build.
 .TP
 .BR \-\-check\-ucp "[=" \fIstrict ]
 Validate the UCP attributes of every \fBgoogle\-merchant\fR feed with
 \fBucp:\fR (\fBcheck_ucp\fR): a product Google lists as ineligible for
 checkout (written \fBFALSE\fR), a consumer notice Google would refuse, variants
-without \fBvariant_option\fR, a row left out; \fBstrict\fR fails the build.
+without \fBvariant_option\fR, a row left out, a feed with no rows;
+\fBstrict\fR fails the build.
 .TP
 .BR \-\-check\-meta "[=" \fIstrict ]
 Validate title and description on indexable pages.

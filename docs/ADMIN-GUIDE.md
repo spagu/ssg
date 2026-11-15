@@ -364,6 +364,20 @@ handing them out, read what each worker protects and what it does not
 ([editor-ui](../workers/editor-ui/README.md#what-it-protects-and-what-it-does-not),
 [designer-ui](../workers/designer-ui/README.md#what-it-protects-and-what-it-does-not)).
 
+## 10. Selling, and selling through AI agents (optional)
+
+The shop (`ecommerce`) sells digital products from the site, with its panel
+at `/ecommerce-admin/`; setup is in its
+[README](../workers/ecommerce/README.md). Its panel takes the same three
+sign-in modes as the others. Showing the products to AI agent platforms and
+taking orders from them is a further, optional step. Applying, certification
+and the payment accounts are the shop owner's part, not ssg's. Step by step:
+
+- [ACP.md](ACP.md) and [ACP-OPERATIONS.md](ACP-OPERATIONS.md): the Agentic
+  Commerce Protocol feed and checkout, testing, monitoring;
+- [UCP.md](UCP.md) and [UCP-OPERATIONS.md](UCP-OPERATIONS.md): Google's
+  Universal Commerce Protocol, testing, monitoring.
+
 ## Putting the panels behind Cloudflare Access instead
 
 Plain Access mode needs no `auth` at all: one Access application per panel
@@ -455,6 +469,10 @@ From the READMEs:
   GitHub's error message, and the refusal of `.github/workflows/` changes to
   a token without the workflows permission is GitHub's documented behaviour
   (the workers' own path rules refuse those paths first).
+- The shop's ACP and UCP checkouts were tested against fakes of the
+  platforms and Stripe, never a live platform, Google Pay or Stripe account
+  ([ACP-OPERATIONS.md](ACP-OPERATIONS.md#what-was-not-tried-against-the-real-thing),
+  [UCP-OPERATIONS.md](UCP-OPERATIONS.md#what-was-not-tried-against-the-real-thing)).
 
 The walkthrough this guide follows was run locally: the build output's real
 functions, the `newsletter-ui` Worker and real tokens signed by `auth` and

@@ -5,6 +5,7 @@
 // page waits for it (S-09).
 
 import type { Env } from "../../_env";
+import { invoicePath } from "../../_invoice-page";
 import { fail, json } from "../../_lib";
 import { getOrder, getOrderItems, orderKeyMatches } from "../../_orders";
 import { drainInBackground } from "../../_outbox";
@@ -57,6 +58,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params, w
     }));
   }
 
+  // The invoice can be shown here because the caller already holds the order
+  // key that opens it: the link carries back the key they sent, nothing more.
+  const invoice = ready
+    ? await env.SHOP_DB.prepare(`SELECT number FROM invoices WHERE order_id = ? AND kind = 'invoice'`)
+        .bind(order.id)
+        .first<{ number: string }>()
+    : null;
+
   return json({
     status: order.status,
     number: order.number,
@@ -68,5 +77,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params, w
     /** The email is where the actual links are; the page says so rather than
      *  pretending it can hand them over. */
     linksSentByEmail: ready,
+    /** The buyer's invoice, a path on this shop; null until one is issued. */
+    invoiceUrl: invoice ? invoicePath(invoice.number, key) : null,
   });
 };

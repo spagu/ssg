@@ -151,6 +151,7 @@ export function mountThanks() {
       if (order.status === "paid" || order.status === "fulfilled") {
         if (statusOut) statusOut.textContent = "Paid. Your download links are on their way by email.";
         renderDownloads(listOut, order.downloads ?? []);
+        renderInvoice(root.querySelector("[data-order-invoice]"), order.invoiceUrl);
         note(root, "ok", "Thank you. ", "A receipt and your links have been emailed to you.");
         return;
       }
@@ -170,6 +171,15 @@ export function mountThanks() {
     }
   };
   void poll(); // poll() catches its own failures and retries or reports them
+}
+
+/** The invoice link, when the shop issued one. Only a path to the shop's own
+ *  invoice route is followed, whatever else the answer might carry. */
+function renderInvoice(box, url) {
+  const link = box?.querySelector("[data-order-invoice-link]");
+  if (!link || typeof url !== "string" || !url.startsWith("/api/shop/invoices/")) return;
+  link.href = url;
+  box.hidden = false;
 }
 
 function renderDownloads(list, downloads) {

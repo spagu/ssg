@@ -113,6 +113,9 @@ export interface InvoiceRow {
   snapshot_json: string;
   pdf_key: string | null;
   created_at: string;
+  /** SHA-256 of the key mailed with the invoice link (migration 7); null when
+   *  none was mailed. Never leaves the database. */
+  link_hash?: string | null;
 }
 
 export interface DownloadTokenRow {

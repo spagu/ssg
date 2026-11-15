@@ -10,6 +10,11 @@ pairing: SSG builds the pages, the worker provides `/api/shop/*`, and
 `wrangler pages dev` serves both from one origin — which the browser insists on,
 because the checkout posts to the same host it was served from.
 
+Everything in it is fictional: the publisher, the two books, their authors,
+the demo customers and orders. The names were made up for the example and its
+tests; any resemblance to real people is coincidental. Every address is on an
+example domain.
+
 ## Run it
 
 ```sh
@@ -67,14 +72,15 @@ the endpoint takes product codes and quantities and prices everything itself.
 
 ```text
 examples/ebook-shop/
-├── ssg.yaml                    the site: theme, worker, variables
+├── ssg.yaml                    the site: theme, worker, variables, product feeds
 ├── wrangler.toml               local bindings; ids are placeholders
 ├── .dev.vars.example           secrets for local development
 ├── content/shop/
 │   ├── metadata.json
-│   ├── pages/                  two books, the shop pages, terms and privacy
+│   ├── pages/                  two books (each with Product JSON-LD in schema:),
+│   │                           the shop pages, terms and privacy
 │   └── posts/                  two posts
-├── static/images/              the covers, drawn as SVG
+├── static/images/              the covers, drawn as SVG, and PNG copies for the feeds
 ├── files/                      the PDFs the shop sells (generated)
 └── scripts/
     ├── make-sample-ebook.py    writes those PDFs
@@ -83,6 +89,15 @@ examples/ebook-shop/
 
 Nothing in `files/` is published: it is what the shop *sells*, and it reaches a
 buyer only through a signed, expiring link. The build does not copy it.
+
+**Product feeds.** The build also writes `output/acp/products.jsonl` (an ACP
+feed, [docs/ACP.md](../../docs/ACP.md)) and `output/merchant.xml` (a Google
+Merchant feed with UCP attributes, [docs/UCP.md](../../docs/UCP.md)), one row
+per book. The rows come from each book's `schema:` Product JSON-LD, not from
+the `sku:` and `price:` the theme shows: a page with only those gives no row,
+and `check_acp: strict` stops the build on a feed with none. The PNG covers
+are there because OpenAI's feed schema asks for an image "such as a JPEG or
+PNG".
 
 ## Before this takes real money
 

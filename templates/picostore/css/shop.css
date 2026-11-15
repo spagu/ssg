@@ -148,8 +148,21 @@
 .ps-gateways button {
   margin: 0;
 }
+/* The second provider's button is an outline: brand text and border on the
+ * page colour. Pico (classless) has no .secondary, so a transparent background
+ * alone left its white primary text on the light summary box — invisible.
+ * Light: #303f9f on #fff 9.0:1, border on the #eceff1 box 7.8:1; hover
+ * #283593 on #e8eaf6 8.7:1. Dark: #9fa8da on #263238 5.7:1, border on the
+ * #37474f box 4.2:1; hover #c5cae9 on #37474f 6.0:1. */
 .ps-gateways button.secondary {
-  --pico-background-color: transparent;
+  --pico-background-color: var(--ps-bg);
+  --pico-border-color: var(--ps-brand);
+  --pico-color: var(--ps-brand);
+}
+.ps-gateways button.secondary:is(:hover, :active, :focus) {
+  --pico-background-color: var(--ps-brand-wash);
+  --pico-border-color: var(--ps-brand-strong);
+  --pico-color: var(--ps-brand-strong);
 }
 .ps-consent {
   font-size: 0.9rem;

@@ -151,6 +151,6 @@ describe("the page", () => {
 
   it("marks actions with a permission the API also requires", () => {
     const needs = [...html.matchAll(/data-needs="([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(needs, ["ecommerce:products", "ecommerce:products", "ecommerce:orders"]);
+    assert.deepEqual(needs, ["ecommerce:products", "ecommerce:export", "ecommerce:products", "ecommerce:orders"]);
   });
 });

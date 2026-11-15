@@ -222,7 +222,7 @@ describe("the thank-you page's question", () => {
     const { orderId, orderKey } = await buy();
 
     const ok = (await orderStatus(ctx(get(`/api/shop/orders/${orderId}/status?k=${orderKey}`), { id: orderId }) as never)) as Response;
-    assertPartial(await bodyOf<{ status: string }>(ok), { status: "pending" });
+    assertPartial(await bodyOf<{ status: string; invoiceUrl: string | null }>(ok), { status: "pending", invoiceUrl: null });
 
     const wrong = (await orderStatus(ctx(get(`/api/shop/orders/${orderId}/status?k=nope`), { id: orderId }) as never)) as Response;
     assert.equal(wrong.status, 404);
@@ -243,6 +243,19 @@ describe("the thank-you page's question", () => {
     assert.equal(body.status, "paid");
     assert.equal(body.linksSentByEmail, true);
     assertPartial(body.downloads[0], { url: "", remaining: 3 });
+  });
+
+  it("links the paid order's invoice with the key the caller sent, and that link opens it", async () => {
+    const { orderId, orderKey } = await buy();
+    const order = (await env.SHOP_DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first<OrderRow>())!;
+    const { invoiceNumber } = await fulfilOrder(env, order, { origin: ORIGIN, actor: "webhook:stripe" });
+
+    const res = (await orderStatus(ctx(get(`/api/shop/orders/${orderId}/status?k=${orderKey}`), { id: orderId }) as never)) as Response;
+    const { invoiceUrl } = await bodyOf<{ invoiceUrl: string }>(res);
+    assert.equal(invoiceUrl, `/api/shop/invoices/${encodeURIComponent(invoiceNumber!)}?k=${encodeURIComponent(orderKey)}`);
+    const page = (await invoicePage(ctx(get(invoiceUrl), { number: encodeURIComponent(invoiceNumber!) }) as never)) as Response;
+    assert.equal(page.status, 200);
+    assert.equal(page.headers.get("content-type"), "text/html; charset=utf-8");
   });
 });
 

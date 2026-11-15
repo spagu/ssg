@@ -16,6 +16,19 @@ format: "PDF and EPUB"
 pages: 184
 language: "English"
 isbn: "978-83-000000-0-1"
+# What the product feeds read (ssg.yaml `feeds:`). The keys above are for the
+# theme; a feed reads only this Product JSON-LD, and its sku is the link to
+# the product of the same SKU in the shop panel.
+schema:
+  "@type": Product
+  name: "Ten Thousand Words a Month"
+  description: "How a working writer keeps a monthly quota without hating the work by the third week."
+  sku: "EBOOK-10K"
+  image: "/images/cover-ten-thousand-words.png"
+  offers:
+    price: "19.00"
+    priceCurrency: "EUR"
+    availability: "https://schema.org/InStock"
 ---
 
 Most advice about writing quotas is written by people who hit one for six weeks

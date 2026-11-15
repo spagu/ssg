@@ -48,8 +48,11 @@ can still be shown (unknown product, missing country, declined payment) are
 Idempotency follows RFC §6: same key + same body (compared as canonical
 JSON) replays the stored response with `Idempotent-Replayed: true`; another
 body is 422 `idempotency_conflict`; a key still running is 409
-`idempotency_in_flight` with `Retry-After`; a 5xx is never stored; keys are
-kept 7 days (the minimum is 24 hours).
+`idempotency_in_flight` with `Retry-After` (one that has run for over 60 s is
+taken to belong to a request that died, and the next request takes it over);
+a 5xx is never stored. A key is honoured for 24 hours, the RFC's minimum;
+after that the same key is a new request. Rows older than 7 days are deleted
+when a new key is stored (`_acp-idempotency.ts`).
 
 ## Configuration
 
@@ -135,8 +138,10 @@ with ACP on is a 503 — the routes are closed, never open.
    the webhook spec allows.
 10. **Not implemented** (all optional in the release): 3-D Secure /
     `authentication_required`, discounts, affiliate attribution, marketing
-    consent, intent traces, `order_update` on later refunds, the delegate
-    authentication and cart APIs.
+    consent, intent traces, the delegate authentication and cart APIs.
+    A refund confirmed later by Stripe's webhook *is* sent: an
+    `order_update` with the full order and the refund as an adjustment
+    (`_agent-refund.ts`, `_webhook.ts`).
 
 ## The feed push
 

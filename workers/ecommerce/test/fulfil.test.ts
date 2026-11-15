@@ -5,7 +5,9 @@
 import { env } from "./_env";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { fulfilOrder, invoiceNumberToPath, markNeedsReview, shopOrigin } from "../functions/api/shop/_fulfil";
+import { fulfilOrder, markNeedsReview, shopOrigin } from "../functions/api/shop/_fulfil";
+import { invoicePath } from "../functions/api/shop/_invoice-page";
+import { onRequestGet as openInvoice } from "../functions/api/shop/invoices/[number]";
 import { createOrder, priceBasket, upsertCustomer, type PricedBasket } from "../functions/api/shop/_orders";
 import { taxContext } from "../functions/api/shop/_tax";
 import { putSettings } from "../functions/api/shop/_settings";
@@ -66,14 +68,40 @@ describe("fulfilling an order", () => {
     assert.equal(await queued("email"), 1);
   });
 
-  it("puts the invoice link in the email only when it has the order key", async () => {
+  it("puts the order key in the invoice link when the caller has it", async () => {
     const withKey = await fulfilOrder(env, await order(), { origin: ORIGIN, actor: "test", orderKey: "the-key" });
     assert.equal(withKey.changed, true);
     const row = await env.SHOP_DB.prepare(`SELECT payload_json FROM outbox WHERE kind = 'email'`)
       .first<{ payload_json: string }>();
-    // The invoice needs the key, and only the buyer's own copy of the email has
-    // one, so a shop that cannot supply it sends links without it.
-    assert.ok((row?.payload_json).includes("k=the-key"));
+    assert.ok((row?.payload_json).includes(`${ORIGIN}${invoicePath(withKey.invoiceNumber!, "the-key")}`));
+    const inv = await env.SHOP_DB.prepare(`SELECT link_hash FROM invoices`).first<{ link_hash: string | null }>();
+    assert.equal(inv?.link_hash, null, "no second key when the order key will do");
+  });
+
+  it("mails a working invoice link without the order key (a webhook), keeping only its hash", async () => {
+    const result = await fulfilOrder(env, await order(), { origin: ORIGIN, actor: "webhook:stripe" });
+    const row = await env.SHOP_DB.prepare(`SELECT payload_json FROM outbox WHERE kind = 'email'`)
+      .first<{ payload_json: string }>();
+    const link = /https:[^"\\]*\/api\/shop\/invoices\/[^"\\]*/.exec(String(row?.payload_json))?.[0];
+    assert.ok(link, "the buyer's email carries the invoice link");
+    const key = new URL(link).searchParams.get("k")!;
+    assert.ok(key.length >= 32);
+    const stored = await env.SHOP_DB.prepare(`SELECT link_hash FROM invoices WHERE number = ?`)
+      .bind(result.invoiceNumber)
+      .first<{ link_hash: string }>();
+    assert.match(stored!.link_hash, /^[0-9a-f]{64}$/);
+    assert.ok(!stored!.link_hash.includes(key), "the key itself is not stored");
+
+    const open = (k: string) =>
+      openInvoice({
+        request: new Request(`${ORIGIN}${invoicePath(result.invoiceNumber!, k)}`),
+        env,
+        params: { number: encodeURIComponent(result.invoiceNumber!) },
+      } as never);
+    const page = await open(key);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), new RegExp(result.invoiceNumber!));
+    assert.equal((await open(`${key}x`)).status, 404, "a wrong key opens nothing");
   });
 
   it("does nothing the second time", async () => {
@@ -230,7 +258,7 @@ describe("the shop's own address", () => {
 });
 
 describe("invoice numbers in a URL", () => {
-  it("escapes the slashes a default number contains", () => {
-    assert.equal(invoiceNumberToPath("FV/2026/000042"), "FV%2F2026%2F000042");
+  it("escapes the slashes a default number contains, and the key", () => {
+    assert.equal(invoicePath("FV/2026/000042", "a+b"), "/api/shop/invoices/FV%2F2026%2F000042?k=a%2Bb");
   });
 });

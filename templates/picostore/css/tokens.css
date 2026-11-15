@@ -18,6 +18,7 @@
   --ps-brand: #303f9f;          /* on white 8.6:1 — AAA for body */
   --ps-brand-strong: #283593;
   --ps-brand-wash: #e8eaf6;
+  --ps-on-brand: #ffffff;       /* text on --ps-brand: 9.0:1 */
   --ps-money: #00796b;          /* on white 4.8:1 — AA for body */
   --ps-danger: #c62828;         /* on white 6.4:1 — AAA for body */
   --ps-ok: #2e7d32;             /* on white 5.1:1 — AA for body */
@@ -51,6 +52,7 @@
     --ps-brand: #9fa8da;        /* Indigo 200 on #263238 — 5.7:1 */
     --ps-brand-strong: #c5cae9;
     --ps-brand-wash: #37474f;
+    --ps-on-brand: #1a237e;     /* Indigo 900 on Indigo 200 — 5.7:1 */
     --ps-money: #80cbc4;        /* Teal 200 — 7.8:1 */
     --ps-danger: #ef9a9a;       /* Red 200 — 6.2:1 */
     --ps-ok: #a5d6a7;           /* Green 200 — 8.2:1 */
@@ -71,6 +73,7 @@
   --ps-brand: #9fa8da;
   --ps-brand-strong: #c5cae9;
   --ps-brand-wash: #37474f;
+  --ps-on-brand: #1a237e;
   --ps-money: #80cbc4;
   --ps-danger: #ef9a9a;
   --ps-ok: #a5d6a7;

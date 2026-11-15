@@ -3732,9 +3732,18 @@ func (g *Generator) tmplIsValidCategory(id int) bool {
 	return !ok || !models.IsCatchAllCategory(cat)
 }
 
-func (g *Generator) tmplGetAuthorName(id int) string {
-	if author, ok := g.siteData.Authors[id]; ok {
-		return author.Name
+// tmplGetAuthorName returns an author's display name, or "" when there is
+// none. It takes the author id a post carries (as before), or the page itself:
+// then a plain frontmatter "author: Jane Doe" that matches no registered
+// author is returned as written, the same rule the generated JSON-LD uses
+// (authorDisplayName). A theme can then omit the author instead of printing an
+// empty name.
+func (g *Generator) tmplGetAuthorName(author any) string {
+	if id, ok := author.(int); ok {
+		return g.siteData.Authors[id].Name // the zero Author for an unknown id: ""
+	}
+	if p, ok := pageFromAny(author); ok {
+		return g.authorDisplayName(p)
 	}
 	return ""
 }

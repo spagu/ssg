@@ -312,8 +312,9 @@ paths:
       description: |
         Rendered from the snapshot frozen when it was issued: if the seller has
         since changed their address or a price, this still says what it said on
-        the day. Knowing an invoice number is not authorisation — the order key
-        is.
+        the day. Knowing an invoice number is not authorisation: `k` must be
+        the order key, or the key mailed with the invoice link (issued when the
+        order is paid; only its hash is stored).
       security: []
       parameters:
         - name: number
@@ -885,6 +886,28 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { description: Not paid, no customer, or no line has a file. }
 
+  /api/shop/admin/invoices/{number}:
+    get:
+      tags: [admin]
+      summary: The owner's copy of an invoice or credit note, as printable HTML
+      description: |
+        The same page the buyer's link serves, behind the admin gate
+        (`ecommerce:read` in `auth` mode). The panel fetches it with its own
+        credentials and saves it, so it works with the shared password too.
+      parameters:
+        - name: number
+          in: path
+          required: true
+          description: URL-encoded; a default number contains slashes.
+          schema: { type: string, examples: ["FV%2F2026%2F000001"] }
+      responses:
+        "200":
+          description: The invoice.
+          content:
+            text/html:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/shop/admin/orders/{id}/cancel:
     post:
       tags: [admin]
@@ -1326,6 +1349,12 @@ components:
               expiresAt: { type: string, format: date-time }
               remaining: { type: integer }
         linksSentByEmail: { type: boolean }
+        invoiceUrl:
+          type: [string, "null"]
+          description: |
+            The invoice of a paid order, as a path on the shop carrying back the
+            key the caller sent; null until one is issued.
+          examples: ["/api/shop/invoices/FV%2F2026%2F000001?k=…"]
 
     ModuleState:
       type: object

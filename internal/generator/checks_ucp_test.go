@@ -47,9 +47,9 @@ func TestCheckUCPFindings(t *testing.T) {
 	}{
 		{name: "clean", schema: kettle},
 		{name: "bare price", schema: withOffer(kettle, "priceCurrency", ""),
-			want: []string{"price — 49.00 has no currency"}},
+			want: []string{"price — 49.00 has no currency", "products.xml has no rows — all 1 product(s) are left out"}},
 		{name: "missing required", schema: map[string]interface{}{"@type": "Product", "sku": "NOIMG", "offers": map[string]interface{}{"availability": "InStock"}},
-			want: []string{"image_link — required and missing", "price — required and missing"}},
+			want: []string{"image_link — required and missing", "price — required and missing", "products.xml has no rows"}},
 		{name: "restricted", schema: withOffer(kettle, "availability", "PreOrder"),
 			want: []string{"native_commerce — written FALSE: Google lists pre-order items as ineligible", "no row is eligible"}},
 		{name: "restricted but not asked", schema: withOffer(kettle, "availability", "PreOrder"),
@@ -99,7 +99,8 @@ func TestCheckUCPFindings(t *testing.T) {
 				}
 			}
 			for _, line := range got {
-				if !strings.HasPrefix(line, "shop/pages/p.md | products.xml item ") && !strings.HasPrefix(line, "feeds: /products.xml | ucp:") {
+				if !strings.HasPrefix(line, "shop/pages/p.md | products.xml item ") && !strings.HasPrefix(line, "feeds: /products.xml | ucp:") &&
+					!strings.HasPrefix(line, "feeds: /products.xml | products.xml has no rows") {
 					t.Errorf("finding does not name the source file and feed: %s", line)
 				}
 			}

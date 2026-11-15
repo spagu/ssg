@@ -86,20 +86,40 @@ export async function call(path, options = {}) {
   return { ok: res.ok, status: res.status, body: text ? safeJson(text) : null };
 }
 
+/** Turns a refused answer into the ApiError a caller branches on; a 401 also
+ *  tells the panel it is signed out. */
+function refusal(status, body) {
+  if (status === 401) {
+    onSignedOut(body);
+    return new ApiError("unauthenticated", "You are signed out. Sign in again.", 401);
+  }
+  const b = body ?? {};
+  return new ApiError(b.error ?? "http_error", b.message ?? `The shop answered ${status}.`, status, b.permission ?? null);
+}
+
+/** Whether a 401 is worth one retry: `auth` mode, first try, session refreshed. */
+async function retryable(status, retrying) {
+  return status === 401 && mode === "auth" && !retrying && (await refreshSession());
+}
+
 async function request(path, options = {}, retrying = false) {
   const res = await call(path, options);
-  if (res.status === 401 && mode === "auth" && !retrying && (await refreshSession())) {
-    return request(path, options, true);
-  }
-  if (res.status === 401) {
-    onSignedOut(res.body);
-    throw new ApiError("unauthenticated", "You are signed out. Sign in again.", 401);
-  }
-  if (!res.ok) {
-    const body = res.body ?? {};
-    throw new ApiError(body.error ?? "http_error", body.message ?? `The shop answered ${res.status}.`, res.status, body.permission ?? null);
-  }
+  if (await retryable(res.status, retrying)) return request(path, options, true);
+  if (!res.ok) throw refusal(res.status, res.body);
   return res.body;
+}
+
+/** A file (a CSV, an invoice) fetched with the panel's credentials, as a Blob.
+ *  A plain link cannot do this in the password mode: the password is in this
+ *  module's memory, and a browser navigation would go without it. */
+async function file(path, retrying = false) {
+  const res = await fetch(path, { headers: headersFor({ accept: "*/*" }), credentials: "same-origin" });
+  if (await retryable(res.status, retrying)) return file(path, true);
+  if (!res.ok) {
+    const text = await res.text();
+    throw refusal(res.status, text ? safeJson(text) : null);
+  }
+  return res.blob();
 }
 
 export const api = {
@@ -109,6 +129,7 @@ export const api = {
   put: (path, body) => request(path, { method: "PUT", body }),
   del: (path) => request(path, { method: "DELETE" }),
   upload: (path, formData) => request(path, { method: "POST", body: formData }),
+  file: (path) => file(path),
   /** /me without throwing: the panel decides what to draw from the status. */
   whoami: () => call(ME),
 };

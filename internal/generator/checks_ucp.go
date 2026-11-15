@@ -49,7 +49,9 @@ func (g *Generator) recordUCPFeed(rel string, spec models.FeedSpec, items []merc
 	if g.resolveMode(g.config.CheckUCP) != "" || g.config.Quiet {
 		return
 	}
-	if n := len(ucpFindings(rec)); n > 0 {
+	if written := ucpWritten(rec.items); written == 0 {
+		g.emptyFeedNotice(rel, len(rec.items), written, "check_ucp")
+	} else if n := len(ucpFindings(rec)); n > 0 {
 		fmt.Printf("   ⚠️  %s: %d UCP problem(s) that may keep products out of checkout on Google; set check_ucp: warn for the list\n", rel, n)
 	}
 }
@@ -92,10 +94,26 @@ func ucpFindings(rec ucpFeedRecord) []finding {
 	for _, id := range order {
 		out = append(out, ucpGroupFindings(rec.rel, groups[id])...)
 	}
-	if o := rec.spec.UCP; !eligible && len(rec.items) > 0 && (o.CheckoutEligibility == nil || *o.CheckoutEligibility) {
+	written := ucpWritten(rec.items)
+	if f, empty := emptyFeedFinding(rec.rel, rec.spec.Path, len(rec.items), written); empty {
+		return append(out, f)
+	}
+	if o := rec.spec.UCP; !eligible && (o.CheckoutEligibility == nil || *o.CheckoutEligibility) {
 		out = append(out, finding{"feeds: " + rec.spec.Path, "ucp: no row is eligible for checkout — every product is restricted or opted out"})
 	}
 	return out
+}
+
+// ucpWritten counts the rows the Merchant feed keeps: those with every
+// attribute Google requires (keepAcceptedItems).
+func ucpWritten(items []merchantItem) int {
+	n := 0
+	for _, it := range items {
+		if len(it.missingRequired()) == 0 {
+			n++
+		}
+	}
+	return n
 }
 
 // ucpAdder returns the function that records one finding about a row.

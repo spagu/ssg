@@ -64,7 +64,46 @@ func (g *Generator) acpFindings(rec acpFeedRecord) []finding {
 		}
 		checkout = checkout || acpCheckout(e.row)
 	}
+	if f, empty := emptyFeedFinding(rec.rel, rec.spec.Path, len(rec.entries), acpWritten(rec.entries)); empty {
+		out = append(out, f)
+	}
 	return append(out, g.acpSellerFindings(rec, checkout)...)
+}
+
+// acpWritten counts the entries that become rows: those with every required
+// field.
+func acpWritten(entries []acpEntry) int {
+	n := 0
+	for _, e := range entries {
+		if len(e.row.missingRequired()) == 0 {
+			n++
+		}
+	}
+	return n
+}
+
+// emptyFeedFinding names a product feed that came out with no rows, and the
+// likely cause: no selected page has a Product node at all, or every product
+// lacks a required field. A declared feed with nothing in it is almost always
+// a mistake — product data in plain front matter (`sku:`, `price:`), which no
+// feed reads — and passed silently before.
+func emptyFeedFinding(rel, path string, products, written int) (finding, bool) {
+	if written > 0 {
+		return finding{}, false
+	}
+	cause := `no selected page has Product JSON-LD; give each product page schema: with "@type": Product, a sku and offers`
+	if products > 0 {
+		cause = fmt.Sprintf("all %d product(s) are left out for a missing required field", products)
+	}
+	return finding{"feeds: " + path, rel + " has no rows — " + cause}, true
+}
+
+// emptyFeedNotice is the one line a build with the check off prints for a
+// feed with no rows, so an empty catalogue is never silent.
+func (g *Generator) emptyFeedNotice(rel string, products, written int, check string) {
+	if f, empty := emptyFeedFinding(rel, "", products, written); empty && !g.config.Quiet {
+		fmt.Printf("   ⚠️  %s; set %s: warn for the list\n", f.detail, check)
+	}
 }
 
 // acpRowFindings checks one row's own fields.

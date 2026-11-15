@@ -16,6 +16,19 @@ format: "PDF and EPUB"
 pages: 236
 language: "English"
 isbn: "978-83-000000-0-2"
+# What the product feeds read (ssg.yaml `feeds:`). The keys above are for the
+# theme; a feed reads only this Product JSON-LD, and its sku is the link to
+# the product of the same SKU in the shop panel.
+schema:
+  "@type": Product
+  name: "The One-Person Shop"
+  description: "Selling your own work online without a platform taking a third of it — the tax, the invoices and the refunds nobody warns you about."
+  sku: "EBOOK-SHOP"
+  image: "/images/cover-one-person-shop.png"
+  offers:
+    price: "24.00"
+    priceCurrency: "EUR"
+    availability: "https://schema.org/InStock"
 ---
 
 Selling a file to a stranger in another country is three problems wearing one

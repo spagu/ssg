@@ -56,7 +56,8 @@ export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ requ
     customer,
     items: items.results ?? [],
     payments: (payments.results ?? []).map((p) => ({ ...p, raw_json: undefined })),
-    invoices: (invoices.results ?? []).map((i) => ({ ...i, snapshot_json: undefined })),
+    // link_hash opens the buyer's copy, so it stays in the database like key_hash.
+    invoices: (invoices.results ?? []).map((i) => ({ ...i, snapshot_json: undefined, link_hash: undefined })),
     tokens: tokens.results ?? [],
   });
 };

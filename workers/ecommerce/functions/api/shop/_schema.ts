@@ -294,6 +294,13 @@ const MIGRATIONS: string[][] = [
      )`,
     `CREATE INDEX IF NOT EXISTS idx_ucp_idempotency_created ON ucp_idempotency (created_at)`,
   ],
+  // ── 7: the invoice link in the buyer's email (_invoice-page.ts) ───────────
+  //
+  // A web order is paid by a webhook, which never holds the buyer's order key
+  // (only its hash is stored), so the email could not carry an invoice link.
+  // Fulfilment now issues a key for the invoice itself, mails it once and
+  // keeps only its hash here, exactly as download tokens are kept.
+  [`ALTER TABLE invoices ADD COLUMN link_hash TEXT`],
 ];
 
 /** The EU + UK standard and ebook rates, seeded once so a new shop is not

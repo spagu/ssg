@@ -17,7 +17,7 @@
 
 // PERMISSIONS: module.json's list, in its order.
 export const PERMISSIONS = [
-  "ecommerce:read", //     orders, products, stats, audit and outbox views
+  "ecommerce:read", //     orders, invoices, products, stats, audit and outbox views
   "ecommerce:orders", //   resend links, mark paid, cancel, notes, retry queued mail
   "ecommerce:refund", //   refunds: money leaves the shop
   "ecommerce:products", // create and edit products, upload files, VAT rates
@@ -46,6 +46,7 @@ export const ADMIN_ROUTES: Readonly<Record<string, Need>> = {
   "POST /api/shop/admin/orders/:id/mark-paid": "ecommerce:orders",
   "POST /api/shop/admin/orders/:id/cancel": "ecommerce:orders",
   "POST /api/shop/admin/orders/:id/refund": "ecommerce:refund",
+  "GET /api/shop/admin/invoices/:number": "ecommerce:read",
   "GET /api/shop/admin/products": "ecommerce:read",
   "POST /api/shop/admin/products": "ecommerce:products",
   "GET /api/shop/admin/products/:id": "ecommerce:read",

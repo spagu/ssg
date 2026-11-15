@@ -82,6 +82,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`picostore` product pages name the book's author in the Book JSON-LD.**
+  The theme read `author` from `.Extra`, but `author` is a reserved
+  front-matter key, so every book said `"author": {"name": ""}`.
+  `getAuthorName` now also takes a page and returns a plain `author: "Jane
+  Doe"` as written; a book without an author gets no author object.
+
+- **Shop: the buyer gets an invoice link for an ordinary web order.** An
+  order paid through the Stripe or PayPal webhook, or marked paid in the
+  panel, emailed the download links but no invoice, because only the order
+  key's hash is stored. Fulfilment now issues a key for the invoice alone,
+  mails it once and keeps only its hash (migration 7, `invoices.link_hash`).
+  The thank-you page shows "Your invoice" once the order is paid
+  (`invoiceUrl` in the status answer, carrying back the key the page sent).
+- **Shop panel: invoices open from the order screen.** Each invoice and
+  credit note is a link that saves the same page the buyer sees, from the
+  new `GET /api/shop/admin/invoices/:number` (`ecommerce:read` in `auth`
+  mode), ready to open and print.
+- **Shop panel: "Export CSV" works with the shared password.** It was a
+  plain link, so the download left without the password (which the panel
+  keeps in memory only) and the browser cancelled a 401. It is now fetched
+  with the panel's credentials and saved; it shows only to accounts with
+  `ecommerce:export`.
+- **Shop panel: the Payments screen shows `wrangler pages secret put` and
+  the missing secret names as code**, not as text between literal backticks.
+- **`picostore` checkout and header in light mode.** "Pay with PayPal" was
+  white text on a transparent button over the light summary box; it is now
+  an outline button (9.0:1 light, 5.7:1 dark; border 7.8:1 and 4.2:1). The
+  basket count was Indigo 900 on Indigo 700 (1.5:1) in light mode; it is
+  white (9.0:1), and Indigo 900 on Indigo 200 (5.7:1) in dark. The basket
+  and scheme icons are inline SVG instead of an emoji that showed as a
+  missing glyph without an emoji font; the "Built with ssg" line has the
+  footer's side margins at 360 px; a product's description no longer runs
+  on from the "Delivery" row.
+- **Shop README lists the Stripe webhook events the shop handles** —
+  `checkout.session.async_payment_succeeded` and `async_payment_failed`
+  instead of `payment_intent.payment_failed`, which nothing handles; a test
+  keeps the README, the Payments screen and the handler in step.
 - **`picostore` links that look like buttons are announced as links.**
   "Details", "Checkout", "Back to the basket" and "Keep browsing" carried
   `role="button"`, which tells a screen reader to expect a button that the
@@ -150,6 +187,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Print and Cook mode buttons, and the docs tell theme authors to do the same.
 
 ### Added
+
+- **A shop for a static site: the `ecommerce` worker template, the
+  `picostore` theme and the `examples/ebook-shop` example site.** ssg builds
+  the product pages. The worker runs the parts a static site cannot:
+  - **Selling:** the basket, checkout with Stripe or PayPal, payment
+    webhooks checked by signature and time window, fulfilment, download
+    links from R2, and HTML invoices numbered without gaps (credit notes on
+    refunds).
+  - **Prices and VAT:** prices are gross, kept in minor units, with a VAT
+    table per country.
+  - **Panel:** an admin panel at `/ecommerce-admin/` for orders, payments,
+    products and settings.
+  - **Sign-in:** the same three modes as the other panels — Cloudflare
+    Access, `auth` accounts with `ecommerce:*` permissions, or a shared password.
+    The shop's own accounts from the earlier `ecommerce` branch are gone.
+  - **`core`:** the shop appears on the admin home page with a summary of
+    orders to handle and failed payments.
+  - **Tests:** the template is tested with `node --test` and needs no npm
+    packages.
+  - **ssg sells nothing.** Payment accounts and contracts with providers are
+    the shop owner's.
+
+  Scaffold it with `ssg new worker ecommerce` and start from
+  `examples/ebook-shop`. Guide: the blog post "A Shop on a Static Site" and
+  `workers/ecommerce/README.md`.
 
 - **Edit content and design in the browser: two new worker templates,
   `editor-ui` and `designer-ui`.** Both are standalone Workers. They read
@@ -229,6 +291,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   front matter never went through this rule and do not change. The editor-ui
   worker proposes file names with the same rule when the site sets the key;
   both test against one table, `internal/models/testdata/slug-translit.json`.
+- **A product feed for the Agentic Commerce Protocol: `format: acp`**
+  (#197). A declared feed writes JSON Lines in the field names of OpenAI's
+  product feed schema, one row per `Product` (or per variant of a
+  `ProductGroup`) in the pages' `schema:` JSON-LD — the same reading as the
+  `google-merchant` feed — with the seller block from the feed's `acp:` key
+  and per-page `acp:` front matter. Without `acp.seller_name`,
+  `acp.target_countries` or `acp.store_country` the build stops and names
+  them; a row missing title, description, url, brand, image or price is left
+  out. Guides: [docs/ACP.md](docs/ACP.md) and
+  [docs/ACP-OPERATIONS.md](docs/ACP-OPERATIONS.md).
+- **UCP attributes on the Merchant feed: `ucp:` on a `google-merchant`
+  feed.** It adds Google's Universal Commerce Protocol attributes —
+  `native_commerce` with `checkout_eligibility`, `merchant_item_id`,
+  `item_group_title`, `variant_option`, `consumer_notice` — and writes
+  checkout eligibility `FALSE` for pre-orders, used or refurbished items and
+  offers with no returns, or where a page sets
+  `merchant.checkout_eligibility: false`. Without `ucp:` the Merchant feed is
+  byte for byte what it was. Guides: [docs/UCP.md](docs/UCP.md) and
+  [docs/UCP-OPERATIONS.md](docs/UCP-OPERATIONS.md).
+- **`check_acp` / `--check-acp` and `check_ucp` / `--check-ucp`** (`""`,
+  `warn`, `strict`; `--strict` sets both to strict) name each problem in
+  those feeds by source file, feed, item and field: missing required
+  fields, a price without a currency, an availability no page states,
+  malformed or mismatched amounts, duplicate ids, product or policy URLs that
+  do not resolve in the output (ACP); restricted products, consumer notices
+  and variant groups Google would not accept (UCP). With a check off the
+  build prints one line when there is something to see. **A feed that comes
+  out with no rows is a finding too**, naming the feed and the likely cause —
+  no selected page has a `schema:` Product (plain `sku:`/`price:` front
+  matter gives no row), or every product lacks a required field: `warn`
+  reports it, `strict` fails the build, and with the check off the build
+  prints one line. These feeds are new in this release, so no existing
+  build changes. `examples/ebook-shop` now declares both feeds, from a
+  `schema:` Product on each book with a PNG cover beside the SVG one.
+- **ACP and UCP checkouts in the shop worker** (`workers/ecommerce`), both
+  off until switched on (404 on every route; 503 when switched on with a
+  setting missing). ACP (`SHOP_ACP_*`): `POST /api/shop/acp/checkout_sessions`,
+  `GET`/`POST …/{id}`, `POST …/{id}/complete` and `…/{id}/cancel`, ACP
+  release `2026-04-17`, bearer token, payment with a Stripe Shared Payment
+  Token, signed `order_create` and `order_update` events.
+  UCP (`SHOP_UCP_*`): the business profile at `/.well-known/ucp` and
+  `POST /api/shop/ucp/checkout-sessions`, `GET`/`PUT …/{id}`,
+  `POST …/{id}/complete` and `…/{id}/cancel`, UCP release `2026-04-08`,
+  `X-API-Key`, Google Pay tokenized for Stripe, order events signed with
+  RFC 9421 HTTP Message Signatures (ES256). Prices, tax and fulfilment come
+  from the storefront's own code; orders carry the channel `acp` or `ucp`.
+  Tested against fakes written from the published documents, never against
+  a live platform, Google Pay or Stripe. What each specification left open
+  and what the code chose: `workers/ecommerce/ACP.md` and
+  `workers/ecommerce/UCP.md`.
+- **`workers/ecommerce/acp-feed-push/`**, a standalone Worker with one Cron
+  Trigger that fetches the published ACP feed and sends it unchanged to a
+  platform that wants it pushed (`ACP_FEED_SOURCE_URL`,
+  `ACP_FEED_TARGET_URL`, `ACP_FEED_METHOD`, the `ACP_FEED_TOKEN` secret). It
+  refuses an empty feed and one above `ACP_FEED_MAX_BYTES`, and logs one
+  JSON line per run without paths or the token. It does not speak the
+  protocol's own Feed API.
 
 ### Changed
 

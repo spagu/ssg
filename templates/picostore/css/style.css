@@ -115,14 +115,19 @@ body {
   padding: 0.05rem 0.45rem;
   border-radius: 999px;
   background: var(--ps-brand);
-  color: #fff;
+  /* The token flips with the scheme (tokens.css). A rule here once matched
+   * :root:not([data-theme="light"]) outside the dark media query, so a light
+   * page drew Indigo 900 on Indigo 700 — 1.6:1. */
+  color: var(--ps-on-brand);
   font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
 }
-:root[data-theme="dark"] .ps-cart-count,
-:root:not([data-theme="light"]) .ps-cart-count {
-  color: #1a237e; /* Indigo 900 on Indigo 200 — 8.4:1 */
+/* The basket icon is drawn, not typed: an emoji is a missing-glyph box on a
+ * system without an emoji font. */
+.ps-cart-icon {
+  flex: none;
+  vertical-align: middle;
 }
 
 .ps-footer {
@@ -132,6 +137,22 @@ body {
   color: var(--ps-fg-muted);
   font-size: 0.9rem;
 }
+
+/* The generator's "Built with ssg" line lands after the footer, a direct child
+ * of <body> outside Pico's body>footer box, so it had no side margin on a
+ * phone. Same box as the footer, breakpoint for breakpoint (pico.min.css). */
+body > .ssg-attribution {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--pico-block-spacing-horizontal) 2rem;
+  color: var(--ps-fg-muted);
+  font-size: 0.9rem;
+}
+@media (min-width: 576px) { body > .ssg-attribution { max-width: 510px; padding-inline: 0; } }
+@media (min-width: 768px) { body > .ssg-attribution { max-width: 700px; } }
+@media (min-width: 1024px) { body > .ssg-attribution { max-width: 950px; } }
+@media (min-width: 1280px) { body > .ssg-attribution { max-width: 1200px; } }
+@media (min-width: 1536px) { body > .ssg-attribution { max-width: 1450px; } }
 
 /* ── Product grid ─────────────────────────────────────────────────────────── */
 
@@ -285,7 +306,9 @@ body {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.35rem 1rem;
-  margin: 0;
+  /* The description follows the facts; without a gap it read as part of the
+   * last row ("Delivery"). */
+  margin: 0 0 1.5rem;
   font-size: 0.95rem;
 }
 .ps-facts dt {

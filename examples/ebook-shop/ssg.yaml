@@ -36,6 +36,35 @@ workers:
     # or Cloudflare Access in front of both.
     routes_include:
       - /api/shop/*
+      # - /.well-known/ucp   # once SHOP_UCP_ENABLED is "true" (docs/UCP.md)
+
+# Product feeds for AI agent platforms (docs/ACP.md, docs/UCP.md). Each row is
+# read from a product page's `schema:` Product JSON-LD — the `sku` and `price`
+# the theme uses give no row on their own. The sku is the item id the agent
+# sends back to the shop's checkout, so it must match the SKU in the panel.
+feeds:
+  - path: /acp/products.jsonl
+    format: acp
+    source: shop
+    merchant:
+      brand: "Paperless Press"
+    acp:
+      seller_name: "Paperless Press"
+      target_countries: [PL]
+      store_country: PL
+      seller_url: /
+      seller_privacy_policy: /shop/privacy/
+      seller_tos: /shop/terms/
+      is_digital: true
+      is_eligible_checkout: false   # true only once a platform has enabled checkout
+  - path: /merchant.xml
+    format: google-merchant
+    source: shop
+    merchant:
+      brand: "Paperless Press"
+    ucp: {}                         # UCP attributes; checkout_eligibility defaults to true
+check_acp: strict
+check_ucp: warn
 
 variables:
   shop_name: "Paperless Press"

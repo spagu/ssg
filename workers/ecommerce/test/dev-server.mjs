@@ -113,8 +113,11 @@ async function api(request, path) {
 }
 
 async function handle(request) {
-  const path = decodeURIComponent(new URL(request.url).pathname);
-  if (path.startsWith("/api/") && !path.startsWith("/api/core/")) return api(request, path);
+  const raw = new URL(request.url).pathname;
+  const path = decodeURIComponent(raw);
+  // Routes match the path as sent, as Pages matches it: an invoice number's
+  // %2F stays inside its one segment, and each parameter is decoded alone.
+  if (path.startsWith("/api/") && !path.startsWith("/api/core/")) return api(request, raw);
   if (DEMO_CORE && path === "/api/core/modules") return Response.json(MODULES);
   if (DEMO_CORE === "theme" && path === "/core/theme.css") return new Response(DEMO_THEME, { headers: { "content-type": TYPES[".css"] } });
   if (DEMO_CORE && path.startsWith("/core/")) return (await file(CORE, path.slice("/core/".length))) ?? new Response("not found", { status: 404 });

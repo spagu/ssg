@@ -110,6 +110,19 @@
 # SHOP_ACP_STRIPE_VERSION = "2026-09-30.preview"   # Stripe-Version for Shared Payment Token calls
 # The feed push is a separate Worker with its own wrangler.toml:
 # acp-feed-push/ in this template (Pages Functions cannot run a Cron Trigger).
+#
+# Selling through AI agents — UCP checkout (README "Selling through Google's
+# agents (UCP)", UCP.md). Off unless "true"; /.well-known/ucp and every
+# /api/shop/ucp/* route are a 404 until then. Needs STRIPE_SECRET_KEY, the
+# SHOP_UCP_API_KEY and SHOP_UCP_SIGNING_KEY secrets and a pk_test_/pk_live_
+# publishable key (and SHOP_UCP_GPAY_MERCHANT_ID in PRODUCTION), or it
+# answers 503. Add /.well-known/ucp to the shop's routes_include in .ssg.yaml.
+# SHOP_UCP_ENABLED = "true"
+# SHOP_UCP_STRIPE_PUBLISHABLE_KEY = "pk_test_…"   # public: it is in the profile
+# SHOP_UCP_GPAY_ENVIRONMENT = "TEST"              # "PRODUCTION" once approved
+# SHOP_UCP_GPAY_MERCHANT_ID = "…"                 # Google Pay merchant id; required with PRODUCTION
+# SHOP_UCP_HANDLER_ID = "gpay"                    # this shop's id for its Google Pay handler
+# SHOP_UCP_WEBHOOK_URL = "https://webhooks.example.com/v1/order-events"   # without ?key=; unset = no order events
 
 # ── Secrets ─────────────────────────────────────────────────────────────────
 # Never in this file. Set each with `wrangler pages secret put <NAME>`:
@@ -131,3 +144,7 @@
 #   SHOP_ACP_API_KEY       (ACP) the bearer token the agent platform sends you
 #   SHOP_ACP_WEBHOOK_SECRET (ACP) HMAC key for the Merchant-Signature on order events
 #   SHOP_ACP_SIGNING_SECRET (ACP, optional) require signed requests from the platform
+#   SHOP_UCP_API_KEY       (UCP) the key the platform sends in X-API-Key
+#   SHOP_UCP_SIGNING_KEY   (UCP) EC P-256 private JWK with a "kid" that signs order
+#                          events; its public half is published in /.well-known/ucp
+#   SHOP_UCP_WEBHOOK_API_KEY (UCP, optional) sent as X-Goog-Api-Key with order events
