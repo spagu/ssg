@@ -82,6 +82,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`picostore` links that look like buttons are announced as links.**
+  "Details", "Checkout", "Back to the basket" and "Keep browsing" carried
+  `role="button"`, which tells a screen reader to expect a button that the
+  Space key presses; a link answers only Enter. They now use the theme's
+  `.ps-button` class, drawn with Pico's own button variables (rendered
+  pixel-identical in light and dark).
+- **SonarCloud findings on the 1.9.10 code** (reliability and security
+  rating): un-awaited promises in the shop and the shop panel are marked
+  as deliberate (each function reports its own failures); comma
+  expressions in the editor's key handlers are plain statements; sorts and
+  `reduce` calls state their comparator and start value; a regular
+  expression's alternation is grouped (same matches, proven by a test).
+  The editor's git blob id keeps SHA-1, which is what git names objects
+  by, in a named function that says so.
 - **Muted text in `ssgtheme` meets WCAG 2.2 AA on sunken panels.**
   `--color-fg-muted` was `#64748b`: 4.76:1 on the page, but 4.29:1 on
   `--color-bg-sunken`, below the 4.5:1 AA needs for body text. It is now

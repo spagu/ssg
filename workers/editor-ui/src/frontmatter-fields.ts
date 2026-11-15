@@ -27,7 +27,7 @@ const KEY = /^([A-Za-z_][A-Za-z0-9_.-]*)([ \t]*:)(?:([ \t]+)(.*))?$/;
 const ITEM = /^([ \t]*)-([ \t]+)(.+)$/;
 
 // linesOf splits text into lines that keep their line ends.
-export const linesOf = (text: string): string[] => text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+export const linesOf = (text: string): string[] => text.match(/(?:[^\n]*\n|[^\n]+$)/g) ?? [];
 const content = (line: string): string => line.replace(/\r?\n$/, "");
 const eolOfLine = (line: string): string => line.slice(content(line).length);
 const isGap = (c: string): boolean => c.trim() === "" || c.startsWith("#");

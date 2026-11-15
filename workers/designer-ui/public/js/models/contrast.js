@@ -83,7 +83,7 @@ export function nearest(fg, bg, target = AA) {
   if (now >= target) return { colour: toHex(c), ratio: now };
   const options = [towards(c, BLACK, bg, target), towards(c, WHITE, bg, target)].filter(Boolean);
   if (!options.length) return null;
-  const best = options.reduce((a, b) => (b.t < a.t ? b : a));
+  const best = options.reduce((a, b) => (b.t < a.t ? b : a), options[0]);
   return { colour: best.colour, ratio: ratio(best.colour, bg) };
 }
 

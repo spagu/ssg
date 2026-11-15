@@ -70,6 +70,16 @@ test("nearest: the smallest step that passes, in the direction that needs less",
   assert.ok(d.ratio >= AA);
 });
 
+test("nearest: when both directions reach the target, the shorter one wins", () => {
+  // Mid greys against a mid grey at 3:1 — black and white both get there.
+  const lighter = nearest("#707070", "#666666", AA_LARGE)!;
+  assert.equal(lighter.colour, "#bcbcbc");
+  assert.ok(luminance(lighter.colour)! > luminance("#707070")!);
+  const darker = nearest("#808080", "#888888", AA_LARGE)!;
+  assert.equal(darker.colour, "#3e3e3e");
+  assert.ok(luminance(darker.colour)! < luminance("#808080")!);
+});
+
 test("nearest: AAA target and the impossible", () => {
   const n = nearest("#888888", "#ffffff", AAA)!;
   assert.ok(n.ratio >= 7);

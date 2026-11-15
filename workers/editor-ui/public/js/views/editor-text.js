@@ -87,23 +87,39 @@ export function textEditor(app, { value, onChange, onImages, onHelp, canImage, o
     const wasEscaped = escaped;
     escaped = e.key === "Escape";
     const named = commandFor({ key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, altKey: e.altKey, altGraph: e.getModifierState?.("AltGraph") }, mac);
-    if (named) return e.preventDefault(), void run(named);
+    if (named) {
+      e.preventDefault();
+      void run(named);
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     let r = null;
     if (e.key === "Enter" && !e.shiftKey) r = continueOnEnter(area.value, state());
     else if (e.key === "Tab" && !wasEscaped) r = indent(area.value, state(), e.shiftKey);
     else if (WRAP_KEYS.has(e.key)) r = wrapSelection(area.value, state(), e.key);
-    if (r) e.preventDefault(), apply(r);
+    if (r) {
+      e.preventDefault();
+      apply(r);
+    }
   }
   function onPaste(e) {
     const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith("image/"));
-    if (files.length) return e.preventDefault(), void onImages(files);
+    if (files.length) {
+      e.preventDefault();
+      void onImages(files);
+      return;
+    }
     const r = pasteLink(area.value, state(), e.clipboardData?.getData("text/plain") ?? "");
-    if (r) e.preventDefault(), apply(r);
+    if (r) {
+      e.preventDefault();
+      apply(r);
+    }
   }
   function onDrop(e) {
     const files = [...(e.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith("image/"));
-    if (files.length) e.preventDefault(), void onImages(files);
+    if (!files.length) return;
+    e.preventDefault();
+    void onImages(files);
   }
   const button = ([name, mark]) => {
     const keys = keysOf(name, mac);
@@ -127,7 +143,9 @@ export function textEditor(app, { value, onChange, onImages, onHelp, canImage, o
         },
         input: () => (history.record(state(), Date.now(), true), onChange(area.value)),
         beforeinput: (e) => {
-          if (e.inputType === "historyUndo" || e.inputType === "historyRedo") e.preventDefault(), void run(e.inputType === "historyUndo" ? "undo" : "redo");
+          if (e.inputType !== "historyUndo" && e.inputType !== "historyRedo") return;
+          e.preventDefault();
+          void run(e.inputType === "historyUndo" ? "undo" : "redo");
         },
       },
     }),

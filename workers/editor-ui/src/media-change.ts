@@ -62,6 +62,16 @@ export function decodeBase64(b64: string): Uint8Array {
   return out;
 }
 
+// gitBlobSha1: the digest git names an object by. A git object id is, by the
+// object format itself, SHA-1 over "<type> <size>\0<content>" (the format
+// GitHub's API serves; SHA-256 repositories are a separate format it does not
+// offer). It identifies content, the way git does — nothing is signed, kept
+// secret or trusted on the strength of it, so it is not a security use and
+// another hash would simply never match the id the listing reports.
+async function gitBlobSha1(object: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest("SHA-1", object)); // NOSONAR typescript:S4790 — git object ids are SHA-1 by definition; not a security use
+}
+
 // gitBlobId: the id git gives these bytes as a file — compared with the
 // listing's to know the image on the branch is this one.
 export async function gitBlobId(bytes: Uint8Array): Promise<string> {
@@ -69,7 +79,7 @@ export async function gitBlobId(bytes: Uint8Array): Promise<string> {
   const all = new Uint8Array(head.length + bytes.length);
   all.set(head);
   all.set(bytes, head.length);
-  const d = new Uint8Array(await crypto.subtle.digest("SHA-1", all));
+  const d = await gitBlobSha1(all);
   return [...d].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 

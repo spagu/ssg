@@ -169,7 +169,7 @@ export function mountThanks() {
       if (attempt < 5) setTimeout(poll, 3000);
     }
   };
-  poll();
+  void poll(); // poll() catches its own failures and retries or reports them
 }
 
 function renderDownloads(list, downloads) {

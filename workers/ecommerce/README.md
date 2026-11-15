@@ -416,6 +416,12 @@ built from the published specification, never against a live platform.
 [ACP.md](ACP.md) has the details — what the specification left open and what
 this code chose, every setting, and the feed push.
 
+**Step-by-step guides for the shop owner** — applying, the feed, secrets,
+testing before certification, monitoring, and what to do when a product
+disappears: [docs/ACP.md](../../docs/ACP.md) and
+[docs/ACP-OPERATIONS.md](../../docs/ACP-OPERATIONS.md); for Google's
+Universal Commerce Protocol checkout, [docs/UCP.md](../../docs/UCP.md).
+
 **Where it can be used today** (checked 2026-11-14; partly from industry
 reports rather than official statements, so check with each platform before
 you apply):

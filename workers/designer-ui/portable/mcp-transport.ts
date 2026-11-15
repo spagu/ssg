@@ -155,7 +155,11 @@ export async function readLimited(request: Request, max: number): Promise<string
     parts.push(r.value);
   }
   const all = new Uint8Array(size);
-  parts.reduce((at, p) => (all.set(p, at), at + p.byteLength), 0);
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.byteLength;
+  }
   try {
     return utf8().decode(all);
   } catch {

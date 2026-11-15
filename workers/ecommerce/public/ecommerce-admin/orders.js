@@ -282,6 +282,8 @@ function actionCard(order) {
   );
 }
 
+// Never rejects: every failure, the refresh after it included, becomes a notice.
+// Callers that fire it from a click can therefore `void` it.
 async function act(action, order, after, okMessage, body = {}) {
   try {
     await api.post(`/api/shop/admin/orders/${encodeURIComponent(order.id)}/${action}`, body);
@@ -306,13 +308,13 @@ function refund(order, after) {
   // The provider is asked; the order changes when the provider's webhook says
   // it did. The message says so, because otherwise the unchanged status reads
   // as a failure.
-  act("refund", order, after, "The refund was sent to the provider. The order updates when it confirms.", { amountMinor });
+  void act("refund", order, after, "The refund was sent to the provider. The order updates when it confirms.", { amountMinor });
 }
 
 function markPaid(order, after) {
   if (!confirmDestructive(`Mark ${order.number} as paid? This issues the invoice and emails the links.`)) return;
   const reference = window.prompt("Reference for your records (a bank transfer id, say):", "") ?? "";
-  act("mark-paid", order, after, "Marked as paid. Invoice issued and links queued.", { reference });
+  void act("mark-paid", order, after, "Marked as paid. Invoice issued and links queued.", { reference });
 }
 
 function noteForm(order) {

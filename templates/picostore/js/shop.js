@@ -94,5 +94,5 @@ document.addEventListener("DOMContentLoaded", () => {
   mountCart();
   mountCheckout();
   mountThanks();
-  refreshPrices();
+  void refreshPrices(); // never rejects: a failure leaves the built-in price
 });

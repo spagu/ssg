@@ -15,7 +15,7 @@ import type { AdminData } from "./_middleware";
 export const onRequestGet: PagesFunction<Env, string, AdminData> = async ({ env }) => {
   return json({
     settings: await allSettings(env),
-    keys: Object.keys(SETTING_DEFAULTS).sort(),
+    keys: Object.keys(SETTING_DEFAULTS).sort((a, b) => (a < b ? -1 : 1)), // code-unit order; keys are unique
     // The modules are settings like any other — they are written through the
     // PUT below — but the panel needs to know which of them *could* run at all,
     // and that depends on bindings and secrets it is never shown.

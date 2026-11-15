@@ -247,6 +247,40 @@ body {
   margin: 0;
   width: auto;
 }
+
+/* A link that looks like a button.
+ *
+ * "Details", "Checkout" and "Back to the basket" go somewhere, so they stay
+ * links. Pico would style them through `role="button"`, but that role tells a
+ * screen reader the element is a button, and a button is expected to answer
+ * the Space key, which a link does not. The class gives the look without the
+ * false promise; Enter still follows the link as it always has. The values are
+ * Pico's own button variables, so the two stay identical. */
+.ps-button {
+  display: inline-block;
+  padding: var(--pico-form-element-spacing-vertical) var(--pico-form-element-spacing-horizontal);
+  border: var(--pico-border-width) solid var(--pico-primary-border);
+  border-radius: var(--pico-border-radius);
+  background-color: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+  font-weight: var(--pico-font-weight);
+  font-size: 1rem;
+  line-height: var(--pico-line-height);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--pico-transition), border-color var(--pico-transition),
+    box-shadow var(--pico-transition);
+}
+.ps-button:is(:hover, :active, :focus) {
+  border-color: var(--pico-primary-hover-border);
+  background-color: var(--pico-primary-hover-background);
+  color: var(--pico-primary-inverse);
+  text-decoration: none;
+}
+.ps-button:focus-visible {
+  box-shadow: 0 0 0 var(--pico-outline-width) var(--pico-primary-focus);
+}
 .ps-facts {
   display: grid;
   grid-template-columns: auto 1fr;

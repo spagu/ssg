@@ -53,7 +53,9 @@ function textEditor(app, file, original) {
         on: {
           input: (e) => ((state.query = e.target.value), (ref.count.textContent = "")),
           keydown: (e) => {
-            if (e.key === "Enter") (e.preventDefault(), find(e.shiftKey ? -1 : 1));
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            find(e.shiftKey ? -1 : 1);
           },
         },
       }),

@@ -68,7 +68,7 @@ export function changedKeys(before: Doc, after: Doc, file: FileView): ChangedKey
     // An unknown key (only an old one can reach here: validation refuses new
     // ones) is treated as the most sensitive kind.
     const classes = n === null ? new Set<SettingClass>(["executes"]) : classesIn(now, n, classesIn(old, n));
-    out.push({ path: segs.join("."), classes: [...classes].sort(), reference: hasReference(now) });
+    out.push({ path: segs.join("."), classes: [...classes].sort((a, b) => (a < b ? -1 : 1)) /* a set: never equal */, reference: hasReference(now) });
   };
   const walk = (old: unknown, now: unknown, n: SchemaNode | null, segs: string[]) => {
     // An absent side is an empty mapping: removing an overlay mapping removes

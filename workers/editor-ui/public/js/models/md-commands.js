@@ -55,7 +55,7 @@ export function linePrefix(text, sel, kind) {
   const from = lineStart(text, sel.start);
   const to = from + lines.join("\n").length;
   const filled = lines.filter((l) => l.trim() !== "");
-  const off = filled.length > 0 && filled.every(HAS[kind]);
+  const off = filled.length > 0 && filled.every((l) => HAS[kind](l));
   let i = 0;
   const out = lines.map((l) => {
     if (l.trim() === "" && lines.length > 1) return l;

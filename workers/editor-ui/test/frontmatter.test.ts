@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NEW_FILE, applyEdit, joinDocument, readFields, splitDocument } from "../src/frontmatter.ts";
-import { fieldsOf, setFields } from "../src/frontmatter-fields.ts";
+import { fieldsOf, linesOf, setFields } from "../src/frontmatter-fields.ts";
 
 const CORPUS: Record<string, string> = {
   plain: "---\ntitle: Hello\nstatus: publish\n---\n# Hello\n\nText.\n",
@@ -123,4 +123,15 @@ test("frontmatterRaw replaces the block as text; a new file starts from NEW_FILE
   assert.equal(applyEdit(CORPUS.crlf, { frontmatterRaw: "title: R" }).text, "---\r\ntitle: R\r\n---\r\nBody\r\nline\r\n");
   assert.equal(applyEdit(CORPUS.plain, { frontmatterRaw: "" }).text, "---\n---\n# Hello\n\nText.\n");
   assert.equal(applyEdit(NEW_FILE, { fields: { title: "New post", tags: ["a"], status: "draft" }, body: "Hi\n" }).text, "---\ntitle: New post\ntags: [a]\nstatus: draft\n---\nHi\n");
+});
+
+// linesOf's pattern was regrouped (SonarCloud S5850: the "$" belongs to the
+// second alternative only, and now says so). The split must not move by a
+// byte: the old ungrouped pattern is kept here as the reference.
+test("linesOf splits exactly as the ungrouped pattern did", () => {
+  const before = (text: string): string[] => text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
+  const cases = ["", "\n", "\n\n", "a", "a\n", "a\nb", "a\nb\n", "a\r\nb\r\n", "\r", "x\n\n\ny", ...Object.values(CORPUS)];
+  for (const text of cases) assert.deepEqual(linesOf(text), before(text), JSON.stringify(text));
+  assert.deepEqual(linesOf("a\nb"), ["a\n", "b"]);
+  assert.deepEqual(linesOf(""), []);
 });
