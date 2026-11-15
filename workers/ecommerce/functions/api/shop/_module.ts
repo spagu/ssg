@@ -1,0 +1,179 @@
+// The module manifest (GO-143) as code. Pages Functions cannot read files at
+// runtime and the site build copies only functions/, so the manifest route
+// imports this copy of module.json (the template root's). Generated: edit
+// module.json, then run UPDATE_MODULE_TWINS=1 node --test 'workers/*.test.ts'
+// in the ssg repository, or copy the JSON here by hand — the two must match.
+// A leading underscore keeps this file out of the Pages route table.
+export const MODULE = {
+  "id": "ecommerce",
+  "contract": 1,
+  "version": "1.0.0",
+  "kind": "pages-function",
+  "title": {
+    "en": "Shop",
+    "pl": "Sklep",
+    "hi": "दुकान",
+    "de": "Shop",
+    "fr": "Boutique"
+  },
+  "description": {
+    "en": "Sell digital products: checkout with Stripe or PayPal, VAT, invoices and download links, with orders in D1 and files in R2.",
+    "pl": "Sprzedaż produktów cyfrowych: płatność przez Stripe albo PayPal, VAT, faktury i linki do pobrania; zamówienia w D1, pliki w R2.",
+    "hi": "डिजिटल उत्पाद बेचें: Stripe या PayPal से भुगतान, VAT, चालान और डाउनलोड लिंक; ऑर्डर D1 में और फ़ाइलें R2 में।",
+    "de": "Digitale Produkte verkaufen: Bezahlung mit Stripe oder PayPal, Mehrwertsteuer, Rechnungen und Download-Links; Bestellungen in D1, Dateien in R2.",
+    "fr": "Vendre des produits numériques : paiement par Stripe ou PayPal, TVA, factures et liens de téléchargement ; commandes dans D1, fichiers dans R2."
+  },
+  "panel": "/ecommerce-admin/",
+  "nav": [
+    {
+      "label": {
+        "en": "Overview",
+        "pl": "Przegląd",
+        "hi": "सारांश",
+        "de": "Übersicht",
+        "fr": "Vue d'ensemble"
+      },
+      "path": "/ecommerce-admin/#dashboard",
+      "permission": "ecommerce:read"
+    },
+    {
+      "label": {
+        "en": "Orders",
+        "pl": "Zamówienia",
+        "hi": "ऑर्डर",
+        "de": "Bestellungen",
+        "fr": "Commandes"
+      },
+      "path": "/ecommerce-admin/#orders",
+      "permission": "ecommerce:read"
+    },
+    {
+      "label": {
+        "en": "Products",
+        "pl": "Produkty",
+        "hi": "उत्पाद",
+        "de": "Produkte",
+        "fr": "Produits"
+      },
+      "path": "/ecommerce-admin/#products",
+      "permission": "ecommerce:read"
+    },
+    {
+      "label": {
+        "en": "VAT rates",
+        "pl": "Stawki VAT",
+        "hi": "VAT दरें",
+        "de": "Mehrwertsteuersätze",
+        "fr": "Taux de TVA"
+      },
+      "path": "/ecommerce-admin/#vat",
+      "permission": "ecommerce:read"
+    },
+    {
+      "label": {
+        "en": "Log",
+        "pl": "Dziennik",
+        "hi": "लॉग",
+        "de": "Protokoll",
+        "fr": "Journal"
+      },
+      "path": "/ecommerce-admin/#log",
+      "permission": "ecommerce:read"
+    },
+    {
+      "label": {
+        "en": "Payments",
+        "pl": "Płatności",
+        "hi": "भुगतान",
+        "de": "Zahlungen",
+        "fr": "Paiements"
+      },
+      "path": "/ecommerce-admin/#payments",
+      "permission": "ecommerce:settings"
+    },
+    {
+      "label": {
+        "en": "Settings",
+        "pl": "Ustawienia",
+        "hi": "सेटिंग्स",
+        "de": "Einstellungen",
+        "fr": "Paramètres"
+      },
+      "path": "/ecommerce-admin/#settings",
+      "permission": "ecommerce:settings"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "ecommerce:read",
+      "description": {
+        "en": "View orders, products, sales figures, the audit log and the queue of outgoing messages.",
+        "pl": "Przeglądanie zamówień, produktów, wyników sprzedaży, dziennika zmian i kolejki wychodzących wiadomości.",
+        "hi": "ऑर्डर, उत्पाद, बिक्री के आँकड़े, ऑडिट लॉग और भेजे जाने वाले संदेशों की कतार देखना।",
+        "de": "Bestellungen, Produkte, Verkaufszahlen, das Prüfprotokoll und die Warteschlange ausgehender Nachrichten ansehen.",
+        "fr": "Consulter les commandes, les produits, les chiffres de vente, le journal d'audit et la file des messages sortants."
+      }
+    },
+    {
+      "name": "ecommerce:orders",
+      "description": {
+        "en": "Handle orders: send the download links again, mark an order as paid, cancel it, add a note, and retry queued messages.",
+        "pl": "Obsługa zamówień: ponowne wysłanie linków do pobrania, oznaczenie zamówienia jako opłaconego, anulowanie, notatka i ponowienie wiadomości z kolejki.",
+        "hi": "ऑर्डर संभालना: डाउनलोड लिंक फिर से भेजना, ऑर्डर को भुगतान किया हुआ चिह्नित करना, रद्द करना, नोट जोड़ना और कतार के संदेश फिर से भेजना।",
+        "de": "Bestellungen bearbeiten: Download-Links erneut senden, eine Bestellung als bezahlt markieren, stornieren, eine Notiz hinzufügen und Nachrichten aus der Warteschlange erneut senden.",
+        "fr": "Traiter les commandes : renvoyer les liens de téléchargement, marquer une commande comme payée, l'annuler, ajouter une note et relancer les messages en file d'attente."
+      }
+    },
+    {
+      "name": "ecommerce:refund",
+      "description": {
+        "en": "Refund an order through the payment provider. Money leaves the shop.",
+        "pl": "Zwrot pieniędzy za zamówienie przez operatora płatności. Pieniądze wychodzą ze sklepu.",
+        "hi": "भुगतान प्रदाता के ज़रिए किसी ऑर्डर का पैसा लौटाना। पैसा दुकान से बाहर जाता है।",
+        "de": "Eine Bestellung über den Zahlungsanbieter erstatten. Das Geld verlässt den Shop.",
+        "fr": "Rembourser une commande via le prestataire de paiement. L'argent quitte la boutique."
+      }
+    },
+    {
+      "name": "ecommerce:products",
+      "description": {
+        "en": "Create, edit and remove products, upload their files, and change the VAT rates.",
+        "pl": "Tworzenie, edycja i usuwanie produktów, wgrywanie ich plików oraz zmiana stawek VAT.",
+        "hi": "उत्पाद बनाना, बदलना और हटाना, उनकी फ़ाइलें अपलोड करना और VAT दरें बदलना।",
+        "de": "Produkte anlegen, bearbeiten und entfernen, ihre Dateien hochladen und die Mehrwertsteuersätze ändern.",
+        "fr": "Créer, modifier et retirer des produits, téléverser leurs fichiers et changer les taux de TVA."
+      }
+    },
+    {
+      "name": "ecommerce:settings",
+      "description": {
+        "en": "View and change the shop's settings and which payment providers are offered at checkout.",
+        "pl": "Przeglądanie i zmiana ustawień sklepu oraz wybór operatorów płatności oferowanych przy zakupie.",
+        "hi": "दुकान की सेटिंग देखना और बदलना, और चेकआउट पर कौन-से भुगतान प्रदाता दिखें यह तय करना।",
+        "de": "Die Einstellungen des Shops ansehen und ändern und festlegen, welche Zahlungsanbieter an der Kasse angeboten werden.",
+        "fr": "Consulter et modifier les réglages de la boutique et choisir les prestataires de paiement proposés au moment de payer."
+      }
+    },
+    {
+      "name": "ecommerce:export",
+      "description": {
+        "en": "Download exports of orders and invoices, which contain buyers' personal data.",
+        "pl": "Pobieranie eksportów zamówień i faktur, które zawierają dane osobowe kupujących.",
+        "hi": "ऑर्डर और चालानों के एक्सपोर्ट डाउनलोड करना, जिनमें ख़रीदारों का निजी डेटा होता है।",
+        "de": "Exporte von Bestellungen und Rechnungen herunterladen, die personenbezogene Daten der Käufer enthalten.",
+        "fr": "Télécharger les exports des commandes et des factures, qui contiennent les données personnelles des acheteurs."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/shop/module",
+    "summary": "/api/shop/module/summary"
+  },
+  "disable": {
+    "en": "Remove workers/ecommerce from the workers: list in .ssg.yaml, take the shop pages and buttons out of your site and deploy it again. Orders, invoices and files stay in D1 and R2 until you delete them; keep invoices for as long as the law requires.",
+    "pl": "Usuń workers/ecommerce z listy workers: w .ssg.yaml, wyjmij strony i przyciski sklepu ze strony i wdróż ją ponownie. Zamówienia, faktury i pliki zostają w D1 i R2, dopóki ich nie usuniesz; faktury przechowuj tak długo, jak wymaga prawo.",
+    "hi": "workers/ecommerce को .ssg.yaml की workers: सूची से हटाएँ, अपनी साइट से दुकान के पेज और बटन निकालें और उसे फिर से डिप्लॉय करें। ऑर्डर, चालान और फ़ाइलें D1 और R2 में तब तक रहती हैं जब तक आप उन्हें मिटा नहीं देते; चालान उतने समय तक रखें जितना क़ानून कहता है।",
+    "de": "Entfernen Sie workers/ecommerce aus der workers:-Liste in .ssg.yaml, nehmen Sie die Shop-Seiten und -Schaltflächen aus Ihrer Website und veröffentlichen Sie sie neu. Bestellungen, Rechnungen und Dateien bleiben in D1 und R2, bis Sie sie löschen; bewahren Sie Rechnungen so lange auf, wie es das Gesetz verlangt.",
+    "fr": "Retirez workers/ecommerce de la liste workers: dans .ssg.yaml, enlevez les pages et les boutons de la boutique de votre site et redéployez-le. Les commandes, les factures et les fichiers restent dans D1 et R2 jusqu'à ce que vous les supprimiez ; conservez les factures aussi longtemps que la loi l'exige."
+  }
+};

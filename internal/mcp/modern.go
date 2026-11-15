@@ -87,7 +87,7 @@ func unsupportedVersionError(requested string) *rpcError {
 	return &rpcError{
 		Code:    codeUnsupportedProtocolVersion,
 		Message: "unsupported protocol version: " + requested,
-		Data:    map[string]any{"supported": supportedVersions},
+		Data:    map[string]any{"supported": supportedVersions, "requested": requested},
 	}
 }
 
@@ -113,6 +113,10 @@ func listCacheHints() cacheableResult {
 // on stdio it doubles as the era probe.
 type discoverResult struct {
 	ResultType string   `json:"resultType"`
+	Supported  []string `json:"supportedVersions"`
+	// Versions is the field's name before #427. The specification calls it
+	// supportedVersions; the old name is kept for one release so a client that
+	// read it keeps working, then removed.
 	Versions   []string `json:"protocolVersions"`
 	ServerInfo any      `json:"serverInfo"`
 	Caps       any      `json:"capabilities"`
@@ -123,6 +127,7 @@ type discoverResult struct {
 func (s *Server) discover() discoverResult {
 	return discoverResult{
 		ResultType: "complete",
+		Supported:  supportedVersions,
 		Versions:   supportedVersions,
 		ServerInfo: s.serverInfo(),
 		Caps:       map[string]any{"tools": map[string]any{"listChanged": false}},

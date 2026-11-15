@@ -51,8 +51,18 @@ func ParseMarkdownFile(filepath string) (*models.Page, error) {
 	// lines (e.g. base64 data URIs) do not fail the whole file.
 	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
 
+	// A UTF-8 byte order mark before the opening "---" (Windows editors write
+	// one) is not part of the text: left in place it made the first line
+	// "\ufeff---", the file read as having no frontmatter, and its YAML was
+	// published as body text with the title lost.
+	first := true
 	for scanner.Scan() {
-		p.processLine(scanner.Text())
+		line := scanner.Text()
+		if first {
+			line = strings.TrimPrefix(line, "\ufeff")
+			first = false
+		}
+		p.processLine(line)
 	}
 
 	if err := scanner.Err(); err != nil {

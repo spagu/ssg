@@ -17,8 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/spagu/ssg/internal/config"
 )
 
@@ -26,7 +24,7 @@ import (
 // subcommand, while a source directory literally named "config" still builds.
 func isConfigSubcommand(noun string) bool {
 	switch noun {
-	case "view", "set", "unset":
+	case "view", "set", "unset", "schema":
 		return true
 	}
 	return false
@@ -42,6 +40,9 @@ func reportConfigError(err error) int {
 // runConfig implements `ssg config <verb> [args]`.
 func runConfig(args []string) int {
 	verb, rest := args[0], args[1:]
+	if verb == "schema" { // describes ssg itself, not a project: no config needed
+		return runConfigSchema(rest)
+	}
 	path, rest := configPathFrom(rest)
 	if path == "" {
 		errf("❌ no config file found — pass --config=FILE or run this in a project with .ssg.yaml.\n")
@@ -145,12 +146,14 @@ func printEffective(path, target string) int {
 		return reportConfigError(err)
 	}
 	// #nosec G117 -- redactSecrets on the next line blanks every credential
-	// before a byte of this is printed; the marshal itself never leaves here.
-	data, err := yaml.Marshal(cfg)
+	// (config_redact.go: every schema key of class "secret") before a byte of
+	// this is printed; the marshal itself never leaves here.
+	data, err := marshalYAML(cfg)
 	if err != nil {
 		return reportConfigError(err)
 	}
 	data = redactSecrets(data)
+	noteOverlayKeys(path)
 	if target == "" {
 		fmt.Print(string(data))
 		return 0
@@ -162,39 +165,6 @@ func printEffective(path, target string) int {
 	}
 	fmt.Print(string(out))
 	return 0
-}
-
-// redactedValue is what a credential reads as in the effective view.
-const redactedValue = "«redacted — read it from the file or the environment»"
-
-// secretPaths are the config keys that can carry a credential. The list is
-// deliberately over-broad: a key wrongly redacted costs one glance at the file,
-// while a key wrongly printed cannot be taken back.
-var secretPaths = []string{
-	"jwt_secret", "server_users", "api_key", "tls_key",
-	"mcp.git.token", "mcp.search.mddb_api_key",
-	"mddb.api_key", "mddb.password", "mddb.dsn",
-	"external_sources.sources", "ai", "worker", "deploy", "notify",
-}
-
-// redactSecrets blanks every credential-bearing key that is actually present.
-// It works on the marshalled YAML rather than the struct so one list covers
-// nested sections whose shapes differ.
-func redactSecrets(data []byte) []byte {
-	for _, path := range secretPaths {
-		if _, err := config.GetYAMLPath(data, path); err != nil {
-			continue // not set in this config
-		}
-		out, err := config.SetYAMLPath(data, path, redactedValue)
-		if err != nil {
-			// Better to drop the key entirely than to print it.
-			if out, err = config.UnsetYAMLPath(data, path); err != nil {
-				continue
-			}
-		}
-		data = out
-	}
-	return data
 }
 
 // runConfigSet writes one value.

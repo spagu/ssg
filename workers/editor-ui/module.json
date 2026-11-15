@@ -1,0 +1,89 @@
+{
+  "id": "editor-ui",
+  "contract": 1,
+  "version": "0.1.0",
+  "kind": "worker",
+  "title": {
+    "en": "Content editor",
+    "pl": "Edytor treści",
+    "hi": "सामग्री संपादक",
+    "de": "Inhaltseditor",
+    "fr": "Éditeur de contenu"
+  },
+  "description": {
+    "en": "Edit the site's Markdown articles and images in the browser; each publication is one commit to the site's repository (or one write to MDDB for articles kept there), signed with the editor's name.",
+    "pl": "Edycja artykułów Markdown i obrazków strony w przeglądarce; każda publikacja to jeden commit w repozytorium strony (albo jeden zapis w MDDB dla artykułów, które tam są), podpisany imieniem osoby, która ją zrobiła.",
+    "hi": "साइट के Markdown लेख और चित्र ब्राउज़र में संपादित करें; हर प्रकाशन साइट की रिपॉज़िटरी में एक कमिट है (या MDDB में रखे लेखों के लिए MDDB में एक बार लिखना), जिस पर संपादक का नाम होता है।",
+    "de": "Markdown-Artikel und Bilder der Website im Browser bearbeiten; jede Veröffentlichung ist ein Commit im Repository der Website (oder ein Schreibvorgang in MDDB für Artikel, die dort liegen), mit dem Namen der bearbeitenden Person.",
+    "fr": "Modifier les articles Markdown et les images du site dans le navigateur ; chaque publication est un commit dans le dépôt du site (ou une écriture dans MDDB pour les articles qui y sont conservés), au nom de la personne qui l'a faite."
+  },
+  "panel": "/",
+  "nav": [
+    {
+      "label": {
+        "en": "Content",
+        "pl": "Treść",
+        "hi": "सामग्री",
+        "de": "Inhalte",
+        "fr": "Contenu"
+      },
+      "path": "/#/",
+      "permission": "editor-ui:read"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "editor-ui:read",
+      "description": {
+        "en": "View the list and text of content files, their revisions and the media library.",
+        "pl": "Przeglądanie listy i treści plików, ich rewizji oraz biblioteki mediów.",
+        "hi": "सामग्री फ़ाइलों की सूची और पाठ, उनके संशोधन और मीडिया लाइब्रेरी देखना।",
+        "de": "Liste und Text der Inhaltsdateien, ihre Revisionen und die Medienbibliothek ansehen.",
+        "fr": "Consulter la liste et le texte des fichiers de contenu, leurs révisions et la médiathèque."
+      }
+    },
+    {
+      "name": "editor-ui:publish",
+      "sensitive": true,
+      "description": {
+        "en": "Publish changes to content — create, edit and rename articles — as commits to the site's repository, or as writes to MDDB for articles kept there; the site's build then deploys them. ssg renders raw HTML written in Markdown, so whoever publishes can place HTML and scripts on the site's pages: grant it with the trust you would give to theme edits.",
+        "pl": "Publikowanie zmian treści — tworzenie, edycja i zmiana nazwy artykułów — jako commitów w repozytorium strony albo zapisów w MDDB dla artykułów, które tam są; build strony następnie je wdraża. ssg renderuje surowy HTML wpisany w Markdown, więc kto publikuje, może umieścić HTML i skrypty na stronach witryny: nadawaj je z takim zaufaniem jak do zmian w motywie.",
+        "hi": "सामग्री के बदलाव प्रकाशित करना — लेख बनाना, संपादित करना और उनका नाम बदलना — साइट की रिपॉज़िटरी में कमिट के रूप में, या MDDB में रखे लेखों के लिए MDDB में लिखकर; साइट का बिल्ड फिर उन्हें डिप्लॉय करता है। ssg Markdown में लिखा कच्चा HTML वैसे ही दिखाता है, इसलिए प्रकाशित करने वाला साइट के पेजों पर HTML और स्क्रिप्ट डाल सकता है: यह अनुमति उतने ही भरोसे से दें जितना थीम बदलने के लिए।",
+        "de": "Änderungen an Inhalten veröffentlichen – Artikel anlegen, bearbeiten und umbenennen – als Commits im Repository der Website oder als Schreibvorgänge in MDDB für Artikel, die dort liegen; der Build der Website stellt sie dann bereit. ssg gibt rohes HTML im Markdown unverändert aus, wer veröffentlicht, kann also HTML und Skripte auf die Seiten der Website bringen: vergeben Sie das Recht mit dem Vertrauen, das Sie für Änderungen am Theme brauchen.",
+        "fr": "Publier des modifications du contenu — créer, modifier et renommer des articles — sous forme de commits dans le dépôt du site, ou d'écritures dans MDDB pour les articles qui y sont conservés ; le build du site les déploie ensuite. ssg rend tel quel le HTML brut écrit dans le Markdown : qui publie peut donc placer du HTML et des scripts sur les pages du site. Accordez-la avec la confiance que vous accorderiez aux modifications du thème."
+      }
+    },
+    {
+      "name": "editor-ui:media",
+      "description": {
+        "en": "Add images to a publication (pasted or uploaded into the media folder).",
+        "pl": "Dodawanie obrazków do publikacji (wklejonych lub przesłanych do katalogu mediów).",
+        "hi": "प्रकाशन में चित्र जोड़ना (पेस्ट किए गए या मीडिया फ़ोल्डर में अपलोड किए गए)।",
+        "de": "Bilder zu einer Veröffentlichung hinzufügen (eingefügt oder in den Medienordner hochgeladen).",
+        "fr": "Ajouter des images à une publication (collées ou téléversées dans le dossier des médias)."
+      }
+    },
+    {
+      "name": "editor-ui:delete",
+      "description": {
+        "en": "Delete a content file or an image from the repository (it stays in the repository's history), or an article from MDDB.",
+        "pl": "Usuwanie pliku treści lub obrazka z repozytorium (zostaje w historii repozytorium) albo artykułu z MDDB.",
+        "hi": "रिपॉज़िटरी से कोई सामग्री फ़ाइल या चित्र हटाना (वह रिपॉज़िटरी के इतिहास में बना रहता है), या MDDB से कोई लेख हटाना।",
+        "de": "Eine Inhaltsdatei oder ein Bild aus dem Repository löschen (sie bleibt in der Historie des Repositorys) oder einen Artikel aus MDDB.",
+        "fr": "Supprimer un fichier de contenu ou une image du dépôt (il reste dans l'historique du dépôt), ou un article de MDDB."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/module",
+    "health": "/api/health",
+    "summary": "/api/module/summary"
+  },
+  "disable": {
+    "en": "Delete the Worker with npx wrangler delete in workers/editor-ui, or in the Cloudflare dashboard, then revoke the repository token EDITOR_GIT_TOKEN at the repository host. The site's content stays in its repository unchanged.",
+    "pl": "Usuń Workera poleceniem npx wrangler delete w katalogu workers/editor-ui albo w panelu Cloudflare, a potem unieważnij token repozytorium EDITOR_GIT_TOKEN u dostawcy repozytorium. Treść strony zostaje w repozytorium bez zmian.",
+    "hi": "workers/editor-ui में npx wrangler delete से, या Cloudflare डैशबोर्ड में, Worker हटाएँ, फिर रिपॉज़िटरी होस्ट पर रिपॉज़िटरी टोकन EDITOR_GIT_TOKEN रद्द करें। साइट की सामग्री उसकी रिपॉज़िटरी में बिना बदलाव के रहती है।",
+    "de": "Löschen Sie den Worker mit npx wrangler delete in workers/editor-ui oder im Cloudflare-Dashboard und widerrufen Sie danach das Repository-Token EDITOR_GIT_TOKEN beim Repository-Anbieter. Die Inhalte der Website bleiben unverändert in ihrem Repository.",
+    "fr": "Supprimez le Worker avec npx wrangler delete dans workers/editor-ui, ou dans le tableau de bord Cloudflare, puis révoquez le jeton de dépôt EDITOR_GIT_TOKEN chez l'hébergeur du dépôt. Le contenu du site reste inchangé dans son dépôt."
+  }
+}

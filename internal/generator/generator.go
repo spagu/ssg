@@ -242,6 +242,8 @@ type Config struct {
 	// PreserveSlugCase keeps original casing in slugs derived from filenames.
 	// Default (false): slugs lowercased. When true: original case preserved.
 	PreserveSlugCase bool
+	// SlugTransliterate makes label slugs with models.SlugifyTranslit (#426).
+	SlugTransliterate bool
 
 	// StaticDir is a project-level directory whose entire contents (all files
 	// and subdirectories, recursively) are copied verbatim into the output
@@ -362,6 +364,12 @@ type Config struct {
 	// CheckSchemaRecommended also lists missing recommended properties, as
 	// advice that never fails the build.
 	CheckSchemaRecommended bool
+	// CheckACP validates the rows of every `format: acp` feed: "" | warn |
+	// strict (GO-162).
+	CheckACP string
+	// CheckUCP validates the UCP attributes of the Merchant feeds: "" | warn
+	// | strict (GO-166).
+	CheckUCP string
 	// RecipeHeadings adds section names (per role: ingredients,
 	// instructions) to the ones a Recipe's fields are read from (1.8.72).
 	RecipeHeadings map[string][]string
@@ -553,6 +561,12 @@ type Generator struct {
 	// metadata declares terms, but only a term with posts gets a page, and a
 	// term with its own link gets one somewhere other than /category/ (#228).
 	categoryArchives map[int]string
+	// acpFeeds are the `format: acp` feeds this build wrote, every row with
+	// where it came from, for check_acp (GO-162).
+	acpFeeds []acpFeedRecord
+	// ucpFeeds are the Merchant feeds written with `ucp:`, every row, for
+	// check_ucp (GO-166).
+	ucpFeeds []ucpFeedRecord
 	// postsListings records the prefix each language's post listing was written
 	// under — "" for the site root, "blog" for posts_page: blog. The listing is
 	// a rendered, indexable document that belongs to none of the page or post
@@ -767,6 +781,10 @@ type Generator struct {
 	// publicBefore: the output files the workers' public/ trees land on, as
 	// they were before this build wrote anything (#420, worker_public.go).
 	publicBefore map[string]stamp
+
+	// claimedFiles: non-HTML files pages wrote through their link:, with
+	// what they held after the pages (SR-12, generated_collisions.go).
+	claimedFiles map[string]claimedFile
 }
 
 // resolveLocations loads the configured IANA zones; unknown names warn and are
@@ -1170,6 +1188,9 @@ func (g *Generator) Generate() error {
 	if err := g.runStep("🏗️  Generating site...", g.generateSite, "generating site"); err != nil {
 		return err
 	}
+	// What pages wrote at file addresses (/robots.txt …), so a generated or
+	// static file landing there later is a collision, not a silent loss (SR-12).
+	g.snapshotClaimedFiles()
 
 	// Fail here rather than at the end: everything after this only decorates
 	// output whose content blocks are already known to be incomplete (issue #37).
@@ -1239,6 +1260,10 @@ func (g *Generator) Generate() error {
 	}
 
 	if err := g.profile.Measure("Assets and checks", g.assetPhase); err != nil {
+		return err
+	}
+
+	if err := g.checkClaimedFiles(); err != nil {
 		return err
 	}
 
@@ -1351,6 +1376,12 @@ func (g *Generator) assetPhase() error {
 		return err
 	}
 	if err := g.checkSchemaIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkACPIfRequested(); err != nil {
+		return err
+	}
+	if err := g.checkUCPIfRequested(); err != nil {
 		return err
 	}
 	if err := g.checkAPIIfRequested(); err != nil {
@@ -1601,6 +1632,7 @@ func (g *Generator) finalizeLoadedContent() error {
 			if pattern := g.config.Permalinks[typ]; pattern != "" {
 				pages[i].PermalinkPath = g.expandPermalink(pattern, pages[i])
 			}
+			g.aliasLegacySlug(&pages[i], g.config.Permalinks[typ])
 		}
 	}
 	finalize(g.siteData.Pages, "page")
@@ -1918,7 +1950,7 @@ func (g *Generator) generateSeries() (map[string]string, error) {
 	}
 	slugs := make(map[string]string, len(groups))
 	for _, name := range sortedKeys(groups) {
-		slug := slugify(name)
+		slug := g.labelSlug(name)
 		if slug == "" {
 			continue
 		}
@@ -1950,7 +1982,7 @@ func (g *Generator) generateTags() (map[string]string, error) {
 		// so pre-1.8.6 tag URLs never change.
 		slug := g.siteData.TagSlugs[strings.ToLower(name)]
 		if slug == "" {
-			slug = slugify(name)
+			slug = g.labelSlug(name)
 		}
 		if owner, taken := g.archiveURLOwner("tag", slug); taken {
 			// Suppressed archives stay out of the sitemap/feed slug map (GO-050).
@@ -2003,9 +2035,9 @@ func (g *Generator) authorNameSlug(id int) (name, slug string) {
 	if a, ok := g.siteData.Authors[id]; ok {
 		name = a.Name
 		if a.Slug != "" {
-			return name, slugify(a.Slug)
+			return name, g.labelSlug(a.Slug)
 		}
-		return name, slugify(a.Name)
+		return name, g.labelSlug(a.Name)
 	}
 	return fmt.Sprintf("author-%d", id), fmt.Sprintf("author-%d", id)
 }
@@ -2021,7 +2053,9 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // slugify converts an arbitrary label into a URL-safe slug (lowercase, spaces and
-// punctuation → hyphens), used for series/tag names (AX-005).
+// punctuation → hyphens), used for series/tag names (AX-005). Label slugs go
+// through g.labelSlug, which honours slug_transliterate (#426); this plain
+// form remains for the legacy heading anchors (#310), which must not move.
 //
 // The rule lives in models so the external-source mapper can produce the same
 // slugs from records that the generator produces from content (GO-098) — one
@@ -3698,9 +3732,18 @@ func (g *Generator) tmplIsValidCategory(id int) bool {
 	return !ok || !models.IsCatchAllCategory(cat)
 }
 
-func (g *Generator) tmplGetAuthorName(id int) string {
-	if author, ok := g.siteData.Authors[id]; ok {
-		return author.Name
+// tmplGetAuthorName returns an author's display name, or "" when there is
+// none. It takes the author id a post carries (as before), or the page itself:
+// then a plain frontmatter "author: Jane Doe" that matches no registered
+// author is returned as written, the same rule the generated JSON-LD uses
+// (authorDisplayName). A theme can then omit the author instead of printing an
+// empty name.
+func (g *Generator) tmplGetAuthorName(author any) string {
+	if id, ok := author.(int); ok {
+		return g.siteData.Authors[id].Name // the zero Author for an unknown id: ""
+	}
+	if p, ok := pageFromAny(author); ok {
+		return g.authorDisplayName(p)
 	}
 	return ""
 }

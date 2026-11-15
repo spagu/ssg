@@ -204,7 +204,7 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struc
 	sigCache := newFileSigCache()
 	lastBuild := time.Now()
 	lastSig := sigCache.signature(dirs)
-	configSig := fileSignature(configPath)
+	configSig := configSignature(configPath)
 
 	for {
 		select {
@@ -220,7 +220,7 @@ func runWatchLoop(genCfg generator.Config, cfg *config.Config, stop <-chan struc
 		// The config file is watched as an input of its own: an edit reloads it
 		// and rebuilds with the new settings, so the watcher never keeps building
 		// from the configuration it started with (#70).
-		if sig := fileSignature(configPath); sig != configSig {
+		if sig := configSignature(configPath); sig != configSig {
 			configSig = sig
 			if newGen, newCfg, ok := reloadWatchConfig(os.Args[1:], configPath, cfg); ok {
 				genCfg, cfg = newGen, newCfg
@@ -745,6 +745,7 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		HomePagesLimit:         cfg.HomePagesLimit,
 		HomePostsLimit:         cfg.HomePostsLimit,
 		PreserveSlugCase:       cfg.PreserveSlugCase,
+		SlugTransliterate:      cfg.SlugTransliterate,
 		Permalinks:             cfg.Permalinks,
 		LastmodFromGit:         cfg.LastmodFromGit,
 		Fingerprint:            cfg.Fingerprint,
@@ -816,6 +817,8 @@ func createGeneratorConfig(cfg *config.Config) generator.Config {
 		CheckMeta:              cfg.CheckMeta,
 		CheckSchema:            cfg.CheckSchema,
 		CheckSchemaRecommended: cfg.CheckSchemaRecommended,
+		CheckACP:               cfg.CheckACP,
+		CheckUCP:               cfg.CheckUCP,
 		RecipeHeadings:         cfg.RecipeHeadings,
 		CheckOrphans:           cfg.CheckOrphans,
 		CheckRedirects:         cfg.CheckRedirects,
@@ -1072,6 +1075,8 @@ func bareCheckFlags(cfg *config.Config) map[string]*string {
 		"--check-images":    &cfg.CheckImages,    // #75
 		"--check-meta":      &cfg.CheckMeta,      // #76
 		"--check-schema":    &cfg.CheckSchema,    // #111
+		"--check-acp":       &cfg.CheckACP,       // GO-162
+		"--check-ucp":       &cfg.CheckUCP,       // GO-166
 		"--check-orphans":   &cfg.CheckOrphans,   // #77
 		"--check-redirects": &cfg.CheckRedirects, // #87
 		// On at "warn" by default (#127); the bare flag says so explicitly
@@ -1323,6 +1328,14 @@ func parseMiscEqualFlags(arg string, cfg *config.Config) {
 	case strings.HasPrefix(arg, "--check-schema="):
 		if v := strings.TrimPrefix(arg, "--check-schema="); v == "warn" || v == "strict" {
 			cfg.CheckSchema = v
+		}
+	case strings.HasPrefix(arg, "--check-acp="):
+		if v := strings.TrimPrefix(arg, "--check-acp="); v == "warn" || v == "strict" {
+			cfg.CheckACP = v
+		}
+	case strings.HasPrefix(arg, "--check-ucp="):
+		if v := strings.TrimPrefix(arg, "--check-ucp="); v == "warn" || v == "strict" {
+			cfg.CheckUCP = v
 		}
 	case strings.HasPrefix(arg, "--check-orphans="):
 		if v := strings.TrimPrefix(arg, "--check-orphans="); v == "warn" || v == "strict" {
@@ -1833,6 +1846,7 @@ func printUsage() {
 	fmt.Println("  ssg new wrangler       - Generate a starter wrangler.toml")
 	fmt.Println("  ssg graph [path]       - What a change rebuilds, and why a build cannot be narrowed")
 	fmt.Println("  ssg config view|set|unset - Read and edit the config, comments intact")
+	fmt.Println("  ssg config schema      - Every config key as JSON: type, default, description, class")
 	fmt.Println("  ssg profile page /url/ - What one page cost in the last profiled build")
 	fmt.Println("  ssg import redirects   - Convert a Next.js redirects() rule set")
 	fmt.Println("  ssg migrate <src> <url> - Migrate a live site (see 'ssg migrate --help')")
@@ -1955,6 +1969,10 @@ func printUsage() {
 	fmt.Println("  --no-check-markup      - Turn that default check off")
 	fmt.Println("  --check-schema         - Validate emitted JSON-LD against required properties (warn)")
 	fmt.Println("  --check-schema=MODE    - warn | strict (strict fails the build)")
+	fmt.Println("  --check-acp            - Validate the rows of format: acp feeds (warn mode)")
+	fmt.Println("  --check-acp=MODE       - warn | strict (strict fails the build)")
+	fmt.Println("  --check-ucp            - Validate the UCP attributes of google-merchant feeds (warn mode)")
+	fmt.Println("  --check-ucp=MODE       - warn | strict (strict fails the build)")
 	fmt.Println("  --check-orphans        - Report indexable pages with no inbound links (warn mode)")
 	fmt.Println("  --check-orphans=MODE   - warn | strict (strict fails the build)")
 	fmt.Println("  --check-redirects      - Report links the host would redirect (needs pretty_urls)")
@@ -2243,8 +2261,8 @@ var standaloneFlagNames = []string{
 	"--help", "-h", "--version", "-v", "--license", "--auto-reload", "--no-auto-reload",
 	markdownCacheFlag, noMarkdownCacheFlag,
 	"--profile", "--build-report",
-	"--check-links", "--check-images", "--check-meta", "--check-schema",
-	"--check-orphans", "--check-redirects", "--check-markup", "--seo-off", "--no-check-markup",
+	"--check-links", "--check-images", "--check-meta", "--check-schema", "--check-acp",
+	"--check-ucp", "--check-orphans", "--check-redirects", "--check-markup", "--seo-off", "--no-check-markup",
 }
 
 // nearestFlag returns the known option closest to what was typed, so a

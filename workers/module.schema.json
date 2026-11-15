@@ -98,7 +98,11 @@
       "required": ["name", "description"],
       "properties": {
         "name": { "$ref": "#/$defs/permissionName" },
-        "description": { "$ref": "#/$defs/text" }
+        "description": { "$ref": "#/$defs/text" },
+        "sensitive": {
+          "description": "Optional. true: the auth worker treats this permission as sensitive, like its name rules (*, auth:…, <worker>:erase, <worker>:*) — a service token carries it only when an owner allowed it. Absent or false: the name rules alone decide.",
+          "type": "boolean"
+        }
       }
     },
     "permissionName": {

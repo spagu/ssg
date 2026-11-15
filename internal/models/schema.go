@@ -86,7 +86,7 @@ type FeedSpec struct {
 	Path   string `yaml:"path" toml:"path" json:"path"`       // output path, e.g. "/blog/feed.xml"
 	Name   string `yaml:"name" toml:"name" json:"name"`       // optional handle for the `feed` template helper (#91)
 	Title  string `yaml:"title" toml:"title" json:"title"`    // feed title; defaults to the site domain
-	Format string `yaml:"format" toml:"format" json:"format"` // atom (default) | rss | json
+	Format string `yaml:"format" toml:"format" json:"format"` // atom (default) | rss | json | google-merchant | acp
 
 	// Selection — all optional, combined with AND.
 	Source     string   `yaml:"source" toml:"source" json:"source"`             // a content folder, MDDB section or external_sources name (#386)
@@ -116,6 +116,53 @@ type FeedSpec struct {
 	// Merchant holds the site-wide values of a `format: google-merchant` feed
 	// for attributes a product page does not state (#196).
 	Merchant MerchantDefaults `yaml:"merchant" toml:"merchant" json:"merchant"`
+
+	// ACP holds the seller block of a `format: acp` feed (GO-161, #197): the
+	// fields the Agentic Commerce Protocol feed repeats on every row and a
+	// product page has no word for. `merchant:` above still gives the
+	// availability, condition and brand defaults.
+	ACP ACPSeller `yaml:"acp" toml:"acp" json:"acp"`
+
+	// UCP adds Google's Universal Commerce Protocol attributes to a
+	// `format: google-merchant` feed (GO-166): native_commerce, and with it
+	// variant_option, item_group_title, consumer_notice and merchant_item_id.
+	// nil — no `ucp:` key — leaves the feed exactly as without UCP.
+	UCP *UCPOptions `yaml:"ucp" toml:"ucp" json:"ucp"`
+}
+
+// UCPOptions are the feed-wide UCP values. Names are Merchant Center's own
+// sub-attributes of native_commerce; a page's `merchant:` front matter
+// overrides both per product.
+type UCPOptions struct {
+	// CheckoutEligibility is native_commerce(checkout_eligibility) for every
+	// row; nil is true — the `ucp:` key is the opt-in.
+	CheckoutEligibility *bool `yaml:"checkout_eligibility" toml:"checkout_eligibility" json:"checkout_eligibility"`
+	// CartEligibility is native_commerce(cart_eligibility); nil leaves it
+	// out, which Google reads as eligible (cart transfer is opt-out).
+	CartEligibility *bool `yaml:"cart_eligibility" toml:"cart_eligibility" json:"cart_eligibility"`
+}
+
+// ACPSeller is the site-wide part of an ACP product feed row. Names are the
+// feed's own field names, so the config reads like the file it produces.
+// SellerName, TargetCountries and StoreCountry are required by the feed.
+type ACPSeller struct {
+	SellerName          string `yaml:"seller_name" toml:"seller_name" json:"seller_name"`
+	SellerURL           string `yaml:"seller_url" toml:"seller_url" json:"seller_url"`
+	SellerPrivacyPolicy string `yaml:"seller_privacy_policy" toml:"seller_privacy_policy" json:"seller_privacy_policy"`
+	SellerTOS           string `yaml:"seller_tos" toml:"seller_tos" json:"seller_tos"`
+	ReturnPolicy        string `yaml:"return_policy" toml:"return_policy" json:"return_policy"`
+	// AcceptsReturns nil leaves returns unspecified; ReturnDeadlineInDays is
+	// written only when returns are accepted.
+	AcceptsReturns       *bool    `yaml:"accepts_returns" toml:"accepts_returns" json:"accepts_returns"`
+	ReturnDeadlineInDays int      `yaml:"return_deadline_in_days" toml:"return_deadline_in_days" json:"return_deadline_in_days"`
+	ShippingPrice        string   `yaml:"shipping_price" toml:"shipping_price" json:"shipping_price"` // "5.00 EUR"
+	TargetCountries      []string `yaml:"target_countries" toml:"target_countries" json:"target_countries"`
+	StoreCountry         string   `yaml:"store_country" toml:"store_country" json:"store_country"`
+	IsDigital            *bool    `yaml:"is_digital" toml:"is_digital" json:"is_digital"`
+	// IsEligibleSearch nil is the feed's default (true); IsEligibleCheckout
+	// nil is false. A page's `acp:` front matter overrides both.
+	IsEligibleSearch   *bool `yaml:"is_eligible_search" toml:"is_eligible_search" json:"is_eligible_search"`
+	IsEligibleCheckout *bool `yaml:"is_eligible_checkout" toml:"is_eligible_checkout" json:"is_eligible_checkout"`
 }
 
 // MerchantDefaults are a merchant feed's fallbacks. A page's JSON-LD and its

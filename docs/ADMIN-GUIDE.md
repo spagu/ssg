@@ -21,6 +21,8 @@ the parts you need and does not repeat them. Background on workers in general:
 | `comments` | Pages Functions | comments in D1 with a moderation page at `/comments-admin.html` | D1, Turnstile |
 | `auth` | Pages Functions | accounts, invitations, roles and permissions, a second factor, the accounts admin panel at `/auth/admin/`, a short signed token every other worker can check | its own D1 |
 | `core` | Pages Functions | the admin home at `/core/`, the shared navigation bar, module management, the panels' colours from `admin_theme:` | optionally its own D1 (`CORE_DB`) |
+| `editor-ui` | standalone Worker | articles and images edited in the browser at `/editor/`, each publication one commit to the site's repository | `auth`, a GitHub token for the site's repository |
+| `designer-ui` | standalone Worker | every setting, the theme's colours and fonts, and its files at `/designer/`, one commit per publication | `auth`, a GitHub token for the site's repository |
 
 ## Which ones you need
 
@@ -31,9 +33,13 @@ the parts you need and does not repeat them. Background on workers in general:
 | Comments | `comments` |
 | More than one person in the panels, or different rights per person | add `auth` |
 | One page that says what needs attention, one bar across all panels, your brand colours | add `core` |
+| People who write articles without a checkout of the repository | `auth` + `editor-ui` |
+| People who change settings, colours or the theme in the browser | `auth` + `designer-ui` |
 
 Every panel works on its own, with nothing but a password. `auth` and `core`
-are additions, not requirements.
+are additions, not requirements. The exceptions are `editor-ui` and
+`designer-ui`: they commit to the site's repository on someone's behalf, so
+they accept `auth` accounts only (step 9).
 
 ## Choose how people sign in
 
@@ -332,6 +338,46 @@ and its panel still decides who may use it.
 every colour it had to adjust and why, and the contrast of each pair. It is
 read-only: change `.ssg.yaml` and rebuild.
 
+## 9. Editing content and design in the browser (optional)
+
+`editor-ui` (articles and images) and `designer-ui` (settings, colours, theme
+files) are standalone Workers, deployed from their own directories like
+`newsletter-ui`. They do not touch D1: they read the site from its GitHub
+repository and publish each change as one commit, which your CI builds and
+deploys. Each needs three things — the repository, a fine-grained token for
+that repository with Contents read and write only, and the same three
+`*_AUTH_*` lines as in step 4 with the `EDITOR_` or `DESIGNER_` prefix.
+There is no password mode; Cloudflare Access alone is not enough either.
+
+```sh
+ssg new worker editor-ui
+ssg new worker designer-ui
+```
+
+Then follow [EDITOR.md](EDITOR.md#setup-in-three-steps) and
+[DESIGNER.md](DESIGNER.md#setup-in-three-steps), add both to `modules:` so
+`core` lists them, and grant their permissions through roles.
+`editor-ui:publish`, `designer-ui:theme` and `designer-ui:advanced` are
+sensitive: what they publish runs in your visitors' browsers or in your CI,
+so give them to people you would trust with the repository itself. Before
+handing them out, read what each worker protects and what it does not
+([editor-ui](../workers/editor-ui/README.md#what-it-protects-and-what-it-does-not),
+[designer-ui](../workers/designer-ui/README.md#what-it-protects-and-what-it-does-not)).
+
+## 10. Selling, and selling through AI agents (optional)
+
+The shop (`ecommerce`) sells digital products from the site, with its panel
+at `/ecommerce-admin/`; setup is in its
+[README](../workers/ecommerce/README.md). Its panel takes the same three
+sign-in modes as the others. Showing the products to AI agent platforms and
+taking orders from them is a further, optional step. Applying, certification
+and the payment accounts are the shop owner's part, not ssg's. Step by step:
+
+- [ACP.md](ACP.md) and [ACP-OPERATIONS.md](ACP-OPERATIONS.md): the Agentic
+  Commerce Protocol feed and checkout, testing, monitoring;
+- [UCP.md](UCP.md) and [UCP-OPERATIONS.md](UCP-OPERATIONS.md): Google's
+  Universal Commerce Protocol, testing, monitoring.
+
 ## Putting the panels behind Cloudflare Access instead
 
 Plain Access mode needs no `auth` at all: one Access application per panel
@@ -378,6 +424,10 @@ dates they give; plans change, so follow their links before relying on one.
   13 000 recipients a day fit the 100 000 rows written. Beyond about 10 000
   readers, or to send in one evening, plan on Workers Paid
   ([newsletter-ui](../workers/newsletter-ui/README.md#limits-per-cloudflare-plan)).
+- **`editor-ui` and `designer-ui`:** sized for Workers Free — at most 10
+  files and 2 MiB per publication, on every plan in this version; GitHub's
+  5,000 requests an hour per token are shared by everyone using them
+  ([EDITOR-OPERATIONS.md](EDITOR-OPERATIONS.md#limits-per-cloudflare-plan)).
 
 ## Troubleshooting
 
@@ -413,6 +463,16 @@ From the READMEs:
 - Whether Pages Functions can open the SMTP socket `newsletter`'s
   confirmation mail needs could not be verified
   ([newsletter README](../workers/newsletter/README.md#mail-transports)).
+- `editor-ui` and `designer-ui` were run only against an in-process stand-in
+  for GitHub, never a live repository or a Cloudflare deployment. Two things
+  were not tried: telling a protected branch apart relies on the wording of
+  GitHub's error message, and the refusal of `.github/workflows/` changes to
+  a token without the workflows permission is GitHub's documented behaviour
+  (the workers' own path rules refuse those paths first).
+- The shop's ACP and UCP checkouts were tested against fakes of the
+  platforms and Stripe, never a live platform, Google Pay or Stripe account
+  ([ACP-OPERATIONS.md](ACP-OPERATIONS.md#what-was-not-tried-against-the-real-thing),
+  [UCP-OPERATIONS.md](UCP-OPERATIONS.md#what-was-not-tried-against-the-real-thing)).
 
 The walkthrough this guide follows was run locally: the build output's real
 functions, the `newsletter-ui` Worker and real tokens signed by `auth` and

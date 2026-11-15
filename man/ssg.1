@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.9" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.10" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -49,6 +49,8 @@ ssg \- fast static site generator written in Go
 .RB { view | set | unset }
 .RI [ path ]
 .RI [ value ]
+.br
+.B ssg config schema
 .br
 .B ssg mddb push-theme
 .RB [ \-\-dry ]
@@ -178,7 +180,8 @@ as \fBai (legacy)\fR while it exists.
 .B ssg config \fR{\fBview\fR|\fBset\fR|\fBunset\fR} [\fIpath\fR] [\fIvalue\fR] [\fB\-\-effective\fR] [\fB\-\-string\fR] [\fB\-\-json\fR] [\fB\-\-config=\fIFILE\fR]
 Read and edit the configuration file. \fBview\fR with no path prints the file as
 written; with a path it prints that value; \fB\-\-effective\fR prints it after
-defaults and normalisation — what the generator actually uses.
+defaults and normalisation — what the generator actually uses — with every key
+the configuration schema classes \fBsecret\fR masked.
 .IP
 Paths descend with dots (\fBtaxonomies.audience.multiple\fR); a key containing
 dots or slashes is quoted (\fBheaders."/css/*".Cache\-Control\fR); a list
@@ -191,6 +194,11 @@ because the edit is spliced into the text rather than re-serialised. An edit tha
 would make the config invalid is refused after being checked in a scratch file,
 leaving the original untouched. YAML only in this version; a TOML or JSON config
 is refused rather than rewritten without its comments.
+.TP
+.B ssg config schema
+Print the configuration schema as JSON: every key with its path, type, default,
+description, form group and class (\fBplain\fR, \fBexecutes\fR or \fBsecret\fR).
+Needs no project.
 .TP
 .B ssg profile page \fI/url/\fR
 Report what one page cost in the last profiled build, read from
@@ -338,6 +346,10 @@ defaults to \fBsite\fR.
 Load configuration from a YAML, TOML, or JSON file. If not specified,
 auto-detects \fB.ssg.yaml\fR, \fB.ssg.toml\fR, or \fB.ssg.json\fR in the
 current directory.
+A \fB.ssg.designer.json\fR beside a YAML config is laid over it (mappings
+merge, other values replace, null removes a key); an unknown key, a wrong type
+or a literal secret in it stops the build. Order, lowest first: defaults,
+\fBinclude:\fR files, the config file, \fB.ssg.designer.json\fR, flags.
 .SS Template Engine
 .TP
 .BR \-\-engine =\fIENGINE
@@ -642,7 +654,16 @@ A custom taxonomy's \fBoutputs\fR (or \fBoutputs_index\fR / \fBoutputs_term\fR)
 writes formats from \fBoutputs_custom\fR beside its index and term pages, and
 announces them in the page head. A \fBfeeds:\fR entry with
 \fBformat: google-merchant\fR writes a Google Merchant Center product feed
-from the pages' Product JSON-LD.
+from the pages' Product JSON-LD; \fBformat: acp\fR writes the same products
+as an Agentic Commerce Protocol feed (JSON Lines), with the seller block from
+the entry's \fBacp:\fR (\fBseller_name\fR, \fBtarget_countries\fR and
+\fBstore_country\fR required) and per-product \fBacp:\fR front matter.
+Sending the feed to OpenAI and the checkout are not part of the build.
+A \fBucp:\fR key on a \fBgoogle\-merchant\fR entry adds Google's Universal
+Commerce Protocol attributes (\fBnative_commerce\fR, \fBvariant_option\fR,
+\fBitem_group_title\fR, \fBconsumer_notice\fR, \fBmerchant_item_id\fR) for
+checkout in AI Mode and Gemini; without it the feed is unchanged. Merchant
+Center settings and the UCP checkout are not part of the build.
 .SS Feeds, SEO and Search
 .TP
 .B \-\-feed
@@ -661,6 +682,19 @@ stylesheet and line; \fBstrict\fR fails the build on a dead link.
 .BR \-\-check\-images "[=" \fIstrict\fR|\fIstrict\-decorative ]
 Report images with no \fBalt\fR attribute; \fBstrict\fR fails the build and
 \fBstrict\-decorative\fR also reports \fBalt=""\fR.
+.TP
+.BR \-\-check\-acp "[=" \fIstrict ]
+Validate the rows of every \fBformat: acp\fR feed (\fBcheck_acp\fR): a missing
+required field, a price without a currency, an availability no page states, a
+duplicate \fBoffer_id\fR, a product or seller policy URL that does not resolve
+in the output, a feed with no rows; \fBstrict\fR fails the build.
+.TP
+.BR \-\-check\-ucp "[=" \fIstrict ]
+Validate the UCP attributes of every \fBgoogle\-merchant\fR feed with
+\fBucp:\fR (\fBcheck_ucp\fR): a product Google lists as ineligible for
+checkout (written \fBFALSE\fR), a consumer notice Google would refuse, variants
+without \fBvariant_option\fR, a row left out, a feed with no rows;
+\fBstrict\fR fails the build.
 .TP
 .BR \-\-check\-meta "[=" \fIstrict ]
 Validate title and description on indexable pages.
@@ -1125,6 +1159,14 @@ extension).
 By default slugs are lowercased (\fBAPI.md\fR → \fB/api/\fR). Set
 \fBpreserve_slug_case: true\fR to keep the original casing (\fBAPI.md\fR →
 \fB/API/\fR).
+.PP
+Slugs ssg makes from labels (tag, series and custom taxonomy terms, authors,
+categories of extra content sources, pages from external-source records,
+story pages) keep only \fBa\(enz\fR and \fB0\(en9\fR, so \fBStra\(sse\fR
+becomes \fBstra\-e\fR. Set \fBslug_transliterate: true\fR to drop diacritics
+and fold the Latin letters Unicode does not decompose (\fBstrasse\fR); other
+scripts are not romanised. Each moved archive gets a 301 from its old URL.
+Off by default, so existing URLs stay.
 .SH MD LINK REWRITING
 When \fBrewrite_md_links: true\fR is set, relative \fB.md\fR hrefs in content
 are rewritten to their final output URLs during the build.

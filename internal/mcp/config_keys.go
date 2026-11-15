@@ -1,5 +1,7 @@
 package mcp
 
+import "github.com/spagu/ssg/internal/config"
+
 // The designer's allow-list: which settings an assistant may change through
 // designer_config_set, and how each is written.
 
@@ -23,7 +25,9 @@ type configKey struct {
 // designerConfigKeys is the complete set of writable keys. Anything absent here
 // is refused — notably every secret (`ai.*.key`, `mcp.git.token`, `jwt_secret`,
 // auth), deployment, server, endpoint, hook and URL-structure setting, plus
-// `sass_binary` (an executable path).
+// `sass_binary` (an executable path), and since 1.9.10 `templates_dir` and
+// `static_dir`: they name directories the build reads and copies into the
+// public output, so `static_dir: .` would publish the whole repository.
 //
 // The test for membership is not "is it about rendering" but: does it carry a
 // secret, change where the site deploys, what the server does, or what a URL
@@ -38,56 +42,19 @@ type configKey struct {
 // URL-structure setting, refused by the rule above rather than by oversight.
 // The site's identity for sharing lives under `marketing.` and is writable key
 // by key; `marketing.verification` holds search-console tokens and is not.
-var designerConfigKeys = map[string]configKey{
-	"title":                  {kindString, "the site's name, used in <title>, og:site_name and feeds"},
-	"description":            {kindString, "the site's description, used in the meta description and feeds"},
-	"template":               {kindString, "theme name used to render the site"},
-	"templates_dir":          {kindString, "directory themes are loaded from"},
-	"static_dir":             {kindString, "directory copied verbatim into the output"},
-	"mermaid":                {kindBool, "render mermaid diagrams"},
-	"mermaid_theme":          {kindString, "mermaid built-in theme (default, neutral, dark, forest, base)"},
-	"mermaid_background":     {kindString, "mermaid background colour, e.g. \"#ffffff\""},
-	"highlight":              {kindBool, "syntax-highlight fenced code blocks"},
-	"highlight_style":        {kindString, "syntax-highlight colour scheme"},
-	"highlight_line_numbers": {kindBool, "show line numbers in highlighted code"},
-	"math":                   {kindBool, "render KaTeX math"},
-	"toc":                    {kindBool, "generate a table of contents"},
-	"toc_depth":              {kindInt, "heading depth the table of contents covers"},
-	"minify_html":            {kindBool, "minify generated HTML"},
-	"minify_css":             {kindBool, "minify generated CSS"},
-	"minify_js":              {kindBool, "minify generated JS"},
-	"minify_all":             {kindBool, "minify HTML, CSS and JS together"},
-	"pretty_html":            {kindBool, "indent generated HTML for readability"},
-	"sourcemap":              {kindBool, "emit source maps for compiled assets"},
-	"fingerprint":            {kindBool, "content-hash asset filenames for cache busting"},
-	"paginate":               {kindInt, "posts per page in listings"},
-	"webp":                   {kindBool, "generate WebP variants of images"},
-	"webp_quality":           {kindInt, "WebP encoder quality (1-100)"},
-	"image_formats":          {kindList, "image formats to generate, e.g. \"webp,avif\""},
-	"image_sizes_attr":       {kindString, "default sizes attribute for responsive images"},
-	"clean_special_chars":    {kindBool, "turn curly quotes, dashes and invisible spaces into plain ASCII"},
-	"autolink_list_items":    {kindBool, "link a list item whose whole text is a page title (default on)"},
-	"strip_md_link_text":     {kindBool, "drop \".md\" from link text that is a bare filename"},
+//
+// The list is no longer kept here: since GO-177 it is every configuration
+// schema entry marked .assistant() (internal/config/schema_docs_*.go), so the
+// key, its kind and its description have one source. config_keys_pin_test.go
+// holds the set as it was, so a change to it cannot slip in unnoticed.
+var designerConfigKeys = designerKeysFromSchema()
 
-	"story":           {kindSwitch, "story mode: reading companion and fullscreen presentation of posts"},
-	"listen":          {kindSwitch, "the Listen (read aloud) button"},
-	"print":           {kindSwitch, "the Print / PDF button"},
-	"cook_mode":       {kindSwitch, "the Cook Mode button on recipes"},
-	"heading_anchors": {kindSwitch, "a # link beside each heading"},
-	"og_cards":        {kindSwitch, "a generated share card per page (needs text_color and a background)"},
-	"breadcrumbs":     {kindSwitch, "the BreadcrumbList JSON-LD trail (off when a theme supplies its own)"},
-
-	"markdown_publish": {kindBool, "publish each page's Markdown as index.md, plus llms.txt, for agents"},
-	"site_graph":       {kindBool, "publish site-graph.json (pages, sections, links) for agents"},
-	"webmcp":           {kindBool, "declare search and navigation tools to in-browser agents (WebMCP); turns on search_index"},
-	"search_index":     {kindBool, "publish search-index.json for a client-side search"},
-	"outputs":          {kindList, "formats written for every page, e.g. \"html,json\""},
-
-	"marketing.og_site_name":     {kindString, "og:site_name, when it differs from the title"},
-	"marketing.og_image":         {kindString, "the share image for pages without their own"},
-	"marketing.twitter_site":     {kindString, "the site's X/Twitter handle, e.g. \"@example\""},
-	"marketing.theme_color":      {kindString, "the browser's theme colour, e.g. \"#1a73e8\""},
-	"marketing.logo":             {kindString, "the site's logo"},
-	"marketing.favicon":          {kindString, "the favicon"},
-	"marketing.apple_touch_icon": {kindString, "the home-screen icon"},
+// designerKeysFromSchema reads the allow-list from the configuration schema.
+func designerKeysFromSchema() map[string]configKey {
+	keys := config.MCPWritableKeys()
+	out := make(map[string]configKey, len(keys))
+	for _, k := range keys {
+		out[k.Path] = configKey{kind: k.Kind, desc: k.Description}
+	}
+	return out
 }

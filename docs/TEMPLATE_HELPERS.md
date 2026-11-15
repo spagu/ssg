@@ -302,7 +302,9 @@ bar with `listen.player: full`, or nothing. Without the function, ssg fills a
 `<span data-ssg-listen-slot></span>` in the theme, else places the block after
 the first `</h1>`; a slot is the way to choose the spot that also works with
 older ssg releases. `.AudioURL` and `.AudioLength` are there for a theme that
-builds its own player. See [AUDIO.md](AUDIO.md).
+builds its own player. See [AUDIO.md](AUDIO.md). The button arrives `hidden`
+until its script knows it can work; a theme that sets a `display` on
+`.ssg-listen` must also set `.ssg-listen[hidden] { display: none; }`.
 
 ### `apiHref`, `apiType` — API pages from code
 
@@ -545,9 +547,10 @@ template never prints less than it was given.
   ```gotemplate
   {{ if isValidCategory .Category }}...{{ end }}
   ```
-* **`getAuthorName id`** — Looks up and returns the name of an author by their integer ID from `metadata.json`.
+* **`getAuthorName id|page`** — Looks up and returns the name of an author by their integer ID from `metadata.json`. Given the page itself, it also returns a plain front-matter `author: "Jane Doe"` that matches no registered author, as written — `author` is a reserved key, so it is never in `.Extra`. `""` when there is no author, so a theme can leave the byline (or a JSON-LD `author`) out instead of printing an empty name.
   ```gotemplate
   {{ getAuthorName .Author }}
+  {{ with getAuthorName .Page }}<p class="byline">{{ . }}</p>{{ end }}
   ```
 * **`authorURL author`** — Returns the address of an author's archive, `/author/<slug>/`, or `""` when the value names no author. Accepts the author ID a post carries, the post itself, an author record or a display name. `termURL` covers registered taxonomies only, so this is how a byline links the archive the build published.
   ```gotemplate

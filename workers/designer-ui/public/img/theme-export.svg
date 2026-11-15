@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- A built-in theme: a sealed box with the theme inside and an arrow out to the repository folder. -->
+<path d="M14 46l34-16 34 16v40l-34 16-34-16z" fill="#cfd8dc" stroke="#455a64" stroke-width="2" stroke-linejoin="round"/>
+<path d="M14 46l34 16 34-16M48 62v40" fill="none" stroke="#455a64" stroke-width="2" stroke-linejoin="round"/>
+<rect x="36" y="40" width="24" height="8" rx="2" fill="#80cbc4"/>
+<path d="M90 60h26" stroke="#bf360c" stroke-width="5" stroke-linecap="round"/>
+<path d="M110 50l10 10-10 10" fill="none" stroke="#bf360c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M124 46h12l5 6h13v42h-30z" fill="#00695c"/>
+<path d="M124 56h30" stroke="#e0f2f1" stroke-width="2"/>
+</svg>

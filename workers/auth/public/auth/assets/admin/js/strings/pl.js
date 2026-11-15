@@ -410,7 +410,7 @@ export default {
   "token.perms": "Zawęź do tych uprawnień (opcjonalnie)",
   "token.permsHint": "Oddzielone spacjami lub przecinkami. Puste: wszystko, co ma konto, poza uprawnieniami wrażliwymi.",
   "token.sensitive": "Zezwól na te uprawnienia wrażliwe (tylko właściciele)",
-  "token.sensitiveHint": "Symbole wieloznaczne, auth:…, …:erase i wszystko z roli wymagającej drugiego składnika (domyślnie …:send) trafiają do tokenu tylko wtedy, gdy są tu wymienione.",
+  "token.sensitiveHint": "Symbole wieloznaczne, auth:…, …:erase, uprawnienia oznaczone przez moduł jako wrażliwe i wszystko z roli wymagającej drugiego składnika (domyślnie …:send) trafiają do tokenu tylko wtedy, gdy są tu wymienione.",
   "token.create": "Utwórz token",
   "token.allOfAccount": "Jak konto",
   "token.status.active": "Aktywny",

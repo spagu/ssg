@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- The editor's mark: a page of text with a fountain-pen nib writing its last line, the nib in the focus colour. -->
+<rect x="4" y="3" width="19" height="26" rx="3" fill="#283593"/>
+<path d="M8 9h11M8 13h11M8 17h8M8 21h5" stroke="#e8eaf6" stroke-width="2" stroke-linecap="round"/>
+<g transform="rotate(35 23 20)"><path d="M21 9h5v10l-2.5 5-2.5-5z" fill="#ffffff" stroke="#212121" stroke-width="1.2" stroke-linejoin="round"/><path d="M23.5 15v6" stroke="#bf360c" stroke-width="1.4" stroke-linecap="round"/><circle cx="23.5" cy="14.5" r="1.1" fill="#bf360c"/></g>
+</svg>

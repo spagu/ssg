@@ -56,7 +56,12 @@ func runNewWorker(args []string) int {
 		errf("❌ %v\n", err)
 		return 1
 	}
-	fmt.Printf("✅ Scaffolded worker %q into %s/\n\n", name, dest)
+	fmt.Printf("✅ Scaffolded worker %q into %s/\n", name, dest)
+	if err := scaffoldSharedModuleFiles("workers"); err != nil {
+		errf("❌ %v\n", err)
+		return 1
+	}
+	fmt.Println()
 	if toml, err := fs.ReadFile(ssgroot.EmbeddedWorkers, root+"/wrangler.toml"); err == nil {
 		fmt.Print(standaloneWorkerInstructions(name, toml))
 		fmt.Print(coreRegistrationNote(hasCore, name, toml))

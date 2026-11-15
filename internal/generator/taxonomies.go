@@ -31,7 +31,7 @@ func (g *Generator) buildTaxonomies() error {
 	if err != nil {
 		return err
 	}
-	reg := taxonomy.NewRegistry(defs, names, slugify)
+	reg := taxonomy.NewRegistry(defs, names, g.labelSlug)
 	g.taxonomies = reg
 
 	// Posts drive archives; pages only get .Taxonomies for template helpers.
@@ -310,6 +310,7 @@ func (g *Generator) generateTaxonomies() error {
 		return err
 	}
 	g.authorSlugs = slugs
+	g.redirectMovedAuthors(slugs)
 	return nil
 }
 
@@ -326,12 +327,14 @@ func (g *Generator) renderFoldedBuiltin(def taxonomy.Definition) error {
 			return err
 		}
 		g.seriesSlugs = slugs
+		g.redirectMovedSlugs("series", slugs)
 	case "tag":
 		slugs, err := g.generateTags()
 		if err != nil {
 			return err
 		}
 		g.tagSlugs = slugs
+		g.redirectMovedSlugs("tag", g.derivedTagSlugs(slugs))
 	}
 	return nil
 }
@@ -394,6 +397,9 @@ func (g *Generator) generateTaxonomyArchives(def taxonomy.Definition, lang strin
 		return err
 	}
 
+	if def.Slugify {
+		g.redirectMovedSlugs(base, termSlugs(terms))
+	}
 	for i, t := range terms {
 		posts := sortPostsByDate(g.taxonomies.Pages(def.Name, lang, t.Key))
 		if err := g.renderTermArchive(def, lang, info, views[i], posts, base); err != nil {

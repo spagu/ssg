@@ -410,6 +410,11 @@ type Config struct {
 	// Default (false): slugs are lowercased (e.g. "API.md" → slug "api" → /api/).
 	// When true: original case is preserved (e.g. "API.md" → slug "API" → /API/).
 	PreserveSlugCase bool `yaml:"preserve_slug_case" toml:"preserve_slug_case" json:"preserve_slug_case"`
+	// SlugTransliterate folds Latin letters with diacritics to ASCII in the
+	// slugs ssg makes from labels — terms, series, authors, record pages
+	// (#426): "Straße" → "strasse" instead of "stra-e". Off by default, so
+	// existing URLs stay; when on, each moved URL gets a 301 from the old one.
+	SlugTransliterate bool `yaml:"slug_transliterate" toml:"slug_transliterate" json:"slug_transliterate"`
 
 	// Image Processing
 	WebP            bool `yaml:"webp" toml:"webp" json:"webp"`
@@ -624,6 +629,16 @@ type Config struct {
 	// not require (a Recipe's yield, time, nutrition) to check_schema's report.
 	// Always advisory: they never fail a strict build.
 	CheckSchemaRecommended bool `yaml:"check_schema_recommended" toml:"check_schema_recommended" json:"check_schema_recommended"`
+	// CheckACP validates the rows of every `format: acp` feed: "" (off),
+	// "warn" or "strict" (GO-162). A row OpenAI would reject, a price with no
+	// currency, an availability no page states, a duplicate offer_id, a URL
+	// that does not resolve, a checkout without its policy URLs.
+	CheckACP string `yaml:"check_acp" toml:"check_acp" json:"check_acp"`
+	// CheckUCP validates the UCP attributes of every `format: google-merchant`
+	// feed with a `ucp:` key: "" (off), "warn" or "strict" (GO-166). A row
+	// left out, a restricted product asked into checkout, a consumer notice
+	// Google would refuse, variants without variant_option.
+	CheckUCP string `yaml:"check_ucp" toml:"check_ucp" json:"check_ucp"`
 	// RecipeHeadings adds headings a Recipe's ingredients and method are read
 	// from when its schema: has neither: {ingredients: [...], instructions: [...]}.
 	RecipeHeadings map[string][]string `yaml:"recipe_headings" toml:"recipe_headings" json:"recipe_headings"`
@@ -1262,6 +1277,11 @@ func Load(path string) (*Config, error) {
 		if data, err = resolveIncludes(path, data); err != nil {
 			return nil, fmt.Errorf("resolving includes: %w", err)
 		}
+	}
+	// The designer overlay goes on top of the file, before anything decodes
+	// it (GO-177, overlay.go). No overlay file: data is untouched.
+	if data, err = applyOverlay(path, data, ext); err != nil {
+		return nil, fmt.Errorf("applying %s: %w", OverlayFileName, err)
 	}
 
 	var expanded []ssgi18n.LanguageConfig

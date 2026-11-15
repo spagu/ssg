@@ -5,6 +5,8 @@
 
 import { byCodeUnit, covers } from "./_perms";
 
+const NONE: ReadonlySet<string> = new Set();
+
 // SENSITIVE is the one definition of what a machine never gets by default:
 //   `*`             everything, in every worker;
 //   `auth:…`        any permission of `auth` itself — who may do what;
@@ -16,8 +18,14 @@ import { byCodeUnit, covers } from "./_perms";
 // machineSensitive below adds the second-factor policy (GO-140) — but this
 // list stays as it is: it is also the core of that policy's default
 // (sensitiveForPeople, _mfa-policy.ts) and of Access provisioning's check.
-export function isSensitive(perm: string): boolean {
-  return perm === "*" || perm.startsWith("auth:") || perm.endsWith(":erase") || perm.endsWith(":*");
+//
+// `declared`: the names modules declare `"sensitive": true` in their manifest
+// (GO-181; the registry's `sensitive`, _registry.ts) — designer-ui:theme, for
+// one, whose name no rule above could guess. Sensitive besides the rules,
+// never instead of them; empty by default, so a caller without the registry
+// gets the rules alone.
+export function isSensitive(perm: string, declared: ReadonlySet<string> = NONE): boolean {
+  return perm === "*" || perm.startsWith("auth:") || perm.endsWith(":erase") || perm.endsWith(":*") || declared.has(perm);
 }
 
 // machineSensitive: may a service token carry `perm` only when its
@@ -27,7 +35,8 @@ export function isSensitive(perm: string): boolean {
 // not; _service-policy.ts computes it). A machine can never present a second
 // factor, so whatever people may use only with one, a machine may use only
 // with an owner's explicit allowance.
-export const machineSensitive = (perm: string, free: readonly string[]): boolean => isSensitive(perm) || !covers(free, perm);
+export const machineSensitive = (perm: string, free: readonly string[], declared: ReadonlySet<string> = NONE): boolean =>
+  isSensitive(perm, declared) || !covers(free, perm);
 
 // minimal drops an entry another entry already covers (newsletter:read next
 // to newsletter:*), sorted: the smallest list that means the same.
@@ -54,9 +63,15 @@ export const intersect = (a: readonly string[], b: readonly string[]): string[] 
 // token's list (null = no narrowing), then the machine-sensitive ones removed
 // unless `allowSensitive` (set by an owner at creation) covers them. `free`
 // defaults to the whole account — no second-factor policy, only isSensitive;
-// the exchange always passes it. Tidied last: an account holding both `*` and
-// `web-push:notify` keeps the latter.
-export function tokenPermissions(account: readonly string[], list: readonly string[] | null, allowSensitive: readonly string[], free: readonly string[] = account): string[] {
+// the exchange always passes it, and `declared` from the registry. Tidied
+// last: an account holding both `*` and `web-push:notify` keeps the latter.
+export function tokenPermissions(
+  account: readonly string[],
+  list: readonly string[] | null,
+  allowSensitive: readonly string[],
+  free: readonly string[] = account,
+  declared: ReadonlySet<string> = NONE,
+): string[] {
   const narrowed = list === null ? account : both(account, list);
-  return minimal(narrowed.filter((p) => !machineSensitive(p, free) || covers(allowSensitive, p)));
+  return minimal(narrowed.filter((p) => !machineSensitive(p, free, declared) || covers(allowSensitive, p)));
 }

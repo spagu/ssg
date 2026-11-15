@@ -22,11 +22,11 @@ value or data — anyone allowed to see the module's admin endpoints may see it.
 
 | Reader (1.9.9) | What it does with it |
 |---|---|
-| The module itself | `GET …/api/module` in `comments`, `newsletter`, `newsletter-ui`, `auth` and `core` serves it, behind each module's own admin check |
+| The module itself | `GET …/api/module` in `comments`, `newsletter`, `newsletter-ui`, `auth`, `core`, `ecommerce` (`/api/shop/module`), `editor-ui` and `designer-ui` serves it, behind each module's own admin check |
 | The site build | Checks the manifests of the workers in `workers:` and of `modules:` entries and writes them into a [module registry](#the-module-registry) — **only when one of the workers is `core`** |
-| The `core` worker | Reads that registry, asks each module for its manifest, status and summary, and serves the admin home page (`/core/`) and the shared navigation (`/core/nav.js`), which the `comments`, `newsletter-ui` and `auth` panels include — see [`workers/core/README.md`](../workers/core/README.md) |
+| The `core` worker | Reads that registry, asks each module for its manifest, status and summary, and serves the admin home page (`/core/`) and the shared navigation (`/core/nav.js`), which the `comments`, `newsletter-ui`, `auth`, `ecommerce`, `editor-ui` and `designer-ui` panels include — see [`workers/core/README.md`](../workers/core/README.md) |
 | The `auth` worker | Builds roles from the declared permission names (its own manifest plus the ones you list in `AUTH_KNOWN_PERMISSIONS`; `node workers/auth/scripts/auth-permissions.mjs workers/*/module.json` prints that list) and puts each account's effective permissions in the `perms` of its access token |
-| Every module in `auth` mode | Checks the token's `perms` against the permission each action needs: `comments`, `newsletter`, `newsletter-ui`, `core` and `auth` itself for people, `web-push` and `republish-trigger` for service tokens |
+| Every module in `auth` mode | Checks the token's `perms` against the permission each action needs: `comments`, `newsletter`, `newsletter-ui`, `core`, `ecommerce` and `auth` itself for people, `web-push`, `republish-trigger` and a few reads of `ecommerce` (export, sales figures, its summary) for service tokens; `editor-ui` and `designer-ui` for both, on every REST route and MCP tool |
 | `workers/modules.test.ts` | Checks every bundled template's manifest against its code, and each summary against the summary format |
 
 A module enforces permissions only in the `auth` mode. With a shared password
@@ -72,7 +72,7 @@ before; that is a supported choice for one person, not a gap
 | `title`, `description` | text | Name and one-sentence description. |
 | `panel` | path or `null` | The module's admin panel; `null` when it has none. |
 | `nav` | array (≤ 12) | Entries a shared navigation may show: `label` (text), `path`, `permission` (a name from `permissions`). Empty when there is no panel. |
-| `permissions` | array (≤ 32) | Every permission the admin surface distinguishes: `name` (`namespace:action`) and `description` (text). |
+| `permissions` | array (≤ 32) | Every permission the admin surface distinguishes: `name` (`namespace:action`), `description` (text) and, optionally, `sensitive: true` — `auth` then treats the permission as sensitive besides its name rules: a service token carries it only with an owner's allowance ([service tokens](../workers/auth/docs/SERVICE-TOKENS.md#sensitive-permissions)). |
 | `endpoints` | object of paths | Endpoints that describe the module. Known keys: `manifest` (this file), `health`, `summary` ([the summary endpoint](#the-summary-endpoint)), `openapi`. Only endpoints the module really serves are listed. |
 | `disable` | text | How to really switch the module off. Hiding a module in a navigation does not disable it; this says what does (remove it from `workers:` and deploy, delete the Worker, revoke a webhook…). |
 
@@ -104,13 +104,22 @@ belong to role definitions in `auth`, never to a declaration.
 | `newsletter` | `newsletter:read`, `newsletter:export`, `newsletter:settings` | `GET /api/newsletter/admin` counts (read); `?format=csv` (export); `purge` (settings) |
 | `newsletter-ui` | `newsletter:read`, `newsletter:edit`, `newsletter:send`, `newsletter:import`, `newsletter:export`, `newsletter:erase`, `newsletter:suppress`, `newsletter:settings` | One per level of trust of its admin API: viewing, editing drafts and subscriber fields, mailing real people, importing, exporting, erasing a person, managing suppressions, maintenance |
 | `auth` | `auth:admin`, `auth:invite` | Managing people, roles, groups, grants and anyone's sessions (admin); inviting people with roles no wider than one's own (invite) |
+| `ecommerce` | `ecommerce:read`, `ecommerce:orders`, `ecommerce:refund`, `ecommerce:products`, `ecommerce:settings`, `ecommerce:export` | One per level of trust of the shop's admin API, route by route (`functions/api/shop/_permissions.ts`): viewing, handling orders, refunds (money leaves the shop), products and VAT rates, settings and payment providers, exports with buyers' personal data. A service token is accepted only on `GET` export, stats, manifest and summary, naming the permission exactly ([the shop's README](../workers/ecommerce/README.md#scripts-and-ci-service-tokens)) |
 | `core` | `core:manage` | [Module management](../workers/core/README.md#module-management): order, visibility, labels and notes |
+| `editor-ui` | `editor-ui:read`, `editor-ui:publish` (**sensitive**), `editor-ui:media`, `editor-ui:delete` | Reading content, history and the media library; publishing articles (sensitive: ssg renders raw HTML in Markdown, so a publisher can put scripts on the site's pages); adding images; deleting. Each REST route and MCP tool checks its own ([EDITOR.md](EDITOR.md#permissions-and-suggested-roles)) |
+| `designer-ui` | `designer-ui:read`, `designer-ui:settings`, `designer-ui:advanced` (**sensitive**), `designer-ui:theme` (**sensitive**) | Reading settings and theme; publishing `plain` settings; settings that run code, deploy, read files or refer to `$NAME` (advanced); theme files, which are code the build runs (theme) ([DESIGNER.md](DESIGNER.md#permissions-and-suggested-roles)) |
 | `web-push` | `web-push:notify` | `POST /api/push/notify` (the shared key `PUSH_KEY`, or a service token holding it) |
 | `republish-trigger` | `republish-trigger:run` | `POST /api/republish` (the shared key `REPUBLISH_KEY`, or a service token holding it) |
 | `contact-form`, `conversions-proxy`, `cookie-consent`, `dynamic-price`, `rate-limit`, `stripe-checkout` | none | Public endpoints, or ones authenticated by a provider's signature (Stripe), not by a person or a key you hand out |
 
 The two machine-called templates declare their one action so that an `auth`
 service token can be granted exactly that; the shared keys keep working.
+
+The three permissions marked sensitive are declared `"sensitive": true` in
+their `module.json`. `auth` also knows them as sensitive on its own
+(`_bundled-sensitive.ts`), so a service token carries them only with an
+owner's `allowSensitive` even when `AUTH_KNOWN_PERMISSIONS` lists them as bare
+names or leaves the module out.
 
 ## Versioning
 
@@ -132,8 +141,10 @@ service token can be granted exactly that; the shared keys keep working.
 | `comments` | `GET /api/comments/module` | same gate as `/api/comments/admin` (Cloudflare Access or `COMMENTS_ADMIN_PASSWORD`) |
 | `newsletter` | `GET /api/newsletter/module` | same gate as `/api/newsletter/admin` |
 | `newsletter-ui` | `GET {base}/api/module` | the worker's admin auth, like every `/api/` route |
+| `editor-ui`, `designer-ui` | `GET {base}/api/module` | an `auth` access token holding `editor-ui:read` / `designer-ui:read` |
 | `auth` | `GET /api/auth/module` | an access token holding `auth:admin` |
 | `core` | `GET /api/core/module` | `core`'s own sign-in, like every `/api/core/` route |
+| `ecommerce` | `GET /api/shop/module` | the admin API's gate (Access, `auth` with `ecommerce:read`, or `SHOP_ADMIN_PASSWORD`) |
 
 The answer is the manifest as JSON (`cache-control: no-store`); a refusal is
 byte for byte what the module's admin endpoint answers. It needs no database.
@@ -213,7 +224,7 @@ scan the serialized summary for it (and for any `@`).
 **Auth.** The summary is behind the same gate as the module's manifest and
 admin API, and every refusal is byte for byte what the admin endpoint answers.
 In the `auth` mode it needs the module's read permission (`comments:read`,
-`newsletter:read`, `auth:admin`); with the password or Cloudflare Access
+`newsletter:read`, `auth:admin`, `ecommerce:read`); with the password or Cloudflare Access
 whoever passes may read it.
 
 ### Which templates serve one
@@ -223,7 +234,10 @@ whoever passes may read it.
 | `comments` | `GET /api/comments/module/summary` | `pending`, `approved`, `spam` | `action` while comments await moderation; also `warning` once the oldest has waited 7 days (`STALE_DAYS`); both link to `/comments-admin.html` | `no_database`, `no_turnstile_secret`, `access_incomplete` (only one of `COMMENTS_ACCESS_TEAM` / `_AUD` set) | 1 |
 | `newsletter` | `GET /api/newsletter/module/summary` | `confirmed`, `pending`, `unsubscribed` | none (no panel) | `no_database`, `no_turnstile_secret`, `mail_unusable` (double opt-in configured but the transport can never send — sign-ups are refused), `access_incomplete` | 1 |
 | `auth` | `GET /api/auth/module/summary` | `accounts`, `pendingInvitations`, `liveSessions`, `missingFactor` | `action`: accounts without a second factor their roles need; `warning`: a signing key past the yearly rotation advice; `info`: open invitations — all linking into `/auth/admin/` | `mail_broken`, `mfa_key_short`, `mfa_roles_invalid`, `access_misconfigured` | a few, aggregates only |
+| `ecommerce` | `GET /api/shop/module/summary` | `paidOrders`, `revenue` (after refunds, last 30 days, base currency in its main unit — the currency is in the label, the format has no currency unit), `refunds`, `productsOnSale` | `action`: orders needing review, paid orders without download links (`/ecommerce-admin/#orders`); `warning`: failed payment notifications in 7 days and Stripe test keys or the PayPal sandbox on a public host (`#payments`), outgoing messages failing 5 times (`#log`), VAT rates ending within 30 days with no successor (`#vat`); `info`: VAT table unchanged for a year | `no_database` (Access and `auth` only; the password mode needs D1 for its lockout and answers 503), `no_files`, `no_kv`, `no_gateway`, `no_mail`, `no_seller_details` | 2 (plus the cached settings read) |
 | `newsletter-ui` | `GET {base}/api/module/summary` | `confirmed`, `pending`, `campaignsInProgress`, `suppressed` | `action`: campaigns paused by the send engine (`/#/campaigns?status=paused`), uncertain sends (`/#/`), pending subscribers never sent a confirmation (`/#/subscribers?status=pending`); `warning`: dead-lettered jobs (`/#/`) | `no_subscribers_table`, `no_transport`, `transport_unusable`, `no_site_url`, `no_sender`, `no_queue` — the dashboard's own warnings, in its own words | ≤ 3 |
+| `editor-ui` | `GET {base}/api/module/summary` | `daysSinceContentChange`, `contentFolders` | `info`: the branch publications go to | `repo_not_configured`, `repo_token_rejected`, `repo_not_found`, `repo_unreachable`, `site_config_unreadable`, `site_config_overridden`, `site_config_partial`, `no_content_dirs`, `bad_override` | none (it asks GitHub, no database) |
+| `designer-ui` | `GET {base}/api/module/summary` | `overlaySettings` (keys set in the panel), `themeFiles` | `info`: the branch publications go to | `repo_not_configured`, `repo_token_rejected`, `repo_not_found`, `repo_unreachable`, `config_unreadable`, `config_partly_read`, `overlay_invalid`, `theme_not_editable` | none (it asks GitHub, no database) |
 
 `newsletter-ui`'s series is the sign-ups per day of the last 30 days. Without
 the subscribers table it still answers: the campaign and suppression numbers
@@ -271,6 +285,7 @@ summary:
 |---|---|
 | `comments` | every comment (one pass over the status index) |
 | `newsletter` | every subscriber |
+| `ecommerce` | every order (twice), every refund and product, the unsent outbox rows, a week of payment notifications, the VAT table |
 | `newsletter-ui` | every subscriber twice (status counts, sign-up series), the pending ones again, every `campaign_sends` row, the suppressions |
 
 So with 100 000 subscribers one `newsletter-ui` summary reads a few hundred
@@ -457,6 +472,10 @@ The registry is not part of `site-graph.json` or the `ssg mcp` site tools:
 the graph is a public file, and the registry must not be.
 
 ## Making your own worker a module
+
+The full checklist — what a module must contain to work with `core` and with
+`auth` — is [MODULE-REQUIREMENTS.md](MODULE-REQUIREMENTS.md). The steps below
+cover the manifest.
 
 1. Add `module.json` at the root of the worker's directory, following the
    fields above. Start with `contract: 1`, `version: "1.0.0"`, your directory

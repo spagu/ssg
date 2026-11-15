@@ -487,7 +487,7 @@ Individual content fields are flattened at the root:
 | `.URL`, `.CanonicalURL`, `.OutputPath` | Computed destinations |
 | `.Link`, `.Canonical`, `.Robots`, `.Sitemap` | Explicit URL/SEO values |
 | `.URLFormat`, `.PageFormat`, `.SourceDir` | Per-page URL/output overrides and the source directory |
-| `.Author` | `int` — a metadata ID, **not** a name. Resolve with `getAuthorName .Author` |
+| `.Author` | `int` — a metadata ID, **not** a name. Resolve with `getAuthorName .Author`; `getAuthorName .Page` also returns a plain `author: "Jane Doe"` that no metadata registers (`author` never reaches `.Extra`) |
 | `.Categories` | `[]int` — metadata IDs. Resolve each with `getCategoryName` / `getCategorySlug` |
 | `.Category` | `string` — the primary category name |
 | `.Tags` | `[]string` — names already |

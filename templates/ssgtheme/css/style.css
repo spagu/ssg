@@ -534,6 +534,17 @@ a:hover {
   vertical-align: middle;
 }
 
+/* The three page tools arrive with `hidden`; their scripts remove it only
+   where the tool can work (a Listen button with no MP3 in a browser without
+   speech synthesis stays hidden). An author `display` above outranks the
+   browser's own `[hidden] { display: none }`, so it is restated here — with
+   the higher specificity it wins wherever this file puts it (#417). */
+.ssg-listen[hidden],
+.ssg-print[hidden],
+.ssg-cook[hidden] {
+  display: none;
+}
+
 .ssg-listen-icon {
   flex: none;
   width: 1em;

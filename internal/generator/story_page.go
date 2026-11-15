@@ -117,7 +117,7 @@ func (g *Generator) storyRuleMatches(w StoryWhen, page models.Page) bool {
 func (g *Generator) storyCategories(page models.Page) []string {
 	var out []string
 	for _, n := range append(g.categoryNames(&page), page.Taxonomies["categories"]...) {
-		out = append(out, n, models.Slugify(n))
+		out = append(out, n, g.labelSlug(n))
 	}
 	return out
 }

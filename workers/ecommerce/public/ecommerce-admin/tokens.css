@@ -1,0 +1,99 @@
+/* The shop panel's design tokens (GO-156): every colour, font, radius and
+ * shadow admin.css draws with, as a custom property. Names a site theme knows
+ * — the `core` worker's /core/tokens.css — are used where the meaning is the
+ * same, so the site's own look (/core/theme.css, GO-152, loaded right after
+ * this file) restyles the panel. Without `core` that file answers 404 and
+ * these values stand: the panel looks exactly as before the split.
+ *
+ * Colour is the Google Material palette, picked for contrast rather than for
+ * looks. Every pairing below is measured against WCAG 2.2 AA — 4.5:1 for body
+ * text, 3:1 for borders, icons and large text — and the figure is written
+ * beside it so the next person can check rather than trust. Status is never
+ * colour alone: every badge carries its own word.
+ *
+ * The --ecommerce-* names have no counterpart in core; a theme leaves them.
+ * Core's semantics, as used here: --bg is the page behind the cards,
+ * --surface a card, --surface-sunk a well; --primary the brand and the
+ * primary button, --link links, --focus the focus ring (the three are one
+ * Indigo until a theme separates them); --control the edge of something you
+ * type in. */
+
+:root {
+  color-scheme: light;
+
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Ink. Blue Grey, which is warmer under artificial light than pure grey. */
+  --text: #263238;            /* on white 13.7:1 — AAA */
+  --text-muted: #546e7a;      /* on white 5.6:1 — AA */
+  --ecommerce-faint: #78909c; /* on white 3.4:1 — large text and icons only */
+
+  --surface: #ffffff;
+  --bg: #f4f6f7;              /* rows, wells, the page behind the cards */
+  --surface-sunk: #eceff1;
+  --border: #dde3e6;          /* hairlines between rows */
+  --control: #b0bec5;         /* the edge of a control you can type in */
+
+  /* Indigo 700 / 50 / 900. */
+  --primary: #303f9f;         /* on white 8.6:1 — AAA */
+  --link: #303f9f;            /* links: the brand until a theme sets an accent */
+  --focus: #303f9f;           /* the focus ring */
+  --ecommerce-primary-hover: #283593;
+  --on-primary: #ffffff;      /* on primary 8.6:1 */
+  --primary-soft: #e8eaf6;
+  --on-primary-soft: #1a237e;
+
+  /* Signals. Each is used as dark text on its own pale wash. */
+  --ok: #1b5e20;              /* Green 900, on its wash 7.4:1 */
+  --ecommerce-ok-wash: #e8f5e9;
+  --warning: #e65100;         /* Orange 900, on its wash 5.1:1 */
+  --ecommerce-warning-wash: #fff3e0;
+  --danger: #b71c1c;          /* Red 900, on its wash 8.1:1 */
+  --ecommerce-danger-wash: #ffebee;
+  --ecommerce-info-wash: #e1f5fe;
+  --ecommerce-knob: #ffffff;  /* the moving part of a switch */
+
+  --radius: 10px;
+  --ecommerce-radius-sm: 6px;
+  --ecommerce-shadow-sm: 0 1px 2px rgb(38 50 56 / 6%);
+  --ecommerce-shadow: 0 1px 2px rgb(38 50 56 / 8%), 0 8px 24px rgb(38 50 56 / 8%);
+  --ecommerce-sidebar: 15rem;
+}
+
+/* Dark is not a second palette: the surfaces walk down one ink ramp and the
+ * brand walks up the indigo ramp, because Indigo 700 on near-black is 2.1:1. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --text: #eceff1;            /* on #263238 11.6:1 */
+    --text-muted: #b0bec5;      /* 7.4:1 */
+    --ecommerce-faint: #90a4ae; /* 5.2:1 */
+
+    --surface: #2b3841;
+    --bg: #263238;
+    --surface-sunk: #1f292f;
+    --border: #3d4b54;
+    --control: #607d8b;
+
+    --primary: #9fa8da;         /* Indigo 200 on #2b3841 — 5.4:1 */
+    --link: #9fa8da;
+    --focus: #9fa8da;
+    --ecommerce-primary-hover: #c5cae9;
+    --on-primary: #1a237e;      /* on Indigo 200 8.4:1 */
+    --primary-soft: #323f6b;
+    --on-primary-soft: #c5cae9;
+
+    --ok: #a5d6a7;
+    --ecommerce-ok-wash: #1f3a22;
+    --warning: #ffcc80;
+    --ecommerce-warning-wash: #3d2c15;
+    --danger: #ef9a9a;
+    --ecommerce-danger-wash: #3d1f1f;
+    --ecommerce-info-wash: #1e3540;
+
+    --ecommerce-shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --ecommerce-shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px rgb(0 0 0 / 25%);
+  }
+}

@@ -226,6 +226,9 @@ a key from `auth` takes up to five more minutes to reach a consumer's cache.
 
 ## Make your own worker a consumer
 
+Every requirement in one checklist, together with those of `core`:
+[docs/MODULE-REQUIREMENTS.md](../../../docs/MODULE-REQUIREMENTS.md).
+
 1. Copy `workers/auth/portable/session-verifier.ts` into your template,
    byte for byte. In a Pages template give it a leading underscore, which
    keeps it out of the route table — e.g.

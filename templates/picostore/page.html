@@ -1,0 +1,26 @@
+{{define "page.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" .Page.Excerpt
+    "Canonical" (printf "/%s/" .Page.Slug)
+    "Image" .Page.FeaturedImage
+    "OgType" "article"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <article data-ssg-edit="body">
+        <h1 data-ssg-edit="frontmatter:title">{{ .Page.Title }}</h1>
+        {{ .Page.Content | safeHTML }}
+    </article>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

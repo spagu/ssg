@@ -40,6 +40,13 @@ content_sources:
   (#234), and an alias that meets a page is not written; in both the page
   is kept. Before 1.8.76 a build without i18n let one document silently
   replace the other (#346).
+- **A page and a file ssg writes at one address stop the build too.** A
+  `link:` naming a non-HTML file (`/robots.txt`, `/sitemap.xml`,
+  `/search-index.json`, a feed) that ssg also generates, or that `static/`
+  also holds, used to lose to that file silently. Since 1.9.10 the build
+  stops and names both: give the page a different `link:`, or turn the
+  generated file off (`robots_off: true`, `sitemap_off: true`, …) when the
+  page is meant to be it — then it builds as before.
 - `category` applies only to files whose own frontmatter names no category.
 - A directory that does not exist, is a file, or has an unsupported `type`
   fails the build with a message naming the path; an empty directory warns.

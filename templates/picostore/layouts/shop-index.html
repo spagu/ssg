@@ -1,0 +1,47 @@
+{{define "shop-index.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" .Page.Title (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" .Page.Excerpt
+    "Canonical" (printf "/%s/" .Page.Slug)
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <h1 data-ssg-edit="frontmatter:title">{{ .Page.Title }}</h1>
+    <div data-ssg-edit="body">{{ .Page.Content | safeHTML }}</div>
+
+    <ul class="ps-grid">
+        {{ range where "Layout" "shop-product" .Site.Pages }}
+        <li class="ps-card">
+            {{ if .FeaturedImage }}
+            <img class="ps-card-cover" src="{{ .FeaturedImage }}" alt="" loading="lazy" width="400" height="533">
+            {{ end }}
+            <div class="ps-card-body">
+                <h3><a href="{{ .GetURL }}">{{ .Title }}</a></h3>
+                <p>{{ .Excerpt }}</p>
+                <footer>
+                    <span class="ps-price" data-price-for="{{ .Extra.sku }}">{{ .Extra.price_display }}</span>
+                    <button type="button" class="secondary"
+                            data-add-to-cart
+                            data-sku="{{ .Extra.sku }}"
+                            data-name="{{ .Title }}"
+                            data-price="{{ default 0 .Extra.price_minor }}"
+                            data-currency="{{ default "EUR" .Extra.currency }}"
+                            data-url="{{ .GetURL }}"
+                            data-image="{{ .FeaturedImage }}">Add to basket</button>
+                </footer>
+            </div>
+        </li>
+        {{ end }}
+    </ul>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

@@ -41,6 +41,9 @@ type Config struct {
 	// CLI-only knobs (not read from the config file).
 	ClearCache bool   `yaml:"-" toml:"-" json:"-"` // --clear-external-cache
 	Only       string `yaml:"-" toml:"-" json:"-"` // --external-source=<name>: narrow --refresh to one source
+	// SlugTransliterate is the site-wide slug_transliterate (#426), set by the
+	// generator: it is a key of the site, not of external_sources.
+	SlugTransliterate bool `yaml:"-" toml:"-" json:"-"`
 }
 
 // Defaults apply to every source that does not override them. The two allow_*
@@ -218,6 +221,9 @@ type Source struct {
 	ContentFormat string
 	ContentErrors string
 	MaxRows       int
+	// SlugTransliterate is the site's slug_transliterate (#426), copied from
+	// Config: record slugs fold diacritics instead of dropping the letters.
+	SlugTransliterate bool
 
 	// CMS sources (phases 4-6).
 	Adapter     string
@@ -299,6 +305,7 @@ func resolveAll(cfg Config) ([]Source, []string, error) {
 			}
 			return nil, warnings, err
 		}
+		src.SlugTransliterate = cfg.SlugTransliterate
 		out = append(out, src)
 	}
 	return out, warnings, nil

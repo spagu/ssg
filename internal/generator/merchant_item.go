@@ -26,9 +26,16 @@ func (g *Generator) productItem(node map[string]interface{}, page models.Page, d
 		brand:        firstNonEmpty(ldName(node["brand"]), defaults.Brand),
 		gtin:         ldText(firstLD(node["gtin"], node["gtin13"], node["gtin12"], node["gtin14"], node["gtin8"])),
 		mpn:          ldText(node["mpn"]),
+		node:         node,
+		// The offer's own word, not the feed's default (GO-162).
+		stockFromPage: ldText(offer["availability"]) != "",
 	}
-	if price, currency := ldText(offer["price"]), ldText(offer["priceCurrency"]); price != "" && currency != "" {
+	price, currency := ldText(offer["price"]), ldText(offer["priceCurrency"])
+	switch {
+	case price != "" && currency != "":
 		item.price = price + " " + strings.ToUpper(currency)
+	case price != "":
+		item.bareprice = price
 	}
 	return item
 }
@@ -40,7 +47,7 @@ func merchantAvailability(v string) string {
 	switch strings.ToLower(ldTerm(v)) {
 	case "outofstock", "out_of_stock", "soldout", "discontinued":
 		return "out_of_stock"
-	case "preorder", "presale":
+	case "preorder", "pre_order", "presale":
 		return "preorder"
 	case "backorder":
 		return "backorder"
@@ -152,6 +159,9 @@ func (g *Generator) renderMerchantFeed(title string, items []merchantItem) strin
 			if f.value != "" {
 				fmt.Fprintf(&b, "<g:%s>%s</g:%s>\n", f.name, xmlText(f.value), f.name)
 			}
+		}
+		if it.ucp != nil {
+			it.ucp.writeXML(&b)
 		}
 		b.WriteString("</item>\n")
 	}

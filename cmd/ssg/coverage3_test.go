@@ -20,11 +20,11 @@ import (
 func TestParseCheckFlagBareForms(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.CheckMarkup = ""
-	parseFlags([]string{"--check-images", "--check-meta", "--check-schema", "--check-markup",
+	parseFlags([]string{"--check-images", "--check-meta", "--check-schema", "--check-acp", "--check-ucp", "--check-markup",
 		"--check-orphans", "--check-redirects", "--seo-off"}, cfg)
 	for name, got := range map[string]string{
 		"check-images": cfg.CheckImages, "check-meta": cfg.CheckMeta,
-		"check-schema": cfg.CheckSchema, "check-orphans": cfg.CheckOrphans,
+		"check-schema": cfg.CheckSchema, "check-acp": cfg.CheckACP, "check-ucp": cfg.CheckUCP, "check-orphans": cfg.CheckOrphans,
 		"check-redirects": cfg.CheckRedirects, "check-markup": cfg.CheckMarkup,
 	} {
 		if got != "warn" {

@@ -94,6 +94,10 @@ type Page struct {
 	// ExternalSource is the external_sources entry a `mode: content` page was
 	// built from, so `source: <name>` in sitemaps and feeds can select it (#386).
 	ExternalSource string `yaml:"-" json:"-"`
+	// LegacySlug is the slug the plain Slugify gave a page whose slug
+	// slug_transliterate changed (#426); the generator turns its old URL
+	// into an alias of the new one. Empty when nothing moved.
+	LegacySlug string `yaml:"-" json:"-"`
 	// AudioURL is the site-relative URL of the article read aloud, and
 	// AudioLength its size in bytes, when tts produced one (1.8.65).
 	AudioURL    string `yaml:"-" json:"-"`

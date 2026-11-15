@@ -121,7 +121,7 @@ test("summary kit: what it builds passes the reader; plural forms per language",
 
 test("summary kit: every template's copy is byte for byte the kit", () => {
   const kit = readFileSync(new URL("./module-summary-kit.ts", import.meta.url), "utf8");
-  for (const copy of ["comments/functions/api/comments/_summary-kit.ts", "newsletter/functions/api/newsletter/_summary-kit.ts", "newsletter-ui/src/summary-kit.ts"]) {
+  for (const copy of ["comments/functions/api/comments/_summary-kit.ts", "newsletter/functions/api/newsletter/_summary-kit.ts", "newsletter-ui/src/summary-kit.ts", "ecommerce/functions/api/shop/_summary-kit.ts", "editor-ui/src/summary-kit.ts", "designer-ui/src/summary-kit.ts"]) {
     assert.equal(readFileSync(new URL(`./${copy}`, import.meta.url), "utf8"), kit, `workers/${copy} differs from workers/module-summary-kit.ts — copy it again`);
   }
 });

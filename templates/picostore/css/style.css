@@ -1,0 +1,319 @@
+/* picostore — layout and components.
+ *
+ * Pico styles the elements; this file adds the six things a shop needs that a
+ * classless framework has no opinion about: the header, the product grid, the
+ * product page, the cart, the checkout summary and the status messages.
+ *
+ * Everything here is one class deep. A theme nobody can read is a theme nobody
+ * edits, and the point of this one is that a seller edits it.
+ */
+
+@import url("pico.min.css");
+@import url("tokens.css");
+
+body {
+  background: var(--ps-bg);
+  color: var(--ps-fg);
+}
+
+/* The `hidden` attribute has to win.
+ *
+ * The browser hides it with `[hidden] { display: none }` in its own stylesheet,
+ * which any author rule setting `display` on the same element overrides. Both
+ * the basket's action row (`.ps-buy`, flex) and the downloads list
+ * (`.ps-downloads`, grid) are toggled by script and would otherwise sit on
+ * screen while empty. One line, rather than a rule per component. */
+[hidden] { display: none !important; }
+
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+
+.ps-skip {
+  position: absolute;
+  left: -9999px;
+}
+.ps-skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  background: var(--ps-bg);
+  border: 2px solid var(--ps-brand);
+  border-radius: var(--ps-radius);
+}
+
+/* Present to assistive technology, absent from the page. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ps-hero {
+  padding-block: 2.5rem 1.5rem;
+  max-width: var(--ps-measure);
+}
+.ps-hero h1 {
+  margin-bottom: 0.5rem;
+}
+.ps-hero p {
+  color: var(--ps-fg-muted);
+  font-size: 1.1rem;
+}
+
+.ps-header {
+  border-bottom: 1px solid var(--ps-border);
+  background: var(--ps-bg);
+}
+.ps-header > .container {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-gap);
+  flex-wrap: wrap;
+  padding-block: 0.75rem;
+}
+.ps-brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--ps-fg);
+  text-decoration: none;
+  margin-right: auto;
+}
+.ps-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-nav a {
+  color: var(--ps-fg);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 2px solid transparent;
+}
+.ps-nav a:hover,
+.ps-nav a[aria-current="page"] {
+  border-bottom-color: var(--ps-brand);
+}
+
+/* The basket count is announced, not just drawn: a badge that only changes
+ * colour tells a screen-reader user nothing. */
+.ps-cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ps-cart-count {
+  min-width: 1.6rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--ps-brand);
+  /* The token flips with the scheme (tokens.css). A rule here once matched
+   * :root:not([data-theme="light"]) outside the dark media query, so a light
+   * page drew Indigo 900 on Indigo 700 — 1.6:1. */
+  color: var(--ps-on-brand);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+/* The basket icon is drawn, not typed: an emoji is a missing-glyph box on a
+ * system without an emoji font. */
+.ps-cart-icon {
+  flex: none;
+  vertical-align: middle;
+}
+
+.ps-footer {
+  margin-top: 4rem;
+  padding-block: 2rem;
+  border-top: 1px solid var(--ps-border);
+  color: var(--ps-fg-muted);
+  font-size: 0.9rem;
+}
+
+/* The generator's "Built with ssg" line lands after the footer, a direct child
+ * of <body> outside Pico's body>footer box, so it had no side margin on a
+ * phone. Same box as the footer, breakpoint for breakpoint (pico.min.css). */
+body > .ssg-attribution {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--pico-block-spacing-horizontal) 2rem;
+  color: var(--ps-fg-muted);
+  font-size: 0.9rem;
+}
+@media (min-width: 576px) { body > .ssg-attribution { max-width: 510px; padding-inline: 0; } }
+@media (min-width: 768px) { body > .ssg-attribution { max-width: 700px; } }
+@media (min-width: 1024px) { body > .ssg-attribution { max-width: 950px; } }
+@media (min-width: 1280px) { body > .ssg-attribution { max-width: 1200px; } }
+@media (min-width: 1536px) { body > .ssg-attribution { max-width: 1450px; } }
+
+/* ── Product grid ─────────────────────────────────────────────────────────── */
+
+.ps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+.ps-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ps-border);
+  border-radius: var(--ps-radius);
+  background: var(--ps-bg);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ps-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow);
+}
+.ps-card-cover {
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  background: var(--ps-bg-subtle);
+}
+.ps-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  flex: 1;
+}
+.ps-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+.ps-card h3 a {
+  color: var(--ps-fg);
+  text-decoration: none;
+}
+.ps-card h3 a:hover {
+  color: var(--ps-brand);
+}
+.ps-card p {
+  margin: 0;
+  color: var(--ps-fg-muted);
+  font-size: 0.92rem;
+}
+.ps-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.ps-price {
+  font-weight: 700;
+  color: var(--ps-money);
+  font-size: 1.1rem;
+}
+.ps-price-note {
+  display: block;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--ps-fg-muted);
+}
+
+/* ── Product page ─────────────────────────────────────────────────────────── */
+
+.ps-product {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+@media (max-width: 48rem) {
+  .ps-product {
+    grid-template-columns: 1fr;
+  }
+}
+.ps-product-cover {
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--ps-radius);
+  box-shadow: var(--ps-shadow);
+}
+.ps-buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-block: 1.5rem;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius);
+  background: var(--ps-bg-subtle);
+}
+.ps-buy .ps-price {
+  font-size: 1.5rem;
+  margin-right: auto;
+}
+.ps-buy button {
+  margin: 0;
+  width: auto;
+}
+
+/* A link that looks like a button.
+ *
+ * "Details", "Checkout" and "Back to the basket" go somewhere, so they stay
+ * links. Pico would style them through `role="button"`, but that role tells a
+ * screen reader the element is a button, and a button is expected to answer
+ * the Space key, which a link does not. The class gives the look without the
+ * false promise; Enter still follows the link as it always has. The values are
+ * Pico's own button variables, so the two stay identical. */
+.ps-button {
+  display: inline-block;
+  padding: var(--pico-form-element-spacing-vertical) var(--pico-form-element-spacing-horizontal);
+  border: var(--pico-border-width) solid var(--pico-primary-border);
+  border-radius: var(--pico-border-radius);
+  background-color: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+  font-weight: var(--pico-font-weight);
+  font-size: 1rem;
+  line-height: var(--pico-line-height);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--pico-transition), border-color var(--pico-transition),
+    box-shadow var(--pico-transition);
+}
+.ps-button:is(:hover, :active, :focus) {
+  border-color: var(--pico-primary-hover-border);
+  background-color: var(--pico-primary-hover-background);
+  color: var(--pico-primary-inverse);
+  text-decoration: none;
+}
+.ps-button:focus-visible {
+  box-shadow: 0 0 0 var(--pico-outline-width) var(--pico-primary-focus);
+}
+.ps-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  /* The description follows the facts; without a gap it read as part of the
+   * last row ("Delivery"). */
+  margin: 0 0 1.5rem;
+  font-size: 0.95rem;
+}
+.ps-facts dt {
+  color: var(--ps-fg-muted);
+}
+.ps-facts dd {
+  margin: 0;
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "name": "plain keys at the top level",
+    "text": "{\n  \"description\": \"A site\",\n  \"minify_html\": true,\n  \"port\": 8080,\n  \"title\": \"Example\"\n}\n"
+  },
+  {
+    "name": "nested object fields and an enum",
+    "text": "{\n  \"mddb\": {\n    \"lang\": \"pl_PL\",\n    \"protocol\": \"grpc\",\n    \"timeout\": 10\n  }\n}\n"
+  },
+  {
+    "name": "map entries, a key holding a dot",
+    "text": "{\n  \"ai\": {\n    \"models\": {\n      \"gpt-4.1\": {\n        \"key\": \"$AI_KEY\",\n        \"url\": \"https://example.com/v1/chat\"\n      }\n    }\n  },\n  \"colors\": {\n    \"primary\": \"#00695c\"\n  }\n}\n"
+  },
+  {
+    "name": "lists replaced whole, a list of objects",
+    "text": "{\n  \"hooks\": {\n    \"pre_build\": [\n      \"npm ci\",\n      \"npm run build\"\n    ]\n  },\n  \"languages\": [\n    {\n      \"code\": \"en\",\n      \"locale\": \"en_US\",\n      \"name\": \"English\"\n    },\n    {\n      \"code\": \"pl\",\n      \"locale\": \"pl_PL\",\n      \"name\": \"Polski\"\n    }\n  ]\n}\n"
+  },
+  {
+    "name": "secrets as references in every form",
+    "text": "{\n  \"jwt_secret\": \"${JWT_SECRET}\",\n  \"mddb\": {\n    \"api_key\": \"$MDDB_KEY\"\n  },\n  \"notifications\": [\n    {\n      \"headers\": {\n        \"Authorization\": \"Bearer $HOOK_TOKEN\"\n      },\n      \"name\": \"chat\",\n      \"url\": \"https://example.com/hook\"\n    }\n  ],\n  \"server_users\": [\n    \"admin:$ADMIN_PASSWORD\"\n  ]\n}\n"
+  },
+  {
+    "name": "an alternate form and an open object",
+    "text": "{\n  \"pretty_urls\": false,\n  \"story\": {\n    \"custom_flag\": 1,\n    \"enabled\": true,\n    \"sections\": \"posts\"\n  }\n}\n"
+  },
+  {
+    "name": "removals prune emptied objects",
+    "text": "{\n  \"title\": \"T\",\n  \"variables\": {\n    \"brand\": {\n      \"name\": \"Acme\"\n    }\n  }\n}\n"
+  }
+]

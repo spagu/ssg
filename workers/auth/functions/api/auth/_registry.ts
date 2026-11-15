@@ -14,6 +14,12 @@
 //      be a bare name, and a description a plain string (English); Cloudflare
 //      caps one variable at 5 KB, so full five-language texts may not fit.
 //      scripts/auth-permissions.mjs prints the value from module.json files.
+//
+// A declaration may carry `"sensitive": true` (module.schema.json): the
+// module asks that its permission be treated as sensitive besides the name
+// rules (_service-perms.ts isSensitive) — a service token carries it only
+// with an owner's allowSensitive. Any declaration saying so counts, not only
+// the first: a duplicate must never make a name less protected.
 // GO-144 will write a module registry at build time; buildRegistry takes the
 // same module-shaped entries, so that file becomes a third source here, with
 // no change to the format or to the callers.
@@ -22,6 +28,7 @@
 // (a worker added later, a private worker): it is allowed, kept, and flagged
 // as unknown in the admin answers — never silently dropped.
 
+import { BUNDLED_SENSITIVE } from "./_bundled-sensitive";
 import { MODULE } from "./_module";
 import type { Env } from "./_lib";
 
@@ -33,6 +40,7 @@ export interface KnownPermission {
 
 export interface Registry {
   known: Map<string, KnownPermission>;
+  sensitive: Set<string>; // the names a module declared "sensitive": true
   problems: string[]; // entries that were skipped, for the administrator
 }
 
@@ -50,6 +58,7 @@ function text(v: unknown): Record<string, string> | null {
 // and reported in `problems`.
 export function buildRegistry(sources: readonly unknown[]): Registry {
   const known = new Map<string, KnownPermission>();
+  const sensitive = new Set<string>();
   const problems: string[] = [];
   sources.forEach((src, i) => {
     const m = (src ?? {}) as { id?: unknown; permissions?: unknown };
@@ -58,16 +67,17 @@ export function buildRegistry(sources: readonly unknown[]): Registry {
       return;
     }
     for (const p of m.permissions) {
-      const entry = (typeof p === "string" ? { name: p } : (p ?? {})) as { name?: unknown; description?: unknown };
+      const entry = (typeof p === "string" ? { name: p } : (p ?? {})) as { name?: unknown; description?: unknown; sensitive?: unknown };
       const name = entry.name;
       if (typeof name !== "string" || name.length > 64 || !DECLARED.test(name)) {
         problems.push(`${m.id}: ${JSON.stringify(name ?? null)} is not a permission name`);
         continue;
       }
       if (!known.has(name)) known.set(name, { name, module: m.id, description: text(entry.description) });
+      if (entry.sensitive === true) sensitive.add(name);
     }
   });
-  return { known, problems };
+  return { known, sensitive, problems };
 }
 
 // configured reads AUTH_KNOWN_PERMISSIONS: a JSON string, or the array itself
@@ -94,6 +104,8 @@ export function registryOf(env: Env): Registry {
   if (cache && cache.raw === raw) return cache.registry;
   const c = configured(raw);
   const registry = buildRegistry([MODULE, ...c.sources]);
+  // The templates' own sensitive names hold whatever the variable says (GO-183).
+  for (const name of BUNDLED_SENSITIVE) registry.sensitive.add(name);
   if (c.problem) registry.problems.unshift(c.problem);
   if (registry.problems.length) console.warn(`auth: known permissions: ${registry.problems.join("; ")}`);
   cache = { raw, registry };
