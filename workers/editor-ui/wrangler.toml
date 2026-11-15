@@ -1,0 +1,69 @@
+# editor-ui — a standalone Cloudflare Worker, deployed on its own:
+#   cd workers/editor-ui
+#   1. repository: EDITOR_GIT_REPO (and EDITOR_GIT_BRANCH) below
+#   2. key: npx wrangler secret put EDITOR_GIT_TOKEN
+#      (a fine-grained token for that one repository, "Contents: read and write" only)
+#   3. auth: the EDITOR_AUTH_* variables below — the `auth` worker must run on
+#      the same host. There is no password mode: without a complete set every
+#      request is answered 503.
+#   then: routes below (your domain), npx wrangler deploy
+# Full guide: README.md in this directory.
+
+# Placeholders to replace are marked <…>.
+name = "ssg-editor-ui"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# The worker must own exactly the base path (EDITOR_BASE) on your site, so it
+# never shadows a page. Keep both in step.
+routes = [
+  { pattern = "<example.com>/editor*", zone_name = "<example.com>" },
+]
+
+# Per-IP request volume for every path of the worker. Optional: delete the
+# block to run without it.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1102"          # any id unique within your account
+simple = { limit = 120, period = 60 }   # period is 10 or 60 seconds
+
+# The panel. run_worker_first sends every request through the worker, so the
+# panel files sit behind the same sign-in as the API.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+EDITOR_BASE = "/editor"
+# Where the site's source lives. github.com only in this version.
+EDITOR_GIT_REPO = "github.com/<owner>/<repo>"
+# The branch publications are committed to; empty = the repository's default branch.
+EDITOR_GIT_BRANCH = "main"
+# `auth` accounts on this host — required. The public key is the
+# AUTH_PUBLIC_KEY= line node workers/auth/scripts/auth-keys.mjs prints.
+EDITOR_AUTH_ISSUER = "https://<example.com>/api/auth"
+EDITOR_AUTH_LOGIN_URL = "/auth/login"
+EDITOR_AUTH_PUBLIC_KEY = '<the AUTH_PUBLIC_KEY= line of scripts/auth-keys.mjs>'
+# EDITOR_AUTH_JWKS_URL = "/api/auth/jwks"   # instead of PUBLIC_KEY: exactly one of the two
+# EDITOR_AUTH_AUDIENCE = "<example.com>"    # optional; default the request's host
+# The worker reads where the content lives from the site's .ssg.yaml on the
+# branch. Set these only when it cannot (the health route and the summary say so):
+# EDITOR_CONTENT_DIRS = "content/blog, docs"   # comma-separated repository folders
+# EDITOR_MEDIA_DIR = "content/blog/media"      # where pasted images go: inside static_dir, or <content_dir>/<source>/media
+# The Insert list reads the site's typed components from the components.json
+# its build publishes; set this only when the site lives under a sub-path.
+# EDITOR_COMPONENTS_URL = "/blog/components.json"   # a path on this same site; default /components.json
+# Articles kept in MDDB (README.md, "MDDB as a content source"; MDDB 2.18.8 or later).
+# The collections, their filters and the language come from mddb: in .ssg.yaml.
+# EDITOR_MDDB_URL = "https://mddb.<example.com>"   # https only; no private or loopback host
+# EDITOR_MDDB_COLLECTION = "blog"                  # only this collection (or the one, without a repository)
+# EDITOR_MDDB_LANG = "en"                          # default mddb.lang; the language of new articles
+# EDITOR_MDDB_ALLOW_HTTP = "true"                  # http:// and private hosts: a private network only
+# EDITOR_REBUILD_URL = "/api/republish"            # on this site's origin: a build after each MDDB write
+
+# Secrets (never here — `npx wrangler secret put <NAME>`):
+#   EDITOR_GIT_TOKEN   the repository token; it never leaves the worker except
+#                      to the repository host's API
+#   EDITOR_MDDB_API_KEY  the MDDB key (with EDITOR_MDDB_URL); sent to that server only
+#   EDITOR_REBUILD_KEY   the credential of EDITOR_REBUILD_URL (republish-trigger's key)

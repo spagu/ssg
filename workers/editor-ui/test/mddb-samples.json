@@ -1,0 +1,309 @@
+[
+  {
+    "name": "a post with the usual keys",
+    "doc": {
+      "key": "hello-world",
+      "lang": "en",
+      "meta": {
+        "title": [
+          "Hello, world"
+        ],
+        "date": [
+          "2026-07-14"
+        ],
+        "status": [
+          "publish"
+        ],
+        "type": [
+          "post"
+        ],
+        "tags": [
+          "go",
+          "mddb"
+        ],
+        "categories": [
+          "news"
+        ],
+        "description": [
+          "A first post: short"
+        ]
+      },
+      "contentMd": "# Hello\n\nBody text.\n",
+      "addedAt": 1767225600,
+      "updatedAt": 1767229200
+    },
+    "text": "---\ncategories: [news]\ndate: 2026-07-14\ndescription: \"A first post: short\"\nstatus: publish\ntags: [go, mddb]\ntitle: Hello, world\ntype: post\n---\n# Hello\n\nBody text.\n",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-07-14T00:00:00Z",
+      "published": true,
+      "slug": "hello-world",
+      "status": "publish",
+      "tags": [
+        "go",
+        "mddb"
+      ],
+      "title": "Hello, world",
+      "type": "post"
+    }
+  },
+  {
+    "name": "one tag stays a list, a draft status",
+    "doc": {
+      "key": "draft-one",
+      "lang": "pl",
+      "meta": {
+        "title": [
+          "Szkic"
+        ],
+        "status": [
+          "draft"
+        ],
+        "type": [
+          "post"
+        ],
+        "tags": [
+          "solo"
+        ]
+      },
+      "contentMd": "Tekst\n",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\nstatus: draft\ntags: [solo]\ntitle: Szkic\ntype: post\n---\nTekst\n",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-01-01T00:00:00Z",
+      "published": false,
+      "slug": "draft-one",
+      "status": "draft",
+      "tags": [
+        "solo"
+      ],
+      "title": "Szkic",
+      "type": "post"
+    }
+  },
+  {
+    "name": "no meta at all: slug from the key, date from addedAt, published by default",
+    "doc": {
+      "key": "bare",
+      "lang": "en",
+      "meta": {},
+      "contentMd": "Just text\n",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\n---\nJust text\n",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-01-01T00:00:00Z",
+      "published": true,
+      "slug": "bare",
+      "status": "publish",
+      "tags": null,
+      "title": "",
+      "type": ""
+    }
+  },
+  {
+    "name": "slug in meta wins over the key; RFC 3339 date with an offset",
+    "doc": {
+      "key": "docs/intro",
+      "lang": "en",
+      "meta": {
+        "slug": [
+          "introduction"
+        ],
+        "date": [
+          "2026-03-01T10:30:00+02:00"
+        ],
+        "type": [
+          "page"
+        ],
+        "title": [
+          "Intro"
+        ]
+      },
+      "contentMd": "---\nnot: frontmatter\n---\nThe body starts with a rule.\n",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\ndate: 2026-03-01T10:30:00+02:00\nslug: introduction\ntitle: Intro\ntype: page\n---\n---\nnot: frontmatter\n---\nThe body starts with a rule.\n",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-03-01T08:30:00Z",
+      "published": true,
+      "slug": "introduction",
+      "status": "publish",
+      "tags": null,
+      "title": "Intro",
+      "type": "page"
+    }
+  },
+  {
+    "name": "values that would not read back as strings are quoted",
+    "doc": {
+      "key": "quoted",
+      "lang": "en",
+      "meta": {
+        "title": [
+          "true"
+        ],
+        "weight": [
+          "007"
+        ],
+        "series": [
+          "null"
+        ],
+        "excerpt": [
+          "a # not a comment"
+        ],
+        "keywords": [
+          "x: y"
+        ],
+        "type": [
+          "post"
+        ],
+        "date": [
+          "2026-02-30"
+        ]
+      },
+      "contentMd": "",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\ndate: 2026-02-30\nexcerpt: \"a # not a comment\"\nkeywords: \"x: y\"\nseries: \"null\"\ntitle: \"true\"\ntype: post\nweight: \"007\"\n---\n",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-01-01T00:00:00Z",
+      "published": true,
+      "slug": "quoted",
+      "status": "publish",
+      "tags": null,
+      "title": "true",
+      "type": "post"
+    }
+  },
+  {
+    "name": "two titles are not a title; a key that is not plain YAML is hidden and kept",
+    "doc": {
+      "key": "odd",
+      "lang": "en",
+      "meta": {
+        "title": [
+          "One",
+          "Two"
+        ],
+        "featured image": [
+          "x.png"
+        ],
+        "status": [
+          "publish",
+          "draft"
+        ],
+        "type": [
+          "post"
+        ]
+      },
+      "contentMd": "Body\n",
+      "addedAt": 0,
+      "updatedAt": 0
+    },
+    "text": "---\nstatus: [publish, draft]\ntitle: [One, Two]\ntype: post\n---\nBody\n",
+    "hidden": {
+      "featured image": [
+        "x.png"
+      ]
+    },
+    "page": {
+      "aliases": null,
+      "date": "",
+      "published": true,
+      "slug": "odd",
+      "status": "publish",
+      "tags": null,
+      "title": "",
+      "type": "post"
+    }
+  },
+  {
+    "name": "a structured value travels as JSON in one string; date with a space",
+    "doc": {
+      "key": "schema",
+      "lang": "en",
+      "meta": {
+        "schema": [
+          "{\"@type\":\"Recipe\"}"
+        ],
+        "custom": [
+          "line one\nline two"
+        ],
+        "date": [
+          "2026-05-05 08:00:00"
+        ],
+        "type": [
+          "post"
+        ],
+        "aliases": [
+          "/old/one"
+        ]
+      },
+      "contentMd": "Body\n",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\naliases: [/old/one]\ncustom: \"line one\\nline two\"\ndate: 2026-05-05 08:00:00\nschema: \"{\\\"@type\\\":\\\"Recipe\\\"}\"\ntype: post\n---\nBody\n",
+    "hidden": {},
+    "page": {
+      "aliases": [
+        "/old/one"
+      ],
+      "date": "2026-05-05T08:00:00Z",
+      "published": true,
+      "slug": "schema",
+      "status": "publish",
+      "tags": null,
+      "title": "",
+      "type": "post"
+    }
+  },
+  {
+    "name": "fractional seconds and a type the build does not know",
+    "doc": {
+      "key": "frac",
+      "lang": "en",
+      "meta": {
+        "date": [
+          "2026-05-05T08:00:00.250Z"
+        ],
+        "type": [
+          "note"
+        ],
+        "title": [
+          "Fraction"
+        ]
+      },
+      "contentMd": "x",
+      "addedAt": 1767225600,
+      "updatedAt": 1767225600
+    },
+    "text": "---\ndate: 2026-05-05T08:00:00.250Z\ntitle: Fraction\ntype: note\n---\nx",
+    "hidden": {},
+    "page": {
+      "aliases": null,
+      "date": "2026-05-05T08:00:00.25Z",
+      "published": true,
+      "slug": "frac",
+      "status": "publish",
+      "tags": null,
+      "title": "Fraction",
+      "type": "note"
+    }
+  }
+]

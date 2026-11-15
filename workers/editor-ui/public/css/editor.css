@@ -1,0 +1,128 @@
+/* The editor's own parts: the article list's chips, the details form, the
+ * Markdown editor and its button bar, the preview and history beside it,
+ * the conflict screen, the publish dialog's diffs. Colours only through
+ * tokens. From 320px wide without horizontal page scroll: the preview goes
+ * under the editor below 1100px, tables and code scroll inside their box. */
+
+.chip-ok { color: var(--ok); }
+.chip-local { color: var(--on-primary-soft); background: var(--primary-soft); border-color: var(--primary); }
+.draft-list li { margin-bottom: 8px; }
+.form-problem:empty { display: none; }
+.form-problem { color: var(--critical); font-weight: 600; }
+.mono { overflow-wrap: anywhere; }
+
+/* Details form: two columns where there is room. */
+.fm-card > h2 { font-size: 1.1rem; }
+.fm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 0 16px; align-items: start; }
+.fm-grid .fm-textarea { grid-column: 1 / -1; }
+.fm-grid .check { align-self: center; margin-top: 20px; }
+.fm-raw { margin-top: 4px; }
+.fm-raw summary { min-height: 32px; font-weight: 600; }
+.fm-raw label { display: block; margin: 8px 0 4px; }
+
+/* The editor and the preview: side by side from 1100px. */
+.editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+@media (max-width: 1100px) { .editor-layout { grid-template-columns: minmax(0, 1fr); } }
+.editor-main { min-width: 0; }
+.md-label { display: block; margin: 10px 0 4px; }
+.md-text { min-height: 60vh; font-size: .98rem; line-height: 1.6; tab-size: 4; }
+.save-state { color: var(--text-muted); font-size: .9rem; margin: 6px 0 0; min-height: 1.4em; }
+
+.md-toolbar { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); position: sticky; top: var(--admin-nav-sticky, 0px); z-index: 4; }
+/* Below 900px the panel's own bar is sticky: the button bar scrolls away
+ * rather than slide under it. */
+@media (max-width: 900px) { .md-toolbar { position: static; } }
+.tb-group { display: flex; flex-wrap: wrap; gap: 2px; }
+.tb-btn {
+  min-width: 40px; min-height: 40px; padding: 4px 8px; border-radius: var(--radius);
+  font: inherit; font-weight: 700; color: var(--text); background: transparent; border: 1px solid transparent; cursor: pointer;
+}
+.tb-btn:hover { background: var(--primary-soft); color: var(--on-primary-soft); border-color: var(--control); }
+
+.editor-side { position: sticky; top: calc(8px + var(--admin-nav-sticky, 0px)); max-height: calc(100vh - 24px); overflow: auto; padding: 14px 16px; }
+@media (max-width: 1100px) { .editor-side { position: static; max-height: none; } }
+.side-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.side-tab[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.preview-note { border-top: 1px solid var(--border); padding-top: 8px; }
+
+/* The preview reads like an article: a book serif, a measure of ~70ch. */
+.preview { font-family: var(--font-read); font-size: 1.05rem; line-height: 1.65; max-width: 70ch; overflow-wrap: anywhere; }
+.preview h1, .preview h2, .preview h3, .preview h4 { font-family: var(--font-display); margin: 1.2em 0 .4em; }
+.preview .pv-title { margin-top: 0; }
+.preview img { max-width: 100%; height: auto; border-radius: var(--radius); }
+.preview pre { background: var(--surface-sunk); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; overflow-x: auto; white-space: pre; }
+.preview code { font-family: var(--font-mono); background: var(--surface-sunk); padding: 0 3px; border-radius: 3px; }
+.preview pre code { background: none; padding: 0; }
+.preview blockquote { margin: 0 0 1em; padding: 2px 14px; border-left: 4px solid var(--control); color: var(--text-muted); }
+.preview li.task { list-style: none; margin-left: -1.3em; }
+.preview li.task input { vertical-align: -3px; }
+.preview hr { border: 0; border-top: 2px solid var(--border); margin: 1.5em 0; }
+.pv-table { border-collapse: collapse; }
+.pv-table th, .pv-table td { border: 1px solid var(--border); padding: 4px 8px; }
+.pv-frame { display: block; border: 2px dashed var(--control); border-radius: var(--radius); padding: 8px 10px; margin: 0 0 1em; background: var(--surface-sunk); font-family: var(--font-ui); font-size: .92rem; }
+.pv-frame.pv-inline { display: inline; padding: 0 4px; margin: 0; border-width: 1px; }
+.pv-frame pre { margin: 6px 0 0; border: 0; padding: 0; background: none; white-space: pre-wrap; }
+.pv-label { font-weight: 700; color: var(--text-muted); }
+.pv-unsafe { text-decoration: underline wavy var(--critical); }
+
+/* Images: the alt text dialog shows the image itself. */
+.img-check { display: block; max-width: 100%; max-height: 220px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 4px; }
+
+/* Conflict: theirs and this version side by side from 900px. */
+.conflict-screen > h2 { font-size: 1.3rem; }
+.merge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); margin-top: 12px; }
+@media (max-width: 900px) { .merge { grid-template-columns: minmax(0, 1fr); } }
+
+/* Dialogs, diffs, revisions — as in designer-ui. */
+.dialog-wide { max-width: min(860px, calc(100vw - 32px)); }
+.dialog { max-height: calc(100vh - 32px); overflow: auto; }
+.dialog h2 { overflow-wrap: anywhere; }
+.change-list { padding-left: 1.2em; margin: 0 0 12px; }
+.change-list li { margin-bottom: 4px; overflow-wrap: anywhere; }
+.confirm-list { border: 1px solid var(--warning); border-radius: var(--radius); padding: 10px 12px 0; }
+.pub-diff summary { font-weight: 600; min-height: 32px; }
+.diff { margin: 10px 0; }
+.diff figcaption { font-weight: 600; margin-bottom: 6px; }
+/* Diff lines wrap instead of scrolling: a scrolling box would need its own
+ * keyboard focus (axe scrollable-region-focusable), and prose lines are long. */
+.diff-hunk { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; background: var(--surface); }
+.diff-table { border-collapse: collapse; font-family: var(--font-mono); font-size: .85rem; width: 100%; }
+.diff-table td { padding: 1px 6px; vertical-align: top; white-space: pre-wrap; }
+.diff-table .diff-text { overflow-wrap: anywhere; }
+.diff-n { color: var(--text); text-align: right; width: 1%; white-space: nowrap; user-select: none; }
+.diff-sign { width: 1%; font-weight: 700; }
+.diff-add { background: var(--diff-add); }
+.diff-del { background: var(--diff-del); }
+.diff-gap { margin: 4px 0; color: var(--text-muted); font-size: .85rem; }
+.rev-items { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+.rev-items li { border-top: 1px solid var(--border); padding-top: 8px; }
+.rev-msg { font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.rev-message { background: var(--surface-sunk); padding: 8px 10px; border-radius: var(--radius); }
+.revisions { border: 0; padding: 0; margin: 0; }
+table.keys kbd { font-family: var(--font-mono); white-space: nowrap; }
+
+/* The Insert list and the media library (GO-174): one column of wide
+ * buttons, a grid of thumbnails; the dialog scrolls, the page never does. */
+.insert-group h3 { font-size: 1rem; margin: 14px 0 6px; }
+.insert-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.insert-item {
+  display: grid; gap: 2px; width: 100%; text-align: left; padding: 8px 12px; min-height: 44px;
+  font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+}
+.insert-item:hover, .insert-item:focus-visible { background: var(--primary-soft); color: var(--on-primary-soft); border-color: var(--control); }
+.insert-name { font-weight: 700; }
+.insert-syntax { font-family: var(--font-mono); font-size: .85rem; overflow-wrap: anywhere; }
+.insert-hint { color: var(--text-muted); font-size: .92rem; }
+.insert-item:hover .insert-hint, .insert-item:focus-visible .insert-hint { color: inherit; }
+.insert-call { background: var(--surface-sunk); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); }
+.pv-args { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); gap: 2px 12px; margin: 6px 0 0; }
+.pv-args dt { font-weight: 600; font-family: var(--font-mono); }
+.pv-args dd { margin: 0; overflow-wrap: anywhere; }
+.library-grid { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.library-item {
+  display: grid; gap: 4px; width: 100%; padding: 6px; font: inherit; font-size: .85rem; text-align: left;
+  color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
+}
+.library-item:hover, .library-item:focus-visible { border-color: var(--control); background: var(--primary-soft); color: var(--on-primary-soft); }
+.library-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; background: var(--surface-sunk); }
+.library-name { overflow-wrap: anywhere; }

@@ -1,0 +1,40 @@
+# acp-feed-push — a standalone Cloudflare Worker with one Cron Trigger (GO-164).
+#
+# Pages Functions cannot carry a Cron Trigger, so this sits beside the shop as
+# its own small Worker. On schedule it fetches the ACP product feed the ssg
+# build published on your site and sends it to the agent platform's endpoint
+# with your credential. The site build never touches this directory: it copies
+# only workers/ecommerce/functions/.
+#
+#   cd workers/ecommerce/acp-feed-push
+#   1. fill in the [vars] below (only example.com placeholders here)
+#   2. npx wrangler secret put ACP_FEED_TOKEN     # the platform's credential
+#   3. npx wrangler deploy
+#   4. npx wrangler tail   # one JSON line per run: outcome, bytes, status, ms
+#
+# Full guide: "Selling through AI agents (ACP)" in ../README.md.
+
+name = "ssg-acp-feed-push"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+# Nothing to serve: the Worker only runs on its schedule.
+workers_dev = false
+
+# Every six hours. The platform takes full snapshots; more often than your
+# catalogue changes only spends requests.
+[triggers]
+crons = ["17 */6 * * *"]
+
+[vars]
+# The feed as the ssg build publishes it (`feeds:` with `format: acp`).
+ACP_FEED_SOURCE_URL = "https://example.com/acp/products.jsonl"
+# Where the platform accepts a pushed feed — from the platform's own docs.
+ACP_FEED_TARGET_URL = "https://agent-platform.example.com/feeds/upload"
+# POST (default), PUT or PATCH, whichever the platform's endpoint takes.
+ACP_FEED_METHOD = "POST"
+# A larger feed is not sent (default 20 MiB; at most 100 MiB).
+ACP_FEED_MAX_BYTES = "20971520"
+# Each of the two requests is abandoned after this long (default 30 s).
+ACP_FEED_TIMEOUT_MS = "30000"
+
+# Secret (never here): ACP_FEED_TOKEN, sent as "Authorization: Bearer <token>".

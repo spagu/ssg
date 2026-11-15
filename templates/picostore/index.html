@@ -1,0 +1,63 @@
+{{define "index.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "%s — %s" (default .Domain .Vars.shop_name) (default "Ebooks you can read today" .Vars.shop_tagline)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" (default "A small shop for digital books." .Site.Description)
+    "Canonical" "/"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <section class="ps-hero">
+        <h1>{{ default "Books, delivered the moment you pay for them" .Vars.shop_tagline }}</h1>
+        <p>{{ default "Every title is a direct download. No account, no subscription, no waiting." .Vars.shop_intro }}</p>
+    </section>
+
+    {{/* The catalogue is every page using the product layout, so adding a book
+         is adding one markdown file with a sku in its front matter. */}}
+    {{ $books := where "Layout" "shop-product" .Site.Pages }}
+    {{ if $books }}
+    <h2>In the shop</h2>
+    <ul class="ps-grid">
+        {{ range $books }}
+        <li class="ps-card">
+            {{ if .FeaturedImage }}
+            <img class="ps-card-cover" src="{{ .FeaturedImage }}" alt="" loading="lazy" width="400" height="533">
+            {{ end }}
+            <div class="ps-card-body">
+                <h3><a href="{{ .GetURL }}">{{ .Title }}</a></h3>
+                <p>{{ .Excerpt }}</p>
+                <footer>
+                    <span class="ps-price" data-price-for="{{ .Extra.sku }}">{{ .Extra.price_display }}</span>
+                    <a class="contrast" href="{{ .GetURL }}" role="button">Details</a>
+                </footer>
+            </div>
+        </li>
+        {{ end }}
+    </ul>
+    {{ end }}
+
+    {{ $posts := limit 3 .Posts }}
+    {{ if $posts }}
+    <h2>From the blog</h2>
+    <ul class="ps-grid">
+        {{ range $posts }}
+        <li class="ps-card">
+            <div class="ps-card-body">
+                <h3><a href="{{ .GetURL }}">{{ .Title }}</a></h3>
+                <p>{{ .Excerpt }}</p>
+            </div>
+        </li>
+        {{ end }}
+    </ul>
+    {{ end }}
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

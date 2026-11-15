@@ -184,8 +184,13 @@ carries `WWW-Authenticate: Bearer`, as RFC 6750 asks.
 ```bash
 curl -sX POST http://127.0.0.1:7823/mcp -H 'Mcp-Method: server/discover' \
   -d '{"jsonrpc":"2.0","id":1,"method":"server/discover"}'
-# {"resultType":"complete","protocolVersions":["2026-07-28","2025-06-18"], …}
+# {"resultType":"complete","supportedVersions":["2026-07-28","2025-06-18"],
+#  "protocolVersions":["2026-07-28","2025-06-18"], …}
 ```
+
+`supportedVersions` is the specification's name for the list. Releases before
+1.9.10 called it `protocolVersions`, which is still sent for this release and
+will then be removed: read `supportedVersions` (#427).
 
 **`2026-07-28`** is the stateless shape: no `initialize`, every request carrying
 its own protocol version and client identity in `_meta`, `server/discover`
@@ -206,8 +211,12 @@ extending it, and adopting it by abandoning the older era would strand every
 client that has not moved.
 
 A version this server does not implement is refused with
-`UnsupportedProtocolVersionError` (`-32022`) **listing what it does**, so a
-client can retry rather than guess.
+`UnsupportedProtocolVersionError` (`-32022`) **listing what it does** and what
+was asked — `data: {"supported": […], "requested": "…"}` — so a client can
+retry rather than guess. Over HTTP a modern request gets the status the
+transport ties to its error: **400** for an unsupported version, **404** with
+`-32601` for an unknown method. Every other answer, and every answer to an
+initialize-era request, is 200 as before (#427).
 
 ### Header validation
 

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // RedirectRule is one `_redirects` entry. From/To accept the shared
@@ -45,7 +46,11 @@ func isDynamicRedirect(from string) bool {
 	return strings.Contains(from, "*") || strings.Contains(from, ":")
 }
 
-// normalizeRedirects fills defaults (status 301) and trims whitespace.
+// normalizeRedirects fills defaults (status 301) and trims whitespace. A rule
+// whose path or target still holds white space or a control character is
+// dropped with a warning (GO-183): the _redirects format separates fields by
+// spaces and rules by newlines, so such a value — a quoted front-matter alias
+// or a config entry — would write rules of its own into the file.
 func normalizeRedirects(rules []RedirectRule) []RedirectRule {
 	out := make([]RedirectRule, 0, len(rules))
 	for _, r := range rules {
@@ -57,9 +62,18 @@ func normalizeRedirects(rules []RedirectRule) []RedirectRule {
 		if r.From == "" {
 			continue
 		}
+		if splitsRule(r.From) || splitsRule(r.To) {
+			fmt.Printf("   ⚠️  redirect %q skipped: white space or a control character inside a path or target\n", r.From)
+			continue
+		}
 		out = append(out, r)
 	}
 	return out
+}
+
+// splitsRule reports a character that would end a _redirects field or line.
+func splitsRule(s string) bool {
+	return strings.IndexFunc(s, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) }) >= 0
 }
 
 // sortedRedirects returns rules in a deterministic order, independent of the

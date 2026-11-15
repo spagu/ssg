@@ -427,6 +427,34 @@ is a credential in version control.
 `git_commit` never touches the base branch, and `git_open_pr` opens a pull
 request — it does not merge. The approval step stays with a person.
 
+## On a deployed site: the `editor-ui` and `designer-ui` endpoints
+
+`ssg mcp` needs a checkout and runs beside it. A site that deploys the
+optional [`editor-ui`](EDITOR.md) and [`designer-ui`](DESIGNER.md) workers
+has two more MCP endpoints, on its own host: `POST /editor/mcp` (content and
+media) and `POST /designer/mcp` (settings and theme files). They work on the
+site's GitHub repository through its API, with no checkout.
+
+| | `ssg mcp` | `/editor/mcp`, `/designer/mcp` |
+|---|---|---|
+| Runs | on your machine, stdio or `--listen` | on Cloudflare, Streamable HTTP, stateless |
+| Who | whoever starts it; a static token or OAuth for `--listen` | an `auth` **service token** exchanged for a **10-minute access token**, sent as `Authorization: Bearer` |
+| What a write does | changes the working tree; git is a separate step ending at a pull request | **one commit on the configured branch per call**, which the site's CI deploys |
+| Permissions | the role flag (`--role`) | each tool needs the worker's permission (`editor-ui:publish`, `designer-ui:settings`, …); `tools/list` shows only what the token may call |
+| Lost updates | not checked | `version` / `baseBlobId` from the read; a changed file is `409 conflict` |
+
+The tool names and arguments follow `ssg mcp` where the operation is the same
+(`content_*`, `media_*`, `designer_*`), so one prompt works in both places.
+Because a remote write is published without a pull request, give an
+assistant's service token only what the job needs: `editor-ui:read` or
+`designer-ui:read` alone is read-only, and the sensitive permissions
+(`editor-ui:publish`, `designer-ui:theme`, `designer-ui:advanced`) reach a
+service token only with an owner's `allowSensitive`. The access token expires
+after 10 minutes, so a client configuration with a fixed header needs a fresh
+token from `POST /api/auth/token`; OAuth for these endpoints is not built.
+Examples and the per-worker differences: [EDITOR-API.md](EDITOR-API.md),
+[DESIGNER.md](DESIGNER.md#scripts-and-ai-assistants).
+
 ## What this is not
 
 It does not deploy, does not read or write secrets, and does not run arbitrary
@@ -451,7 +479,8 @@ The properties that matter when a machine is doing the editing:
   JSON-LD, so any schema.org type — `Recipe`, `Product`, `Event` — is expressible
   without SSG knowing about it ([CONFIGURATION.md](CONFIGURATION.md)).
 - **Nothing is published without a person.** The write-back path ends at a pull
-  request.
+  request. (The remote endpoints of `editor-ui` and `designer-ui` above are
+  the exception: there the person is whoever holds the service token.)
 
 ## See also
 

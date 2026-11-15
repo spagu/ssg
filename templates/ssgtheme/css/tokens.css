@@ -61,7 +61,7 @@
   /* ── Semantic: foreground ─────────────────────────────────────────────── */
   --color-fg-primary: #0f172a; /* 17.85:1 on canvas — AAA */
   --color-fg-secondary: #334155; /* 10.35:1 — AAA */
-  --color-fg-muted: #64748b; /* 4.76:1 — AA */
+  --color-fg-muted: #5d6b80; /* 5.41:1 on canvas, 4.88:1 on bg-sunken — AA (was #64748b: 4.29:1 on bg-sunken) */
   --color-fg-onInverse: #ffffff; /* 17.85:1 on inverse — AAA */
   --color-fg-accent: #0050a6; /* 7.78:1 — AA body, AAA large */
   --color-fg-link: #0050a6;

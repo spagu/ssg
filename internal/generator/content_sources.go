@@ -146,6 +146,7 @@ func (g *Generator) ensureCategory(name string) int {
 		g.siteData.Categories = make(map[int]models.Category)
 	}
 	id := maxID + 1
-	g.siteData.Categories[id] = models.Category{ID: id, Name: name, Slug: slugify(name)}
+	g.siteData.Categories[id] = models.Category{ID: id, Name: name, Slug: g.labelSlug(name)}
+	g.redirectMovedSlugs("category", map[string]string{name: g.siteData.Categories[id].Slug})
 	return id
 }

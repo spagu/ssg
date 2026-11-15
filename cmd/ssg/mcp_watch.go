@@ -144,7 +144,7 @@ func newMCPWatcher(r *mcpRebuilder, args []string, configPath string, logf func(
 		sigCache:   cache,
 		lastBuild:  time.Now(),
 		lastSig:    cache.signature(dirs),
-		configSig:  fileSignature(configPath),
+		configSig:  configSignature(configPath),
 		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
 		interval:   mcpWatchInterval,
@@ -158,7 +158,7 @@ func newMCPWatcher(r *mcpRebuilder, args []string, configPath string, logf func(
 // (#180) and rebuilds, so a watcher never keeps building from the configuration
 // it started with.
 func (w *mcpWatcher) poll() bool {
-	if sig := fileSignature(w.configPath); sig != w.configSig {
+	if sig := configSignature(w.configPath); sig != w.configSig {
 		w.configSig = sig
 		w.reload()
 		_, _ = w.rebuilder.rebuild()

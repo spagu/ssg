@@ -44,6 +44,9 @@ var feedFormats = map[string]feedFormat{
 	"json": {mime: "application/feed+json", render: renderJSONFeed},
 	// The products, not the posts: written by writeMerchantFeed (#196).
 	merchantFormat: {mime: "application/rss+xml", unlisted: true},
+	// The same products for the Agentic Commerce Protocol, as JSON Lines:
+	// written by writeACPFeed (GO-161).
+	acpFormat: {mime: "application/jsonl", unlisted: true},
 }
 
 // feedFormatOf resolves a spec's format, defaulting to atom.
@@ -54,7 +57,7 @@ func feedFormatOf(f models.FeedSpec) (feedFormat, string, error) {
 	}
 	format, ok := feedFormats[name]
 	if !ok {
-		return feedFormat{}, name, fmt.Errorf("feeds: %q has unsupported format %q (supported: atom, rss, json, google-merchant)", f.Path, f.Format)
+		return feedFormat{}, name, fmt.Errorf("feeds: %q has unsupported format %q (supported: atom, rss, json, google-merchant, acp)", f.Path, f.Format)
 	}
 	return format, name, nil
 }
@@ -66,6 +69,7 @@ func (g *Generator) generateDeclaredFeeds() error {
 		return nil
 	}
 	g.log("📰 Generating declared feeds...")
+	g.acpFeeds, g.ucpFeeds = nil, nil // a watch rebuild checks this build's rows only
 	for _, spec := range g.config.Feeds {
 		if err := g.writeDeclaredFeed(spec); err != nil {
 			return err
@@ -95,8 +99,11 @@ func (g *Generator) writeDeclaredFeed(spec models.FeedSpec) error {
 	if err != nil {
 		return err
 	}
-	if name == merchantFormat {
+	switch name {
+	case merchantFormat:
 		return g.writeMerchantFeed(spec, rel)
+	case acpFormat:
+		return g.writeACPFeed(spec, rel)
 	}
 
 	full := g.config.FeedFullContent

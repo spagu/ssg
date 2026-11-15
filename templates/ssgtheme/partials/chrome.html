@@ -231,8 +231,8 @@
                     {{ end }}
                     <span class="brand-name">{{ .Domain }}</span>
                     <span class="brand-tag">
-                        A fast static site generator written in Go. Markdown, remote
-                        APIs, SQL and CMS content in — one hardened static site out.
+                        Static site generator in Go for agent-native publishing. Builds HTML,
+                        Markdown, site graphs and product feeds from Markdown, SQL and code.
                     </span>
                     <a class="btn btn--secondary"
                        href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}">
@@ -276,7 +276,7 @@
                 </nav>
             </div>
             <div class="legal">
-                <span>&copy; {{ .Domain }} — documentation built from the repository's own <code class="reg">docs/</code>.</span>
+                <span>&copy; {{ .Domain }}. Documentation built from the repository's <code class="reg">docs/</code> directory.</span>
                 <span>
                     Built with <a href="https://ssg.tradik.com/" data-ssg-attribution rel="generator">SSG</a>{{ if .Vars.version }} {{ .Vars.version }}{{ end }}.
                     Visual language: <a href="https://designstyles.tradik.com/">Tradik design system</a>.

@@ -1,0 +1,91 @@
+{
+  "about": "Component calls the editor-ui panel writes (public/js/models/widget-call.js componentCall). test/panel-widgets.test.ts checks the panel writes exactly `call` from `values`; internal/components/editor_samples_test.go checks ssg's parser reads every `call` back as `props`. Components are in components.json form, as ssg publishes them (a false or zero default is omitted there).",
+  "components": [
+    {
+      "name": "card",
+      "props": [
+        { "name": "caption", "type": "string" },
+        { "name": "count", "type": "number", "default": 3 },
+        { "name": "featured", "type": "bool" },
+        { "name": "kind", "type": "string", "default": "note", "enum": ["note", "warning"] },
+        { "name": "tags", "type": "array" },
+        { "name": "title", "type": "string", "required": true }
+      ]
+    },
+    { "name": "flag", "props": [{ "name": "on", "type": "bool", "required": true }] },
+    { "name": "lights", "props": [{ "name": "on", "type": "bool", "default": true }] },
+    { "name": "plain", "props": [] }
+  ],
+  "samples": [
+    {
+      "component": "card",
+      "values": { "caption": "", "count": "3", "featured": false, "kind": "note", "tags": "", "title": "Hello" },
+      "call": "{{< card title=\"Hello\" >}}",
+      "props": { "count": 3, "kind": "note", "title": "Hello" }
+    },
+    {
+      "component": "card",
+      "values": { "caption": "a > b", "count": "1.5", "featured": true, "kind": "warning", "tags": " go , ssg,, ", "title": "She said \"hi\"" },
+      "call": "{{< card caption=\"a > b\" count=1.5 featured=true kind=\"warning\" tags=\"go, ssg\" title='She said \"hi\"' >}}",
+      "props": { "caption": "a > b", "count": 1.5, "featured": true, "kind": "warning", "tags": ["go", "ssg"], "title": "She said \"hi\"" }
+    },
+    {
+      "component": "card",
+      "values": { "caption": "x=1 y=\"2\"", "count": "-2", "featured": false, "kind": "note", "tags": "one", "title": "It's" },
+      "call": "{{< card caption='x=1 y=\"2\"' count=-2 tags=\"one\" title=\"It's\" >}}",
+      "props": { "caption": "x=1 y=\"2\"", "count": -2, "kind": "note", "tags": ["one"], "title": "It's" }
+    },
+    {
+      "component": "card",
+      "values": { "caption": "[a link](/x) and `code`", "count": "1e3", "featured": false, "kind": "note", "tags": "", "title": "Zażółć {{ }} > }}" },
+      "call": "{{< card caption=\"[a link](/x) and `code`\" count=1e3 title=\"Zażółć {{ }} > }}\" >}}",
+      "props": { "caption": "[a link](/x) and `code`", "count": 1000, "kind": "note", "title": "Zażółć {{ }} > }}" }
+    },
+    {
+      "component": "card",
+      "values": { "caption": " spaced ", "count": ".5", "featured": false, "kind": "note", "tags": "", "title": "=" },
+      "call": "{{< card caption=\" spaced \" count=.5 title=\"=\" >}}",
+      "props": { "caption": " spaced ", "count": 0.5, "kind": "note", "title": "=" }
+    },
+    {
+      "component": "flag",
+      "values": { "on": false },
+      "call": "{{< flag on=false >}}",
+      "props": { "on": false }
+    },
+    {
+      "component": "flag",
+      "values": { "on": true },
+      "call": "{{< flag on=true >}}",
+      "props": { "on": true }
+    },
+    {
+      "component": "lights",
+      "values": { "on": false },
+      "call": "{{< lights on=false >}}",
+      "props": { "on": false }
+    },
+    {
+      "component": "lights",
+      "values": { "on": true },
+      "call": "{{< lights >}}",
+      "props": { "on": true }
+    },
+    {
+      "component": "plain",
+      "values": {},
+      "call": "{{< plain >}}",
+      "props": {}
+    }
+  ],
+  "refused": [
+    { "component": "card", "values": { "title": "" }, "errors": { "title": "required" } },
+    { "component": "card", "values": { "title": "both \" and '" }, "errors": { "title": "quotes" } },
+    { "component": "card", "values": { "title": "two\nlines" }, "errors": { "title": "oneLine" } },
+    { "component": "card", "values": { "title": "ends >}} here" }, "errors": { "title": "terminator" } },
+    { "component": "card", "values": { "title": "t", "count": "three" }, "errors": { "count": "number" } },
+    { "component": "card", "values": { "title": "t", "count": "0x10" }, "errors": { "count": "number" } },
+    { "component": "card", "values": { "title": "t", "kind": "other" }, "errors": { "kind": "enum" } },
+    { "component": "card", "values": { "title": "t", "tags": "a, b >}}" }, "errors": { "tags": "terminator" } }
+  ]
+}

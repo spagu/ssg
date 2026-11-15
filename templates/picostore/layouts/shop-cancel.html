@@ -1,0 +1,35 @@
+{{define "shop-cancel.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "Payment cancelled — %s" (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" "Nothing was charged."
+    "Canonical" "/shop/cancel/"
+    "Robots" "noindex, nofollow"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <h1>Payment cancelled</h1>
+    <div class="ps-note">
+        <strong>Nothing was charged.</strong>
+        You stopped at the payment page, so no money moved and no order was
+        completed.
+    </div>
+    <p>Your basket is still where you left it.</p>
+    <p>
+        <a href="/shop/cart/" role="button">Back to the basket</a>
+        <a href="/" role="button" class="secondary outline">Keep browsing</a>
+    </p>
+    <p><small>If something on the payment page went wrong rather than you
+    changing your mind, <a href="/shop/resend/">tell us</a> — it is useful to
+    know.</small></p>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

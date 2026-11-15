@@ -43,7 +43,7 @@ underline rather than a filled pill, and an **inverse** code block.
 |---|---|---|---|
 | `--color-fg-primary` | `#0F172A` | `#F8FAFC` | 17.9:1 / 16.9:1 — AAA |
 | `--color-fg-secondary` | `#334155` | `#E2E8F0` | 10.4:1 / 13.4:1 — AAA |
-| `--color-fg-muted` | `#64748B` | `#94A3B8` | 4.8:1 / 6.9:1 — AA |
+| `--color-fg-muted` | `#5D6B80` | `#94A3B8` | 5.4:1 / 6.9:1 on the page, 4.9:1 / 5.7:1 on sunken panels — AA |
 | `--color-fg-accent` | `#0050A6` | `#99BFEB` | 7.8:1 / 9.1:1 — AA body |
 | `--color-fg-danger` | `#B42318` | `#FDA29B` | 6.6:1 / 8.4:1 — AA body |
 
@@ -157,7 +157,7 @@ variables:
   logo: logo.png          # assets/logo.png — transparent PNG
   hero_image: river.jpg   # assets/river.jpg
   github_repo: spagu/ssg
-  version: "1.9.9"
+  version: "1.9.10"
   nav:
     - label: Docs
       url: /#documentation

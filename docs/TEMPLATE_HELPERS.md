@@ -302,7 +302,9 @@ bar with `listen.player: full`, or nothing. Without the function, ssg fills a
 `<span data-ssg-listen-slot></span>` in the theme, else places the block after
 the first `</h1>`; a slot is the way to choose the spot that also works with
 older ssg releases. `.AudioURL` and `.AudioLength` are there for a theme that
-builds its own player. See [AUDIO.md](AUDIO.md).
+builds its own player. See [AUDIO.md](AUDIO.md). The button arrives `hidden`
+until its script knows it can work; a theme that sets a `display` on
+`.ssg-listen` must also set `.ssg-listen[hidden] { display: none; }`.
 
 ### `apiHref`, `apiType` — API pages from code
 

@@ -1,0 +1,919 @@
+openapi: 3.1.0
+info:
+  title: editor-ui API
+  version: 0.1.0
+  summary: The API of the ssg editor-ui worker — the site's content in its repository, behind `auth` accounts.
+  description: |
+    Every path is relative to the worker's base path, `EDITOR_BASE` (default
+    `/editor`). The worker accepts `auth` sessions only (README, "Auth is
+    required"): a person's session cookie `__Host-ssg-auth`, or a service
+    token in `Authorization: Bearer` — never one in the place of the other
+    (`wrong_kind`). Without a complete `EDITOR_AUTH_*` set every path,
+    the panel's files included, answers `503 {"error": "auth_not_configured",
+    "detail"}`.
+
+    Permissions: each operation's `x-permission` names what the caller must
+    hold; a missing one is answered `403 {"error": "forbidden", "permission":
+    "<name>"}`. The check is made by the operation itself, so the MCP
+    endpoint (`POST /mcp`) refuses exactly as these routes do.
+
+    A state-changing request authenticated by the cookie must carry an
+    `Origin` of this site or `Sec-Fetch-Site: same-origin`; otherwise it is
+    answered `403 {"error": "cross_origin"}`. A bearer request needs neither.
+
+    Errors are JSON `{"error": "<snake_case_code>", "detail"?: "…"}`.
+    Answers common to every route, not repeated below: `401 {"error":
+    "unauthorized", "reason": "no_session" | "expired" | "invalid_session"}`
+    (a page request is redirected to the login page instead, with a `next`
+    back here), `403` (a permission missing, or a cross-origin write), `404`,
+    `405` (with `allow`), `429` (the RATE_LIMITER binding, with
+    `retry-after`), `500 internal_error`, `503` (`auth_not_configured`,
+    `not_configured` for an unusable key, `auth_unavailable` when the keys
+    cannot be fetched).
+  license:
+    name: Business Source License 1.1
+    identifier: BUSL-1.1
+servers:
+  - url: https://example.com/editor
+    description: Your site's origin plus EDITOR_BASE
+
+security:
+  - authSession: []
+  - serviceToken: []
+
+tags:
+  - name: module
+    description: "The module manifest, health and summary"
+  - name: session
+    description: "Who is signed in and what they may do"
+  - name: content
+    description: "The site's Markdown files: list, read, publish"
+  - name: media
+    description: "Images in the media folder: library, canonical names, references (added through /api/changes)"
+  - name: revisions
+    description: "One article's history: list, read, compare (restore = publish through /api/changes)"
+  - name: mcp
+    description: "The same operations as MCP tools, for an AI assistant or a script (JSON-RPC 2.0)"
+
+paths:
+  /api/module:
+    get:
+      tags: [module]
+      operationId: getModule
+      summary: The module manifest (module.json)
+      x-permission: editor-ui:read
+      responses:
+        "200":
+          description: The manifest as in module.json.
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/health:
+    get:
+      tags: [module]
+      operationId: getHealth
+      summary: Configuration state — never a secret's value, no request to the repository
+      x-permission: editor-ui:read
+      responses:
+        "200":
+          description: What is configured.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, auth, repository, overrides, bindings]
+                properties:
+                  ok:
+                    type: boolean
+                    description: The repository variables are complete.
+                  auth:
+                    type: string
+                    enum: [auth]
+                  repository:
+                    type: object
+                    required: [configured]
+                    properties:
+                      configured: { type: boolean }
+                      provider: { type: string, enum: [github] }
+                      branch:
+                        type: [string, "null"]
+                        description: EDITOR_GIT_BRANCH, or null for the repository's default branch.
+                      problem:
+                        type: string
+                        description: Which variable is missing or malformed (never its value).
+                  overrides:
+                    type: object
+                    properties:
+                      contentDirs: { type: boolean }
+                      mediaDir: { type: boolean }
+                  bindings:
+                    type: object
+                    properties:
+                      assets: { type: boolean }
+                      rateLimiter: { type: boolean }
+  /api/module/summary:
+    get:
+      tags: [module]
+      operationId: getModuleSummary
+      summary: The module summary (workers/module-summary.schema.json)
+      x-permission: editor-ui:read
+      description: |
+        Days since the content last changed, the number of content folders,
+        the branch publications go to, and the repository's and the site
+        configuration's problems. Requests to the repository host: the
+        branch head, the configuration files only when the head moved, and
+        one one-entry history page for each of at most three content folders.
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/me:
+    get:
+      tags: [session]
+      operationId: getMe
+      summary: Who is signed in and which of this module's permissions they hold
+      x-permission: editor-ui:read
+      responses:
+        "200":
+          description: The caller.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kind, user, permissions, sessionExpiresAt, loginUrl, logoutUrl, refreshUrl]
+                properties:
+                  kind: { type: string, enum: [user, service] }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                  permissions:
+                    type: array
+                    items: { type: string }
+                  sessionExpiresAt: { type: string, format: date-time }
+                  loginUrl: { type: string }
+                  logoutUrl: { type: string }
+                  refreshUrl: { type: string }
+
+  /api/site:
+    get:
+      tags: [content]
+      operationId: getSite
+      summary: The site as the panel needs it before listing or creating — sections, languages, shortcode names, media folder and limits
+      description: >-
+        Read from the site model the other operations use. `sections` are the
+        configured sections, then the content folders not already listed, then
+        "mddb:<collection>" for each MDDB collection when MDDB is configured.
+        `media` is null when the site has no folder ssg publishes images from.
+      x-permission: editor-ui:read
+      responses:
+        "200":
+          description: The site.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sections, languages, defaultLanguage, shortcodes, media, limits]
+                properties:
+                  sections:
+                    type: array
+                    items:
+                      type: object
+                      required: [path, type, origin]
+                      properties:
+                        path: { type: string }
+                        type: { type: [string, "null"], enum: [page, post, null] }
+                        origin: { type: string, enum: [git, mddb] }
+                  languages: { type: array, items: { type: string } }
+                  defaultLanguage: { type: [string, "null"] }
+                  shortcodes: { type: array, items: { type: string } }
+                  media:
+                    type: [object, "null"]
+                    properties:
+                      dir: { type: string }
+                      urlBase: { type: string }
+                  limits:
+                    type: object
+                    properties:
+                      maxFilesPerChange: { type: integer }
+                      maxFileBytes: { type: integer }
+                      maxChangeBytes: { type: integer }
+
+  /api/content:
+    get:
+      tags: [content]
+      operationId: listContent
+      summary: The site's Markdown files, a page at a time
+      x-permission: editor-ui:read
+      description: |
+        Every `.md` file inside the site's content folders (read from the
+        branch's `.ssg.yaml`, or `EDITOR_CONTENT_DIRS`), sorted by path.
+        Titles, dates, drafts and languages come from each file's frontmatter
+        and are read lazily: what does not fit the request's subrequest
+        budget comes back with `loaded: false` (counted in `pending`) —
+        asking again fills them in from the worker's cache. The time of each
+        file's last change is not listed (one request per file; see the
+        revisions).
+
+        With `EDITOR_MDDB_URL` set, MDDB articles follow the files under the
+        same cursor, and every item has `origin` (README, "MDDB as a content
+        source"); `section=mddb:<collection>[/<lang>]` lists one collection.
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: "Part of the path, any case." }
+        - { name: section, in: query, schema: { type: string }, description: "A folder inside the content folders." }
+        - { name: cursor, in: query, schema: { type: string }, description: "nextCursor of the previous page." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: One page of files.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContentPage" }
+        "400":
+          description: "`bad_cursor`, or `invalid_path` for a section outside the content folders."
+        "503":
+          description: "`repo_not_configured`, or the site model's error (`site_config_unreadable`, `no_content_dirs`, `bad_override`) with `detail` and `hint`; `mddb_not_configured` with `detail` naming the variable."
+        "502":
+          description: "MDDB failed: `mddb_unavailable`, `mddb_rejected` (the key), `mddb_error`."
+  /api/content/new-path:
+    get:
+      tags: [content]
+      operationId: newContentPath
+      summary: The path a new article would get — the title's slug as ssg makes it
+      x-permission: editor-ui:read
+      description: |
+        `<section>/<slug>.md`, with `-2`, `-3`… when the name is taken. The
+        slug is ssg's (lower-case a–z and 0–9, everything else one hyphen;
+        Latin diacritics folded first when the site sets
+        `slug_transliterate: true`), `untitled` when nothing is left. Nothing is
+        written: publish the file with `version: null`.
+      parameters:
+        - { name: section, in: query, required: true, schema: { type: string } }
+        - { name: title, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: The proposed path.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path, slug]
+                properties:
+                  path: { type: string }
+                  slug: { type: string }
+        "400":
+          description: "`invalid_input` (no section) or `invalid_path`."
+  /api/content/{path}:
+    get:
+      tags: [content]
+      operationId: readContent
+      summary: One article, split into frontmatter and body
+      x-permission: editor-ui:read
+      parameters:
+        - name: path
+          in: path
+          required: true
+          description: The repository path, URL-encoded as one segment (`content%2Fblog%2Fposts%2Fhello.md`), or an MDDB article's `mddb:<collection>/<lang>/<key>`.
+          schema: { type: string }
+      responses:
+        "200":
+          description: The article.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Article" }
+        "400":
+          description: "`invalid_path` — `{path, reason}`; `reason: media` for an image."
+        "404":
+          description: "`not_found`."
+        "422":
+          description: "`not_text` — the file is not UTF-8."
+  /api/changes:
+    post:
+      tags: [content]
+      operationId: publishChange
+      summary: Publish a change — one commit on the branch with every file in it
+      x-permission: editor-ui:publish
+      description: |
+        Needs `editor-ui:publish`; a change with a `delete` needs
+        `editor-ui:delete` as well (checked before anything is read). Every
+        path must be a `.md` file inside the content folders. The commit's
+        author is the signed-in account (its e-mail; a service token's
+        account as `service account <id>`), the message is yours: not empty,
+        a first line of at most 200 characters.
+
+        Each change names the `version` (from `GET /api/content/{path}`) it
+        was made on; `null` means the file must not exist yet. A file that
+        moved on in between is answered `409 conflict` with both texts —
+        nothing is written. A change to another file of the branch is not a
+        conflict. A cookie session must send this site's `Origin`.
+
+        Images travel in the same commit: `{op: "put", path, version: null,
+        base64}` needs `editor-ui:media` as well — without it the whole
+        publication is refused, the text in it included. The path must be
+        canonical for the bytes (`<mediaDir>/<yyyy>/<mm>/<slug>-<8 hex of
+        SHA-256>.<ext>`, see `GET /api/media/new-path`); the type is read from
+        the bytes (PNG, JPEG, WebP, GIF, AVIF; SVG and markup refused). An
+        image already on the branch with the same bytes is not written again
+        and is listed in `files` with its version. Deleting an image is a
+        `delete` like any other (`editor-ui:delete`).
+
+        An MDDB article (`mddb:` path) is published alone: one article, no
+        file beside it, no `move`; its images go to the repository first in
+        a commit of their own (`503 media_needs_repository` without one). The
+        answer adds `origin`, `rebuild` and `notice`; `422 mddb_refused` when
+        MDDB refuses the document (its schema, a read-only collection).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangeRequest" }
+      responses:
+        "201":
+          description: Published.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Published" }
+        "400":
+          description: "`bad_json`, `invalid_change` (with `index`), `invalid_message`, `invalid_path` (`{path, reason}`), `invalid_author`, `fields_refused` (`{path, refused: [{key, reason}]}`), `invalid_image` (`{path, reason: not_canonical | markup | not_an_image | type_mismatch | hash_mismatch, expected?, type?}`)."
+        "409":
+          description: "`conflict` with the files, `branch_busy` (publish again), or `branch_protected` (the branch requires pull requests — unsupported)."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conflict" }
+        "413":
+          description: "`too_large` — too many files, too many form edits (5), or too many bytes (images: with `limits`)."
+        "415":
+          description: "`unsupported_media_type` — send application/json."
+        "422":
+          description: "`not_text` — a form edit of a file that is not UTF-8."
+        "502":
+          description: "`token_rejected` or `provider_error` (also: the request's subrequest budget ran out)."
+  /api/media:
+    get:
+      tags: [media]
+      operationId: listMedia
+      summary: The media library — images in the media folder, newest path first
+      x-permission: editor-ui:read
+      description: |
+        `url` is the root-relative address the site serves the image at once
+        deployed (ssg adds `base_path` at build time); `type` comes from the
+        extension. `limits` are the sizes one publication may carry.
+      parameters:
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 60 } }
+      responses:
+        "200":
+          description: One page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [dir, urlBase, limits, items, nextCursor, truncated]
+                properties:
+                  dir: { type: string, description: The media folder in the repository. }
+                  urlBase: { type: string, description: "Where the site serves it, e.g. /media/." }
+                  limits:
+                    type: object
+                    properties:
+                      maxFilesPerChange: { type: integer }
+                      maxFileBytes: { type: integer }
+                      maxChangeBytes: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [path, url, version, size, type]
+                      properties:
+                        path: { type: string }
+                        url: { type: string }
+                        version: { type: string }
+                        size: { type: [integer, "null"] }
+                        type: { type: string }
+                  nextCursor: { type: [string, "null"] }
+                  truncated: { type: boolean }
+        "400":
+          description: "`bad_cursor`."
+        "503":
+          description: "`media_not_configured` (with `hint`), `repo_not_configured`, or the site model's error."
+  /api/media/new-path:
+    get:
+      tags: [media]
+      operationId: newMediaPath
+      summary: The canonical path of an image added now
+      x-permission: editor-ui:read
+      description: |
+        `<mediaDir>/<yyyy>/<mm>/<slug>-<hash8>.<ext>` — the month now (UTC),
+        the slug of `name` (a–z, 0–9, hyphens; `image` when nothing is left),
+        the first 8 hex of `hash`, the extension of `type`. The panel may
+        compute it itself (src/media-name.ts); a publication is checked
+        against the bytes either way.
+      parameters:
+        - { name: name, in: query, schema: { type: string }, description: The original file name or the alt text. }
+        - { name: type, in: query, required: true, schema: { type: string }, description: "png, jpg, webp, gif, avif or the MIME type — a hint." }
+        - { name: hash, in: query, required: true, schema: { type: string }, description: "Hex SHA-256 of the bytes (8–64 characters)." }
+      responses:
+        "200":
+          description: The path.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path, url, name]
+                properties:
+                  path: { type: string }
+                  url: { type: string, description: What the article links. }
+                  name: { type: string }
+        "400":
+          description: "`unsupported_type` (SVG included) or `bad_hash`."
+        "503":
+          description: "`media_not_configured` (with `hint`)."
+  /api/widgets:
+    get:
+      tags: [content]
+      operationId: listWidgets
+      summary: What an article can contain beyond plain Markdown — typed components, shortcodes, built-in blocks
+      x-permission: editor-ui:read
+      description: |
+        One list from three sources (GO-174):
+
+        - `component`: the site's typed components, from the `components.json`
+          its last build published (`EDITOR_COMPONENTS_URL`, default
+          `/components.json` on the editor's own origin). Fetched with no
+          credentials, no redirects followed, a 5 s time limit and a 256 KiB
+          size limit. A missing, redirected, oversized or malformed file gives
+          no components and `components.status` plus `components.hint` saying
+          why; the rest of the list is still answered.
+        - `shortcode`: the `shortcodes:` of the branch's `.ssg.yaml`.
+        - `block`: table, code block, footnote and video embed always;
+          Mermaid with `mermaid: true`, math with `math: true`.
+
+        `syntax` is text to insert as it stands; a component's is its shortest
+        valid call. Calls are written `{{< name key="value" n=3 flag=true
+        list="a, b" >}}` on one line (docs/COMPONENTS.md).
+      responses:
+        "200":
+          description: The widgets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor, components, features]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [kind, name, title, description, syntax]
+                      properties:
+                        kind: { type: string, enum: [component, shortcode, block] }
+                        name: { type: string, description: "A component or shortcode name; for a block one of table, code, mermaid, math, footnote, embed." }
+                        title: { type: string }
+                        description: { type: string }
+                        syntax: { type: string }
+                        props:
+                          type: array
+                          description: Components only, in name order.
+                          items:
+                            type: object
+                            required: [name, type, required]
+                            properties:
+                              name: { type: string }
+                              type: { type: string, enum: [string, number, bool, array] }
+                              required: { type: boolean }
+                              default: { description: "A string, number, bool or list of strings." }
+                              enum: { type: array, items: { type: string } }
+                              description: { type: string }
+                  nextCursor: { type: "null" }
+                  components:
+                    type: object
+                    required: [status, url]
+                    properties:
+                      status: { type: string, enum: [ok, not_published, redirected, unavailable, too_large, invalid, bad_url] }
+                      url: { type: [string, "null"] }
+                      httpStatus: { type: integer }
+                      hint: { type: string }
+                  features:
+                    type: object
+                    required: [mermaid, math, shortcodeBrackets]
+                    properties:
+                      mermaid: { type: boolean }
+                      math: { type: boolean }
+                      shortcodeBrackets: { type: boolean }
+        "503":
+          description: "`repo_not_configured`, or the site model's error (with `hint`)."
+  /api/media/references:
+    get:
+      tags: [media]
+      operationId: mediaReferences
+      summary: The articles linking an image — the warning before deleting it
+      x-permission: editor-ui:read
+      description: |
+        Markdown content files only. A link counts when it ends in the
+        image's path below the media folder. The search stops before the
+        request's subrequest budget runs out: `complete: false` and
+        `nextCursor` to go on (items are per page — add them up).
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string }, description: The image's repository path. }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: The articles found on this page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path, url, items, scanned, total, complete, nextCursor]
+                properties:
+                  path: { type: string }
+                  url: { type: string }
+                  items: { type: array, items: { type: object, properties: { path: { type: string } } } }
+                  scanned: { type: integer }
+                  total: { type: integer }
+                  complete: { type: boolean }
+                  nextCursor: { type: [string, "null"] }
+        "400":
+          description: "`invalid_path` (not an image in the media folder) or `bad_cursor`."
+        "503":
+          description: "`media_not_configured` (with `hint`)."
+  /api/revisions/{path}:
+    get:
+      tags: [revisions]
+      operationId: listRevisions
+      summary: The commits that changed one article on the branch, newest first
+      x-permission: editor-ui:read
+      description: |
+        The repository's history of the file (no history of the editor's
+        own), 30 commits a page; `message` is the first line. A rename ends
+        the list at the commit that created the file under its current
+        name — GitHub's history by path reports no earlier name.
+
+        For an MDDB article (`mddb:` path) the revisions are MDDB's
+        (`POST /v1/revisions`): `commitId` is the revision's timestamp,
+        author and message are `""` (MDDB keeps neither); the same ids work
+        for the revision and diff routes.
+      parameters:
+        - { name: path, in: path, required: true, schema: { type: string }, description: The repository path, URL-encoded as one segment. }
+        - { name: cursor, in: query, schema: { type: string }, description: "nextCursor of the previous page." }
+      responses:
+        "200":
+          description: One page of revisions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RevisionPage" }
+        "400":
+          description: "`invalid_path` or `bad_cursor`."
+  /api/revisions/{path}/diff:
+    get:
+      tags: [revisions]
+      operationId: diffRevisions
+      summary: What changed between two revisions, or a revision and the current version
+      x-permission: editor-ui:read
+      description: |
+        A line diff computed by the worker. Lines are compared without their
+        endings (`eol` on each side says what they are; `identical` is false
+        when only they differ); a missing final newline changes the last
+        line (`noNewline`). A side without the file compares as empty with
+        `exists: false`. Over the limits (256 Ki characters or 5000 lines a
+        side, or too many differences) `tooLarge` says why, there are no
+        hunks, and `download` names the routes that give both versions whole.
+        Both ids must be revisions of the file on the branch.
+      parameters:
+        - { name: path, in: path, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: string }, description: A commit id from the list. }
+        - { name: to, in: query, schema: { type: string }, description: "A commit id from the list; left out or `current` = the branch's current version." }
+        - { name: cursor, in: query, schema: { type: string }, description: The cursor of the list page the ids were shown on. }
+      responses:
+        "200":
+          description: The comparison.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RevisionDiff" }
+        "400":
+          description: "`invalid_path`, `invalid_commit` (with `param`), `bad_cursor`."
+        "404":
+          description: "`revision_not_found` (with `commit`) — not in this file's history on the branch, or older than the three pages searched from `cursor`. Nothing is read by that id."
+        "422":
+          description: "`not_text`."
+  /api/revisions/{path}/{commit}:
+    get:
+      tags: [revisions]
+      operationId: readRevision
+      summary: The article as it was in one revision, ready to restore
+      x-permission: editor-ui:read
+      description: |
+        `commit` must be in the file's history on the branch, else 404
+        before anything is read. Restoring is no write of its own: publish
+        `restore.change` with `restore.message` (or the person's message)
+        through `POST /api/changes`. The change is based on the current
+        version, so it becomes a new commit on top of the branch — or a
+        `409 conflict` if the file moved on since this answer.
+      parameters:
+        - { name: path, in: path, required: true, schema: { type: string } }
+        - { name: commit, in: path, required: true, schema: { type: string }, description: A full commit id from the list. }
+        - { name: cursor, in: query, schema: { type: string }, description: The cursor of the list page the revision was shown on. }
+      responses:
+        "200":
+          description: The revision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RevisionText" }
+        "400":
+          description: "`invalid_path`, `invalid_commit`, `bad_cursor`."
+        "404":
+          description: "`revision_not_found` (with `commit`), or `not_in_revision` — the commit removed the file."
+        "413":
+          description: "`too_large` — the revision or the current version is over the per-file limit."
+        "422":
+          description: "`not_text`."
+  /mcp:
+    post:
+      tags: [mcp]
+      operationId: mcp
+      summary: The MCP endpoint — one JSON-RPC message per POST, one JSON answer
+      x-permission: editor-ui:read
+      description: |
+        Model Context Protocol over Streamable HTTP, stateless: protocol
+        2026-07-28 (requests carrying `_meta["io.modelcontextprotocol/
+        protocolVersion"]`) and the `initialize`-based 2025-11-25,
+        2025-06-18 and 2025-03-26. Methods: `initialize`, `ping`,
+        `server/discover`, `tools/list`, `tools/call`; notifications
+        (`notifications/initialized`) are answered `202` with no body. No
+        session (`Mcp-Session-Id` is ignored, none is minted), no SSE stream,
+        no batches. GET is answered `405`.
+
+        Needs `editor-ui:read`; `tools/list` shows only the tools whose
+        permissions the caller holds, and every `tools/call` runs the
+        operation through the same permission check as the REST route — a
+        refusal is a tool result with `isError: true` and, as
+        `structuredContent`, the route's error body plus its `status`. The
+        tools and their arguments: README, "MCP".
+
+        A modern request must mirror its body in `MCP-Protocol-Version`,
+        `Mcp-Method` and (for `tools/call`) `Mcp-Name`. An `Origin` other than
+        this site's is refused `403`. The body may have at most 8 MiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JsonRpcRequest" }
+      responses:
+        "200":
+          description: A JSON-RPC response — a `result`, or an `error` (`-32601` unknown method in the initialize era, `-32602` unknown tool or bad arguments, `-32603` internal error).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JsonRpcResponse" }
+        "202":
+          description: A notification, accepted.
+        "400":
+          description: "JSON-RPC error without a result: `-32700` parse error (also: not UTF-8), `-32600` invalid request (a batch, a bad `jsonrpc`, `method` or `id`), `-32602` invalid params (`params` not an object, missing `_meta` keys), `-32020` header mismatch, `-32022` unsupported protocol version (`data: {supported, requested}`)."
+        "403":
+          description: "`forbidden` without `editor-ui:read`, `cross_origin` for a cookie session's foreign write, or a JSON-RPC `-32600` for a foreign `Origin`."
+        "404":
+          description: "`-32601` method not found, for a modern (2026-07-28) request."
+        "406":
+          description: "`-32600` — `Accept` admits no `application/json`."
+        "413":
+          description: "`-32600` — the body is larger than 8 MiB."
+        "415":
+          description: "`-32600` — send `application/json`."
+
+components:
+  schemas:
+    JsonRpcRequest:
+      type: object
+      required: [jsonrpc, method]
+      properties:
+        jsonrpc: { const: "2.0" }
+        id: { oneOf: [{ type: string }, { type: integer }], description: Absent for a notification; never null. }
+        method: { type: string, examples: [tools/call] }
+        params: { type: object, description: "`{name, arguments, _meta?}` for tools/call." }
+    JsonRpcResponse:
+      type: object
+      required: [jsonrpc]
+      properties:
+        jsonrpc: { const: "2.0" }
+        id: { oneOf: [{ type: string }, { type: integer }] }
+        result: { type: object, description: "tools/call: `{content: [{type: text, text}], structuredContent, isError}`; modern requests add `resultType` and `_meta`." }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: integer }
+            message: { type: string }
+            data: {}
+    FieldValue:
+      description: A simple frontmatter value — a one-line scalar or a list of strings.
+      oneOf:
+        - { type: string }
+        - { type: number }
+        - { type: boolean }
+        - { type: "null" }
+        - { type: array, items: { type: string } }
+    ContentItem:
+      type: object
+      required: [path, version, size, section, type, language, title, date, draft, loaded]
+      properties:
+        path: { type: string }
+        version: { type: string, description: "The file's blob id; \"\" for an MDDB article (its search gives no revision: read the article)." }
+        size: { type: [integer, "null"] }
+        section: { type: string, description: The deepest configured section (or content folder) holding the file. }
+        type: { type: [string, "null"], enum: [page, post, null] }
+        language: { type: [string, "null"], description: "`lang:`, else language_sections, else default_language." }
+        title: { type: [string, "null"], description: "`title:`, else the first `# heading`." }
+        date: { type: [string, "null"] }
+        draft: { type: [boolean, "null"], description: "YAML frontmatter without `status: publish`; null for an unclosed block." }
+        loaded: { type: boolean, description: "false: title, date, draft not read yet (language from the folder)." }
+        origin: { type: string, enum: [git, mddb], description: "Present when MDDB is configured: where the article lives." }
+    ContentPage:
+      type: object
+      required: [items, nextCursor, pending, truncated]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ContentItem" } }
+        nextCursor: { type: [string, "null"] }
+        pending: { type: integer, description: Items with loaded false. }
+        truncated: { type: boolean, description: The repository host cut a folder's listing. }
+    Article:
+      type: object
+      required: [path, version, commit, format, bom, frontmatterRaw, fields, fixed, body]
+      properties:
+        path: { type: string }
+        version: { type: string, description: "The blob id — send it back with a change." }
+        commit: { type: string, description: The branch head it was read at. }
+        format:
+          type: string
+          enum: [yaml, toml, none, unclosed]
+          description: "toml: a `+++` block ssg does not read — kept as it is, the body is editable; none: no frontmatter; unclosed: no closing fence (ssg refuses the file)."
+        bom: { type: boolean, description: "The file starts with a byte-order mark; ssg then reads no frontmatter." }
+        frontmatterRaw: { type: string, description: The lines between the fences, byte for byte. }
+        fields:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/FieldValue" }
+          description: The simple top-level keys the form may change.
+        fixed: { type: array, items: { type: string }, description: Top-level keys the form may not change (nested, block values, anchors, written twice). }
+        body: { type: string }
+        origin: { type: string, enum: [mddb], description: "An MDDB article: version and commit are its revision." }
+    Change:
+      type: object
+      required: [op]
+      properties:
+        op: { type: string, enum: [put, move, delete] }
+        path: { type: string, description: put and delete. }
+        from: { type: string, description: move. }
+        to: { type: string, description: "move — must not exist yet." }
+        version: { type: [string, "null"], description: "The version worked on; null (put only) = a new file." }
+        text: { type: string, description: The whole new file. }
+        fields:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/FieldValue" }
+          description: "A form edit: these simple keys set (new keys go at the end of the block); every other line kept byte for byte."
+        frontmatterRaw: { type: string, description: A form edit replacing the whole block's text (not with fields). }
+        body: { type: string, description: A form edit replacing the body. }
+        base64: { type: string, description: "An image put (version null): its bytes, base64-encoded. Needs editor-ui:media." }
+    ChangeRequest:
+      type: object
+      required: [message, changes]
+      properties:
+        message: { type: string }
+        changes: { type: array, minItems: 1, items: { $ref: "#/components/schemas/Change" } }
+    Published:
+      type: object
+      required: [commitId, url, branch, files]
+      properties:
+        commitId: { type: string }
+        url: { type: string, description: The commit at the repository host. }
+        branch: { type: string }
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              version: { type: [string, "null"], description: The new version; null = removed. }
+        origin: { type: string, enum: [mddb], description: "An MDDB publication: commitId is the new revision (\"\" after a delete), branch the collection, url the images' commit or \"\"." }
+        rebuild:
+          type: object
+          description: "MDDB only: whether EDITOR_REBUILD_URL started a build."
+          required: [triggered]
+          properties:
+            triggered: { type: boolean }
+            status: { type: integer }
+            reason: { type: string, enum: [not_configured, bad_url, refused, unreachable] }
+        notice: { type: string, description: "MDDB only: e.g. \"saved in MDDB; the site shows it after the next build\"." }
+    Conflict:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, enum: [conflict, branch_busy, branch_protected] }
+        detail: { type: string }
+        files:
+          type: array
+          items:
+            type: object
+            required: [path, yours, theirs, theirVersion]
+            properties:
+              path: { type: string }
+              yours: { type: [string, "null"], description: "The text this change would have written (null: removed); for a form edit, your fields and body applied to their version." }
+              theirs: { type: [string, "null"], description: The text on the branch now (null = not there). }
+              theirVersion: { type: [string, "null"], description: Publish over this version once you have chosen. }
+              theirsUnread: { type: string, enum: [budget, not_text, unavailable], description: "theirs could not be read in this request; read it with GET /api/content/{path}." }
+    Revision:
+      type: object
+      required: [commitId, authorName, authorEmail, date, message]
+      properties:
+        commitId: { type: string }
+        authorName: { type: string }
+        authorEmail: { type: string }
+        date: { type: string, format: date-time }
+        message: { type: string, description: The first line of the commit message. }
+    RevisionPage:
+      type: object
+      required: [path, items, nextCursor]
+      properties:
+        path: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/Revision" } }
+        nextCursor: { type: [string, "null"] }
+    RevisionText:
+      type: object
+      required: [path, commitId, authorName, authorEmail, date, message, version, text, current, identical, restore]
+      properties:
+        path: { type: string }
+        commitId: { type: string }
+        authorName: { type: string }
+        authorEmail: { type: string }
+        date: { type: string, format: date-time }
+        message: { type: string, description: The whole commit message. }
+        version: { type: string, description: The file's blob id in this revision. }
+        text: { type: string, description: The whole file (a byte-order mark kept). }
+        current:
+          type: object
+          properties:
+            commit: { type: string, description: The branch head. }
+            version: { type: [string, "null"], description: "The current version; null = the file is not on the branch now." }
+        identical: { type: boolean, description: This revision is the current version. }
+        restore:
+          type: object
+          properties:
+            message: { type: string, description: "Suggested message, e.g. `Restore hello.md to 1a2b3c4 of 2026-01-01`." }
+            change: { $ref: "#/components/schemas/Change" }
+    DiffSide:
+      type: object
+      properties:
+        commitId: { type: string }
+        version: { type: [string, "null"] }
+        exists: { type: boolean }
+        lines: { type: integer }
+        eol: { type: string, enum: [lf, crlf, mixed, none] }
+        finalNewline: { type: boolean }
+        current: { type: boolean, description: "`to` only: the branch's current version." }
+    RevisionDiff:
+      type: object
+      required: [path, from, to, identical, tooLarge, added, removed, hunks, download]
+      properties:
+        path: { type: string }
+        from: { $ref: "#/components/schemas/DiffSide" }
+        to: { $ref: "#/components/schemas/DiffSide" }
+        identical: { type: boolean }
+        tooLarge: { type: [string, "null"], enum: [size, lines, work, file, null], description: "file: a side is over the per-file limit." }
+        added: { type: integer }
+        removed: { type: integer }
+        hunks:
+          type: array
+          items:
+            type: object
+            properties:
+              aStart: { type: integer }
+              aLines: { type: integer }
+              bStart: { type: integer }
+              bLines: { type: integer }
+              lines:
+                type: array
+                items:
+                  type: object
+                  required: [kind, text, a, b]
+                  properties:
+                    kind: { type: string, enum: [same, removed, added] }
+                    text: { type: string }
+                    a: { type: [integer, "null"], description: Line number in from. }
+                    b: { type: [integer, "null"], description: Line number in to. }
+                    noNewline: { type: boolean, description: The last line, without a final newline. }
+        download:
+          type: object
+          properties:
+            from: { type: string, description: A route relative to the base path. }
+            to: { type: string }
+  securitySchemes:
+    authSession:
+      type: apiKey
+      in: cookie
+      name: __Host-ssg-auth
+      description: A person's session of the `auth` worker on this host.
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: A service token of the `auth` worker (kind `service`).

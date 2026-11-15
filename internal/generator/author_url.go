@@ -40,7 +40,7 @@ func (g *Generator) authorSlugForAny(author any) string {
 	case float64: // a number arriving from data/JSON rather than frontmatter
 		return g.authorSlugForID(int(v))
 	case models.Author:
-		return authorSlug(v)
+		return g.authorSlug(v)
 	case string:
 		return g.authorSlugForName(v)
 	}
@@ -72,17 +72,17 @@ func (g *Generator) authorSlugForName(name string) string {
 	}
 	for _, a := range g.siteData.Authors {
 		if strings.ToLower(a.Name) == want || strings.ToLower(a.Slug) == want {
-			return authorSlug(a)
+			return g.authorSlug(a)
 		}
 	}
-	return slugify(name)
+	return g.labelSlug(name)
 }
 
 // authorSlug is the slug an author record is published under: its own slug when
 // it has one, its name otherwise.
-func authorSlug(a models.Author) string {
+func (g *Generator) authorSlug(a models.Author) string {
 	if a.Slug != "" {
-		return slugify(a.Slug)
+		return g.labelSlug(a.Slug)
 	}
-	return slugify(a.Name)
+	return g.labelSlug(a.Name)
 }

@@ -140,7 +140,10 @@ cannot read other templates' files, so this worker learns the names from:
    5 KB; `--all-languages` keeps all five. Each module's title and panel go
    along, so "Your panels" can name and link it; a standalone Worker's panel
    is relative to its own base path, which `--base <id>=<path>` supplies
-   (without it the module is listed unlinked, with a note).
+   (without it the module is listed unlinked, with a note). A permission's
+   `"sensitive": true` goes along: `auth` then treats that name as sensitive
+   besides its name rules ([service tokens](SERVICE-TOKENS.md#sensitive-permissions));
+   any declaration of a name saying so counts.
 
 The build-time module registry that `core` reads is not a source for `auth`:
 list other modules' permissions in `AUTH_KNOWN_PERMISSIONS`. The registry is advisory: a role may hold a name nobody declares (a

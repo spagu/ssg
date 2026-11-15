@@ -9,9 +9,11 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/spagu/ssg/badge)](https://scorecard.dev/viewer/?uri=github.com/spagu/ssg)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 
-SSG is a fast static site generator written in Go. It turns Markdown with YAML
-frontmatter into a complete website with clean URLs, templates, feeds, search,
-image processing and optional native deployment.
+SSG is a fast static site generator written in Go for both human readers and
+agent-native publishing. It turns Markdown, SQL databases and code into a
+complete website with clean URLs, templates, feeds, search, image processing,
+`.md` / `llms.txt` / `site-graph.json` outputs, WebMCP, ACP/UCP product feeds
+and optional native deployment.
 
 It works especially well for blogs and WordPress migrations, but can also build
 documentation, company sites, portfolios and landing pages.
@@ -322,6 +324,8 @@ Common options:
 | Compile SCSS | `scss: true` | `--scss` |
 | Generate Atom feeds | `feed: true` | `--feed` |
 | Publish a Google Merchant Center product feed | `feeds: [{path: /merchant.xml, format: google-merchant}]` | config only |
+| Mark Merchant feed products for UCP checkout (Google AI Mode, Gemini) | `feeds: [{path: /merchant.xml, format: google-merchant, ucp: {}}]` | config only |
+| Publish an Agentic Commerce Protocol (ChatGPT) product feed | `feeds: [{path: /acp.jsonl, format: acp, acp: {seller_name: …}}]` | config only |
 | Generate search index | `search_index: true` | `--search-index` |
 | Declare the site's tools to a browser agent | `webmcp: true` | `--webmcp` |
 | Add SEO metadata | `seo: true` | `--seo` |
@@ -343,7 +347,7 @@ Common options:
 | Name relations between pages, and version a document | `relations:` / `version_of:` in frontmatter | config only |
 | Publish a page as JSON, Markdown, text or your own format | `outputs: {page: [html, json]}` | `--outputs=html,json` |
 | Validate internal links | `check_links: strict` | `--check-links=strict` |
-| Check alt text, meta, JSON-LD, orphans, redirects | `check_images: warn` (and `check_meta`, `check_schema`, `check_orphans`, `check_redirects`) | `--check-images` … `--check-redirects[=strict]` |
+| Check alt text, meta, JSON-LD, orphans, redirects | `check_images: warn` (and `check_meta`, `check_schema`, `check_acp`, `check_ucp`, `check_orphans`, `check_redirects`) | `--check-images` … `--check-redirects[=strict]` |
 | Skip the generated `404.html` | `not_found_off: true` | `--not-found-off` |
 | Fail on unrenderable shortcodes | `shortcode_errors: strict` | `--shortcode-errors=strict` |
 | Pull Markdown from other folders | `content_sources: [{path: docs}]` | `--content-source=docs` |
@@ -409,8 +413,9 @@ and accepted values live in [.ssg.yaml.example](.ssg.yaml.example).
 | Redirects | `redirects:` → real Cloudflare/Netlify `_redirects` (splats, chain flattening, aliases as 301s), **served by the built-in preview** so a rule can be checked before it ships, `ssg import redirects` from a JS `redirects()` config ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | Dynamic endpoints | Cloudflare Pages Functions via `worker:` + `ssg new worker` templates (contact form, Stripe, dynamic pricing, conversions proxy, cookie consent, comments, newsletter sign-up, web push notifications, rate limit, republish trigger, accounts, admin home), configurable `_headers` ([docs/WORKERS.md](docs/WORKERS.md)) |
 | Admin accounts | `auth`, an optional worker: invited people only, a password or Google, Microsoft, Apple, GitHub, Facebook or Cloudflare Access, roles with per-action permissions, an optional second factor (TOTP, passkeys), tokens for CI, an audit log. `comments`, `newsletter`, `newsletter-ui`, `web-push` and `republish-trigger` can accept its sessions; their shared password stays fully supported ([its README](workers/auth/README.md), [which sign-in to choose](docs/WORKERS.md#admin-sign-in-which-mode-to-choose)) |
-| Admin home | `core`, an optional worker: one page that shows what needs attention in every panel, a shared navigation bar between panels, module order and visibility, and the panels in the site's own colours (`admin_theme:`). Every template describes itself in a `module.json` ([its README](workers/core/README.md), [docs/WORKER-MODULES.md](docs/WORKER-MODULES.md)) |
+| Admin home | `core`, an optional worker: one page that shows what needs attention in every panel, a shared navigation bar between panels, module order and visibility, and the panels in the site's own colours (`admin_theme:`). Every template describes itself in a `module.json` ([its README](workers/core/README.md), [docs/WORKER-MODULES.md](docs/WORKER-MODULES.md); what your own worker must contain: [docs/MODULE-REQUIREMENTS.md](docs/MODULE-REQUIREMENTS.md)) |
 | Newsletter sending | `newsletter-ui`, a standalone Worker on the sign-up template's D1 database: a panel, campaigns from Markdown or a post, a send engine (cron + queue) through Resend, MailChannels or your own SMTP server, each reader mailed at most once, bounces and complaints, statistics without tracking anyone ([its README](workers/newsletter-ui/README.md)) |
+| Editing in the browser | `editor-ui` and `designer-ui`, optional standalone Workers that need `auth`: articles and pasted images, or every setting, the theme's colours (with WCAG 2.2 contrast checks) and its files, each publication one commit to the site's GitHub repository with the person as author; a REST API and an MCP endpoint for scripts and assistants ([docs/EDITOR.md](docs/EDITOR.md), [docs/DESIGNER.md](docs/DESIGNER.md)) |
 | Assets | WebP, responsive variants, build-time image helpers, SCSS, bundles, minification, source maps, fingerprinting |
 | Data | YAML/JSON data files, custom variables and static passthrough files |
 | External sources | Unified `.ExternalData` from local files (YAML/JSON/TOML/CSV/XML), HTTP APIs with a hardened client + disk cache, read-only SQL (MySQL/MariaDB/PostgreSQL/SQLite) and CMS imports (WordPress, Drupal, Movable Type) ([docs/EXTERNAL_SOURCES.md](docs/EXTERNAL_SOURCES.md)) |

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- Choose a file: a folder tree on the left, an open page with numbered lines on the right. -->
+<path d="M16 22h14M24 22v60M24 40h12M24 60h12M24 80h12" stroke="#90a4ae" stroke-width="3" stroke-linecap="round"/>
+<rect x="40" y="34" width="22" height="12" rx="2" fill="#00695c"/><rect x="40" y="54" width="22" height="12" rx="2" fill="#80cbc4"/><rect x="40" y="74" width="22" height="12" rx="2" fill="#cfd8dc"/>
+<rect x="78" y="14" width="66" height="92" rx="6" fill="#ffffff" stroke="#78909c" stroke-width="2"/>
+<rect x="78" y="14" width="16" height="92" rx="6" fill="#eceff1"/>
+<g fill="#78909c"><circle cx="86" cy="30" r="2"/><circle cx="86" cy="42" r="2"/><circle cx="86" cy="54" r="2"/><circle cx="86" cy="66" r="2"/><circle cx="86" cy="78" r="2"/></g>
+<path d="M100 30h34M100 42h24M100 54h30M100 66h18M100 78h28" stroke="#b0bec5" stroke-width="4" stroke-linecap="round"/>
+<path d="M98 54h34" stroke="#bf360c" stroke-width="2"/>
+</svg>

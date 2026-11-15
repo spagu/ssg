@@ -1,5 +1,5 @@
 // Prints a fresh ES256 (P-256) signing key pair for the auth worker
-// (Node 20 or later):
+// (Node 24 or later):
 //
 //   node workers/auth/scripts/auth-keys.mjs
 //

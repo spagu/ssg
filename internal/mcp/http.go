@@ -131,7 +131,7 @@ func (h *httpTransport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// The version this exchange spoke, so an intermediary can route on it.
 	w.Header().Set("MCP-Protocol-Version", negotiatedVersion(r))
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(modernStatus(req, resp))
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
@@ -266,4 +266,21 @@ func IsLoopback(addr string) bool {
 	}
 	ip := net.ParseIP(strings.Trim(host, "[]"))
 	return ip != nil && ip.IsLoopback()
+}
+
+// modernStatus is the HTTP status of a reply. From 2026-07-28 the transport
+// ties some JSON-RPC errors to an HTTP status: an unknown method is 404 and an
+// unsupported protocol version 400 (#427). An older client never saw those
+// statuses, so a request without modern _meta keeps getting 200, as before.
+func modernStatus(req rpcRequest, resp rpcResponse) int {
+	if resp.Error == nil || !metaOf(req.Params).isModern() {
+		return http.StatusOK
+	}
+	switch resp.Error.Code {
+	case codeMethodNotFound:
+		return http.StatusNotFound
+	case codeUnsupportedProtocolVersion:
+		return http.StatusBadRequest
+	}
+	return http.StatusOK
 }

@@ -4,13 +4,13 @@
 
 <head>
     {{/* The home page ranks as the product, not a help index: the title leads with
-    what SSG is and the terms people search (static site generator, Markdown,
-    SQL, AI), never the domain or a bare "documentation". */}}
-    {{ $title := "SSG — AI-native static site generator for Markdown & SQL" }}
+    what SSG is and the terms people search (static site generator, agent-native
+    publishing, Markdown, SQL), never the domain or a bare "documentation". */}}
+    {{ $title := "SSG: Static site generator for agent-native publishing" }}
     <title>{{ $title }}</title>
     {{ template "sc-head" (dict
     "Title" $title
-    "Desc" "Fast, hardened static sites from Markdown and SQL, with build-time AI and agent-ready Markdown."
+    "Desc" "Static site generator in Go for agent-native publishing: Markdown, SQL and API docs to HTML, .md, llms.txt, site-graph.json, WebMCP and ACP/UCP feeds."
     "Canonical" "/"
     "Ctx" .) }}
     {{/* SoftwareApplication rich result for the tool itself (the derived WebSite
@@ -25,7 +25,7 @@
       "programmingLanguage": "Go",
       "url": "https://{{ .Domain }}/",
       "downloadUrl": "https://github.com/spagu/ssg/releases",
-      "license": "https://opensource.org/license/bsd-3-clause",
+      "license": "https://github.com/spagu/ssg/blob/main/LICENSE",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
     }
     </script>
@@ -54,16 +54,17 @@
         <div class="container">
             <section class="hero{{ if $hero }} hero--image{{ end }}" {{ if $hero
                 }}style="--hero-image: url('{{ $hero }}'); --hero-image-sm: url('{{ $heroSmall }}');" {{ end }}>
-                <p class="eyebrow">Source available · Go · BUSL-1.1</p>
-                {{/* The H1 keeps the searched category ("static site generator") but
-                leads with the differentiator instead of the repo slug. The
-                keyword-dense benefit line sits directly beneath, above the fold. */}}
-                <h1>The AI-native static site generator</h1>
+                <p class="eyebrow">Static site generator · Agent-native publishing · Go · BUSL-1.1</p>
+                {{/* The H1 pairs the searched category ("static site generator") with
+                "agent-native publishing". The lead names the concrete inputs and
+                outputs directly beneath, above the fold. */}}
+                <h1>Static site generator for agent-native publishing</h1>
                 <p class="hero-lead">
-                    Build fast, hardened sites from Markdown and SQL databases. AI runs at
-                    build time, an MCP server drives SSG from your agent, and every page ships
-                    clean Markdown for the tools that read it — a 5 000-post site builds in
-                    2.3 seconds, with nothing sent to the browser that does not have to be.
+                    One Go binary turns Markdown, SQL databases and code into a static
+                    site: HTML for readers, and clean <code>.md</code> pages,
+                    <code>llms.txt</code>, <code>site-graph.json</code>, WebMCP tools and
+                    ACP/UCP product feeds for agents. A 5,000-post site builds in
+                    2.3 seconds.
                 </p>
                 <div class="hero-actions">
                     <a class="btn btn--primary" href="#documentation">Get started</a>
@@ -73,64 +74,72 @@
                 </div>
             </section>
 
-            {{/* Three pillars. Every number here is measured and every claim is
-            checkable from this repository — no comparisons to other tools, and
-            no superlatives that cannot be substantiated. The speed figure is
-            SSG 1.8.16 → 1.8.17 on a 5 000-post corpus (12.07s → 2.30s), which
-            is a self-comparison and is described as one. */}}
+            {{/* Four pillars. Every number here is measured and every claim is
+            checkable from this repository. The speed figure is SSG 1.8.16 →
+            1.8.17 on a 5 000-post corpus (12.07s → 2.30s). */}}
             <section class="sections pillars" id="why" aria-labelledby="why-title">
                 <p class="eyebrow">Why ssg</p>
-                <h2 class="section-title" id="why-title">Built for speed, data, documentation and the AI web</h2>
+                <h2 class="section-title" id="why-title">Static HTML for people, structured output for agents</h2>
                 <ul class="pillar-list">
                     <li class="pillar">
-                        <h3>Builds in seconds, not minutes</h3>
+                        <h3>Agent-native publishing</h3>
                         <p>
-                            A 5 000-post site builds in <strong>2.3 seconds</strong> — 5.25×
-                            faster than the previous release, after two costs that only
-                            appeared at scale were removed. Output is byte-identical however
-                            many workers run, so a shorter CI job is the only difference.
+                            Every page can ship its authored <strong>Markdown and
+                            <code>llms.txt</code></strong> beside the HTML, plus
+                            <strong><code>site-graph.json</code></strong> for links and
+                            taxonomies, <strong>WebMCP</strong> browser tools, and
+                            <strong>ACP and UCP product feeds</strong> for agentic checkout.
+                            When you are writing, <code>ssg mcp</code> lets your agent query
+                            the graph and edit files directly.
                         </p>
                         <p class="pillar-more">
-                            <a href="/blog/making-builds-faster/">How that was measured</a>
+                            <a href="/ai-agents/">Markdown, site graph &amp; WebMCP</a> ·
+                            <a href="/mcp/">MCP server</a>
                         </p>
                     </li>
                     <li class="pillar">
-                        <h3>Reads your database directly</h3>
+                        <h3>Static site generator at scale</h3>
                         <p>
-                            MySQL, MariaDB, PostgreSQL and SQLite are content sources like any
-                            other — <strong>no export step and no glue script</strong>. Queries
-                            run read-only at build time, so the database stays behind your
-                            firewall and never sits in the request path.
+                            A 5,000-post site builds in <strong>2.3 seconds</strong> from a
+                            single Go binary, with WebP and AVIF images, feeds, sitemaps and
+                            search indexes generated in parallel. Output is byte-identical
+                            across worker counts, and <code>--incremental</code> with
+                            <code>ssg graph</code> rebuilds only what a change touches.
                         </p>
                         <p class="pillar-more">
-                            <a href="/external_sources/">External sources</a>
+                            <a href="/blog/making-builds-faster/">How that was measured</a> ·
+                            <a href="/incremental/">Incremental builds</a>
                         </p>
                     </li>
                     <li class="pillar">
-                        <h3>Built for AI agents, end to end</h3>
+                        <h3>Markdown, SQL and external APIs</h3>
                         <p>
-                            AI runs at build time — summaries, tags and related posts, cached
-                            by content hash and never reaching the browser. An
-                            <strong>MCP server</strong> lets agents create and edit content,
-                            and every page publishes clean <strong>Markdown and an llms.txt</strong>
-                            index for the tools that read it.
+                            Keep content in local Markdown, pull it over gRPC from MDDB, or
+                            query <strong>MySQL, MariaDB, PostgreSQL, SQLite and HTTP
+                            APIs</strong> read-only during the build. There is no export
+                            script to maintain, and the database stays behind your firewall.
                         </p>
                         <p class="pillar-more">
-                            <a href="/ai-agents/">AI &amp; agents</a>
+                            <a href="/external_sources/">External sources</a> ·
+                            <a href="/migrate/">WordPress migration</a>
                         </p>
                     </li>
                     <li class="pillar">
-                        <h3>API reference beside your guides</h3>
+                        <h3>API reference and edge workers</h3>
                         <p>
-                            Point it at a JavaScript package or an OpenAPI file and the
-                            reference becomes pages of the same site, in the same search
-                            and link check as the guides. Examples <strong>run in the
-                            browser</strong>, and every REST endpoint has a <strong>Try it</strong>
-                            console.
+                            Point <code>api_docs</code> at JavaScript, TypeScript, Go, PHP,
+                            Python or an OpenAPI file to build reference pages in the same
+                            search and link check as your guides, with live examples and a
+                            <strong>Try it</strong> console. Need forms, comments, newsletters
+                            or a shop? Add a Cloudflare Pages Functions worker template.
+                            Writers and designers can edit articles, settings and colours in
+                            the browser, each change one commit to your repository.
                         </p>
                         <p class="pillar-more">
                             <a href="/api_docs/">API docs from code</a> ·
-                            <a href="/rest_api_docs/">from OpenAPI</a>
+                            <a href="/rest_api_docs/">OpenAPI</a> ·
+                            <a href="/workers/">Workers</a> ·
+                            <a href="/editor/">Editor and designer</a>
                         </p>
                     </li>
                 </ul>
@@ -142,9 +151,8 @@
                 <p class="eyebrow">Guides</p>
                 <h2 class="section-title">Documentation</h2>
                 <p class="section-lead">
-                    Every guide below is built from this repository's own <code>docs/</code>
-                    folder through <code>content_sources</code> — this site is its own
-                    integration test.
+                    These guides are built directly from this repository's <code>docs/</code>
+                    folder using <code>content_sources</code>.
                 </p>
                 <ul class="cards">
                     {{ range first .HomePagesLimit .Site.Pages }}{{ if not .Extra.hide_from_lists }}
@@ -158,7 +166,7 @@
                     {{ end }}{{ end }}
                 </ul>
                 {{ if gt (len .Site.Pages) .HomePagesLimit }}
-                <p class="section-more">{{ len .Site.Pages }} guides in total — the full directory is in the footer
+                <p class="section-more">{{ len .Site.Pages }} guides in total. The full list is in the footer
                     below.</p>
                 {{ end }}
             </section>

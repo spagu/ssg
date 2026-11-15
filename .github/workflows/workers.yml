@@ -22,7 +22,8 @@ on:
   workflow_dispatch:
 
 env:
-  # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
+  # Every action here declares Node 24; the flag is a guard that keeps any
+  # action falling back to an older runtime on Node 24, never on Node 20.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:

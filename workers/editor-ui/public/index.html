@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Content editor</title>
+  <meta name="description" content="The site's content editor: write Markdown articles with a live preview, paste images, keep drafts in this browser, and publish each change as one commit to the site's repository.">
+  <!-- An admin page: never indexed, never sends a Referer, and deliberately
+       carries no analytics or tag manager — an authenticated admin tool is
+       not measured. The worker sends the same rules as headers; these cover a
+       copy opened from disk. -->
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#283593" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="generator" content="ssg editor-ui">
+  <link rel="icon" href="img/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/tokens.css">
+  <!-- The site's own look, when the `core` worker is deployed on this host:
+       custom properties only, after the panel's tokens so they win. Without
+       `core` it answers 404 and the tokens above stand. -->
+  <link rel="stylesheet" href="/core/theme.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main" data-t="app.skip">Skip to content</a>
+  <!-- The site's shared admin bar, served by `core` from this host's root.
+       Without `core` the script answers 404 and the element stays empty. -->
+  <script type="module" src="/core/nav.js"></script><ssg-admin-nav current="editor-ui"></ssg-admin-nav>
+  <div class="shell">
+    <header class="sidebar" id="sidebar">
+      <div class="bar">
+        <a class="brand" href="#/"><img src="img/mark.svg" alt="" width="32" height="32"><span class="brand-name" data-t="app.name">Content editor</span></a>
+        <button type="button" class="btn" id="menu-toggle" aria-expanded="false" aria-controls="drawer" data-t="app.menu">Menu</button>
+      </div>
+      <div class="drawer" id="drawer">
+        <nav id="nav" aria-label="Editor sections"><ul id="nav-list"></ul></nav>
+        <section class="prefs" id="prefs" aria-label="Preferences"></section>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <div id="notice" role="status" aria-live="polite"></div>
+      <div id="view">
+        <noscript><p>The content editor needs JavaScript. Until it runs, the API under api/ answers on its own (see the worker's README).</p></noscript>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

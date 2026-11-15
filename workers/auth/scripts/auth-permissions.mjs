@@ -8,6 +8,9 @@
 // and five languages of every description do not fit. --all-languages keeps
 // them all (for a wrangler.toml [vars] entry you check yourself).
 //
+// A permission's "sensitive": true goes along (GO-181): auth then treats it as
+// sensitive besides its name rules — without this variable, auth cannot know.
+//
 // Each module's title and panel go along too, so "Your panels" (/auth/) can
 // name and link it. A manifest's panel path is relative to the module's base:
 // the site root for a Pages template, so it is used as is; a standalone Worker
@@ -52,7 +55,9 @@ const modules = files.map((f) => {
     id: m.id,
     ...(m.title ? { title: text(m.title) } : {}),
     ...(panel ? { panel } : {}),
-    permissions: m.permissions.map((p) => ({ name: p.name, description: text(p.description) })),
+    // `sensitive` only when a module declares it (GO-181): the registry
+    // treats the name as sensitive besides auth's name rules.
+    permissions: m.permissions.map((p) => ({ name: p.name, description: text(p.description), ...(p.sensitive === true ? { sensitive: true } : {}) })),
   };
 });
 const value = JSON.stringify(modules);

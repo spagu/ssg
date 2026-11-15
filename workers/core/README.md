@@ -561,6 +561,9 @@ on `core`.
 
 ## What a module must provide to show up
 
+The short list is below; the full checklist, with the `auth` side, is
+[docs/MODULE-REQUIREMENTS.md](../../docs/MODULE-REQUIREMENTS.md).
+
 1. A valid `module.json` ([format](../../docs/WORKER-MODULES.md)).
 2. Be in `workers:` (Pages) or `modules:` (a standalone Worker, with `url`).
 3. For a live status: an `endpoints.health` or `endpoints.manifest` it serves

@@ -147,6 +147,13 @@ The block is placed automatically:
    bundled themes put it next to the date or the reading time;
 2. otherwise after the first `</h1>` of each selected page.
 
+
+The button arrives with `hidden`, and the script removes the attribute only
+where it can work. If your theme gives `.ssg-listen` a `display` (to make it a
+pill, say), add `.ssg-listen[hidden] { display: none; }` as well: an author
+`display` overrides the browser's own rule for `[hidden]`, and the button would
+show — and do nothing — in a browser without speech synthesis.
+
 `listen.auto: false` turns automatic placement off. A slot that receives nothing
 is removed, so a site with both features off is byte-for-byte unchanged. An ssg
 older than 1.8.66 leaves the empty `<span>` in place, which is harmless. That is

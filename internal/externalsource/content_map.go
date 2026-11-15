@@ -162,11 +162,16 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 	if title == "" {
 		return nil, warnings, fmt.Errorf("no title (content_map.title = %q)", m.Title)
 	}
-	slug := get("slug", m.Slug)
-	if slug == "" {
-		slug = models.Slugify(title)
-	} else {
-		slug = models.Slugify(slug)
+	label := get("slug", m.Slug)
+	if label == "" {
+		label = title
+	}
+	// slug_transliterate (#426) folds diacritics; the slug the plain rule made
+	// is kept so the generator can point the old URL at the new one.
+	slug := models.SlugFunc(src.SlugTransliterate)(label)
+	legacySlug := ""
+	if plain := models.Slugify(label); plain != slug {
+		legacySlug = plain
 	}
 	if slug == "" {
 		return nil, warnings, fmt.Errorf("the slug is empty after normalisation (title %q)", title)
@@ -184,6 +189,7 @@ func mapRecord(src Source, rec map[string]interface{}, i int) (*models.Page, []s
 		ID:            recordID(src.Name, i),
 		Title:         title,
 		Slug:          slug,
+		LegacySlug:    legacySlug,
 		Type:          kind,
 		Status:        status,
 		Content:       formatBody(get("content", m.Content), src.ContentFormat),

@@ -36,7 +36,10 @@ test("the guard skips, saying why, when workers/auth is not next to the template
   assert.deepEqual(alone.problems, []);
 });
 
-test("the guard names a missing or drifted copy", () => {
+// Needs workers/auth next to the template: scaffolded alone the guard skips
+// (the test above), so there is nothing to name (#423).
+const AUTH_SOURCES = new URL("../../auth/portable/", import.meta.url);
+test("the guard names a missing or drifted copy", { skip: !existsSync(AUTH_SOURCES) && "workers/auth is not next to this template (scaffolded alone)" }, () => {
   const { problems } = compareCopies(import.meta.url, { "./no-such-copy.ts": "session-verifier.ts", "./auth-fixtures.ts": "copy-guard.ts" });
   assert.equal(problems.length, 2);
   assert.match(problems[0], /missing/);

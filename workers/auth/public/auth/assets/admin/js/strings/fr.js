@@ -410,7 +410,7 @@ export default {
   "token.perms": "Limiter à ces autorisations (facultatif)",
   "token.permsHint": "Séparées par des espaces ou des virgules. Vide : tout ce que le compte détient, sauf les autorisations sensibles.",
   "token.sensitive": "Autoriser ces autorisations sensibles (propriétaires uniquement)",
-  "token.sensitiveHint": "Les jokers, auth:…, …:erase et tout ce qui vient d'un rôle exigeant un second facteur (…:send par défaut) n'atteignent un jeton que s'ils sont listés ici.",
+  "token.sensitiveHint": "Les jokers, auth:…, …:erase, les permissions qu'un module déclare sensibles et tout ce qui vient d'un rôle exigeant un second facteur (…:send par défaut) n'atteignent un jeton que s'ils sont listés ici.",
   "token.create": "Créer le jeton",
   "token.allOfAccount": "Celles du compte",
   "token.status.active": "Actif",

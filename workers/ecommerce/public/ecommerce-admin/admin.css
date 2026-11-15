@@ -1,0 +1,686 @@
+/* The shop panel.
+ *
+ * Written as a small design system rather than a pile of per-screen rules,
+ * because six screens sharing three components stay consistent and six screens
+ * with their own styling do not. The tokens are their own file (tokens.css,
+ * loaded first, then the site's /core/theme.css when `core` is deployed, then
+ * this one); here the shell, then the six things every screen is built from:
+ * page header, card, table, form, badge, empty state. No colour is written
+ * here: every one is a token, so a site theme reaches all of them.
+ *
+ * No framework. It is six screens of tables and forms, and a framework would
+ * be larger than the thing it styles.
+ */
+
+:root { font-family: var(--font-ui); font-size: 16px; }
+
+* { box-sizing: border-box; }
+
+/* The `hidden` attribute has to win.
+ *
+ * The browser hides it with `[hidden] { display: none }` in its own stylesheet,
+ * which any author rule setting `display` on the same element overrides — so
+ * `.tabs { display: flex }` once left the whole navigation on screen for
+ * someone who had not signed in. One line, rather than a rule per component,
+ * because the next component to be toggled will have a display of its own too. */
+[hidden] { display: none !important; }
+/* An action the signed-in account may not use (session.js, data-needs). The
+   API would refuse it anyway; the panel does not offer it. */
+[data-denied] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { letter-spacing: -0.011em; }
+
+a { color: var(--link); }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus {
+  left: 1rem; top: 1rem; z-index: 30;
+  padding: 0.6rem 1rem; background: var(--surface);
+  border-radius: var(--ecommerce-radius-sm); box-shadow: var(--ecommerce-shadow);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── The shell ──────────────────────────────────────────────────────────── */
+
+body[data-state="in"] {
+  display: grid;
+  grid-template-columns: var(--ecommerce-sidebar) minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas: "bar bar" "brand top" "nav main";
+  min-height: 100svh;
+}
+
+/* The site's shared admin bar (<ssg-admin-nav>, GO-146), when the `core`
+ * worker serves /core/nav.js on this host: a full-width row above the panel.
+ * Without `core` the element stays empty, so the row is zero pixels tall and
+ * the panel is laid out as it always was. When the bar shows who is signed in
+ * and its own sign-out (it sets data-signout on itself), the panel's
+ * "signed in as" badge and Sign out button would say it twice. */
+ssg-admin-nav { grid-area: bar; }
+ssg-admin-nav[data-signout] ~ .topbar #whoami,
+ssg-admin-nav[data-signout] ~ .topbar #logout { display: none !important; }
+
+.brandbar {
+  grid-area: brand;
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0 1.25rem; height: 3.5rem;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.brandbar .brand-mark { width: 1.5rem; height: 1.5rem; color: var(--primary); flex: none; }
+.brandbar strong {
+  font-size: 0.95rem; font-weight: 650;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.navtoggle {
+  margin-left: auto; padding: 0.35rem;
+  flex: none;
+}
+.navtoggle svg { width: 1.15rem; height: 1.15rem; }
+
+/* ── Collapsed sidebar ──────────────────────────────────────────────────────
+ *
+ * The rail keeps the icons and drops the words, rather than hiding the
+ * navigation altogether: a menu that has to be opened to see where you are is
+ * a menu you open constantly. The width is one token, so the whole grid
+ * follows it.
+ *
+ * The labels are hidden with `display: none` on the span, not with `hidden` or
+ * with width — the accessible name of each button comes from `aria-label`,
+ * which admin.js sets to the same words, so a screen reader still reads
+ * "Products" from a rail with no text in it. */
+body[data-nav="collapsed"] { --ecommerce-sidebar: 3.75rem; }
+body[data-nav="collapsed"] .brandbar { padding: 0 0.75rem; }
+body[data-nav="collapsed"] .brandbar .brand-mark,
+body[data-nav="collapsed"] .brandbar strong { display: none; }
+body[data-nav="collapsed"] .navtoggle { margin: 0; }
+body[data-nav="collapsed"] .sidenav { padding: 0.75rem; }
+/* Left, exactly as when the words are there: the icons stay on the line the
+ * eye already follows, rather than jumping to the middle when the menu
+ * narrows. */
+body[data-nav="collapsed"] .sidenav button { padding: 0.55rem 0.7rem; }
+body[data-nav="collapsed"] .navtext { display: none; }
+body[data-nav="collapsed"] .sidenav .count {
+  position: absolute; left: 1.5rem; top: 0.2rem;
+  margin: 0; padding: 0 0.3rem; font-size: 0.7rem;
+}
+body[data-nav="collapsed"] .sidenav li { position: relative; }
+
+@media (prefers-reduced-motion: no-preference) {
+  body[data-state="in"] { transition: grid-template-columns 0.15s ease; }
+}
+
+.topbar {
+  grid-area: top;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0 1.5rem; height: 3.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .spacer { margin-left: auto; }
+/* "Signed in as" can be a long email address: it shortens with an ellipsis
+ * (the full text is the badge's title) instead of widening the bar. */
+.topbar .badge { min-width: 0; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; }
+
+.crumb {
+  font-size: 0.95rem; font-weight: 600; margin: 0;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sidenav {
+  grid-area: nav;
+  padding: 0.75rem;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.sidenav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.sidenav button {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%;
+  padding: 0.5rem 0.7rem;
+  font: inherit; font-size: 0.92rem; text-align: left;
+  color: var(--text); background: none; border: 0;
+  border-radius: var(--ecommerce-radius-sm); cursor: pointer;
+  /* Not inherited from the generic button rule, which centres its contents
+   * because a button is usually a label in a box. A menu item is not: its icon
+   * and its word start at the same left edge as the row above it, and that
+   * edge is what the eye runs down. */
+  justify-content: flex-start;
+}
+.sidenav button:hover { background: var(--bg); }
+.sidenav button[aria-current="page"] {
+  background: var(--primary-soft);
+  color: var(--on-primary-soft);
+  font-weight: 600;
+}
+.sidenav svg { width: 1.15rem; height: 1.15rem; flex: none; }
+.sidenav .count {
+  margin-left: auto; padding: 0 0.4rem; border-radius: 999px;
+  background: var(--ecommerce-warning-wash); color: var(--warning);
+  font-size: 0.75rem; font-weight: 700;
+}
+
+main {
+  grid-area: main;
+  padding: 1.5rem;
+  width: 100%;
+  /* Left, against the menu, with a maximum width so a table row does not become
+   * a metre long on a wide monitor. This is where every admin panel of this
+   * kind puts it, and the reason is that the eye returns to the same left edge
+   * after every row. */
+  max-width: 78rem;
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+.page-head {
+  display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.page-head h2 { margin: 0 0 0.15rem; font-size: 1.4rem; }
+/* The way back from a detail page, above its title where a reader looks. */
+.page-head .back {
+  margin: 0 0 0.35rem -0.5rem;
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--text-muted);
+}
+.page-head .back:hover { color: var(--text); }
+.page-head p { margin: 0; color: var(--text-muted); font-size: 0.9rem; max-width: 62ch; }
+.page-head .actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+
+form > .card { margin-bottom: 0; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--ecommerce-shadow-sm);
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+}
+.card > header {
+  display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.card > header h3 { margin: 0; font-size: 1rem; }
+.card > header p { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.85rem; max-width: 60ch; }
+.card > header .actions { margin-left: auto; display: flex; gap: 0.5rem; }
+.card-body { padding: 1.25rem; }
+.card-body > :first-child { margin-top: 0; }
+.card-body > :last-child { margin-bottom: 0; }
+
+/* ── Statistics ─────────────────────────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.stat {
+  margin: 0; padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--ecommerce-shadow-sm);
+}
+.stat dt {
+  margin: 0; font-size: 0.78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.stat dd {
+  margin: 0.35rem 0 0;
+  font-size: 1.5rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+
+.notice {
+  padding: 0.8rem 1rem; margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--ecommerce-faint);
+  border-radius: var(--ecommerce-radius-sm);
+  background: var(--surface);
+}
+.notice[data-kind="ok"] { border-left-color: var(--ok); background: var(--ecommerce-ok-wash); }
+.notice[data-kind="error"] { border-left-color: var(--danger); background: var(--ecommerce-danger-wash); }
+
+.todo { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; gap: 0.5rem; }
+.todo li {
+  padding: 0.7rem 0.9rem;
+  background: var(--ecommerce-warning-wash); color: var(--text);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--ecommerce-radius-sm);
+  font-size: 0.9rem;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+/* The wrapper is what scrolls, so a wide table never widens the page. */
+.table-wrap { overflow-x: auto; }
+
+.grid { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.grid th, .grid td { padding: 0.7rem 1.25rem; text-align: left; vertical-align: middle; }
+.grid thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--bg);
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.grid tbody tr { border-bottom: 1px solid var(--border); }
+.grid tbody tr:last-child { border-bottom: 0; }
+.grid tbody tr:hover { background: var(--bg); }
+.grid td.numeric, .grid th.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.grid td.actions { text-align: right; white-space: nowrap; }
+.grid .muted { color: var(--text-muted); font-size: 0.85rem; }
+
+/* The first cell of a row carries the thing's name, and often a second line
+ * under it — a code, an address, a date. */
+.cell-title { display: grid; gap: 0.1rem; }
+.cell-title strong { font-weight: 600; }
+.cell-title small { color: var(--text-muted); }
+
+.thumb {
+  width: 2.25rem; height: 3rem; border-radius: 4px; object-fit: cover;
+  background: var(--surface-sunk); flex: none;
+}
+.cell-media { display: flex; align-items: center; gap: 0.75rem; }
+
+/* A sortable header is a button that looks like a header. The arrow is the same
+ * fact `aria-sort` carries, for readers who are not using a screen reader. */
+.grid th[data-sort] { padding: 0; }
+.sortbtn {
+  display: flex; align-items: center; gap: 0.35rem; width: 100%;
+  padding: 0.7rem 1.25rem;
+  font: inherit; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); background: none; border: 0;
+  border-radius: 0; cursor: pointer;
+  justify-content: flex-start;
+}
+.grid th.numeric .sortbtn { justify-content: flex-end; }
+.sortbtn:hover { background: var(--surface-sunk); color: var(--text); }
+.sortbtn .arrow { font-size: 0.85rem; letter-spacing: 0; }
+.grid th[aria-sort="none"] .arrow { opacity: 0.35; }
+.grid th:not([aria-sort="none"]) .sortbtn { color: var(--text); }
+
+/* ── Pagination ─────────────────────────────────────────────────────────── */
+
+.pager {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.pager p { margin: 0; font-size: 0.85rem; }
+.pager .spacer { margin-left: auto; }
+.pager .pagenum { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block; padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem; font-weight: 650; white-space: nowrap;
+  background: var(--surface-sunk); color: var(--text-muted);
+}
+.badge[data-status="paid"],
+.badge[data-status="fulfilled"],
+.badge[data-status="active"],
+.badge[data-status="on"] { background: var(--ecommerce-ok-wash); color: var(--ok); }
+.badge[data-status="needs_review"],
+.badge[data-status="pending"] { background: var(--ecommerce-warning-wash); color: var(--warning); }
+.badge[data-status="refunded"],
+.badge[data-status="failed"],
+.badge[data-status="cancelled"] { background: var(--ecommerce-danger-wash); color: var(--danger); }
+.badge[data-status="draft"],
+.badge[data-status="archived"],
+.badge[data-status="off"] { background: var(--surface-sunk); color: var(--text-muted); }
+.badge[data-status="test"] { background: var(--ecommerce-warning-wash); color: var(--warning); }
+
+/* Where an order came from (GO-165). The word is the signal — Web, ACP, UCP —
+ * and the outline sets a channel apart from a status pill beside it; colour
+ * only repeats the word. Contrast, text on its own fill (light / dark):
+ * Web --text-muted on --surface 5.4:1 / 6.3:1; ACP --on-primary-soft on
+ * --primary-soft 11.1:1 / 6.3:1; UCP --text on the info wash 11.7:1 / 11.1:1.
+ * The outline is currentColor, so it carries the same ratio against the card
+ * (all above the 3:1 a non-text edge needs). */
+.badge.channel {
+  border: 1px solid currentColor;
+  border-radius: var(--ecommerce-radius-sm);
+  padding: 0 0.45rem;
+  letter-spacing: 0.02em;
+}
+.badge.channel[data-channel="web"],
+.badge.channel[data-channel="other"] { background: var(--surface); color: var(--text-muted); }
+.badge.channel[data-channel="acp"] { background: var(--primary-soft); color: var(--on-primary-soft); }
+.badge.channel[data-channel="ucp"] { background: var(--ecommerce-info-wash); color: var(--text); }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+button, .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font: inherit; font-size: 0.9rem; font-weight: 600; line-height: 1.4;
+  color: var(--on-primary); background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--ecommerce-radius-sm);
+  cursor: pointer; text-decoration: none;
+}
+button:hover, .btn:hover { background: var(--ecommerce-primary-hover); border-color: var(--ecommerce-primary-hover); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+button.secondary, .btn.secondary {
+  color: var(--text); background: var(--surface); border-color: var(--control);
+}
+button.secondary:hover, .btn.secondary:hover { background: var(--bg); }
+
+button.ghost {
+  color: var(--text-muted); background: none; border-color: transparent;
+  padding: 0.3rem 0.5rem;
+}
+button.ghost:hover { background: var(--surface-sunk); color: var(--text); }
+
+button.danger {
+  color: var(--danger); background: var(--surface); border-color: var(--danger);
+}
+button.danger:hover { background: var(--ecommerce-danger-wash); }
+
+button.small { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+
+label { font-size: 0.88rem; font-weight: 600; }
+
+/* A checkbox is not a box you type in: giving it a border, a radius and 7px of
+ * padding turns a 16px control into a lopsided grey rectangle, which is what had
+ * happened to all five switches on the settings screen. The exclusion is on the
+ * rule rather than an override afterwards, so the next control of this kind
+ * cannot inherit it either. */
+input:not([type="checkbox"], [type="radio"]), select, textarea {
+  font: inherit; font-size: 0.95rem;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--control);
+  border-radius: var(--ecommerce-radius-sm);
+  padding: 0.45rem 0.6rem;
+  max-width: 100%;
+}
+input[type="checkbox"], input[type="radio"] {
+  width: 1.05rem; height: 1.05rem;
+  margin: 0;
+  accent-color: var(--primary);
+}
+input:disabled { background: var(--surface-sunk); color: var(--text-muted); }
+textarea { min-height: 6rem; resize: vertical; font-size: 0.9rem; }
+
+.field { display: grid; gap: 0.3rem; }
+.field small { color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; }
+.field input, .field select, .field textarea { width: 100%; }
+.field.narrow { max-width: 9rem; }
+.field.medium { max-width: 18rem; }
+
+.fields { display: grid; gap: 1rem; }
+.fields.two {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  align-items: start;
+}
+/* A textarea is worth the whole row wherever the row has more than one column. */
+.fields.two > .field:has(textarea) { grid-column: 1 / -1; }
+
+form { display: grid; gap: 1rem; }
+
+/* A filter bar sits above a table and reads as one row of controls. */
+.filters {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.filters .field { gap: 0.25rem; }
+.filters .spacer { margin-left: auto; }
+
+/* A checkbox belongs beside its label, not under it. */
+.check {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.15rem 0.7rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ecommerce-radius-sm);
+  background: var(--bg);
+}
+.check:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+.check label { cursor: pointer; }
+.check small { grid-column: 2; color: var(--text-muted); font-size: 0.8rem; line-height: 1.45; }
+
+.rowactions { display: flex; gap: 0.35rem; justify-content: flex-end; flex-wrap: wrap; }
+button.ghost.danger { color: var(--danger); }
+button.ghost.danger:hover { background: var(--ecommerce-danger-wash); }
+
+/* A value meant to be copied rather than read: the webhook URL a provider's
+ * dashboard wants. Wrapping matters more than fitting. */
+.copyable {
+  display: inline-block; padding: 0.4rem 0.6rem;
+  background: var(--surface-sunk); border: 1px solid var(--border);
+  border-radius: var(--ecommerce-radius-sm);
+  overflow-wrap: anywhere; user-select: all;
+}
+
+h4 { margin: 1.5rem 0 0.4rem; font-size: 0.95rem; }
+.card-body > h4:first-child { margin-top: 0; }
+
+/* ── Modules ────────────────────────────────────────────────────────────── */
+
+.module {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.module:last-child { border-bottom: 0; }
+.module h4 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; }
+.module p { grid-column: 1; margin: 0; color: var(--text-muted); font-size: 0.85rem; max-width: 60ch; }
+.module .blocked { color: var(--warning); }
+
+/* A switch, built from a checkbox so it is a checkbox to everything that is not
+ * a pair of eyes: focusable, labelled, and announced as checked or not. */
+.switch { grid-row: span 2; position: relative; width: 2.6rem; height: 1.5rem; }
+/* The switch is a checkbox wearing a different shape: invisible, stretched over
+ * the track, and still a checkbox to everything that is not a pair of eyes.
+ * `width`/`height` restate the size because the global checkbox rule fixes one. */
+.switch input[type="checkbox"] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+.switch span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--control);
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 1.125rem; height: 1.125rem; border-radius: 50%;
+  background: var(--ecommerce-knob); box-shadow: var(--ecommerce-shadow-sm);
+  transition: transform 0.15s ease;
+}
+.switch input[type="checkbox"]:checked + span { background: var(--primary); }
+.switch input[type="checkbox"]:checked + span::after { transform: translateX(1.1rem); }
+.switch input[type="checkbox"]:disabled + span { opacity: 0.5; }
+.switch input[type="checkbox"]:disabled { cursor: not-allowed; }
+.switch input[type="checkbox"]:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch span, .switch span::after { transition: none; }
+}
+
+/* ── Save bar ───────────────────────────────────────────────────────────── */
+
+/* Sticky, because a settings page is longer than a screen and a save button at
+ * the bottom of it is a save button nobody finds. */
+.savebar {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--ecommerce-shadow);
+}
+.savebar p { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
+.savebar .spacer { margin-left: auto; }
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+
+.empty {
+  padding: 3rem 1.5rem; text-align: center; color: var(--text-muted);
+}
+.empty h3 { margin: 0 0 0.35rem; color: var(--text); font-size: 1rem; }
+.empty p { margin: 0 auto 1rem; max-width: 40ch; font-size: 0.9rem; }
+
+/* ── Detail panel ───────────────────────────────────────────────────────── */
+
+.detail { margin-top: 1.25rem; }
+.detail dl.facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem; margin: 0 0 1.25rem;
+}
+.facts div { display: grid; gap: 0.15rem; }
+.facts dt { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.facts dd { margin: 0; font-weight: 600; font-size: 0.95rem; overflow-wrap: anywhere; }
+
+.list-plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; font-size: 0.9rem; }
+.list-plain li {
+  padding: 0.6rem 0.75rem; background: var(--bg); border-radius: var(--ecommerce-radius-sm);
+  /* A webhook event name has no spaces; on a phone it breaks rather than
+   * pushing the card wider than the screen. */
+  min-width: 0; overflow-wrap: anywhere;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.05rem 0.3rem; border-radius: 4px;
+  background: var(--surface-sunk);
+}
+
+/* ── Sign in ────────────────────────────────────────────────────────────── */
+
+body[data-state="out"] {
+  background:
+    radial-gradient(60rem 40rem at 50% -10%, var(--primary-soft), transparent 70%),
+    var(--bg);
+}
+body[data-state="out"] main {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.25rem; min-height: 100svh; padding: 2rem 1rem; max-width: none;
+}
+.auth { display: contents; }
+.auth-card {
+  width: 100%; max-width: 24rem; padding: 2rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--ecommerce-shadow);
+  text-align: center;
+}
+.auth-mark { width: 3rem; height: 3rem; color: var(--primary); }
+.auth-title { margin: 0.5rem 0 0.25rem; font-size: 1.35rem; }
+.auth-sub { margin: 0 0 1.5rem; color: var(--text-muted); font-size: 0.92rem; }
+/* Labels above fields read better ranged left, whatever the card does. */
+.auth-form { text-align: left; gap: 0.9rem; }
+.auth-form .field input { padding: 0.6rem 0.7rem; font-size: 1rem; } /* 16px: no iOS zoom */
+.auth-submit { margin-top: 0.4rem; padding: 0.65rem 1rem; font-size: 1rem; }
+.auth-submit[aria-busy="true"] { opacity: 0.7; cursor: progress; }
+.auth-note {
+  margin: 1.5rem 0 0; padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; text-align: left;
+}
+.auth-foot {
+  max-width: 24rem; margin: 0; text-align: center;
+  color: var(--text-muted); font-size: 0.8rem; line-height: 1.5;
+}
+body[data-state="out"] .notice { width: 100%; max-width: 24rem; margin: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-card { animation: auth-in 0.25s ease-out; }
+}
+@keyframes auth-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Narrow ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 60rem) {
+  body[data-state="in"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "bar" "brand" "top" "nav" "main";
+  }
+  .brandbar { border-right: 0; }
+  .sidenav { border-right: 0; border-bottom: 1px solid var(--border); padding: 0.5rem 0.75rem; }
+  .sidenav ul { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; gap: 0.25rem; }
+  .sidenav .count { margin-left: 0.35rem; }
+  main { padding: 1rem; }
+}
+
+/* A phone (360–430 px) cannot hold the screen name, the test-mode and
+ * signed-in badges and Sign out on one line: the bar wraps to two, the
+ * screen name keeping the first. Nothing may make the page scroll sideways. */
+@media (max-width: 30rem) {
+  .topbar {
+    flex-wrap: wrap; height: auto; min-height: 3.5rem;
+    padding: 0.5rem 1rem; gap: 0.4rem 0.6rem;
+  }
+  .topbar .crumb { flex: 1 0 100%; }
+  .topbar .spacer { display: none; }
+  .topbar .badge { max-width: 100%; }
+  .topbar #logout { margin-left: auto; }
+}
+
+/* A table below this width stops being a table and becomes a stack of labelled
+ * rows — which is why every cell carries its column name in data-label. */
+@media (max-width: 46rem) {
+  .grid, .grid thead, .grid tbody, .grid tr, .grid th, .grid td { display: block; }
+  .grid thead { position: absolute; left: -9999px; }
+  .grid tbody tr {
+    padding: 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .grid td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    padding: 0.3rem 1rem; text-align: right;
+  }
+  .grid td::before {
+    content: attr(data-label);
+    font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+    text-align: left;
+  }
+  .grid td.actions { justify-content: flex-end; }
+  .cell-media { justify-content: flex-end; }
+}

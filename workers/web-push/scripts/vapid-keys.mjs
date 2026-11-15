@@ -1,4 +1,4 @@
-// Prints a fresh VAPID key pair for the web-push worker (Node 20 or later):
+// Prints a fresh VAPID key pair for the web-push worker (Node 24 or later):
 //
 //   node workers/web-push/scripts/vapid-keys.mjs
 //

@@ -1,0 +1,76 @@
+{{define "shop-product.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $p := .Page }}
+{{ $title := (printf "%s — %s" $p.Title (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" $p.Excerpt
+    "Canonical" (printf "/%s/" $p.Slug)
+    "Image" $p.FeaturedImage
+    "OgType" "product"
+    "Product" (dict
+        "@context" "https://schema.org"
+        "@type" "Book"
+        "name" $p.Title
+        "description" $p.Excerpt
+        "bookFormat" "https://schema.org/EBook"
+        "author" (dict "@type" "Person" "name" (default "" $p.Extra.author))
+        "offers" (dict
+            "@type" "Offer"
+            "price" (default "" $p.Extra.price)
+            "priceCurrency" (default "EUR" $p.Extra.currency)
+            "availability" "https://schema.org/InStock"))
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <article class="ps-product">
+        {{ if $p.FeaturedImage }}
+        <img class="ps-product-cover" src="{{ $p.FeaturedImage }}" alt="Cover of {{ $p.Title }}"
+             width="600" height="800">
+        {{ end }}
+
+        <div>
+            <h1 data-ssg-edit="frontmatter:title">{{ $p.Title }}</h1>
+            {{ with $p.Extra.author }}<p><strong>{{ . }}</strong></p>{{ end }}
+
+            {{/* The form works on its own: without JavaScript it posts straight
+                 to the checkout endpoint with one line, which answers with a
+                 303 to the payment page. The button next to it adds the same
+                 product to the basket instead, for buying more than one thing. */}}
+            <form class="ps-buy" method="post" action="/api/shop/checkout">
+                <input type="hidden" name="sku" value="{{ $p.Extra.sku }}">
+                <input type="hidden" name="quantity" value="1">
+                <span class="ps-price" data-price-for="{{ $p.Extra.sku }}">{{ $p.Extra.price_display }}</span>
+                <button type="button" class="secondary"
+                        data-add-to-cart
+                        data-sku="{{ $p.Extra.sku }}"
+                        data-name="{{ $p.Title }}"
+                        data-price="{{ default 0 $p.Extra.price_minor }}"
+                        data-currency="{{ default "EUR" $p.Extra.currency }}"
+                        data-url="/{{ $p.Slug }}/"
+                        data-image="{{ $p.FeaturedImage }}">Add to basket</button>
+                <button type="submit">Buy now</button>
+            </form>
+            {{ with $p.Extra.price_note }}<p><small>{{ . }}</small></p>{{ end }}
+
+            <dl class="ps-facts">
+                {{ with $p.Extra.format }}<dt>Format</dt><dd>{{ . }}</dd>{{ end }}
+                {{ with $p.Extra.pages }}<dt>Length</dt><dd>{{ . }} pages</dd>{{ end }}
+                {{ with $p.Extra.language }}<dt>Language</dt><dd>{{ . }}</dd>{{ end }}
+                {{ with $p.Extra.isbn }}<dt>ISBN</dt><dd>{{ . }}</dd>{{ end }}
+                <dt>Delivery</dt><dd>A download link, emailed the moment the payment clears.</dd>
+            </dl>
+
+            <div data-ssg-edit="body">{{ $p.Content | safeHTML }}</div>
+        </div>
+    </article>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

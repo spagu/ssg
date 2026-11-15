@@ -93,11 +93,29 @@ jobs:
             - name: Install the Go build-snap
               run: sudo snap install go --classic
 
+            # snapcraft directly, not snapcore/action-build: that action still
+            # declares the Node 20 runtime (its last release is from 2024), and
+            # this project no longer runs anything on Node 20. These are the
+            # commands it ran: snapcraft from the stable channel, then the build
+            # as the job's own user with the build and image info it recorded.
+            # Destructive mode needs no LXD, so none is set up.
+            - name: Install snapcraft
+              run: sudo snap install snapcraft --classic
+
             - name: Build Snap
-              uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
               id: build
-              with:
-                  snapcraft-args: --destructive-mode
+              env:
+                  SNAPCRAFT_BUILD_INFO: "1"
+                  SNAPCRAFT_IMAGE_INFO: '{"build_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'
+              run: |
+                  snapcraft --destructive-mode
+                  shopt -s nullglob
+                  snaps=(*.snap)
+                  if [ "${#snaps[@]}" -ne 1 ]; then
+                      echo "::error::expected one .snap, found ${#snaps[@]}: ${snaps[*]}"
+                      exit 1
+                  fi
+                  echo "snap=$PWD/${snaps[0]}" >> "$GITHUB_OUTPUT"
 
             # The snap must not carry the OpenGL stack again: Ubuntu's `webp`
             # package brought freeglut, Mesa, LLVM, ICU and libxml2 with its
@@ -132,8 +150,10 @@ jobs:
             # pushed without cutting a new release — the recovery path this
             # workflow lacked when it froze at 1.8.6 (OPS-013). A manual run
             # builds from the default branch, whose VERSION is the truth.
+            # snapcraft upload, not snapcore/action-publish (Node 20, like the
+            # build action): the same upload and release it ran, with the
+            # credentials snapcraft reads from the environment.
             - name: Publish to Snap Store
-              uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
               if: >-
                 (startsWith(github.ref, 'refs/tags/v')
                   || github.event_name == 'schedule'
@@ -141,6 +161,5 @@ jobs:
                 && github.repository == 'spagu/ssg'
               env:
                 SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-              with:
-                snap: ${{ steps.build.outputs.snap }}
-                release: stable
+                SNAP_FILE: ${{ steps.build.outputs.snap }}
+              run: snapcraft upload "$SNAP_FILE" --release stable

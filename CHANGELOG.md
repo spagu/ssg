@@ -7,6 +7,234 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Configuration keys that read files or add third-party scripts are no
+  longer plain.** The configuration schema now classes
+  `shortcodes[].template`, `render_hooks` and `outputs_custom[].template`
+  (ssg reads these files wherever they point, so `/proc/self/environ` or
+  `.git/config` could be published as a page), and `analytics` and
+  `analytics_ids` (a tag id runs its owner's JavaScript on every page) as
+  `executes`. Changing them through the designer panel needs
+  `designer-ui:advanced`. A `template:` set through the settings overlay must
+  be one folder name.
+- **Redirect rules cannot be smuggled in through an alias.** A front-matter
+  alias or a `redirects:` entry containing a space or a line break could write
+  extra rules into `_redirects`, such as a site-wide redirect. Such entries
+  are now dropped with a warning naming them. Valid entries are written
+  exactly as before.
+- **`auth` always treats the editor and designer write permissions as
+  sensitive.** `designer-ui:theme`, `designer-ui:advanced` and
+  `editor-ui:publish` reach a service token only with the owner's
+  `allowSensitive`, also when `AUTH_KNOWN_PERMISSIONS` does not list those
+  modules. `editor-ui:publish` is sensitive because ssg renders raw HTML in
+  Markdown: an article can carry a script that runs, on the site's own
+  origin, for every administrator who opens it.
+- **Keys that can send visitors elsewhere are no longer plain.** `redirects`,
+  `link_rewrites`, `domain` and `modules[].url` are now `executes` in the
+  configuration schema: a `_redirects` rule, a rewritten link, the site's
+  domain or a module's base path can point people at another host, and a
+  redirect over `/api/auth/*` could imitate the login page. Builds are
+  unchanged — the class only decides who may change a key in the designer
+  panel. **What changes:** changing these four through designer-ui now needs
+  `designer-ui:advanced`; someone who edited them with `designer-ui:settings`
+  alone needs that permission added, or edits `.ssg.yaml` in the repository.
+  The panel shows `domain` and `redirects` with their English description,
+  as it does every other non-plain key.
+- **A page can no longer be silently replaced by a file ssg generates.** A
+  front-matter `link:` that names a file (`/robots.txt`, `/sitemap.xml`,
+  `/search-index.json`, a feed) used to lose to the file ssg writes there
+  afterwards, or to a file of the same name in `static/`: the build was green
+  and the site served something other than the page. That now stops the build
+  with `output collision at /robots.txt: <page> and the robots.txt this build
+  generates …`, as two pages at one address already do (#346). Naming such a
+  file in `link:` stays allowed: a page at `/robots.txt` with `robots_off:
+  true`, or at `/search-index.json` without `search_index`, builds as before,
+  and HTML pages are not affected. **What to do if your build now stops
+  here:** that page was never published — set a different `link:` on it, or
+  turn the generated file off (`robots_off`, `sitemap_off`, …) if the page is
+  meant to be that file, or remove the file from `static/`.
+- **Request bodies of editor-ui and designer-ui are read with a running
+  limit.** A body sent without `Content-Length` (chunked) was read whole
+  before its size was compared with the 8 MB limit. It is now read as a
+  stream and abandoned at 8 MB with the same `413 too_large` answer; the
+  limit is unchanged, and is counted in bytes as the declared length always
+  was. A body that is not UTF-8 is refused as invalid JSON, as the MCP
+  endpoints already did.
+- **`ssg config view --effective` masks every secret key the schema knows.**
+  The list of keys it masked was written by hand and missed `tts.api_key`,
+  `workers[].auth.token`/`password`/`value`, `endpoints[].password`,
+  `notifications[].headers` and `ai.models.*.key`. Masking now follows the
+  configuration schema: every key of class `secret`, in list elements and map
+  values too. Every key masked before is still masked. **What changes:** more
+  values read `«redacted — read it from the file or the environment»` in that
+  view; `ssg config view` without `--effective` still prints the file as
+  written.
+
+- **gosec 2.30.0 in CI, and OpenTelemetry 1.47.0 in its tool module**
+  (GHSA-q7gw-24fr-5p69, Dependabot alert 6). The module that pins the gosec
+  build for CI and `make security` (`.github/tools/gosec`) pulled
+  `go.opentelemetry.io/otel/trace` 1.45.0, where attribute values made of
+  U+FFFD runes bypass `AttributeValueLengthLimit`. Only the CI scanner's own
+  build used it — the ssg binary never did. gosec 2.29.0 → 2.30.0 and the
+  OpenTelemetry modules → 1.47.0; `make security` reports no findings with
+  the new gosec.
+
+### Fixed
+
+- **Muted text in `ssgtheme` meets WCAG 2.2 AA on sunken panels.**
+  `--color-fg-muted` was `#64748b`: 4.76:1 on the page, but 4.29:1 on
+  `--color-bg-sunken`, below the 4.5:1 AA needs for body text. It is now
+  `#5d6b80` (5.41:1 on the page, 4.88:1 on sunken panels); dark mode was
+  already compliant (5.71:1). Found by the designer panel's own contrast check.
+
+- **`ssg mcp` answers as the MCP 2026-07-28 revision specifies** (#427).
+  `server/discover` names its list `supportedVersions`; the old
+  `protocolVersions` field is still sent for this release, so a client that
+  reads it keeps working, and will then be removed. The `-32022` error carries
+  `requested` beside `supported`. Over HTTP a modern request with an unknown
+  method gets `404` and one with an unsupported version `400`, each with its
+  JSON-RPC error; initialize-era requests keep getting `200` exactly as
+  before. Deliberately unchanged: an `initialize` still echoes the client's
+  version — the lifecycle only recommends answering an unknown one with a
+  supported version, and older clients rely on the echo.
+
+- **A Markdown file that starts with a byte order mark keeps its
+  frontmatter.** Some Windows editors save UTF-8 with a BOM before the opening
+  `---`. ssg read the first line as `\ufeff---`, treated the file as having no
+  frontmatter, published the YAML as body text and took the title from the
+  first heading instead. A BOM at the very start is now dropped before
+  parsing; one later in the text stays content. A site with such files gets
+  their real titles, slugs and dates from this release on — which can move
+  those pages to the URLs their frontmatter always asked for.
+
+- **A scaffolded worker template passes its own tests** (#423). The manifest
+  and summary tests import the module reader from `workers/`, which `ssg new
+  worker` did not write, and the copy guard asserted a drifted copy even when
+  `workers/auth` was not there to compare with. `ssg new worker` now writes
+  the four shared files (`workers/module-manifest.ts`,
+  `module-summary-kit.ts`, `module.schema.json`, `module-summary.schema.json`)
+  when they are missing — an existing copy is never overwritten, only named
+  on stderr when it differs — and the guard's test skips, saying why, outside
+  this repository. Checked by scaffolding each of `newsletter`,
+  `newsletter-ui`, `comments`, `core`, `auth`, `web-push` and
+  `republish-trigger` into an empty project and running its suite: no
+  failures. The printed `worker:` block is unchanged.
+
+- **Posts and docs fit a phone screen in `ssgtheme`.** The post and docs
+  layouts are grids whose single column on narrow screens was `1fr`, and a
+  bare `1fr` column is never narrower than its widest unbreakable content: one
+  long code line or URL made the whole article — text, headings, comment form
+  — wider than the screen. The column is now `minmax(0, 1fr)`; code blocks
+  scroll inside their own box. All 150 pages of the docs site fit 360 and 390
+  pixels wide.
+- **The Listen button stays hidden where it cannot work** (#417). It arrives
+  with `hidden` and its script shows it only when the page has an MP3 or the
+  browser can speak; `ssgtheme` gave the button a `display`, which beats the
+  browser's own `[hidden]` rule, so readers without speech synthesis saw a
+  button that did nothing. The theme now restates `[hidden]` for the Listen,
+  Print and Cook mode buttons, and the docs tell theme authors to do the same.
+
+### Added
+
+- **Edit content and design in the browser: two new worker templates,
+  `editor-ui` and `designer-ui`.** Both are standalone Workers. They read
+  the site from its GitHub repository and publish each change as one commit
+  on the configured branch, and the site's CI builds it as after any push.
+  Setup is three things: the repository, a repository token held as a Worker
+  secret (never in `.ssg.yaml`), and the `auth` worker.
+  - **Sign-in.** Both work **only with `auth`**: every publication has an
+    author and needs a permission. There is no shared-password or Access-only
+    mode, and without a complete `*_AUTH_*` set every request gets 503.
+  - **`editor-ui`** offers:
+    - the site's Markdown articles in a Markdown editor with a button bar,
+      list continuation, a preview and a frontmatter form;
+    - images pasted from the clipboard, checked by their bytes and named by
+      content, committed together with the article;
+    - drafts kept in the browser, a conflict screen when someone else
+      changed the file, and history with restore;
+    - an Insert list of the site's components, shortcodes and blocks;
+    - articles stored in MDDB as an optional second source.
+  - **`designer-ui`** shows **every configuration key** from ssg's schema,
+    grouped and searchable, and writes changes to the `.ssg.designer.json`
+    overlay. Keys that run code, deploy, read files or send visitors
+    elsewhere need `designer-ui:advanced`. It also has colours and fonts
+    with live WCAG 2.2 contrast checks, and the theme's files. Settings and
+    files go out as one commit.
+  - **Without the panels.** Both have a REST API (OpenAPI in each template)
+    and an MCP endpoint, so an assistant or a script can work through a
+    service token of `auth`. `editor-ui:publish`, `designer-ui:theme` and
+    `designer-ui:advanced` are sensitive: a service token gets them only
+    with the owner's permission.
+  - **Not built in this version:** pull requests and preview deployments,
+    GitLab or Forgejo, a live preview of the site's look.
+  - **Docs:** `docs/EDITOR.md`, `docs/EDITOR-API.md`,
+    `docs/EDITOR-OPERATIONS.md`, `docs/DESIGNER.md`, and the guide "Edit and
+    Design in the Browser" on the blog. Scaffold with
+    `ssg new worker editor-ui` / `designer-ui`.
+- **A module can declare a permission sensitive** (`"sensitive": true` in
+  `module.json`, optional; the manifest contract stays 1). `auth` withholds
+  such a permission from service tokens unless the owner allowed it.
+- **`ssg init` writes `.dev.vars`, `.dev.vars.*` and `.wrangler/` into the
+  new site's `.gitignore`.** They hold a Worker's local secrets and state
+  under `wrangler dev`.
+
+- **Every configuration key, described, and a settings overlay.**
+  `ssg config schema` prints every configuration key as JSON: path, type,
+  default, description, form group and class (`plain`; `executes` for
+  commands, deployment, servers, programs and directories the build reads;
+  `secret` for credentials). It is built from ssg's own config types, and a
+  test fails on any key without an entry. A `.ssg.designer.json` beside a YAML
+  config is laid over it at load time: mappings merge, lists and other values
+  replace, `null` removes a key. An unknown key, a wrong type, invalid JSON or
+  a literal value in a secret key stops the build, naming the key. Sources in
+  order: defaults, `include:` files, the config file, the overlay, flags.
+  Without the file nothing changes. `--watch` rebuilds when the overlay
+  changes, and `ssg config view --effective` names the keys it set. The
+  designer allow-list of `ssg mcp` now comes from the schema; its keys, kinds
+  and descriptions are unchanged.
+- **One checklist for writing your own module**:
+  [docs/MODULE-REQUIREMENTS.md](docs/MODULE-REQUIREMENTS.md) says what a
+  worker must contain to work with `core` (the shared navigation and the
+  admin home page) and with `auth` (one sign-in, a permission per action) —
+  what the two give your worker in return, then three levels of requirements, each rule linked to the format that defines it. Until now the
+  rules were spread over the manifest, contract and `core` documents.
+- **`slug_transliterate: true` keeps Latin letters in slugs** (#426). The
+  slugs ssg makes from labels — tag, series and custom taxonomy terms,
+  authors, categories an extra content source names, pages
+  built from external-source records, story pages —
+  kept only `a–z` and `0–9`, so "Zażółć gęślą jaźń" became `za-g-l-ja` and
+  "Straße" `stra-e`. With the switch on, diacritics are dropped (Unicode NFD)
+  and letters NFD leaves whole are folded by a small table (`ł → l`,
+  `ß → ss`, `æ → ae`, `œ → oe`, `ø → o`, `đ`/`ð → d`, `þ → th`, `ı → i`,
+  `ħ → h`, `ŀ → l`, `ĳ → ij`, `ŧ → t`): `zazolc-gesla-jazn`, `strasse`.
+  Other scripts are not romanised and slug to nothing, as before. Off by
+  default: existing sites build byte for byte as they did. When on, every
+  archive whose slug moved gets a 301 from its old URL in `_redirects`, and a
+  record page an alias (301 plus a stub). Slugs from file names and `slug:`
+  front matter never went through this rule and do not change. The editor-ui
+  worker proposes file names with the same rule when the site sets the key;
+  both test against one table, `internal/models/testdata/slug-translit.json`.
+
+### Changed
+
+- **`ssg mcp` no longer lets an assistant change `templates_dir` or
+  `static_dir`.** Both name directories the build reads, and `static_dir` is
+  copied verbatim into the public output: `static_dir: .` set through
+  `designer_config_set` would publish the whole repository, `.ssg.yaml`
+  included. They now answer like any key outside the allow-list (46 keys
+  remain). **If you relied on this**, set them in `.ssg.yaml` or with
+  `ssg config set`; nothing else about `designer_config_set` changes.
+
+- **The `ssgtheme` home page leads with `Static site generator for agent-native
+  publishing`** and replaces the earlier marketing copy with concrete descriptions
+  of the Markdown/`llms.txt`/`site-graph.json`/WebMCP/ACP/UCP outputs, build
+  speed, SQL/API sources, API docs and edge workers.
+- **No GitHub Action runs on Node 20 any more.** The snap build and publish
+  call `snapcraft` directly instead of snapcore's actions, which still declare
+  Node 20; every other action already declared Node 24. The key-generation
+  scripts of the `auth` and `web-push` workers now say Node 24 or later.
+
 ## [1.9.9] - 2026-11-14
 
 ### Added

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- A theme without a tokens file: a fan of blank colour swatches beside a stylesheet. -->
+<rect x="20" y="18" width="62" height="84" rx="6" fill="#ffffff" stroke="#78909c" stroke-width="2"/>
+<path d="M30 34h30M30 46h42M30 58h24M30 70h36M30 82h20" stroke="#b0bec5" stroke-width="4" stroke-linecap="round"/>
+<g fill="#eceff1" stroke="#78909c" stroke-width="2"><rect x="96" y="22" width="26" height="74" rx="5" transform="rotate(-14 109 96)"/><rect x="104" y="22" width="26" height="74" rx="5"/><rect x="112" y="22" width="26" height="74" rx="5" transform="rotate(14 125 96)"/></g>
+<circle cx="117" cy="40" r="6" fill="none" stroke="#bf360c" stroke-width="2.5" stroke-dasharray="4 3"/>
+</svg>

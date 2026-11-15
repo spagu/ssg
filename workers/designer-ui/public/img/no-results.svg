@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><!-- No setting matches: an empty drawer of index cards and a magnifier. -->
+<rect x="18" y="58" width="96" height="46" rx="6" fill="#cfd8dc"/>
+<rect x="26" y="40" width="80" height="30" rx="4" fill="#ffffff" stroke="#78909c" stroke-width="2"/>
+<rect x="34" y="30" width="64" height="24" rx="4" fill="#eceff1" stroke="#78909c" stroke-width="2"/>
+<rect x="18" y="66" width="96" height="38" rx="6" fill="#90a4ae"/>
+<rect x="56" y="78" width="20" height="6" rx="3" fill="#eceff1"/>
+<circle cx="118" cy="44" r="18" fill="#e0f2f1" stroke="#00695c" stroke-width="5"/>
+<path d="M131 57l14 14" stroke="#00695c" stroke-width="7" stroke-linecap="round"/>
+<path d="M111 44h14" stroke="#bf360c" stroke-width="3" stroke-linecap="round"/>
+</svg>

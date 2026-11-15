@@ -1,0 +1,133 @@
+# ecommerce — a small shop for digital products.
+#
+# Everything below is commented out: uncomment what this shop actually uses.
+# Once it runs, /ecommerce-admin/ lists whatever is still missing.
+
+# ── Database (required) ──────────────────────────────────────────────────────
+#   npx wrangler d1 create ssg-shop
+# [[d1_databases]]
+# binding = "SHOP_DB"
+# database_name = "ssg-shop"
+# database_id = "<paste-d1-database-id>"
+
+# ── Files the buyer downloads (required to deliver anything) ─────────────────
+#   npx wrangler r2 bucket create ssg-shop-files
+# [[r2_buckets]]
+# binding = "SHOP_FILES"
+# bucket_name = "ssg-shop-files"
+
+# ── Short-lived state: request budgets and download range windows ──────────
+#   npx wrangler kv namespace create SHOP_KV
+# [[kv_namespaces]]
+# binding = "SHOP_KV"
+# id = "<paste-kv-namespace-id>"
+
+# ── Rate limiting ───────────────────────────────────────────────────────────
+# With SHOP_KV bound (above) the shop already enforces its own per-endpoint
+# budgets — 10 checkouts a minute per caller, 3 resends per ten minutes, and so
+# on. KV is eventually consistent, so a burst hitting several points of presence
+# can overshoot.
+#
+# These bindings are exact and free, and replace the KV counters for whichever
+# bucket has one. The limit lives here rather than in the code, so a bucket that
+# needs a different number needs a binding of its own — hence one per bucket
+# rather than one for everything.
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_CHECKOUT"
+# type = "ratelimit"
+# namespace_id = "1001"          # any number, unique within this account
+# simple = { limit = 10, period = 60 }
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_RESEND"
+# type = "ratelimit"
+# namespace_id = "1002"
+# simple = { limit = 3, period = 60 }   # period may be 10 or 60 seconds only
+#
+# [[unsafe.bindings]]
+# name = "RATE_LIMIT_DOWNLOAD"
+# type = "ratelimit"
+# namespace_id = "1003"
+# simple = { limit = 60, period = 60 }
+#
+# A generic one covers every bucket without its own, at one shared limit:
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1000"
+# simple = { limit = 60, period = 60 }
+
+# The defaults (GO-158), all changeable later: prices are gross (VAT
+# included), the base currency is EUR, Stripe and PayPal are both offered and
+# invoices are HTML pages the buyer prints. Currency and price mode are shop
+# settings (currency.base, pricing.mode) edited in the panel, not variables.
+#
+# [vars]
+# SHOP_GATEWAYS = "stripe,paypal"   # the default: both, each once its secrets are set
+# SHOP_PAYPAL_ENV = "sandbox"       # "sandbox" until a real sale has been tested
+# SHOP_MAX_FILE_MB = "100"          # upload cap for a product file
+# SHOP_RETENTION_DAYS = "0"         # 0 = keep personal data until asked to erase it
+#
+# Outgoing mail — any HTTP API that accepts a JSON POST (Resend, Postmark, …).
+# Without it, buyers get no download email: the shop says so in the panel.
+# SHOP_MAIL_URL = "https://api.resend.com/emails"
+# SHOP_MAIL_FROM = "shop@example.com"
+# SHOP_MAIL_ADMIN = "owner@example.com"   # where "you sold something" goes
+#
+# Who may use the admin panel (/ecommerce-admin/ and /api/shop/admin/*) — the
+# same three modes as every worker here; the first one configured wins. With
+# none of them the admin API answers 503: it is never open by default.
+#   (a) Shared password: set the SHOP_ADMIN_PASSWORD secret (below). One person, simplest.
+#   (b) Cloudflare Access: put /ecommerce-admin/* and /api/shop/admin/* behind an
+#       Access application first, then set both of these.
+# SHOP_ACCESS_TEAM = "myteam"            # "myteam" or "myteam.cloudflareaccess.com"
+# SHOP_ACCESS_AUD = "<application-aud>"  # the application's AUD tag
+#   (c) The `auth` worker: several people, per-action permissions (ecommerce:read,
+#       ecommerce:orders, ecommerce:refund, ecommerce:products, ecommerce:settings, ecommerce:export).
+#       Any one of these turns the mode on; an incomplete set is a 503, and the
+#       shared password is refused while this mode is on.
+# SHOP_AUTH_ISSUER = "https://example.com/api/auth" # auth's AUTH_ISSUER
+# SHOP_AUTH_LOGIN_URL = "/auth/login"               # where a browser without a session is sent
+# SHOP_AUTH_PUBLIC_KEY = '{"kty":"EC","crv":"P-256","x":"…","y":"…"}' # auth's public JWK or JWKS (recommended)
+# SHOP_AUTH_JWKS_URL = "/api/auth/jwks"             # …or this instead of the key (exactly one of the two)
+# SHOP_AUTH_AUDIENCE = "example.com"                # only when auth's AUTH_AUDIENCE is not the site host
+# Password mode's lockout: this many wrong passwords from one address within
+# the window lock that address for one window.
+# SHOP_ADMIN_MAX_FAILURES = "10"
+# SHOP_ADMIN_LOCKOUT_MINUTES = "10"
+#
+# Server-side tracking (optional; no third-party script on the page):
+# GA4_MEASUREMENT_ID = "G-XXXXXXXXXX"
+# META_PIXEL_ID = "<pixel-id>"
+#
+# Selling through AI agents — ACP checkout (README "Selling through AI agents
+# (ACP)"). Off unless "true"; every /api/shop/acp/* route is a 404 until then.
+# Needs STRIPE_SECRET_KEY and the SHOP_ACP_API_KEY secret, or it answers 503.
+# SHOP_ACP_ENABLED = "true"
+# SHOP_ACP_MERCHANT_ID = "acct_…"          # your Stripe account/profile id, as the platform asks for it
+# SHOP_ACP_WEBHOOK_URL = "https://agent-platform.example.com/agentic_checkout/webhooks/order_events"
+# SHOP_ACP_STRIPE_VERSION = "2026-09-30.preview"   # Stripe-Version for Shared Payment Token calls
+# The feed push is a separate Worker with its own wrangler.toml:
+# acp-feed-push/ in this template (Pages Functions cannot run a Cron Trigger).
+
+# ── Secrets ─────────────────────────────────────────────────────────────────
+# Never in this file. Set each with `wrangler pages secret put <NAME>`:
+#
+#   SHOP_ADMIN_PASSWORD    the shared admin password, mode (a) only. Long and
+#                          random: openssl rand -base64 24
+#   SHOP_IP_SALT           salt for stored IP hashes. Without it, no IP is kept.
+#   STRIPE_SECRET_KEY      sk_live_… / sk_test_…
+#   STRIPE_WEBHOOK_SECRET  whsec_… from the endpoint you add in Stripe, pointing
+#                          at https://<your-site>/api/shop/webhooks/stripe
+#   PAYPAL_CLIENT_ID       REST app client id
+#   PAYPAL_CLIENT_SECRET   REST app secret
+#   PAYPAL_WEBHOOK_ID      the id PayPal shows after you create the webhook at
+#                          https://<your-site>/api/shop/webhooks/paypal
+#   TURNSTILE_SECRET       (optional) anti-spam on checkout and resend
+#   SHOP_MAIL_KEY          bearer token for SHOP_MAIL_URL
+#   GA4_API_SECRET         (optional) GA4 Measurement Protocol secret
+#   META_ACCESS_TOKEN      (optional) Meta Conversions API token
+#   SHOP_ACP_API_KEY       (ACP) the bearer token the agent platform sends you
+#   SHOP_ACP_WEBHOOK_SECRET (ACP) HMAC key for the Merchant-Signature on order events
+#   SHOP_ACP_SIGNING_SECRET (ACP, optional) require signed requests from the platform

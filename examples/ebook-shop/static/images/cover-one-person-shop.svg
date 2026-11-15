@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img"
+     aria-label="Cover: The One-Person Shop by Tomasz Wierzbicki">
+  <!-- One open door in a row of shuttered ones. Drawn, not photographed, and
+       readable at thumbnail size, which a photograph of a shop is not. -->
+  <rect width="600" height="800" fill="#00695C"/>
+  <g fill="#004D40">
+    <rect x="60" y="420" width="90" height="200" rx="6"/>
+    <rect x="170" y="420" width="90" height="200" rx="6"/>
+    <rect x="390" y="420" width="90" height="200" rx="6"/>
+    <rect x="500" y="420" width="40" height="200" rx="6"/>
+  </g>
+  <rect x="280" y="420" width="90" height="200" rx="6" fill="#FFD54F"/>
+  <rect x="296" y="470" width="58" height="150" rx="4" fill="#FFF8E1"/>
+  <g fill="#E0F2F1" font-family="Georgia, 'Times New Roman', serif">
+    <text x="60" y="160" font-size="58" font-weight="700">The</text>
+    <text x="60" y="230" font-size="58" font-weight="700">One-Person</text>
+    <text x="60" y="300" font-size="58" font-weight="700">Shop</text>
+    <text x="60" y="352" font-size="26" fill="#B2DFDB">Tax, invoices and refunds</text>
+    <text x="60" y="700" font-size="26" fill="#B2DFDB">Tomasz Wierzbicki</text>
+    <text x="60" y="740" font-size="18" fill="#80CBC4">Paperless Press</text>
+  </g>
+</svg>

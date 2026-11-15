@@ -133,6 +133,10 @@ theme provides:
 ```
 
 The bundled themes have all three next to the post's date or reading time.
+Each block arrives with `hidden` and its script removes it only where the tool
+can work, so a theme that styles `.ssg-listen`, `.ssg-print` or `.ssg-cook`
+with a `display` must restate `[hidden] { display: none; }` for it — an author
+`display` overrides the browser's own rule.
 Without a slot, the block is placed right after the first `</h1>`, in the
 order Listen, Print, Cook mode, unless `auto: false` is set. With
 `auto: false`, a block is only placed where the theme has a slot. ssg removes

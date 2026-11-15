@@ -61,10 +61,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # Node.js 20 is deprecated on runners; run JS actions on Node 24 explicitly.
-  # Every workflow carries this, not only the ones that build a release: an
-  # action left on the old runtime stops working when Node 20 is removed, and a
-  # scheduled security scan failing quietly is the worst place to find out.
+  # Every action this project runs declares Node 24 (the snap build calls
+  # snapcraft directly because snapcore's actions are still on Node 20).
+  # The flag stays in every workflow as a guard: an action that falls back
+  # to an older runtime still runs on Node 24 instead of on Node 20.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:

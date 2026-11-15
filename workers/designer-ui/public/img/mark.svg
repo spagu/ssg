@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- The designer's mark: a swatch card fanned over a page, the top swatch in the focus colour. -->
+<rect x="3" y="4" width="20" height="24" rx="3" fill="#00695c"/>
+<path d="M7 10h12M7 15h12M7 20h8" stroke="#e0f2f1" stroke-width="2" stroke-linecap="round"/>
+<g transform="rotate(18 22 20)"><rect x="17" y="9" width="10" height="20" rx="2" fill="#ffffff" stroke="#263238" stroke-width="1.2"/><rect x="18.5" y="10.5" width="7" height="5" rx="1" fill="#ff8a65"/><rect x="18.5" y="16.5" width="7" height="5" rx="1" fill="#80cbc4"/><rect x="18.5" y="22.5" width="7" height="5" rx="1" fill="#455a64"/></g>
+</svg>

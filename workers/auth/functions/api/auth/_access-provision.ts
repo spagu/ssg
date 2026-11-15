@@ -7,7 +7,7 @@
 // checked against the database before every Access sign-in, and the method
 // refuses to start (503) while the role is the owner role, holds `*`, or holds
 // any permission isSensitive (_service-perms.ts) flags — `auth:…`, an erase,
-// a worker wildcard. The account gets that ONE role, no group, no password;
+// a worker wildcard, a name a module declares sensitive. The account gets that ONE role, no group, no password;
 // its Access identity is linked in the same transaction, so there is never an
 // account without a way in.
 
@@ -18,6 +18,7 @@ import type { Env } from "./_lib";
 import type { Identity } from "./_provider";
 import { identityInsert } from "./_provider-identities";
 import { OWNER_ROLE_NAME, isUnique } from "./_rbac-schema";
+import { registryOf } from "./_registry";
 import { isSensitive } from "./_service-perms";
 
 // defaultRole: the role new accounts get, or the configuration problem.
@@ -28,7 +29,8 @@ export async function defaultRole(env: Env, s: AccessSetup): Promise<{ roleId: s
   const role = await env.AUTH_DB.prepare("SELECT id FROM roles WHERE name = ?").bind(name).first<{ id: string }>();
   if (!role) return { problem: `AUTH_ACCESS_DEFAULT_ROLE "${name}" is not a role here: create it first, or correct the name` };
   const { results } = await env.AUTH_DB.prepare("SELECT permission FROM role_permissions WHERE role_id = ? ORDER BY permission").bind(role.id).all<{ permission: string }>();
-  const sensitive = results.map((r) => r.permission).filter((p) => p.includes("*") || isSensitive(p));
+  const declared = registryOf(env).sensitive;
+  const sensitive = results.map((r) => r.permission).filter((p) => p.includes("*") || isSensitive(p, declared));
   if (sensitive.length) return bad(`holds ${sensitive.join(", ")}`);
   return { roleId: role.id };
 }

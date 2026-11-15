@@ -410,7 +410,7 @@ export default {
   "token.perms": "Auf diese Berechtigungen einschränken (optional)",
   "token.permsHint": "Durch Leerzeichen oder Kommas getrennt. Leer: alles, was das Konto hat, außer sensiblen Berechtigungen.",
   "token.sensitive": "Diese sensiblen Berechtigungen erlauben (nur Eigentümer)",
-  "token.sensitiveHint": "Platzhalter, auth:…, …:erase und alles aus einer Rolle, die einen zweiten Faktor verlangt (standardmäßig …:send), gelangen nur in ein Token, wenn sie hier aufgeführt sind.",
+  "token.sensitiveHint": "Platzhalter, auth:…, …:erase, von einem Modul als sensibel gekennzeichnete Berechtigungen und alles aus einer Rolle, die einen zweiten Faktor verlangt (standardmäßig …:send), gelangen nur in ein Token, wenn sie hier aufgeführt sind.",
   "token.create": "Token erstellen",
   "token.allOfAccount": "Die des Kontos",
   "token.status.active": "Aktiv",

@@ -38,7 +38,7 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         package-all package-deb package-rpm package-snap \
         test test-coverage lint security run generate generate-simple serve deploy \
         site site-watch site-edit golden golden-update bench determinism \
-        clean install uninstall release test-action \
+        clean install uninstall release test-action shop shop-seed \
         tts-server-build tts-server-up tts-server-down tts-server-test
 
 # Default target
@@ -149,10 +149,13 @@ test-workers: ## 🧪 Run the worker tests (Node >= 23.6): module manifests of e
 	@node --import ./workers/auth/test/resolve.mjs --test 'workers/auth/test/*.test.ts'
 	@node --import ./workers/core/test/resolve.mjs --test 'workers/core/test/*.test.ts'
 	@node --import ./workers/republish-trigger/test/resolve.mjs --test 'workers/republish-trigger/test/*.test.ts'
+	@node --import ./workers/ecommerce/test/resolve.mjs --test 'workers/ecommerce/test/*.test.ts'
 	@node --import ./workers/web-push/test/resolve.mjs --test 'workers/web-push/test/*.test.ts'
 	@node --import ./workers/contact-form/test/resolve.mjs --test 'workers/contact-form/test/*.test.ts'
 	@node --import ./workers/newsletter/test/resolve.mjs --test 'workers/newsletter/test/*.test.ts'
 	@node --import ./workers/newsletter-ui/test/resolve.mjs --test 'workers/newsletter-ui/test/*.test.ts'
+	@node --import ./workers/editor-ui/test/resolve.mjs --test 'workers/editor-ui/test/*.test.ts'
+	@node --import ./workers/designer-ui/test/resolve.mjs --test 'workers/designer-ui/test/*.test.ts'
 	@echo "${GREEN}✅ Worker tests passed${RESET}"
 
 test-coverage: test ## 📊 Run tests with coverage report
@@ -227,6 +230,15 @@ site-watch: build ## 👀 Build the documentation site and rebuild+serve on chan
 site-edit: build ## ✏️  Serve the documentation site with the browser editor (GO-102)
 	@echo "${BLUE}✏️  Editing docs/ in the browser — http://127.0.0.1:8888 (edits land on a branch)${RESET}"
 	@./$(BUILD_DIR)/$(BINARY_NAME) --config docs-site.yaml --watch --http --edit
+
+shop: build ## 🛒 Build the example shop and serve it (storefront, API and panel)
+	@echo "${BLUE}🛒 Building examples/ebook-shop and serving it...${RESET}"
+	@echo "${YELLOW}   Panel: /ecommerce-admin/${RESET}"
+	@cd examples/ebook-shop && [ -f .dev.vars ] || cp .dev.vars.example .dev.vars
+	@cd examples/ebook-shop && ../../$(BUILD_DIR)/$(BINARY_NAME) --config ssg.yaml --watch --http --port 8899
+
+shop-seed: ## 🌱 Fill the running example shop with its two books
+	@sh examples/ebook-shop/scripts/seed.sh
 
 deploy: build ## ☁️  Generate site with ZIP for Cloudflare Pages deployment
 	@echo "${BLUE}☁️  Generating deployment package...${RESET}"

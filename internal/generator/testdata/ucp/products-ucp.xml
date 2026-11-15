@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+<channel>
+<title>example.com</title>
+<link>https://example.com/</link>
+<description>example.com</description>
+<item>
+<g:id>GIFT-50</g:id>
+<g:title>Gift card</g:title>
+<g:description>A gift card for the shop.</g:description>
+<g:link>https://example.com/gift-card/</g:link>
+<g:image_link>https://example.com/images/gift.jpg</g:image_link>
+<g:price>50.00 USD</g:price>
+<g:availability>in_stock</g:availability>
+<g:brand>Example</g:brand>
+<g:native_commerce>
+<g:checkout_eligibility>FALSE</g:checkout_eligibility>
+<g:cart_eligibility>FALSE</g:cart_eligibility>
+</g:native_commerce>
+</item>
+<item>
+<g:id>KETTLE-1</g:id>
+<g:title>Steel kettle</g:title>
+<g:description>A stovetop kettle in brushed steel.</g:description>
+<g:link>https://example.com/kettle/</g:link>
+<g:image_link>https://example.com/images/kettle.jpg</g:image_link>
+<g:price>49.00 USD</g:price>
+<g:availability>in_stock</g:availability>
+<g:brand>Example</g:brand>
+<g:native_commerce>
+<g:checkout_eligibility>TRUE</g:checkout_eligibility>
+</g:native_commerce>
+<g:merchant_item_id>kettle-checkout-1</g:merchant_item_id>
+<g:consumer_notice>
+<g:notice_type>prop_65</g:notice_type>
+<g:notice_message>This product can expose you to &lt;b&gt;lead&lt;/b&gt;. See &lt;a href=&#34;https://www.example.com/p65&#34;&gt;the warning&lt;/a&gt;.</g:notice_message>
+</g:consumer_notice>
+</item>
+<item>
+<g:id>RADIO-1</g:id>
+<g:title>Refurbished radio</g:title>
+<g:description>A refurbished shortwave radio.</g:description>
+<g:link>https://example.com/radio/</g:link>
+<g:image_link>https://example.com/images/radio.jpg</g:image_link>
+<g:price>80.00 USD</g:price>
+<g:availability>in_stock</g:availability>
+<g:condition>refurbished</g:condition>
+<g:brand>Example</g:brand>
+<g:native_commerce>
+<g:checkout_eligibility>FALSE</g:checkout_eligibility>
+</g:native_commerce>
+</item>
+<item>
+<g:id>TEE-M-BLUE</g:id>
+<g:item_group_id>TEE</g:item_group_id>
+<g:title>Cotton tee, M, blue</g:title>
+<g:description>A cotton T-shirt in two sizes and two colours.</g:description>
+<g:link>https://example.com/tee/</g:link>
+<g:image_link>https://example.com/images/tee.jpg</g:image_link>
+<g:price>25.00 USD</g:price>
+<g:availability>in_stock</g:availability>
+<g:brand>Example</g:brand>
+<g:item_group_title>Cotton tee</g:item_group_title>
+<g:native_commerce>
+<g:checkout_eligibility>TRUE</g:checkout_eligibility>
+</g:native_commerce>
+<g:variant_option>
+<g:name>size</g:name>
+<g:value>M</g:value>
+</g:variant_option>
+<g:variant_option>
+<g:name>color</g:name>
+<g:value>blue</g:value>
+</g:variant_option>
+</item>
+<item>
+<g:id>TEE-S-RED</g:id>
+<g:item_group_id>TEE</g:item_group_id>
+<g:title>Cotton tee, S, red</g:title>
+<g:description>A cotton T-shirt in two sizes and two colours.</g:description>
+<g:link>https://example.com/tee/</g:link>
+<g:image_link>https://example.com/images/tee.jpg</g:image_link>
+<g:price>25.00 USD</g:price>
+<g:availability>in_stock</g:availability>
+<g:brand>Example</g:brand>
+<g:item_group_title>Cotton tee</g:item_group_title>
+<g:native_commerce>
+<g:checkout_eligibility>TRUE</g:checkout_eligibility>
+</g:native_commerce>
+<g:variant_option>
+<g:name>size</g:name>
+<g:value>S</g:value>
+</g:variant_option>
+<g:variant_option>
+<g:name>color</g:name>
+<g:value>red</g:value>
+</g:variant_option>
+</item>
+</channel>
+</rss>

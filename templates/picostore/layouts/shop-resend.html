@@ -1,0 +1,45 @@
+{{define "shop-resend.html"}}<!DOCTYPE html>
+<html lang="{{ if .Lang }}{{ .Lang }}{{ else }}en{{ end }}">
+<head>
+{{ $title := (printf "Lost your download? — %s" (default .Domain .Vars.shop_name)) }}
+    <title>{{ $title }}</title>
+{{ template "ps-head" (dict
+    "Title" $title
+    "Desc" "Have your download links sent again."
+    "Canonical" "/shop/resend/"
+    "Ctx" .) }}
+</head>
+<body>
+{{ template "ps-header" . }}
+
+<main class="container" id="main-content">
+    <h1>Lost your download?</h1>
+    <p>Give us the address you bought with and we will send the links again.</p>
+
+    {{/* A plain form that posts to the API. The answer is the same whether or
+         not the address has ever bought anything, so this page cannot be used
+         to find out who our customers are. */}}
+    <form method="post" action="/api/shop/resend">
+        <label>
+            Email address
+            <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>
+            Order number (optional, if you still have it)
+            <input type="text" name="orderNumber" maxlength="40" autocomplete="off">
+        </label>
+        {{ with .Vars.turnstile_site_key }}
+        <div class="cf-turnstile" data-sitekey="{{ . }}"></div>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+        {{ end }}
+        <button type="submit">Send my links</button>
+    </form>
+
+    <p><small>Links expire after a while and can only be used a limited number of
+    times — that is what stops one purchase becoming a public mirror. Asking
+    again gives you fresh ones.</small></p>
+</main>
+
+{{ template "ps-footer" . }}
+</body>
+</html>{{end}}

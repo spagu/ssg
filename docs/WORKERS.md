@@ -101,7 +101,13 @@ yourself (e.g. with esbuild in CI).
 ## Scaffolding a Function
 
 `ssg new worker <template>` drops a batteries-included, npm-dependency-free
-template under `./workers/<template>/` and prints the `worker:` block to add:
+template under `./workers/<template>/` and prints the `worker:` block to add.
+It also writes the four files the templates' tests share —
+`workers/module-manifest.ts`, `module-summary-kit.ts`, `module.schema.json`
+and `module-summary.schema.json` — when they are missing, so a template's own
+tests pass in a project of its own. An existing copy is kept and, if it differs
+from this release's, named on stderr; stdout stays the `worker:` block.
+
 
 | Template | What it does |
 |---|---|
@@ -118,6 +124,8 @@ template under `./workers/<template>/` and prints the `worker:` block to add:
 | `auth` | Optional accounts for the people who run the site's panels. Invitations are the only way in; each person signs in with a password (PBKDF2-SHA256) or Google, Microsoft, Apple, GitHub, Facebook or Cloudflare Access. Roles and groups hand out `worker:action` permissions; an optional second factor (TOTP, backup codes, passkeys; off until `AUTH_MFA_KEY` is set); service tokens for CI; sign-in, account and admin pages in five languages; an audit log. Sessions are a short ES256 token in a `__Host-` cookie with a rotating refresh token, checked by the other workers locally with the public key. See [its README](../workers/auth/README.md) |
 | `core` | The admin home page at `/core/`: what needs attention in every module, a card per module, the site's build and configuration problems; a shared navigation bar (`/core/nav.js`) the panels include; module order, visibility and labels with the optional `CORE_DB`; the panels in the site's colours from `admin_theme:`. Reads the module registry the build writes when `core` is in `workers:` and asks each module how it is (same host only, timeouts, only the caller's own credential forwarded). Shared password with a lockout, the `auth` worker's session, or Cloudflare Access. Not a security boundary: it never proxies or authorizes for a module. See [its README](../workers/core/README.md) |
 | `newsletter-ui` | **Standalone Worker**, not Pages Functions (see below). Sends the `newsletter` template's list, on the same D1 database: a browser panel and admin API, campaigns (Markdown or HTML, segments, preview, test send, a draft from a feed post), a send engine on a cron trigger and a queue (rate limit, each reader at most once, uncertain sends shown instead of repeated), bounces and complaints from SMTP replies, signed Resend/MailChannels webhooks or a CSV, CSV import of lists from other tools, statistics without tracking anyone. Cloudflare Access, `auth` accounts with per-action permissions and an audit trail, or HTTP Basic with a per-IP failed-login lockout, CSRF header on every write, its own tables, never alters `subscribers`. API in OpenAPI 3.1. See [its README](../workers/newsletter-ui/README.md) |
+| `editor-ui` | **Standalone Worker.** The site's Markdown articles and images edited in the browser: a list, a form for the front matter, a Markdown editor with a preview, pasted images, components and shortcodes to insert, history with restore. Each publication is one commit to the site's GitHub repository (or one write to MDDB), signed by the person who made it; a changed file is a visible conflict, never overwritten. REST API and an MCP endpoint for scripts and assistants. **`auth` accounts only**, no password mode. See [EDITOR.md](EDITOR.md) |
+| `designer-ui` | **Standalone Worker.** Every ssg setting in the browser, grouped and described from ssg's own schema, written to a `.ssg.designer.json` overlay (never to `.ssg.yaml`); the theme's colours and fonts with WCAG 2.2 contrast checks; the theme's files. One commit per publication; settings that run code or deploy, and theme files, need sensitive permissions. REST API and MCP endpoint. **`auth` accounts only**. See [DESIGNER.md](DESIGNER.md) |
 
 ```sh
 ssg new worker stripe-checkout
@@ -155,7 +163,8 @@ keys: [CONFIGURATION.md](CONFIGURATION.md#the-module-registry-modules).
 
 ### Pages Functions vs a standalone Worker
 
-Every template above except `newsletter-ui` is a set of **Pages Functions**:
+Every template above except `newsletter-ui`, `editor-ui` and `designer-ui` is
+a set of **Pages Functions**:
 a `functions/` tree that the build copies into the site, deployed together with
 the pages by `wrangler pages deploy`, configured through `worker:`/`workers:`
 and a `wrangler.snippet.toml` that `ssg new wrangler` folds into the site's
@@ -236,6 +245,12 @@ while any `<PREFIX>_AUTH_*` variable is set. Delete the password secret when
 you switch, so removing the variables later does not quietly bring it back.
 `web-push` and `republish-trigger` are called by machines: they keep their
 shared key and can also accept an `auth` service token.
+
+`editor-ui` and `designer-ui` are the exception to the three modes: they
+accept **only** `auth` (`EDITOR_AUTH_*`, `DESIGNER_AUTH_*`), because every
+commit they make needs an author and a permission per action. Without a
+complete set they answer `503` on every path ([EDITOR.md](EDITOR.md),
+[DESIGNER.md](DESIGNER.md)).
 
 A walk-through from one panel with a password to a team with accounts, a
 second factor and the admin home page is in

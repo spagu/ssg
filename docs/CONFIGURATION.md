@@ -139,10 +139,104 @@ config byte-for-byte as it was.
 Version one edits **YAML**. A TOML or JSON config is refused with a message
 rather than rewritten without its comments.
 
+**`--effective` masks credentials.** The effective view has `$NAME`
+references already resolved, so every key the schema classes `secret` (below)
+reads `«redacted — read it from the file or the environment»` wherever it
+sits — `jwt_secret`, `tts.api_key`, `workers[].auth.token`,
+`external_sources.sources.*.auth.token`, `ai.models.*.key` and the rest —
+together with `tls_key` and the sections `ai`, `worker`, `deploy`, `notify` and
+`external_sources.sources`, which are masked whole. `ssg config view` without
+`--effective` prints the file as written.
+
 The MCP designer tools (`ssg mcp`) write through the same engine, so an
 assistant and a person editing the same file get the same result — with the
 difference that MCP still restricts itself to an allow-list of presentation
 keys, while the CLI is the project owner's own tool and edits anything.
+That allow-list is the set of schema keys marked `mcpWritable` (below).
+
+## The configuration schema (`ssg config schema`)
+
+```
+ssg config schema > config-schema.json
+```
+
+prints every key ssg reads as JSON, built from ssg's own configuration types,
+so it cannot fall behind the code: a field without an entry fails ssg's tests.
+It needs no project. designer-ui builds its options tab from a generated copy,
+`workers/designer-ui/src/config-schema.json`
+(`UPDATE_CONFIG_SCHEMA=1 go test ./internal/config -run TestSchemaTwinUpToDate`
+regenerates it).
+
+```json
+{
+  "schemaVersion": 1,
+  "overlayFile": ".ssg.designer.json",
+  "groups": [{ "id": "site", "title": "Site", "description": "…" }],
+  "keys": [
+    { "path": "port", "key": "port", "type": "int", "default": 8888,
+      "description": "port the server listens on", "group": "server",
+      "class": "executes" }
+  ]
+}
+```
+
+Each key has `path`, `key`, `type` (`bool`, `int`, `number`, `string`, `enum`,
+`list`, `map`, `object` or `any`), `enum` values, a `default` when the loader
+starts from one, `description`, `group` and `class`. A `list` has `items`, a
+`map` has `values`, an `object` has `fields`; `open: true` on an object means it
+also takes keys it does not name (`story:`). `alternate` is a second accepted
+form — `story: true`, `prefix: /blog/`, `languages` as full entries. In a
+`path`, `[]` is any list element and `*` any map key:
+`external_sources.sources.*.auth.token`. Elements (`items`, `values`,
+`alternate`) take their description and class from the key that owns them.
+
+**Classes.** Every key has exactly one, and there is no default:
+
+| Class | Meaning |
+|---|---|
+| `plain` | an ordinary setting |
+| `executes` | runs a command, deploys, changes what a server does, names a program, file or directory the build reads (or writes outside the output), loads a third-party script on every page, can send visitors to another place, or weakens a security guard — `hooks`, `workers`, `deploy`, `sass_binary`, `static_dir`, `variables`, `sanitize_html`, `shortcodes[].template`, `render_hooks`, `outputs_custom[].template`, `analytics_ids`, `redirects`, `link_rewrites`, `domain`, `modules[].url`… |
+| `secret` | carries a credential; only an environment reference may be written. `secretFormat` says which: `whole` (`$NAME` or `${NAME}`), `login` (`login:$NAME`, `server_users`) or `inline` (text holding a reference, `Bearer $TOKEN`) |
+
+## The settings overlay (`.ssg.designer.json`)
+
+A JSON file beside the config file, nested like the configuration, that ssg
+lays over `.ssg.yaml` when it loads it. designer-ui writes its settings there,
+so `.ssg.yaml` — hand-written, with its comments — is never rewritten by a
+program.
+
+```json
+{
+  "title": "Example",
+  "marketing": { "theme_color": "#1a73e8" },
+  "image_formats": ["avif", "webp"],
+  "mermaid_theme": null
+}
+```
+
+- **Merge.** Mappings merge key by key; any other value replaces the file's —
+  a list replaces the whole list; `null` removes the key, so its default
+  applies. A value means exactly what it would written in `.ssg.yaml`.
+- **Validation.** The overlay is checked against the schema before the build
+  reads it. An unknown key (`include:` among them — an overlay cannot pull in
+  more config), a value of the wrong type, an enum value not in the list, or
+  invalid JSON stops the build with the key's path, e.g.
+  `.ssg.designer.json: feeds[0].format: "rss2" is not one of …`. Nothing is
+  dropped silently. `template` written in the overlay is one folder name
+  inside `templates_dir`, never a path (no `/`, `\`, `.` or `..`).
+- **Secrets.** A `secret` key with a literal value is an error; a
+  `$NAME` reference passes. The overlay lives in the repository, and a secret in
+  a repository is a leak, not a setting.
+- **YAML configs only.** An overlay beside a `.ssg.toml` or `.ssg.json` is an
+  error rather than being ignored.
+- **No overlay file, no change**: the config is read byte for byte as before.
+- `ssg config view --effective` notes on stderr which keys came from the overlay.
+- `--watch` (and `ssg mcp --watch`) rebuild when the overlay changes, as for the
+  config file.
+
+**Order of sources**, lowest first: built-in defaults → `include:` files → the
+config file → `.ssg.designer.json` → command-line flags. `$NAME` references are
+resolved from the environment where each key is used, after all of these.
 
 ## Core and paths
 
@@ -318,7 +412,8 @@ Two things worth knowing even if you only ever want Atom:
 |---|---|
 | `path` | Output path — also the URL. Required |
 | `title` | Feed title; defaults to the site domain |
-| `format` | `atom` (default), `rss` (2.0), `json` (JSON Feed 1.1) or `google-merchant` (a product feed, see below) |
+| `format` | `atom` (default), `rss` (2.0), `json` (JSON Feed 1.1), `google-merchant` or `acp` (product feeds, see below) |
+| `ucp` | on a `google-merchant` feed: add Google's Universal Commerce Protocol attributes (see below) |
 | `source` | A content root: matches that folder and everything beneath it; also an MDDB section or an `external_sources` entry by name (1.9.0) |
 | `prefix` | URL path prefix, or a list of them, as in [`sitemaps:`](#splitting-the-sitemap-sitemaps-sitemap_max_urls) (1.9.0) |
 | `categories` | Category names or slugs — any of |
@@ -384,6 +479,304 @@ that state no availability at all.
 A product Google would reject — no title, description, link, image or price —
 is left out with a warning naming the page. The feed is not offered to readers
 in the pages' autodiscovery links.
+
+### Product feed for the Agentic Commerce Protocol (ACP)
+
+`format: acp` writes the same products as `google-merchant` as an Agentic
+Commerce Protocol product feed — the file OpenAI reads to show a shop's
+products in ChatGPT (1.9.10, GO-161, #197). The rows come from the same place:
+the page's merged `Product` + `Offer` JSON-LD and its `merchant:` front matter,
+read by the same code, so a page already in the Merchant feed needs nothing
+new. ACP adds a seller block, which the feed repeats on every row, and a few
+optional per-product fields.
+
+```yaml
+feeds:
+  - path: /acp.jsonl
+    format: acp
+    source: shop
+    merchant:                    # the same defaults as google-merchant
+      brand: Example
+    acp:
+      seller_name: Example Shop  # required
+      target_countries: [US]     # required, ISO 3166-1 alpha-2
+      store_country: US          # required
+      seller_url: /
+      seller_privacy_policy: /privacy/   # needed for checkout
+      seller_tos: /terms/                # needed for checkout
+      return_policy: /returns/
+      accepts_returns: true
+      return_deadline_in_days: 30        # written only with accepts_returns: true
+      shipping_price: "4.90 USD"         # when an offer states no shippingRate
+      is_digital: false
+      is_eligible_search: true           # the feed's default when unset
+      is_eligible_checkout: false        # unset = false
+check_acp: warn
+```
+
+**Specification.** Written against the OpenAI *Product feed schema*,
+`developers.openai.com/commerce/specs/feed`, and *Submit product feeds*, as
+read on 2026-11-14. Neither page carries a version or a date; the
+`agentic-commerce-protocol.com` copy linked from #197 did not resolve that day.
+If the schema moves, this section and the code move with it.
+
+**Format: JSON Lines** (`.jsonl`, UTF-8), one product object per line. The
+schema also describes CSV and TSV, but its own example is JSON Lines, and in
+JSON the lists (`target_countries`, `additional_image_urls`) and the variant
+map stay JSON instead of a comma-joined cell and a JSON string inside a cell.
+No compression — the schema does not mention it.
+
+The required seller fields — `seller_name`, `target_countries`,
+`store_country` — are configuration: without them the build fails, naming
+them. URLs in the block may be site paths; they are made absolute.
+`target_countries` and `store_country` are upper-cased. The schema says
+standard uploads use `US` today and other markets need OpenAI's confirmation.
+
+| ACP field | From |
+|---|---|
+| `item_id` | as Merchant's `id`: `sku`, then `merchant.id`, then the page's URL |
+| `title`, `description`, `url`, `brand`, `gtin`, `mpn`, `condition` | as the Merchant feed |
+| `image_url`, `additional_image_urls` | the first `image`, then the rest |
+| `price` | `offers.price` + `offers.priceCurrency` → `14.00 EUR` |
+| `availability` | as Merchant, in ACP's spelling: `in_stock`, `out_of_stock`, `pre_order`, `backorder` |
+| `group_id`, `listing_has_variations`, `variant_dict` | a `ProductGroup`: each `hasVariant` is a row; `variant_dict` holds the properties named in `variesBy` (else `color` and `size`) with the variant's values |
+| `offer_id` | `acp.offer_id`, else `offers.sku` |
+| `product_category`, `material`, `color`, `size` | `category`, `material`, `color`, `size` of the Product |
+| `review_count`, `star_rating` | `aggregateRating` (`reviewCount` or `ratingCount`; `ratingValue` rescaled to 0–5 from `bestRating`, two decimals); no count, no rating |
+| `shipping_price` | `offers.shippingDetails.shippingRate` (`value` + `currency`), else the feed's `acp.shipping_price` |
+| seller, returns, countries, `is_digital`, `is_eligible_*` | the feed's `acp:` block |
+
+A page's `acp:` front matter adds or overrides, for every product on the page:
+`product_category`, `material`, `gender` (`male`, `female`, `unisex`),
+`age_group` (`newborn`, `infant`, `toddler`, `kids`, `adult`), `size_system`
+(`US`, `UK`, `EU`…), `shipping_price`, `is_digital`, `is_eligible_search`,
+`is_eligible_checkout`; and on a page with one product (variants need their
+own JSON-LD, as with `merchant.id`): `offer_id`, `color`, `size`,
+`sale_price` (`"35.00 EUR"`). `merchant:` front matter (`id`, `availability`,
+`condition`, `brand`, `gtin`, `mpn`) works as in the Merchant feed and accepts
+`pre_order` too.
+
+```yaml
+---
+title: Enamel mug
+schema:
+  "@type": Product
+  sku: MUG-350
+  image: /images/mug.jpg
+  offers: { price: "14.00", priceCurrency: EUR, availability: https://schema.org/InStock }
+acp:
+  product_category: Home & Garden > Kitchen & Dining > Drinkware
+  is_eligible_checkout: true
+---
+```
+
+The schema names fields this feed does not write: `is_ads_eligible` and
+`ads_metadata` (Ads), `marketplace_seller`, `store_review_count`,
+`store_star_rating`, `accepts_exchanges`, the `shipping` tuple, and separate
+`length`/`width`/`height`/`weight`. Several need setup with OpenAI first. The
+`delivery_estimate`, `inventory_quantity` and `custom_variant1_*` fields named
+in #197 are not in the current schema (the `custom_variant` pairs are legacy,
+replaced by `variant_dict`), so they are not written either.
+
+A row missing a per-product required field (`title`, `description`, `url`,
+`brand`, `image_url`, `price`) is left out of the file, since OpenAI rejects
+it. With `check_acp` off, the build prints one line counting those rows and the
+ones whose availability no page states.
+
+**`check_acp`** (GO-162) names each problem by source file and field. The
+feed decides what an agent shows and the checkout decides what it charges.
+When they disagree the product is dropped without a warning, so the build is
+the only place that reports it:
+
+```
+⚠️  ACP feed in content/shop/pages/mug.md → acp.jsonl item MUG-1: price — 12 has no currency; set offers.priceCurrency — the row is left out
+⚠️  ACP feed in feeds: /acp.jsonl → acp.seller_tos — required when a row has is_eligible_checkout: true
+```
+
+- a row missing a required field (and so left out);
+- a price with no currency, or any amount (`price`, `sale_price`,
+  `shipping_price`) not written `amount CURRENCY`, or not in the price's
+  currency; a `sale_price` not above zero and below the price;
+- an `availability` no page states, which comes from the feed's
+  `merchant.availability` or is assumed `in_stock`;
+- a duplicate `item_id` or `offer_id`;
+- a product `url` on this site that does not resolve in the output;
+- `seller_privacy_policy` or `seller_tos` missing while a row asks for
+  checkout, and any seller URL on this site (`seller_url`, the policies,
+  `return_policy`) that does not resolve;
+- `is_eligible_checkout: true` on a row whose `is_eligible_search` is false.
+
+`strict` (or `strict: true`) fails the build on any of them. URLs on other
+sites are not fetched.
+
+**What this does not do.** ssg writes the file and stops there. Sending it to
+OpenAI (an upload, a hosted URL or SFTP, set up in the merchant portal) and
+the checkout (the REST endpoints, the payment through Stripe's Shared Payment
+Token, the order webhooks) are not part of the build. In 1.9.10 they come from
+the shop worker (`workers/ecommerce`) and a Cloudflare Cron Trigger beside it
+that pushes the feed. Stock in the file is what it was at build time, and
+live inventory stays with the shop. **OpenAI requires a certification of the
+integration before it goes live. That certification has not been done for
+this feed or for the shop worker.** Treat both as a starting point written
+against the published schema, not as a certified integration.
+
+### Universal Commerce Protocol (UCP) on the Merchant feed
+
+The **Universal Commerce Protocol** (`ucp.dev`) is the open protocol Google
+uses to let shoppers buy in its AI surfaces — AI Mode in Google Search and the
+Gemini app — with Google Pay, without leaving for the shop's site. Google reads
+which products can be bought that way from **Merchant Center**, so on the
+build side UCP is a few extra attributes on the `google-merchant` feed above,
+switched on with a `ucp:` key (1.9.10, GO-166). The checkout itself — the UCP
+REST endpoints, the Google Pay payment handler, order updates — is not part of
+the build; in 1.9.10 it is the shop worker's job (`workers/ecommerce`,
+GO-167).
+
+```yaml
+feeds:
+  - path: /merchant.xml
+    format: google-merchant
+    source: shop
+    merchant:
+      brand: Example
+    ucp:                          # the opt-in; without it the feed is unchanged
+      checkout_eligibility: true  # the default once ucp: is present
+      cart_eligibility: true      # optional; left out = eligible (opt-out)
+check_ucp: warn
+```
+
+**Why not a `format: ucp`.** The UCP specification has no product file: its
+catalog is a live API (`dev.ucp.shopping.catalog.search` / `.lookup`) the shop
+serves, next to checkout and cart. What Google asks for in a *feed* are
+Merchant Center attributes on the products it already has, and its guide gives
+them in the Merchant feed's own XML. So they go into that file, one feed for
+both uses.
+
+**Sources** (read 2026-11-14; the pages carry no version or date of their
+own):
+
+- Google, *UCP — Prepare your Merchant Center account*,
+  `developers.google.com/merchant/ucp/guides/overview/merchant-center` — the
+  attributes, product restrictions and account settings below;
+- Google, *UCP implementation overview*,
+  `developers.google.com/merchant/ucp/guides/overview`, and *About UCP
+  integration in Merchant Center*,
+  `developers.google.com/merchant/ucp/guides/tools/merchant-center/overview`;
+- Merchant Center Help: *Native commerce* (`answer/17251586`), *Variant
+  option* (`answer/17085214`), *Item group title* (`answer/17085146`),
+  *Returns* (`answer/17081382`);
+- `ucp.dev` specification index, release 2026-08-25 (catalog capability);
+- Microsoft Advertising, *Make your store UCP ready*,
+  `learn.microsoft.com/en-us/advertising/msa-help/hlp_ba_conc_bmc_ucp`
+  (updated 2026-06-26).
+
+What a row gets with `ucp:`:
+
+| Merchant attribute | From |
+|---|---|
+| `native_commerce` → `checkout_eligibility` | the feed's `ucp.checkout_eligibility` (default `TRUE`), else the page's `merchant.checkout_eligibility`; **`FALSE` for a product Google lists as ineligible** (below) |
+| `native_commerce` → `cart_eligibility` | the feed's `ucp.cart_eligibility`, else the page's `merchant.cart_eligibility`; written only when one of them is set |
+| `item_group_title` | a `ProductGroup`'s `name`, on each of its variants |
+| `variant_option` (`name`, `value`) | the variant's values of the properties its group lists in `variesBy` (else `color` and `size`), in that order — the same data as ACP's `variant_dict` |
+| `consumer_notice` (`notice_type`, `notice_message`) | the page's `merchant.consumer_notice`: one `{notice_type, notice_message}` or a list; the message keeps its `<b>`, `<br>`, `<i>`, `<a href>` |
+| `merchant_item_id` | the page's `merchant.merchant_item_id`, on a page with one product, when it differs from `id` — for a checkout that knows the product by another id |
+
+Every row of a `ucp:` feed carries the whole `native_commerce` group: Google
+overwrites the group on each upload and blanks a flag that is missing.
+Without `ucp:` none of these elements is written and the feed is byte for byte
+what it was before 1.9.10 (held by a golden test).
+
+```yaml
+---
+title: Steel kettle
+schema:
+  "@type": Product
+  sku: KETTLE-1
+  image: /images/kettle.jpg
+  offers: { price: "49.00", priceCurrency: USD, availability: https://schema.org/InStock }
+merchant:
+  merchant_item_id: kettle-checkout-1     # only if the checkout uses another id
+  checkout_eligibility: true              # per product, over the feed's value
+  consumer_notice:
+    - notice_type: prop_65                # legal_disclaimer, safety_warning or prop_65
+      notice_message: 'This product can expose you to <b>lead</b>.'
+---
+```
+
+**Products Google does not take into checkout.** Its guide lists
+subscriptions, instalments, personalised goods, used, refurbished and
+final-sale items, pre-orders, bundled services, special shipping, gifting,
+in-store activation, age-restricted and prohibited products, services,
+rentals, virtual items and goods that need software installed first. ssg can
+see three of them in the page's data and writes `checkout_eligibility` `FALSE`
+for them whatever the feed or page asks: `availability` `preorder`, a
+`condition` of `used` or `refurbished`, and a return policy of no returns
+(`hasMerchantReturnPolicy` with `returnPolicyCategory`
+`MerchantReturnNotPermitted` on the offer or product). For every other
+category, set `merchant.checkout_eligibility: false` on the page yourself.
+
+**`check_ucp`** (`""`, `warn`, `strict`, like `check_acp`) names each problem
+by source file and field. With it off, the build prints one line counting
+them.
+
+```
+⚠️  UCP feed in content/shop/pages/radio.md → merchant.xml item RADIO-1: native_commerce — written FALSE: Google lists refurbished items as ineligible for checkout
+```
+
+- a row missing a required Merchant attribute (and so left out), or a price
+  with no currency;
+- a product asked into checkout that Google lists as ineligible (above);
+- a checkout-eligible row whose availability no page states;
+- a `consumer_notice` whose `notice_type` is not `legal_disclaimer`,
+  `safety_warning` or `prop_65`, whose `notice_message` is empty, longer than
+  1000 characters, or uses a tag other than `<b>`, `<br>`, `<i>`, `<a>`;
+- a variant without `variant_option` or `item_group_title` (Google "strongly
+  recommends" both), an `item_group_title` over 150 characters, more than 30
+  options, an option name or value over 250 characters, variants of one group
+  with different option names or the same combination of values;
+- a `ucp:` feed in which no row is eligible for checkout.
+
+**What the merchant does in Merchant Center** (Google's guide, as read on
+2026-11-14):
+
+1. Have a Merchant Center account in good standing with products approved
+   for free listings, and the feed above added as a data source. Google
+   recommends a *supplemental* data source for the UCP attributes and allows
+   the primary feed, warning that a formatting error there affects normal
+   product ingestion. ssg writes them into the feed it generates, so they
+   arrive with the products.
+2. Set a **return policy** in Merchant Center (return cost, return window and
+   a link to the full policy; on an advanced account, per sub-account). It is
+   shown on the checkout screen. The product-level `returns` attribute exists
+   too; ssg does not write it.
+3. Set **customer support information** — at least one of a website URL, an
+   email address or a phone number — used for the "Contact merchant" link.
+4. Configure shipping.
+5. Join the UCP waitlist (`support.google.com/merchants/contact/ucp_integration_interest`):
+   Google approves each integration before it goes live. Merchant Center's
+   UCP integration hub is rolling out in the United States and applies to
+   products sold there; Google names Australia and Canada next.
+6. Publish the shop's UCP profile and implement checkout (or cart transfer)
+   — the shop worker's part.
+
+Google also recommends keeping price and stock fresh through the Merchant API
+rather than a scheduled feed alone, so the price in checkout matches the
+listing. A static feed is what it was at build time.
+
+**Microsoft Merchant Center** also asks for a "UCP-ready" feed for Copilot
+checkout. Its page (above) asks for a return policy and a customer service
+URL in *Store settings → UCP settings*, and for product warnings in fields
+it names `consumer_message_type` and `consumer_message_content` — not
+Google's `consumer_notice`. It does not name the feed attributes for checkout
+eligibility or the merchant item id. ssg writes Google's attribute names
+only; whether Microsoft's feed import reads them is not confirmed.
+
+**Open questions** (not implemented until an official source settles them):
+Microsoft's exact attribute names and nesting for checkout eligibility,
+merchant item id and product warnings; whether e-books and other downloads
+fall under Google's "virtual items" restriction (its examples are in-game
+goods); the `returns` attribute generated from Schema.org
+`MerchantReturnPolicy`.
 
 ### Aggregating feeds (a "planet")
 
@@ -740,6 +1133,7 @@ fingerprinted assets.
 | `strip_md_link_text` | `false` | config only | Drop `.md` from link text that is a bare filename (`[CONFIGURATION.md]…` → "CONFIGURATION") |
 | `link_rewrites` | empty | config only | Map an href prefix to a replacement, for links to repository files the site never publishes |
 | `preserve_slug_case` | `false` | config only | Do not lowercase slugs |
+| `slug_transliterate` | `false` | config only | Fold Latin diacritics in the slugs ssg makes from labels (`Straße` → `strasse`, not `stra-e`); old URLs get a 301. See [Transliterated slugs](#transliterated-slugs) |
 | `outputs` | HTML only | `--outputs=html,json` | Which representations each page publishes — a flat list, or a map per content type. See [Outputs](#outputs) |
 | `outputs_custom` | empty | config only | Formats this site defines with a template of its own |
 | `markdown_publish` | `false` | config only | Publish a Markdown copy of every page (`index.md` + `page.md`), a `text/markdown` `<head>` alternate, and a root `llms.txt` — for language models and agents |
@@ -799,6 +1193,68 @@ link_rewrites:
 With both set, `check_links` on a documentation site can reach zero warnings.
 Frontmatter `link` always has higher priority. Detailed URL rules are in
 [CONTENT.md](CONTENT.md#slugs-and-urls).
+
+### Transliterated slugs
+
+ssg makes some slugs from a label rather than a file name: tag, series and
+custom taxonomy terms, authors, the categories an extra content source names,
+pages built from external-source records, and story pages. That rule keeps
+only `a–z` and `0–9`, so every other letter becomes a hyphen:
+
+| Label | Slug (default) | `slug_transliterate: true` |
+|---|---|---|
+| `Zażółć gęślą jaźń` | `za-g-l-ja` | `zazolc-gesla-jazn` |
+| `Crème brûlée` | `cr-me-br-l-e` | `creme-brulee` |
+| `Straße` | `stra-e` | `strasse` |
+| `Þórður Guðmundsson` | `r-ur-gu-mundsson` | `thordur-gudmundsson` |
+| `Привет`, `नमस्ते`, `日本語` | empty | empty |
+
+```yaml
+slug_transliterate: true
+```
+
+With the switch on, a label is lowercased and split into base letters and
+combining marks (Unicode NFD); the marks are dropped. The Latin letters NFD
+leaves whole are folded by this table:
+
+| Letter | ASCII | Letter | ASCII |
+|---|---|---|---|
+| `ß` (`ẞ`) | `ss` | `ı` (dotless i) | `i` |
+| `æ` | `ae` | `ħ` | `h` |
+| `œ` | `oe` | `ŀ` | `l` |
+| `ø` | `o` | `ĳ` | `ij` |
+| `ł` | `l` | `ŧ` | `t` |
+| `đ`, `ð` | `d` | `þ` | `th` |
+
+The table does not guess a language: German `ä`, `ö`, `ü` become `a`, `o`,
+`u`, as NFD gives them, not `ae`, `oe`, `ue`.
+
+**Other scripts are not romanised.** Cyrillic, Greek, Devanagari, CJK and the
+rest each have several transliteration standards that disagree with each
+other (Russian `г` is `g`, Ukrainian `г` is `h`), so their letters are dropped
+as before. A label with no Latin letter still has no slug, and each place
+that needs one keeps its fallback: a term or series without a slug gets no
+archive, and a record page without one is reported.
+
+**Old URLs.** Off is the default, and an existing site builds byte for byte
+as it did. Turning it on moves the URL of every archive and record page whose
+label had such letters, so ssg writes the way back itself: a `301` in
+`_redirects` from each moved archive root (`/tag/za-g-l-ja/` →
+`/tag/zazolc-gesla-jazn/`), and an alias on each moved record page (a `301`
+and, unless `alias_stubs: false`, a meta-refresh stub). A rule is not written
+when the old slug is still the slug of another archive under the same path,
+or when two labels shared it. Paginated pages (`/page/2/`) and per-term feeds
+of a moved archive are not redirected; add a `redirects:` splat if you need
+them. A `redirects:` entry for the same path wins over the generated one.
+
+Slugs from file names and from `slug:` front matter never used this rule and
+are not affected: a file named `zażółć.md` keeps its letters in its URL with
+the switch on or off. An export's canonical tag slug and a `slug:` in term
+metadata win over the derived one, also unchanged.
+
+The editor-ui worker reads the key from the site configuration and proposes
+new file names with the same rule; the table it is tested against is
+`internal/models/testdata/slug-translit.json`, the one ssg's own test reads.
 
 ## Minification and assets
 
@@ -1201,7 +1657,7 @@ shortcode_errors: strict
 | `image_formats` | `[webp]` | `--image-formats=avif,webp` | Formats to publish images in, in preference order — `[avif, webp]` offers AVIF first. See [Image formats](#image-formats) |
 | `avif_quality` | `45` | `--avif-quality` | `avifenc -q` for the AVIF pass |
 | `feed` | `false` | `--feed` | Root and category/tag **Atom** feeds at `/feed.xml` |
-| `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`, `google-merchant`) |
+| `feeds` | empty | config only | Extra feeds — each with its own selection, `path`, `title` and **format** (`atom`, `rss`, `json`, `google-merchant`, `acp`) |
 | `feed_autodiscovery` | `true` | config only | Inject `<link rel="alternate">` for every feed into every page |
 | `feed_items` | `20` | `--feed-items` | Maximum feed items |
 | `feed_full_content` | `false` | config only | Full rendered body instead of summary; its relative `src`, `href`, `srcset` and `url()` become absolute against the post's address, since a feed reader has no page to resolve them against (#347) |
@@ -1344,6 +1800,8 @@ implemented.
 | `check_orphans` | empty | `--check-orphans[=warn\|strict]` | Report indexable pages nothing links to |
 | `check_markup` | `warn` | `--check-markup[=warn\|strict\|off]`, `--no-check-markup` | Report source markup indented into a code block (`ssg repair --fix`) |
 | `check_schema` | `""` | `--check-schema[=MODE]` | Validate emitted JSON-LD against the properties search engines require: `""` (off), `warn`, `strict` |
+| `check_acp` | `""` | `--check-acp[=MODE]` | Validate the rows of every `format: acp` feed: `""` (off), `warn`, `strict`. See [the ACP product feed](#product-feed-for-the-agentic-commerce-protocol-acp) |
+| `check_ucp` | `""` | `--check-ucp[=MODE]` | Validate the UCP attributes of every `google-merchant` feed with `ucp:`: `""` (off), `warn`, `strict`. See [UCP on the Merchant feed](#universal-commerce-protocol-ucp-on-the-merchant-feed) |
 | `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
 | `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
@@ -2893,7 +3351,7 @@ style, whether diagrams render. So the designer gets `designer_config_read` and
 | Kind | Keys |
 |---|---|
 | Site | `title`, `description` |
-| Theme and rendering | `template`, `templates_dir`, `static_dir`, `mermaid`, `mermaid_theme`, `mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`, `math`, `toc`, `toc_depth`, `paginate` |
+| Theme and rendering | `template`, `mermaid`, `mermaid_theme`, `mermaid_background`, `highlight`, `highlight_style`, `highlight_line_numbers`, `math`, `toc`, `toc_depth`, `paginate` |
 | Text | `clean_special_chars`, `autolink_list_items`, `strip_md_link_text` |
 | Output | `minify_html`, `minify_css`, `minify_js`, `minify_all`, `pretty_html`, `sourcemap`, `fingerprint` |
 | Images | `webp`, `webp_quality`, `image_formats`, `image_sizes_attr` |

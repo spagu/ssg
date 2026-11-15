@@ -6,6 +6,7 @@
 // `sid` = the token's public id, `email` = "", `perms` = the account's
 // permissions as they are NOW, narrowed by the token's list, without the
 // machine-sensitive ones an owner did not allow (_service-perms.ts: isSensitive,
+// with the names modules declare sensitive in the registry — _registry.ts —
 // plus what roles needing a second factor give — _service-policy.ts). It lives
 // AUTH_SERVICE_ACCESS_MINUTES (default 10). No refresh token, no cookies:
 // a script exchanges again when it needs a new one.
@@ -29,6 +30,7 @@ import type { AccessClaims } from "./_jwt";
 import { clientIP, json } from "./_lib";
 import type { Env } from "./_lib";
 import { lockKey, lockState, recordFailure, releaseAttempt } from "./_lockout";
+import { registryOf } from "./_registry";
 import { tokenPermissions } from "./_service-perms";
 import { serviceGrant } from "./_service-policy";
 import { parseSecret, serviceSettings, touchToken, usableToken } from "./_service-tokens";
@@ -64,6 +66,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     token.permissions === null ? null : (JSON.parse(token.permissions) as string[]),
     JSON.parse(token.allow_sensitive) as string[],
     grant.free,
+    registryOf(env).sensitive,
   );
   const iat = Math.floor(now / 1000);
   const claims: AccessClaims = {

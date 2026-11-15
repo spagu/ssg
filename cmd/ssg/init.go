@@ -170,6 +170,10 @@ Your first post. Add more under ` + "`content/<source>/posts/`" + `.
 func initGitignore() string {
 	return `output/
 .ssg-cache/
+# Worker secrets and local state for ` + "`wrangler dev`" + ` in workers/<name>/
+.dev.vars
+.dev.vars.*
+.wrangler/
 *.zip
 *.tar.gz
 *.tar.xz

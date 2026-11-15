@@ -1,5 +1,12 @@
 # SSG Configuration File
 # Copy this to .ssg.yaml in your project root
+#
+# Settings overlay: a .ssg.designer.json beside this file (written by
+# designer-ui) is laid over it at load time — mappings merge, lists and other
+# values replace, null removes a key; unknown keys, wrong types and literal
+# secrets stop the build. Order, lowest first: defaults, include: files, this
+# file, .ssg.designer.json, command-line flags. Every key, its type and class:
+# `ssg config schema`. See docs/CONFIGURATION.md.
 
 # Required: Content source, template, and domain
 source: "my-content"
@@ -251,6 +258,12 @@ check_links: ""      # "" (off), "warn" (report dead internal links), "strict" (
 check_schema: ""     # "" (off), "warn" or "strict" — validate emitted JSON-LD against
                      # the properties search engines require (unknown @types pass)
 # check_schema_recommended: true  # also advise on recommended Recipe properties (never fails)
+check_acp: ""        # "" (off), "warn" or "strict" — validate format: acp feed rows: required
+                     # fields, price currency, availability no page states, duplicate
+                     # offer_id, product/policy URLs that do not resolve (GO-162)
+check_ucp: ""        # "" (off), "warn" or "strict" — validate the UCP attributes of
+                     # google-merchant feeds with ucp:: restricted products asked into
+                     # checkout, consumer notices, variant options (GO-166)
 
 # Validation over the generated HTML. Same shape as check_links; strict: true
 # escalates any of them to a build failure.
@@ -313,7 +326,8 @@ static_sources: []   # Extra verbatim roots; an HTML document among them may add
 #   sections: [posts, pages]
 
 # Extra feeds beyond `feed: true` (#86). Each picks its own posts, path and
-# format: atom (default), rss (2.0) or json (JSON Feed 1.1). Selection criteria
+# format: atom (default), rss (2.0), json (JSON Feed 1.1), or a product feed:
+# google-merchant or acp. Selection criteria
 # (source / categories / tags / type) are optional and combine with AND.
 feeds: []
 
@@ -335,6 +349,31 @@ feed_autodiscovery: true
 #    format: rss
 #    categories: [release, changelog]
 #    items: 10
+#  - path: /acp.jsonl          # Agentic Commerce Protocol product feed, JSON Lines (GO-161)
+#    format: acp               # rows from Product + Offer JSON-LD, like google-merchant
+#    source: shop
+#    merchant: { brand: Example }        # defaults shared with google-merchant
+#    acp:
+#      seller_name: Example Shop         # required
+#      target_countries: [US]            # required
+#      store_country: US                 # required
+#      seller_url: /
+#      seller_privacy_policy: /privacy/  # needed when a row has is_eligible_checkout
+#      seller_tos: /terms/
+#      return_policy: /returns/
+#      accepts_returns: true
+#      return_deadline_in_days: 30
+#      shipping_price: "4.90 USD"
+#      is_digital: false
+#      is_eligible_search: true
+#      is_eligible_checkout: false
+#  - path: /merchant.xml        # Google Merchant Center product feed (#196)
+#    format: google-merchant
+#    source: shop
+#    merchant: { brand: Example }
+#    ucp:                      # Universal Commerce Protocol attributes (GO-166); omit = unchanged feed
+#      checkout_eligibility: true   # native_commerce default once ucp: is present
+#      cart_eligibility: true       # optional; left out = eligible (cart transfer is opt-out)
 #  - path: schema.json
 #  - path: xml
 #  - path: editor
@@ -649,6 +688,7 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 #   - { user_agent: GPTBot, allow: ["/"] }
 #   - { user_agent: OAI-SearchBot, allow: ["/"] }
 # preserve_slug_case: false    # Keep original casing in slugs/URLs (default: lowercase)
+# slug_transliterate: false    # Label slugs fold Latin diacritics: "Straße" -> strasse, not stra-e (#426); old URLs get a 301
 
 # Variables - custom variables available in all templates as {{.Vars.key}}
 # and exported as environment variables with SSG_ prefix (e.g. SSG_GTM).

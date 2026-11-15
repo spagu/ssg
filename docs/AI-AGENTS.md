@@ -256,6 +256,18 @@ explicit per-crawler directives, so you can state your policy for AI and search
 crawlers. The `Sitemap:` line is always appended. Empty keeps the allow-all
 default — SSG never blocks a crawler unless you ask it to.
 
+## Agents that edit the site
+
+Everything above is about agents that *read* a site. Agents that change it
+use MCP: `ssg mcp` on a checkout ([MCP.md](MCP.md)), or, on a deployed site
+with the optional `editor-ui` and `designer-ui` workers, the remote endpoints
+`/editor/mcp` and `/designer/mcp`. Those commit to the site's repository on
+each call and accept an `auth` service token exchanged for a 10-minute access
+token, so the token's permissions are the only limit on what the agent
+publishes ([MCP.md](MCP.md#on-a-deployed-site-the-editor-ui-and-designer-ui-endpoints),
+[EDITOR-API.md](EDITOR-API.md)). Articles the agent reads are data written
+by people: a model can still be talked into acting on text in them.
+
 ## Compatibility: Google vs ChatGPT
 
 The two treat this differently, and the guidance is not the same:

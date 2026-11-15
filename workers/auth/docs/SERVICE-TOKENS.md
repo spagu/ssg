@@ -80,6 +80,20 @@ Defined once, in `functions/api/auth/_service-perms.ts` (`isSensitive`):
 | `auth:…` (`auth:admin`, `auth:invite`, `auth:*`) | who may do what — identity administration |
 | `<worker>:erase` | deleting people's data |
 | `<worker>:*` | covers that worker's `erase`, and any action it adds later |
+| a name its module declares `"sensitive": true` (module.json; e.g. `designer-ui:theme`, `designer-ui:advanced`, `editor-ui:publish`) | the module says so: no name rule could guess it |
+
+The last row reaches `auth` through `AUTH_KNOWN_PERMISSIONS`
+([PERMISSIONS.md](PERMISSIONS.md#the-registry-of-known-permissions);
+`scripts/auth-permissions.mjs` carries the flag). The sensitive names of the
+worker templates shipped with ssg (`designer-ui:advanced`,
+`designer-ui:theme`, `editor-ui:publish`) are sensitive even when the
+variable leaves them out or lists them as bare names
+(`functions/api/auth/_bundled-sensitive.ts`, GO-183 — fail closed). Any other
+module the variable does not list is judged by the name rules alone, so list
+every module whose manifest declares a sensitive permission. The declaration also makes Access
+auto-provisioning refuse a default role holding it; it does not, by itself,
+make a role need a second factor for people (SECOND-FACTOR.md — use
+`AUTH_MFA_ROLES`).
 
 A sensitive permission reaches a service token only when the token's
 `allowSensitive` covers it, and **only a holder of `*` (an owner) may set
@@ -217,7 +231,11 @@ curl -sf -X POST -H "authorization: Bearer $ACCESS" https://example.com/api/push
 
 The workers that accept service tokens today: `web-push` (`/api/push/notify`,
 `web-push:notify`) and `republish-trigger` (`/api/republish`,
-`republish-trigger:run`) — see "Calling this from CI" in their READMEs.
+`republish-trigger:run`) — see "Calling this from CI" in their READMEs — and
+`editor-ui` and `designer-ui`, for their REST API and their MCP endpoint
+(`docs/EDITOR-API.md`, `docs/DESIGNER.md`). Their write permissions
+`editor-ui:publish`, `designer-ui:theme` and `designer-ui:advanced` are
+sensitive: a token carries them only when an owner allowed it.
 
 ## The newsletter purge from cron
 

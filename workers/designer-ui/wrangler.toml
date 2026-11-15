@@ -1,0 +1,57 @@
+# designer-ui — a standalone Cloudflare Worker, deployed on its own:
+#   cd workers/designer-ui
+#   1. repository: DESIGNER_GIT_REPO (and DESIGNER_GIT_BRANCH) below
+#   2. key: npx wrangler secret put DESIGNER_GIT_TOKEN
+#      (a fine-grained token for that one repository, "Contents: read and write" only;
+#      a token of its own, separate from editor-ui's, is recommended, not required)
+#   3. auth: the DESIGNER_AUTH_* variables below — the `auth` worker must run on
+#      the same host. There is no password mode: without a complete set every
+#      request is answered 503.
+#   then: routes below (your domain), npx wrangler deploy
+# Full guide: README.md in this directory.
+
+# Placeholders to replace are marked <…>.
+name = "ssg-designer-ui"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# The worker must own exactly the base path (DESIGNER_BASE) on your site, so
+# it never shadows a page. Keep both in step.
+routes = [
+  { pattern = "<example.com>/designer*", zone_name = "<example.com>" },
+]
+
+# Per-IP request volume for every path of the worker. Optional: delete the
+# block to run without it.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1103"          # any id unique within your account
+simple = { limit = 120, period = 60 }   # period is 10 or 60 seconds
+
+# The panel. run_worker_first sends every request through the worker, so the
+# panel files sit behind the same sign-in as the API.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+DESIGNER_BASE = "/designer"
+# Where the site's source lives. github.com only in this version.
+DESIGNER_GIT_REPO = "github.com/<owner>/<repo>"
+# The branch publications are committed to; empty = the repository's default branch.
+DESIGNER_GIT_BRANCH = "main"
+# `auth` accounts on this host — required. The public key is the
+# AUTH_PUBLIC_KEY= line node workers/auth/scripts/auth-keys.mjs prints.
+DESIGNER_AUTH_ISSUER = "https://<example.com>/api/auth"
+DESIGNER_AUTH_LOGIN_URL = "/auth/login"
+DESIGNER_AUTH_PUBLIC_KEY = '<the AUTH_PUBLIC_KEY= line of scripts/auth-keys.mjs>'
+# DESIGNER_AUTH_JWKS_URL = "/api/auth/jwks"   # instead of PUBLIC_KEY: exactly one of the two
+# DESIGNER_AUTH_AUDIENCE = "<example.com>"    # optional; default the request's host
+# Everything about the site — the theme folder, every setting — is read from
+# the site's .ssg.yaml on the branch; settings are written to
+# .ssg.designer.json beside it, never to .ssg.yaml.
+
+# Secrets (never here — `npx wrangler secret put <NAME>`):
+#   DESIGNER_GIT_TOKEN   the repository token; it never leaves the worker except
+#                        to the repository host's API

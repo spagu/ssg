@@ -110,6 +110,8 @@ func TestParseMiscEqualFlags(t *testing.T) {
 		"--check-images=strict-decorative",
 		"--check-meta=warn",
 		"--check-schema=strict",
+		"--check-acp=strict",
+		"--check-ucp=strict",
 		"--check-orphans=warn",
 		"--check-redirects=strict",
 		"--content-source=docs",
@@ -128,7 +130,7 @@ func TestParseMiscEqualFlags(t *testing.T) {
 		t.Errorf("permalinks = %v", cfg.Permalinks)
 	}
 	if cfg.CheckLinks != "strict" || cfg.CheckImages != "strict-decorative" ||
-		cfg.CheckMeta != "warn" || cfg.CheckSchema != "strict" ||
+		cfg.CheckMeta != "warn" || cfg.CheckSchema != "strict" || cfg.CheckACP != "strict" || cfg.CheckUCP != "strict" ||
 		cfg.CheckOrphans != "warn" || cfg.CheckRedirects != "strict" {
 		t.Errorf("check modes = %+v", cfg)
 	}

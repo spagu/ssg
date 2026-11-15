@@ -174,7 +174,7 @@ func (g *Generator) tmplPageTerms(name string, page any) []TaxonomyTerm {
 		if t := g.taxonomies.Term(name, lang, v); t != nil {
 			out = append(out, termView(t, base))
 		} else {
-			out = append(out, TaxonomyTerm{Name: v, Slug: slugify(v)})
+			out = append(out, TaxonomyTerm{Name: v, Slug: g.labelSlug(v)})
 		}
 	}
 	return out

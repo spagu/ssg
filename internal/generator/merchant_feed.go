@@ -28,8 +28,27 @@ type merchantItem struct {
 	// to it.
 	page  string
 	urlID bool
-	// stockUnstated marks availability nobody gave, assumed in_stock.
-	stockUnstated bool
+	// stockUnstated marks availability nobody gave, assumed in_stock;
+	// stockFromPage marks one the page itself states (JSON-LD or front
+	// matter), not the feed's default (GO-162).
+	stockUnstated, stockFromPage bool
+	// bareprice is a price the page gives without a currency, which leaves
+	// price empty (GO-162).
+	bareprice string
+	// node is the Product node the row was read from, a variant with its
+	// group's values filled in; group is that ProductGroup, nil for a plain
+	// product; front is the page's front matter. The ACP feed reads its own
+	// fields from them (GO-161).
+	node, group map[string]interface{}
+	front       map[string]interface{}
+	// source is the file the page was read from, for findings.
+	source string
+	// single says the page has one product, which is when per-offer front
+	// matter (merchant.id, merchant.merchant_item_id) applies.
+	single bool
+	// ucp is the row's Universal Commerce Protocol attributes, nil when the
+	// feed has no `ucp:` key (GO-166).
+	ucp *ucpRow
 }
 
 // writeMerchantFeed writes the products of the spec's pages as a Merchant
@@ -39,6 +58,12 @@ func (g *Generator) writeMerchantFeed(spec models.FeedSpec, rel string) error {
 	var items []merchantItem
 	for _, p := range g.merchantPages(spec) {
 		items = append(items, g.merchantItemsOf(p, spec.Merchant)...)
+	}
+	if spec.UCP != nil {
+		for i := range items {
+			items[i].ucp = ucpRowOf(items[i], *spec.UCP)
+		}
+		g.recordUCPFeed(rel, spec, items)
 	}
 	items = g.keepAcceptedItems(rel, items)
 	sort.SliceStable(items, func(i, j int) bool { return items[i].id < items[j].id })
@@ -86,7 +111,7 @@ func (g *Generator) merchantItemsOf(mp merchantPage, defaults models.MerchantDef
 			groupID := firstNonEmpty(ldText(node["productGroupID"]), ldText(node["sku"]), pageURL)
 			for _, v := range ldList(node["hasVariant"]) {
 				item := g.productItem(inheritLD(ldMap(v), node), mp.page, defaults)
-				item.groupID = groupID
+				item.groupID, item.group = groupID, node
 				out = append(out, item)
 			}
 		case ldHasType(node, "Product"):
@@ -94,7 +119,8 @@ func (g *Generator) merchantItemsOf(mp merchantPage, defaults models.MerchantDef
 		}
 	}
 	for i := range out {
-		out[i].page = pageURL
+		out[i].page, out[i].source, out[i].front = pageURL, pageSourcePath(mp.page), mp.page.Extra
+		out[i].single = len(out) == 1
 		applyMerchantFront(&out[i], front, len(out) == 1)
 		if out[i].id == "" {
 			out[i].id, out[i].urlID = pageURL, true
@@ -109,6 +135,7 @@ func applyMerchantFront(item *merchantItem, front map[string]interface{}, single
 	if single && item.id == "" {
 		item.id = ldText(front["id"])
 	}
+	item.stockFromPage = item.stockFromPage || ldText(front["availability"]) != ""
 	for key, field := range map[string]*string{
 		"availability": &item.availability, "condition": &item.condition,
 		"brand": &item.brand, "gtin": &item.gtin, "mpn": &item.mpn,

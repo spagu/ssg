@@ -22,7 +22,9 @@ func (g *Generator) loadExternalSources() error {
 			return fmt.Errorf("clearing external-source cache: %w", err)
 		}
 	}
-	registry, warnings, err := externalsource.Load(g.config.ExternalSources)
+	sources := g.config.ExternalSources
+	sources.SlugTransliterate = g.config.SlugTransliterate // a site key, read by record slugs (#426)
+	registry, warnings, err := externalsource.Load(sources)
 	for _, w := range warnings {
 		fmt.Printf("   ⚠️  Warning: %s\n", w)
 	}

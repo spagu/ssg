@@ -1,0 +1,85 @@
+/* picostore — design tokens.
+ *
+ * Pico CSS supplies the element defaults; this file supplies the palette and
+ * the few measurements the shop components need. Keeping them apart means a
+ * Pico upgrade is a file swap, not a merge.
+ *
+ * Colour comes from the Google Material palette, picked for contrast rather
+ * than for looks: every pairing below is measured against WCAG 2.2 AA (4.5:1
+ * for body text, 3:1 for large text and UI borders). The dark scheme walks up
+ * the same ramps rather than reusing the light values, because Indigo 700 on a
+ * near-black surface is 2.1:1 and unreadable.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Material: Indigo 700 / 800, Teal 700, Red 700, Blue Grey 900…50 */
+  --ps-brand: #303f9f;          /* on white 8.6:1 — AAA for body */
+  --ps-brand-strong: #283593;
+  --ps-brand-wash: #e8eaf6;
+  --ps-money: #00796b;          /* on white 4.8:1 — AA for body */
+  --ps-danger: #c62828;         /* on white 6.4:1 — AAA for body */
+  --ps-ok: #2e7d32;             /* on white 5.1:1 — AA for body */
+
+  --ps-fg: #263238;             /* on white 13.7:1 */
+  --ps-fg-muted: #546e7a;       /* on white 5.6:1 */
+  --ps-bg: #ffffff;
+  --ps-bg-subtle: #eceff1;
+  --ps-border: #b0bec5;         /* on white 2.2:1 — decorative hairline only */
+  --ps-border-strong: #78909c;  /* on white 3.4:1 — UI boundary, AA non-text */
+
+  --ps-radius: 0.5rem;
+  --ps-gap: 1rem;
+  --ps-measure: 68ch;
+  --ps-shadow: 0 1px 2px rgb(38 50 56 / 12%), 0 4px 12px rgb(38 50 56 / 8%);
+
+  /* Pico reads these; setting them here is what themes the whole framework. */
+  --pico-primary: var(--ps-brand);
+  --pico-primary-hover: var(--ps-brand-strong);
+  --pico-primary-focus: rgb(48 63 159 / 25%);
+  --pico-border-radius: var(--ps-radius);
+  --pico-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* The OS preference. Declared separately from the toggle below on purpose, so
+ * an explicit choice wins in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --ps-brand: #9fa8da;        /* Indigo 200 on #263238 — 5.7:1 */
+    --ps-brand-strong: #c5cae9;
+    --ps-brand-wash: #37474f;
+    --ps-money: #80cbc4;        /* Teal 200 — 7.8:1 */
+    --ps-danger: #ef9a9a;       /* Red 200 — 6.2:1 */
+    --ps-ok: #a5d6a7;           /* Green 200 — 8.2:1 */
+
+    --ps-fg: #eceff1;
+    --ps-fg-muted: #b0bec5;     /* on #263238 — 7.4:1 */
+    --ps-bg: #263238;
+    --ps-bg-subtle: #37474f;
+    --ps-border: #546e7a;
+    --ps-border-strong: #90a4ae;
+    --ps-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ps-brand: #9fa8da;
+  --ps-brand-strong: #c5cae9;
+  --ps-brand-wash: #37474f;
+  --ps-money: #80cbc4;
+  --ps-danger: #ef9a9a;
+  --ps-ok: #a5d6a7;
+
+  --ps-fg: #eceff1;
+  --ps-fg-muted: #b0bec5;
+  --ps-bg: #263238;
+  --ps-bg-subtle: #37474f;
+  --ps-border: #546e7a;
+  --ps-border-strong: #90a4ae;
+  --ps-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 30%);
+}

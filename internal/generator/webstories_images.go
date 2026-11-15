@@ -27,9 +27,9 @@ var (
 // storyPath is the address of a document's story: the hub, then the slug,
 // under the document's language prefix.
 func (g *Generator) storyPath(p models.Page) string {
-	slug := slugify(path.Base(strings.Trim(p.Slug, "/")))
+	slug := g.labelSlug(path.Base(strings.Trim(p.Slug, "/")))
 	if slug == "" || slug == "." {
-		slug = slugify(p.Title)
+		slug = g.labelSlug(p.Title)
 	}
 	base := normalizeStoriesURL(g.config.WebStories.URL)
 	if p.LangPrefix != "" {

@@ -1,0 +1,90 @@
+{
+  "id": "designer-ui",
+  "contract": 1,
+  "version": "0.1.0",
+  "kind": "worker",
+  "title": {
+    "en": "Site designer",
+    "pl": "Projektant strony",
+    "hi": "साइट डिज़ाइनर",
+    "de": "Website-Designer",
+    "fr": "Concepteur du site"
+  },
+  "description": {
+    "en": "Change the site's settings and theme files in the browser; each publication is one commit to the site's repository, signed with the name of the person who made it.",
+    "pl": "Zmiana ustawień strony i plików motywu w przeglądarce; każda publikacja to jeden commit w repozytorium strony, podpisany imieniem osoby, która ją zrobiła.",
+    "hi": "साइट की सेटिंग और थीम फ़ाइलें ब्राउज़र में बदलें; हर प्रकाशन साइट की रिपॉज़िटरी में एक कमिट है, जिस पर उसे करने वाले व्यक्ति का नाम होता है।",
+    "de": "Einstellungen und Theme-Dateien der Website im Browser ändern; jede Veröffentlichung ist ein Commit im Repository der Website, mit dem Namen der Person, die sie vorgenommen hat.",
+    "fr": "Modifier les réglages et les fichiers du thème du site dans le navigateur ; chaque publication est un commit dans le dépôt du site, au nom de la personne qui l'a faite."
+  },
+  "panel": "/",
+  "nav": [
+    {
+      "label": {
+        "en": "Design",
+        "pl": "Wygląd",
+        "hi": "डिज़ाइन",
+        "de": "Design",
+        "fr": "Apparence"
+      },
+      "path": "/#/",
+      "permission": "designer-ui:read"
+    }
+  ],
+  "permissions": [
+    {
+      "name": "designer-ui:read",
+      "description": {
+        "en": "View the theme files, every setting of the site (secrets only as set or not set) and their revisions.",
+        "pl": "Przeglądanie plików motywu, wszystkich ustawień strony (sekretów tylko jako ustawione lub nie) i ich rewizji.",
+        "hi": "थीम फ़ाइलें, साइट की हर सेटिंग (सीक्रेट केवल सेट है या नहीं के रूप में) और उनके संशोधन देखना।",
+        "de": "Die Theme-Dateien, jede Einstellung der Website (Secrets nur als gesetzt oder nicht gesetzt) und ihre Revisionen ansehen.",
+        "fr": "Consulter les fichiers du thème, chaque réglage du site (les secrets seulement comme définis ou non) et leurs révisions."
+      }
+    },
+    {
+      "name": "designer-ui:settings",
+      "description": {
+        "en": "Publish changes to the site's ordinary settings (title, colours, feeds and the like) as commits of the settings file .ssg.designer.json, which the site's build then deploys.",
+        "pl": "Publikowanie zmian zwykłych ustawień strony (tytuł, kolory, kanały i podobne) jako commitów pliku ustawień .ssg.designer.json, które build strony następnie wdraża.",
+        "hi": "साइट की सामान्य सेटिंग (शीर्षक, रंग, फ़ीड और ऐसी ही) में बदलाव सेटिंग फ़ाइल .ssg.designer.json के कमिट के रूप में प्रकाशित करना, जिन्हें साइट का बिल्ड फिर डिप्लॉय करता है।",
+        "de": "Änderungen an den gewöhnlichen Einstellungen der Website (Titel, Farben, Feeds und Ähnliches) als Commits der Einstellungsdatei .ssg.designer.json veröffentlichen, die der Build der Website dann bereitstellt.",
+        "fr": "Publier des modifications des réglages ordinaires du site (titre, couleurs, flux, etc.) sous forme de commits du fichier de réglages .ssg.designer.json, que le build du site déploie ensuite."
+      }
+    },
+    {
+      "name": "designer-ui:advanced",
+      "sensitive": true,
+      "description": {
+        "en": "Sensitive: change the settings that run code or deploy (hooks, workers, deployment, program paths) and the references to secrets. Whoever holds it has the trust of a person with write access to the repository.",
+        "pl": "Wrażliwe: zmiana ustawień, które wykonują kod lub wdrażają (hooki, workery, wdrożenie, ścieżki do programów), oraz odwołań do sekretów. Kto je ma, ma zaufanie osoby z prawem zapisu do repozytorium.",
+        "hi": "संवेदनशील: वे सेटिंग बदलना जो कोड चलाती हैं या डिप्लॉय करती हैं (हुक, वर्कर, डिप्लॉयमेंट, प्रोग्राम के पाथ) और सीक्रेट के संदर्भ। जिसके पास यह है, उस पर रिपॉज़िटरी में लिखने की पहुँच वाले व्यक्ति जितना भरोसा है।",
+        "de": "Sensibel: die Einstellungen ändern, die Code ausführen oder bereitstellen (Hooks, Worker, Deployment, Programmpfade), und die Verweise auf Secrets. Wer sie hat, genießt das Vertrauen einer Person mit Schreibzugriff auf das Repository.",
+        "fr": "Sensible : modifier les réglages qui exécutent du code ou déploient (hooks, workers, déploiement, chemins de programmes) et les références aux secrets. Qui la détient a la confiance d'une personne ayant le droit d'écriture sur le dépôt."
+      }
+    },
+    {
+      "name": "designer-ui:theme",
+      "sensitive": true,
+      "description": {
+        "en": "Sensitive: publish changes to the theme's files (templates, styles, scripts, images, fonts). A template is code run by the build and served to every visitor, so whoever holds it has the trust of a person with write access to the repository.",
+        "pl": "Wrażliwe: publikowanie zmian plików motywu (szablony, style, skrypty, obrazki, czcionki). Szablon to kod wykonywany przy buildzie i serwowany każdemu odwiedzającemu, więc kto je ma, ma zaufanie osoby z prawem zapisu do repozytorium.",
+        "hi": "संवेदनशील: थीम की फ़ाइलों (टेम्पलेट, स्टाइल, स्क्रिप्ट, चित्र, फ़ॉन्ट) में बदलाव प्रकाशित करना। टेम्पलेट वह कोड है जिसे बिल्ड चलाता है और जो हर आगंतुक को भेजा जाता है, इसलिए जिसके पास यह है, उस पर रिपॉज़िटरी में लिखने की पहुँच वाले व्यक्ति जितना भरोसा है।",
+        "de": "Sensibel: Änderungen an den Dateien des Themes veröffentlichen (Templates, Styles, Skripte, Bilder, Schriften). Ein Template ist Code, den der Build ausführt und der jedem Besucher ausgeliefert wird; wer sie hat, genießt daher das Vertrauen einer Person mit Schreibzugriff auf das Repository.",
+        "fr": "Sensible : publier des modifications des fichiers du thème (gabarits, styles, scripts, images, polices). Un gabarit est du code exécuté par le build et servi à chaque visiteur : qui la détient a donc la confiance d'une personne ayant le droit d'écriture sur le dépôt."
+      }
+    }
+  ],
+  "endpoints": {
+    "manifest": "/api/module",
+    "health": "/api/health",
+    "summary": "/api/module/summary"
+  },
+  "disable": {
+    "en": "Delete the Worker with npx wrangler delete in workers/designer-ui, or in the Cloudflare dashboard, then revoke the repository token DESIGNER_GIT_TOKEN at the repository host. The site's settings and theme stay in its repository unchanged; delete .ssg.designer.json there to drop the settings made in the panel.",
+    "pl": "Usuń Workera poleceniem npx wrangler delete w katalogu workers/designer-ui albo w panelu Cloudflare, a potem unieważnij token repozytorium DESIGNER_GIT_TOKEN u dostawcy repozytorium. Ustawienia i motyw strony zostają w repozytorium bez zmian; usuń tam .ssg.designer.json, żeby porzucić ustawienia zrobione w panelu.",
+    "hi": "workers/designer-ui में npx wrangler delete से, या Cloudflare डैशबोर्ड में, Worker हटाएँ, फिर रिपॉज़िटरी होस्ट पर रिपॉज़िटरी टोकन DESIGNER_GIT_TOKEN रद्द करें। साइट की सेटिंग और थीम उसकी रिपॉज़िटरी में बिना बदलाव के रहती हैं; पैनल में की गई सेटिंग हटाने के लिए वहाँ .ssg.designer.json हटाएँ।",
+    "de": "Löschen Sie den Worker mit npx wrangler delete in workers/designer-ui oder im Cloudflare-Dashboard und widerrufen Sie danach das Repository-Token DESIGNER_GIT_TOKEN beim Repository-Anbieter. Einstellungen und Theme der Website bleiben unverändert in ihrem Repository; löschen Sie dort .ssg.designer.json, um die im Panel vorgenommenen Einstellungen zu verwerfen.",
+    "fr": "Supprimez le Worker avec npx wrangler delete dans workers/designer-ui, ou dans le tableau de bord Cloudflare, puis révoquez le jeton de dépôt DESIGNER_GIT_TOKEN chez l'hébergeur du dépôt. Les réglages et le thème du site restent inchangés dans son dépôt ; supprimez-y .ssg.designer.json pour abandonner les réglages faits dans le panneau."
+  }
+}

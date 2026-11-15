@@ -410,7 +410,7 @@ export default {
   "token.perms": "Narrow to these permissions (optional)",
   "token.permsHint": "Separated by spaces or commas. Empty: everything the account holds, except sensitive permissions.",
   "token.sensitive": "Allow these sensitive permissions (owners only)",
-  "token.sensitiveHint": "Wildcards, auth:…, …:erase, and anything from a role that needs a second factor (…:send by default) reach a token only when listed here.",
+  "token.sensitiveHint": "Wildcards, auth:…, …:erase, permissions a module declares sensitive, and anything from a role that needs a second factor (…:send by default) reach a token only when listed here.",
   "token.create": "Make the token",
   "token.allOfAccount": "The account's",
   "token.status.active": "Active",
