@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import { makeEnv, request, run } from "./fixtures.ts";
-import { CSP } from "../src/http.ts";
+import { CSP } from "../portable/http-kit.ts";
 import { PERM } from "../src/permissions.ts";
 
 const PUBLIC = new URL("../public/", import.meta.url).pathname;

@@ -11,8 +11,8 @@ import type { MddbConfig, MddbSourceConfig } from "./mddb-config";
 import { docText, matchesFilter } from "./mddb-doc";
 import { parseMddbPath } from "./mddb-path";
 import type { MddbRef } from "./mddb-path";
-import { OpError } from "./ops";
-import type { Deps } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Deps } from "../portable/ops";
 
 export interface MddbScope {
   client: MddbClient;

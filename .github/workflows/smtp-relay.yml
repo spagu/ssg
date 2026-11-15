@@ -1,0 +1,139 @@
+# Build, smoke-test and publish the smtp-relay image (services/smtp-relay).
+#
+# Separate from docker.yml on purpose: the relay has its own release line
+# (tags smtp-relay-vX.Y.Z), and nothing here runs unless the relay itself
+# changed — a pull request or a push to main that touches no file below
+# never starts this workflow.
+#
+#   pull request  build all platforms + smoke test, push nothing
+#   push to main  same, then push :edge and :sha-<short> to GHCR
+#   tag           same, then push :X.Y.Z, :X.Y, :X and :latest
+#
+# Published to GHCR (ghcr.io/spagu/ssg-smtp-relay) and Docker Hub
+# (tradik/ssg-smtp-relay), like the ssg image, with the secrets docker.yml
+# already uses (DOCKERHUB_USERNAME, DOCKERHUB_TOKEN). The token must be allowed
+# to push to that repository.
+name: smtp-relay
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "smtp-relay-v[0-9]+.[0-9]+.[0-9]+"
+    paths:
+      - "services/smtp-relay/**"
+      - ".github/workflows/smtp-relay.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/smtp-relay/**"
+      - ".github/workflows/smtp-relay.yml"
+  workflow_dispatch:
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}-smtp-relay
+  # Published to both registries, like the ssg image (docker.yml).
+  DOCKERHUB_IMAGE: tradik/ssg-smtp-relay
+  # Every action here declares Node 24; the flag keeps any of them from
+  # falling back to an older runtime.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# One run per ref; a newer push cancels the older one, a tag never is.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build, test and push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: services/smtp-relay
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # SonarCloud does not analyse this Dockerfile (.sonarcloud.properties
+      # explains why), so hadolint lints it here on every run.
+      - name: Lint the Dockerfile (hadolint)
+        run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The smoke test runs the real server: TLS on 465/587, AUTH, a message,
+      # the open-relay and wrong-password refusals, and DKIM verification.
+      - name: Build amd64 for the smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: services/smtp-relay
+          platforms: linux/amd64
+          load: true
+          tags: smtp-relay:smoke
+          cache-from: type=gha,scope=smtp-relay
+          cache-to: type=gha,mode=max,scope=smtp-relay
+
+      - name: Smoke test
+        run: sh test/smoke.sh smtp-relay:smoke
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          # An unset Docker Hub variable leaves an empty line, which is skipped.
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=match,pattern=smtp-relay-v(\d+\.\d+\.\d+),group=1
+            type=match,pattern=smtp-relay-v(\d+\.\d+)\.\d+,group=1
+            type=match,pattern=smtp-relay-v(\d+)\.\d+\.\d+,group=1
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/smtp-relay-v') }}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=ref,event=pr
+
+      - name: Build all platforms (and push unless a pull request)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: services/smtp-relay
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha,scope=smtp-relay
+          cache-to: type=gha,mode=max,scope=smtp-relay
+
+      - name: Image digest
+        if: github.event_name != 'pull_request'
+        run: echo "smtp-relay image digest - ${{ steps.build.outputs.digest }}"

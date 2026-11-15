@@ -12,7 +12,8 @@ import { ROOT, child, classesIn, namedNodes, strongest } from "../src/schema.ts"
 import type { SchemaNode } from "../src/schema.ts";
 import { changedKeys, hasReference, needsAdvanced, overlayLeaves, secretShapeProblems } from "../src/settings-diff.ts";
 import { applyChanges, canonicalJSON, serializeOverlay } from "../src/overlay-write.ts";
-import { lookup, merge, presentKeys, readYaml, utf8 } from "../src/config-read.ts";
+import { merge, utf8 } from "../portable/config-files.ts";
+import { lookup, presentKeys, readYaml } from "../src/config-read.ts";
 
 const node = (path: string): SchemaNode => {
   let n: SchemaNode | null = ROOT;

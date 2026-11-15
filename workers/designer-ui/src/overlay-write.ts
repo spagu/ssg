@@ -10,8 +10,8 @@
 // so the file's value (or the default) applies again. Lists are replaced
 // whole, as ssg merges them: a path never goes into a list.
 
-import type { Doc } from "./config-read";
-import { OpError } from "./ops";
+import type { Doc } from "../portable/config-files";
+import { OpError } from "../portable/ops";
 
 export interface SettingChange { path: string[]; value: unknown }
 

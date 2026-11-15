@@ -521,6 +521,15 @@ events, `SHOP_UCP_WEBHOOK_URL` in `[vars]`; `SHOP_UCP_API_KEY`,
 add `/.well-known/ucp` to the shop's `routes_include`. Off, every UCP path is
 a 404; on with something missing, a 503.
 
+Orders a UCP checkout placed can be read back with `GET
+/api/shop/ucp/orders/{id}` (since 1.9.11). For the UCP conformance suite there
+is a test mode, off by default and refused next to live keys:
+`SHOP_UCP_TEST_MODE = "true"` (http agent profiles and webhook URL, the
+suite's test payment handler, which delivers without payment, and
+`/testing/simulate-shipping/{id}` behind `SHOP_UCP_SIMULATION_SECRET`) — see
+[UCP.md](UCP.md#test-mode-for-the-conformance-suite-since-1911) and the
+results in [docs/UCP-OPERATIONS.md](../../docs/UCP-OPERATIONS.md#the-conformance-suite).
+
 **Limitations**: digital products only; the API key is the only
 authentication (no OAuth 2.0 or mTLS); Google Pay through Stripe is the only
 payment handler; no discounts, shipping, cart or identity linking.

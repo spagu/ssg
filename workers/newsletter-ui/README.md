@@ -89,7 +89,9 @@ Everything below runs from `workers/newsletter-ui/` with `npx wrangler`
    (STARTTLS); port 25 is blocked by Cloudflare and refused. The sender
    domain needs SPF allowing your server, DKIM signing that covers
    `List-Unsubscribe` and `List-Unsubscribe-Post`, and DMARC alignment — see
-   "Mail transports" in the `newsletter` README.
+   "Mail transports" in the `newsletter` README. To run your own SMTP server
+   for this: [docs/SMTP-SERVER.md](../../docs/SMTP-SERVER.md)
+   (`services/smtp-relay`, Docker or a Raspberry Pi).
 5. **The route.** Replace `<example.com>` in `routes` with your zone (keep it
    equal to `NEWSLETTER_UI_BASE`), then:
 

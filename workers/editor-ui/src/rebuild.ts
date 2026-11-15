@@ -13,7 +13,7 @@
 // key nothing is called — a rebuild URL must not be open to whoever publishes.
 
 import type { MddbEnv } from "./mddb-config";
-import type { OpContext } from "./ops";
+import type { OpContext } from "../portable/ops";
 
 export type RebuildEnv = MddbEnv & { EDITOR_REBUILD_URL?: string; EDITOR_REBUILD_KEY?: string };
 export interface Rebuild { triggered: boolean; status?: number; reason?: "not_configured" | "bad_url" | "refused" | "unreachable" }

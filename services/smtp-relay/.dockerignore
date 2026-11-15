@@ -1,0 +1,5 @@
+# Only bin/ and config/ go into the image. Never send local secrets, keys or
+# certificates to the build context.
+*
+!bin/
+!config/

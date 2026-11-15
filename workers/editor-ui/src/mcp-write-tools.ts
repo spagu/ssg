@@ -16,7 +16,7 @@ import { invalid, items, s, schema, str } from "./mcp-args";
 import type { EditorTool } from "./mcp-args";
 import { PERM } from "./permissions";
 import type { Call, Json } from "../portable/mcp-transport";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 
 const MESSAGE = s("The commit message: what changed and why. First line at most 200 characters");
 const PATH = s("Repository path of the Markdown file, e.g. content/blog/posts/hello.md");

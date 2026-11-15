@@ -166,7 +166,7 @@ them. Each line names the source file, the feed, the item and the field:
 |---|---|---|
 | `required and missing — the row is left out` | no title, description, url, brand, image or price | add it to `schema:` or the feed's `merchant:` |
 | `has no currency; set offers.priceCurrency` | a bare price | add `priceCurrency` |
-| `is stated by no page` | availability came from the feed default or was assumed `in_stock` | set `offers.availability` |
+| `is stated by no page` | availability came from the feed default or was assumed `in_stock` | set `offers.availability`, or `merchant.availability: unknown` when you truly do not know (written as `unknown`, which OpenAI's feed spec accepts — "Use `unknown` explicitly when stock status is unavailable", read 2026-11-15) |
 | `is not "amount CURRENCY"` / `not in the price's currency` | a malformed `sale_price` or `shipping_price` | write `12.00 EUR`, same currency as the price |
 | `must be unique in the feed` | two rows share an `item_id` or `offer_id` | give each product its own SKU |
 | `does not resolve in the output` | a product or policy URL on this site leads nowhere | fix the link or the page |

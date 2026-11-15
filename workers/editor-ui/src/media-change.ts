@@ -4,7 +4,7 @@
 // change-input.ts checks the permission (editor-ui:media for an image put,
 // editor-ui:delete for any delete) before anything is read; this file checks
 // the image itself, before the commit:
-//   - sizes and count against the limits the repository layer enforces, from
+//   - sizes and count against the plan's limits the repository layer enforces, from
 //     the base64 length alone — nothing is decoded for a publication that
 //     cannot pass (413 too_large with the limits, so a panel can offer to
 //     shrink the image);
@@ -17,7 +17,7 @@
 //     written again — pasting the same file twice is no conflict.
 
 import { checkPath } from "../portable/path-policy";
-import { PLAN_LIMITS, contentBytes } from "../portable/repo-provider";
+import { contentBytes } from "../portable/repo-provider";
 import type { Change, ChangeLimits } from "../portable/repo-provider";
 import type { Planned } from "./change-input";
 import { contentFiles } from "./content-list";
@@ -26,28 +26,24 @@ import type { ContentScope } from "./content-scope";
 import { looksLikeMarkup, parseMediaName, sha256Hex, sniffImage } from "./media-name";
 import { mediaPath, mediaPlace, requireMedia } from "./media-scope";
 import type { MediaPlace } from "./media-scope";
-import { OpError } from "./ops";
-
-// LIMITS: the provider's own (repo.ts builds it without limits, so the Free
-// plan's — portable/repo-provider.ts PLAN_LIMITS, measured in GO-168).
-export const LIMITS: ChangeLimits = PLAN_LIMITS.free;
+import { OpError } from "../portable/ops";
 
 export type ImageOutcome = { change: Extract<Change, { op: "put" }> } | { kept: { path: string; version: string } };
 
-const tooLarge = (detail: string) => new OpError("too_large", 413, detail, { limits: LIMITS });
-
 // checkImageLimits: the publication's file count, and every image's size and
-// their total from the base64 length (3 bytes per 4 characters).
-export function checkImageLimits(planned: Planned[]): void {
-  if (planned.length > LIMITS.maxFilesPerChange) throw tooLarge(`at most ${LIMITS.maxFilesPerChange} files per publication`);
+// their total from the base64 length (3 bytes per 4 characters), against the
+// limits the provider enforces — the plan's (portable/plan.ts, s.repo.plan).
+export function checkImageLimits(planned: Planned[], limits: ChangeLimits): void {
+  const tooLarge = (detail: string) => new OpError("too_large", 413, detail, { limits });
+  if (planned.length > limits.maxFilesPerChange) throw tooLarge(`at most ${limits.maxFilesPerChange} files per publication`);
   let total = 0;
   for (const p of planned) {
     if (p.op !== "put" || !("base64" in p.content)) continue;
     const n = Math.floor((p.content.base64.length * 3) / 4);
-    if (n > LIMITS.maxFileBytes) throw tooLarge(`an image may have at most ${LIMITS.maxFileBytes} bytes`);
+    if (n > limits.maxFileBytes) throw tooLarge(`an image may have at most ${limits.maxFileBytes} bytes`);
     total += n;
   }
-  if (total > LIMITS.maxChangeBytes) throw tooLarge(`the images of one publication may have at most ${LIMITS.maxChangeBytes} bytes`);
+  if (total > limits.maxChangeBytes) throw tooLarge(`the images of one publication may have at most ${limits.maxChangeBytes} bytes`);
 }
 
 // decodeBase64: the bytes (contentBytes refuses malformed base64 first, 400).

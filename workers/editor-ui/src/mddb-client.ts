@@ -14,8 +14,8 @@
 
 import type { MddbConfig } from "./mddb-config";
 import type { MddbRef } from "./mddb-path";
-import { OpError } from "./ops";
-import type { Deps } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Deps } from "../portable/ops";
 
 export type Meta = Record<string, string[]>;
 export interface MddbDoc { key: string; lang: string; meta: Meta; contentMd: string; addedAt: number; updatedAt: number; revision: string }

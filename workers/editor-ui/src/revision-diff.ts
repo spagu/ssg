@@ -19,7 +19,7 @@ import { contentPath } from "./content-scope";
 import type { ContentScope } from "./content-scope";
 import { diffText } from "./diff";
 import type { Hunk, SideInfo, TooLarge } from "./diff";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { readSide } from "./revision-read";
 import type { Side } from "./revision-read";

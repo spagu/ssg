@@ -6,10 +6,10 @@
 
 import { checkPath, checkPrefix } from "../portable/path-policy";
 import type { Access, PathPolicy, PathRefusal } from "../portable/path-policy";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
-import { requireRepository } from "./repo";
-import type { Repository } from "./repo";
+import { OpError } from "../portable/ops";
+import type { OpContext } from "../portable/ops";
+import { requireRepository } from "../portable/repo";
+import type { Repository } from "../portable/repo";
 import { requireSiteModel } from "./site-model";
 import type { SiteModel } from "./site-model";
 

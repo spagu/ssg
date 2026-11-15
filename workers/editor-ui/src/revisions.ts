@@ -20,8 +20,8 @@ import { RepoError, validCommitId } from "../portable/repo-provider";
 import type { HistoryEntry, HistoryPage, RepoProvider } from "../portable/repo-provider";
 import { contentPath } from "./content-scope";
 import type { ContentScope } from "./content-scope";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { sourceFor } from "./source";
 

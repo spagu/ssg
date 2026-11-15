@@ -60,6 +60,7 @@ link_rewrites:
   "../examples/": "https://github.com/spagu/ssg/tree/main/examples/"
   "../templates/": "https://github.com/spagu/ssg/tree/main/templates/"
   "../workers/": "https://github.com/spagu/ssg/tree/main/workers/"
+  "../services/": "https://github.com/spagu/ssg/tree/main/services/"
   "../.github/": "https://github.com/spagu/ssg/blob/main/.github/"
   "../.ssg.yaml.example": "https://github.com/spagu/ssg/blob/main/.ssg.yaml.example"
 check_links: warn
@@ -254,7 +255,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.9.10"
+  version: "1.9.11"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants

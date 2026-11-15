@@ -27,9 +27,10 @@ import type { OrderRow } from "./_types";
 import { stateConflict, withBuyer } from "./_ucp-checkout";
 import { errorMessage, notFound, ucpError, type UcpMessage, type UcpResult } from "./_ucp-http";
 import { enqueueUcpEvent, ucpOrder } from "./_ucp-order";
-import { chargeGooglePay, readInstrument } from "./_ucp-payment";
+import { chargeGooglePay, readInstrument, type InstrumentReading } from "./_ucp-payment";
 import { priceUcp, type UcpPriced } from "./_ucp-pricing";
 import { renderSession } from "./_ucp-render";
+import { chargeTest } from "./_ucp-testing";
 import { attachOrder, cancelPendingOrder, casUpdate, loadSession, parseJson, type UcpDetails, type UcpItem, type UcpSessionRow } from "./_ucp-session";
 
 /** A completion still "in progress" this long after its last write died
@@ -37,6 +38,7 @@ import { attachOrder, cancelPendingOrder, casUpdate, loadSession, parseJson, typ
 export const COMPLETE_STALE_MS = 5 * 60_000;
 
 const PAYMENT_PATH = "$.payment.instruments[0]";
+type Paying = Extract<InstrumentReading, { ok: true }>;
 const EMPTY: UcpPriced = { ready: false, lineItems: [], totals: [], messages: [], totalMinor: 0 };
 
 export async function completeSession(input: AgentOpInput): Promise<UcpResult> {
@@ -78,7 +80,7 @@ export async function completeSession(input: AgentOpInput): Promise<UcpResult> {
   }
   const held = (await loadSession(env, id))!;
   try {
-    return await finish(input, held, buyer!, reading.stripeToken);
+    return await finish(input, held, buyer!, reading);
   } catch (e) {
     await casUpdate(env, held, { status: "ready_for_complete" });
     await audit(env, "ucp", "ucp.complete_error", held.id, { error: String(e).slice(0, 300) });
@@ -93,7 +95,7 @@ async function show(input: AgentOpInput, row: UcpSessionRow, extra: UcpMessage[]
   return { status: 200, body: { ...body, messages: [...(body.messages as UcpMessage[]), ...extra] } };
 }
 
-async function finish(input: AgentOpInput, row: UcpSessionRow, buyer: Record<string, string>, token: string): Promise<UcpResult> {
+async function finish(input: AgentOpInput, row: UcpSessionRow, buyer: Record<string, string>, pay: Paying): Promise<UcpResult> {
   const { env, origin, request } = input;
   const before = parseJson<UcpPriced>(row.priced_json, EMPTY);
 
@@ -111,7 +113,7 @@ async function finish(input: AgentOpInput, row: UcpSessionRow, buyer: Record<str
   }
 
   const { order, orderKey } = await ensureOrder(input, row, prior, priced.basket, buyer, userAgent(request));
-  const outcome = await chargeGooglePay(env, { sessionId: row.id, order, stripeToken: token });
+  const outcome = pay.test ? chargeTest(order, pay.test) : await chargeGooglePay(env, { sessionId: row.id, order, stripeToken: pay.stripeToken });
   if (outcome.kind === "declined") {
     await audit(env, "ucp", "ucp.payment_declined", order.id, { number: order.number, reason: outcome.reason.slice(0, 100) });
     state.messages.push(errorMessage("payment_declined", "The payment was declined. Choose another payment method.", "recoverable", PAYMENT_PATH));

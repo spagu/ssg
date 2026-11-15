@@ -1,0 +1,10 @@
+
+# ---------------------------------------------------------------- RELAY_MODE=hold
+# Accept, sign and keep: every message lands in the hold queue and nothing
+# leaves. For testing the Worker connection before DNS is ready.
+#   postqueue -p           list (held messages are marked "!")
+#   postcat -hq <id>       headers, including DKIM-Signature
+#   postsuper -d ALL hold  delete them
+relayhost =
+smtp_tls_security_level = may
+smtpd_end_of_data_restrictions = check_client_access static:HOLD

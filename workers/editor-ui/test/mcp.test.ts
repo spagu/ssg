@@ -7,10 +7,10 @@ import assert from "node:assert/strict";
 import { BASE, COOKIE, ORIGIN, makeEnv, request, run, site, token } from "./fixtures.ts";
 import { ALL, modern, rpc, tool } from "./mcp-fixtures.ts";
 import { PERM } from "../src/permissions.ts";
-import { MAX_BODY } from "../src/change-input.ts";
-import { OpError } from "../src/ops.ts";
+import { MAX_BODY } from "../portable/http-kit.ts";
+import { OpError } from "../portable/ops.ts";
 import { INSTRUCTIONS, TOOLS } from "../src/mcp-tools.ts";
-import { SERVER, refusal } from "../src/mcp.ts";
+import { SERVER, refusal } from "../portable/mcp.ts";
 import manifest from "../module.json" with { type: "json" };
 
 const READ_ONLY = ["content_list", "content_read", "media_list", "revisions_list", "revision_read", "widgets_list", "help"];

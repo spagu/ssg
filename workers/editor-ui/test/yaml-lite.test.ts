@@ -3,8 +3,8 @@
 // is refused with its line — never guessed. Unwanted keys are skipped.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { YamlUnsupported, readKeys } from "../src/yaml-lite.ts";
-import { inlineValue, stripComment, typed } from "../src/yaml-scalar.ts";
+import { YamlUnsupported, readKeys } from "../portable/yaml-lite.ts";
+import { inlineValue, stripComment, typed } from "../portable/yaml-scalar.ts";
 
 const ALL = new Set(["a", "b", "c", "list", "map", "languages", "mddb"]);
 const read = (text: string, keys: Set<string> = ALL) => readKeys(text, keys);

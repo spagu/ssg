@@ -15,8 +15,9 @@
 // its alternate form (`story: true`).
 
 import { effective, lookup } from "./config-read";
-import type { ConfigState, Doc } from "./config-read";
-import type { Op } from "./ops";
+import type { Doc } from "../portable/config-files";
+import type { ConfigState } from "./config-read";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { redact } from "./redact";
 import { SCHEMA, clsOf, namedNodes } from "./schema";

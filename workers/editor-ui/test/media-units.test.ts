@@ -7,7 +7,7 @@ import { extOfType, looksLikeMarkup, mediaPathFor, mediaSlug, monthOf, parseMedi
 import { decodeBase64, gitBlobId } from "../src/media-change.ts";
 import { MEDIA_HINT, mediaPath, mediaPlace, requireMedia, typeOf, urlOf } from "../src/media-scope.ts";
 import type { SiteModel } from "../src/site-model.ts";
-import { OpError } from "../src/ops.ts";
+import { OpError } from "../portable/ops.ts";
 
 const bytes = (...parts: (number[] | string)[]) =>
   new Uint8Array(parts.flatMap((p) => (typeof p === "string" ? [...new TextEncoder().encode(p)] : p)));

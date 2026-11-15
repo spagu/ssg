@@ -172,7 +172,10 @@ message, and a message is refused — never repaired — when an address, the
 subject, the sender name or a header holds a CR or LF (header injection).
 
 **SMTP** talks to your own server (or any provider's submission port) over a
-Cloudflare TCP socket (`cloudflare:sockets`):
+Cloudflare TCP socket (`cloudflare:sockets`). To run that server yourself,
+`services/smtp-relay` is a ready Postfix image (465/587, login, DKIM); its
+guide covers the IP, PTR, port 25, SPF/DKIM/DMARC and testing:
+[docs/SMTP-SERVER.md](../../docs/SMTP-SERVER.md).
 
 | Port | Connection |
 |---|---|

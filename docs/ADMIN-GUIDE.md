@@ -281,6 +281,12 @@ Before deploying, in its own `wrangler.toml`: the `newsletter` database id in
 three `NEWSLETTER_AUTH_*` lines as in step 4 (it is a separate Worker with its
 own environment). The whole list: [its README](../workers/newsletter-ui/README.md#install-from-zero).
 
+For SMTP you can run the mail server yourself: `services/smtp-relay` is a
+Postfix image (ports 465/587, login, DKIM) with a guide to what it needs —
+static IP, PTR, outbound port 25 or a smarthost, SPF/DKIM/DMARC —
+[SMTP-SERVER.md](SMTP-SERVER.md), or natively on a Raspberry Pi:
+[SMTP-SERVER-PI.md](SMTP-SERVER-PI.md).
+
 Because it is on the same host under `/newsletter-admin`, the `auth` cookie
 reaches it, and its pages load `/core/nav.js` and `/core/theme.css` from the
 site root — still `'self'` in its strict CSP.
@@ -424,9 +430,11 @@ dates they give; plans change, so follow their links before relying on one.
   13 000 recipients a day fit the 100 000 rows written. Beyond about 10 000
   readers, or to send in one evening, plan on Workers Paid
   ([newsletter-ui](../workers/newsletter-ui/README.md#limits-per-cloudflare-plan)).
-- **`editor-ui` and `designer-ui`:** sized for Workers Free — at most 10
-  files and 2 MiB per publication, on every plan in this version; GitHub's
-  5,000 requests an hour per token are shared by everyone using them
+- **`editor-ui` and `designer-ui`:** sized for Workers Free by default — at
+  most 10 files and 2 MiB per publication; `EDITOR_PLAN` / `DESIGNER_PLAN`
+  `= "paid"` on a Workers Paid account allows 50 files, 10 MiB per file and
+  20 MiB per publication. GitHub's 5,000 requests an hour per token are
+  shared by everyone using them
   ([EDITOR-OPERATIONS.md](EDITOR-OPERATIONS.md#limits-per-cloudflare-plan)).
 
 ## Troubleshooting

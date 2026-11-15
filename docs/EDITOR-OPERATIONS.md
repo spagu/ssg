@@ -26,19 +26,39 @@ requests to GitHub per publication, plus 6 for each retry after another
 commit won the race (three attempts at most). One article with a 1 MB image
 took 9 requests and about 3.3 ms.
 
-| Per publication | Applied today | Measured as safe on Paid |
+One variable per worker chooses the column: `EDITOR_PLAN` for `editor-ui`,
+`DESIGNER_PLAN` for `designer-ui`, in `[vars]` of its `wrangler.toml`.
+
+| Per publication | `free` (default) | `paid` |
 |---|---|---|
 | Files | 10 | 50 |
 | Size of one file | 2 MiB | 10 MiB |
 | Size of the whole publication | 2 MiB | 20 MiB |
+| Requests to GitHub per call | 45 | 125 |
+| Request body (REST and MCP) | 8 MiB | 28 MiB |
 
-**Both workers apply the Free values on every plan in this version.** The
-Paid values are measured and defined in the code (`PLAN_LIMITS`,
-`workers/editor-ui/portable/repo-provider.ts`), but no variable switches
-them on yet. Over a limit, the answer is `413 too_large` with the limits,
-before anything is decoded or sent, so the panel can say what to shrink.
-One request may make at most 45 requests to GitHub; the article list loads
-titles lazily within that budget and fills the rest on the next request.
+Unset or empty means `free`, which is what every worker deployed before this
+variable did, unchanged. Set `"paid"` only on a Workers Paid account: on
+Free, Cloudflare stops an invocation at 50 subrequests and 10 ms of CPU, so
+a large publication would fail half-way instead of being refused up front.
+Any other value (a typo, `"pro"`) answers `503 {"error": "bad_plan"}` on
+every path, naming the variable — never a silent fall-back to `free`.
+
+How the Paid numbers were chosen: a publication costs `files + 5 + folders`
+requests, plus 6 per lost race, three attempts at most, so 50 files in 50
+folders with two lost races take 117; the budget keeps the same 8 spare
+reads Free keeps (45 against a worst case of 37), 125 in all — far below
+Paid's 10,000, because every request also spends the token's GitHub quota.
+The body limit is a 20 MiB publication as base64 (26.7 MiB) plus room for
+the texts around it; at about 2.4 times the body in memory (the 2026-11-14
+measurement) that stays near 67 MB of the isolate's 128 MB.
+
+Over a limit, the answer is `413 too_large` with the limits, before anything
+is decoded or sent, so the panel can say what to shrink. The panel takes the
+limits from the worker (`api/site` and `api/media` carry `plan` and
+`limits`, `api/health` also the request budget and body size), so it shows
+the plan's numbers. The article list loads titles lazily within the request
+budget and fills the rest on the next request.
 
 Other limits to know:
 
@@ -46,7 +66,7 @@ Other limits to know:
   personal access token, shared by everyone using the worker. Bind the
   optional `RATE_LIMITER` (in `wrangler.toml`, 120 requests a minute per
   client address as shipped) to keep one client from using it up.
-- A request body may be at most 8 MiB, on REST and MCP alike.
+- A request body may be at most 8 MiB (28 MiB on `paid`), on REST and MCP alike.
 
 ## Try it on your machine
 
@@ -168,7 +188,6 @@ assistant from obeying instructions hidden in an article it reads.
 - Pull requests and preview deployments: a publication is a commit on the
   configured branch.
 - Repository hosts other than GitHub.
-- The Paid-plan limits above (no switch yet).
 - A visual (WYSIWYG) editor or live editing by two people at once; drafts
   shared between devices.
 - Video and files other than images; SVG images.

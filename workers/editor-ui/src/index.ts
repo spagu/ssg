@@ -3,7 +3,7 @@
 // A standalone Worker (`wrangler deploy` from this directory). This file only
 // wires the entry point to the pipeline (app.ts).
 
-import { handleFetch } from "./app";
+import { handleFetch } from "../portable/app";
 import type { Env } from "./http";
 
 export default {

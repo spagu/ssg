@@ -6,9 +6,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BASE, makeEnv, request, run, site } from "./fixtures.ts";
 import { MDDB_VARS, bothEnv, mddbOnlyEnv, world, worldFetch } from "./mddb-fixtures.ts";
-import { handleFetch } from "../src/app.ts";
+import { handleFetch } from "../portable/app.ts";
 import { PERM } from "../src/permissions.ts";
-import { LIMITS } from "../src/media-change.ts";
+import { PLAN_LIMITS } from "../portable/repo-provider.ts";
 
 const READ = [PERM.read];
 
@@ -22,7 +22,9 @@ test("a repository site: sections then loose content folders, languages, shortco
   assert.deepEqual(body.sections.find((s: { path: string }) => s.path === "content/blog").type, null);
   assert.deepEqual([body.languages, body.defaultLanguage, body.shortcodes], [["en", "pl"], "en", ["note"]]);
   assert.deepEqual(body.media, { dir: "content/blog/media", urlBase: "/media/" });
-  assert.deepEqual(body.limits, LIMITS);
+  assert.deepEqual([body.plan, body.limits], ["free", PLAN_LIMITS.free]);
+  const paid = await (await run(await request(BASE + "/api/site", READ), makeEnv({ EDITOR_PLAN: "paid" }), gh)).json();
+  assert.deepEqual([paid.plan, paid.limits], ["paid", PLAN_LIMITS.paid]);
 });
 
 test("a media folder ssg does not publish gives media: null", async () => {
@@ -38,7 +40,7 @@ test("MDDB beside the repository adds one section per collection; MDDB alone ans
   assert.deepEqual(paths.filter((p: string) => p.startsWith("mddb:mddb:")), ["mddb:mddb:blog", "mddb:mddb:kb"]);
   const alone = await world({ git: false });
   const res = await handleFetch(await request(BASE + "/api/site", READ), mddbOnlyEnv() as never, { fetch: worldFetch(alone) });
-  assert.deepEqual(await res.json(), { sections: [{ path: "mddb:blog", type: null, origin: "mddb" }], languages: [], defaultLanguage: null, shortcodes: [], media: null, limits: LIMITS });
+  assert.deepEqual(await res.json(), { sections: [{ path: "mddb:blog", type: null, origin: "mddb" }], languages: [], defaultLanguage: null, shortcodes: [], media: null, plan: "free", limits: PLAN_LIMITS.free });
   const twice = await handleFetch(await request(BASE + "/api/site", READ), mddbOnlyEnv({ EDITOR_MDDB_URL: "ftp://x" }) as never, { fetch: worldFetch(alone) });
   assert.deepEqual((await twice.json()).sections, [], "MDDB set up wrongly: no sections, the list says why");
 });

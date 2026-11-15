@@ -37,6 +37,12 @@ run_worker_first = true
 
 [vars]
 DESIGNER_BASE = "/designer"
+# The Workers plan of the account: "free" (default; also when unset) or "paid".
+# Paid raises one publication to 50 files, 10 MiB per file and 20 MiB in all,
+# 125 requests to GitHub per call and 28 MiB per request body
+# (docs/EDITOR-OPERATIONS.md, "Limits per Cloudflare plan"). Set "paid" only
+# on a Workers Paid account; any other value answers 503 bad_plan everywhere.
+# DESIGNER_PLAN = "paid"
 # Where the site's source lives. github.com only in this version.
 DESIGNER_GIT_REPO = "github.com/<owner>/<repo>"
 # The branch publications are committed to; empty = the repository's default branch.

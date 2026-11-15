@@ -1,0 +1,115 @@
+# smtp-relay — your own submission server for the newsletter workers.
+#
+#   cp .env.example .env                     # set SMTP_HOSTNAME, DKIM_DOMAINS, RELAY_MODE
+#   mkdir -p secrets tls
+#   openssl rand -base64 24 > secrets/smtp_password   # NEWSLETTER_SMTP_PASSWORD
+#   cp /path/to/fullchain.pem /path/to/privkey.pem tls/   # or mount your ACME client's directory
+#   docker compose up -d
+#   docker compose logs smtp-relay | grep -A1 "DKIM DNS record"   # publish it
+#
+# Ports: unlike the repository's other services this one MUST be reachable
+# from the internet, because a Cloudflare Worker opens a plain TCP connection
+# to it (cloudflare:sockets). A cloudflared tunnel cannot carry that: Workers
+# refuse to connect to Cloudflare's own IP ranges, so the SMTP host's DNS
+# record has to point at this machine directly (DNS only, not proxied).
+# Only 465 (implicit TLS) and 587 (STARTTLS) are published. Port 25 is NOT
+# published and the container does not listen on it: this is a sending
+# server, not an MX that receives mail for your domain. Outbound port 25 is a
+# different matter — RELAY_MODE=direct needs it to reach recipients' servers
+# (docs/SMTP-SERVER.md).
+#
+# Every value repeated three or more times is an anchor (x-logging is kept as
+# one for the repository's convention).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  smtp-relay:
+    build:
+      context: .
+    image: ${SMTP_RELAY_IMAGE:-ghcr.io/spagu/ssg-smtp-relay:latest}
+    container_name: smtp-relay
+    # The container's own name in the logs; the HELO name is SMTP_HOSTNAME.
+    hostname: ${SMTP_HOSTNAME:?set SMTP_HOSTNAME in .env}
+    restart: unless-stopped
+    environment:
+      SMTP_HOSTNAME: ${SMTP_HOSTNAME}
+      RELAY_MODE: ${RELAY_MODE:?set RELAY_MODE in .env (direct, smarthost or hold)}
+      DKIM_DOMAINS: ${DKIM_DOMAINS:?set DKIM_DOMAINS in .env}
+      DKIM_SELECTOR: ${DKIM_SELECTOR:-relay}
+      SENDER_DOMAINS: ${SENDER_DOMAINS:-}
+      SMTP_USER: ${SMTP_USER:-newsletter}
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      RELAYHOST: ${RELAYHOST:-}
+      RELAYHOST_USER: ${RELAYHOST_USER:-}
+      RELAYHOST_PASSWORD_FILE: /run/secrets/relayhost_password
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-/etc/smtp-relay/tls/fullchain.pem}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:-/etc/smtp-relay/tls/privkey.pem}
+      CERT_CHECK_INTERVAL: ${CERT_CHECK_INTERVAL:-300}
+      INET_PROTOCOLS: ${INET_PROTOCOLS:-ipv4}
+    secrets:
+      - smtp_password
+      - relayhost_password
+    ports:
+      - "465:465"
+      - "587:587"
+    volumes:
+      - smtp-queue:/var/spool/postfix
+      - smtp-state:/var/lib/smtp-relay
+      # A directory holding fullchain.pem and privkey.pem. For an ACME client
+      # that keeps symlinks (live/ -> archive/), mount its whole directory
+      # instead and point TLS_CERT_FILE / TLS_KEY_FILE into it.
+      - ${TLS_DIR:-./tls}:/etc/smtp-relay/tls:ro
+    read_only: true
+    tmpfs:
+      - /etc/postfix:size=8m
+      - /etc/opendkim:size=1m
+      - /var/lib/postfix:size=8m
+      - /run:size=8m
+      - /tmp:size=16m
+    security_opt:
+      - no-new-privileges:true
+    # Postfix's master starts as root and drops each daemon to "postfix";
+    # these are the capabilities that takes, nothing more.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - KILL
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    healthcheck:
+      test: ["CMD", "/usr/local/share/smtp-relay/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 48m
+    logging: *logging
+
+secrets:
+  smtp_password:
+    file: ./secrets/smtp_password
+  # Only read in RELAY_MODE=smarthost with RELAYHOST_USER; an empty file is
+  # fine otherwise (compose needs the file to exist).
+  relayhost_password:
+    file: ./secrets/relayhost_password
+
+volumes:
+  smtp-queue:
+  smtp-state:

@@ -39,7 +39,8 @@ LDFLAGS=-s -w -X main.Version=$(VERSION)
         test test-coverage lint security run generate generate-simple serve deploy \
         site site-watch site-edit golden golden-update bench determinism \
         clean install uninstall release test-action shop shop-seed \
-        tts-server-build tts-server-up tts-server-down tts-server-test
+        tts-server-build tts-server-up tts-server-down tts-server-test \
+        smtp-relay-image smtp-relay-test
 
 # Default target
 all: deps lint test build ## 🚀 Run all: deps, lint, test, build
@@ -267,6 +268,22 @@ tts-server-test: ## 🧪 Test, vet and lint tts-server (coverage per package)
 	@cd $(TTS_DIR) && gofmt -l . | (! grep .) && $(GO) vet ./... && $(GO) test -race -cover ./...
 	@cd $(TTS_DIR) && golangci-lint run ./... && gosec -quiet ./...
 	@echo "${GREEN}✅ tts-server checks passed${RESET}"
+
+# Self-hosted SMTP relay for the newsletter workers (services/smtp-relay, GO-189)
+SMTP_RELAY_DIR=services/smtp-relay
+SMTP_RELAY_IMAGE?=smtp-relay:local
+
+smtp-relay-image: ## ✉️  Build the smtp-relay image (PLATFORMS=linux/arm64 builds another architecture with buildx)
+	@echo "${BLUE}✉️  Building $(SMTP_RELAY_IMAGE)...${RESET}"
+	@cd $(SMTP_RELAY_DIR) && docker buildx build $(if $(PLATFORMS),--platform $(PLATFORMS),) --load -t $(SMTP_RELAY_IMAGE) .
+	@echo "${GREEN}✅ $(SMTP_RELAY_IMAGE) built${RESET}"
+
+smtp-relay-test: smtp-relay-image ## 🧪 Lint the smtp-relay scripts and Dockerfile, then smoke-test the image (TLS, AUTH, open relay, DKIM)
+	@echo "${BLUE}🧪 Testing smtp-relay...${RESET}"
+	@cd $(SMTP_RELAY_DIR) && docker run --rm -v "$$PWD:/mnt:ro" -w /mnt --entrypoint sh koalaman/shellcheck-alpine:v0.11.0 -c 'shellcheck -x -P bin -s sh bin/*.sh test/smoke.sh'
+	@cd $(SMTP_RELAY_DIR) && docker run --rm -i hadolint/hadolint:v2.15.1 hadolint - < Dockerfile
+	@cd $(SMTP_RELAY_DIR) && $(if $(PLATFORMS),SMOKE_PLATFORM=$(PLATFORMS),) sh test/smoke.sh $(SMTP_RELAY_IMAGE)
+	@echo "${GREEN}✅ smtp-relay checks passed${RESET}"
 
 # Clean
 clean: ## 🗑️  Clean build artifacts

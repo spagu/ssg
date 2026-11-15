@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeEnv, site } from "./fixtures.ts";
 import { MEDIA, bytesOf, get, jpeg, png, seedBytes } from "./media-fixtures.ts";
-import { LIMITS } from "../src/media-change.ts";
+import { PLAN_LIMITS } from "../portable/repo-provider.ts";
 import { monthOf } from "../src/media-name.ts";
 import { MAX_LINK_CACHE, cachedLinks, clearLinkCache, linksOf, rememberLinks } from "../src/media-references.ts";
 import { clearListingCache } from "../src/content-list.ts";
@@ -19,7 +19,9 @@ test("the library: images of the media folder, newest path first, with the site'
   const res = await get(gh, "/api/media");
   assert.equal(res.status, 200);
   const page = await res.json();
-  assert.deepEqual([page.dir, page.urlBase, page.limits, page.truncated, page.nextCursor], [MEDIA, "/media/", LIMITS, false, null]);
+  assert.deepEqual([page.dir, page.urlBase, page.plan, page.limits, page.truncated, page.nextCursor], [MEDIA, "/media/", "free", PLAN_LIMITS.free, false, null]);
+  const paid = await (await get(gh, "/api/media", makeEnv({ EDITOR_PLAN: "paid" }))).json();
+  assert.deepEqual([paid.plan, paid.limits], ["paid", PLAN_LIMITS.paid], "EDITOR_PLAN=paid: the Paid limits");
   assert.deepEqual(page.items.map((i: Record<string, unknown>) => [i.path, i.url, i.type, i.size]), [
     [`${MEDIA}/old.svg`, "/media/old.svg", "image/svg+xml", 6],
     [`${MEDIA}/2026/11/b-22222222.jpg`, "/media/2026/11/b-22222222.jpg", "image/jpeg", 5],

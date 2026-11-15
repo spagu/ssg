@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BASE, GIT_VARS, folderHistory, makeEnv, request, run, site } from "./fixtures.ts";
-import { handleFetch } from "../src/app.ts";
+import { handleFetch } from "../portable/app.ts";
 import { PERM } from "../src/permissions.ts";
 import { MAX_HISTORY, PANEL } from "../src/summary.ts";
 import { LABELS, PROBLEMS } from "../src/summary-texts.ts";

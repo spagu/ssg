@@ -16,7 +16,7 @@
 //     environment, and a key like `variables` would publish it.
 
 import { lookup } from "./config-read";
-import type { Doc } from "./config-read";
+import type { Doc } from "../portable/config-files";
 import { canonicalJSON } from "./overlay-write";
 import { ENV_REF } from "./overlay-validate";
 import { strictReference } from "./redact";

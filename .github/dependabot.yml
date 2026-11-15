@@ -16,6 +16,15 @@ updates:
       prefix: "chore(deps)"
     labels: ["dependencies"]
 
+  # services/smtp-relay pins Alpine the same way (GO-189).
+  - package-ecosystem: docker
+    directory: /services/smtp-relay
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+
   - package-ecosystem: gomod
     directory: /
     schedule:

@@ -16,11 +16,12 @@
 // needs editor-ui:delete as well, an image put editor-ui:media as well — one
 // change the caller may not make refuses the whole publication.
 
+import { activePlan } from "../portable/plan";
 import { readLimited } from "../portable/mcp-transport";
 import { sanitizeMessage } from "../portable/repo-provider";
 import type { Edit } from "./frontmatter";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
+import { OpError } from "../portable/ops";
+import type { OpContext } from "../portable/ops";
 import { PERM } from "./permissions";
 import { can } from "./session-verifier";
 
@@ -32,10 +33,6 @@ export type Planned =
   | { op: "delete"; path: unknown; version: string };
 export interface ChangeRequest { message: string; changes: Planned[] }
 
-// MAX_BODY: the request body's limit — a change at the Free plan's 2 MB limit
-// (portable/repo-provider.ts, the limits repo.ts uses), escaped into JSON,
-// stays under it; the provider enforces the real limits per file and change.
-export const MAX_BODY = 8 * 1024 * 1024;
 export const MAX_FIRST_LINE = 200;
 
 const bad = (detail: string, index?: number) => new OpError("invalid_change", 400, detail, index === undefined ? {} : { index });
@@ -46,14 +43,15 @@ const text = (v: unknown, what: string, i: number): string => {
   return v;
 };
 
-// readBody: the request's JSON object (415 for another type, 413 when too large).
+// readBody: the request's JSON object (415 for another type, 413 when larger
+// than the plan allows, portable/plan.ts BODY_LIMIT).
 export async function readBody(ctx: OpContext): Promise<unknown> {
   if (!/^application\/json\b/i.test(ctx.request.headers.get("content-type") ?? "")) {
     throw new OpError("unsupported_media_type", 415, "send application/json");
   }
   // Streamed with a running byte count (SR-14): a chunked body is not held
   // whole before its size is known.
-  const raw = await readLimited(ctx.request, MAX_BODY);
+  const raw = await readLimited(ctx.request, activePlan(ctx.env).maxBody);
   if (raw === null) throw new OpError("too_large", 413, "the request body is too large");
   try {
     return JSON.parse(raw);

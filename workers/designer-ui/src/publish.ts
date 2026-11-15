@@ -16,12 +16,13 @@
 //   4. one commit with the overlay and the theme files; a file changed on the
 //      branch since it was read is a 409 naming it, from either part.
 
-import { OpError, requirePermission } from "./ops";
-import type { Op } from "./ops";
+import { OpError, requirePermission } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { settingsPart } from "./settings-publish";
 import type { SettingsPublishInput } from "./settings-publish";
-import { authorOf, siteOf } from "./site";
+import { authorOf } from "../portable/author";
+import { siteOf } from "./site";
 import { themePart } from "./theme-publish";
 import type { ThemePublishInput } from "./theme-publish";
 

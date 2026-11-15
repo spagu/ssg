@@ -1,0 +1,8 @@
+[Unit]
+Description=smtp-relay: check the new certificate and reload Postfix
+After=postfix@-.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/smtp-relay/smtp-relay.env
+ExecStart=/usr/local/share/smtp-relay/bin/cert-reload.sh

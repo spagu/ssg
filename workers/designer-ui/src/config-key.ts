@@ -5,8 +5,8 @@
 // entries of its fields (an object key), plus what a publication needs
 // (overlayBlobId). A key the panel does not list is refused naming it.
 
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import { settingsView } from "./settings-read";
 import type { SettingEntry, SettingsView } from "./settings-read";

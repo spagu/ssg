@@ -11,7 +11,7 @@
 // tag, a key written twice, a quoted or complex key — is `fixed`: listed, kept
 // byte for byte, and refused by name when a change asks for it.
 
-import { inlineValue, stripComment, typed } from "./yaml-scalar";
+import { inlineValue, stripComment, typed } from "../portable/yaml-scalar";
 
 export type FieldValue = string | number | boolean | null | string[];
 export interface Refusal { key: string; reason: string }

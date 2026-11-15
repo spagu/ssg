@@ -14,7 +14,7 @@
 // failure is an empty section with a status and a hint — the editor works on.
 
 import { rebuildUrl } from "./rebuild";
-import type { OpContext } from "./ops";
+import type { OpContext } from "../portable/ops";
 
 export const MANIFEST_PATH = "/components.json";
 export const MAX_MANIFEST_BYTES = 262_144; // 256 KiB: hundreds of components

@@ -10,7 +10,8 @@ info:
     token in `Authorization: Bearer` — never one in the place of the other
     (`wrong_kind`). Without a complete `DESIGNER_AUTH_*` set every path,
     the panel's files included, answers `503 {"error": "auth_not_configured",
-    "detail"}`.
+    "detail"}`. An unknown `DESIGNER_PLAN` (neither `free` nor `paid`) answers
+    `503 {"error": "bad_plan", "detail"}` on every path, naming the variable.
 
     Permissions: each operation's `x-permission` names what the caller must
     hold; a missing one is answered `403 {"error": "forbidden", "permission":
@@ -97,7 +98,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [ok, auth, repository, schemaVersion, bindings]
+                required: [ok, auth, repository, schemaVersion, plan, bindings]
                 properties:
                   ok: { type: boolean, description: The repository variables are complete. }
                   auth: { type: string, enum: [auth] }
@@ -110,6 +111,7 @@ paths:
                       branch: { type: [string, "null"], description: "DESIGNER_GIT_BRANCH, or null for the repository's default branch." }
                       problem: { type: string, description: Which variable is missing or malformed (never its value). }
                   schemaVersion: { type: integer, description: The version of the configuration schema the worker validates against. }
+                  plan: { $ref: "#/components/schemas/ActivePlan" }
                   bindings:
                     type: object
                     properties:
@@ -251,7 +253,7 @@ paths:
         "409": { description: "conflict (with conflicts), overlay_needs_yaml, overlay_unreadable, branch_protected" }
         "403": { description: "forbidden — designer-ui:settings missing, or keys needing designer-ui:advanced: {permission, keys, refused}" }
         "422": { description: "invalid_settings with problems, each naming a key's path, and refused: [{key, reason}] — the same split per key (unknown configuration key, a wrong type, a secret not written as a reference)" }
-        "413": { description: "too_large — the body is over 8 MB" }
+        "413": { description: "too_large — the body is over 8 MiB (28 MiB with DESIGNER_PLAN = \"paid\")" }
   /api/theme:
     get:
       tags: [theme]
@@ -433,6 +435,36 @@ paths:
               schema:
                 type: object
         "400": { description: "path_not_allowed, not_served (the config file's text), invalid_change (commitId)" }
+  /api/preview:
+    get:
+      tags: [theme]
+      operationId: preview
+      summary: A page of the site with unpublished colour and font tokens applied (GO-188)
+      description: |
+        The worker fetches a public page of its own host (no credentials of
+        the caller, same-origin redirects only, at most 256 KiB of HTML on
+        DESIGNER_PLAN free and 2 MB on paid, 10 s per fetch), removes
+        every script, event handler and script URL, and injects the tokens.
+        Served for the panel's <iframe sandbox> with its own policy:
+        no script source, `sandbox`, `frame-ancestors 'self'`. Every other
+        query parameter whose name starts with "--" is a token; its value is
+        letters, digits, spaces and # , . % ( ) + - / _ ' " only, never
+        holding url(, expression( or // (bad_token). Only tokens are
+        previewed; templates and settings are as the site was built.
+      x-permission: designer-ui:read
+      parameters:
+        - { name: path, in: query, required: false, description: "A path on this host, e.g. /blog/post/ (default /); never a URL", schema: { type: string, maxLength: 2048 } }
+        - { name: page, in: query, required: false, description: "latest: the first entry of the feed the home page announces", schema: { type: string, enum: [latest] } }
+        - { name: scheme, in: query, required: false, description: "Forced on <html data-theme> and color-scheme", schema: { type: string, enum: [light, dark] } }
+        - { name: lang, in: query, required: false, description: "Language of the page explaining an error", schema: { type: string, enum: [en, pl, hi, de, fr] } }
+      responses:
+        "200": { description: "The sanitized page", content: { text/html: { schema: { type: string } } } }
+        "400": { description: "A page (text/html) explaining bad_path or bad_token" }
+        "404": { description: "A page explaining page_not_found or no_latest_post" }
+        "413": { description: "A page explaining page_too_large (over the plan's page limit)" }
+        "415": { description: "A page explaining not_html" }
+        "502": { description: "A page explaining redirect_off_host, too_many_redirects or page_unavailable" }
+        "504": { description: "A page explaining upstream_timeout (the site took more than 10 s)" }
   /mcp:
     post:
       tags: [mcp]
@@ -458,7 +490,8 @@ paths:
 
         A modern request must mirror its body in `MCP-Protocol-Version`,
         `Mcp-Method` and (for `tools/call`) `Mcp-Name`. An `Origin` other than
-        this site's is refused `403`. The body may have at most 8 MiB.
+        this site's is refused `403`. The body may have at most 8 MiB (28 MiB with
+        `DESIGNER_PLAN = "paid"`).
       requestBody:
         required: true
         content:
@@ -481,12 +514,32 @@ paths:
         "406":
           description: "`-32600` — `Accept` admits no `application/json`."
         "413":
-          description: "`-32600` — the body is larger than 8 MiB."
+          description: "`-32600` — the body is larger than 8 MiB (28 MiB on Paid)."
         "415":
           description: "`-32600` — send `application/json`."
 
 components:
   schemas:
+    ActivePlan:
+      type: object
+      description: |
+        The plan whose limits the worker applies, set by `DESIGNER_PLAN`
+        (`free` when unset or empty, or `paid`). An unknown value answers
+        `503 {"error": "bad_plan", "detail"}` on every path.
+      required: [plan, limits, subrequests, maxBody]
+      properties:
+        plan: { type: string, enum: [free, paid] }
+        limits: { $ref: "#/components/schemas/ChangeLimits" }
+        subrequests: { type: integer, description: "Requests one call may make to the repository host (45 Free, 125 Paid)." }
+        maxBody: { type: integer, description: "The largest request body in bytes, REST and MCP (8 MiB Free, 28 MiB Paid)." }
+    ChangeLimits:
+      type: object
+      description: What one publication may carry on the active plan (2 MiB / 10 files Free; 10 MiB per file, 20 MiB, 50 files Paid).
+      required: [maxFilesPerChange, maxFileBytes, maxChangeBytes]
+      properties:
+        maxFilesPerChange: { type: integer }
+        maxFileBytes: { type: integer }
+        maxChangeBytes: { type: integer }
     JsonRpcRequest:
       type: object
       required: [jsonrpc, method]

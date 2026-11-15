@@ -32,6 +32,10 @@ type merchantItem struct {
 	// stockFromPage marks one the page itself states (JSON-LD or front
 	// matter), not the feed's default (GO-162).
 	stockUnstated, stockFromPage bool
+	// stockUnknown marks a page or feed that says `unknown`: OpenAI's product
+	// feed takes it as is, Google's has no such value and lists in_stock
+	// (GO-187).
+	stockUnknown bool
 	// bareprice is a price the page gives without a currency, which leaves
 	// price empty (GO-162).
 	bareprice string
@@ -144,7 +148,8 @@ func applyMerchantFront(item *merchantItem, front map[string]interface{}, single
 			*field = v
 		}
 	}
-	item.stockUnstated = item.availability == ""
+	item.stockUnknown = strings.EqualFold(ldTerm(item.availability), "unknown")
+	item.stockUnstated = item.availability == "" || item.stockUnknown
 	item.availability = merchantAvailability(item.availability)
 	item.condition = merchantCondition(item.condition)
 }

@@ -59,6 +59,13 @@ complete `DESIGNER_AUTH_*` set every path, the panel's files included,
 answers `503 auth_not_configured`; there is no password mode and no
 Access-only mode (every publication needs an author and a permission).
 
+**Plan.** `DESIGNER_PLAN = "paid"` on a Workers Paid account raises one
+publication from 10 files and 2 MiB to 50 files, 10 MiB per file and 20 MiB
+in all, and a request body from 8 MiB to 28 MiB; unset or `"free"` keeps the
+Free limits, any other value answers `503 bad_plan` everywhere. `api/health`
+reports the active `plan` with its limits
+([EDITOR-OPERATIONS.md](../../docs/EDITOR-OPERATIONS.md#limits-per-cloudflare-plan)).
+
 Everything about the site is read from the branch: the config file in ssg's
 own search order (`.ssg.yaml`, `.ssg.yml`, `.ssg.toml`, `.ssg.json`, …), the
 overlay beside it, the theme folder `<templates_dir>/<template>`.
@@ -118,6 +125,7 @@ All paths under `DESIGNER_BASE`; full contract in [openapi.yaml](openapi.yaml).
 | POST | `/api/theme/publish` | theme | `{message, changes: [{op: put/delete/move, …, baseBlobId}]}` |
 | GET | `/api/revisions?path=` | read | history of a theme file, the overlay or the config file |
 | GET | `/api/revisions/{commitId}?path=` | read | a theme file, or the overlay parsed and redacted, at that commit |
+| GET | `/api/preview?path=&page=latest&scheme=&lang=&--token=value` | read | a page of this host with the given colour and font tokens, made inert, for the panel's sandboxed frame (HTML, not JSON; an error is a short page) |
 | POST | `/mcp` | read (+ each tool's) | the MCP endpoint ([MCP](#mcp)) |
 
 A key path is a list of keys, not a dotted string: a map key may hold a dot
@@ -137,7 +145,7 @@ shows only the tools the caller's permissions allow; a hidden tool called by
 name is refused. The transport (`portable/mcp-transport.ts`,
 `portable/mcp-methods.ts`) is editor-ui's, byte for byte: MCP 2026-07-28 and
 the `initialize`-based 2025-11-25 / 2025-06-18 / 2025-03-26, stateless, one
-JSON answer per POST, at most 8 MiB — the protocol notes and links are in
+JSON answer per POST, at most 8 MiB (28 MiB on `paid`) — the protocol notes and links are in
 [editor-ui's README](../editor-ui/README.md#mcp).
 
 **Who.** An `auth` service token (`ssgsvc_…`) exchanged for a 10-minute
@@ -238,14 +246,28 @@ works beside a YAML config only, so publishing settings there is refused
 
 ## Shared code
 
-`portable/*`, `src/router.ts`, `src/module.ts`, `src/yaml-lite.ts`,
-`src/yaml-scalar.ts` and the test fakes are **byte-identical copies** of
-`workers/editor-ui/`; `src/session-verifier.ts` of `workers/auth/portable/`;
+Everything in `portable/`, the generic panel modules
+(`public/js/core/{vnode,router,i18n,api,prefs,session,diff,format,admin-nav}.js`,
+`public/js/panel/{ui,dialog,publish-dialog,diff-view,conflict-view,revisions}.js`)
+and the test fakes are **byte-identical copies** of `workers/editor-ui/`, their
+one source (GO-185); `src/session-verifier.ts` of `workers/auth/portable/`;
 `src/summary-kit.ts` of `workers/module-summary-kit.ts`. Never edit a copy —
 change the source and copy again. `test/editor-copies.test.ts` and
 `test/auth-copies.test.ts` fail while a copy differs, and re-run the sources'
 own suites against the copies (skipped, with the reason, when this template
 is scaffolded alone).
+
+`portable/` holds the worker's whole frame, not only the repository layer:
+the gate (`gate.ts`), operations and their errors (`ops.ts`), the fetch
+pipeline (`app.ts`), the router, the module / me / MCP endpoints, the
+repository binding (`repo.ts`), the commit author (`author.ts`), the
+configuration files and overlay merge (`config-files.ts`), the YAML reader,
+and what every answer carries (`http-kit.ts`). What differs between the two
+workers is not a copy: the shared modules read this template's id, variable
+prefix, default base and `Env` from `src/http.ts`, and its permissions, routes
+and MCP tools from `src/permissions.ts`, `src/routes.ts` and
+`src/mcp-tools.ts`. A service token's commit is authored `service account
+<id>` at `<id>@service-account.invalid`, as in editor-ui.
 
 `src/config-schema.json` is generated from ssg — never edit it by hand:
 `UPDATE_CONFIG_SCHEMA=1 go test ./internal/config -run TestSchemaTwinUpToDate`.
@@ -300,6 +322,18 @@ deployed on the same host.
 - **Colours and fonts** — see *Theme tokens* below. A pair below 4.5:1 shows
   its ratio and the nearest colour of the same hue that passes, with **Use**;
   it never blocks, but publishing then needs a ticked confirmation.
+- **Preview** (in Colours and fonts) — a page of the site (home, latest post
+  or a path) with the tab's unpublished tokens, light or dark, full or phone
+  width, in an `<iframe sandbox>` without any allowance. `src/preview*.ts`:
+  the page is fetched from this host without the caller's credentials
+  (same-origin redirects only, 2 MB), every token is written back by the
+  worker's own serializer without scripts, `on*` attributes or script URLs,
+  and `src/preview-entry.ts` gives the answer its own CSP (no script source,
+  `sandbox`, `frame-ancestors 'self'`) and the panel's page `frame-src
+  'self'`. Only tokens are previewed; self-hosted fonts need
+  `Access-Control-Allow-Origin` (the frame's origin is opaque). Tests:
+  `test/preview-sanitize.test.ts` (a hostile HTML corpus),
+  `test/preview.test.ts`, `test/panel-preview.test.ts`.
 - **Theme files** (`designer-ui:theme` to change; reading needs `read`) — the
   folder tree, a text editor with line numbers and find (Enter / Shift+Enter),
   image replacement (same type, same name; an SVG is a picture and text),
@@ -356,12 +390,12 @@ in both schemes with the panel's own contrast module. Type: system stacks
 only — a geometric sans for headings, a humanist sans with Devanagari
 fallbacks for text, a monospace for code and keys.
 
-### Generic panel modules (for editor-ui, GO-173)
+### Generic panel modules (shared with editor-ui)
 
-No designer-specific import; meant to be copied byte for byte:
-`js/core/{vnode,router,i18n,api,prefs,session,diff,format,admin-nav}.js`,
-`js/panel/{ui,dialog,publish-dialog,diff-view,conflict-view,revisions}.js`,
-and `js/models/contrast.js`.
+`js/core/{vnode,router,i18n,api,prefs,session,diff,format,admin-nav}.js` and
+`js/panel/{ui,dialog,publish-dialog,diff-view,conflict-view,revisions}.js` are
+copies of editor-ui's (see "Shared code"). `js/models/contrast.js` has no
+designer-specific import either, should another panel need it.
 
 ### Local preview and screenshots
 
@@ -374,7 +408,9 @@ node workers/designer-ui/test/panel-shots.mjs <out-dir> [axe.min.js]
 The dev server runs the worker's own fetch handler against the in-process
 fake GitHub, seeded with a small site, ssgtheme and two earlier publications
 by two people. `DEMO_THEME=builtin` shows the export instruction,
-`DEMO_CORE=1` serves `core`'s shared bar. Nothing leaves the machine.
+`DEMO_CORE=1` serves `core`'s shared bar, `DEMO_SITE=<ssg output dir>`
+serves a built site on the same port for **Preview** (without it, one small
+page). Nothing leaves the machine.
 
 ## What it protects and what it does not
 
@@ -417,6 +453,13 @@ Written for site owners after the security review (GO-183,
   and need `designer-ui:advanced`.
 - **Your visitors and admins from content.** Theme and content share one
   origin with the panels and `auth` (see editor-ui's section of the same name).
+- **Pages protected only at Cloudflare's edge, from the look preview.** The
+  preview fetches any path of its own host, anonymously, and shows the HTML
+  to a `designer-ui:read` holder. If parts of the site are protected only at
+  the edge (Cloudflare Access, WAF rules by IP or country), check on the
+  deployed zone whether the Worker's request to its own zone bypasses them.
+  Until you have verified it, do not rely on edge-only protection for pages
+  a `designer-ui:read` holder must not see.
 - **Revocation in real time**, **content read by an assistant as
   instructions**, and **the token's GitHub rate limit** — as in editor-ui.
   Give the repository token "Contents: read and write" on this repository

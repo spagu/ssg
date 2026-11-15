@@ -4,7 +4,7 @@
 import { FakeMddb, MDDB_HOST, MDDB_KEY } from "./fake-mddb.ts";
 import type { FakeGitHub } from "./fake-github.ts";
 import { AUTH_VARS, BASE, GIT_VARS, ORIGIN, SITE_YAML, assets, folderHistory, request, site } from "./fixtures.ts";
-import { handleFetch } from "../src/app.ts";
+import { handleFetch } from "../portable/app.ts";
 import { clearListingCache } from "../src/content-list.ts";
 import { clearMetaCache } from "../src/content-meta.ts";
 

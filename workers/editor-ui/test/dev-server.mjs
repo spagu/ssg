@@ -30,7 +30,7 @@ const CORE = join(here, "..", "..", "core", "public", "core");
 const PORT = Number(process.env.PORT || 8789);
 const BASE = "/editor";
 
-const { handleFetch } = await import("../src/app.ts");
+const { handleFetch } = await import("../portable/app.ts");
 const { FakeGitHub, TOKEN } = await import("./fake-github.ts");
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".gif": "image/gif" };

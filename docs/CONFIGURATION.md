@@ -538,7 +538,7 @@ standard uploads use `US` today and other markets need OpenAI's confirmation.
 | `title`, `description`, `url`, `brand`, `gtin`, `mpn`, `condition` | as the Merchant feed |
 | `image_url`, `additional_image_urls` | the first `image`, then the rest |
 | `price` | `offers.price` + `offers.priceCurrency` → `14.00 EUR` |
-| `availability` | as Merchant, in ACP's spelling: `in_stock`, `out_of_stock`, `pre_order`, `backorder` |
+| `availability` | as Merchant, in ACP's spelling: `in_stock`, `out_of_stock`, `pre_order`, `backorder`; `unknown` when the page or the feed's `merchant.availability` says `unknown` (since 1.9.11; OpenAI's product feed accepts it, Google's does not, so the Merchant row of the same product says `in_stock`, counted in the "state no availability" warning) |
 | `group_id`, `listing_has_variations`, `variant_dict` | a `ProductGroup`: each `hasVariant` is a row; `variant_dict` holds the properties named in `variesBy` (else `color` and `size`) with the variant's values |
 | `offer_id` | `acp.offer_id`, else `offers.sku` |
 | `product_category`, `material`, `color`, `size` | `category`, `material`, `color`, `size` of the Product |

@@ -19,7 +19,7 @@
 
 import { checkPath } from "../portable/path-policy";
 import type { Access, PathPolicy, PathRefusal } from "../portable/path-policy";
-import { OpError } from "./ops";
+import { OpError } from "../portable/ops";
 import type { SiteModel } from "./site-model";
 
 // MEDIA_EXTENSIONS: what the library lists and a publication may delete. New

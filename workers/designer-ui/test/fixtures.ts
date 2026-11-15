@@ -4,9 +4,9 @@
 // the key, and a fake GitHub (test/fake-github.ts, in-process) seeded with a
 // small site and its theme. No network, no real token.
 import { FakeGitHub, TOKEN } from "./fake-github.ts";
-import { handleFetch } from "../src/app.ts";
+import { handleFetch } from "../portable/app.ts";
 import { clearConfigCache } from "../src/config-read.ts";
-import type { Route } from "../src/router.ts";
+import type { Route } from "../portable/router.ts";
 
 export const ORIGIN = "https://example.com";
 export const BASE = "/designer";

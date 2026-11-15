@@ -6,10 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BASE, COOKIE, GIT_VARS, ISSUER, LOGIN, ORIGIN, makeEnv, request, run, site, token } from "./fixtures.ts";
-import { NOT_CONFIGURED, authConfig, csrfRefusal } from "../src/gate.ts";
-import type { Caller } from "../src/gate.ts";
-import { OpError, errorResponse, retryAfter } from "../src/ops.ts";
-import type { Route } from "../src/router.ts";
+import { NOT_CONFIGURED, authConfig, csrfRefusal } from "../portable/gate.ts";
+import type { Caller } from "../portable/gate.ts";
+import { OpError, errorResponse, retryAfter } from "../portable/ops.ts";
+import type { Route } from "../portable/router.ts";
 import { PERM } from "../src/permissions.ts";
 import { RepoError } from "../portable/repo-provider.ts";
 import handler from "../src/index.ts";

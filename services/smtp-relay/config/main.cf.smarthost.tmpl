@@ -1,0 +1,12 @@
+
+# ---------------------------------------------------------------- RELAY_MODE=smarthost
+# Hand every message to one upstream server (RELAYHOST), for networks where
+# outbound port 25 is blocked. The upstream's certificate is verified
+# against its name (secure), and the login never crosses in clear text.
+relayhost = @@RELAYHOST@@
+smtp_tls_security_level = secure
+smtp_tls_wrappermode = @@RELAYHOST_WRAPPERMODE@@
+smtp_sasl_auth_enable = @@RELAYHOST_AUTH@@
+smtp_sasl_password_maps = texthash:@@RUN_DIR@@/relay-password
+smtp_sasl_security_options = noanonymous
+smtp_sasl_tls_security_options = noanonymous

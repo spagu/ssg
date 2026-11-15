@@ -7,11 +7,11 @@ import manifest from "../module.json" with { type: "json" };
 import { BASE, GIT_VARS, ORIGIN, makeEnv, request, run, site } from "./fixtures.ts";
 import { TOKEN } from "./fake-github.ts";
 import { PERM } from "../src/permissions.ts";
-import { OpError, errorResponse, retryAfter } from "../src/ops.ts";
-import type { Route } from "../src/router.ts";
-import { matchPath } from "../src/router.ts";
+import { OpError, errorResponse, retryAfter } from "../portable/ops.ts";
+import type { Route } from "../portable/router.ts";
+import { matchPath } from "../portable/router.ts";
 import { ROUTES } from "../src/routes.ts";
-import { RepoError } from "../portable/repo-provider.ts";
+import { MB, PLAN_LIMITS, RepoError } from "../portable/repo-provider.ts";
 
 const OTHER = ["newsletter:read", "editor-ui:publish", "editor-ui:media", "editor-ui:delete"]; // everything but read
 
@@ -84,8 +84,11 @@ test("GET /api/health: configuration only, never the token", async () => {
     auth: "auth",
     repository: { configured: true, provider: "github", branch: "main" },
     overrides: { contentDirs: false, mediaDir: true },
+    plan: { plan: "free", limits: PLAN_LIMITS.free, subrequests: 45, maxBody: 8 * MB },
     bindings: { assets: true, rateLimiter: true },
   });
+  const paid = await (await run(await request(BASE + "/api/health", [PERM.read]), makeEnv({ EDITOR_PLAN: "paid" }))).json();
+  assert.deepEqual(paid.plan, { plan: "paid", limits: PLAN_LIMITS.paid, subrequests: 125, maxBody: 28 * MB });
   const missing = await (await run(await request(BASE + "/api/health", [PERM.read]), makeEnv({ EDITOR_GIT_TOKEN: undefined, ASSETS: undefined }))).json();
   assert.equal(missing.ok, false);
   assert.deepEqual(missing.repository, { configured: false, problem: "EDITOR_GIT_TOKEN is not set (npx wrangler secret put EDITOR_GIT_TOKEN)" });

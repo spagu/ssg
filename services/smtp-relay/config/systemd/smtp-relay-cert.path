@@ -1,0 +1,13 @@
+# Native install: reload Postfix when the certificate is replaced. Have your
+# ACME client's deploy/renew hook copy the new files to this path (see
+# docs/SMTP-SERVER-PI.md, "Certificate"); edit the path if you keep them
+# elsewhere, then: systemctl daemon-reload
+[Unit]
+Description=smtp-relay: watch the TLS certificate
+
+[Path]
+PathChanged=/etc/smtp-relay/tls/fullchain.pem
+Unit=smtp-relay-cert.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,13 @@
 // The media library (editor-ui:read):
 //
 // GET {base}/api/media?cursor=&limit=
-//   → {dir, urlBase, limits, items: [{path, url, version, size, type}], nextCursor, truncated}
+//   → {dir, urlBase, plan, limits, items: [{path, url, version, size, type}], nextCursor, truncated}
 //   Images in the media folder, newest path first (canonical names start with
 //   yyyy/mm). `url` is the root-relative address the site serves the image at
 //   once deployed — what an article links and what a thumbnail loads; `type`
 //   comes from the extension (no bytes are read). `limits` are the sizes a
-//   publication may carry (media-change.ts), for the panel to warn early.
+//   publication may carry on the active `plan` (EDITOR_PLAN, portable/plan.ts),
+//   for the panel to warn early.
 //   Costs the branch head and one cached listing of the folder.
 //
 // GET {base}/api/media/new-path?name=&type=&hash=
@@ -19,16 +20,17 @@
 
 import { decodeCursor, encodeCursor } from "./content-list";
 import { contentScope } from "./content-scope";
-import { LIMITS, mediaFiles } from "./media-change";
+import { mediaFiles } from "./media-change";
 import { HASH_LENGTH, extOfType, mediaPathFor } from "./media-name";
 import { requireMedia, typeOf, urlOf } from "./media-scope";
-import { OpError } from "./ops";
-import type { Op } from "./ops";
+import { OpError } from "../portable/ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
 import type { ChangeLimits } from "../portable/repo-provider";
+import type { Plan } from "../portable/plan";
 
 export interface MediaItem { path: string; url: string; version: string; size: number | null; type: string }
-export interface MediaPage { dir: string; urlBase: string; limits: ChangeLimits; items: MediaItem[]; nextCursor: string | null; truncated: boolean }
+export interface MediaPage { dir: string; urlBase: string; plan: Plan; limits: ChangeLimits; items: MediaItem[]; nextCursor: string | null; truncated: boolean }
 export interface MediaListInput { cursor?: string | null; limit?: string | null }
 
 export const DEFAULT_MEDIA_LIMIT = 60;
@@ -52,7 +54,7 @@ export const mediaListOp: Op<MediaListInput, MediaPage> = {
     const page = newest.slice(0, limit);
     const items = page.map((f) => ({ path: f.path, url: urlOf(f.path, place), version: f.blobId, size: f.size ?? null, type: typeOf(f.path) }));
     const nextCursor = newest.length > limit ? encodeCursor(page[page.length - 1].path) : null;
-    return { dir: place.dir, urlBase: place.urlBase, limits: LIMITS, items, nextCursor, truncated };
+    return { dir: place.dir, urlBase: place.urlBase, plan: s.repo.plan.plan, limits: s.repo.plan.limits, items, nextCursor, truncated };
   },
 };
 

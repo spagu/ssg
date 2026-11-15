@@ -123,6 +123,14 @@ export interface Env {
   SHOP_UCP_WEBHOOK_URL?: string;
   /** Secret: the API key for that URL, sent as X-Goog-Api-Key. */
   SHOP_UCP_WEBHOOK_API_KEY?: string;
+  /** "true" switches on the conformance-suite test mode (GO-187,
+   *  _ucp-testing.ts): http agent profiles and webhook URLs, the test
+   *  payment handler and /testing/simulate-shipping. Refused (503) next to a
+   *  live Stripe key or Google Pay PRODUCTION. Off by default. */
+  SHOP_UCP_TEST_MODE?: string;
+  /** Secret: the Simulation-Secret /testing/simulate-shipping requires;
+   *  unset = that route is a 404 even in test mode. */
+  SHOP_UCP_SIMULATION_SECRET?: string;
 
   // ── Anti-abuse ───────────────────────────────────────────────────────────
   TURNSTILE_SECRET?: string;

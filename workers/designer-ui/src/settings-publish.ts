@@ -18,16 +18,17 @@
 //   5. the commit: the whole file, sorted, newline at the end; only ever
 //      .ssg.designer.json (the settings policy, theme.ts).
 
-import { OVERLAY_FILE } from "./config-read";
+import { OVERLAY_FILE } from "../portable/config-files";
 import type { Change } from "../portable/repo-provider";
-import { OpError, refusedOf, requirePermission } from "./ops";
-import type { Op, OpContext } from "./ops";
+import { OpError, requirePermission } from "../portable/ops";
+import type { Op, OpContext } from "../portable/ops";
 import { validateOverlay } from "./overlay-validate";
 import { applyChanges, parseChanges, serializeOverlay } from "./overlay-write";
 import { PERM } from "./permissions";
 import { ROOT } from "./schema";
 import { changedKeys, needsAdvanced, secretShapeProblems } from "./settings-diff";
-import { authorOf, siteOf } from "./site";
+import { authorOf } from "../portable/author";
+import { siteOf } from "./site";
 import type { Site } from "./site";
 import { SETTINGS_POLICY, allowedPath } from "./theme";
 
@@ -35,6 +36,17 @@ export interface SettingsPublishInput { message?: unknown; baseBlobId?: unknown;
 export interface SettingsPublishResult { commitId: string; branch: string; blobId: string; changed: string[] }
 
 export interface SettingsPart { change: Change; path: string; changed: string[] }
+
+// Refused: one key of a settings publication and why it was refused.
+export interface Refused { key: string; reason: string }
+
+// refusedOf splits problems written "path: why" (overlay-validate.ts,
+// settings-diff.ts — each names its path) into {key, reason}.
+export const refusedOf = (problems: readonly string[]): Refused[] =>
+  problems.map((p) => {
+    const at = p.indexOf(": ");
+    return at < 0 ? { key: "", reason: p } : { key: p.slice(0, at), reason: p.slice(at + 2) };
+  });
 
 // settingsPart runs checks 1–4 above and builds the overlay's change without
 // writing anything — the settings route commits it alone, POST api/publish

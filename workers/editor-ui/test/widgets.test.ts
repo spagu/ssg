@@ -8,7 +8,7 @@ import { BASE, ORIGIN, SITE_YAML, folderHistory, makeEnv, request, site } from "
 import type { FakeGitHub } from "./fake-github.ts";
 import { tool } from "./mcp-fixtures.ts";
 import { mddbOnlyEnv, world, worldFetch } from "./mddb-fixtures.ts";
-import { handleFetch } from "../src/app.ts";
+import { handleFetch } from "../portable/app.ts";
 import { PERM } from "../src/permissions.ts";
 import { MAX_MANIFEST_BYTES, parseManifest, readComponents } from "../src/widget-manifest.ts";
 import { blocksFor, featuresOf } from "../src/widgets.ts";

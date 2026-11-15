@@ -27,7 +27,7 @@ func (g *Generator) acpRowOf(it merchantItem, s models.ACPSeller, single bool) a
 	row := acpRow{
 		ItemID: it.id, Title: it.title, Description: it.description, URL: it.link,
 		Brand: it.brand, ImageURL: it.image, AdditionalImageURLs: g.acpMoreImages(node["image"]),
-		Price: it.price, Availability: acpAvailability(it.availability), Condition: it.condition,
+		Price: it.price, Availability: acpAvailability(it.availability, it.stockUnknown), Condition: it.condition,
 		GTIN: it.gtin, MPN: it.mpn, OfferID: ldText(offer["sku"]),
 		ProductCategory: ldName(node["category"]), Material: ldName(node["material"]),
 		Color: ldName(node["color"]), Size: ldName(node["size"]),
@@ -77,9 +77,15 @@ func (r *acpRow) applyFront(front map[string]interface{}, single bool) {
 }
 
 // acpAvailability is the Merchant value in ACP's spelling: the two differ
-// only on pre-orders.
-func acpAvailability(merchant string) string {
-	if merchant == "preorder" {
+// on pre-orders, and on `unknown`, which OpenAI's product feed accepts ("Use
+// unknown explicitly when stock status is unavailable", read 2026-11-15) and
+// Google's does not, so the Merchant value of a page saying `unknown` is
+// in_stock (GO-187).
+func acpAvailability(merchant string, unknown bool) string {
+	switch {
+	case unknown:
+		return "unknown"
+	case merchant == "preorder":
 		return "pre_order"
 	}
 	return merchant

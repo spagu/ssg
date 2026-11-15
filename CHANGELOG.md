@@ -9,6 +9,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **The ssg Docker image runs on Alpine 3.24.4** (was an older 3.24
+  digest). Tag and digest are both pinned, as before.
+- **The designer's look preview, hardened after review:** a token value
+  holding `//` (such as `image-set("//host/x.png")`, which loads from another
+  host) is refused; a page at the 2 MB limit is read piece by piece instead of
+  needing more than a Worker's 128 MB; the latest-post feed is read in linear
+  time; each page the preview reads is capped by plan (`DESIGNER_PLAN`: 256 KiB
+  on Free, 2 MB on Paid) and each fetch has 10 seconds (`upstream_timeout`,
+  504) (GO-188).
+
+### Added
+
+- **Preview the site's look before publishing (designer-ui).** Under
+  Colours and fonts, **Preview** shows the home page, the latest post or any
+  path of the site with the unpublished colour and font tokens applied,
+  light or dark, full or phone width. The worker fetches the public page
+  without your credentials (no redirect off the host, at most 256 KiB on
+  Free and 2 MB on Paid), removes
+  every script, event handler and `javascript:` address, and serves it at
+  `{base}/api/preview` with its own policy (no scripts, `sandbox`, framed by
+  the panel only) for a sandboxed frame. Templates and settings are not
+  previewed; fonts the site serves itself need `Access-Control-Allow-Origin`
+  to appear. Nothing changes for existing deployments (GO-188;
+  docs/DESIGNER.md, "Preview before publishing").
+- **The editor and designer panels can use Workers Paid limits.** Set
+  `EDITOR_PLAN = "paid"` (`editor-ui`) or `DESIGNER_PLAN = "paid"`
+  (`designer-ui`) in `wrangler.toml` on a Workers Paid account and one
+  publication may carry 50 files, 10 MiB per file and 20 MiB in all (Free:
+  10 files, 2 MiB), with up to 125 requests to GitHub per call and a 28 MiB
+  request body. Unset or `"free"` keeps today's limits, so existing
+  deployments change nothing; any other value answers `503 bad_plan` on
+  every path, naming the variable. `api/health`, `api/site` and `api/media`
+  report the active plan and its limits, and the editor's image checks use
+  them (GO-186; docs/EDITOR-OPERATIONS.md, "Limits per Cloudflare plan").
+- **The shop's UCP checkout can be run through the official UCP conformance
+  suite.** `SHOP_UCP_TEST_MODE = "true"` (off by default) accepts what the
+  suite sends: an `http://` agent profile and order-event URL, its test
+  payment handler (`mock_payment_handler`: `success_token` delivers the
+  product without payment, `fail_token` is `payment_failed`) and
+  `POST /testing/simulate-shipping/{id}` behind the new
+  `SHOP_UCP_SIMULATION_SECRET` secret (add `/testing/*` to `routes_include`).
+  The mode is refused — every UCP route answers 503 — next to a live Stripe
+  key or Google Pay `PRODUCTION`; the API key stays required. Use it on a
+  test deployment only. The run and what still fails, with the reasons:
+  docs/UCP-OPERATIONS.md, "The conformance suite" (GO-187).
+- **UCP Get Order.** `GET /api/shop/ucp/orders/{id}` returns the full order
+  a UCP checkout placed (order.md), behind the same API key; any other order
+  is `not_found` (GO-187).
+- **`availability: unknown` in the ACP feed.** A page or feed whose
+  `availability` (or `merchant.availability`) says `unknown` is written as
+  `unknown` in the ACP feed, which OpenAI's product feed accepts; the
+  Google Merchant row of the same product stays `in_stock`, as before, and
+  is now counted in the "state no availability" warning. Nothing changes
+  for any other value (GO-187).
+- **Your own SMTP server for the newsletter (`services/smtp-relay`).** A
+  Postfix 3.11 image on Alpine 3.24.4 for linux/amd64, linux/arm64 and
+  linux/arm/v7 that the `newsletter` and `newsletter-ui` SMTP transport can
+  send through: ports 465 (implicit TLS) and 587 (STARTTLS), a login required
+  on both, OpenDKIM signing that covers `List-Unsubscribe` and
+  `List-Unsubscribe-Post`, and `RELAY_MODE` `direct` (recipients' MX),
+  `smarthost` (for networks that block port 25) or `hold` (accept and keep,
+  for testing). It refuses to start without a valid certificate, relays only
+  for the logged-in sender's own domains, never listens on port 25, and
+  reloads itself when the certificate is renewed. Settings come from
+  environment variables, passwords from files. With a docker compose file,
+  a smoke test (TLS, login, open-relay test, DKIM verification), its own
+  workflow publishing `ghcr.io/spagu/ssg-smtp-relay` and
+  `tradik/ssg-smtp-relay` (Docker Hub) from tags
+  `smtp-relay-vX.Y.Z` (`make smtp-relay-image`, `make smtp-relay-test`), and
+  a native install for Raspberry Pi OS with systemd units from the same
+  templates. Guides: docs/SMTP-SERVER.md (requirements: static IP, PTR,
+  outbound port 25, firewall, connecting the Worker, testing, risks),
+  docs/SMTP-SERVER-DNS.md (SPF, DKIM, DMARC) and docs/SMTP-SERVER-PI.md
+  (GO-189).
+
+### Changed
+
+- **A service token's commits in the designer panel are signed like the
+  editor's.** `designer-ui` now authors them `service account <id>` at
+  `<id>@service-account.invalid` (before: `service <id>` at
+  `<id>@service.invalid`), the format `editor-ui` already used. Commits made
+  by people are unchanged. If a script or a history filter matches the old
+  address, match `@service-account.invalid` instead; older commits keep
+  theirs. The two panels now share one copy of their common worker code
+  (gate, operations, request pipeline, repository, MCP endpoint,
+  configuration files): `editor-ui` is the source and `designer-ui` holds
+  byte-identical copies checked by a test (GO-185). Nothing else changes in
+  either panel's answers.
+- **Every UCP checkout response carries `payment`.** It is
+  `{"instruments": []}` until the platform has paid (before: left out). The
+  field is optional in the protocol and platforms read it back on update;
+  nothing to do (GO-187).
+
+## [1.9.10] - 2026-11-15
+
+### Security
+
 - **Configuration keys that read files or add third-party scripts are no
   longer plain.** The configuration schema now classes
   `shortcodes[].template`, `render_hooks` and `outputs_custom[].template`
@@ -7357,7 +7454,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.9...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.10...HEAD
+[1.9.10]: https://github.com/spagu/ssg/compare/v1.9.9...v1.9.10
 [1.9.9]: https://github.com/spagu/ssg/compare/v1.9.8...v1.9.9
 [1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8
 [1.9.7]: https://github.com/spagu/ssg/compare/v1.9.6...v1.9.7

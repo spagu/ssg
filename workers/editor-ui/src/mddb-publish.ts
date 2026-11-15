@@ -31,8 +31,8 @@ import { mddbPath } from "./mddb-path";
 import type { MddbRef } from "./mddb-path";
 import type { MddbScope } from "./mddb-scope";
 import { revisionOf } from "./mddb-scope";
-import { OpError } from "./ops";
-import type { OpContext } from "./ops";
+import { OpError } from "../portable/ops";
+import type { OpContext } from "../portable/ops";
 import { triggerRebuild } from "./rebuild";
 
 const isImage = (c: Planned): boolean => c.op === "put" && "base64" in c.content;

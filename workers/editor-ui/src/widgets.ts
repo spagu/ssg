@@ -18,9 +18,9 @@
 
 import { contentScope } from "./content-scope";
 import { mddbConfigured } from "./mddb-config";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
-import { repositoryOf } from "./repo";
+import { repositoryOf } from "../portable/repo";
 import type { SiteModel } from "./site-model";
 import { readComponents } from "./widget-manifest";
 import type { ComponentProp, ComponentsSource } from "./widget-manifest";

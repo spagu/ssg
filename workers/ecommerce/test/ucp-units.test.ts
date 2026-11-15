@@ -42,10 +42,11 @@ describe("reading the platform's input", () => {
   });
 
   it("checks the UCP-Agent header's shape", () => {
-    assert.equal(agentProfile('profile="https://p.example.com/.well-known/ucp"'), "https://p.example.com/.well-known/ucp");
-    assert.equal(agentProfile('other="x", profile="https://p.example.com/x"'), "https://p.example.com/x");
-    assert.equal(agentProfile(null), null);
-    assert.equal(agentProfile('profile=""'), null);
+    assert.equal(agentProfile('profile="https://p.example.com/.well-known/ucp"', env), "https://p.example.com/.well-known/ucp");
+    assert.equal(agentProfile('other="x", profile="https://p.example.com/x"', env), "https://p.example.com/x");
+    assert.equal(agentProfile(null, env), null);
+    assert.equal(agentProfile('profile=""', env), null);
+    assert.equal(agentProfile('profile="http://localhost:8285/profiles/agent.json"', env), null);
   });
 
   it("names every missing setting", () => {

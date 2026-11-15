@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { makeEnv, site } from "./fixtures.ts";
 import { AUTHOR, MEDIA, bytesAt, bytesOf, headOf, image, jpeg, png, publish, seedBytes } from "./media-fixtures.ts";
 import { PERM } from "../src/permissions.ts";
-import { LIMITS } from "../src/media-change.ts";
+import { PLAN_LIMITS } from "../portable/repo-provider.ts";
 
 const POST = "content/blog/posts/cats.md";
 
@@ -89,19 +89,38 @@ test("malformed image changes: base64 with text, base64 not a string, a version,
   }
 });
 
+// tooLargeCases: the three refusals at a plan's limits, each with its detail.
+function tooLargeCases(limits: typeof PLAN_LIMITS.free) {
+  const big = (n: number) => ({ op: "put", path: `${MEDIA}/2026/11/a-00000000.png`, version: null, base64: "A".repeat(Math.ceil((n * 4) / 3)) });
+  const many = Array.from({ length: limits.maxFilesPerChange + 1 }, (_, i) => ({ op: "put", path: `docs/f${i}.md`, version: null, text: "x" }));
+  return [
+    [many, `at most ${limits.maxFilesPerChange} files per publication`],
+    [[big(limits.maxFileBytes + 3)], `an image may have at most ${limits.maxFileBytes} bytes`],
+    [Array.from({ length: 3 }, () => big(Math.floor(limits.maxChangeBytes / 3) + 1)), `the images of one publication may have at most ${limits.maxChangeBytes} bytes`],
+  ] as const;
+}
+
 test("the plan's limits: files per publication, bytes per image, bytes per publication — before anything is decoded", async () => {
   const gh = await site();
-  const big = (n: number) => ({ op: "put", path: `${MEDIA}/2026/11/a-00000000.png`, version: null, base64: "A".repeat(Math.ceil((n * 4) / 3)) });
-  const many = Array.from({ length: LIMITS.maxFilesPerChange + 1 }, (_, i) => ({ op: "put", path: `docs/f${i}.md`, version: null, text: "x" }));
-  for (const [changes, detail] of [
-    [many, `at most ${LIMITS.maxFilesPerChange} files per publication`],
-    [[big(LIMITS.maxFileBytes + 3)], `an image may have at most ${LIMITS.maxFileBytes} bytes`],
-    [[big(LIMITS.maxFileBytes * 0.6), big(LIMITS.maxFileBytes * 0.6)], `the images of one publication may have at most ${LIMITS.maxChangeBytes} bytes`],
-  ] as const) {
-    const res = await publish(gh, { message: "x", changes });
-    assert.equal(res.status, 413);
-    assert.deepEqual(await res.json(), { error: "too_large", detail, limits: LIMITS });
+  for (const [plan, env] of [["free", makeEnv()], ["free", makeEnv({ EDITOR_PLAN: " " })], ["paid", makeEnv({ EDITOR_PLAN: "Paid" })]] as const) {
+    const limits = PLAN_LIMITS[plan];
+    for (const [changes, detail] of tooLargeCases(limits)) {
+      const res = await publish(gh, { message: "x", changes }, AUTHOR, env);
+      assert.equal(res.status, 413, `${plan}: ${detail}`);
+      assert.deepEqual(await res.json(), { error: "too_large", detail, limits });
+    }
   }
+});
+
+test("EDITOR_PLAN=paid: a publication above the Free limits passes the size checks and is committed", async () => {
+  const gh = await site();
+  const free = PLAN_LIMITS.free;
+  const many = Array.from({ length: free.maxFilesPerChange + 1 }, (_, i) => ({ op: "put", path: `docs/paid-${i}.md`, version: null, text: `# ${i}` }));
+  const refused = await publish(gh, { message: "x", changes: many });
+  assert.equal(refused.status, 413);
+  const res = await publish(gh, { message: "x", changes: many }, AUTHOR, makeEnv({ EDITOR_PLAN: "paid" }));
+  assert.equal(res.status, 201);
+  assert.equal(new TextDecoder().decode(bytesAt(gh, "docs/paid-10.md")), "# 10");
 });
 
 test("the same image again is kept, not written twice: in one publication, in a later one, alone", async () => {

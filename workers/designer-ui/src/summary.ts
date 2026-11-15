@@ -10,10 +10,10 @@
 
 import { RepoError } from "../portable/repo-provider";
 import { siteOf } from "./site";
-import type { Op, OpContext } from "./ops";
+import type { Op, OpContext } from "../portable/ops";
 import { validateOverlay } from "./overlay-validate";
 import { PERM } from "./permissions";
-import { repositoryOf } from "./repo";
+import { repositoryOf } from "../portable/repo";
 import { overlayLeaves } from "./settings-diff";
 import { summaryOf } from "./summary-kit";
 import type { Attention, Metric, Problem, Summary, Text } from "./summary-kit";

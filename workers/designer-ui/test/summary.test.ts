@@ -8,6 +8,7 @@ import { BASE, READ, makeEnv, request, run, site } from "./fixtures.ts";
 import { TOKEN } from "./fake-github.ts";
 import { PERM } from "../src/permissions.ts";
 import { get } from "./helpers.ts";
+import { MB, PLAN_LIMITS } from "../portable/repo-provider.ts";
 
 const summary = async (gh: Awaited<ReturnType<typeof site>> | undefined, env = makeEnv()) =>
   (await run(await request(BASE + "/api/module/summary", READ), env, gh)).json();
@@ -59,7 +60,7 @@ test("api/module, api/me, api/health", async () => {
   assert.deepEqual([me.kind, me.user, me.permissions, me.loginUrl, me.logoutUrl, me.refreshUrl], ["user", { id: "u-ada", email: "ada@example.com" }, [PERM.read, PERM.theme], "/auth/login", "/api/auth/logout", "/api/auth/refresh"]);
   const limiter = { limit: async () => ({ success: true }) };
   const health = await (await run(await request(BASE + "/api/health", READ), makeEnv({ RATE_LIMITER: limiter }))).json();
-  assert.deepEqual(health, { ok: true, auth: "auth", repository: { configured: true, provider: "github", branch: "main" }, schemaVersion: 1, bindings: { assets: true, rateLimiter: true } });
+  assert.deepEqual(health, { ok: true, auth: "auth", repository: { configured: true, provider: "github", branch: "main" }, schemaVersion: 1, plan: { plan: "free", limits: PLAN_LIMITS.free, subrequests: 45, maxBody: 8 * MB }, bindings: { assets: true, rateLimiter: true } });
   const missing = await (await run(await request(BASE + "/api/health", READ), makeEnv({ DESIGNER_GIT_TOKEN: undefined, ASSETS: undefined }))).json();
   assert.deepEqual([missing.ok, missing.repository.problem, missing.bindings.assets], [false, "DESIGNER_GIT_TOKEN is not set (npx wrangler secret put DESIGNER_GIT_TOKEN)", false]);
   assert.ok(!JSON.stringify(health).includes(TOKEN));

@@ -19,9 +19,8 @@ import { contentFiles, decodeCursor, encodeCursor, READ_COST } from "./content-l
 import { decodeText } from "./content-meta";
 import { contentScope } from "./content-scope";
 import { mediaPath, requireMedia, urlOf } from "./media-scope";
-import type { Op } from "./ops";
+import type { Op } from "../portable/ops";
 import { PERM } from "./permissions";
-import { SUBREQUESTS } from "./repo";
 
 export interface ReferencesInput { path?: string | null; cursor?: string | null }
 export interface References {
@@ -66,7 +65,7 @@ export const mediaReferencesOp: Op<ReferencesInput, References> = {
     for (const f of todo) {
       let l = cachedLinks(f.blobId);
       if (!l) {
-        if (s.repo.provider.used() + READ_COST > SUBREQUESTS - READ_COST) break;
+        if (s.repo.provider.used() + READ_COST > s.repo.plan.subrequests - READ_COST) break;
         l = rememberLinks(f.blobId, linksOf((await s.repo.provider.read(s.model.head, f.path)).bytes));
       }
       scanned++;

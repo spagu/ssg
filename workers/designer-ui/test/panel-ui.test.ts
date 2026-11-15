@@ -1,7 +1,7 @@
 // panel/ui.js — the building blocks every view shares (heading, errors in
-// words, loading, empty state, buttons, busy, slot). Generic and copied byte
-// for byte into editor-ui (test/designer-copies.test.ts there), so this suite
-// covers every branch at the source.
+// words, loading, empty state, buttons, busy, slot). Generic: a byte copy of
+// editor-ui's (test/editor-copies.test.ts), and this suite covers every
+// branch of it here as well.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +31,7 @@ function fakeEl(tag: string, ns: string | null = null) {
   createTextNode: (s: string) => ({ text: s }),
 };
 
-// vnode.js comes with ui.js (also copied byte for byte to editor-ui).
+// vnode.js comes with ui.js (also a byte copy of editor-ui's).
 test("vnode: h, text, find, findAll, render with properties and SVG, mount, uid", () => {
   const tree = h("div", null, "a", [h("b", { id: "x" }, 1), null, false, true, undefined], h("svg", null, h("rect")));
   assert.equal(text(tree), "a1");
