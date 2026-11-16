@@ -401,7 +401,9 @@
   {title, pages: [slug, …]}. A guide shows only the group it belongs to, with
   an "Other sections" line linking to the first page of each other group; the
   bar on phones names that group. A guide no group names joins the first
-  group, so a new file in docs/ is never hidden. Without docs_nav_groups the single "Guides" list is
+  group, so a new file in docs/ is never hidden. A group's optional headings
+  map (slug → text) splits its list under small headings, and
+  variables.docs_nav_labels (slug → text) gives a guide a shorter sidebar name. Without docs_nav_groups the single "Guides" list is
   rendered exactly as before, ordered by variables.docs_nav_order.
 
   On a narrow screen (below the two-column breakpoint) and with JavaScript, the
@@ -416,6 +418,8 @@
      a guide no group names belongs to the first group, as before. */}}
 {{ $groups := slice }}
 {{ with .Vars.docs_nav_groups }}{{ $groups = . }}{{ end }}
+{{ $labels := dict }}
+{{ with .Vars.docs_nav_labels }}{{ $labels = . }}{{ end }}
 {{ $listed := slice }}
 {{ range $groups }}{{ range .pages }}{{ $listed = append $listed . }}{{ end }}{{ end }}
 {{ $active := 0 }}
@@ -433,14 +437,30 @@
         {{ $g := index $groups $active }}
         <div class="docs-nav__group">
             <p class="docs-nav__title" id="docs-nav-group">{{ $g.title }}</p>
-            <ul class="docs-nav__list" aria-labelledby="docs-nav-group">
-                {{ range $slug := $g.pages }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
-                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
-                {{ end }}{{ end }}{{ end }}
-                {{ if eq $active 0 }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}
-                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+            {{/* headings (slug → text) starts a new short list under a small
+                 heading before that guide, so a long group reads as a few
+                 lists. Only the sidebar uses it; the home page and the footer
+                 read the same flat pages list. */}}
+            {{ $heads := dict }}
+            {{ with $g.headings }}{{ $heads = . }}{{ end }}
+            {{ if not (index $heads (index $g.pages 0)) }}
+            <ul class="docs-nav__list" aria-labelledby="docs-nav-group">{{ end }}
+                {{ range $i, $slug := $g.pages }}{{ with index $heads $slug }}{{ if $i }}
+            </ul>{{ end }}
+            <p class="docs-nav__part" id="docs-nav-part-{{ $slug }}">{{ . }}</p>
+            <ul class="docs-nav__list" aria-labelledby="docs-nav-part-{{ $slug }}">{{ end }}
+                {{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
                 {{ end }}{{ end }}{{ end }}
             </ul>
+            {{/* A guide no group names joins the first group, so a new file in
+                 docs/ is never hidden. */}}
+            {{ if eq $active 0 }}{{ $rest := slice }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}{{ $rest = append $rest . }}{{ end }}{{ end }}
+            {{ with $rest }}
+            <ul class="docs-nav__list" aria-label="More guides">
+                {{ range . }}{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}{{ end }}
+            </ul>
+            {{ end }}{{ end }}
         </div>
         {{ if gt (len $groups) 1 }}
         <div class="docs-nav__group docs-nav__others">
@@ -468,10 +488,10 @@
         {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
         <ul class="docs-nav__list">
             {{ range $slug := $order }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
-            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
             {{ end }}{{ end }}{{ end }}
             {{ range .Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $order) }}
-            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
             {{ end }}{{ end }}
         </ul>
     {{ end }}
@@ -479,12 +499,15 @@
 </nav>
 {{end}}
 
-{{/* sc-docs-nav-link — one guide in the docs navigation: (dict "P" page "Current" slug). */}}
+{{/* sc-docs-nav-link — one guide in the docs navigation:
+     (dict "P" page "Current" slug "Labels" map). Labels (variables.docs_nav_labels,
+     slug → short name) shortens a long title in the sidebar only; the page
+     keeps its full title everywhere else. */}}
 {{define "sc-docs-nav-link"}}
 <li>
     <a href="{{ .P.GetURL }}"
        class="docs-nav__link{{ if eq .P.Slug .Current }} is-current{{ end }}"
-       {{ if eq .P.Slug .Current }}aria-current="page"{{ end }}>{{ .P.Title }}</a>
+       {{ if eq .P.Slug .Current }}aria-current="page"{{ end }}>{{ $label := .P.Title }}{{ with .Labels }}{{ with index . $.P.Slug }}{{ $label = . }}{{ end }}{{ end }}{{ $label }}</a>
 </li>
 {{end}}
 

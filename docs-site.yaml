@@ -300,11 +300,17 @@ variables:
     - title: Core guides
       id: documentation          # the header's "Docs" link points here
       lead: "The generator itself: install it, write content, configure and theme the build, publish for people and agents, deploy."
+      # headings: a small heading before the guide it names, so the sidebar
+      # reads as a few short lists instead of thirty links in one.
       pages:
         - install          # first thing anyone does
         - content          # then write something
         - configuration    # then tune it
-        - templates        # then change how it looks
+        - deployment       # then ship it
+        - upgrading        # and keep it current
+        - migrate
+        - licensing
+        - templates
         - template_helpers
         - styles
         - images
@@ -314,23 +320,25 @@ variables:
         - external_sources
         - i18n
         - editing          # --edit in the local preview
+        - audio
+        - resume           # a CV from Schema Resume
+        - web_stories      # Google Web Stories from posts
+        - story            # the presentation on articles
+        - print_and_cook_mode  # Print / PDF and Cook Mode
         - mcp
         - mcp_transports
         - ai-agents
         - api_docs         # reference from code
         - api_languages    # Go, PHP, Python
         - rest_api_docs    # reference from OpenAPI
-        - audio
-        - resume           # a CV from Schema Resume
-        - web_stories      # Google Web Stories from posts
-        - story            # the presentation on articles
-        - print_and_cook_mode  # Print / PDF and Cook Mode
         - incremental
         - daemon
-        - migrate
-        - deployment       # then ship it
-        - upgrading        # and keep it current
-        - licensing
+      headings:
+        install: Start
+        templates: Look and layout
+        taxonomies: Content
+        mcp: Agents and API docs
+        incremental: Build
     - title: Workers & modules
       id: workers-and-modules
       eyebrow: Optional
@@ -358,6 +366,56 @@ variables:
         - smtp-server      # services/smtp-relay
         - smtp-server-dns
         - smtp-server-pi
+      headings:
+        workers: Basics
+        admin-guide: Admin and modules
+        editor: Editing in the browser
+        acp: Selling through agents
+        smtp-server: SMTP server
+
+  # Sidebar names: slug → a short label, used in the sidebar only. The page
+  # keeps its full title as its heading, in search results and in the cards on
+  # the home page; under a part heading the context makes the short name enough.
+  docs_nav_labels:
+    install: Installation
+    configuration: Configuration
+    template_helpers: Template helpers
+    styles: Style and colour
+    images: Images
+    components: Components
+    i18n: Languages (i18n)
+    editing: Local editing (--edit)
+    mcp: MCP server
+    mcp_transports: MCP transports
+    ai-agents: Markdown for agents
+    api_docs: From code
+    api_languages: Languages
+    rest_api_docs: From OpenAPI
+    resume: Résumé
+    print_and_cook_mode: Print and Cook Mode
+    daemon: Several projects
+    migrate: Migrating to SSG
+    deployment: Deployment
+    workers: Overview
+    workers-configuration: Configuration
+    workers-secrets: Secrets and variables
+    workers-deployment: Running and deploying
+    server-endpoints: Other servers
+    admin-guide: Setting up
+    admin-theme: Panel colours
+    worker-modules: Module manifest
+    module-requirements: Requirements
+    editor: editor-ui
+    editor-operations: Limits and errors
+    editor-api: API and MCP
+    designer: designer-ui
+    acp: ACP
+    acp-operations: ACP testing
+    ucp: UCP
+    ucp-operations: UCP testing
+    smtp-server: Setup
+    smtp-server-dns: DNS
+    smtp-server-pi: Raspberry Pi
 
   # Header navigation: a fixed, hand-picked set. The sidebar and the footer
   # carry the full guide directory, so this stays short whatever docs/ grows into.

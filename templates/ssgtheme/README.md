@@ -152,7 +152,8 @@ is also its source order.
 | `variables.version` | Shown as `SSG vX.Y.Z` beside the navigation, linking to that release |
 | `variables.repository_url` | Footer and hero links; defaults to the SSG repository |
 | `variables.docs_nav_order` | Guide slugs in reading order for the sidebar's single "Guides" list; guides not listed follow, by title |
-| `variables.docs_nav_groups` | Optional. A list of `{title, pages: [slug, …]}`: a guide's sidebar shows only the group it belongs to, with an "Other sections" line linking to each other group's first page (the phone bar names the group), and the home page gives each group its own section (with `id`, `eyebrow`, `lead`, and `url` + `more` for a link to the group's overview). A guide no group names joins the first group. When set, it replaces `docs_nav_order`; without it the sidebar and home page render as before. The footer lists each group's first five guides with an "All …" link, the three newest posts, and project links |
+| `variables.docs_nav_groups` | Optional. A list of `{title, pages: [slug, …]}`: a guide's sidebar shows only the group it belongs to, with an "Other sections" line linking to each other group's first page (the phone bar names the group), and the home page gives each group its own section (with `id`, `eyebrow`, `lead`, and `url` + `more` for a link to the group's overview). A guide no group names joins the first group. When set, it replaces `docs_nav_order`; without it the sidebar and home page render as before. A group may add `headings` (slug → text): the sidebar starts a short list under that small heading before the named guide, so a long group reads as a few lists; the home page and footer still read the flat `pages`. The footer lists each group's first five guides with an "All …" link, the three newest posts, and project links |
+| `variables.docs_nav_labels` | Optional. A map of slug → short name used in the docs sidebar only, for guides whose full title is too long for it (`workers-secrets: Secrets and variables`). The page keeps its full title as its heading, in search results and on the home page cards |
 
 **The sidebar on narrow screens.** Below 1000 px, where the guide list would
 sit above the article, it folds behind a sticky "Documentation / *current
@@ -182,7 +183,13 @@ variables:
     - title: Workers & modules
       url: /workers/
       more: Every worker and service
-      pages: [workers, workers-configuration]
+      pages: [workers, workers-configuration, smtp-server, smtp-server-dns]
+      headings:                  # small headings inside the sidebar list
+        workers: Basics
+        smtp-server: SMTP server
+  docs_nav_labels:               # shorter names, sidebar only
+    workers-configuration: Configuration
+    smtp-server-dns: DNS
 ```
 
 ## Using it

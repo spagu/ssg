@@ -86,6 +86,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **ssgtheme: shorter, grouped docs sidebar and a wider desktop page.** A
+  `docs_nav_groups` entry may name `headings` (slug → text), which splits the
+  sidebar's list under small headings, and `variables.docs_nav_labels` (slug →
+  text) gives a guide a shorter name in the sidebar only; the page keeps its
+  full title. Without either, the sidebar renders as before. From 1280 px the
+  container is 88rem wide instead of 72rem, guides get a 60rem column for
+  their tables and code, and posts a 50rem one with the related-posts column
+  kept at sidebar width. Phones and tablets are unchanged. The docs site uses
+  both: five headings and short names in each section.
+
 - **A service token's commits in the designer panel are signed like the
   editor's.** `designer-ui` now authors them `service account <id>` at
   `<id>@service-account.invalid` (before: `service <id>` at
