@@ -290,37 +290,77 @@ variables:
     api: /api/comments
     order: newest
 
-  # Header navigation: a fixed, hand-picked set. The footer carries the full
-  # guide directory, so this stays short whatever docs/ grows into.
-  # Sidebar order on every guide: the path a reader actually takes, rather than
-  # the alphabetical order .Site.Pages arrives in. A guide missing from this list
-  # still appears, after the ordered ones.
-  docs_nav_order:
-    - install          # first thing anyone does
-    - content          # then write something
-    - configuration    # then tune it
-    - templates        # then change how it looks
-    - template_helpers
-    - styles
-    - images
-    - taxonomies
-    - external_sources
-    - i18n
-    - workers
-    - editor           # edit content in the browser (editor-ui)
-    - editor-operations
-    - editor-api
-    - designer         # settings and theme in the browser (designer-ui)
-    - mcp
-    - api_docs         # reference from code
-    - api_languages    # Go, PHP, Python
-    - rest_api_docs    # reference from OpenAPI
-    - resume           # a CV from Schema Resume
-    - web_stories      # Google Web Stories from posts
-    - story            # the presentation on articles
-    - print_and_cook_mode  # Print / PDF and Cook Mode
-    - deployment       # then ship it
-    - upgrading        # and keep it current
+  # Sidebar on every guide, and the guide sections on the home page: the core
+  # generator first, then the workers, which are optional and deployed apart
+  # from the build. Within a group, the path a reader actually takes rather
+  # than the alphabetical order .Site.Pages arrives in. A guide no group names
+  # still appears, at the end of the first group. (ssgtheme falls back to the
+  # flat docs_nav_order list when docs_nav_groups is absent.)
+  docs_nav_groups:
+    - title: Core guides
+      id: documentation          # the header's "Docs" link points here
+      lead: "The generator itself: install it, write content, configure and theme the build, publish for people and agents, deploy."
+      pages:
+        - install          # first thing anyone does
+        - content          # then write something
+        - configuration    # then tune it
+        - templates        # then change how it looks
+        - template_helpers
+        - styles
+        - images
+        - components
+        - render_hooks
+        - taxonomies
+        - external_sources
+        - i18n
+        - editing          # --edit in the local preview
+        - mcp
+        - mcp_transports
+        - ai-agents
+        - api_docs         # reference from code
+        - api_languages    # Go, PHP, Python
+        - rest_api_docs    # reference from OpenAPI
+        - audio
+        - resume           # a CV from Schema Resume
+        - web_stories      # Google Web Stories from posts
+        - story            # the presentation on articles
+        - print_and_cook_mode  # Print / PDF and Cook Mode
+        - incremental
+        - daemon
+        - migrate
+        - deployment       # then ship it
+        - upgrading        # and keep it current
+        - licensing
+    - title: Workers & modules
+      id: workers-and-modules
+      eyebrow: Optional
+      lead: "Code that runs per request, beside the static site: forms, comments, a newsletter, a shop, accounts, the admin home, editing in the browser, and two services you host yourself."
+      url: /workers/
+      more: Every worker and service
+      pages:
+        - workers          # the list of every template and service
+        - workers-configuration
+        - workers-secrets
+        - workers-deployment
+        - server-endpoints
+        - admin-guide
+        - admin-theme
+        - worker-modules
+        - module-requirements
+        - editor           # edit content in the browser (editor-ui)
+        - editor-operations
+        - editor-api
+        - designer         # settings and theme in the browser (designer-ui)
+        - acp              # the shop, sold through AI agents
+        - acp-operations
+        - ucp
+        - ucp-operations
+        - smtp-server      # services/smtp-relay
+        - smtp-server-dns
+        - smtp-server-pi
+
+  # Header navigation: a fixed, hand-picked set. The sidebar and the footer
+  # carry the full guide directory, so this stays short whatever docs/ grows into.
 
   nav:
     - label: Docs
@@ -331,6 +371,8 @@ variables:
       url: /install/
     - label: Configuration
       url: /configuration/
+    - label: Workers
+      url: /workers/
     - label: Blog
       url: /blog/
     - label: Themes

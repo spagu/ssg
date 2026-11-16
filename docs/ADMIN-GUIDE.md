@@ -129,7 +129,7 @@ and, with `admin_theme:`, `admin theme → core/theme.css`. The registry is
 bundled into the `core` function by wrangler and never served as a file.
 
 `admin_theme` keys, checks and how the colours are derived:
-[CONFIGURATION.md](CONFIGURATION.md) ("Admin panels' look") and the
+[ADMIN-THEME.md](ADMIN-THEME.md) and the
 [core README](../workers/core/README.md#panel-look-admin_theme). Give `main` a
 colour that can carry white text; the build moves a colour that fails a
 contrast pair to the nearest lightness that passes and the admin home's

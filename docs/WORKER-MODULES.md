@@ -402,7 +402,7 @@ the same bytes.
 
 ### The panels' look (`theme`)
 
-With `admin_theme:` in `.ssg.yaml` ([CONFIGURATION.md](CONFIGURATION.md#admin-panels-look))
+With `admin_theme:` in `.ssg.yaml` ([ADMIN-THEME.md](ADMIN-THEME.md))
 the build validates it, derives the palette (`internal/admintheme`) and
 writes the result here — and the colours and fonts again as `/core/theme.css`,
 which the build writes over the empty file the `core` template ships. The

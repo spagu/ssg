@@ -101,6 +101,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `{"instruments": []}` until the platform has paid (before: left out). The
   field is optional in the protocol and platforms read it back on update;
   nothing to do (GO-187).
+- **Docs reorganised: the core generator apart from the workers.** The
+  worker parts of `docs/CONFIGURATION.md` moved to their own pages, and
+  `CONFIGURATION.md` keeps a short paragraph and a link where each was:
+  `endpoints:` → `docs/SERVER-ENDPOINTS.md`; `worker:`/`workers:`,
+  `modules:`/`check_modules` and `web_push:` → `docs/WORKERS-CONFIGURATION.md`
+  (merged with the matching prose from `WORKERS.md`); `admin_theme:` /
+  `check_admin_theme` → `docs/ADMIN-THEME.md`. `docs/WORKERS.md` is now the
+  entry point: a list of all 16 worker templates and the two services
+  (`smtp-relay`, `tts-server`), how each runs, its admin panel and sign-in
+  modes, with links to its README and guide (`ecommerce` was missing from the
+  old list). Its secrets tables moved to `docs/WORKERS-SECRETS.md` and local
+  development, deploying and topologies to `docs/WORKERS-DEPLOYMENT.md`. Every
+  link to a moved section was updated. On the docs site the sidebar and the
+  home page show two groups, "Core guides" and "Workers & modules", and the
+  header has a Workers entry; `ssgtheme` gained an optional
+  `variables.docs_nav_groups` for this (without it, the sidebar and home page
+  render as before).
+
+### Fixed
+
+- **Docs navigation on phones (`ssgtheme`).** Below 1000 px the guide list no
+  longer sits above every guide, forty-odd links before the first line. It
+  folds into a "Documentation / *current page*" bar that stays under the
+  header while scrolling; a tap opens the list as a scrollable overlay with
+  focus on the current guide and the rest of the page inert, and Escape, a
+  tap outside or picking a guide closes it, returning focus to the bar. It is
+  folded before first paint, so the open list never flashes; without
+  JavaScript the list stays open as before. Wide screens are unchanged. Between
+  768 and 1000 px the header's brand no longer runs into the first link.
 
 ## [1.9.10] - 2026-11-15
 

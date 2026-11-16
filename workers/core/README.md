@@ -480,7 +480,7 @@ current page is bold and underlined.
 
 ## Panel look (`admin_theme`)
 
-Set once in `.ssg.yaml` ([CONFIGURATION.md](../../docs/CONFIGURATION.md#admin-panels-look)),
+Set once in `.ssg.yaml` ([ADMIN-THEME.md](../../docs/ADMIN-THEME.md)),
 rebuilt with the site, served by `core` to every panel that adopts
 `/core/theme.css` and the bar:
 

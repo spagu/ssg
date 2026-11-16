@@ -1,4 +1,4 @@
-# Editing in the browser (`ssg --http --watch --edit`)
+# Editing in the browser (ssg --http --watch --edit)
 
 ```
 ssg --http --watch --edit

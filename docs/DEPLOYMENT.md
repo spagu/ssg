@@ -115,7 +115,7 @@ Direct Upload API, hashes the output manifest and uploads the required files; it
 does not require Wrangler. The exception is an output with a `functions/` tree
 (a `worker:`/`workers:` entry in `mode: functions`): Direct Upload cannot compile
 Pages Functions, so SSG runs `npx wrangler pages deploy` from the output
-directory instead, which needs Node.js — see [WORKERS.md](WORKERS.md#deploy).
+directory instead, which needs Node.js — see [WORKERS-DEPLOYMENT.md](WORKERS-DEPLOYMENT.md#deploy).
 
 ### Generated `_headers` and `_redirects`
 

@@ -65,8 +65,8 @@ meant for another worker never overrides this form's MailChannels key.
 unset the form falls back to the shared `TURNSTILE_SECRET`, so a project set up
 before the prefix existed keeps working unchanged. Prefer the prefixed name:
 every worker in one Pages project sees the same environment, and an unprefixed
-secret meant for one template is read by all of them — see *Secrets* in
-[docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
+secret meant for one template is read by all of them — see
+[docs/WORKERS-SECRETS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS-SECRETS.md#one-project-one-environment-prefix-your-secrets).
 
 ## Front-end
 

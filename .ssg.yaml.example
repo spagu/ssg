@@ -583,9 +583,10 @@ deploy_target: ""    # ftp://user@host/path, sftp://user@host/path, or a git rem
 # Cloudflare Worker / Pages Functions beside the static site (GO-065).
 # Scaffold a template with: ssg new worker <contact-form|stripe-checkout|dynamic-price|
 #   conversions-proxy|cookie-consent|comments|republish-trigger|rate-limit|newsletter|web-push|
-#   auth|core>   (auth: accounts for the panels; core: the admin home — docs/WORKERS.md)
-# newsletter-ui is a standalone Worker (its own wrangler.toml, `npx wrangler deploy`):
-# never list it here — the build refuses it. See workers/newsletter-ui/README.md.
+#   ecommerce|auth|core>   (auth: accounts for the panels; core: the admin home). Every
+#   template: docs/WORKERS.md; these keys: docs/WORKERS-CONFIGURATION.md.
+# newsletter-ui, editor-ui and designer-ui are standalone Workers (their own wrangler.toml,
+# `npx wrangler deploy`): never list them here — the build refuses them. See their READMEs.
 # worker:
 #   dir: workers/stripe-checkout  # Functions project, or a dir with a prebuilt _worker.js
 #   mode: functions               # functions (default) | worker

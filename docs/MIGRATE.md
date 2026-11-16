@@ -1,4 +1,4 @@
-# Migrating a site into SSG (`ssg migrate`)
+# Migrating a site into SSG (ssg migrate)
 
 One command takes a live site to a working SSG project — today a WordPress
 site, through the `wordpress` provider — with URLs, media and taxonomies

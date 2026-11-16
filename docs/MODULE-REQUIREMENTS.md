@@ -1,4 +1,4 @@
-# Module requirements: what a worker must contain to work with `auth` and `core`
+# Module requirements: what a worker must contain to work with auth and core
 
 A worker becomes a **module** when it describes itself, and a module can join
 two optional workers: `core` (the admin home page and the navigation shared

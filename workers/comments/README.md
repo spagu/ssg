@@ -340,8 +340,8 @@ small converter can map them the same way; the REST script covers the common
 Prefer `COMMENTS_TURNSTILE_SECRET` over the shared `TURNSTILE_SECRET`: every
 worker in one Pages project reads the same environment, so an unprefixed secret
 is seen by all of them. The fallback keeps projects configured before the prefix
-existed working unchanged — see *Secrets* in
-[docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
+existed working unchanged — see
+[docs/WORKERS-SECRETS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS-SECRETS.md#one-project-one-environment-prefix-your-secrets).
 
 `[vars]` (or `wrangler.toml`):
 

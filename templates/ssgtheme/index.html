@@ -147,6 +147,33 @@
 
             {{ template "sc-marquee" . }}
 
+            {{/* With variables.docs_nav_groups the guides are shown group by group —
+            the same groups as the docs sidebar, each its own section with up to
+            home_pages_limit cards and an optional `url` to the group's overview
+            (`more` is that link's text). A guide no group names joins the first
+            group. Without it, one "Documentation" grid as before. */}}
+            {{ with .Vars.docs_nav_groups }}
+            {{ $groups := . }}
+            {{ $listed := slice }}
+            {{ range $groups }}{{ range .pages }}{{ $listed = append $listed . }}{{ end }}{{ end }}
+            {{ range $gi, $g := $groups }}
+            {{ $list := slice }}
+            {{ range $slug := $g.pages }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}{{ $list = append $list . }}{{ end }}{{ end }}{{ end }}
+            {{ if eq $gi 0 }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}{{ $list = append $list . }}{{ end }}{{ end }}{{ end }}
+            <section class="sections" id="{{ if $g.id }}{{ $g.id }}{{ else if eq $gi 0 }}documentation{{ else }}docs-group-{{ $gi }}{{ end }}">
+                <p class="eyebrow">{{ if $g.eyebrow }}{{ $g.eyebrow }}{{ else }}Guides{{ end }}</p>
+                <h2 class="section-title">{{ $g.title }}</h2>
+                {{ with $g.lead }}<p class="section-lead">{{ . }}</p>{{ end }}
+                <ul class="cards">
+                    {{ range first $.HomePagesLimit $list }}{{ template "sc-doc-card" . }}{{ end }}
+                </ul>
+                <p class="section-more">
+                    {{ len $list }} guides in this group, all of them in the sidebar of every guide.
+                    {{ with $g.url }}<a class="btn btn--secondary" href="{{ . }}">{{ if $g.more }}{{ $g.more }}{{ else }}Overview{{ end }} →</a>{{ end }}
+                </p>
+            </section>
+            {{ end }}
+            {{ else }}
             <section class="sections" id="documentation">
                 <p class="eyebrow">Guides</p>
                 <h2 class="section-title">Documentation</h2>
@@ -156,13 +183,7 @@
                 </p>
                 <ul class="cards">
                     {{ range first .HomePagesLimit .Site.Pages }}{{ if not .Extra.hide_from_lists }}
-                    <li>
-                        <a class="card" href="{{ .GetURL }}">
-                            <h3>{{ .Title }}</h3>
-                            <p class="card-meta">{{ .ReadingTime }} min read · {{ .WordCount }} words</p>
-                            <p>{{ .Excerpt }}</p>
-                        </a>
-                    </li>
+                    {{ template "sc-doc-card" . }}
                     {{ end }}{{ end }}
                 </ul>
                 {{ if gt (len .Site.Pages) .HomePagesLimit }}
@@ -170,6 +191,7 @@
                     below.</p>
                 {{ end }}
             </section>
+            {{ end }}
 
             {{ if .Posts }}
             <section class="sections" id="posts">

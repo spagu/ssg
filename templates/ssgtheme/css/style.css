@@ -186,6 +186,10 @@ a:hover {
 
 .brand {
   display: inline-flex;
+  /* Never shrinks under its own name: between 768 and ~1000 px a longer nav
+     used to squeeze the brand until the domain ran into the first link. The
+     nav wraps instead. */
+  flex: none;
   align-items: center;
   gap: var(--space-2);
   color: var(--color-fg-primary);
@@ -228,6 +232,7 @@ a:hover {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .nav-list {
@@ -1075,6 +1080,147 @@ a:hover {
   color: var(--color-fg-accent);
   font-weight: var(--font-weight-medium);
   border-left-color: var(--color-fg-accent);
+}
+
+/* Groups (variables.docs_nav_groups): a title above each list. */
+.docs-nav__group + .docs-nav__group {
+  margin-top: var(--space-6);
+}
+
+/* ── Docs navigation on narrow screens ───────────────────────────────────────
+   Below the two-column breakpoint the list used to sit above every guide —
+   forty-odd links before the first line of the page. With JavaScript (.sc-js,
+   set in <head> before first paint, so the open list never flashes) it folds
+   behind a sticky bar that names the page being read, and js/main.js opens it
+   as an overlay. Without JavaScript none of this applies and the list stays
+   open, as it always was. Wide screens are unchanged.                       */
+
+.docs-nav__toggle,
+.docs-nav__scrim {
+  display: none;
+}
+
+@media (max-width: 999.98px) {
+  .sc-js .docs-nav--fold {
+    position: sticky;
+    top: var(--sc-header-h, 0px);
+    z-index: 40;
+    /* Full-bleed: the bar spans the viewport rather than the text column, so
+       content scrolling underneath does not show in the gutters. */
+    margin-inline: calc(-1 * var(--space-4));
+  }
+
+  .sc-js .docs-nav--fold .docs-nav__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 48px;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-subtle);
+    border-block: 1px solid var(--color-border-subtle);
+    color: var(--color-fg-primary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+  }
+
+  .sc-js .docs-nav--fold .docs-nav__toggle:focus-visible {
+    outline-offset: -3px;
+  }
+
+  .docs-nav__toggle-label {
+    flex: none;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-fg-accent);
+  }
+
+  .docs-nav__toggle-sep {
+    flex: none;
+    color: var(--color-fg-muted);
+  }
+
+  .docs-nav__toggle-current {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--color-fg-secondary);
+  }
+
+  .docs-nav__toggle-chevron {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-inline: var(--space-1);
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .sc-js .docs-nav--fold.is-open .docs-nav__toggle-chevron {
+    transform: translateY(2px) rotate(-135deg);
+  }
+
+  .sc-js .docs-nav--fold .docs-nav__panel {
+    display: none;
+  }
+
+  .sc-js .docs-nav--fold.is-open .docs-nav__panel {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: calc(100vh - var(--sc-header-h, 0px) - 48px - var(--space-6));
+    max-height: calc(100dvh - var(--sc-header-h, 0px) - 48px - var(--space-6));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-4);
+    background: var(--color-bg-canvas);
+    border-bottom: 1px solid var(--color-border-default);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Dims the page behind the open list; a tap on it closes the list. It sits
+     in the nav's stacking context, so the site header stays above it. */
+  .sc-js .docs-nav--fold.is-open .docs-nav__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: rgb(0 0 0 / 0.45);
+  }
+
+  /* 44 px targets in the overlay (WCAG 2.2 2.5.8 asks for 24; touch wants more). */
+  .sc-js .docs-nav--fold .docs-nav__link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* An anchor jump lands below both the header and the bar. */
+  html.sc-js:has(.docs-nav--fold) {
+    scroll-padding-top: calc(var(--sc-header-h, 0px) + 48px + var(--space-4));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 999.98px) {
+  .sc-js .docs-nav--fold {
+    margin-inline: calc(-1 * var(--space-8));
+  }
+
+  .sc-js .docs-nav--fold .docs-nav__toggle,
+  .sc-js .docs-nav--fold.is-open .docs-nav__panel {
+    padding-inline: var(--space-8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-nav__toggle-chevron {
+    transition: none;
+  }
 }
 
 /* ── Theme gallery ───────────────────────────────────────────────────────────

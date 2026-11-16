@@ -385,8 +385,8 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 | `NEWSLETTER_AUTH_ISSUER`, `_LOGIN_URL`, `_PUBLIC_KEY` or `_JWKS_URL`, `_AUDIENCE` | accounts of the `auth` worker for the admin endpoint ("Who can do what"); shared with `newsletter-ui` |
 
 Prefer `NEWSLETTER_TURNSTILE_SECRET` over the shared `TURNSTILE_SECRET`: every
-worker in one Pages project reads the same environment — see *Secrets* in
-[docs/WORKERS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS.md#secrets).
+worker in one Pages project reads the same environment — see
+[docs/WORKERS-SECRETS.md](https://github.com/spagu/ssg/blob/main/docs/WORKERS-SECRETS.md#one-project-one-environment-prefix-your-secrets).
 
 ## Backward compatibility
 

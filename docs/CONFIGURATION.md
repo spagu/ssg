@@ -1815,8 +1815,8 @@ implemented.
 | `recipe_headings` | built-in names | config only | More section headings a Recipe's ingredients and method are read from: `{ingredients: [...], instructions: [...]}` |
 | `check_schema_recommended` | `false` | config only | With `check_schema`, also list the recommended properties a rich result shows (a Recipe's `recipeYield`, `totalTime` or `cookTime`, `nutrition`…). Advice only: never fails a strict build |
 | `check_redirects` | empty | `--check-redirects[=warn\|strict]` | Report links the host would redirect (needs `pretty_urls`) |
-| `check_admin_theme` | `warn` | config only | Report problems with `admin_theme`: a logo or font file not in the build output, a `tokens:` override that breaks a contrast or distinctness pair, `admin_theme` without a `core` worker. `off`, `warn` or `strict`. Invalid values are configuration errors regardless — see [the admin panels' look](#admin-panels-look) |
-| `check_modules` | `warn` | config only | Report problems with module manifests and `modules:` entries: an invalid or newer-contract `module.json`, duplicate ids, two modules on one panel path or nested base paths, an `id` that disagrees with its manifest, `modules:` without a `core` worker. `off`, `warn` or `strict`. Silent on a site with neither a `core` worker nor `modules:` — see [the module registry](#the-module-registry-modules) |
+| `check_admin_theme` | `warn` | config only | Report problems with `admin_theme`: a logo or font file not in the build output, a `tokens:` override that breaks a contrast or distinctness pair, `admin_theme` without a `core` worker. `off`, `warn` or `strict`. Invalid values are configuration errors regardless — see [the admin panels' look](ADMIN-THEME.md) |
+| `check_modules` | `warn` | config only | Report problems with module manifests and `modules:` entries: an invalid or newer-contract `module.json`, duplicate ids, two modules on one panel path or nested base paths, an `id` that disagrees with its manifest, `modules:` without a `core` worker. `off`, `warn` or `strict`. Silent on a site with neither a `core` worker nor `modules:` — see [the module registry](WORKERS-CONFIGURATION.md#the-module-registry-modules) |
 | `check_api` | `""` | config only | Report documentation problems in `api_docs` entries: undocumented exports, dead `{@link}`s, unreadable code, broken OpenAPI `$ref`s and operations. `warn` or `strict` |
 | `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
@@ -3462,265 +3462,21 @@ it. See [MCP.md](MCP.md#an-mddb-backed-search-optional).
 
 ## Server endpoints (portable, no vendor lock-in)
 
-Some sites need a little server behind the static output — a redirect that
-depends on the request, or a proxy that keeps an upstream key server-side.
-`endpoints:` declares those **once, in a vendor-neutral way**. The built-in
-server runs them natively (`--http`), in the single Go binary, with no external
-runtime — so a self-hosted deploy behind nginx/Caddy or the Docker image gets the
-dynamic bits for free. Empty `endpoints:` ⇒ a pure-static build, unchanged.
-
-| Key | Notes |
-|---|---|
-| `path` | Request path handled by this endpoint, e.g. `/api/quote` (exact match) |
-| `type` | `redirect`, `proxy`, `form` or `auth` |
-| `to` / `status` | `redirect`: destination and 3xx code (default `302`) |
-| `target` | `proxy`: upstream URL; the client's path is replaced by the target's |
-| `methods` | `proxy`: allowed HTTP methods (empty = any) |
-| `to` | `form`: the webhook the submission is POSTed to as JSON |
-| `fields` | `form`: which fields to forward (empty = all submitted fields) |
-| `honeypot` | `form`: a field that must stay empty — a filled one is a bot, silently dropped |
-| `redirect` | `form`: where the browser goes after a successful submit (`303`); empty = a small JSON ok |
-| `allow_private` | `proxy`/`form`: permit a private/loopback upstream or webhook (a self-hosted service) |
-| `user` / `password` | `auth`: Basic-auth credentials; `password` should reference an env var (`$MEMBERS_PW`), never a literal |
-
-```yaml
-endpoints:
-  - path: /go/latest
-    type: redirect
-    to: /releases/1-8-14/
-    status: 302
-  - path: /api/quote
-    type: proxy
-    target: https://api.example.com/v1/quote   # upstream key stays server-side
-    methods: [GET, POST]
-  - path: /api/contact
-    type: form
-    to: https://hooks.example.com/email        # delivery webhook stays server-side
-    fields: [name, email, message]
-    honeypot: company                          # bots that fill it are dropped
-    redirect: /thanks/
-```
-
-A `form` endpoint accepts a `POST`ed submission, drops obvious bots via the
-`honeypot` (a hidden field a human leaves empty), and delivers the collected
-fields as JSON to `to` — so the delivery webhook (an email service, a chat hook)
-is never exposed to the browser. On the self-hosted server the delivery uses the
-same dial-time SSRF guard as `proxy`.
-
-An `auth` endpoint guards its `path` **as a prefix** with HTTP Basic auth:
-
-```yaml
-endpoints:
-  - path: /members/          # protects /members/ and everything under it
-    type: auth
-    user: ada
-    password: $MEMBERS_PW    # from the environment, never a literal
-```
-
-The password is read from the named environment variable; the comparison is
-constant-time. Auth guards run on the **built-in server only** — on a serverless
-platform, protect a section with that platform's own access control — so
-`endpoints_platform` compiles the other endpoint types and skips `auth`.
-
-A `proxy` endpoint resolves and vets the upstream IP itself and **refuses
-loopback/private ranges at dial time** — the same SSRF / DNS-rebinding guard the
-external-source client uses — so it can't be turned into a pivot to internal
-hosts. Set `allow_private: true` only when the upstream really is a private
-self-hosted API. Endpoint responses are sent `Cache-Control: no-store`.
-
-**Same declaration, any target.** The built-in server runs endpoints directly.
-To run the *same* endpoints on a serverless platform instead, set
-`endpoints_platform` and the build compiles them into that platform's functions —
-no rewrite, no second definition:
-
-| `endpoints_platform` | Emits |
-|---|---|
-| _(empty)_ | Self-hosted only — served natively by `--http` |
-| `cloudflare` | `functions/<path>.js` Pages Functions (the same tree hand-written workers use) |
-| `netlify` | `netlify/functions/<name>.mjs` (v2, each declares its own `path` — no `_redirects` wiring) |
-| `vercel` | `api/<name>.js` Edge Functions + a `vercel.json` that rewrites each path to its function |
-
-```yaml
-endpoints_platform: cloudflare   # compile endpoints: into functions/ at build time
-```
-
-Adapters are self-contained plugins — one file per platform — so a new target
-drops in without touching the format or your config. Redirect and proxy behave
-the same on every target; the proxy's dial-time SSRF guard is specific to the
-self-hosted server (on a platform the upstream runs at the edge).
+`endpoints:` declares small server-side pieces — a redirect that depends on the
+request, a proxy that keeps an upstream key on the server, a form delivered to
+a webhook, a Basic-auth section — once, for the built-in `--http` server or
+compiled for Cloudflare, Netlify or Vercel with `endpoints_platform`. The keys
+and their security rules are in [SERVER-ENDPOINTS.md](SERVER-ENDPOINTS.md).
 
 ## Cloudflare Worker / Pages Functions
 
-| Key | Default | Notes |
-|---|---:|---|
-| `worker.dir` | empty | Functions project (or dir with a prebuilt `_worker.js`) |
-| `worker.mode` | `functions` | `functions` or `worker` |
-| `worker.routes_include` | `["/api/*"]` | paths that invoke the Function |
-| `worker.routes_exclude` | empty | paths carved back out to static |
-| `worker.wrangler_config` | empty | wrangler config outside the project root |
-| `worker.source` | empty | Fetch the worker from a repo or ZIP URL into `dir` instead of vendoring it |
-| `worker.auth` | empty | Credentials for a private `source`: `type` `bearer`, `basic` or `header`; secret fields must be `$ENV` references |
-| `worker.config` | empty | Free-form per-worker settings, passed to the worker phase as-is |
-| `workers` | empty | A list of worker definitions (each with a `name` plus the keys above); supersedes `worker:` when set |
-
-Wires a Cloudflare Pages Function into the build for transactional endpoints
-(payments, forms, dynamic pricing, tracking). Scaffold one with `ssg new worker
-<template>`. Full guide: [WORKERS.md](WORKERS.md).
-
-A worker's `public/` files are copied to the output root after everything
-else the build writes. Since 1.9.9 (#420) a worker file landing on a file the
-build already wrote — a rendered page, a static file, a generated file such as
-a feed or the sitemap — stops the build and names both
-(`output collision at /core/index.html: worker "core" (public/core/index.html)
-and content/pages/core.md are both written there …`), as two pages at one
-address do: only you can say which the site should serve. A byte-identical
-file is not a clash, nor is the worker's own copy left by an earlier build in
-an output that is not cleaned. Two workers providing the same file is an error
-as before.
-
-```yaml
-worker:
-  dir: workers/stripe-checkout
-  mode: functions
-  routes_include:
-    - /api/*
-```
-
-### The module registry (`modules`)
-
-| Key | Default | Notes |
-|---|---:|---|
-| `modules` | empty | Modules deployed outside this build (a standalone Worker such as `newsletter-ui`), for the `core` worker's registry |
-| `modules[].id` | — | The module's id, as in its `module.json`. Required |
-| `modules[].url` | — | The module's base path on the site's own host (`/newsletter-admin`). Required |
-| `modules[].dir` | empty | Where its `module.json` is, so the build reads and checks it; without it `core` asks the module for its manifest at runtime |
-| `check_modules` | `warn` | `off`, `warn` or `strict` (see the checks table) |
-
-When a worker in `workers:` has a `module.json` with `id: "core"`, the build
-writes a module registry for it: every bundled worker's manifest, the
-`modules:` entries, and the templates this ssg ships that the site does not
-use. Without such a worker nothing new is written and the output is the same
-as before. Details: [WORKER-MODULES.md](WORKER-MODULES.md#the-module-registry).
-
-```yaml
-modules:
-  - id: newsletter-ui
-    url: /newsletter-admin      # the module's base path on the same host
-    dir: workers/newsletter-ui  # optional: read title, navigation, permissions at build time
-```
-
-`url` must be a path on this host: a scheme, a host, `//`, `..`, a backslash,
-a query or a fragment stops the build with the file and the key
-(`.ssg.yaml: modules[0].url "https://…" must be a path on this site's host…`),
-and so does an `id` that is not a module id. Those are errors whatever
-`check_modules` says; the rest are findings under `check_modules`.
-
-### Admin panels' look
-
-The `admin_theme` key.
-
-| Key | Default | Notes |
-|---|---:|---|
-| `admin_theme` | empty | The site's look for the admin panels, served by the `core` worker. Absent: the panels look as shipped |
-| `admin_theme.name` | empty | Plain text, at most 80 characters, shown in the shared navigation instead of "Site admin" |
-| `admin_theme.logo` | empty | A `.svg`, `.png` or `.webp` file on the site's own host (`/img/logo.svg`); shown through `<img>` only, with the name as its alternative text |
-| `admin_theme.logo_dark` | empty | The same for dark backgrounds; the navigation bar (dark in both schemes) shows it when set |
-| `admin_theme.main` | empty | The brand's main colour, `#rgb` or `#rrggbb`: the navigation bar, primary buttons, the current menu item, the first chart series |
-| `admin_theme.accent` | empty | The accent: links, the focus ring, the current-page marker in the bar, the second chart series. Either colour alone derives the other |
-| `admin_theme.font` | empty | Font-family list for headings (`Georgia, serif`) |
-| `admin_theme.font_body` | empty | Font-family list for everything else |
-| `admin_theme.font_files` | empty | `@font-face` files: `family`, `src` (a `.woff2`, `.woff`, `.ttf` or `.otf` on this host), optional `weight` (`400`, `400 700`, `bold`) and `style` (`normal`, `italic`, `oblique`); at most 8 |
-| `admin_theme.tokens` | empty | Advanced: `light:` / `dark:` maps overriding single derived tokens (`primary`, `on-primary`, `primary-soft`, `on-primary-soft`, `link`, `focus`, `c1`–`c5`, `nav-bg`, `on-nav`, `nav-muted`, `nav-hover`, `nav-control`, `nav-current`) |
-| `check_admin_theme` | `warn` | `off`, `warn` or `strict`: a logo or font file missing from the output, an override that breaks a contrast pair, `admin_theme` without a `core` worker |
-
-```yaml
-admin_theme:
-  name: "Anna's Kitchen"
-  logo: /img/logo.svg
-  logo_dark: /img/logo-light-text.svg
-  main: "#1b3a4b"
-  accent: "#e07a5f"
-  font: "Georgia, serif"
-  font_body: '"Brand Sans", system-ui'
-  font_files:
-    - family: "Brand Sans"
-      src: /fonts/brand-sans.woff2
-      weight: "400 700"
-  tokens:
-    dark:
-      focus: "#ffcc80"
-```
-
-Four things to set, the rest is computed. From `main` and `accent` the build
-derives every colour token the panels use for the light and the dark scheme,
-so that text keeps 4.5:1 on its background (links in the accent colour
-included, on the page, on cards and on inset areas) and the focus ring, chart marks
-and the bar's edges 3:1 (WCAG 2.2), the focus ring stays apart from the
-primary colour and every two chart series stay apart. A brand colour that can
-serve its role is used exactly; one that cannot keeps its hue and moves to the
-nearest lightness that works, and the core worker's **Appearance** view
-(`/core/#appearance`) says where and why. Neutral backgrounds and text and the
-state colours (error, warning, success, info) are never themed — red always
-means an error. The result is written as `/core/theme.css` (over the empty file
-the `core` template ships) and as the module registry's `theme`
-([WORKER-MODULES.md](WORKER-MODULES.md#the-panels-look-theme)); panels pick it
-up by loading `/core/theme.css` after their own tokens. Pages visitors see
-(subscription confirmations, unsubscribing) are never themed.
-
-Every value is checked at build time, and one that cannot be used stops the
-build with the file and the key, whatever `check_admin_theme` says: a colour
-that is not opaque hex (an alpha channel is refused — a translucent colour has
-no contrast ratio of its own); a logo or font path that is not a file on this
-host (no scheme, host, `//`, `..`, backslash, query, fragment or space — the
-panels' content security policy allows images and fonts from their own host
-only, and stays that way); a font list outside the grammar (family names,
-quoted or not, and generic families, separated by commas — nothing that could
-end a CSS declaration); a name with control characters or longer than 80
-characters; an unknown token or scheme under `tokens`. The guidelines — how to
-choose the two colours, what is derived, what cannot be set and why — are in
-the [core worker's README](../workers/core/README.md#panel-look-admin_theme).
-
-Without a `core` worker `admin_theme` has no effect (a finding); a site
-without `admin_theme` builds byte for byte as before.
-
-### Web Push (`web_push`)
-
-| Key | Default | Notes |
-|---|---:|---|
-| `web_push` | `false` | `true`, or a mapping; a mapping turns it on unless it says `enabled: false` |
-| `web_push.endpoint` | `/api/push` | where the `web-push` worker answers |
-
-Browser notifications about new posts need a server: someone has to keep the
-subscriptions and sign every message with a private key. The `web-push` worker
-does that (`ssg new worker web-push`, see
-[its README](../workers/web-push/README.md)) and ships `sw.js` and `push.js`.
-`web_push: true` makes the site ready for it:
-
-- writes `/manifest.webmanifest` from `.Site.Title`, `marketing.theme_color` and
-  the site's icons, unless the output already has one (from `static/` or the
-  theme). iOS delivers push only to a site added to the home screen, which needs
-  the manifest;
-- puts `<link rel="manifest">` and `<script src="/push.js" defer>` in every
-  page's `<head>`, skipping either one the theme already has;
-- warns when `push.js` or `sw.js` is missing from the output, because the worker
-  is not configured.
-
-The theme adds only the button. `push.js` shows it in a browser that supports
-push, and asks for permission only when it is clicked:
-
-```html
-<button data-push-subscribe hidden data-label-on="Notify me about new posts"
-        data-label-off="Stop notifications">Notify me about new posts</button>
-```
-
-```yaml
-web_push: true
-feed: true            # the worker reads /feed.xml to find new posts
-worker:
-  dir: workers/web-push
-  routes_include:
-    - /api/push/*
-```
+Workers — comments, a newsletter, a shop, accounts, the admin home, editing in
+the browser — are documented apart from the core build, starting with
+[WORKERS.md](WORKERS.md), the list of every template. Their keys in this file
+are `worker:` and `workers:`, `modules:` and `check_modules`, and `web_push:`
+([WORKERS-CONFIGURATION.md](WORKERS-CONFIGURATION.md)), and `admin_theme:` with
+`check_admin_theme` ([ADMIN-THEME.md](ADMIN-THEME.md)). Their secrets never go
+here ([WORKERS-SECRETS.md](WORKERS-SECRETS.md)).
 
 ## Complete example
 

@@ -143,9 +143,21 @@
     </script>
     {{ end }}
     {{ end }}
-    {{/* Apply the stored colour scheme before paint so the page never flashes. */}}
+    {{/* Apply the stored colour scheme before paint so the page never flashes.
+
+         The same script marks the page as script-capable (sc-js) before first
+         paint, so on a narrow screen the docs sidebar starts folded behind its
+         bar instead of flashing open. Without JavaScript the class never
+         appears and the list stays an ordinary, always-open list. Should
+         js/main.js fail to load, the class is taken back on `load`, so a folded
+         list is never left without the code that opens it. */}}
     <script>
       (function () {
+        var root = document.documentElement;
+        root.classList.add('sc-js');
+        window.addEventListener('load', function () {
+          if (!root.classList.contains('sc-ready')) { root.classList.remove('sc-js'); }
+        });
         try {
           var t = localStorage.getItem('ssgtheme-scheme');
           if (t) { document.documentElement.dataset.theme = t; }
@@ -361,37 +373,86 @@
   "you are here" is available to a screen reader too.
 
   Expects the page context: {{ template "sc-docs-nav" . }}
+
+  Grouping (optional): variables.docs_nav_groups is a list of
+  {title, pages: [slug, …]}; each group is rendered under its own title, in
+  the order given. A guide no group names joins the first group, so a new file
+  in docs/ is never hidden. Without docs_nav_groups the single "Guides" list is
+  rendered exactly as before, ordered by variables.docs_nav_order.
+
+  On a narrow screen (below the two-column breakpoint) and with JavaScript, the
+  list folds behind a sticky bar naming the current page; js/main.js opens it
+  as an overlay. Without JavaScript the bar is hidden and the list stays open.
 */}}
 {{define "sc-docs-nav"}}
-<nav class="docs-nav" aria-label="Guides">
-    <p class="docs-nav__title">Guides</p>
-    {{/* Order comes from variables.docs_nav_order, a list of slugs. .Site.Pages
-         is sorted by title, which put "SSG Installation Guide" in the middle of
-         the list — alphabetical order is not the order anyone reads docs in.
-         Anything not listed still appears, after the ordered ones, so a new
-         guide is never hidden by forgetting to add it here. */}}
-    {{ $current := .Page.Slug }}
-    {{/* slice with no arguments, not nil: notIn needs a collection, and a site
-         that never sets docs_nav_order must still get the full list. */}}
-    {{ $order := slice }}
-    {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
-    <ul class="docs-nav__list">
-        {{ range $slug := $order }}
-            {{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
-        <li>
-            <a href="{{ .GetURL }}"
-               class="docs-nav__link{{ if eq .Slug $current }} is-current{{ end }}"
-               {{ if eq .Slug $current }}aria-current="page"{{ end }}>{{ .Title }}</a>
-        </li>
-            {{ end }}{{ end }}
+{{ $current := .Page.Slug }}
+<nav class="docs-nav docs-nav--fold" aria-label="Guides">
+    <button class="docs-nav__toggle" type="button" aria-expanded="false" aria-controls="docs-nav-panel">
+        <span class="docs-nav__toggle-label">Documentation</span>
+        <span class="docs-nav__toggle-sep" aria-hidden="true">/</span>
+        <span class="docs-nav__toggle-current">{{ .Page.Title }}</span>
+        <span class="docs-nav__toggle-chevron" aria-hidden="true"></span>
+    </button>
+    <div class="docs-nav__scrim" aria-hidden="true"></div>
+    <div class="docs-nav__panel" id="docs-nav-panel">
+    {{ with .Vars.docs_nav_groups }}
+        {{ $groups := . }}
+        {{/* Every slug some group names, so the rest can join the first group. */}}
+        {{ $listed := slice }}
+        {{ range $groups }}{{ range .pages }}{{ $listed = append $listed . }}{{ end }}{{ end }}
+        {{ range $gi, $g := $groups }}
+        <div class="docs-nav__group">
+            <p class="docs-nav__title" id="docs-nav-group-{{ $gi }}">{{ $g.title }}</p>
+            <ul class="docs-nav__list" aria-labelledby="docs-nav-group-{{ $gi }}">
+                {{ range $slug := $g.pages }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+                {{ end }}{{ end }}{{ end }}
+                {{ if eq $gi 0 }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}
+                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+                {{ end }}{{ end }}{{ end }}
+            </ul>
+        </div>
         {{ end }}
-        {{ range .Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $order) }}
-        <li>
-            <a href="{{ .GetURL }}"
-               class="docs-nav__link{{ if eq .Slug $current }} is-current{{ end }}"
-               {{ if eq .Slug $current }}aria-current="page"{{ end }}>{{ .Title }}</a>
-        </li>
-        {{ end }}{{ end }}
-    </ul>
+    {{ else }}
+        <p class="docs-nav__title">Guides</p>
+        {{/* Order comes from variables.docs_nav_order, a list of slugs. .Site.Pages
+             is sorted by title, which put "SSG Installation Guide" in the middle of
+             the list — alphabetical order is not the order anyone reads docs in.
+             Anything not listed still appears, after the ordered ones, so a new
+             guide is never hidden by forgetting to add it here. */}}
+        {{/* slice with no arguments, not nil: notIn needs a collection, and a site
+             that never sets docs_nav_order must still get the full list. */}}
+        {{ $order := slice }}
+        {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
+        <ul class="docs-nav__list">
+            {{ range $slug := $order }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+            {{ end }}{{ end }}{{ end }}
+            {{ range .Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $order) }}
+            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
+            {{ end }}{{ end }}
+        </ul>
+    {{ end }}
+    </div>
 </nav>
+{{end}}
+
+{{/* sc-docs-nav-link — one guide in the docs navigation: (dict "P" page "Current" slug). */}}
+{{define "sc-docs-nav-link"}}
+<li>
+    <a href="{{ .P.GetURL }}"
+       class="docs-nav__link{{ if eq .P.Slug .Current }} is-current{{ end }}"
+       {{ if eq .P.Slug .Current }}aria-current="page"{{ end }}>{{ .P.Title }}</a>
+</li>
+{{end}}
+
+{{/* sc-doc-card — one guide as a card on the home page. */}}
+{{define "sc-doc-card"}}
+<li>
+    <a class="card" href="{{ .GetURL }}">
+        <h3>{{ .Title }}</h3>
+        <p class="card-meta">{{ .ReadingTime }} min read · {{ .WordCount }} words</p>
+        <p>{{ .Excerpt }}</p>
+    </a>
+</li>
 {{end}}

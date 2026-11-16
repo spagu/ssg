@@ -151,6 +151,18 @@ is also its source order.
 | `variables.github_repo` | `owner/name`; enables the header star count, fetched client-side and hidden when GitHub does not answer or the repository has no stars |
 | `variables.version` | Shown as `SSG vX.Y.Z` beside the navigation, linking to that release |
 | `variables.repository_url` | Footer and hero links; defaults to the SSG repository |
+| `variables.docs_nav_order` | Guide slugs in reading order for the sidebar's single "Guides" list; guides not listed follow, by title |
+| `variables.docs_nav_groups` | Optional. A list of `{title, pages: [slug, …]}`: the sidebar shows each group under its title, and the home page gives each group its own section (with `id`, `eyebrow`, `lead`, and `url` + `more` for a link to the group's overview). A guide no group names joins the first group. When set, it replaces `docs_nav_order`; without it the sidebar and home page render as before |
+
+**The sidebar on narrow screens.** Below 1000 px, where the guide list would
+sit above the article, it folds behind a sticky "Documentation / *current
+page*" bar under the header. The bar is a real button (`aria-expanded`,
+`aria-controls`); it opens the list as a scrollable overlay with focus on the
+current guide and the rest of the page `inert`; Escape, a tap outside or
+picking a guide closes it and focus returns to the bar. A class set by the
+existing inline `<head>` script (`sc-js`) folds it before first paint, so the
+open list never flashes; without JavaScript, or if `js/main.js` fails to load,
+the list stays open as before. Wide screens are unchanged.
 
 ```yaml
 variables:
@@ -163,6 +175,14 @@ variables:
       url: /#documentation
     - label: GitHub
       url: https://github.com/spagu/ssg
+  docs_nav_groups:
+    - title: Core guides
+      id: documentation          # the section id on the home page
+      pages: [install, content, configuration]
+    - title: Workers & modules
+      url: /workers/
+      more: Every worker and service
+      pages: [workers, workers-configuration]
 ```
 
 ## Using it

@@ -637,8 +637,6 @@ Development workflow and review requirements are in
 | [docs/RESUME.md](docs/RESUME.md) | A CV from a Schema Resume document: page, structured data, privacy |
 | [docs/REST_API_DOCS.md](docs/REST_API_DOCS.md) | REST API documentation from OpenAPI: pages, the Try it console, checks, theming |
 | [docs/AUDIO.md](docs/AUDIO.md) | Articles read aloud: the browser button, build-time MP3 through a TTS API, the podcast feed |
-| [services/tts-server/README.md](services/tts-server/README.md) | Self-hosted TTS API (Docker, Swagger, espeak-ng and Piper voices) that ssg's `generic` provider talks to |
-| [docs/SMTP-SERVER.md](docs/SMTP-SERVER.md) | Your own SMTP server for the newsletter workers (`services/smtp-relay`): requirements, DNS ([SPF/DKIM/DMARC](docs/SMTP-SERVER-DNS.md)), testing, a [Raspberry Pi without Docker](docs/SMTP-SERVER-PI.md) |
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |
@@ -659,6 +657,29 @@ Development workflow and review requirements are in
 | [docs/IMAGES.md](docs/IMAGES.md) | Build-time image processing |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Native providers, archives and GitHub Actions |
 | [docs/STYLES.md](docs/STYLES.md) | Style and colour guidelines: built-in theme palettes, typography, WCAG 2.2 contrast |
+
+Workers, modules and services — optional, deployed beside the static site (the
+"Workers & modules" group of the docs site):
+
+| Document | Scope |
+|---|---|
+| [docs/WORKERS.md](docs/WORKERS.md) | Start here: every worker template and service in the repository, how each runs, its admin panel and sign-in modes |
+| [docs/WORKERS-CONFIGURATION.md](docs/WORKERS-CONFIGURATION.md) | The `.ssg.yaml` keys: `worker:`, `workers:`, `modules:`/`check_modules`, `web_push:` |
+| [docs/WORKERS-SECRETS.md](docs/WORKERS-SECRETS.md) | Every worker secret and variable, and why each template prefixes its own |
+| [docs/WORKERS-DEPLOYMENT.md](docs/WORKERS-DEPLOYMENT.md) | Local development, the generated `wrangler.toml`, deploying, topologies that keep a Function from running |
+| [docs/SERVER-ENDPOINTS.md](docs/SERVER-ENDPOINTS.md) | `endpoints:`: redirects, proxies, forms and Basic auth declared once, run by `--http` or compiled for Cloudflare, Netlify or Vercel |
+| [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md) | Setting up the admin tools: newsletter, comments, accounts, the admin home |
+| [docs/ADMIN-THEME.md](docs/ADMIN-THEME.md) | `admin_theme:`: the panels in the site's name, logo, colours and fonts, with WCAG 2.2 contrast kept |
+| [docs/WORKER-MODULES.md](docs/WORKER-MODULES.md), [docs/MODULE-REQUIREMENTS.md](docs/MODULE-REQUIREMENTS.md) | The module manifest, and what your own worker needs to join `auth` and `core` |
+| [docs/EDITOR.md](docs/EDITOR.md), [docs/DESIGNER.md](docs/DESIGNER.md) | `editor-ui` and `designer-ui`: content, settings and theme edited in the browser ([operations](docs/EDITOR-OPERATIONS.md), [API](docs/EDITOR-API.md)) |
+| [docs/ACP.md](docs/ACP.md), [docs/UCP.md](docs/UCP.md) | Selling the shop's products through AI agents ([ACP operations](docs/ACP-OPERATIONS.md), [UCP operations](docs/UCP-OPERATIONS.md)) |
+| [docs/SMTP-SERVER.md](docs/SMTP-SERVER.md) | Your own SMTP server for the newsletter workers (`services/smtp-relay`): requirements, DNS ([SPF/DKIM/DMARC](docs/SMTP-SERVER-DNS.md)), testing, a [Raspberry Pi without Docker](docs/SMTP-SERVER-PI.md) |
+| [services/tts-server/README.md](services/tts-server/README.md) | Self-hosted TTS API (Docker, Swagger, espeak-ng and Piper voices) that ssg's `generic` provider talks to |
+
+Project:
+
+| Document | Scope |
+|---|---|
 | [examples/README.md](examples/README.md) | Example projects and workflows |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development and contribution workflow |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and migration notes |

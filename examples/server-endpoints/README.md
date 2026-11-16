@@ -12,7 +12,7 @@ your own config.
   `endpoints_platform: cloudflare` compiles the same declaration to Cloudflare
   Pages Functions at build time. Switch it to `netlify` or `vercel` and the
   functions change; your config does not. See
-  [`docs/CONFIGURATION.md`](../../docs/CONFIGURATION.md#server-endpoints-portable-no-vendor-lock-in).
+  [`docs/SERVER-ENDPOINTS.md`](../../docs/SERVER-ENDPOINTS.md).
 - **Content contracts (#62).** `content_schemas:` validate frontmatter per type;
   `strict` (or `--strict`) makes violations and broken links fail the build;
   `route_manifest` writes `routes.json`.
