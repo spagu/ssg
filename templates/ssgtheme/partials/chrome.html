@@ -228,10 +228,16 @@
 {{end}}
 
 {{define "sc-footer"}}
-    {{/* Guides are split across two balanced columns so the footer reads as a
-         directory rather than one long list. */}}
-    {{ $pages := .Site.Pages }}
-    {{ $half := div (add (len $pages) 1) 2 }}
+    {{/* A short directory, not every guide: each docs group gives its first
+         few guides in reading order and a link to all of them, the blog its
+         three newest posts. The full list of guides lives in the sidebar and
+         on the home page. Without docs_nav_groups the first guides of
+         docs_nav_order (or of the site) are used. */}}
+    {{ $repo := "https://github.com/spagu/ssg" }}
+    {{ with .Vars.repository_url }}{{ $repo = . }}{{ end }}
+    {{ $per := 5 }}
+    {{ $groups := slice }}
+    {{ with .Vars.docs_nav_groups }}{{ $groups = . }}{{ end }}
     <footer class="site-footer">
         <div class="container">
             <div class="footer-grid">
@@ -252,37 +258,54 @@
                     </a>
                 </div>
                 <nav class="footer-nav" aria-label="Footer">
+                    {{ if $groups }}
+                    {{ range $gi, $g := $groups }}
+                    <div class="col">
+                        <h2>{{ $g.title }}</h2>
+                        <ul>
+                            {{ range $slug := first $per $g.pages }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+                            <li><a href="{{ .GetURL }}">{{ .Title }}</a></li>
+                            {{ end }}{{ end }}{{ end }}
+                            <li><a class="footer-more" href="{{ if $g.url }}{{ $g.url }}{{ else if $g.id }}/#{{ $g.id }}{{ else }}/{{ end }}">All {{ lower $g.title }}&nbsp;→</a></li>
+                        </ul>
+                    </div>
+                    {{ end }}
+                    {{ else }}
+                    {{ $order := slice }}
+                    {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
                     <div class="col">
                         <h2>Guides</h2>
                         <ul>
-                            {{ range $i, $p := $pages }}{{ if and (lt $i $half) (not $p.Extra.hide_from_lists) }}
-                            <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
+                            {{ if $order }}
+                            {{ range $slug := first $per $order }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
+                            <li><a href="{{ .GetURL }}">{{ .Title }}</a></li>
+                            {{ end }}{{ end }}{{ end }}
+                            {{ else }}
+                            {{ range first $per .Site.Pages }}{{ if not .Extra.hide_from_lists }}
+                            <li><a href="{{ .GetURL }}">{{ .Title }}</a></li>
                             {{ end }}{{ end }}
+                            {{ end }}
+                            <li><a class="footer-more" href="/#documentation">All guides&nbsp;→</a></li>
                         </ul>
                     </div>
+                    {{ end }}
+                    {{ with recentPosts 3 }}
                     <div class="col">
-                        <h2>Reference</h2>
+                        <h2>Latest posts</h2>
                         <ul>
-                            {{ range $i, $p := $pages }}{{ if and (ge $i $half) (not $p.Extra.hide_from_lists) }}
-                            <li><a href="{{ $p.GetURL }}">{{ $p.Title }}</a></li>
-                            {{ end }}{{ end }}
+                            {{ range . }}<li><a href="{{ .GetURL }}">{{ .Title }}</a></li>{{ end }}
+                            <li><a class="footer-more" href="/blog/">All posts&nbsp;→</a></li>
                         </ul>
                     </div>
+                    {{ end }}
                     <div class="col">
                         <h2>Project</h2>
                         <ul>
-                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}">Source code</a></li>
-                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/issues">Issue tracker</a></li>
-                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/blob/main/CHANGELOG.md">Changelog</a></li>
-                            <li><a href="{{ if .Vars.repository_url }}{{ .Vars.repository_url }}{{ else }}https://github.com/spagu/ssg{{ end }}/releases">Releases</a></li>
-                        </ul>
-                    </div>
-                    <div class="col">
-                        <h2>This site</h2>
-                        <ul>
+                            <li><a href="{{ $repo }}">Source code</a></li>
+                            <li><a href="{{ $repo }}/issues">Issue tracker</a></li>
+                            <li><a href="{{ $repo }}/blob/main/CHANGELOG.md">Changelog</a></li>
+                            <li><a href="{{ $repo }}/releases">Releases</a></li>
                             <li><a href="/sitemap.xml">Sitemap</a></li>
-                            <li><a href="/robots.txt">robots.txt</a></li>
-                            <li><a href="/search-index.json">Search index</a></li>
                         </ul>
                     </div>
                 </nav>
