@@ -375,9 +375,10 @@
   Expects the page context: {{ template "sc-docs-nav" . }}
 
   Grouping (optional): variables.docs_nav_groups is a list of
-  {title, pages: [slug, …]}; each group is rendered under its own title, in
-  the order given. A guide no group names joins the first group, so a new file
-  in docs/ is never hidden. Without docs_nav_groups the single "Guides" list is
+  {title, pages: [slug, …]}. A guide shows only the group it belongs to, with
+  an "Other sections" line linking to the first page of each other group; the
+  bar on phones names that group. A guide no group names joins the first
+  group, so a new file in docs/ is never hidden. Without docs_nav_groups the single "Guides" list is
   rendered exactly as before, ordered by variables.docs_nav_order.
 
   On a narrow screen (below the two-column breakpoint) and with JavaScript, the
@@ -386,30 +387,48 @@
 */}}
 {{define "sc-docs-nav"}}
 {{ $current := .Page.Slug }}
+{{/* With groups, a guide shows only its own group: core guides list the core
+     guides, worker guides the worker guides, and a short "Other sections" line
+     links across. The group of the current page is the one naming its slug;
+     a guide no group names belongs to the first group, as before. */}}
+{{ $groups := slice }}
+{{ with .Vars.docs_nav_groups }}{{ $groups = . }}{{ end }}
+{{ $listed := slice }}
+{{ range $groups }}{{ range .pages }}{{ $listed = append $listed . }}{{ end }}{{ end }}
+{{ $active := 0 }}
+{{ range $gi, $g := $groups }}{{ if in $current $g.pages }}{{ $active = $gi }}{{ end }}{{ end }}
 <nav class="docs-nav docs-nav--fold" aria-label="Guides">
     <button class="docs-nav__toggle" type="button" aria-expanded="false" aria-controls="docs-nav-panel">
-        <span class="docs-nav__toggle-label">Documentation</span>
+        <span class="docs-nav__toggle-label">{{ if $groups }}{{ (index $groups $active).title }}{{ else }}Documentation{{ end }}</span>
         <span class="docs-nav__toggle-sep" aria-hidden="true">/</span>
         <span class="docs-nav__toggle-current">{{ .Page.Title }}</span>
         <span class="docs-nav__toggle-chevron" aria-hidden="true"></span>
     </button>
     <div class="docs-nav__scrim" aria-hidden="true"></div>
     <div class="docs-nav__panel" id="docs-nav-panel">
-    {{ with .Vars.docs_nav_groups }}
-        {{ $groups := . }}
-        {{/* Every slug some group names, so the rest can join the first group. */}}
-        {{ $listed := slice }}
-        {{ range $groups }}{{ range .pages }}{{ $listed = append $listed . }}{{ end }}{{ end }}
-        {{ range $gi, $g := $groups }}
+    {{ if $groups }}
+        {{ $g := index $groups $active }}
         <div class="docs-nav__group">
-            <p class="docs-nav__title" id="docs-nav-group-{{ $gi }}">{{ $g.title }}</p>
-            <ul class="docs-nav__list" aria-labelledby="docs-nav-group-{{ $gi }}">
+            <p class="docs-nav__title" id="docs-nav-group">{{ $g.title }}</p>
+            <ul class="docs-nav__list" aria-labelledby="docs-nav-group">
                 {{ range $slug := $g.pages }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
                 {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
                 {{ end }}{{ end }}{{ end }}
-                {{ if eq $gi 0 }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}
+                {{ if eq $active 0 }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}
                 {{ template "sc-docs-nav-link" (dict "P" . "Current" $current) }}
                 {{ end }}{{ end }}{{ end }}
+            </ul>
+        </div>
+        {{ if gt (len $groups) 1 }}
+        <div class="docs-nav__group docs-nav__others">
+            <p class="docs-nav__title" id="docs-nav-others">Other sections</p>
+            <ul class="docs-nav__list" aria-labelledby="docs-nav-others">
+                {{ range $gi, $o := $groups }}{{ if ne $gi $active }}
+                {{ $first := index $o.pages 0 }}
+                {{ range $.Site.Pages }}{{ if eq .Slug $first }}
+                <li><a class="docs-nav__link docs-nav__link--section" href="{{ .GetURL }}">{{ $o.title }} →</a></li>
+                {{ end }}{{ end }}
+                {{ end }}{{ end }}
             </ul>
         </div>
         {{ end }}
