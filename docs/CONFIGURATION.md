@@ -1818,7 +1818,7 @@ implemented.
 | `check_admin_theme` | `warn` | config only | Report problems with `admin_theme`: a logo or font file not in the build output, a `tokens:` override that breaks a contrast or distinctness pair, `admin_theme` without a `core` worker. `off`, `warn` or `strict`. Invalid values are configuration errors regardless — see [the admin panels' look](ADMIN-THEME.md) |
 | `check_modules` | `warn` | config only | Report problems with module manifests and `modules:` entries: an invalid or newer-contract `module.json`, duplicate ids, two modules on one panel path or nested base paths, an `id` that disagrees with its manifest, `modules:` without a `core` worker. `off`, `warn` or `strict`. Silent on a site with neither a `core` worker nor `modules:` — see [the module registry](WORKERS-CONFIGURATION.md#the-module-registry-modules) |
 | `check_api` | `""` | config only | Report documentation problems in `api_docs` entries: undocumented exports, dead `{@link}`s, unreadable code, broken OpenAPI `$ref`s and operations. `warn` or `strict` |
-| `pretty_urls` | `false` | config only | The host strips `.html` and appends trailing slashes |
+| `pretty_urls` | `off` | config only | How the host serves a `.html` file: `off`/`false` (literally), `strip` (`/a.html` → `/a`), `strip-slash`/`true` (`/a.html` → `/a/`). Also decides canonical, `og:url`, JSON-LD and sitemap `<loc>` |
 | `meta_limits` | see below | — | Advisory title/description length ranges for `check_meta` |
 | `sitemap_prune_canonical` | `false` | — | Also drop non-self-canonical pages from `sitemap.xml` |
 | `content_exclude` | empty | — | Globs for Markdown under `content_dir` that is **not** a page |
@@ -2414,9 +2414,31 @@ static hosts serve **pretty URLs**: they strip a `.html` extension and append a
 trailing slash, answering the un-normalised form with a 308.
 
 ```yaml
-pretty_urls: true       # describe how the host serves URLs
+pretty_urls: strip      # describe how the host serves URLs: off | strip | strip-slash
 check_redirects: warn   # "" | warn | strict
 ```
+
+Pick the value from what your host does with a `.html` file, not from what
+looks tidy. Request `/page.html`, `/page` and `/page/` on the live site and see
+which one answers `200` while the others redirect:
+
+| Value | `docs/intro.html` is served at | The host redirects |
+|---|---|---|
+| `off` / `false` (default) | `/docs/intro.html` | nothing |
+| `strip` | `/docs/intro` | `/docs/intro.html` and `/docs/intro/` |
+| `strip-slash` / `true` | `/docs/intro/` | `/docs/intro.html` and `/docs/intro` |
+
+`true` is kept as a synonym for `strip-slash`, which is what it meant before the
+modes existed. If your host answers `/docs/intro/` with a redirect, `true` is the
+wrong value: choose `strip`.
+
+The value does more than tune link checking. Since 1.8.22 it also decides the
+URL every page states about itself: the canonical tag, `og:url`, JSON-LD and
+the sitemap `<loc>`. A wrong mode gives no build error. The sitemap simply lists
+URLs that redirect, so check one `<loc>` against the live host after the first
+deploy. Only `deploy: cloudflare` combined with `strip-slash` produces a
+warning, because ssg knows how that host behaves. With any other `deploy:`, or
+none, ssg cannot tell and says nothing.
 
 `pretty_urls` makes link checking agree with the host in **both** directions:
 
