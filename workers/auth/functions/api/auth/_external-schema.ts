@@ -13,6 +13,8 @@
 //   jwt_synced_grants   … and role grants: the only ones it may ever remove
 //                       (_synced.ts). A grant or membership an administrator
 //                       made by hand has no row here and is never touched.
+//   jwt_link_pending    a verified identity waiting for the signed-in person
+//                       to confirm the link (_external-link-store.ts).
 
 import { iso, sha256hex } from "./_lib";
 import type { Env } from "./_lib";
@@ -34,6 +36,13 @@ export const EXTERNAL_TABLES = [
      user_id   TEXT NOT NULL,
      synced_at TEXT NOT NULL,
      PRIMARY KEY (role_id, user_id)
+   )`,
+  `CREATE TABLE IF NOT EXISTS jwt_link_pending (
+     handle_hash    TEXT PRIMARY KEY,
+     subject        TEXT NOT NULL,
+     email          TEXT NOT NULL,
+     email_verified INTEGER NOT NULL,
+     expires_at     TEXT NOT NULL
    )`,
 ];
 

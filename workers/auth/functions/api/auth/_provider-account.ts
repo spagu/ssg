@@ -5,6 +5,7 @@
 
 import { ACCESS_METHOD, ACCESS_NAME, accessLookup } from "./_access-config";
 import type { Ctx, Who } from "./_context";
+import { externalLookup } from "./_external-config";
 import { preparePost, whoAmI } from "./_context";
 import { json, redirect } from "./_lib";
 import type { Env } from "./_lib";
@@ -19,10 +20,17 @@ import type { Body } from "./_request";
 export interface MethodsView {
   password: boolean;
   identities: { id: string; provider: string; name: string; email: string; linkedAt: string; lastUsedAt: string | null }[];
-  available: { id: string; name: string }[]; // enabled providers not linked yet
+  available: { id: string; name: string; linkUrl?: string }[]; // enabled providers not linked yet; linkUrl: where a link starts (#435)
   sessionMethod: string;
   recentSignIn: boolean;
   recentMinutes: number;
+}
+
+// externalAvailable: the external issuer (#435) when it is on, has a page that
+// starts a link (AUTH_JWT_LINK_URL) and is not linked to this account yet.
+function externalAvailable(env: Env, linked: Set<string>): MethodsView["available"] {
+  const l = externalLookup(env);
+  return l.kind === "enabled" && l.setup.linkUrl && !linked.has(l.setup.method) ? [{ id: l.setup.method, name: l.setup.issuer, linkUrl: l.setup.linkUrl }] : [];
 }
 
 export async function methodsOf(ctx: Ctx, who: Who): Promise<MethodsView> {
@@ -37,6 +45,8 @@ export async function methodsOf(ctx: Ctx, who: Who): Promise<MethodsView> {
         .map(({ provider }) => ({ id: provider.id, name: provider.name })),
       // GO-139: Cloudflare Access, when on and not linked yet.
       ...(accessLookup(ctx.env).kind === "enabled" && !linked.has(ACCESS_METHOD) ? [{ id: ACCESS_METHOD, name: ACCESS_NAME }] : []),
+      // #435: an external issuer with a page that starts a link, not linked yet.
+      ...externalAvailable(ctx.env, linked),
     ],
     sessionMethod: await sessionMethod(ctx.env, who.session.id),
     recentSignIn: recentSignIn(ctx.env, who.session, ctx.now),

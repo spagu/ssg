@@ -21,9 +21,7 @@ route answers `404`.
 
 **Not implemented:** RFC 8693 token exchange (the `grant_type`,
 `subject_token_type` and `actor_token` form). This is one simpler exchange,
-from a token to a cookie session. There is also no account-page button to link
-an external identity to an existing account: linking happens at sign-in, as
-described under [Who gets in](#who-gets-in).
+from a token to a cookie session.
 
 ## How it works
 
@@ -119,6 +117,51 @@ login page with `?error=<code>` on any refusal of the token or the person;
 jwt_misconfigured {hint}` when configured wrongly. Failed tokens count
 against a per-IP lockout of their own (`AUTH_LOCK_IP_FAILURES`, like the
 password's IP counter, kept apart from it).
+
+## Connecting an existing account
+
+A person who already has an account here (with a password or a login
+provider) connects their identity at your system from the account page, in
+three steps:
+
+1. **Connect <issuer>** on `/auth/account` is a link to `AUTH_JWT_LINK_URL`,
+   a page of **your** system. It is shown only when that variable is set and
+   the account has no identity of this issuer yet. That page signs a token
+   for the person (the same claims as for a sign-in) and posts it, like the
+   sign-in form, to `https://example.com/api/auth/jwt/link`:
+
+   ```html
+   <form method="post" action="https://example.com/api/auth/jwt/link">
+     <input type="hidden" name="token" value="eyJ…">
+   </form>
+   <script>document.forms[0].submit();</script>
+   ```
+
+2. `auth` checks the token exactly as for a sign-in (CSRF with
+   `AUTH_JWT_FORM_ORIGINS`, the per-IP lockout, every claim, single use) and
+   `AUTH_JWT_ALLOWED_DOMAINS`. It links **nothing** yet. The identity waits
+   five minutes behind a random handle cookie (`__Host-ssg-auth-jwt-link`,
+   `SameSite=Lax`), and the browser goes to `/auth/jwt/link`. This request
+   may come from another site, so it cannot carry the session; the account
+   is decided in the next step.
+3. `/auth/jwt/link` needs a live session started within
+   `AUTH_RECENT_SIGNIN_MINUTES`, or a recent second factor for an account
+   with one, and shows "<issuer> says you are ada@example.com. Connect this
+   identity to your account …?". Not signed in, the person signs in first
+   and comes back while the handle waits. **Connect** is a form of this
+   origin only: the identity is linked, audited as `method_linked`
+   (`via: "account"`), and the handle is used up.
+
+The confirmation is the defence against a page that posts **its own**
+token while you are signed in: without it, that identity would open your
+account. Refusals go to the account page with `?error=`: the token's codes
+(`jwt_failed`, `jwt_unavailable`, `jwt_email_unusable`, `too_many_attempts`),
+`domain_not_allowed`, `jwt_link_expired` (no handle, or more than five
+minutes), `identity_in_use` (the identity opens another account) and
+`provider_already_linked` (this account already has one of this issuer).
+
+Without `AUTH_JWT_LINK_URL` there is no button, but your system can still
+send people through the same steps from its own pages.
 
 ## Who gets in
 
@@ -272,6 +315,7 @@ failed), `jwt_unavailable` (the JWKS could not be fetched), `jwt_email_unusable`
 | `AUTH_JWT_ALLOW_ADMIN_ROLES` | `off` | `on`: the mapping may give roles with administrative permissions |
 | `AUTH_JWT_FORM_ORIGINS` | — | comma-separated `https://` origins whose pages may post the form |
 | `AUTH_JWT_ALLOWED_DOMAINS` | — | only verified addresses in these domains |
+| `AUTH_JWT_LINK_URL` | — | `https://` page of your system that starts a link ([above](#connecting-an-existing-account)); the account page's button |
 
 A configuration problem is named in the `503` answer, in the log, and on
 the dashboard summary (`jwt_misconfigured`). The method is never half open.
@@ -280,7 +324,9 @@ the dashboard summary (`jwt_misconfigured`). The method is never half open.
 
 `jwt_used_tokens` holds a SHA-256 of issuer and `jti` (never the value) with
 its expiry, and expired rows are deleted with every new one. `jwt_synced_grants`
-and `jwt_synced_members` mark what the mapping gave. The identity is a row of
+and `jwt_synced_members` mark what the mapping gave. `jwt_link_pending` keeps
+an identity waiting for its link confirmation: a SHA-256 of the handle, the
+subject and the address, for five minutes, deleted when used. The identity is a row of
 `identities` with provider `jwt:<issuer>`. These are new tables, created on
 the next request with no schema version and no manual migration (`schema.sql`
 has them too).

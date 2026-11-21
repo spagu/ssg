@@ -28,6 +28,9 @@
 //   AUTH_JWT_FORM_ORIGINS    comma-separated origins whose pages may post the
 //                            token as a plain form (cross-origin)
 //   AUTH_JWT_ALLOWED_DOMAINS like every provider's (_provider-policy.ts)
+//   AUTH_JWT_LINK_URL        optional https:// page of the issuer that signs a
+//                            token and posts it to /api/auth/jwt/link: the
+//                            account page's "Connect" button (_external-link.ts)
 //
 // Nothing set → the method does not exist (its route answers 404). Anything
 // set but not usable — a missing issuer, two key sources, HS256 next to a
@@ -72,11 +75,12 @@ export interface ExternalSetup {
   roleMap: Map<string, RoleTargets> | null;
   allowAdminRoles: boolean; // the mapping may give administrative roles
   formOrigins: string[];
+  linkUrl: string; // "" when unset: no "Connect" button on the account page
 }
 
 export type ExternalLookup = { kind: "enabled"; setup: ExternalSetup } | { kind: "absent" } | { kind: "misconfigured"; problem: string };
 
-const VARS = ["ISSUER", "AUDIENCE", "ALGORITHMS", "JWKS_URL", "PUBLIC_KEY", "SECRET", "MAX_AGE_SECONDS", "IDENTITY_CLAIM", "EMAIL_VERIFIED", "UNKNOWN", "ROLES_CLAIM", "ROLE_MAP", "ALLOW_ADMIN_ROLES", "FORM_ORIGINS"];
+const VARS = ["ISSUER", "AUDIENCE", "ALGORITHMS", "JWKS_URL", "PUBLIC_KEY", "SECRET", "MAX_AGE_SECONDS", "IDENTITY_CLAIM", "EMAIL_VERIFIED", "UNKNOWN", "ROLES_CLAIM", "ROLE_MAP", "ALLOW_ADMIN_ROLES", "FORM_ORIGINS", "LINK_URL"];
 
 const read = (env: Env, name: string): string => {
   const v = (env as unknown as Record<string, unknown>)[`AUTH_JWT_${name}`];
@@ -142,6 +146,18 @@ function origins(raw: string): string[] | string {
   return out;
 }
 
+// linkUrl: the optional page that starts a link, https without credentials.
+function linkUrl(raw: string): string | null {
+  if (!raw) return "";
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  return u.protocol === "https:" && !u.username && !u.password ? u.href : null;
+}
+
 // choice reads a variable that must be one of `allowed` (the first is the default).
 function choice<T extends string>(env: Env, name: string, allowed: readonly T[]): T | null {
   const v = read(env, name).toLowerCase() || allowed[0];
@@ -176,6 +192,8 @@ export function externalLookup(env: Env): ExternalLookup {
   if (!allowAdmin) return bad('AUTH_JWT_ALLOW_ADMIN_ROLES must be "off" or "on"');
   const formOrigins = origins(read(env, "FORM_ORIGINS"));
   if (typeof formOrigins === "string") return bad(formOrigins);
+  const link = linkUrl(read(env, "LINK_URL"));
+  if (link === null) return bad("AUTH_JWT_LINK_URL must be an https:// URL without credentials");
   return {
     kind: "enabled",
     setup: {
@@ -192,6 +210,7 @@ export function externalLookup(env: Env): ExternalLookup {
       roleMap: map,
       allowAdminRoles: allowAdmin === "on",
       formOrigins,
+      linkUrl: link,
     },
   };
 }

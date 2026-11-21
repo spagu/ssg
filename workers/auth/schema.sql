@@ -412,4 +412,15 @@ CREATE TABLE IF NOT EXISTS jwt_synced_grants (
   PRIMARY KEY (role_id, user_id)
 );
 
+-- A verified external identity waiting for the signed-in person to confirm
+-- the link on /auth/jwt/link: the SHA-256 of the browser's handle, never the
+-- handle; five minutes, used once.
+CREATE TABLE IF NOT EXISTS jwt_link_pending (
+  handle_hash    TEXT PRIMARY KEY,
+  subject        TEXT NOT NULL,
+  email          TEXT NOT NULL,
+  email_verified INTEGER NOT NULL,
+  expires_at     TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO schema_meta (component, version, updated_at) VALUES ('auth', 1, '1970-01-01T00:00:00.000Z');

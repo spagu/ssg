@@ -77,6 +77,7 @@ const OWNERS: { prefix: string; test: string; base: string }[] = [
   { prefix: "admin/matrix.ts", test: "admin-panel-routes.test.ts", base: "" },
   { prefix: "module/summary.ts", test: "admin-panel-routes.test.ts", base: "" },
   { prefix: "jwt.ts", test: "external-signin.test.ts", base: "" },
+  { prefix: "jwt/", test: "external-link.test.ts", base: "" },
 ];
 const ownerOf = (file: string) => OWNERS.filter((o) => file === o.prefix || (o.prefix.endsWith("/") && file.startsWith(o.prefix)));
 

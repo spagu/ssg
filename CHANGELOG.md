@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   owner role, and audits it as `roles_synced`. See
   `workers/auth/docs/EXTERNAL-JWT.md` and the new "Using an existing identity
   system" section of the `auth` README. The module manifest is 1.4.0.
+- **An existing `auth` account can connect its identity at the external
+  issuer (#435).** With `AUTH_JWT_LINK_URL` set, the account page shows
+  **Connect <issuer>**, a link to the issuer's page. That page posts a token
+  to `POST /api/auth/jwt/link`, which checks it like a sign-in but links
+  nothing. The signed-in person then confirms on `/auth/jwt/link`, a form of
+  this origin only, with a recent sign-in (or a recent second factor). The
+  waiting identity lives five minutes and works once, and the link is
+  audited as `method_linked`.
 
 ### Changed
 

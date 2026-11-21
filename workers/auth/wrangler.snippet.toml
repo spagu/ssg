@@ -69,6 +69,7 @@
 # AUTH_JWT_ALLOW_ADMIN_ROLES = "off"     # "on": the mapping may give roles with auth:…, an erase, a wildcard (trust the issuer with administration)
 # AUTH_JWT_FORM_ORIGINS = ""             # origins whose pages may post the token as a form, e.g. "https://id.example.com"
 # AUTH_JWT_ALLOWED_DOMAINS = ""          # only addresses in these domains
+# AUTH_JWT_LINK_URL = ""                 # https page of the issuer that posts a token to /api/auth/jwt/link (the account page's Connect button)
 # The second factor (docs/SECOND-FACTOR.md) — on once the secret AUTH_MFA_KEY is set.
 # AUTH_MFA_ROLES = ""                    # JSON, e.g. {"newsletter-editor": false}: override which roles need a second factor
 # AUTH_STEP_UP_MINUTES = "10"            # how recent a second factor must be for sensitive changes

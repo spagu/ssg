@@ -340,6 +340,7 @@ Vars (all optional):
 | `AUTH_JWT_ALLOW_ADMIN_ROLES` | `off` | `on`: the mapping may reach a role with an administrative permission; without it such a mapping is `503` |
 | `AUTH_JWT_FORM_ORIGINS` | — | origins whose pages may post the token as a plain form |
 | `AUTH_JWT_ALLOWED_DOMAINS` | — | only verified addresses in these domains, for the external issuer |
+| `AUTH_JWT_LINK_URL` | — | `https://` page of the issuer that signs a token and posts it to `/api/auth/jwt/link`: the account page's **Connect** button |
 | `AUTH_LOGIN_URL` | `/auth/login` | where a failed form login is sent back |
 | `AUTH_AFTER_LOGIN_URL` | `/` | where a form login goes without `next` |
 | `AUTH_KNOWN_PERMISSIONS` | — | JSON array of modules and the permissions they declare ([registry](docs/PERMISSIONS.md#the-registry-of-known-permissions)); `"panel"` and `"title"` on an entry give "Your panels" a link |

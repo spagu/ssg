@@ -163,6 +163,13 @@ With `AUTH_ACCESS_TEAM` and `AUTH_ACCESS_AUD` set ([ACCESS.md](ACCESS.md)):
   session goes on to the team's Access logout. Without Access their CSP is
   exactly what it was.
 
+With an external JWT issuer and `AUTH_JWT_LINK_URL` set
+([EXTERNAL-JWT.md](EXTERNAL-JWT.md#connecting-an-existing-account)), the
+account page offers **Connect <issuer>** under "Add a way to sign in": a link
+to the issuer's own page, which posts a token to `/api/auth/jwt/link`. The
+person then confirms on `/auth/jwt/link` ("<issuer> says you are …"), and only
+that form of this origin links the identity.
+
 The words are in five languages in `_access-i18n.ts` (kept apart from
 `_i18n-*.ts`, one test checks every key and placeholder); the error codes
 `access_failed`, `access_unavailable`, `access_not_linked` and

@@ -142,6 +142,7 @@ locally with the portable verifier; none asks `auth` per request.
 | 5 | Forge or replay an external issuer's token (#435) | algorithm list fixed in config, `none` never, HS* vs public key refused at config load (RFC 8725); key from config only (`jku`/`jwk` ignored); `exp`/`iat` age/`aud`/`iss` required; `jti` single use; per-IP lock `jwt_ip` |
 | 5 | Gain roles through the external roles claim | only what `AUTH_JWT_ROLE_MAP` names; the owner role and groups holding it never; administrative roles only with `AUTH_JWT_ALLOW_ADMIN_ROLES=on`; synced rows only removed; second factor still asked |
 | 7 | Login CSRF through the token exchange | plain forms only from this origin or `AUTH_JWT_FORM_ORIGINS`; scripts need `x-ssg-auth` |
+| 7 | Link an attacker's external identity to a victim's account | the token's arrival links nothing; a confirmation page naming the identity, a form of this origin only, a recent session; the handle hashed, five minutes, used once |
 | 5 | Take over an account by address | identity = (provider, subject); an address only opens an invitation; Facebook never verified, Microsoft only with `xms_edov`; non-ASCII refused (SR-06) |
 | 6 | Use tokens or links from the database | only hashes stored; TOTP secrets sealed; IP/UA hashed with a salt |
 | 6 | Use a refresh token kept from earlier | rotated tokens past the two-tab window revoke the session everywhere (SR-01) |

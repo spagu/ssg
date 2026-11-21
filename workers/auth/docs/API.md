@@ -157,7 +157,15 @@ mapping), `503 jwt_misconfigured {hint}`.
 |---|---|---|---|---|
 | `POST /api/auth/jwt` | the token: `Authorization: Bearer` (with `x-ssg-auth: 1`, same origin) or the field `token`; a plain form from this origin or from `AUTH_JWT_FORM_ORIGINS` | form or JSON `{token?, next?}` | `303` to `next` / `AUTH_AFTER_LOGIN_URL` (`/auth/?welcome=1` after accepting an invitation) with session cookies, or to `/auth/mfa` when the account has a second factor | `403 cross_origin` / `csrf_check_failed`; `303 AUTH_LOGIN_URL?error=<code>`: `jwt_failed`, `jwt_unavailable`, `jwt_email_unusable`, `jwt_not_linked`, `not_invited`, `domain_not_allowed`, `account_blocked`, `account_exists`, `invitation_invalid`, `identity_in_use`, `provider_already_linked`, `too_many_attempts`, `permissions_too_large` |
 
-Only `POST` is routed. The session's method, the identity's provider and the
+| `POST /api/auth/jwt/link` | the token, as above | form or JSON `{token?}` | `303 /auth/jwt/link` with the handle cookie `__Host-ssg-auth-jwt-link` (five minutes); links nothing | `403` as above; `303 /auth/account?error=<code>`: the token's codes, `domain_not_allowed` |
+| `GET /auth/jwt/link` | a recent session + the handle | — | `200` a confirmation page ("<issuer> says you are …") | `303 /auth/account?error=<code>` (`jwt_link_expired`, `identity_in_use`, `provider_already_linked`); not signed in: through `/api/auth/resume`; not recently: `303 AUTH_LOGIN_URL?reauth=1` (or the step-up page for an account with a second factor) |
+| `POST /auth/jwt/link` | the same, a plain form of this origin (CSRF) | — | `303 /auth/account?ok=method_linked`, the handle used up | as above; not signed in: `303 AUTH_LOGIN_URL?next=/auth/jwt/link` |
+
+`GET /api/auth/methods` lists the issuer under `available` with its
+`linkUrl` when `AUTH_JWT_LINK_URL` is set and the account has no identity of
+it yet.
+
+Only `POST` is routed on the `/api/auth/jwt` paths. The session's method, the identity's provider and the
 audit events' `method` are `jwt:<issuer>`. `signin_refused` carries `cause`,
 the check that failed (`issuer`, `audience`, `expired`, `not yet valid`, `too
 old`, `no token id`, `replayed`, `algorithm`, `signature`, `unknown key id`,

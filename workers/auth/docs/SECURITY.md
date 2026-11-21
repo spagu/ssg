@@ -266,6 +266,16 @@ given (documented risk). A blocked account is refused. `AUTH_ROLE_METHODS` and t
 factor apply to `jwt:<issuer>` as to any method. No token or claim value is
 logged or stored, only reasons and addresses.
 
+Linking an existing account (`/api/auth/jwt/link` → `/auth/jwt/link`): the
+token is checked as for a sign-in and spent, but links nothing. The identity
+waits five minutes behind a 32-byte handle (only its SHA-256 in D1,
+`__Host-` cookie, `SameSite=Lax`), and only a confirming form **of this
+origin**, from a session that is recent (or has a recent second factor),
+links it to that session's account. A page elsewhere that posts an
+attacker's token therefore reaches at most a confirmation naming the
+attacker's identity, which the person can refuse. The handle is used once,
+and a refused link clears it.
+
 ## Second factor
 
 [SECOND-FACTOR.md](SECOND-FACTOR.md) is the whole story; the security points:

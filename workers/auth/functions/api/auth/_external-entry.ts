@@ -31,6 +31,7 @@
 import { bridgeSignIn, refuseBridge } from "./_bridge-signin";
 import type { Bridge } from "./_bridge-signin";
 import { prepare } from "./_context";
+import type { Ctx } from "./_context";
 import { JWT_ENV_ID, SKEW_SECONDS, externalLookup } from "./_external-config";
 import type { ExternalSetup } from "./_external-config";
 import { externalIdentity } from "./_external-identity";
@@ -42,6 +43,7 @@ import { clientIP, json } from "./_lib";
 import type { Env } from "./_lib";
 import { lockKey, recordFailure, releaseAttempt } from "./_lockout";
 import { safeNext } from "./_next";
+import type { Identity } from "./_provider";
 import { csrfProblem, isForm, readBody, str } from "./_request";
 
 // externalCsrf: the usual defence, or a plain form from a configured origin.
@@ -74,33 +76,58 @@ function misconfigured(problem: string): Response {
   return json({ error: "jwt_misconfigured", hint: problem }, 503);
 }
 
-export async function externalExchange(request: Request, env: Env): Promise<Response> {
-  const ctx = await prepare(request, env);
-  if (ctx instanceof Response) return ctx;
+// externalReady: the configuration, or the 404 / 503 to answer (step 1).
+export async function externalReady(env: Env): Promise<ExternalSetup | Response> {
   const l = externalLookup(env);
   if (l.kind === "absent") return json({ error: "not_found" }, 404);
   if (l.kind === "misconfigured") return misconfigured(l.problem);
-  const s = l.setup;
-  const adminProblem = await mapAdminProblem(env, s);
-  if (adminProblem) return misconfigured(adminProblem);
+  const adminProblem = await mapAdminProblem(env, l.setup);
+  return adminProblem ? misconfigured(adminProblem) : l.setup;
+}
+
+export interface Accepted {
+  setup: ExternalSetup;
+  identity: Identity;
+  claims: Claims;
+  next: string;
+}
+
+// Refuse answers a refusal of the token or the person after the CSRF check.
+export type Refuse = (s: ExternalSetup, error: string, cause: string, next: string) => Promise<Response>;
+
+// acceptToken runs steps 1–5 for any route that takes a token (the sign-in
+// here, the link in _external-link.ts): a verified, unspent token with its
+// identity — spent now — or the answer to send.
+export async function acceptToken(ctx: Ctx, refuse: Refuse): Promise<Accepted | Response> {
+  const { request, env } = ctx;
+  const s = await externalReady(env);
+  if (s instanceof Response) return s;
   const csrf = externalCsrf(request, s);
   if (csrf) return json({ error: csrf }, 403);
   const body = (await readBody(request)) ?? {};
   const next = safeNext(body.next, "");
-  const refuse = (error: string, cause: string) => refuseBridge(ctx, s.method, error, { cause }, next);
+  const no = (error: string, cause: string) => refuse(s, error, cause, next);
 
   const entry = { key: await lockKey(env, "jwt_ip", clientIP(request)), kind: "jwt_ip" as const, threshold: ctx.s.lockIP };
-  if ((await recordFailure(env, [entry], ctx.s, ctx.now)) > 0) return refuse("too_many_attempts", "locked");
+  if ((await recordFailure(env, [entry], ctx.s, ctx.now)) > 0) return no("too_many_attempts", "locked");
   const v = await verifyExternalToken(tokenOf(request, body), s, ctx.now);
   if (!v.ok) {
     console.warn(`auth: external JWT refused: ${v.reason}`);
-    return refuse(v.unavailable ? "jwt_unavailable" : "jwt_failed", v.reason);
+    return no(v.unavailable ? "jwt_unavailable" : "jwt_failed", v.reason);
   }
   const identity = externalIdentity(v.claims, s);
-  if ("problem" in identity) return refuse(identity.problem === "no subject" ? "jwt_failed" : "jwt_email_unusable", identity.problem);
+  if ("problem" in identity) return no(identity.problem === "no subject" ? "jwt_failed" : "jwt_email_unusable", identity.problem);
   // Kept until the token could no longer pass anyway: its expiry, or its age limit.
   const until = (Math.min(v.exp, v.iat + s.maxAgeSeconds) + SKEW_SECONDS) * 1000;
-  if (!(await spendToken(env, s.issuer, v.jti, until, ctx.now))) return refuse("jwt_failed", "replayed");
+  if (!(await spendToken(env, s.issuer, v.jti, until, ctx.now))) return no("jwt_failed", "replayed");
   await releaseAttempt(env, [entry]);
-  return bridgeSignIn(ctx, { identity, next, bridge: bridgeOf(s, env, v.claims, ctx.now) });
+  return { setup: s, identity, claims: v.claims, next };
+}
+
+export async function externalExchange(request: Request, env: Env): Promise<Response> {
+  const ctx = await prepare(request, env);
+  if (ctx instanceof Response) return ctx;
+  const a = await acceptToken(ctx, (s, error, cause, next) => refuseBridge(ctx, s.method, error, { cause }, next));
+  if (a instanceof Response) return a;
+  return bridgeSignIn(ctx, { identity: a.identity, next: a.next, bridge: bridgeOf(a.setup, env, a.claims, ctx.now) });
 }
