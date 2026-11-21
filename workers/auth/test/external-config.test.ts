@@ -42,6 +42,7 @@ test("the defaults: every asymmetric algorithm, 5 minutes, sub, verified address
     unknown: "reject",
     rolesClaim: "roles",
     roleMap: null,
+    allowAdminRoles: false,
     formOrigins: [],
   });
   assert.ok(!s.algorithms.includes("none") && !s.algorithms.some((a) => a.startsWith("HS")));
@@ -57,8 +58,10 @@ test("every option read, trimmed and lower-cased where it is a word", () => {
     AUTH_JWT_UNKNOWN: "Create",
     AUTH_JWT_ROLES_CLAIM: "https://example.com/roles",
     AUTH_JWT_ROLE_MAP: JSON.stringify({ editor: { roles: ["newsletter-editor"], groups: ["Editors"] }, viewer: {} }),
+    AUTH_JWT_ALLOW_ADMIN_ROLES: " On ",
     AUTH_JWT_FORM_ORIGINS: "https://id.example.com/, https://login.example.com",
   });
+  assert.equal(s.allowAdminRoles, true);
   assert.deepEqual(s.algorithms, ["ES256", "EdDSA"]);
   assert.deepEqual([s.maxAgeSeconds, s.identityClaim, s.emailVerified, s.unknown, s.rolesClaim], [60, "email", false, "create", "https://example.com/roles"]);
   assert.deepEqual([...(s.roleMap as Map<string, unknown>)], [["editor", { roles: ["newsletter-editor"], groups: ["Editors"] }], ["viewer", { roles: [], groups: [] }]]);
@@ -103,6 +106,7 @@ test("each other variable refused when it is not usable", () => {
   assert.match(problem({ ...BASE_ENV, AUTH_JWT_IDENTITY_CLAIM: "name" }), /IDENTITY_CLAIM/);
   assert.match(problem({ ...BASE_ENV, AUTH_JWT_EMAIL_VERIFIED: "maybe" }), /EMAIL_VERIFIED/);
   assert.match(problem({ ...BASE_ENV, AUTH_JWT_UNKNOWN: "allow" }), /AUTH_JWT_UNKNOWN/);
+  assert.match(problem({ ...BASE_ENV, AUTH_JWT_ALLOW_ADMIN_ROLES: "yes" }), /AUTH_JWT_ALLOW_ADMIN_ROLES must be "off" or "on"/);
   assert.match(problem({ ...BASE_ENV, AUTH_JWT_ROLES_CLAIM: "a b" }), /ROLES_CLAIM/);
   for (const m of ["{", "[]", '{"a": []}', '{"a": {"roles": "x"}}', '{"a": {"roles": [""]}}', '{"a": {"perms": []}}', "null"]) {
     assert.match(problem({ ...BASE_ENV, AUTH_JWT_ROLE_MAP: m }), /AUTH_JWT_ROLE_MAP must be/, m);

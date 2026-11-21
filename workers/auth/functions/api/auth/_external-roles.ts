@@ -13,8 +13,14 @@
 //     mapped group that holds the owner role is skipped (logged): a token
 //     never makes an owner;
 //   - a name that is not a role or a group here is skipped (logged);
-//   - a mapped role that holds administrative permissions is given — the
-//     mapping says so explicitly (docs/EXTERNAL-JWT.md warns about it).
+//   - a mapped role, or a role of a mapped group, that holds an
+//     administrative permission (`*`, `auth:…`, an erase, a wildcard, a name
+//     a module declares sensitive — isSensitive, _service-perms.ts) makes the
+//     whole method misconfigured (503) unless AUTH_JWT_ALLOW_ADMIN_ROLES=on:
+//     checked against the database before every exchange (mapAdminProblem),
+//     as Access checks its default role. With "on" such a role is given — the
+//     operator said so twice (docs/EXTERNAL-JWT.md warns about it); a group
+//     holding the owner role stays skipped either way.
 // Without a mapping, roles are left to the administrator, as for any account.
 
 import { emitEvent } from "./_audit";
@@ -23,6 +29,8 @@ import type { ExternalSetup, RoleTargets } from "./_external-config";
 import { rolesClaim } from "./_external-identity";
 import type { Env } from "./_lib";
 import { OWNER_ROLE_NAME } from "./_rbac-schema";
+import { registryOf } from "./_registry";
+import { isSensitive } from "./_service-perms";
 import { syncMarked } from "./_synced";
 import type { Marks } from "./_synced";
 
@@ -64,6 +72,33 @@ export function parseRoleMap(raw: string): Map<string, RoleTargets> | null | str
     out.set(external, { roles, groups });
   }
   return out;
+}
+
+// mapAdminProblem: the configuration problem when the mapping reaches an
+// administrative role without AUTH_JWT_ALLOW_ADMIN_ROLES=on, else null. A
+// role named directly, or one granted to a named group, counts; names that do
+// not exist here are left to the sign-in (skipped and logged there).
+export async function mapAdminProblem(env: Env, s: ExternalSetup): Promise<string | null> {
+  if (!s.roleMap || s.allowAdminRoles) return null;
+  const roles = new Set<string>();
+  const groups = new Set<string>();
+  for (const t of s.roleMap.values()) {
+    t.roles.forEach((r) => roles.add(r));
+    t.groups.forEach((g) => groups.add(g));
+  }
+  const { results } = await env.AUTH_DB.prepare(
+    `SELECT r.name AS role, rp.permission AS permission FROM roles r JOIN role_permissions rp ON rp.role_id = r.id
+      WHERE r.name IN (SELECT value FROM json_each(?1))
+         OR r.id IN (SELECT gr.role_id FROM grants gr JOIN groups g ON g.id = gr.group_id WHERE g.name IN (SELECT value FROM json_each(?2)))
+      ORDER BY r.name, rp.permission`,
+  )
+    .bind(JSON.stringify([...roles]), JSON.stringify([...groups]))
+    .all<{ role: string; permission: string }>();
+  const declared = registryOf(env).sensitive;
+  const admin = results.filter((r) => r.permission.includes("*") || isSensitive(r.permission, declared));
+  if (!admin.length) return null;
+  const named = [...new Set(admin.map((r) => `"${r.role.slice(0, 64)}" (${r.permission})`))].slice(0, 5).join(", ");
+  return `AUTH_JWT_ROLE_MAP reaches administrative roles: ${named}; set AUTH_JWT_ALLOW_ADMIN_ROLES=on only if you trust the issuer with administration of this site`;
 }
 
 // wanted: the role and group ids the token's roles earn through the mapping.

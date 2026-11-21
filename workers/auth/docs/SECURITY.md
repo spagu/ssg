@@ -257,8 +257,12 @@ controls addresses at the issuer able to enter the account with that address.
 Unknown people are refused unless `AUTH_JWT_UNKNOWN` says `invite` or
 `create`. A created account gets no role. The role mapping gives only what it
 names, takes back only what it gave, can never name the owner role, and skips
-a group that holds it. A mapped administrative role is given (documented
-risk). A blocked account is refused. `AUTH_ROLE_METHODS` and the second
+a group that holds it. A mapping that reaches an administrative role
+(`*`, `auth:…`, an erase, a wildcard, a permission a module declares
+sensitive), named directly or through a mapped group, stops the method
+(`503 jwt_misconfigured`, checked against the database before every
+exchange) unless `AUTH_JWT_ALLOW_ADMIN_ROLES=on`. With it, such a role is
+given (documented risk). A blocked account is refused. `AUTH_ROLE_METHODS` and the second
 factor apply to `jwt:<issuer>` as to any method. No token or claim value is
 logged or stored, only reasons and addresses.
 

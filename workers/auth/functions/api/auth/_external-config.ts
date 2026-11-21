@@ -22,6 +22,9 @@
 //   AUTH_JWT_UNKNOWN         "reject" (default), "invite" or "create"
 //   AUTH_JWT_ROLES_CLAIM     the claim with the person's roles (default "roles")
 //   AUTH_JWT_ROLE_MAP        JSON {"<external role>": {"roles": [...], "groups": [...]}}
+//   AUTH_JWT_ALLOW_ADMIN_ROLES "off" (default) or "on": without "on" the
+//                            mapping may not reach a role holding an
+//                            administrative permission (_external-roles.ts)
 //   AUTH_JWT_FORM_ORIGINS    comma-separated origins whose pages may post the
 //                            token as a plain form (cross-origin)
 //   AUTH_JWT_ALLOWED_DOMAINS like every provider's (_provider-policy.ts)
@@ -67,12 +70,13 @@ export interface ExternalSetup {
   unknown: "reject" | "invite" | "create";
   rolesClaim: string;
   roleMap: Map<string, RoleTargets> | null;
+  allowAdminRoles: boolean; // the mapping may give administrative roles
   formOrigins: string[];
 }
 
 export type ExternalLookup = { kind: "enabled"; setup: ExternalSetup } | { kind: "absent" } | { kind: "misconfigured"; problem: string };
 
-const VARS = ["ISSUER", "AUDIENCE", "ALGORITHMS", "JWKS_URL", "PUBLIC_KEY", "SECRET", "MAX_AGE_SECONDS", "IDENTITY_CLAIM", "EMAIL_VERIFIED", "UNKNOWN", "ROLES_CLAIM", "ROLE_MAP", "FORM_ORIGINS"];
+const VARS = ["ISSUER", "AUDIENCE", "ALGORITHMS", "JWKS_URL", "PUBLIC_KEY", "SECRET", "MAX_AGE_SECONDS", "IDENTITY_CLAIM", "EMAIL_VERIFIED", "UNKNOWN", "ROLES_CLAIM", "ROLE_MAP", "ALLOW_ADMIN_ROLES", "FORM_ORIGINS"];
 
 const read = (env: Env, name: string): string => {
   const v = (env as unknown as Record<string, unknown>)[`AUTH_JWT_${name}`];
@@ -168,6 +172,8 @@ export function externalLookup(env: Env): ExternalLookup {
   if (!CLAIM_NAME.test(rolesClaim)) return bad("AUTH_JWT_ROLES_CLAIM must be a claim name");
   const map = parseRoleMap(read(env, "ROLE_MAP"));
   if (typeof map === "string") return bad(map);
+  const allowAdmin = choice(env, "ALLOW_ADMIN_ROLES", ["off", "on"] as const);
+  if (!allowAdmin) return bad('AUTH_JWT_ALLOW_ADMIN_ROLES must be "off" or "on"');
   const formOrigins = origins(read(env, "FORM_ORIGINS"));
   if (typeof formOrigins === "string") return bad(formOrigins);
   return {
@@ -184,6 +190,7 @@ export function externalLookup(env: Env): ExternalLookup {
       unknown,
       rolesClaim,
       roleMap: map,
+      allowAdminRoles: allowAdmin === "on",
       formOrigins,
     },
   };

@@ -2,7 +2,9 @@
 // gives its roles and groups before the session starts (the first token
 // carries them); one the token no longer carries takes back only what the
 // mapping gave; nothing matching → nothing given; the owner role is never
-// reachable; unknown names are skipped; every change is audited.
+// reachable; unknown names are skipped; every change is audited. A mapping
+// that reaches an administrative role is a configuration error unless
+// AUTH_JWT_ALLOW_ADMIN_ROLES=on.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addGrant } from "../functions/api/auth/_grants.ts";
@@ -12,6 +14,7 @@ import { rolesClaim } from "../functions/api/auth/_external-identity.ts";
 import { onRequestGet as me } from "../functions/api/auth/me/permissions.ts";
 import { Browser, T0, call, useClock } from "./fakes.ts";
 import { events, providerUser } from "./go151.ts";
+import { createRole } from "../functions/api/auth/_roles.ts";
 import { roleId } from "./seed.ts";
 import { FakeIssuer, ISS, jwtEnv, mint, post, sqlite, where } from "./external-fake.ts";
 
@@ -28,9 +31,11 @@ const rolesOf = (env: E, userId: string): string[] =>
 const groupsOf = (env: E, userId: string): string[] =>
   (sqlite(env).prepare("SELECT g.name FROM group_members m JOIN groups g ON g.id = m.group_id WHERE m.user_id = ? ORDER BY g.name").all(userId) as { name: string }[]).map((r) => r.name);
 
-async function world(map: unknown = MAP) {
+// MAP reaches the Owners group, which holds the owner role: an administrative
+// mapping, so the tests of the synchronisation itself opt in.
+async function world(map: unknown = MAP, allowAdmin = "on") {
   useClock();
-  const env = jwtEnv({ AUTH_JWT_ROLE_MAP: JSON.stringify(map) });
+  const env = jwtEnv({ AUTH_JWT_ROLE_MAP: JSON.stringify(map), AUTH_JWT_ALLOW_ADMIN_ROLES: allowAdmin });
   const fake = new FakeIssuer().install();
   const id = await providerUser(env, "ada@example.com", METHOD, "ext-1001");
   const owners = (await createGroup(env, "Owners", "", T0)) as Group;
@@ -100,6 +105,55 @@ test("the owner role is never reachable: a mapped group holding it is skipped an
     assert.deepEqual(groupsOf(env, id), []);
     assert.deepEqual(rolesOf(env, id), []);
     assert.ok(warned.some((w) => /holds the owner role; skipped/.test(w)));
+  } finally {
+    fake.restore();
+  }
+});
+
+test("by default a mapping that reaches an administrative role refuses to start: 503 naming the roles, nothing written", async () => {
+  const { env, fake, id } = await world(MAP, "");
+  try {
+    await createRole(env, { name: "site-admin", description: "", permissions: ["auth:admin", "newsletter:read"] }, T0);
+    const errors: string[] = [];
+    const real = console.error;
+    console.error = (m: string) => errors.push(m);
+    try {
+      // The Owners group holds the owner role (`*`).
+      let res = await post(env, await mint({ roles: ["editor"] }));
+      assert.equal(res.status, 503);
+      let body = await res.json();
+      assert.equal(body.error, "jwt_misconfigured");
+      assert.match(body.hint, /reaches administrative roles: "owner" \(\*\); set AUTH_JWT_ALLOW_ADMIN_ROLES=on only if/);
+      // A role named directly, with an administrative permission.
+      env.AUTH_JWT_ROLE_MAP = JSON.stringify({ editor: { roles: ["newsletter-editor", "site-admin"] } });
+      res = await post(env, await mint({ roles: ["editor"] }));
+      body = await res.json();
+      assert.equal(res.status, 503);
+      assert.match(body.hint, /"site-admin" \(auth:admin\)/);
+      assert.ok(!/newsletter-editor/.test(body.hint), "only the administrative ones are named");
+      assert.ok(errors.some((e) => /external JWT sign-in is not offered/.test(e)));
+    } finally {
+      console.error = real;
+    }
+    assert.deepEqual(rolesOf(env, id), []);
+    assert.equal(events(env, "signin").length, 0);
+    // Opted in: the role is given, as the mapping says.
+    env.AUTH_JWT_ALLOW_ADMIN_ROLES = "on";
+    assert.equal(where(await post(env, await mint({ roles: ["editor"] }))), "/");
+    assert.deepEqual(rolesOf(env, id), ["newsletter-editor", "site-admin"]);
+  } finally {
+    fake.restore();
+  }
+});
+
+test("by default a mapping of ordinary roles and groups signs in; unknown names do not block it", async () => {
+  const map = { editor: { roles: ["newsletter-editor"], groups: ["Editors"] }, ghost: { roles: ["no-such-role"], groups: ["No such group"] } };
+  const { env, fake, id } = await world(map, "off");
+  try {
+    const { value: res } = await quietly(async () => post(env, await mint({ roles: ["editor"] })));
+    assert.equal(where(res), "/");
+    assert.deepEqual(rolesOf(env, id), ["newsletter-editor"]);
+    assert.deepEqual(groupsOf(env, id), ["Editors"]);
   } finally {
     fake.restore();
   }

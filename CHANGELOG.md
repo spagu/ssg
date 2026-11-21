@@ -22,7 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   list, and HS256 next to a public key are refused (RFC 8725). The key comes
   from configuration only, never from the token's `jku`/`jwk` headers. Failed
   tokens count against a per-IP lockout, and a role that needs a second
-  factor still asks for it.
+  factor still asks for it. A role mapping that reaches a role with an
+  administrative permission (`*`, `auth:…`, an erase, a wildcard), directly or
+  through a group, stops the method with `503 jwt_misconfigured` unless
+  `AUTH_JWT_ALLOW_ADMIN_ROLES=on`.
 
 ### Added
 

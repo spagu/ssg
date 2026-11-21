@@ -140,7 +140,7 @@ locally with the portable verifier; none asks `auth` per request.
 | 4 | Read the access cookie and replay it | short lifetime; tokens not bound to a client — documented in CONTRACT.md |
 | 4 | Read the refresh cookie | scoped to `/api/auth/`; a module served there is part of `auth` |
 | 5 | Forge or replay an external issuer's token (#435) | algorithm list fixed in config, `none` never, HS* vs public key refused at config load (RFC 8725); key from config only (`jku`/`jwk` ignored); `exp`/`iat` age/`aud`/`iss` required; `jti` single use; per-IP lock `jwt_ip` |
-| 5 | Gain roles through the external roles claim | only what `AUTH_JWT_ROLE_MAP` names; the owner role and groups holding it never; synced rows only removed; second factor still asked |
+| 5 | Gain roles through the external roles claim | only what `AUTH_JWT_ROLE_MAP` names; the owner role and groups holding it never; administrative roles only with `AUTH_JWT_ALLOW_ADMIN_ROLES=on`; synced rows only removed; second factor still asked |
 | 7 | Login CSRF through the token exchange | plain forms only from this origin or `AUTH_JWT_FORM_ORIGINS`; scripts need `x-ssg-auth` |
 | 5 | Take over an account by address | identity = (provider, subject); an address only opens an invitation; Facebook never verified, Microsoft only with `xms_edov`; non-ASCII refused (SR-06) |
 | 6 | Use tokens or links from the database | only hashes stored; TOTP secrets sealed; IP/UA hashed with a salt |

@@ -66,6 +66,7 @@
 # AUTH_JWT_UNKNOWN = "reject"            # "invite": an open invitation for the address; "create": an account with no role
 # AUTH_JWT_ROLES_CLAIM = "roles"         # the claim with the person's roles (array or space-separated)
 # AUTH_JWT_ROLE_MAP = ""                 # JSON {"<external role>": {"roles": ["<role>"], "groups": ["<group>"]}}
+# AUTH_JWT_ALLOW_ADMIN_ROLES = "off"     # "on": the mapping may give roles with auth:…, an erase, a wildcard (trust the issuer with administration)
 # AUTH_JWT_FORM_ORIGINS = ""             # origins whose pages may post the token as a form, e.g. "https://id.example.com"
 # AUTH_JWT_ALLOWED_DOMAINS = ""          # only addresses in these domains
 # The second factor (docs/SECOND-FACTOR.md) — on once the secret AUTH_MFA_KEY is set.

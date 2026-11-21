@@ -174,11 +174,20 @@ memberships match the token:
 - the `owner` role cannot be mapped (a configuration error), and a mapped
   group that holds the owner role is skipped and logged.
 
-A mapped role that holds administrative permissions (`auth:admin`, an erase,
-a wildcard) **is** given, because the mapping names it explicitly. Map such
-roles only if you trust the issuer with administration of this site. Anyone
-who can make your system sign a token with that role gets it here. A role
-that needs a second factor still needs one (see [SECOND-FACTOR.md](SECOND-FACTOR.md)).
+A mapping that reaches a role holding an administrative permission (`*`,
+any `auth:…` such as `auth:admin`, an erase, a wildcard, or a permission a
+module declares sensitive), named directly or granted to a mapped group,
+**stops the method**: every exchange answers `503 jwt_misconfigured` with a
+hint naming the roles, and nobody signs in this way until it is fixed. The
+check reads the roles from the database before each exchange, so a role
+that gains such a permission later stops the method too. Names that are not
+roles or groups here do not trigger it.
+
+To map such roles on purpose, set `AUTH_JWT_ALLOW_ADMIN_ROLES=on`. Do it
+only if you trust the issuer with administration of this site: anyone who
+can make your system sign a token with that role gets it here. Even then the
+owner role is never given, and a role that needs a second factor still needs
+one (see [SECOND-FACTOR.md](SECOND-FACTOR.md)).
 
 Each change is an audit event `roles_synced` (`rolesAdded`, `rolesRemoved`,
 `groupsAdded`, `groupsRemoved`, `keptForOwner`).
@@ -260,6 +269,7 @@ failed), `jwt_unavailable` (the JWKS could not be fetched), `jwt_email_unusable`
 | `AUTH_JWT_UNKNOWN` | `reject` | `invite` or `create` |
 | `AUTH_JWT_ROLES_CLAIM` | `roles` | the claim name, as written in the token |
 | `AUTH_JWT_ROLE_MAP` | — | JSON, see [above](#roles-and-groups-from-the-token) |
+| `AUTH_JWT_ALLOW_ADMIN_ROLES` | `off` | `on`: the mapping may give roles with administrative permissions |
 | `AUTH_JWT_FORM_ORIGINS` | — | comma-separated `https://` origins whose pages may post the form |
 | `AUTH_JWT_ALLOWED_DOMAINS` | — | only verified addresses in these domains |
 

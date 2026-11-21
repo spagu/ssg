@@ -337,6 +337,7 @@ Vars (all optional):
 | `AUTH_JWT_IDENTITY_CLAIM` / `AUTH_JWT_EMAIL_VERIFIED` | `sub` / `required` | `email`: the verified address is the identity |
 | `AUTH_JWT_UNKNOWN` | `reject` | `invite`: an open invitation for the address; `create`: an account with no role |
 | `AUTH_JWT_ROLES_CLAIM` / `AUTH_JWT_ROLE_MAP` | `roles` / — | JSON `{"<external role>": {"roles": […], "groups": […]}}`; never the owner role |
+| `AUTH_JWT_ALLOW_ADMIN_ROLES` | `off` | `on`: the mapping may reach a role with an administrative permission; without it such a mapping is `503` |
 | `AUTH_JWT_FORM_ORIGINS` | — | origins whose pages may post the token as a plain form |
 | `AUTH_JWT_ALLOWED_DOMAINS` | — | only verified addresses in these domains, for the external issuer |
 | `AUTH_LOGIN_URL` | `/auth/login` | where a failed form login is sent back |

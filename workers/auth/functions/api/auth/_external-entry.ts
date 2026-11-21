@@ -4,7 +4,9 @@
 //
 // In order, each a refusal:
 //   1. the method is configured: absent → 404 not_found (as if the route did
-//      not exist); misconfigured → 503 jwt_misconfigured {hint};
+//      not exist); misconfigured → 503 jwt_misconfigured {hint} — also when
+//      the roles mapping reaches an administrative role without
+//      AUTH_JWT_ALLOW_ADMIN_ROLES=on (mapAdminProblem, _external-roles.ts);
 //   2. the CSRF defence of every POST (_request.ts) — a JSON/fetch call with
 //      `x-ssg-auth: 1`, or a plain form from this origin — or a plain form
 //      from one of AUTH_JWT_FORM_ORIGINS (the issuer's own page posting the
@@ -34,7 +36,7 @@ import type { ExternalSetup } from "./_external-config";
 import { externalIdentity } from "./_external-identity";
 import { verifyExternalToken } from "./_external-jwt";
 import type { Claims } from "./_external-jwt";
-import { applyExternalRoles } from "./_external-roles";
+import { applyExternalRoles, mapAdminProblem } from "./_external-roles";
 import { spendToken } from "./_external-schema";
 import { clientIP, json } from "./_lib";
 import type { Env } from "./_lib";
@@ -66,16 +68,21 @@ const bridgeOf = (s: ExternalSetup, env: Env, claims: Claims, now: number): Brid
   before: (user) => applyExternalRoles(env, s, user.id, claims, now),
 });
 
+// misconfigured: the 503 of a method an administrator must fix, logged.
+function misconfigured(problem: string): Response {
+  console.error(`auth: external JWT sign-in is not offered: ${problem}`);
+  return json({ error: "jwt_misconfigured", hint: problem }, 503);
+}
+
 export async function externalExchange(request: Request, env: Env): Promise<Response> {
   const ctx = await prepare(request, env);
   if (ctx instanceof Response) return ctx;
   const l = externalLookup(env);
   if (l.kind === "absent") return json({ error: "not_found" }, 404);
-  if (l.kind === "misconfigured") {
-    console.error(`auth: external JWT sign-in is not offered: ${l.problem}`);
-    return json({ error: "jwt_misconfigured", hint: l.problem }, 503);
-  }
+  if (l.kind === "misconfigured") return misconfigured(l.problem);
   const s = l.setup;
+  const adminProblem = await mapAdminProblem(env, s);
+  if (adminProblem) return misconfigured(adminProblem);
   const csrf = externalCsrf(request, s);
   if (csrf) return json({ error: csrf }, 403);
   const body = (await readBody(request)) ?? {};
