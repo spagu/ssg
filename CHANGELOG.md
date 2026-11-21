@@ -58,6 +58,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JavaScript the list stays open as before. Wide screens are unchanged. Between
   768 and 1000 px the header's brand no longer runs into the first link.
 
+- **`ssg --http` answers a missing path with the site's `404.html` (#432).**
+  Status 404, body of `<output>/404.html` as `text/html`, HEAD included, as
+  static hosts do. Under `base_path` this applies inside the prefix; without a
+  `404.html` the plain-text 404 stays. With `gzip: true` that response now
+  carries `Content-Encoding: gzip` and its `Cache-Control` (before, the body
+  was compressed and the header missing).
+- **`site-graph.json` leaves out what `sitemap.xml` leaves out (#433).** The
+  404 page, `noindex`, `sitemap: no` and redirect pages are no longer listed,
+  so the 404 page no longer carries a canonical URL that does not exist. The
+  graph, `llms.txt` and the sitemap share one rule, which means `llms.txt`
+  now also skips a page that only the theme's rendered HTML marks `noindex`.
+  `routes.json` still lists every route. `docs/AI-AGENTS.md` now says that
+  `llms.txt` links to `/<page>/index.md` and that the flat `/<page>.md` copy
+  is always written.
 - **`pretty_urls` documented with all its values (#436).** The
   `docs/CONFIGURATION.md` table and the "Links the host redirects" section
   described a boolean. They now list `off`/`false`, `strip` and

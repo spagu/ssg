@@ -296,7 +296,9 @@ func autocertCacheDir() string {
 // (optional) gzip and (optional) access-control middleware. Access control is
 // outermost so refused requests never reach the file server.
 func buildServerHandler(cfg *config.Config, tlsOn bool) http.Handler {
-	static := http.Handler(http.FileServer(noDirListing{http.Dir(cfg.OutputDir)}))
+	root := http.Dir(cfg.OutputDir)
+	// A missing path answers with the site's 404.html, as the host will (#432).
+	static := notFoundPageHandler(http.FileServer(noDirListing{root}), root)
 	// The `_redirects` and `_headers` this build wrote are served too, so a
 	// redirect can be checked before it is published (#181). Order mirrors
 	// Cloudflare Pages: redirect rules are evaluated before static assets, and

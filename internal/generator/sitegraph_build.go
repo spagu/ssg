@@ -84,8 +84,10 @@ func (g *Generator) graphPage(p models.Page, kind string) sitegraph.Page {
 		ReadingTime: p.ReadingTime,
 		Sticky:      p.Sticky,
 		Source:      p.SourceFile,
-		Hidden:      excludeFromSitemap(p),
-		Outputs:     sitegraph.Outputs{HTML: p.GetURL()},
+		// The sitemap's own verdict, rendered noindex included, so the graph,
+		// llms.txt and sitemap.xml agree on which pages are content (#433).
+		Hidden:  g.excludesFromSitemap(p),
+		Outputs: sitegraph.Outputs{HTML: p.GetURL()},
 	}
 	if !p.Date.IsZero() {
 		d := p.Date
@@ -334,6 +336,20 @@ func (g *Generator) resetOutputRefs() {
 	g.outputRefsCache = nil
 }
 
+// searchablePages drops the pages the site keeps out of search: the 404 page,
+// noindex, sitemap: no and redirects. The published graph tells agents what
+// the site's content is, so it leaves out what sitemap.xml and llms.txt leave
+// out (#433); routes.json, the contract of every emitted route, keeps them.
+func searchablePages(pages []sitegraph.Page) []sitegraph.Page {
+	out := make([]sitegraph.Page, 0, len(pages))
+	for _, p := range pages {
+		if !p.Hidden {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // writeSiteGraph emits the artifact when the site asked for it. Runs after the
 // link check, so the two share one parse of the output.
 func (g *Generator) writeSiteGraph() error {
@@ -342,6 +358,7 @@ func (g *Generator) writeSiteGraph() error {
 	}
 	g.log("🕸️  Writing site graph...")
 	graph := g.buildSiteGraph(true)
+	graph.Pages = searchablePages(graph.Pages)
 	if err := graph.Stamp(); err != nil {
 		return fmt.Errorf("site graph: %w", err)
 	}
