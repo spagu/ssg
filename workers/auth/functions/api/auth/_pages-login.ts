@@ -21,6 +21,7 @@
 // Access" joins the provider buttons — a link to /auth/access (_access-pages.ts).
 
 import { accessErrorText } from "./_access-i18n";
+import { externalErrorText } from "./_external-i18n";
 import { accessButton } from "./_access-pages";
 import { ACCESS_METHOD } from "./_access-config";
 import { whoAmI } from "./_context";
@@ -70,7 +71,7 @@ export async function loginPage(ctx: Ctx): Promise<Response> {
   const methods = signInMethods(ctx.env);
   const passwordOn = methods.some((m) => m.id === PASSWORD_METHOD);
   const turnstileKey = passwordOn ? turnstileSiteKey(ctx.env) : null;
-  const message = error === "turnstile_required" && turnstileKey ? t.errTurnstileShown : accessErrorText(lang, error) || errorText(t, error, rules(ctx));
+  const message = error === "turnstile_required" && turnstileKey ? t.errTurnstileShown : accessErrorText(lang, error) || externalErrorText(lang, error) || errorText(t, error, rules(ctx));
   const confirmation = okText(t, ok);
   // Without `next` the login goes to "Your panels" — unless the site set
   // AUTH_AFTER_LOGIN_URL, which login.ts uses when `next` is empty.

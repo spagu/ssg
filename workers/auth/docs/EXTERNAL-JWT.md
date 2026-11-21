@@ -296,7 +296,14 @@ replayed, or names no subject; the audit detail `cause` says which check
 failed), `jwt_unavailable` (the JWKS could not be fetched), `jwt_email_unusable`,
 `jwt_not_linked`, `not_invited`, `domain_not_allowed`, `account_blocked`,
 `account_exists`, `invitation_invalid`, `identity_in_use`,
-`provider_already_linked`, `too_many_attempts`, `permissions_too_large`.
+`provider_already_linked`, `too_many_attempts`, `permissions_too_large`;
+on the account page also `jwt_link_expired`.
+
+The login and account pages explain `jwt_failed`, `jwt_unavailable`,
+`jwt_not_linked`, `jwt_email_unusable` and `jwt_link_expired` in a sentence
+of their own in English and Polish. In Hindi, German and French they show
+the pages' generic "something went wrong" sentence. The other codes have the
+same text as for any sign-in, in all five languages.
 
 ## Variables
 

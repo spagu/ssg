@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   this origin only, with a recent sign-in (or a recent second factor). The
   waiting identity lives five minutes and works once, and the link is
   audited as `method_linked`.
+- **The login and account pages explain the external JWT refusals (#435).**
+  `jwt_failed`, `jwt_unavailable`, `jwt_not_linked`, `jwt_email_unusable` and
+  `jwt_link_expired` have a sentence of their own in English and Polish; the
+  other languages keep the generic text.
 
 ### Changed
 
