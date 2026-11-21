@@ -14,13 +14,8 @@
 // identity provider that stopped sending groups must not empty everyone's
 // memberships (docs/ACCESS.md).
 //
-// Each change is its own transaction, written so that two sign-ins of the
-// same person at once cannot leave a membership without its mark or the
-// reverse: the mark is inserted only while no membership exists, the
-// membership only while the mark does; a removal deletes the membership only
-// while it is marked. The owner invariant (_rbac-schema.ts) holds: removing
-// the last active owner's way to the owner role aborts that one removal — it
-// is skipped, logged and reported, the others go on.
+// The marks and the transactions are _synced.ts's, shared with the external
+// issuer's roles claim (#435).
 //
 // The groups seen are kept (access_seen_groups), so that a change of the
 // mapping is applied to everyone at once (resyncEveryone); permissions follow
@@ -30,81 +25,20 @@ import { emitEvent } from "./_audit";
 import { ACCESS_METHOD } from "./_access-config";
 import { iso } from "./_lib";
 import type { Env } from "./_lib";
-import { isOwnerViolation } from "./_rbac-schema";
-import { byCodeUnit } from "./_perms";
+import { syncMarked } from "./_synced";
+import type { Marks, SyncResult } from "./_synced";
 
-export interface SyncResult {
-  added: string[]; // group names
-  removed: string[];
-  kept: string[]; // a removal the owner invariant refused
-}
+export type { SyncResult } from "./_synced";
 
-interface Named {
-  id: string;
-  name: string;
-}
-
-async function addOne(env: Env, groupId: string, userId: string, at: string): Promise<boolean> {
-  const db = env.AUTH_DB;
-  const [, member] = await db.batch([
-    db
-      .prepare(
-        `INSERT OR IGNORE INTO access_synced_members (group_id, user_id, synced_at)
-         SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?)`,
-      )
-      .bind(groupId, userId, at, groupId, userId),
-    db
-      .prepare(
-        `INSERT OR IGNORE INTO group_members (group_id, user_id, added_by, added_at)
-         SELECT ?, ?, NULL, ? WHERE EXISTS (SELECT 1 FROM access_synced_members WHERE group_id = ? AND user_id = ?)`,
-      )
-      .bind(groupId, userId, at, groupId, userId),
-  ]);
-  return member.meta.changes === 1;
-}
-
-async function removeOne(env: Env, groupId: string, userId: string): Promise<"removed" | "gone" | "owner_required"> {
-  const db = env.AUTH_DB;
-  try {
-    const [member] = await db.batch([
-      db
-        .prepare("DELETE FROM group_members WHERE group_id = ? AND user_id = ? AND EXISTS (SELECT 1 FROM access_synced_members WHERE group_id = ? AND user_id = ?)")
-        .bind(groupId, userId, groupId, userId),
-      db.prepare("DELETE FROM access_synced_members WHERE group_id = ? AND user_id = ?").bind(groupId, userId),
-    ]);
-    return member.meta.changes === 1 ? "removed" : "gone";
-  } catch (e) {
-    if (isOwnerViolation(e)) return "owner_required";
-    throw e;
-  }
-}
+const ACCESS_MARKS: Marks = { table: "access_synced_members", col: "group_id", label: "Access group sync" };
 
 // syncGroups applies `accessGroups` (the token's) to one person.
 export async function syncGroups(env: Env, userId: string, accessGroups: string[], now: number): Promise<SyncResult> {
   const { results: maps } = await env.AUTH_DB.prepare(
     "SELECT m.access_group, g.id, g.name FROM access_group_map m JOIN groups g ON g.id = m.group_id",
-  ).all<Named & { access_group: string }>();
-  const { results: marked } = await env.AUTH_DB.prepare(
-    "SELECT s.group_id AS id, COALESCE(g.name, s.group_id) AS name FROM access_synced_members s LEFT JOIN groups g ON g.id = s.group_id WHERE s.user_id = ?",
-  )
-    .bind(userId)
-    .all<Named>();
+  ).all<{ access_group: string; id: string; name: string }>();
   const token = new Set(accessGroups);
-  const wanted = new Map(maps.filter((m) => token.has(m.access_group)).map((m) => [m.id, m.name]));
-  const out: SyncResult = { added: [], removed: [], kept: [] };
-  const at = iso(now);
-  for (const [id, name] of wanted) if (await addOne(env, id, userId, at)) out.added.push(name);
-  for (const g of marked) {
-    if (wanted.has(g.id)) continue;
-    const r = await removeOne(env, g.id, userId);
-    if (r === "removed") out.removed.push(g.name);
-    if (r === "owner_required") {
-      console.warn(`auth: Access group sync kept account ${userId} in group ${g.id}: removing it would leave no active owner`);
-      out.kept.push(g.name);
-    }
-  }
-  for (const list of [out.added, out.removed, out.kept]) list.sort(byCodeUnit);
-  return out;
+  return syncMarked(env, ACCESS_MARKS, userId, new Map(maps.filter((m) => token.has(m.access_group)).map((m) => [m.id, m.name])), now);
 }
 
 // applyAccessGroups is syncGroups plus the record of the groups seen and an

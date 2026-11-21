@@ -480,6 +480,7 @@ export default {
   "event.invitation_accepted": "Invitation accepted",
   "event.account_created": "Account created by Access",
   "event.groups_synced": "Groups synchronised from Access",
+  "event.roles_synced": "Roles synchronised from the external issuer",
   "event.method_linked": "Sign-in method linked",
   "event.method_unlinked": "Sign-in method removed",
   "event.password_set": "Password set",

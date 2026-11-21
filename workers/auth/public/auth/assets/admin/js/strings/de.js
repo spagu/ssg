@@ -480,6 +480,7 @@ export default {
   "event.invitation_accepted": "Einladung angenommen",
   "event.account_created": "Konto von Access erstellt",
   "event.groups_synced": "Gruppen aus Access synchronisiert",
+  "event.roles_synced": "Rollen vom externen Aussteller synchronisiert",
   "event.method_linked": "Anmeldemethode verbunden",
   "event.method_unlinked": "Anmeldemethode entfernt",
   "event.password_set": "Passwort festgelegt",

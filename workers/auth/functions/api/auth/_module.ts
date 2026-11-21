@@ -7,7 +7,7 @@
 export const MODULE = {
   "id": "auth",
   "contract": 1,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "kind": "pages-function",
   "title": {
     "en": "Accounts and sign-in",
@@ -17,11 +17,11 @@ export const MODULE = {
     "fr": "Comptes et connexion"
   },
   "description": {
-    "en": "Accounts with passwords or login providers (Google, Microsoft, Apple, GitHub, Facebook), revocable sessions and short signed access tokens that other workers on the same host can verify with a public key.",
-    "pl": "Konta z hasłami albo logowaniem przez dostawców (Google, Microsoft, Apple, GitHub, Facebook), odwoływalne sesje i krótkie podpisane tokeny dostępu, które inne workery na tym samym hoście sprawdzają kluczem publicznym.",
-    "hi": "पासवर्ड या लॉगिन प्रदाताओं (Google, Microsoft, Apple, GitHub, Facebook) वाले खाते, रद्द किए जा सकने वाले सेशन और छोटे हस्ताक्षरित एक्सेस टोकन, जिन्हें उसी होस्ट के दूसरे वर्कर सार्वजनिक कुंजी से जाँच सकते हैं।",
-    "de": "Konten mit Passwort oder Anmeldung über Anbieter (Google, Microsoft, Apple, GitHub, Facebook), widerrufbare Sitzungen und kurzlebige signierte Zugriffstoken, die andere Worker auf demselben Host mit einem öffentlichen Schlüssel prüfen.",
-    "fr": "Comptes avec mot de passe ou fournisseur de connexion (Google, Microsoft, Apple, GitHub, Facebook), sessions révocables et jetons d'accès signés de courte durée que les autres workers du même hôte vérifient avec une clé publique."
+    "en": "Accounts with passwords, login providers (Google, Microsoft, Apple, GitHub, Facebook) or signed tokens from a login system the site already runs, revocable sessions and short signed access tokens that other workers on the same host can verify with a public key.",
+    "pl": "Konta z hasłami, logowaniem przez dostawców (Google, Microsoft, Apple, GitHub, Facebook) albo podpisanymi tokenami z systemu logowania, który strona już ma, odwoływalne sesje i krótkie podpisane tokeny dostępu, które inne workery na tym samym hoście sprawdzają kluczem publicznym.",
+    "hi": "पासवर्ड, लॉगिन प्रदाताओं (Google, Microsoft, Apple, GitHub, Facebook) या साइट के मौजूदा लॉगिन सिस्टम के हस्ताक्षरित टोकन वाले खाते, रद्द किए जा सकने वाले सेशन और छोटे हस्ताक्षरित एक्सेस टोकन, जिन्हें उसी होस्ट के दूसरे वर्कर सार्वजनिक कुंजी से जाँच सकते हैं।",
+    "de": "Konten mit Passwort, Anmeldung über Anbieter (Google, Microsoft, Apple, GitHub, Facebook) oder signierten Tokens aus einem Anmeldesystem, das die Website schon betreibt, widerrufbare Sitzungen und kurzlebige signierte Zugriffstoken, die andere Worker auf demselben Host mit einem öffentlichen Schlüssel prüfen.",
+    "fr": "Comptes avec mot de passe, fournisseur de connexion (Google, Microsoft, Apple, GitHub, Facebook) ou jetons signés d'un système de connexion que le site utilise déjà, sessions révocables et jetons d'accès signés de courte durée que les autres workers du même hôte vérifient avec une clé publique."
   },
   "panel": "/auth/admin/",
   "nav": [

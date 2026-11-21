@@ -38,7 +38,8 @@ import type { Env } from "./_lib";
 // tokens, per IP and per account (SR-03). service_token is no longer
 // counted (SR-08): a token's id is public and its secret unguessable, so a
 // per-id lock only let anyone lock a working token out; kept in the type so
-// rows written before stay readable.
+// rows written before stay readable. jwt_ip: tokens of an external issuer
+// that did not verify (#435), per IP, apart from the login's.
 export type LockKind =
   | "account"
   | "ip"
@@ -50,7 +51,8 @@ export type LockKind =
   | "mfa_account"
   | "mfa_ip"
   | "mfa_reset_ip"
-  | "mfa_reset_account";
+  | "mfa_reset_account"
+  | "jwt_ip";
 const RESET_MS = 24 * 3600 * 1000;
 
 export interface LockPolicy {

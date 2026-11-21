@@ -16,8 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the SKU reaches Python as an argument instead of being spliced into its
   source. This closes two OpenSSF Scorecard "pinned dependencies" alerts.
 
+- **External JWTs are checked strictly in `auth` (#435).** A token must
+  carry `exp`, `iat` (no older than 5 minutes by default), `iss`, `aud` and a
+  `jti` that works only once. `alg: none`, algorithms outside the configured
+  list, and HS256 next to a public key are refused (RFC 8725). The key comes
+  from configuration only, never from the token's `jku`/`jwk` headers. Failed
+  tokens count against a per-IP lockout, and a role that needs a second
+  factor still asks for it.
+
+### Added
+
+- **`auth` signs people in with a JWT from a login system the site already
+  runs (#435).** `POST /api/auth/jwt` checks the token once and turns it into
+  a normal `auth` session: listed in the admin panel, revocable, and audited
+  as `jwt:<issuer>`. It is off until `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE`
+  and one key source (a JWKS URL, a static public key, or an HS256 secret of
+  at least 32 bytes) are set. Unknown people are refused by default
+  (`AUTH_JWT_UNKNOWN=invite` or `create` changes that), and
+  `AUTH_JWT_ROLE_MAP` maps the issuer's roles claim to `auth` roles and
+  groups. Each sign-in adds and removes only what the mapping gave, never the
+  owner role, and audits it as `roles_synced`. See
+  `workers/auth/docs/EXTERNAL-JWT.md` and the new "Using an existing identity
+  system" section of the `auth` README. The module manifest is 1.4.0.
+
 ### Changed
 
+- **The Cloudflare Access bridge and the external issuer share one key
+  cache, one sign-in path and one group-sync helper** in `auth`. Access
+  behaves as before (#435).
 - **ssgtheme: shorter, grouped docs sidebar and a wider desktop page.** A
   `docs_nav_groups` entry may name `headings` (slug → text), which splits the
   sidebar's list under small headings, and `variables.docs_nav_labels` (slug →

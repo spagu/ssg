@@ -59,6 +59,21 @@ export interface Env {
   AUTH_ACCESS_AUTO_CREATE?: string; // "on": an unknown Access identity gets an account …
   AUTH_ACCESS_DEFAULT_ROLE?: string; // … with this one role (never owner, *, or a sensitive permission)
   AUTH_ACCESS_ALLOWED_DOMAINS?: string; // like AUTH_<PROVIDER>_ALLOWED_DOMAINS
+  // #435: an external JWT issuer as a sign-in method (_external-config.ts, docs/EXTERNAL-JWT.md).
+  AUTH_JWT_ISSUER?: string; // the exact `iss`
+  AUTH_JWT_AUDIENCE?: string; // the `aud` expected
+  AUTH_JWT_ALGORITHMS?: string; // comma-separated; default every asymmetric one
+  AUTH_JWT_JWKS_URL?: string; // the issuer's JWK Set (https) — one key source of three
+  AUTH_JWT_PUBLIC_KEY?: string; // a JWK, a JWK Set or a PEM public key
+  AUTH_JWT_SECRET?: string; // secret: an HMAC key of at least 32 bytes, HS* only
+  AUTH_JWT_MAX_AGE_SECONDS?: string; // the oldest `iat` accepted (default 300)
+  AUTH_JWT_IDENTITY_CLAIM?: string; // "sub" (default) or "email"
+  AUTH_JWT_EMAIL_VERIFIED?: string; // "required" (default) or "off"
+  AUTH_JWT_UNKNOWN?: string; // "reject" (default), "invite" or "create"
+  AUTH_JWT_ROLES_CLAIM?: string; // the claim holding the person's roles (default "roles")
+  AUTH_JWT_ROLE_MAP?: string; // JSON {"<external role>": {"roles": [...], "groups": [...]}}
+  AUTH_JWT_FORM_ORIGINS?: string; // origins whose pages may post the token as a plain form
+  AUTH_JWT_ALLOWED_DOMAINS?: string; // like AUTH_<PROVIDER>_ALLOWED_DOMAINS
   // GO-140: the second factor (docs/SECOND-FACTOR.md). Off until AUTH_MFA_KEY is set.
   AUTH_MFA_KEY?: string; // secret: encrypts the TOTP secrets; setting it switches the second factor on
   AUTH_MFA_KEY_PREVIOUS?: string; // secret: the key before a rotation, still read

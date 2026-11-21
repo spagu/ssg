@@ -5,6 +5,7 @@
 // module/summary.ts serves it. Aggregates only: counts, never an address.
 
 import { accessLookup } from "./_access-config";
+import { externalLookup } from "./_external-config";
 import { keyAges } from "./_admin-keys";
 import { missingFactor, pendingInvitations, rolesNeedingFactor } from "./_admin-status";
 import type { Ctx } from "./_context";
@@ -75,6 +76,13 @@ const PROBLEMS: Record<string, Text> = {
     de: "Cloudflare Access ist nur halb oder falsch konfiguriert und wird daher nicht als Anmeldeweg angeboten.",
     fr: "Cloudflare Access est configuré à moitié ou mal, il n'est donc pas proposé pour se connecter.",
   },
+  jwt_misconfigured: {
+    en: "The external JWT issuer (AUTH_JWT_*) is configured by halves or wrongly, so its tokens are not accepted.",
+    pl: "Zewnętrzny wystawca JWT (AUTH_JWT_*) jest skonfigurowany połowicznie albo błędnie, więc jego tokeny nie są przyjmowane.",
+    hi: "बाहरी JWT जारीकर्ता (AUTH_JWT_*) आधा या ग़लत कॉन्फ़िगर है, इसलिए उसके टोकन स्वीकार नहीं होते।",
+    de: "Der externe JWT-Aussteller (AUTH_JWT_*) ist nur halb oder falsch konfiguriert, daher werden seine Tokens nicht angenommen.",
+    fr: "L'émetteur JWT externe (AUTH_JWT_*) est configuré à moitié ou mal, ses jetons ne sont donc pas acceptés.",
+  },
 };
 
 // authSummary is the answer of GET /api/auth/module/summary.
@@ -85,6 +93,7 @@ export async function authSummary(ctx: Ctx): Promise<Summary> {
   if (mfaState(env) === "misconfigured") codes.push("mfa_key_short");
   if (mfaState(env) !== "off" && mfaOverrides(env) === "invalid") codes.push("mfa_roles_invalid");
   if (accessLookup(env).kind === "misconfigured") codes.push("access_misconfigured");
+  if (externalLookup(env).kind === "misconfigured") codes.push("jwt_misconfigured");
   const problems: Problem[] = codes.map((code) => ({ code, text: PROBLEMS[code] }));
   const row = (await env.AUTH_DB.prepare(
     `SELECT (SELECT COUNT(*) FROM users WHERE status = 'active') AS accounts,

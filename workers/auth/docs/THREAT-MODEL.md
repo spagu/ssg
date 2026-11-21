@@ -55,7 +55,9 @@ locally with the portable verifier; none asks `auth` per request.
 5. **Malicious identity-provider account** — controls an account at Google,
    Microsoft, Apple, GitHub or Facebook (or a tenant at Microsoft, or a
    Cloudflare Access identity provider) and can choose its address, name and
-   (for a tenant administrator) its claims.
+   (for a tenant administrator) its claims. With the external JWT issuer
+   (#435) on, also: an account at that issuer, or a holder of its signing
+   key or HS256 secret.
 6. **Read access to logs or the database** — a support engineer, a leaked D1
    export, a log drain.
 7. **Cross-site attacker** — controls another site (or a sibling subdomain,
@@ -68,6 +70,7 @@ locally with the portable verifier; none asks `auth` per request.
     │                                              │
     │                                              ├──▶ identity providers (https, fixed hosts)
     │                                              ├──▶ Cloudflare Access certs (fixed team host)
+    │                                              ├──▶ external issuer's JWKS (AUTH_JWT_JWKS_URL host)
     │                                              └──▶ mail transport (Resend / MailChannels / SMTP)
     ├──(same cookie)──▶ core ──(caller's credentials, same host only)──▶ modules
     └──(same cookie)──▶ modules ──(portable verifier, JWKS same-origin or inline key)
@@ -85,6 +88,11 @@ locally with the portable verifier; none asks `auth` per request.
   a flow bound to the browser (cookie handle, state, nonce, PKCE) and only
   for the identity (provider, subject); an address is a hint, never an
   account.
+- **auth ↔ external JWT issuer** (#435, off by default): a token is trusted
+  only after its signature (key from configuration, never from the token),
+  `iss`, `aud`, `exp`, `iat` age and a single-use `jti` are checked; the
+  identity is (`jwt:<issuer>`, `sub`), and what the token's roles claim may
+  give is exactly the configured mapping, never the owner role.
 - **core ↔ modules**: core forwards the caller's credentials only to paths on
   the same host under the module's registered base, follows no redirects and
   caches per caller.
@@ -96,9 +104,11 @@ locally with the portable verifier; none asks `auth` per request.
 - **A compromised Cloudflare account** (or wrangler credentials): it can read
   every secret, replace the code and the databases. Nothing here defends
   against it.
-- **The identity providers and Cloudflare Access themselves** being wrong
-  (e.g. a provider that marks an unverified address verified, an Access IdP
-  that lets users choose their address). Documented where we rely on them.
+- **The identity providers, Cloudflare Access and a configured external JWT
+  issuer themselves** being wrong (e.g. a provider that marks an unverified
+  address verified, an Access IdP that lets users choose their address, an
+  issuer whose signing key or HS256 secret leaked, or that signs any role on
+  request). Documented where we rely on them ([EXTERNAL-JWT.md](EXTERNAL-JWT.md)).
 - **XSS from site content outside these workers.** The site is static content
   on the same origin. Script running on the origin (a hostile post, a
   compromised third-party script in a theme) runs with the administrator's
@@ -129,6 +139,9 @@ locally with the portable verifier; none asks `auth` per request.
 | 3 | Remove the owners, then act on them | taking away `*` / `auth:*` needs it (SR-04); owner invariant in SQL triggers |
 | 4 | Read the access cookie and replay it | short lifetime; tokens not bound to a client — documented in CONTRACT.md |
 | 4 | Read the refresh cookie | scoped to `/api/auth/`; a module served there is part of `auth` |
+| 5 | Forge or replay an external issuer's token (#435) | algorithm list fixed in config, `none` never, HS* vs public key refused at config load (RFC 8725); key from config only (`jku`/`jwk` ignored); `exp`/`iat` age/`aud`/`iss` required; `jti` single use; per-IP lock `jwt_ip` |
+| 5 | Gain roles through the external roles claim | only what `AUTH_JWT_ROLE_MAP` names; the owner role and groups holding it never; synced rows only removed; second factor still asked |
+| 7 | Login CSRF through the token exchange | plain forms only from this origin or `AUTH_JWT_FORM_ORIGINS`; scripts need `x-ssg-auth` |
 | 5 | Take over an account by address | identity = (provider, subject); an address only opens an invitation; Facebook never verified, Microsoft only with `xms_edov`; non-ASCII refused (SR-06) |
 | 6 | Use tokens or links from the database | only hashes stored; TOTP secrets sealed; IP/UA hashed with a salt |
 | 6 | Use a refresh token kept from earlier | rotated tokens past the two-tab window revoke the session everywhere (SR-01) |

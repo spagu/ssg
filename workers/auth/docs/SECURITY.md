@@ -1,4 +1,4 @@
-# auth — security: password hashing, lockouts, CSRF, login providers, one-time links
+# auth — security: password hashing, lockouts, CSRF, login providers, external JWTs, one-time links
 
 The security decisions behind the sign-in, with the measurements they rest
 on. The guide is the [README](../README.md); the routes are in [API.md](API.md).
@@ -213,6 +213,54 @@ session to the team's logout URL, built from configuration only (no open
 redirect); the pages with a sign-out form allow exactly that origin in
 `form-action`. No token, signature or claim value is logged or stored: the
 log and `auth_events` carry reasons and addresses (tested by scanning both).
+
+## External JWT issuer
+
+The exchange ([EXTERNAL-JWT.md](EXTERNAL-JWT.md), #435) trusts a token only
+after checking it here. The algorithm must be on `AUTH_JWT_ALGORITHMS`, and
+`none` can never be on it. The default list is asymmetric only. HS256/384/512
+need an explicit opt-in: the algorithm listed **and** the `AUTH_JWT_SECRET`
+secret of at least 32 bytes. A list that mixes HS* with a public-key source,
+or a secret with public-key algorithms, is refused when the configuration is
+read (`503`), because that mix is algorithm confusion (RFC 8725 §2.1/§3.1).
+Tested: HS256 signed with the public key, `alg: none` with and without a
+signature, an algorithm off the list, `crit`.
+
+The key comes from the configuration only: the JWKS URL (https, that host,
+no redirect, time and size limits, the same guarded fetch as the login
+providers), a static key, or the secret. `jku`, `x5u`, `jwk` and `x5c` in
+the token are never read. Tested: a token signed by an attacker's key that
+points at that key. `kid` chooses among the configured keys. A key must fit
+the algorithm's family, its own `alg`/`use`, and RSA ≥ 2048 bits. The JWKS
+cache shares Access's rules (`_key-cache.ts`): an hour, an unknown `kid`
+refetched at most once a minute, the last good set for up to a day during an
+outage, and with none the sign-in is refused.
+
+The claims checked: `iss` exact, `aud`, `exp` **required**, `nbf` when
+present, `iat` **required** and no older than `AUTH_JWT_MAX_AGE_SECONDS`
+(default 5 minutes), 60 s of skew on each, and `jti` **required**. A `jti` is
+spent the moment the token verifies: a SHA-256 of issuer and `jti` is kept in
+`jwt_used_tokens` until the token could no longer pass, and a second
+presentation is refused (tested). Failed tokens count against a per-IP lock
+of their own (`jwt_ip`), counted before the token is checked.
+
+CSRF: the usual rule (`x-ssg-auth: 1`, or a same-origin form), plus plain
+forms from `AUTH_JWT_FORM_ORIGINS` only, so a page elsewhere cannot sign a
+visitor into the attacker's account. `next` goes through `safeNext`.
+
+Identity is the pair (`jwt:<issuer>`, `sub`). An address counts only when
+`email_verified` is true (unless switched off) and only in printable ASCII
+after the one normalisation. With `sub`, an existing account is never entered
+by address (`jwt_not_linked`). With `AUTH_JWT_IDENTITY_CLAIM=email`, the
+address is the identity by the administrator's choice, which makes whoever
+controls addresses at the issuer able to enter the account with that address.
+Unknown people are refused unless `AUTH_JWT_UNKNOWN` says `invite` or
+`create`. A created account gets no role. The role mapping gives only what it
+names, takes back only what it gave, can never name the owner role, and skips
+a group that holds it. A mapped administrative role is given (documented
+risk). A blocked account is refused. `AUTH_ROLE_METHODS` and the second
+factor apply to `jwt:<issuer>` as to any method. No token or claim value is
+logged or stored, only reasons and addresses.
 
 ## Second factor
 

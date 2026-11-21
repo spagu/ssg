@@ -145,6 +145,28 @@ the only way in). Audit kinds added: `account_created` (auto-provisioning) and
 `groups_synced` (`detail`: `via` signin|mapping, `added`, `removed`,
 `keptForOwner`); links by address carry `via: "email"`.
 
+## External JWT issuer
+
+How to switch it on, what the token must carry and who gets in:
+[EXTERNAL-JWT.md](EXTERNAL-JWT.md). Without any `AUTH_JWT_*` variable the
+route answers `404 not_found`; configured wrongly (a missing issuer, two key
+sources, HS* next to a public key, a short secret, an owner role in the
+mapping), `503 jwt_misconfigured {hint}`.
+
+| Method + path | Needs | Body | Success | Failure |
+|---|---|---|---|---|
+| `POST /api/auth/jwt` | the token: `Authorization: Bearer` (with `x-ssg-auth: 1`, same origin) or the field `token`; a plain form from this origin or from `AUTH_JWT_FORM_ORIGINS` | form or JSON `{token?, next?}` | `303` to `next` / `AUTH_AFTER_LOGIN_URL` (`/auth/?welcome=1` after accepting an invitation) with session cookies, or to `/auth/mfa` when the account has a second factor | `403 cross_origin` / `csrf_check_failed`; `303 AUTH_LOGIN_URL?error=<code>`: `jwt_failed`, `jwt_unavailable`, `jwt_email_unusable`, `jwt_not_linked`, `not_invited`, `domain_not_allowed`, `account_blocked`, `account_exists`, `invitation_invalid`, `identity_in_use`, `provider_already_linked`, `too_many_attempts`, `permissions_too_large` |
+
+Only `POST` is routed. The session's method, the identity's provider and the
+audit events' `method` are `jwt:<issuer>`. `signin_refused` carries `cause`,
+the check that failed (`issuer`, `audience`, `expired`, `not yet valid`, `too
+old`, `no token id`, `replayed`, `algorithm`, `signature`, `unknown key id`,
+…), never the token. Audit kind added: `roles_synced` (`detail`:
+`rolesAdded`, `rolesRemoved`, `groupsAdded`, `groupsRemoved`,
+`keptForOwner`). `GET /api/auth/admin/status` lists the method under
+`signIn.methods`; the module summary reports `jwt_misconfigured`. RFC 8693
+token exchange is not implemented.
+
 ## Second factor
 
 How it works, the policy and recovery: [SECOND-FACTOR.md](SECOND-FACTOR.md).
