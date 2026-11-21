@@ -17,7 +17,7 @@
 #
 # The annotation that would silence the rule cannot go here: a trailing comment
 # on a FROM line is parsed as extra arguments and fails the build.
-FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 # Provided automatically by buildx.
 ARG TARGETARCH
@@ -38,7 +38,7 @@ COPY . .
 # Build a static binary for the target architecture (GOARM derived from the
 # buildx variant, e.g. "v7" -> GOARM=7 for 32-bit ARM).
 RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" GOARM="${TARGETVARIANT#v}" \
-    go build -ldflags="-s -w -X main.Version=1.9.11" -o ssg ./cmd/ssg
+    go build -ldflags="-s -w -X main.Version=1.9.12" -o ssg ./cmd/ssg
 
 # Stage 2: Minimal runtime image
 # Pinned by digest as well as tag: a tag is a moving target, so a digest is
@@ -57,7 +57,7 @@ RUN apk add --no-cache libwebp-tools \
 # Labels
 LABEL org.opencontainers.image.title="SSG - Static Site Generator"
 LABEL org.opencontainers.image.description="Fast static site generator written in Go"
-LABEL org.opencontainers.image.version="1.9.11"
+LABEL org.opencontainers.image.version="1.9.12"
 LABEL org.opencontainers.image.source="https://github.com/spagu/ssg"
 LABEL org.opencontainers.image.licenses="BUSL-1.1"
 LABEL maintainer="spagu <spagu@github.com>"

@@ -15,7 +15,8 @@
 //
 // Kinds today: signin, signin_refused, method_linked, method_unlinked,
 // password_set, invitation_accepted; account_created and groups_synced
-// (GO-139, Cloudflare Access); mfa_* (GO-140, below). The password login's failures are
+// (GO-139, Cloudflare Access); roles_synced (#435, an external issuer's roles
+// mapping); mfa_* (GO-140, below). The password login's failures are
 // counted by the lockout (login_attempts), not logged here: an attacker
 // should not be able to grow this table one guess at a time.
 
@@ -46,6 +47,9 @@ export type EventKind =
   // and group memberships the Access group mapping added or removed.
   | "account_created"
   | "groups_synced"
+  // #435: roles and group memberships the external issuer's roles mapping
+  // (AUTH_JWT_ROLE_MAP) added or removed.
+  | "roles_synced"
   // GO-140: the second factor — enrolled, removed, a challenge passed or
   // failed (sign-in or step-up; only after a first factor or within a session,
   // so the lockout bounds how fast they grow), a backup code spent, backup

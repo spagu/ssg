@@ -11,8 +11,12 @@
 // nobody can enter. GO-139 (Cloudflare Access) adds its entry here, last:
 // enabled by AUTH_ACCESS_TEAM + AUTH_ACCESS_AUD (_access-config.ts); a half or
 // unusable configuration offers no entry and is logged, like a provider's.
+// #435 (an external JWT issuer, _external-config.ts) adds its entry after it:
+// no button anywhere — the issuer's own page posts the token — but it counts
+// as a way in, so a site may sign in through its existing login only.
 
 import { ACCESS_METHOD, accessIssuer, accessLookup } from "./_access-config";
+import { externalLookup } from "./_external-config";
 import type { Env } from "./_lib";
 import { enabledProviders } from "./_provider";
 import type { Provider, Setup } from "./_provider";
@@ -37,10 +41,13 @@ export function signInMethods(env: Env): SignInMethod[] {
   const access = accessLookup(env);
   if (access.kind === "enabled") out.push({ id: ACCESS_METHOD, formOrigin: accessIssuer(access.setup) });
   else if (access.kind === "misconfigured") console.error(`auth: Cloudflare Access is not offered: ${access.problem}`);
+  const external = externalLookup(env);
+  if (external.kind === "enabled") out.push({ id: external.setup.method });
+  else if (external.kind === "misconfigured") console.error(`auth: external JWT sign-in is not offered: ${external.problem}`);
   return out;
 }
 
 export const methodEnabled = (env: Env, id: unknown): boolean => signInMethods(env).some((m) => m.id === id);
 
 export const NO_METHOD_HINT =
-  "AUTH_PASSWORD_LOGIN is off and no login provider is configured, so nobody could sign in: remove AUTH_PASSWORD_LOGIN=off or configure a provider (docs/PROVIDERS.md) or Cloudflare Access (docs/ACCESS.md)";
+  "AUTH_PASSWORD_LOGIN is off and no login provider is configured, so nobody could sign in: remove AUTH_PASSWORD_LOGIN=off or configure a provider (docs/PROVIDERS.md) or Cloudflare Access (docs/ACCESS.md) or an external JWT issuer (docs/EXTERNAL-JWT.md)";

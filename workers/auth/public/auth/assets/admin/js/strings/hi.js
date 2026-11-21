@@ -480,6 +480,7 @@ export default {
   "event.invitation_accepted": "आमंत्रण स्वीकार हुआ",
   "event.account_created": "Access ने खाता बनाया",
   "event.groups_synced": "Access से समूह सिंक हुए",
+  "event.roles_synced": "बाहरी जारीकर्ता से भूमिकाएँ सिंक हुईं",
   "event.method_linked": "साइन-इन तरीका जोड़ा गया",
   "event.method_unlinked": "साइन-इन तरीका हटाया गया",
   "event.password_set": "पासवर्ड सेट हुआ",

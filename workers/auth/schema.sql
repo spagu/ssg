@@ -388,4 +388,39 @@ CREATE TABLE IF NOT EXISTS signing_keys (
   first_used_at TEXT NOT NULL
 );
 
+-- #435: the external JWT issuer (new tables, no version). Each accepted
+-- token's id — a SHA-256 of issuer and jti, never the value — until the token
+-- could no longer pass anyway (single use), and the grants and memberships
+-- the roles mapping added: the only ones it may remove.
+CREATE TABLE IF NOT EXISTS jwt_used_tokens (
+  jti_hash   TEXT PRIMARY KEY,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jwt_used_tokens_expiry ON jwt_used_tokens (expires_at);
+
+CREATE TABLE IF NOT EXISTS jwt_synced_members (
+  group_id  TEXT NOT NULL,
+  user_id   TEXT NOT NULL,
+  synced_at TEXT NOT NULL,
+  PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS jwt_synced_grants (
+  role_id   TEXT NOT NULL,
+  user_id   TEXT NOT NULL,
+  synced_at TEXT NOT NULL,
+  PRIMARY KEY (role_id, user_id)
+);
+
+-- A verified external identity waiting for the signed-in person to confirm
+-- the link on /auth/jwt/link: the SHA-256 of the browser's handle, never the
+-- handle; five minutes, used once.
+CREATE TABLE IF NOT EXISTS jwt_link_pending (
+  handle_hash    TEXT PRIMARY KEY,
+  subject        TEXT NOT NULL,
+  email          TEXT NOT NULL,
+  email_verified INTEGER NOT NULL,
+  expires_at     TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO schema_meta (component, version, updated_at) VALUES ('auth', 1, '1970-01-01T00:00:00.000Z');

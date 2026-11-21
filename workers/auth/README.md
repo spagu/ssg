@@ -51,7 +51,9 @@ Google, Microsoft, Apple, GitHub, Facebook — each switched on by its own
 variables, chosen by each person next to (or instead of) the password, for
 invited people only ([providers](docs/PROVIDERS.md)); Cloudflare Access as one
 more way to sign in — identity from Access, permissions from `auth` — with
-optional group mapping ([Access](docs/ACCESS.md)); a second factor —
+optional group mapping ([Access](docs/ACCESS.md)); short JWTs from a login
+system the site already runs, exchanged once for a session, with optional
+role mapping ([external JWT](docs/EXTERNAL-JWT.md)); a second factor —
 authenticator apps (TOTP), one-time backup codes and passkeys — switched on by
 one secret (`AUTH_MFA_KEY`), required by default for `owner` and any role that
 can erase, send or administer, with step-up before sensitive changes and a
@@ -64,6 +66,23 @@ Other workers accept these sessions through one file they copy, the
 [portable verifier](#accepting-these-sessions-in-another-worker): `comments`,
 `newsletter`, `newsletter-ui` and `core` for people, `web-push` and
 `republish-trigger` for service tokens.
+
+## Using an existing identity system
+
+If the site already has its own login, `auth` can accept those people
+without a second set of passwords. What is supported:
+
+| Your system | How | Document |
+|---|---|---|
+| Speaks OAuth 2.0 / OpenID Connect as Google, Microsoft, Apple, GitHub or Facebook | a login provider | [PROVIDERS.md](docs/PROVIDERS.md) |
+| Sits behind Cloudflare Access | the Access bridge | [ACCESS.md](docs/ACCESS.md) |
+| Issues its own signed JWTs (RS*, PS*, ES*, EdDSA; HS* by explicit opt-in) | `POST /api/auth/jwt`: the token is exchanged once for a normal `auth` session | [EXTERNAL-JWT.md](docs/EXTERNAL-JWT.md) |
+
+What is **not** supported: a generic OpenID Connect provider by discovery
+URL, SAML, LDAP, RFC 8693 token exchange, and panels that accept the other
+system's tokens directly. `editor-ui`, `designer-ui`, `core` and the other
+modules accept only `auth` sessions ([CONTRACT.md](docs/CONTRACT.md)), so
+`auth` stays the one place that owns sessions, permissions and revocation.
 
 **Not built** (no dates promised): passwordless sign-in with a passkey alone
 (a passkey is a second factor here), sign-in for the site's visitors, and one
@@ -154,6 +173,7 @@ two opt-ins and their risks, in [ACCESS.md](docs/ACCESS.md).
 | [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) | assets, attackers, trust boundaries, what is out of scope (and how same-origin XSS meets these cookies) |
 | [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md) | the 1.9.9 security review: every attempt, every finding with its severity, fix and regression test |
 | [docs/PROVIDERS.md](docs/PROVIDERS.md) | signing in with Google, Microsoft, Apple, GitHub or Facebook: registering the app at each, the redirect URI, variables, quirks; who gets in; narrowing by domain and per role |
+| [docs/EXTERNAL-JWT.md](docs/EXTERNAL-JWT.md) | signing in with a JWT from a login system the site already runs: the token's claims, keys and algorithms (the HS256 trade-off), who gets in, role mapping, single use, CSRF and form origins |
 | [docs/ACCESS.md](docs/ACCESS.md) | Cloudflare Access as a sign-in method: which path goes behind Access, the bypass for the public parts, who gets in, linking by address and auto-provisioning (off, and why), group mapping, sign-out |
 | [docs/CONTRACT.md](docs/CONTRACT.md) | what another worker needs to accept these sessions |
 | [docs/SECOND-FACTOR.md](docs/SECOND-FACTOR.md) | the second factor: authenticator apps, backup codes, passkeys; which roles need it (`AUTH_MFA_ROLES`); step-up; recovery and break-glass; `AUTH_MFA_KEY` and its rotation |
@@ -277,6 +297,7 @@ Secrets (`wrangler pages secret put`):
 | `AUTH_APPLE_PRIVATE_KEY` | Sign in with Apple: the `.p8` key's text |
 | `AUTH_MFA_KEY` | switches the second factor on and encrypts the authenticator secrets (at least 32 characters) — [second factor](docs/SECOND-FACTOR.md) |
 | `AUTH_MFA_KEY_PREVIOUS` | the previous `AUTH_MFA_KEY` during a rotation |
+| `AUTH_JWT_SECRET` | an external JWT issuer's HMAC key (at least 32 bytes), only with `AUTH_JWT_ALGORITHMS=HS256` (or HS384/HS512) — [external JWT](docs/EXTERNAL-JWT.md) |
 | `AUTH_MFA_RESET_TOKEN` | one-time break-glass for a sole owner who lost every factor (at least 32 characters); delete it afterwards |
 | `AUTH_RESEND_API_KEY` / `AUTH_MAILCHANNELS_API_KEY` / `AUTH_SMTP_PASSWORD` | optional mail transport for invitations and reset links ([Mail](docs/PAGES.md#mail)) |
 
@@ -310,6 +331,16 @@ Vars (all optional):
 | `AUTH_ACCESS_LINK_BY_EMAIL` | `off` | `on`: an unlinked Access identity enters the existing account with its address (read the risk first) |
 | `AUTH_ACCESS_AUTO_CREATE` / `AUTH_ACCESS_DEFAULT_ROLE` | `off` / — | `on`: an unknown Access identity gets an account with that one role (never owner, a wildcard or a sensitive permission) |
 | `AUTH_ACCESS_ALLOWED_DOMAINS` | — | only addresses in these domains, for Access |
+| `AUTH_JWT_ISSUER` / `AUTH_JWT_AUDIENCE` | — | an external JWT issuer is a way to sign in ([external JWT](docs/EXTERNAL-JWT.md)), with exactly one key source: `AUTH_JWT_JWKS_URL`, `AUTH_JWT_PUBLIC_KEY` or the secret; anything half set is `503` |
+| `AUTH_JWT_ALGORITHMS` | every asymmetric one | comma-separated; HS* only with `AUTH_JWT_SECRET`, never next to a public key |
+| `AUTH_JWT_MAX_AGE_SECONDS` | `300` | the oldest `iat` accepted |
+| `AUTH_JWT_IDENTITY_CLAIM` / `AUTH_JWT_EMAIL_VERIFIED` | `sub` / `required` | `email`: the verified address is the identity |
+| `AUTH_JWT_UNKNOWN` | `reject` | `invite`: an open invitation for the address; `create`: an account with no role |
+| `AUTH_JWT_ROLES_CLAIM` / `AUTH_JWT_ROLE_MAP` | `roles` / — | JSON `{"<external role>": {"roles": […], "groups": […]}}`; never the owner role |
+| `AUTH_JWT_ALLOW_ADMIN_ROLES` | `off` | `on`: the mapping may reach a role with an administrative permission; without it such a mapping is `503` |
+| `AUTH_JWT_FORM_ORIGINS` | — | origins whose pages may post the token as a plain form |
+| `AUTH_JWT_ALLOWED_DOMAINS` | — | only verified addresses in these domains, for the external issuer |
+| `AUTH_JWT_LINK_URL` | — | `https://` page of the issuer that signs a token and posts it to `/api/auth/jwt/link`: the account page's **Connect** button |
 | `AUTH_LOGIN_URL` | `/auth/login` | where a failed form login is sent back |
 | `AUTH_AFTER_LOGIN_URL` | `/` | where a form login goes without `next` |
 | `AUTH_KNOWN_PERMISSIONS` | — | JSON array of modules and the permissions they declare ([registry](docs/PERMISSIONS.md#the-registry-of-known-permissions)); `"panel"` and `"title"` on an entry give "Your panels" a link |
@@ -333,8 +364,9 @@ and the views `owner_holders`, `active_owners` (version 2), `invitations` and
 `session_methods` and `auth_events` (login providers and the audit log),
 `access_group_map`, `access_synced_members` and `access_seen_groups`
 (Cloudflare Access), `mfa_factors`, `mfa_backup_codes`, `mfa_pending`,
-`mfa_challenges` and `mfa_reset_tokens` (the second factor; new tables need no
-version) — see
+`mfa_challenges` and `mfa_reset_tokens` (the second factor), `jwt_used_tokens`,
+`jwt_synced_grants` and `jwt_synced_members` (the external JWT issuer; new
+tables need no version) — see
 `schema.sql`. Nothing is stored in clear that could log someone in: passwords
 are PBKDF2 hashes, refresh tokens, one-time link tokens and service-token secrets SHA-256 hashes, IP and User-Agent salted
 hashes (only with `AUTH_HASH_SALT`). A test runs a full flow and scans every
@@ -385,4 +417,14 @@ sensitive change, the audit log (filters, paging, CSV formula guard,
 retention), the panel's logic modules, its strings in five languages, its
 colour contrast in both themes and its shell (CSP, meta tags, files);
 `test/admin-shots.mjs` and `test/admin-walk.mjs` drive it in a browser
-([PANEL.md](docs/PANEL.md#previews-and-checks)).
+([PANEL.md](docs/PANEL.md#previews-and-checks)). The external JWT tests
+(`external-*.test.ts`, against a scripted issuer in `test/external-fake.ts`)
+cover every accepted algorithm from a JWK, a JWK Set and a PEM key; `alg:
+none`, an algorithm off the list, HS256 signed with the public key, `crit`,
+`jku`/`jwk` headers, wrong or missing `kid`, keys of the wrong family or size;
+wrong `iss`/`aud`, expired, not yet valid, too old, missing `jti`, a replayed
+`jti`; a JWKS that fails, answers nothing or rotates; the configuration
+checks; each unknown-person policy, both identity claims, the role mapping
+(added, taken back, manual grants kept, the owner role unreachable); the CSRF
+rule with form origins, safe redirects, the lockout, the second factor, the
+audit trail, and the route answering `404` while switched off.

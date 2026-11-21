@@ -21,7 +21,7 @@ host. Sign-in modes are explained [below](#admin-sign-in-which-mode-to-choose).
 
 | Template | What it does | Runs as | Admin panel and sign-in | Read more |
 |---|---|---|---|---|
-| `auth` | Accounts with passwords or login providers, revocable sessions, and short signed tokens the other workers verify with a public key | Pages Function | `/auth/admin/`; its own accounts: a password per person, Google, Microsoft, Apple, GitHub, Facebook or Cloudflare Access | [README](../workers/auth/README.md), [ADMIN-GUIDE.md](ADMIN-GUIDE.md) |
+| `auth` | Accounts with passwords, login providers or signed tokens from a login system the site already runs, revocable sessions, and short signed tokens the other workers verify with a public key | Pages Function | `/auth/admin/`; its own accounts: a password per person, Google, Microsoft, Apple, GitHub, Facebook, Cloudflare Access or an external JWT issuer | [README](../workers/auth/README.md), [ADMIN-GUIDE.md](ADMIN-GUIDE.md) |
 | `comments` | Reader comments in D1, protected by Turnstile and held for moderation | Pages Function | `/comments-admin.html`; Access, `auth` or password | [README](../workers/comments/README.md) |
 | `contact-form` | Receives a contact or job-application form, checks Turnstile, sends it by email through Resend or MailChannels | Pages Function | none | [README](../workers/contact-form/README.md) |
 | `conversions-proxy` | Relays conversion events to the Meta Conversions API; the token stays on the server, the email address is hashed | Pages Function | none | [README](../workers/conversions-proxy/README.md) |

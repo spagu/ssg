@@ -54,6 +54,22 @@
 # AUTH_ACCESS_AUTO_CREATE = "off"        # "on": an unknown Access identity gets an account with the default role only
 # AUTH_ACCESS_DEFAULT_ROLE = ""          # that role's name — never owner, a wildcard or a sensitive permission (503 otherwise)
 # AUTH_ACCESS_ALLOWED_DOMAINS = ""       # only addresses in these domains, e.g. "example.com"
+# An external JWT issuer — a login system the site already runs (docs/EXTERNAL-JWT.md). Off until set.
+# AUTH_JWT_ISSUER = ""                   # its exact `iss`, e.g. "https://id.example.com"
+# AUTH_JWT_AUDIENCE = ""                 # the `aud` it puts in tokens for this site
+# AUTH_JWT_JWKS_URL = ""                 # its JWK Set (https) — or AUTH_JWT_PUBLIC_KEY, or the AUTH_JWT_SECRET secret
+# AUTH_JWT_PUBLIC_KEY = ""               # a JWK, a JWK Set or a PEM public key, instead of the URL
+# AUTH_JWT_ALGORITHMS = ""               # default: RS256,RS384,RS512,PS256,PS384,PS512,ES256,ES384,ES512,EdDSA; HS* only with the secret
+# AUTH_JWT_MAX_AGE_SECONDS = "300"       # the oldest `iat` accepted
+# AUTH_JWT_IDENTITY_CLAIM = "sub"        # "sub" or "email"
+# AUTH_JWT_EMAIL_VERIFIED = "required"   # "off": trust an address without email_verified: true
+# AUTH_JWT_UNKNOWN = "reject"            # "invite": an open invitation for the address; "create": an account with no role
+# AUTH_JWT_ROLES_CLAIM = "roles"         # the claim with the person's roles (array or space-separated)
+# AUTH_JWT_ROLE_MAP = ""                 # JSON {"<external role>": {"roles": ["<role>"], "groups": ["<group>"]}}
+# AUTH_JWT_ALLOW_ADMIN_ROLES = "off"     # "on": the mapping may give roles with auth:…, an erase, a wildcard (trust the issuer with administration)
+# AUTH_JWT_FORM_ORIGINS = ""             # origins whose pages may post the token as a form, e.g. "https://id.example.com"
+# AUTH_JWT_ALLOWED_DOMAINS = ""          # only addresses in these domains
+# AUTH_JWT_LINK_URL = ""                 # https page of the issuer that posts a token to /api/auth/jwt/link (the account page's Connect button)
 # The second factor (docs/SECOND-FACTOR.md) — on once the secret AUTH_MFA_KEY is set.
 # AUTH_MFA_ROLES = ""                    # JSON, e.g. {"newsletter-editor": false}: override which roles need a second factor
 # AUTH_STEP_UP_MINUTES = "10"            # how recent a second factor must be for sensitive changes
@@ -80,3 +96,4 @@
 #   AUTH_MFA_KEY           optional — turns the second factor on and encrypts the TOTP secrets (`openssl rand -base64 32`, ≥ 32 characters)
 #   AUTH_MFA_KEY_PREVIOUS  optional — the previous AUTH_MFA_KEY during a rotation
 #   AUTH_MFA_RESET_TOKEN   optional — one-time break-glass for a sole owner who lost every factor; delete it afterwards
+#   AUTH_JWT_SECRET        optional — an external issuer's HMAC key (≥ 32 bytes), only with AUTH_JWT_ALGORITHMS = "HS256"

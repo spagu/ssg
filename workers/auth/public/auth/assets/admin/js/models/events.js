@@ -5,7 +5,7 @@
 import { byCodeUnit } from "./perms.js";
 
 export const EVENT_GROUPS = {
-  signin: ["signin", "signin_refused", "invitation_accepted", "account_created", "groups_synced"],
+  signin: ["signin", "signin_refused", "invitation_accepted", "account_created", "groups_synced", "roles_synced"],
   methods: ["method_linked", "method_unlinked", "password_set", "reset_link_issued"],
   factor: ["mfa_enrolled", "mfa_removed", "mfa_passed", "mfa_failed", "mfa_backup_code_used", "mfa_backup_codes_regenerated", "mfa_reset"],
   admin: ["account_blocked", "account_unblocked", "account_deleted", "grant_added", "grant_removed", "member_added", "member_removed", "role_created", "role_changed", "role_deleted", "group_deleted", "access_mapping_added", "access_mapping_removed", "invitation_sent", "invitation_revoked"],

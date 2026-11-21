@@ -54,13 +54,14 @@ except Exception:
     print('')
 ")
   if [ -z "$ID" ]; then
-    ID=$(curl -fsS "$BASE/api/shop/admin/products" -H "$AUTH" | python3 -c "
+    LIST=$(curl -fsS "$BASE/api/shop/admin/products" -H "$AUTH")
+    ID=$(printf '%s' "$LIST" | python3 -c "
 import json,sys
 for p in json.load(sys.stdin)['products']:
-    if p['sku'] == '$SKU':
+    if p['sku'] == sys.argv[1]:
         print(p['id'])
         break
-")
+" "$SKU")
   fi
 
   curl -fsS -o /dev/null -X POST "$BASE/api/shop/admin/products/$ID/file" \
@@ -73,7 +74,8 @@ done
 
 say ""
 say "Done. The shop now sells two books:"
-curl -fsS "$BASE/api/shop/products" | python3 -c "
+PRODUCTS=$(curl -fsS "$BASE/api/shop/products")
+printf '%s' "$PRODUCTS" | python3 -c "
 import json,sys
 for p in json.load(sys.stdin)['products']:
     price = next(iter(p['prices'].items()), ('EUR', 0))

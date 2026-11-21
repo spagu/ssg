@@ -12,6 +12,7 @@
 // second factor's section (_mfa-pages-account.ts) when it is on.
 
 import { accessErrorText } from "./_access-i18n";
+import { externalErrorText } from "./_external-i18n";
 import type { Ctx } from "./_context";
 import { listOwnSessions } from "./_account";
 import { STRINGS, fill, langOf, when } from "./_i18n";
@@ -46,7 +47,7 @@ export async function accountPage(ctx: Ctx): Promise<Response> {
   // that field, the password rules to the new one, anything else on top.
   const current = error === "invalid_credentials" ? t.errCurrentPassword : undefined;
   const rule = error && PASSWORD_ERRORS.has(error) ? errorText(t, error, r) : undefined;
-  const message = current ?? rule ?? (accessErrorText(lang, error) || errorText(t, error, r));
+  const message = current ?? rule ?? (accessErrorText(lang, error) || externalErrorText(lang, error) || errorText(t, error, r));
   const ok = okText(t, q.get("ok"));
   const sessions = await listOwnSessions(ctx.env, who.user.id, who.session.id, ctx.now);
   const u = who.user;

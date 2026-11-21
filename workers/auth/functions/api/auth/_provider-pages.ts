@@ -24,6 +24,7 @@ import type { SignInMethod } from "./_provider-methods";
 import { esc, field, hidden, usernameFor } from "./_pages";
 import { accessLinkButton } from "./_access-pages";
 import { ACCESS_METHOD } from "./_access-config";
+import { externalLinkButton } from "./_external-pages";
 import type { Rules } from "./_pages-errors";
 
 export const providersOf = (methods: SignInMethod[]): SignInMethod[] => methods.filter((m) => m.provider);
@@ -74,9 +75,11 @@ export function methodsSection(v: MethodsView, who: Who, lang: Lang, t: Strings,
   const available = methods.filter((m) => m.provider && v.available.some((a) => a.id === m.id));
   // GO-139: "Connect Cloudflare Access" is a link to its own confirmation page.
   const access = v.available.some((a) => a.id === ACCESS_METHOD) ? accessLinkButton(lang) : "";
-  if (available.length || access) {
+  // #435: "Connect <issuer>" is a link to the issuer's own page.
+  const jwt = v.available.flatMap((a) => (a.linkUrl ? [externalLinkButton(lang, a.name, a.linkUrl)] : [])).join("");
+  if (available.length || access || jwt) {
     parts.push(`<section class="card" aria-labelledby="add-title"><h2 id="add-title">${esc(t.addMethodHeading)}</h2><p>${esc(fill(t.addMethodLead, { minutes: v.recentMinutes }))}</p>
-${available.length ? providerButtons(available, t, { purpose: "link" }) : ""}${access}</section>`);
+${available.length ? providerButtons(available, t, { purpose: "link" }) : ""}${access}${jwt}</section>`);
   }
   if (!v.password && passwordOn) {
     parts.push(`<section class="card" aria-labelledby="setpw-title"><h2 id="setpw-title">${esc(t.setPasswordHeading)}</h2><p>${esc(t.setPasswordLead)}</p>

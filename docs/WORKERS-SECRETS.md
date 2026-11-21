@@ -85,6 +85,7 @@ and `core` (both Pages Functions: `wrangler pages secret put`):
 | `auth` | `AUTH_MFA_KEY` (secret) | switches the second factor on and encrypts the authenticator secrets; `AUTH_MFA_KEY_PREVIOUS` during a rotation, `AUTH_MFA_RESET_TOKEN` for a sole owner's break-glass |
 | `auth` | `AUTH_HASH_SALT`, `AUTH_TURNSTILE_SECRET` (secrets) | salted IP/User-Agent hashes; Turnstile after repeated failures |
 | `auth` | `AUTH_<PROVIDER>_CLIENT_SECRET`, `AUTH_APPLE_PRIVATE_KEY` (secrets) with `AUTH_<PROVIDER>_CLIENT_ID` (vars) | sign-in through Google, Microsoft, GitHub, Facebook, Apple |
+| `auth` | `AUTH_JWT_ISSUER` + `AUTH_JWT_AUDIENCE` with `AUTH_JWT_JWKS_URL` or `AUTH_JWT_PUBLIC_KEY` (vars), or `AUTH_JWT_SECRET` (secret, at least 32 bytes, HS256 only) | sign-in with a JWT from a login system the site already runs, exchanged at `POST /api/auth/jwt` ([EXTERNAL-JWT.md](../workers/auth/docs/EXTERNAL-JWT.md)) |
 | `auth` | `AUTH_RESEND_API_KEY`, `AUTH_MAILCHANNELS_API_KEY` or `AUTH_SMTP_PASSWORD` (secrets) with `AUTH_MAIL_FROM` | invitation and reset mail; without a transport the link is shown to the administrator |
 
 Every `auth` variable is in the "Configuration" section of

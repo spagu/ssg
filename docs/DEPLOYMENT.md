@@ -20,6 +20,14 @@ Pages redirects (`/404.html` → `/404`) to a `200` "not found" page, which
 Search Console reports as a soft 404. A theme can test `.Page.IsNotFound` to
 mark it `noindex` and leave out canonical, hreflang and `og:url`; with
 `seo: true` the injected block already does.
+It is left out of `llms.txt` and `site-graph.json` by the same rule (#433);
+`routes.json` still lists the route.
+
+The preview behaves like such a host (#432): `ssg --http` answers a path it has
+no file for with status `404` and the body of `404.html` (`text/html`), HEAD
+included. Under `base_path` that is the site's own page for any missing path
+inside the prefix; a path outside it gets the plain-text `404 page not found`,
+as it does when the output has no `404.html`.
 
 ## Production build
 

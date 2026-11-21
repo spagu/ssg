@@ -18,7 +18,8 @@
 // is how GO-134's invitations and password_resets (_invites-schema.ts) join,
 // and GO-151's identities, oauth_flows, session_methods and their triggers
 // (_provider-schema.ts) and auth_events (_audit.ts), and GO-139's Access group
-// mapping (_access-schema.ts), and GO-138's signing_keys (_admin-keys.ts); a version is for
+// mapping (_access-schema.ts), and GO-138's signing_keys (_admin-keys.ts), and #435's used token ids and
+// synchronised grants (_external-schema.ts); a version is for
 // changing what already exists (an ALTER, a seed).
 //
 // Tables (schema version 1):
@@ -41,6 +42,7 @@ import { AUDIT_TABLES } from "./_audit";
 import { ACCESS_TABLES } from "./_access-schema";
 import { MFA_TABLES } from "./_mfa-schema";
 import { KEY_TABLES } from "./_admin-keys";
+import { EXTERNAL_TABLES } from "./_external-schema";
 
 export const COMPONENT = "auth";
 export const BASE_VERSION = 1;
@@ -96,6 +98,7 @@ export const TABLES = [
   ...ACCESS_TABLES,
   ...MFA_TABLES,
   ...KEY_TABLES,
+  ...EXTERNAL_TABLES,
 ];
 
 export interface Migration {

@@ -35,10 +35,11 @@ export async function defaultRole(env: Env, s: AccessSetup): Promise<{ roleId: s
   return { roleId: role.id };
 }
 
-// createAccessAccount makes the account, its Access identity and its one
-// grant in one batch; null when the address or the identity was taken
-// meanwhile (a concurrent sign-in or invitation).
-export async function createAccessAccount(env: Env, id: Identity, roleId: string, now: number): Promise<string | null> {
+// createAccessAccount makes the account, its identity of `method` (Access,
+// or an external issuer's, #435) and its one grant — none when roleId is null
+// — in one batch; null when the address or the identity was taken meanwhile
+// (a concurrent sign-in or invitation).
+export async function createAccessAccount(env: Env, id: Identity, roleId: string | null, now: number, method = ACCESS_METHOD): Promise<string | null> {
   const db = env.AUTH_DB;
   const userId = crypto.randomUUID();
   const at = iso(now);
@@ -50,10 +51,14 @@ export async function createAccessAccount(env: Env, id: Identity, roleId: string
            VALUES (?, ?, '', NULL, 'active', 0, ?, ?)`,
         )
         .bind(userId, id.email, at, at),
-      identityInsert(env, userId, ACCESS_METHOD, id, now),
-      db
-        .prepare("INSERT INTO grants (id, role_id, user_id, group_id, granted_by, granted_at) SELECT ?, id, ?, NULL, NULL, ? FROM roles WHERE id = ?")
-        .bind(crypto.randomUUID(), userId, at, roleId),
+      identityInsert(env, userId, method, id, now),
+      ...(roleId === null
+        ? []
+        : [
+            db
+              .prepare("INSERT INTO grants (id, role_id, user_id, group_id, granted_by, granted_at) SELECT ?, id, ?, NULL, NULL, ? FROM roles WHERE id = ?")
+              .bind(crypto.randomUUID(), userId, at, roleId),
+          ]),
     ]);
   } catch (e) {
     if (isUnique(e)) return null;

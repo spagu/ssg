@@ -13,6 +13,11 @@ password is a method like the others: `AUTH_PASSWORD_LOGIN=off` removes it. At
 least one method must stay: with none, every route that needs the database
 answers `503 no_sign_in_method` and says which variables to set.
 
+A login system the site already runs, which issues plain JWTs rather than
+speaking OAuth/OIDC to this worker, is a separate method:
+[EXTERNAL-JWT.md](EXTERNAL-JWT.md). Cloudflare Access is another:
+[ACCESS.md](ACCESS.md).
+
 ## How it works
 
 1. A provider button is a plain form to `POST /api/auth/oauth/<provider>/start`.

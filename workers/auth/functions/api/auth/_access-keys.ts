@@ -6,30 +6,17 @@
 // goes through providerFetch: https only, that host only, no redirect, a time
 // and a size limit. Only RSA keys for RS256 are kept.
 //
-// Freshness without hammering the team, and without failing open:
-//   - keys younger than TTL are used as they are;
-//   - an unknown key id (Access rotated its keys) or an older cache asks again,
-//     but at most once per COOL_DOWN — a stream of tokens with made-up key ids
-//     cannot turn into a stream of requests to Cloudflare;
-//   - when asking fails, the keys already held keep working for up to
-//     MAX_STALE (a short outage of the certs endpoint does not lock everyone
-//     out); with none usable the answer is "unavailable" and the sign-in is
-//     refused — never accepted unchecked.
-// Concurrent requests of one isolate share a single fetch.
+// Freshness, the cool-down and the stale limit are _key-cache.ts's, shared
+// with the external issuer's JWKS (#435).
 
+import { cachedKeys } from "./_key-cache";
+import type { KeyCache, KeyTimes } from "./_key-cache";
 import { okJson, providerFetch } from "./_provider-fetch";
 
-export const accessKeyTimes = { ttlMs: 60 * 60_000, coolDownMs: 60_000, maxStaleMs: 24 * 60 * 60_000 };
-
-interface Entry {
-  keys: Map<string, CryptoKey>;
-  fetchedAt: number; // 0 = never fetched successfully
-  triedAt: number;
-  pending: Promise<void> | null;
-}
+export const accessKeyTimes: KeyTimes = { ttlMs: 60 * 60_000, coolDownMs: 60_000, maxStaleMs: 24 * 60 * 60_000 };
 
 // Exported for the tests (they clear it between cases).
-export const accessKeyCache = new Map<string, Entry>();
+export const accessKeyCache: KeyCache<Map<string, CryptoKey>> = new Map();
 
 export const certsUrl = (host: string): string => `https://${host}/cdn-cgi/access/certs`;
 
@@ -66,31 +53,9 @@ async function fetchKeys(host: string): Promise<Map<string, CryptoKey> | null> {
   return out;
 }
 
-function entryOf(host: string): Entry {
-  let e = accessKeyCache.get(host);
-  if (!e) {
-    e = { keys: new Map(), fetchedAt: 0, triedAt: Number.NEGATIVE_INFINITY, pending: null };
-    accessKeyCache.set(host, e);
-  }
-  return e;
-}
-
 // accessKey: the key `kid` of the team at `host`; null when the team does not
 // have it; "unavailable" when no usable keys could be had.
 export async function accessKey(host: string, kid: string, now: number): Promise<CryptoKey | null | "unavailable"> {
-  const e = entryOf(host);
-  if (now - e.fetchedAt < accessKeyTimes.ttlMs && e.keys.has(kid)) return e.keys.get(kid) as CryptoKey;
-  if (e.pending === null && now - e.triedAt >= accessKeyTimes.coolDownMs) {
-    e.triedAt = now;
-    e.pending = fetchKeys(host).then((fresh) => {
-      if (fresh) {
-        e.keys = fresh;
-        e.fetchedAt = now;
-      }
-      e.pending = null;
-    });
-  }
-  if (e.pending !== null) await e.pending;
-  if (!e.keys.size || now - e.fetchedAt >= accessKeyTimes.maxStaleMs) return "unavailable";
-  return e.keys.get(kid) ?? null;
+  const keys = await cachedKeys({ cache: accessKeyCache, id: host, times: accessKeyTimes, fetch: () => fetchKeys(host), has: (k) => k.has(kid) }, now);
+  return keys === "unavailable" ? keys : (keys.get(kid) ?? null);
 }

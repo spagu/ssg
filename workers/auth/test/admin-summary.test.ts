@@ -20,8 +20,8 @@ test("summary: accounts, invitations, sessions, missing factors; key, factor and
 });
 
 test("summary: every configuration problem, and none with a healthy setup", async () => {
-  const bad = await (await summaryAnswer({ AUTH_MFA_KEY: "short", AUTH_ACCESS_TEAM: "only-half" })).json();
-  assert.deepEqual(bad.problems.map((p: { code: string }) => p.code), ["mail_broken", "mfa_key_short", "access_misconfigured"]);
+  const bad = await (await summaryAnswer({ AUTH_MFA_KEY: "short", AUTH_ACCESS_TEAM: "only-half", AUTH_JWT_ISSUER: "https://id.example.com" })).json();
+  assert.deepEqual(bad.problems.map((p: { code: string }) => p.code), ["mail_broken", "mfa_key_short", "access_misconfigured", "jwt_misconfigured"]);
   // An unreadable policy would also take the admin's own role out of the
   // token, so this one is read from the function itself.
   const { authSummary } = await import("../functions/api/auth/_admin-summary.ts");

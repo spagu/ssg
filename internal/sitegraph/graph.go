@@ -88,9 +88,11 @@ type Page struct {
 	// views need it (routes.json publishes it, as it always has), the public
 	// artifact does not carry it.
 	Source string `json:"-"`
-	// Hidden marks a page the site keeps out of search: noindex, sitemap: no,
-	// a redirect or the 404 page. Internal, like Source: llms.txt leaves such
-	// pages out, so agents are not sent where crawlers were told not to go (#393).
+	// Hidden marks a page the site keeps out of search, by the sitemap's own
+	// rule: noindex (front matter or rendered), sitemap: no, a redirect or the
+	// 404 page. Internal, like Source: llms.txt (#393) and the published graph
+	// (#433) leave such pages out, so agents are not sent where crawlers were
+	// told not to go; routes.json still lists the route.
 	Hidden bool `json:"-"`
 }
 

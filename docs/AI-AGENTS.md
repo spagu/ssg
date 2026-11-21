@@ -24,6 +24,16 @@ With this on, every page is published a second time as clean Markdown:
 Pages the site keeps out of search are left out of all four. That means
 `robots: noindex`, `sitemap: no`, redirects and the 404 page, the same rule as
 the sitemap (1.9.0). Agents are not sent where crawlers were told not to go.
+`llms.txt` also reads the rendered HTML, as the sitemap does: a page that only
+its theme marks `noindex` is not listed there either, though its copy is
+written.
+
+**Which copy is canonical.** The two files hold the same bytes. `llms.txt`, the
+`<head>` link and `outputs.markdown` in `site-graph.json` all point at the
+directory form, `/<page>/index.md`. The flat `/<page>.md` exists only so that a
+URL typed without its trailing slash still finds the Markdown. It has no switch
+of its own: it is written whenever the directory copy is, except for the site
+root, which has no slug to hang it on.
 
 The published copy is the Markdown you wrote — an H1 title followed by the body
 — not an HTML→Markdown round-trip, so nothing is lost or re-guessed. Listing
@@ -171,6 +181,12 @@ result once it has validated it. The graph keeps them.
 manifests cannot drift from each other, and their bytes did not change when
 the source of truth moved (the golden corpora are the proof). `search-index.json`
 stays a text index; its metadata agrees with the graph, its text is its own.
+
+**Which pages.** `pages` lists the site's content, by the sitemap's rule: the
+404 page, `robots: noindex` (in front matter or in the rendered HTML),
+`sitemap: no` and redirect pages are left out, as they are from `sitemap.xml`
+and `llms.txt`. Links *from* such a page still appear under `links`, because
+the file is published; `routes.json` still lists the route.
 
 **What is in it, and what is not.** Everything in the artifact is something the
 published HTML already reveals. What a page was rendered *from* — its source

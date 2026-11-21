@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.12] - 2026-11-21
+
+### Security
+
+- **The ssg Docker image is built with the current `golang` image digest**
+  (#434).
+- **`examples/ebook-shop/scripts/seed.sh` no longer pipes a download straight
+  into an interpreter.** Each API response is stored first and then parsed,
+  and the SKU reaches Python as an argument instead of being spliced into its
+  source. This closes two OpenSSF Scorecard "pinned dependencies" alerts.
+
+- **External JWTs are checked strictly in `auth` (#435).** A token must
+  carry `exp`, `iat` (no older than 5 minutes by default), `iss`, `aud` and a
+  `jti` that works only once. `alg: none`, algorithms outside the configured
+  list, and HS256 next to a public key are refused (RFC 8725). The key comes
+  from configuration only, never from the token's `jku`/`jwk` headers. Failed
+  tokens count against a per-IP lockout, and a role that needs a second
+  factor still asks for it. A role mapping that reaches a role with an
+  administrative permission (`*`, `auth:…`, an erase, a wildcard), directly or
+  through a group, stops the method with `503 jwt_misconfigured` unless
+  `AUTH_JWT_ALLOW_ADMIN_ROLES=on`.
+
+### Added
+
+- **`auth` signs people in with a JWT from a login system the site already
+  runs (#435).** `POST /api/auth/jwt` checks the token once and turns it into
+  a normal `auth` session: listed in the admin panel, revocable, and audited
+  as `jwt:<issuer>`. It is off until `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE`
+  and one key source (a JWKS URL, a static public key, or an HS256 secret of
+  at least 32 bytes) are set. Unknown people are refused by default
+  (`AUTH_JWT_UNKNOWN=invite` or `create` changes that), and
+  `AUTH_JWT_ROLE_MAP` maps the issuer's roles claim to `auth` roles and
+  groups. Each sign-in adds and removes only what the mapping gave, never the
+  owner role, and audits it as `roles_synced`. See
+  `workers/auth/docs/EXTERNAL-JWT.md` and the new "Using an existing identity
+  system" section of the `auth` README. The module manifest is 1.4.0.
+- **An existing `auth` account can connect its identity at the external
+  issuer (#435).** With `AUTH_JWT_LINK_URL` set, the account page shows
+  **Connect <issuer>**, a link to the issuer's page. That page posts a token
+  to `POST /api/auth/jwt/link`, which checks it like a sign-in but links
+  nothing. The signed-in person then confirms on `/auth/jwt/link`, a form of
+  this origin only, with a recent sign-in (or a recent second factor). The
+  waiting identity lives five minutes and works once, and the link is
+  audited as `method_linked`.
+- **The login and account pages explain the external JWT refusals (#435).**
+  `jwt_failed`, `jwt_unavailable`, `jwt_not_linked`, `jwt_email_unusable` and
+  `jwt_link_expired` have a sentence of their own in English and Polish; the
+  other languages keep the generic text.
+
+### Changed
+
+- **The Cloudflare Access bridge and the external issuer share one key
+  cache, one sign-in path and one group-sync helper** in `auth`. Access
+  behaves as before (#435).
+- **ssgtheme: shorter, grouped docs sidebar and a wider desktop page.** A
+  `docs_nav_groups` entry may name `headings` (slug → text), which splits the
+  sidebar's list under small headings, and `variables.docs_nav_labels` (slug →
+  text) gives a guide a shorter name in the sidebar only; the page keeps its
+  full title. Without either, the sidebar renders as before. From 1280 px the
+  container is 88rem wide instead of 72rem, guides get a 60rem column for
+  their tables and code, and posts a 50rem one with the related-posts column
+  kept at sidebar width. Phones and tablets are unchanged. The docs site uses
+  both: five headings and short names in each section.
+
+- **Docs reorganised: the core generator apart from the workers.** The
+  worker parts of `docs/CONFIGURATION.md` moved to their own pages, and
+  `CONFIGURATION.md` keeps a short paragraph and a link where each was:
+  `endpoints:` → `docs/SERVER-ENDPOINTS.md`; `worker:`/`workers:`,
+  `modules:`/`check_modules` and `web_push:` → `docs/WORKERS-CONFIGURATION.md`
+  (merged with the matching prose from `WORKERS.md`); `admin_theme:` /
+  `check_admin_theme` → `docs/ADMIN-THEME.md`. `docs/WORKERS.md` is now the
+  entry point: a list of all 16 worker templates and the two services
+  (`smtp-relay`, `tts-server`), how each runs, its admin panel and sign-in
+  modes, with links to its README and guide (`ecommerce` was missing from the
+  old list). Its secrets tables moved to `docs/WORKERS-SECRETS.md` and local
+  development, deploying and topologies to `docs/WORKERS-DEPLOYMENT.md`. Every
+  link to a moved section was updated. On the docs site the sidebar and the
+  home page show two groups, "Core guides" and "Workers & modules", and the
+  header has a Workers entry; `ssgtheme` gained an optional
+  `variables.docs_nav_groups` for this (without it, the sidebar and home page
+  render as before).
+
+### Fixed
+
+- **Docs navigation on phones (`ssgtheme`).** Below 1000 px the guide list no
+  longer sits above every guide, forty-odd links before the first line. It
+  folds into a "Documentation / *current page*" bar that stays under the
+  header while scrolling; a tap opens the list as a scrollable overlay with
+  focus on the current guide and the rest of the page inert, and Escape, a
+  tap outside or picking a guide closes it, returning focus to the bar. It is
+  folded before first paint, so the open list never flashes; without
+  JavaScript the list stays open as before. Wide screens are unchanged. Between
+  768 and 1000 px the header's brand no longer runs into the first link.
+
+- **`ssg --http` answers a missing path with the site's `404.html` (#432).**
+  Status 404, body of `<output>/404.html` as `text/html`, HEAD included, as
+  static hosts do. Under `base_path` this applies inside the prefix; without a
+  `404.html` the plain-text 404 stays. With `gzip: true` that response now
+  carries `Content-Encoding: gzip` and its `Cache-Control` (before, the body
+  was compressed and the header missing).
+- **`site-graph.json` leaves out what `sitemap.xml` leaves out (#433).** The
+  404 page, `noindex`, `sitemap: no` and redirect pages are no longer listed,
+  so the 404 page no longer carries a canonical URL that does not exist. The
+  graph, `llms.txt` and the sitemap share one rule, which means `llms.txt`
+  now also skips a page that only the theme's rendered HTML marks `noindex`.
+  `routes.json` still lists every route. `docs/AI-AGENTS.md` now says that
+  `llms.txt` links to `/<page>/index.md` and that the flat `/<page>.md` copy
+  is always written.
+- **`pretty_urls` documented with all its values (#436).** The
+  `docs/CONFIGURATION.md` table and the "Links the host redirects" section
+  described a boolean. They now list `off`/`false`, `strip` and
+  `strip-slash`/`true`, give what each one serves and redirects, and say that
+  the value also decides canonical tags, `og:url`, JSON-LD and sitemap `<loc>`,
+  and that a wrong value raises no warning unless `deploy: cloudflare` is set.
+
+## [1.9.11] - 2026-11-15
+
 ### Security
 
 - **The ssg Docker image runs on Alpine 3.24.4** (was an older 3.24
@@ -86,16 +203,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **ssgtheme: shorter, grouped docs sidebar and a wider desktop page.** A
-  `docs_nav_groups` entry may name `headings` (slug → text), which splits the
-  sidebar's list under small headings, and `variables.docs_nav_labels` (slug →
-  text) gives a guide a shorter name in the sidebar only; the page keeps its
-  full title. Without either, the sidebar renders as before. From 1280 px the
-  container is 88rem wide instead of 72rem, guides get a 60rem column for
-  their tables and code, and posts a 50rem one with the related-posts column
-  kept at sidebar width. Phones and tablets are unchanged. The docs site uses
-  both: five headings and short names in each section.
-
 - **A service token's commits in the designer panel are signed like the
   editor's.** `designer-ui` now authors them `service account <id>` at
   `<id>@service-account.invalid` (before: `service <id>` at
@@ -111,35 +218,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `{"instruments": []}` until the platform has paid (before: left out). The
   field is optional in the protocol and platforms read it back on update;
   nothing to do (GO-187).
-- **Docs reorganised: the core generator apart from the workers.** The
-  worker parts of `docs/CONFIGURATION.md` moved to their own pages, and
-  `CONFIGURATION.md` keeps a short paragraph and a link where each was:
-  `endpoints:` → `docs/SERVER-ENDPOINTS.md`; `worker:`/`workers:`,
-  `modules:`/`check_modules` and `web_push:` → `docs/WORKERS-CONFIGURATION.md`
-  (merged with the matching prose from `WORKERS.md`); `admin_theme:` /
-  `check_admin_theme` → `docs/ADMIN-THEME.md`. `docs/WORKERS.md` is now the
-  entry point: a list of all 16 worker templates and the two services
-  (`smtp-relay`, `tts-server`), how each runs, its admin panel and sign-in
-  modes, with links to its README and guide (`ecommerce` was missing from the
-  old list). Its secrets tables moved to `docs/WORKERS-SECRETS.md` and local
-  development, deploying and topologies to `docs/WORKERS-DEPLOYMENT.md`. Every
-  link to a moved section was updated. On the docs site the sidebar and the
-  home page show two groups, "Core guides" and "Workers & modules", and the
-  header has a Workers entry; `ssgtheme` gained an optional
-  `variables.docs_nav_groups` for this (without it, the sidebar and home page
-  render as before).
-
-### Fixed
-
-- **Docs navigation on phones (`ssgtheme`).** Below 1000 px the guide list no
-  longer sits above every guide, forty-odd links before the first line. It
-  folds into a "Documentation / *current page*" bar that stays under the
-  header while scrolling; a tap opens the list as a scrollable overlay with
-  focus on the current guide and the rest of the page inert, and Escape, a
-  tap outside or picking a guide closes it, returning focus to the bar. It is
-  folded before first paint, so the open list never flashes; without
-  JavaScript the list stays open as before. Wide screens are unchanged. Between
-  768 and 1000 px the header's brand no longer runs into the first link.
 
 ## [1.9.10] - 2026-11-15
 
@@ -7493,7 +7571,7 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.10...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.12...HEAD
 [1.9.10]: https://github.com/spagu/ssg/compare/v1.9.9...v1.9.10
 [1.9.9]: https://github.com/spagu/ssg/compare/v1.9.8...v1.9.9
 [1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8

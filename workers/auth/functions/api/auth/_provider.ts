@@ -16,6 +16,7 @@
 // address, and a display name. Provider tokens never leave identify().
 
 import { ACCESS_METHOD, ACCESS_NAME } from "./_access-config";
+import { JWT_PREFIX } from "./_external-config";
 import { json } from "./_lib";
 import type { Env } from "./_lib";
 export { clientSetup, envVar } from "./_provider-env";
@@ -108,8 +109,10 @@ export function enabledProviders(env: Env): { provider: Provider; setup: Setup }
 // providerName: the brand name of any known provider id (enabled or not), or
 // the id itself — an identity linked before a provider was turned off still
 // shows on the account page. Cloudflare Access (GO-139) is not a provider of
-// this list (no OAuth flow) but is named the same way.
-export const providerName = (id: string): string => PROVIDERS.find((p) => p.id === id)?.name ?? (id === ACCESS_METHOD ? ACCESS_NAME : id);
+// this list (no OAuth flow) but is named the same way; an external JWT
+// issuer (#435, "jwt:<issuer>") by its issuer.
+export const providerName = (id: string): string =>
+  PROVIDERS.find((p) => p.id === id)?.name ?? (id === ACCESS_METHOD ? ACCESS_NAME : id.startsWith(JWT_PREFIX) ? id.slice(JWT_PREFIX.length) : id);
 
 // callbackPath: the one redirect URI per provider, on this host.
 export const callbackPath = (id: string): string => `/api/auth/oauth/${id}/callback`;

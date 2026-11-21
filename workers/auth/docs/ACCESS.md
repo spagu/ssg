@@ -15,6 +15,10 @@ providers. Access says *who* the person is (through the identity provider
 your team uses); `auth` decides *what they may do*, from its own roles and
 groups, and gives them the same session as any other sign-in.
 
+The same idea for a login system the site runs itself, which issues its own
+JWTs: [EXTERNAL-JWT.md](EXTERNAL-JWT.md). The JWKS cache and the account
+logic are shared with this bridge.
+
 ## Plain Access mode or the bridge?
 
 Every worker with a panel (`comments`, `newsletter`, `newsletter-ui`) can
