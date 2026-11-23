@@ -505,10 +505,12 @@
      (dict "P" page "Current" slug "Labels" map). Labels (variables.docs_nav_labels,
      slug → short name) shortens a long title in the sidebar only; the page
      keeps its full title everywhere else. It renders the link only; the caller
-     wraps it in the <li> of its own list, so every list item sits inside its
-     list in the source as well as in the output. The call sites start that
-     <li> in column 0, where the partial used to print it, so the output does
-     not change. */}}
+     wraps it in the list item of its own list, so every list item sits inside
+     its list in the source as well as in the output. The call sites start that
+     list item in column 0, where the partial used to print it, so the output
+     does not change. The tag is not written out in these comments on purpose:
+     an analyser that reads this file as plain HTML takes a tag in a template
+     comment for markup. */}}
 {{define "sc-docs-nav-link"}}
     <a href="{{ .P.GetURL }}"
        class="docs-nav__link{{ if eq .P.Slug .Current }} is-current{{ end }}"
@@ -516,7 +518,7 @@
 {{end}}
 
 {{/* sc-doc-card — one guide as a card on the home page. It renders the card
-     link only; the caller wraps it in the <li> of its <ul class="cards">. */}}
+     link only; the caller wraps it in the list item of its "cards" list. */}}
 {{define "sc-doc-card"}}
     <a class="card" href="{{ .GetURL }}">
         <h3>{{ .Title }}</h3>
