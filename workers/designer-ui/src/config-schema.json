@@ -113,7 +113,7 @@
       "key": "domain",
       "type": "string",
       "default": "",
-      "description": "the site's domain, e.g. example.com; a path after it sets base_path",
+      "description": "the site's domain, e.g. example.com; a path after it sets base_path; ${NAME} takes it from the environment and --domain overrides it",
       "group": "site",
       "class": "executes"
     },

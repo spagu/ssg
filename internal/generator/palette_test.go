@@ -1,6 +1,8 @@
 package generator
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -37,6 +39,88 @@ func TestApplySiteIdentity_ConfigWinsExportFillsIn(t *testing.T) {
 	}
 	if site.Colors["primary"] != "#000000" {
 		t.Errorf("config palette must win, got %+v", site.Colors)
+	}
+}
+
+// identityTemplates prints the site identity on the home page and gives every
+// other page a usable title and description, so check_meta: strict judges the
+// home page alone.
+func identityTemplates(name string) string {
+	if name == "index.html" {
+		return `<html><head><title>The example project home page</title>` +
+			`<meta name="description" content="{{.Description}}">` +
+			`<meta name="x-site" content="{{.Site.Title}}|{{.Site.Description}}"></head><body>home</body></html>`
+	}
+	return `<html><head><title>{{if .Page}}{{.Page.Title}}{{end}} on the example project site</title>` +
+		`<meta name="description" content="{{if .Page}}{{.Page.Description}}{{end}}"></head><body>x</body></html>`
+}
+
+// buildIdentitySite builds the identity fixture and returns the home page.
+func buildIdentitySite(t *testing.T, cfg Config) string {
+	t.Helper()
+	cfg.CheckMeta = "strict"
+	buildSiteFixture(t, cfg)
+	home, err := os.ReadFile(filepath.Join(cfg.OutputDir, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(home)
+}
+
+// TestSiteIdentityReachesHomeOnEveryPath — #440. `title:` and `description:`
+// were applied only while reading metadata.json, so a site built from
+// content_sources alone (which never reads that file) rendered an empty
+// .Description and .Site.Description and failed check_meta: strict.
+func TestSiteIdentityReachesHomeOnEveryPath(t *testing.T) {
+	const doc = "---\ntitle: Getting started with the example project\n" +
+		"description: How to install and run the example project, step by step, for new users.\n" +
+		"status: publish\n---\n\nHello.\n"
+	const exported = `{"site":{"name":"Exported Name","description":"Exported tagline from the migration of the example site."}}`
+	cases := []struct {
+		name, metadata, title, desc string
+		sourcesOnly                 bool
+		wantTitle, wantDesc         string
+	}{
+		{name: "content_sources only, no metadata.json", metadata: "{}", sourcesOnly: true,
+			title: "Example Docs", desc: "Guides for the example project, kept short and current.",
+			wantTitle: "Example Docs", wantDesc: "Guides for the example project, kept short and current."},
+		{name: "config wins over metadata.json", metadata: exported,
+			title: "Example Docs", desc: "Guides for the example project, kept short and current.",
+			wantTitle: "Example Docs", wantDesc: "Guides for the example project, kept short and current."},
+		{name: "metadata.json fills an empty config", metadata: exported,
+			wantTitle: "Exported Name", wantDesc: "Exported tagline from the migration of the example site."},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := newSiteFixture(t, tc.metadata, map[string]string{"pages/guide.md": doc}, identityTemplates)
+			cfg.Title, cfg.Description = tc.title, tc.desc
+			if tc.sourcesOnly {
+				cfg.ContentSources = []ContentSource{{Path: filepath.Join(cfg.ContentDir, "site", "pages")}}
+				cfg.Source = ""
+			}
+			home := buildIdentitySite(t, cfg)
+			if want := `<meta name="description" content="` + tc.wantDesc + `">`; !strings.Contains(home, want) {
+				t.Errorf(".Description: want %s in\n%s", want, home)
+			}
+			if want := `content="` + tc.wantTitle + `|` + tc.wantDesc + `"`; !strings.Contains(home, want) {
+				t.Errorf(".Site.Title/.Site.Description: want %s in\n%s", want, home)
+			}
+		})
+	}
+}
+
+// TestSiteIdentityFromConfigWithMddb — #440: the mddb path reads no
+// metadata.json either, and must still carry the configured identity.
+func TestSiteIdentityFromConfigWithMddb(t *testing.T) {
+	srv := mockMddbServer(t)
+	g := newTestGen(t, "")
+	g.config.Title, g.config.Description = "Example Docs", "Guides for the example project."
+	g.config.Mddb = MddbConfig{Enabled: true, URL: srv.URL, Protocol: "http", Collection: "content", Timeout: 5}
+	if err := g.loadContent(); err != nil {
+		t.Fatalf("loadContent (mddb): %v", err)
+	}
+	if g.siteData.Title != "Example Docs" || g.siteData.Description != "Guides for the example project." {
+		t.Errorf("site identity = %q / %q, want the configured values", g.siteData.Title, g.siteData.Description)
 	}
 }
 

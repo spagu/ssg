@@ -167,7 +167,10 @@ This reads `content/my-blog/`, uses the `krowy` theme, treats
 `https://example.com` as the canonical site root and writes to `output/`.
 
 All three values may instead be provided by a configuration file. In MDDB mode,
-content is fetched remotely and the source argument is optional.
+content is fetched remotely and the source argument is optional. `--domain=HOST`
+overrides the domain for one build, and `domain: ${SITE_DOMAIN}` in the file
+takes it from the environment
+([docs/CONFIGURATION.md](docs/CONFIGURATION.md#one-config-several-domains)).
 
 Subcommands are recognised only on a known verb (or verb + noun), so a content
 source named `new`, `cache` or `migrate` still builds (`--source=migrate` for
@@ -381,6 +384,7 @@ ssg --help
 | Create deployment archives | `ssg my-blog simple example.com --zip --targz --tarxz` |
 | Use a Pongo2 theme | `ssg my-blog my-theme example.com --engine=pongo2` |
 | Use only configuration | `ssg --config .ssg.yaml` |
+| Same config, staging host | `ssg --config .ssg.yaml --domain=staging.example.com` |
 
 Options are composable unless a specific option documents otherwise.
 

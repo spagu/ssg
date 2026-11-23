@@ -14,6 +14,12 @@ import (
 // runNewWrangler writes wrangler.toml from the loaded config. Returns an exit code.
 func runNewWrangler(args []string) int {
 	cfg := loadConfig(args)
+	// The project name is derived from the domain, so `${NAME}` in it must
+	// resolve here as it does in a build (#439).
+	if err := resolveDomain(cfg, args); err != nil {
+		errf("❌ %v\n", err)
+		return 1
+	}
 	dirs := workerDirsOf(cfg)
 	if len(dirs) == 0 {
 		errln("❌ no workers configured — add a worker: or workers: block first (see docs/WORKERS.md)")

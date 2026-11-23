@@ -20,22 +20,6 @@ import (
 	"github.com/spagu/ssg/internal/models"
 )
 
-// prettifyHTMLString removes blank lines and trailing whitespace, normalising
-// line endings; output always ends with a single newline.
-func prettifyHTMLString(s string) string {
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
-	lines := strings.Split(s, "\n")
-	result := make([]string, 0, len(lines))
-	for _, line := range lines {
-		trimmed := strings.TrimRight(line, " \t")
-		if strings.TrimSpace(trimmed) != "" {
-			result = append(result, trimmed)
-		}
-	}
-	return strings.Join(result, "\n") + "\n"
-}
-
 // minifyHTMLString collapses inter-tag whitespace and strips comments while
 // preserving htmlmin:ignore blocks and whitespace-sensitive elements (GO-022).
 //

@@ -165,7 +165,9 @@
                 <h2 class="section-title">{{ $g.title }}</h2>
                 {{ with $g.lead }}<p class="section-lead">{{ . }}</p>{{ end }}
                 <ul class="cards">
-                    {{ range first $.HomePagesLimit $list }}{{ template "sc-doc-card" . }}{{ end }}
+                    {{ range first $.HomePagesLimit $list }}
+<li>{{ template "sc-doc-card" . }}</li>
+{{ end }}
                 </ul>
                 <p class="section-more">
                     {{ len $list }} guides in this group, all of them in the sidebar of every guide.
@@ -183,7 +185,7 @@
                 </p>
                 <ul class="cards">
                     {{ range first .HomePagesLimit .Site.Pages }}{{ if not .Extra.hide_from_lists }}
-                    {{ template "sc-doc-card" . }}
+<li>{{ template "sc-doc-card" . }}</li>
                     {{ end }}{{ end }}
                 </ul>
                 {{ if gt (len .Site.Pages) .HomePagesLimit }}

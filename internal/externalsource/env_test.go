@@ -158,3 +158,28 @@ func TestAllowSwitchesLayerFromDefaults(t *testing.T) {
 		t.Error("source b should still inherit allow_private from defaults")
 	}
 }
+
+// TestExpandEnvForOtherPackages: the exported form other config keys share
+// (#439 — `domain:`) reports the first variable that resolved to nothing
+// instead of an external-source error, so the caller words its own message.
+func TestExpandEnvForOtherPackages(t *testing.T) {
+	t.Setenv("SSG_TEST_HOST", "example.com")
+	if got, missing := ExpandEnv("${SSG_TEST_HOST}/blog"); got != "example.com/blog" || missing != "" {
+		t.Errorf("ExpandEnv = %q, %q", got, missing)
+	}
+	if got, missing := ExpandEnv("example.com"); got != "example.com" || missing != "" {
+		t.Errorf("a value without references must pass through: %q, %q", got, missing)
+	}
+	if got, missing := ExpandEnv("$SSG_TEST_NOT_SET_HOST"); got != "" || missing != "SSG_TEST_NOT_SET_HOST" {
+		t.Errorf("ExpandEnv(unset) = %q, %q", got, missing)
+	}
+}
+
+// TestExpandAuthRequiresTheSecretField: a bearer block with no token names the
+// missing field instead of sending an unauthenticated request.
+func TestExpandAuthRequiresTheSecretField(t *testing.T) {
+	_, err := expandAuth("src", AuthConfig{Type: "bearer"})
+	if err == nil || !strings.Contains(err.Error(), "auth.token is required") {
+		t.Fatalf("expandAuth = %v", err)
+	}
+}
