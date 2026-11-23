@@ -118,6 +118,28 @@ generator wrote the archive to, which is the only value that stays right for a
 category served away from `/category/` by its own `link:` or nested under a
 parent. Pass one or the other; `CanonicalURL` wins when both are present.
 
+Two partials render one entry of a list and leave the `<li>` to the caller:
+`sc-docs-nav-link` (a guide in the docs sidebar; it takes
+`(dict "P" page "Current" slug "Labels" map)`) and `sc-doc-card` (a guide as a
+card on the home page; it takes the page). Each renders only its `<a>`, so a
+call goes inside the list item of its own list:
+
+```gotemplate
+<ul class="cards">
+    {{ range .Site.Pages }}
+<li>{{ template "sc-doc-card" . }}</li>
+{{ end }}
+</ul>
+```
+
+Before 1.9.13 both partials emitted the `<li>` themselves; a customised copy
+of the theme that calls them must now add it. The `<li>` starts the line, as
+the partials used to print it, so with `pretty_html` the page is byte for byte
+the same; without it, only lines that held nothing but whitespace are gone.
+Keeping every `<li>` inside its
+`<ul>` in the source also lets an HTML checker that reads the template as
+plain HTML see the list structure.
+
 Files in `partials/` are parsed into the same template set as the theme root,
 so these define names are callable from any role template. See
 [docs/TEMPLATES.md](../../docs/TEMPLATES.md#template-loading-and-sharing).
@@ -170,7 +192,7 @@ variables:
   logo: logo.png          # assets/logo.png — transparent PNG
   hero_image: river.jpg   # assets/river.jpg
   github_repo: spagu/ssg
-  version: "1.9.12"
+  version: "1.9.13"
   nav:
     - label: Docs
       url: /#documentation

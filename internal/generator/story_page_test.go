@@ -297,6 +297,31 @@ func TestWriteStoryAssetsError(t *testing.T) {
 	}
 }
 
+// TestGenerateStopsWhenStoryAssetsFail: the failure reaches Generate's caller
+// with the step named, not just the helper's own error.
+func TestGenerateStopsWhenStoryAssetsFail(t *testing.T) {
+	cfg := newSiteFixture(t, `{}`, map[string]string{
+		"posts/news/one.md": "---\ntitle: One\nslug: one\nstatus: publish\ntype: post\ndate: 2024-01-02\n---\n\nBody.\n",
+	}, func(name string) string {
+		if name == "post.html" {
+			return `<html><head><title>x</title></head><body>{{.Content}}</body></html>`
+		}
+		return `<html><head><title>x</title></head><body>x</body></html>`
+	})
+	cfg.Story = StoryOptions{Enabled: true}
+	// A static directory where a story script belongs: copied first, it leaves
+	// no room for the file.
+	cfg.StaticDir = t.TempDir()
+	mustWrite(t, filepath.Join(cfg.StaticDir, "assets", "ssg-story", storyScripts[0], "keep.txt"), "x")
+	gen, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gen.Generate(); err == nil || !strings.Contains(err.Error(), "writing story assets") {
+		t.Errorf("Generate: %v, want the story assets step named", err)
+	}
+}
+
 // TestPendingImageExists: a link to x.webp resolves when x.jpg is in the
 // output and the post-build pass writes WebP; never without that pass (#405).
 func TestPendingImageExists(t *testing.T) {

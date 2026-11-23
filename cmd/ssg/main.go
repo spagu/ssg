@@ -70,6 +70,12 @@ func run(args []string) (int, bool) {
 	validateRequiredFields(args, cfg)
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
+	// After validateRequiredFields, so --domain also beats the positional
+	// <domain>; before the generator config, which every URL is built from.
+	if err := resolveDomain(cfg, args); err != nil {
+		errf("❌ Error: %v\n", err)
+		return 1, true
+	}
 	downloadOnlineTheme(cfg)
 
 	genCfg := createGeneratorConfig(cfg)
@@ -271,6 +277,13 @@ func reloadWatchConfig(args []string, configPath string, old *config.Config) (ge
 		return generator.Config{}, nil, false
 	}
 	parseFlags(args, cfg) // command-line flags still win over the file
+	if err := resolveDomain(cfg, args); err != nil {
+		if !old.Quiet {
+			errf("❌ Config error: %v\n", err)
+			fmt.Println("⚠️  Keeping the previous configuration — fix the file and save to retry...")
+		}
+		return generator.Config{}, nil, false
+	}
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
 	// Endpoints are served by the running server, which was wired at startup;
@@ -1185,6 +1198,7 @@ func stringEqualFlags(cfg *config.Config) map[string]*string {
 		"--tls-cert=":            &cfg.TLSCert,
 		"--tls-key=":             &cfg.TLSKey,
 		"--tls-domain=":          &cfg.TLSDomain,
+		domainFlag + "=":         &cfg.Domain, // #439; resolveDomain makes it win over the positional
 		"--mem-limit=":           &cfg.Resources.Memory,
 		"--content-dir=":         &cfg.ContentDir,
 		"--templates-dir=":       &cfg.TemplatesDir,
@@ -1857,6 +1871,9 @@ func printUsage() {
 	fmt.Println("Configuration:")
 	fmt.Println("  --config=FILE          - Load config from YAML/TOML/JSON file")
 	fmt.Println("                           Auto-detects: .ssg.yaml, .ssg.toml, .ssg.json")
+	fmt.Println("  --domain=HOST          - Build for HOST instead of `domain:` or the <domain>")
+	fmt.Println("                           argument (e.g. --domain=staging.example.com)")
+	fmt.Println("                           `domain:` may also be ${NAME} from the environment")
 	fmt.Println("")
 	fmt.Println("Template Engine:")
 	fmt.Println("  --engine=ENGINE        - Template engine (default: go)")
@@ -1918,7 +1935,7 @@ func printUsage() {
 	fmt.Println("  --not-found-off        - Disable the generated 404.html (a page slugged")
 	fmt.Println("                           \"404\" still wins; without either, static hosts")
 	fmt.Println("                           answer unknown paths with index.html and a 200)")
-	fmt.Println("  --pretty-html          - Prettify HTML (remove all blank lines)")
+	fmt.Println("  --pretty-html          - Prettify HTML (remove blank lines; <pre>/<textarea> kept as written)")
 	fmt.Println("  --relative-links       - Convert absolute URLs to relative links")
 	fmt.Println("  --post-url-format=FMT  - Post URL format: 'date' (default: /YYYY/MM/DD/slug/)")
 	fmt.Println("                           or 'slug' (/slug/ using slug or link field)")

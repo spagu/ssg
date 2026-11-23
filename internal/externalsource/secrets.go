@@ -39,10 +39,21 @@ var envRefRe = regexp.MustCompile(`\$(?:\$|\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][
 // environments. "$$" collapses to a literal "$". The first unset variable wins
 // and is reported as an *UnsetEnvError.
 func expandEnvInline(source, field, value string) (string, error) {
-	if !strings.Contains(value, "$") {
-		return value, nil
+	out, missing := ExpandEnv(value)
+	if missing != "" {
+		return "", &UnsetEnvError{Source: source, Field: field, Name: missing}
 	}
-	var firstErr error
+	return out, nil
+}
+
+// ExpandEnv is the expansion behind expandEnvInline, exported so other config
+// keys (`domain:`, #439) share one reading of "$NAME"/"${NAME}"/"$$" instead
+// of growing a second one. It returns "" and the name of the first variable
+// that is unset or empty; each caller words that error for its own key.
+func ExpandEnv(value string) (expanded, missing string) {
+	if !strings.Contains(value, "$") {
+		return value, ""
+	}
 	out := envRefRe.ReplaceAllStringFunc(value, func(match string) string {
 		ref := strings.TrimPrefix(match, "$")
 		if ref == "$" {
@@ -50,18 +61,15 @@ func expandEnvInline(source, field, value string) (string, error) {
 		}
 		name := strings.TrimSuffix(strings.TrimPrefix(ref, "{"), "}")
 		v, ok := os.LookupEnv(name)
-		if !ok || v == "" {
-			if firstErr == nil {
-				firstErr = &UnsetEnvError{Source: source, Field: field, Name: name}
-			}
-			return ""
+		if (!ok || v == "") && missing == "" {
+			missing = name
 		}
 		return v
 	})
-	if firstErr != nil {
-		return "", firstErr
+	if missing != "" {
+		return "", missing
 	}
-	return out, nil
+	return out, ""
 }
 
 // envWholeRefRe matches a whole-value reference in either spelling, "$NAME"

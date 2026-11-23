@@ -33,6 +33,38 @@ Two diagnostics make a misconfigured file obvious instead of silent:
   reports which of `source`/`template`/`domain` is missing, which config file
   it read and what that file provided.
 
+### One config, several domains
+
+The domain decides every absolute URL the build writes: canonical tags,
+`og:url`, the sitemap, feeds and absolute `og:image` addresses. To build the
+same config for a staging and a production host, either pass the host on the
+command line or let the environment supply it:
+
+```bash
+# --domain overrides `domain:` from the file (and the positional <domain>)
+ssg --config site.yaml --domain=staging.example.com
+
+# or: `domain: ${SITE_DOMAIN}` in site.yaml
+SITE_DOMAIN=www.example.com ssg --config site.yaml
+```
+
+- `--domain=HOST` and `--domain HOST` are both accepted. The flag wins over
+  `domain:` in the file and over the third positional argument; when it is
+  given twice, the last one counts.
+- In `domain:` (and only there), `$NAME` and `${NAME}` are replaced with the
+  environment variable; `$$` is a literal dollar. A variable that is unset or
+  empty stops the build with an error naming it — a site is never built for an
+  empty host. When `--domain` is given, the file's value is not expanded, so an
+  unset variable there does not matter.
+- The result goes through the same normalisation as a written domain (scheme
+  and trailing slash removed). A value from `--domain` or the environment must
+  then be a host, optionally with a port and a path (`example.com:8080`,
+  `example.com/blog`); anything else is an error. A domain written literally in
+  the file is handled exactly as before.
+- The same rules apply to `--watch` reloads, `ssg mcp`, `ssg migrate` (no
+  `--domain` flag there) and `ssg new wrangler`. `ssg config --effective`
+  shows `domain:` as written, reference included.
+
 ### Splitting the config across files (`include:`)
 
 A `.ssg.yaml` can pull in other YAML files — from a local path or a URL — so a
@@ -244,9 +276,9 @@ resolved from the environment where each key is used, after all of these.
 |---|---:|---|---|
 | `source` | required | positional | Local content collection |
 | `template` | required | positional | Theme name |
-| `domain` | required | positional | Canonical host, **without a scheme** — `example.com`, not `https://example.com`. A scheme or trailing slash is stripped and reported, since it would otherwise reach every absolute URL the site publishes |
+| `domain` | required | positional, `--domain` | Canonical host, **without a scheme** — `example.com`, not `https://example.com`. A scheme or trailing slash is stripped and reported, since it would otherwise reach every absolute URL the site publishes. May reference the environment (`${SITE_DOMAIN}`); see [One config, several domains](#one-config-several-domains) |
 | `title` | empty | config only | Site name → `.Site.Title` (a migration fills it in) |
-| `description` | empty | config only | Site tagline → `.Site.Description` |
+| `description` | empty | config only | Site tagline → `.Site.Description` and the home page's `.Description`; wins over metadata.json `site.description` |
 | `colors` | empty | config only | Palette by role → `.Site.Colors.<role>` and `--ssg-color-<role>` |
 | `posts_page` | empty | config only | Where the post listing goes, e.g. `blog` → `/blog/` |
 | `paginate` | `0` | `--paginate` | Posts per page of the post listing and archives, continued at `/page/2/`; `0` puts them all on one page. Other generators call this `posts_per_page` |
@@ -284,6 +316,13 @@ the site's own colours without the values being copied into its stylesheet, and
 the primary colour stands in for `<meta name="theme-color">` when nothing else
 declares one. Roles beyond the six above are allowed and follow them
 alphabetically; a theme that already declares `--ssg-color-*` itself wins.
+
+The home page listing also gets the description as `.Description`. These keys
+apply on every build: from a `source:` tree, from `content_sources` alone, or
+from mddb. When metadata.json is read and carries `site.name`,
+`site.description` or a palette, each value fills in only where the config has
+none. Before 1.9.13 a build without a metadata.json read (content_sources
+alone, or mddb) ignored all three keys.
 
 `ssg migrate` fills all three in from the source site (see
 [MIGRATE.md](MIGRATE.md#what-the-sites-own-wiring-becomes)) — but only where the
@@ -1130,7 +1169,7 @@ fingerprinted assets.
 | `sitemap_max_urls` | `50000` | config only | Per-file URL ceiling; a larger set is split and indexed |
 | `robots_off` | `false` | `--robots-off` | Disable `robots.txt` |
 | `not_found_off` | `false` | `--not-found-off` | Disable the generated `404.html`. Without a 404 page, static hosts fall back to `index.html` for unmatched paths and answer `200`, so every dead URL reads to a crawler as a live copy of the home page. A page slugged `404` takes precedence, and is never listed in `sitemap.xml` |
-| `pretty_html` | `false` | `--pretty-html` | Remove blank lines from HTML |
+| `pretty_html` | `false` | `--pretty-html` | Remove blank lines and trailing spaces from HTML. The content of `<pre>`, `<textarea>`, `<script>` and `<style>` is kept byte for byte, so blank lines in a code block stay |
 | `relative_links` | `false` | `--relative-links` | Convert absolute site links to relative links |
 | `base_path` | path of `domain` | config only | Path the site is served under (`/<repo>` for a GitHub project page); prefixes every root-relative URL, and `check_links` and `ssg --http` follow it. `/` forces the root. See [DEPLOYMENT.md](DEPLOYMENT.md#sites-served-under-a-path) |
 | `host_files` | `true` | config only | Write `_headers` and `_redirects`. `false` for hosts other than Cloudflare Pages and Netlify, which serve them as public files |

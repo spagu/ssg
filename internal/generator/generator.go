@@ -1549,6 +1549,12 @@ func (g *Generator) minifyAssetByExt(path string) error {
 func (g *Generator) loadContent() error {
 	// A watch-mode rebuild reuses the generator; last build's skips are not this one's.
 	g.skipped = contentSkips{}
+	// The configured title, description and palette, before any source loads.
+	// A site built from mddb or from content_sources alone never reads
+	// metadata.json, and that read used to be the only place they were applied
+	// (#440). When metadata.json is read it resolves them again with the config
+	// still winning, so the export only fills what the config leaves empty.
+	applySiteIdentity(g.siteData, models.Metadata{}, g.config)
 	// Check if mddb is enabled
 	var err error
 	if g.config.Mddb.Enabled {

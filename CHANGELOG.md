@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`--domain=HOST` sets the domain for one build (#439).** The flag (also
+  `--domain HOST`) overrides `domain:` from the config file and the positional
+  domain, so one config can build a staging and a production site. `domain:`
+  may also take its value from the environment as `$NAME` or `${NAME}`; an
+  unset or empty variable stops the build with an error that names it. A
+  domain that comes from the flag or the environment must be a valid host.
+  Canonical URLs, `og:url`, the sitemap and the feeds follow the resolved
+  domain. A config with a literal domain builds exactly as before. See "One
+  config, several domains" in `docs/CONFIGURATION.md`.
+
+### Fixed
+
+- **`pretty_html` no longer removes blank lines inside `<pre>` and
+  `<textarea>` (#438).** Code blocks keep their empty lines. The content of
+  `<pre>`, `<textarea>`, `<script>` and `<style>` now comes out exactly as
+  written, including whitespace-only lines and CRLF line endings. Blank lines
+  and trailing spaces between HTML elements are still removed.
+- **`title:`, `description:` and `colors:` from the config apply on every
+  build (#440).** A site built from `content_sources` alone, or from mddb,
+  ignored them, so the home page's `.Description` and `.Site.Description`
+  were empty and `check_meta: strict` failed. The config still wins over
+  `metadata.json`, and `metadata.json` still fills in what the config leaves
+  empty.
+
+### Changed
+
+- **ssgtheme: `sc-docs-nav-link` and `sc-doc-card` render only their link.**
+  The caller now wraps each in `<li>`, so every list item sits inside its
+  list in the template source (SonarCloud
+  `Web:ItemTagNotWithinContainerTagCheck`, which failed the quality gate).
+  Rendered pages do not change. A customised copy of the theme that calls
+  either partial must add the `<li>` itself.
+- `ssg new wrangler` strips the scheme and trailing slash from the domain
+  before it derives the project name, as watch mode already did.
+
 ## [1.9.12] - 2026-11-21
 
 ### Security
@@ -7572,6 +7609,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 
 <!-- Compare links (DOC-011) -->
 [Unreleased]: https://github.com/spagu/ssg/compare/v1.9.12...HEAD
+[1.9.12]: https://github.com/spagu/ssg/compare/v1.9.11...v1.9.12
+[1.9.11]: https://github.com/spagu/ssg/compare/v1.9.10...v1.9.11
 [1.9.10]: https://github.com/spagu/ssg/compare/v1.9.9...v1.9.10
 [1.9.9]: https://github.com/spagu/ssg/compare/v1.9.8...v1.9.9
 [1.9.8]: https://github.com/spagu/ssg/compare/v1.9.7...v1.9.8

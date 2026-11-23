@@ -447,7 +447,7 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.SSG.Version` | string | The ssg that built the site, e.g. `1.8.74` |
 | `.Lang` | string | The listing's language (empty without i18n) |
 | `.CanonicalURL` | string | This listing page's own absolute URL, `/blog/page/2/` included |
-| `.Description` | string | The site's description |
+| `.Description` | string | The site's description, the same value as `.Site.Description`: `description:` from the config, else `site.description` from metadata.json, else empty. A content page that claims `/` is rendered as a page instead, with its own front matter `description` |
 | `.Translations` | list | The listing in every language: `Lang`, `Locale`, `Title` (language name), `URL`, `Canonical`, `IsCurrent`, `IsDefault` |
 | `.Hreflang` | HTML | `<link rel="alternate" hreflang>` for every language plus `x-default`, built from `.Translations` |
 | `.StructuredData` | list | The listing's JSON-LD (an `ItemList`, plus the `Organization` on the front listing) |
@@ -659,7 +659,7 @@ taxonomies only.
 
 ```text
 .Site.Domain
-.Site.Title, .Site.Description   # the site's name and tagline
+.Site.Title, .Site.Description   # the site's name and tagline: config title:/description:, else metadata.json site.name/site.description
 .Site.Colors       # palette by role, e.g. .Site.Colors.primary
 .Site.Pages
 .Site.Posts

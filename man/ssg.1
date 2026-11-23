@@ -1,6 +1,6 @@
 .\" SSG - Static Site Generator
 .\" Man page for ssg(1)
-.TH SSG 1 "2026-07-15" "1.9.12" "SSG Manual"
+.TH SSG 1 "2026-07-15" "1.9.13" "SSG Manual"
 .SH NAME
 ssg \- fast static site generator written in Go
 .SH SYNOPSIS
@@ -101,6 +101,7 @@ Target domain for the generated site — the host alone, e.g. \fBexample.com\fR.
 Canonical URLs, \fBog:url\fR, the sitemap and the JSON\-LD \fB@id\fR are built as
 \fBhttps://<domain>/\fR..., so a value carrying \fBhttps://\fR or a trailing slash
 is stripped and reported rather than published into all of them.
+\fB\-\-domain\fR=\fIHOST\fR overrides it.
 .SH SUBCOMMANDS
 Dispatched only on a known verb+noun pair in the first two arguments, so a
 source directory named \fInew\fR or \fIimport\fR still builds normally.
@@ -350,6 +351,18 @@ A \fB.ssg.designer.json\fR beside a YAML config is laid over it (mappings
 merge, other values replace, null removes a key); an unknown key, a wrong type
 or a literal secret in it stops the build. Order, lowest first: defaults,
 \fBinclude:\fR files, the config file, \fB.ssg.designer.json\fR, flags.
+.TP
+.BR \-\-domain =\fIHOST
+Build for \fIHOST\fR instead of \fBdomain:\fR from the config file or the
+positional \fIdomain\fR; also accepted as \fB\-\-domain\fR \fIHOST\fR, and the
+last one given counts. The value is normalised like \fBdomain:\fR (scheme and
+trailing slash removed) and must then be a host, optionally with a port and a
+path, or the build stops. Example:
+\fBssg \-\-config site.yaml \-\-domain=staging.example.com\fR.
+In the config file, \fBdomain:\fR (and no other key) may reference the
+environment as \fB$NAME\fR or \fB${NAME}\fR, e.g.
+\fBdomain: ${SITE_DOMAIN}\fR; an unset or empty variable is an error naming
+it. With \fB\-\-domain\fR the file's value is not expanded.
 .SS Template Engine
 .TP
 .BR \-\-engine =\fIENGINE
@@ -539,8 +552,10 @@ Disable the generated \fB404.html\fR. A page slugged \fB404\fR still wins;
 without either, static hosts answer unknown paths with \fBindex.html\fR and a 200.
 .TP
 .BR \-\-pretty\-html ", " \-\-pretty
-Clean up generated HTML by removing all blank lines, without aggressive
-minification.
+Clean up generated HTML by removing blank lines and trailing spaces, without
+aggressive minification. The content of \fB<pre>\fR, \fB<textarea>\fR,
+\fB<script>\fR and \fB<style>\fR is kept byte for byte, so blank lines in a
+code block stay.
 .TP
 .B \-\-relative\-links
 Convert absolute URLs containing the site domain to relative links.

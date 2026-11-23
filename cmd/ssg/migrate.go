@@ -147,6 +147,12 @@ func executeMigrate(provider migrate.Provider, rawURL, host string, flags migrat
 	if cfg.Source == "" {
 		cfg.Source = source
 	}
+	// migrate has no --domain of its own; `domain:` may still reference the
+	// environment (#439).
+	if err := resolveDomain(cfg, nil); err != nil {
+		errf("❌ %v\n", err)
+		return 1
+	}
 	applyMinifyAll(cfg)
 	setupTemplateEngine(cfg)
 	downloadOnlineTheme(cfg)

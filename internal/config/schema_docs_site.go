@@ -12,7 +12,7 @@ import (
 
 var _ = describe(Config{}, typeDocs{
 	// Site
-	"domain":      x("the site's domain, e.g. example.com; a path after it sets base_path").in(gSite),
+	"domain":      x("the site's domain, e.g. example.com; a path after it sets base_path; ${NAME} takes it from the environment and --domain overrides it").in(gSite),
 	"title":       p("the site's name, used in <title>, og:site_name and feeds").in(gSite).assistant(),
 	"description": p("the site's description, used in the meta description and feeds").in(gSite).assistant(),
 	"colors":      p("the site palette by role (primary, secondary, accent, text, background), as .Site.Colors and --ssg-color-* CSS properties").in(gSite),

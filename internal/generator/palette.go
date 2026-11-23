@@ -27,7 +27,9 @@ import (
 var paletteRoles = []string{"primary", "secondary", "accent", "text", "background", "muted", "link"}
 
 // applySiteIdentity resolves the site's title, description and palette from
-// configuration first and the export's metadata second.
+// configuration first and the export's metadata second. loadContent calls it
+// with empty metadata for every build, so the config reaches sites that have
+// no metadata.json to read (#440); loading metadata.json calls it again.
 func applySiteIdentity(site *models.SiteData, metadata models.Metadata, cfg Config) {
 	site.Title = firstNonEmpty(cfg.Title, metadata.Site.Name)
 	site.Description = firstNonEmpty(cfg.Description, metadata.Site.Description)

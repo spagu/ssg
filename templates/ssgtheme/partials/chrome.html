@@ -450,7 +450,7 @@
             <p class="docs-nav__part" id="docs-nav-part-{{ $slug }}">{{ . }}</p>
             <ul class="docs-nav__list" aria-labelledby="docs-nav-part-{{ $slug }}">{{ end }}
                 {{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
-                {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
+<li>{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}</li>
                 {{ end }}{{ end }}{{ end }}
             </ul>
             {{/* A guide no group names joins the first group, so a new file in
@@ -458,7 +458,9 @@
             {{ if eq $active 0 }}{{ $rest := slice }}{{ range $.Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $listed) }}{{ $rest = append $rest . }}{{ end }}{{ end }}
             {{ with $rest }}
             <ul class="docs-nav__list" aria-label="More guides">
-                {{ range . }}{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}{{ end }}
+                {{ range . }}
+<li>{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}</li>
+{{ end }}
             </ul>
             {{ end }}{{ end }}
         </div>
@@ -488,10 +490,10 @@
         {{ with .Vars.docs_nav_order }}{{ $order = . }}{{ end }}
         <ul class="docs-nav__list">
             {{ range $slug := $order }}{{ range $.Site.Pages }}{{ if and (eq .Slug $slug) (not .Extra.hide_from_lists) }}
-            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
+<li>{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}</li>
             {{ end }}{{ end }}{{ end }}
             {{ range .Site.Pages }}{{ if and (not .Extra.hide_from_lists) (notIn .Slug $order) }}
-            {{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}
+<li>{{ template "sc-docs-nav-link" (dict "P" . "Current" $current "Labels" $labels) }}</li>
             {{ end }}{{ end }}
         </ul>
     {{ end }}
@@ -502,22 +504,25 @@
 {{/* sc-docs-nav-link — one guide in the docs navigation:
      (dict "P" page "Current" slug "Labels" map). Labels (variables.docs_nav_labels,
      slug → short name) shortens a long title in the sidebar only; the page
-     keeps its full title everywhere else. */}}
+     keeps its full title everywhere else. It renders the link only; the caller
+     wraps it in the list item of its own list, so every list item sits inside
+     its list in the source as well as in the output. The call sites start that
+     list item in column 0, where the partial used to print it, so the output
+     does not change. The tag is not written out in these comments on purpose:
+     an analyser that reads this file as plain HTML takes a tag in a template
+     comment for markup. */}}
 {{define "sc-docs-nav-link"}}
-<li>
     <a href="{{ .P.GetURL }}"
        class="docs-nav__link{{ if eq .P.Slug .Current }} is-current{{ end }}"
        {{ if eq .P.Slug .Current }}aria-current="page"{{ end }}>{{ $label := .P.Title }}{{ with .Labels }}{{ with index . $.P.Slug }}{{ $label = . }}{{ end }}{{ end }}{{ $label }}</a>
-</li>
 {{end}}
 
-{{/* sc-doc-card — one guide as a card on the home page. */}}
+{{/* sc-doc-card — one guide as a card on the home page. It renders the card
+     link only; the caller wraps it in the list item of its "cards" list. */}}
 {{define "sc-doc-card"}}
-<li>
     <a class="card" href="{{ .GetURL }}">
         <h3>{{ .Title }}</h3>
         <p class="card-meta">{{ .ReadingTime }} min read · {{ .WordCount }} words</p>
         <p>{{ .Excerpt }}</p>
     </a>
-</li>
 {{end}}
