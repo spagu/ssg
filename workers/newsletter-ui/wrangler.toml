@@ -111,6 +111,9 @@ NEWSLETTER_UI_BASE = "/newsletter-admin"
 # NEWSLETTER_CONFIRM_BATCH = "10"        # confirmation mails per call; shares NEWSLETTER_SEND_RATE with campaigns
 # Campaign statistics — README "Statistics and privacy" says what is counted:
 # NEWSLETTER_TRACK_CLICKS = "true"              # count clicks per link (no person tracked); default off
+# NEWSLETTER_UTM = "on"                         # add utm_* to links to the site (campaign and link, no person); default off
+# NEWSLETTER_UTM_SOURCE = "newsletter"          # the utm_source value
+# NEWSLETTER_UTM_HOSTS = "www.example.com"      # more hosts to tag besides the one in NEWSLETTER_SITE_URL
 # NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS = "14"     # an unsubscribe is credited to the last send within this many days
 # Bounces — docs/BOUNCES.md:
 # NEWSLETTER_SOFT_BOUNCE_LIMIT = "3"     # soft bounces in a row before an address is suppressed

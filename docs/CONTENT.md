@@ -111,6 +111,10 @@ The loader follows these rules:
 6. A supported non-Markdown file beside a page or post is a co-located asset.
    It is copied when that content references its filename (only files directly beside
    the Markdown file are supported; nested subdirectories next to content files are skipped).
+   Supported types: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`,
+   `.ico`, `.bmp`, `.tiff`, `.avif`), audio and video (`.mp4`, `.webm`, `.ogg`,
+   `.mp3`, `.wav`), documents and archives (`.pdf`, `.zip`, `.tar`, `.gz`) and
+   data files (`.json`, `.csv`, `.txt`, `.xml`).
 
 The `pages/` and `posts/` names can be changed with `pages_path` and
 `posts_path`. The source root can be changed with `content_dir`.
@@ -615,8 +619,11 @@ unchanged. A site that intentionally publishes raw Markdown sets
 
 ## Assets and static files
 
-- Referenced images, media, archives and documents beside a Markdown file are
-  copied as co-located assets (only files directly beside the Markdown source are supported;
+- Referenced images, media, archives, documents and data files beside a
+  Markdown file are copied as co-located assets. Supported extensions: images
+  `.png .jpg .jpeg .gif .svg .webp .ico .bmp .tiff .avif`; audio and video
+  `.mp4 .webm .ogg .mp3 .wav`; documents and archives `.pdf .zip .tar .gz`;
+  data files `.json .csv .txt .xml` (since #444) (only files directly beside the Markdown source are supported;
   nested subdirectories next to content files are skipped). Unreferenced siblings are skipped.
 - `content/<source>/media/` contains source media records/files.
 - Project-level `static/` is copied recursively and verbatim to the output.

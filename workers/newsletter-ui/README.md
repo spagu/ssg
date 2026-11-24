@@ -150,6 +150,9 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_RESEND_WEBHOOK_SECRET` | secret | — | the Resend webhook's `whsec_…`; unset → `/hooks/resend` answers 503 |
 | `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` | secret | — | MailChannels' Ed25519 public key (PEM); unset → 503 |
 | `NEWSLETTER_TRACK_CLICKS` | var | off | `true` counts clicks per link |
+| `NEWSLETTER_UTM` | var | off | `on` adds `utm_*` parameters to links to the site |
+| `NEWSLETTER_UTM_SOURCE` | var | `newsletter` | the `utm_source` value |
+| `NEWSLETTER_UTM_HOSTS` | var | — | more hosts to tag (commas or spaces), besides the host of `NEWSLETTER_SITE_URL` |
 | `NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS` | var | `14` | how long after a send an unsubscribe is credited to it |
 | `NEWSLETTER_FEED_URL` | var | `/feed.xml` on the site | the feed for "campaign from a post" |
 | `NEWSLETTER_CONFIRM_BATCH` | var | `10` | confirmation mails per call, never more than the rate |
@@ -382,6 +385,22 @@ count, and no table the statistics use links a click or an open to anyone.
   too and nothing is de-duplicated, so read clicks as a relative signal
   between links and campaigns, not as a number of people. With tracking off
   the mail is byte for byte what it was.
+- **UTM parameters**, only with `NEWSLETTER_UTM` on: a link whose host is the
+  site's (the host of `NEWSLETTER_SITE_URL`, plus `NEWSLETTER_UTM_HOSTS`;
+  hosts are compared whole, so list `www.example.com` beside `example.com`)
+  gets `utm_source` (`NEWSLETTER_UTM_SOURCE`, default `newsletter`),
+  `utm_medium=email`, `utm_campaign` (a slug of the subject: ASCII lower case
+  with dashes, at most 60 characters; the campaign id when the subject leaves
+  nothing) and `utm_content` (the `linkId` above, computed from the link as
+  written). They name the campaign and the link, not the reader, and add no
+  table and no stored data. Never tagged: a link that already has any `utm_*`
+  parameter, other hosts, the unsubscribe link, `mailto:` links, images, the
+  confirmation mail, and links past the first 100 of a campaign. Tagging runs
+  before the click rewrite, so with click counting on the stored redirect
+  target carries the parameters, and the preview and a test send show what
+  readers get. A link whose target was stored before `NEWSLETTER_UTM` was
+  turned on keeps its stored target for that campaign. With it off the mail
+  is byte for byte what it was.
 - **Not counted, by design:** opens (no tracking pixel — privacy proxies make
   open rates meaningless, and a pixel only works by giving each person their
   own URL), who clicked, and bounces per campaign (a bounce reported later

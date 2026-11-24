@@ -99,6 +99,8 @@ export default async function settings(app, root) {
       group("set-stats", t("set.stats"), [
         [t("set.clicks"), onOff(app, s.clicks.tracking)],
         [t("set.window"), t("set.days", { count: s.clicks.unsubscribeWindowDays })],
+        [t("set.utm"), onOff(app, s.utm.enabled)],
+        ...(s.utm.enabled ? [[t("set.utmSource"), code(s.utm.source)], [t("set.utmHosts"), code(s.utm.hosts.join(", "))]] : []),
         [t("set.softLimit"), app.fmt.number(s.bounces.softLimit)],
         [t("set.hookResend"), yes(app, s.webhooks.resend)],
         [t("set.hookMc"), yes(app, s.webhooks.mailchannels)],

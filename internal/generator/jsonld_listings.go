@@ -2,8 +2,9 @@ package generator
 
 // The structured data of generated listings (1.8.72): every archive and the
 // post listing is an ItemList of what it shows; an author archive is that
-// author's ProfilePage; the site's front listing also names the
-// Organization behind the site, from the marketing settings.
+// author's ProfilePage; the page at the site root — the post listing, or the
+// front page that moved it to posts_page (#442) — also names the Organization
+// behind the site, from the marketing settings.
 
 import (
 	"sort"
@@ -92,4 +93,35 @@ func (g *Generator) indexStructuredData(outPath string, posts []models.Page) []m
 		}
 	}
 	return out
+}
+
+// frontPageStructuredData is the Organization for a page document served at
+// the site root (#442). The Organization describes the site, so it sits on
+// whatever is at "/": with a front page there the post listing is elsewhere
+// (posts_page) or not written, and indexStructuredData never reaches "/".
+func (g *Generator) frontPageStructuredData(page models.Page) []map[string]interface{} {
+	if strings.Trim(page.GetURL(), "/") != "" {
+		return nil
+	}
+	if org := g.organizationLD(); org != nil {
+		return []map[string]interface{}{org}
+	}
+	return nil
+}
+
+// listingTitle names the post listing at a site link. A listing that
+// posts_page moved off the root is named after the page at that address (the
+// one the listing replaces, #150), else after the address itself; the root
+// listing keeps the domain, the only name it ever had.
+func (g *Generator) listingTitle(link string) string {
+	listing := strings.Trim(strings.TrimSpace(g.config.PostsPage), "/")
+	at := "/" + strings.Trim(link, "/") + "/"
+	i := strings.Index(at, "/"+listing+"/")
+	if listing == "" || i < 0 {
+		return g.config.Domain
+	}
+	// The listing's own address: a language prefix before it is kept, a
+	// pager's /page/N/ after it is not.
+	address := at[:i+len(listing)+2]
+	return firstNonEmpty(g.crumbTitle(address), titleize(listing[strings.LastIndex(listing, "/")+1:]))
 }
