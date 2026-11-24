@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.13] - 2026-11-23
+
 ### Added
 
 - **`--domain=HOST` sets the domain for one build (#439).** The flag (also
