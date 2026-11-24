@@ -2338,7 +2338,7 @@ With `seo: true`, the pages ssg generates carry structured data too:
 |---|---|
 | The post listing and every archive (category, tag, date, custom taxonomy) | `ItemList` of the posts on that page, in order |
 | An author archive | `ProfilePage` with the author as `Person`, plus the `ItemList` |
-| The site's front listing | also an `Organization`: `marketing.og_site_name` (else the title), `marketing.logo`, and `marketing.social_profiles` as `sameAs` |
+| The page at the site root: the post listing, or the front page when `posts_page` moved the listing | also an `Organization`: `marketing.og_site_name` (else the title), `marketing.logo`, and `marketing.social_profiles` as `sameAs` |
 
 The blocks are injected only where the theme wrote no JSON-LD of its own, as
 for every page. A theme that writes its own gets them as `.StructuredData` and

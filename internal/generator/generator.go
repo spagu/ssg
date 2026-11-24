@@ -4276,10 +4276,10 @@ func (g *Generator) indexPageContext(outPath string) *models.Page {
 	if link == "/./" {
 		link = "/"
 	}
-	// The domain is the only site-level name SSG holds — metadata.json's title
-	// is not read into SiteData. A site wanting a better one sets `name` in the
-	// home entry of schema_defaults, which outranks this.
-	return &models.Page{Title: g.config.Domain, Type: "page", Link: link}
+	// The root listing is named by the domain; a site wanting a better name
+	// sets `name` in the home entry of schema_defaults, which outranks this.
+	// A listing posts_page moved is named after the page at its address (#442).
+	return &models.Page{Title: g.listingTitle(link), Type: "page", Link: link}
 }
 
 // getOutputPaths returns one or more output file paths based on PageFormat config.
@@ -4349,6 +4349,11 @@ func (g *Generator) generatePage(page models.Page) error {
 
 	// Convert page to flat map with Extra fields at top level
 	data := g.pageToTemplateData(page, false)
+	// The front page carries the site's Organization, as the post listing
+	// does when it is the one at the root (#442).
+	if blocks := g.frontPageStructuredData(page); blocks != nil {
+		data[structuredDataKey] = blocks
+	}
 
 	// A page that asked to paginate gets page 1's slice and pager in its
 	// ordinary context; pages 2..N are written after it (#267).
@@ -5248,16 +5253,20 @@ func (g *Generator) recordStrippedImage() {
 	g.strippedImages++
 }
 
+// contentAssetExts is every file type published as a co-located asset:
+// images, audio and video, documents and archives, and the data files a page
+// may draw itself from (#444). docs/CONTENT.md lists them for site authors.
+var contentAssetExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".svg": true,
+	".webp": true, ".ico": true, ".bmp": true, ".tiff": true, ".avif": true,
+	".mp4": true, ".webm": true, ".ogg": true, ".mp3": true, ".wav": true,
+	".pdf": true, ".zip": true, ".tar": true, ".gz": true,
+	".json": true, ".csv": true, ".txt": true, ".xml": true,
+}
+
 // isContentAsset returns true if the file is a non-markdown content asset (image, etc.)
 func isContentAsset(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	assetExts := map[string]bool{
-		".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".svg": true,
-		".webp": true, ".ico": true, ".bmp": true, ".tiff": true, ".avif": true,
-		".mp4": true, ".webm": true, ".ogg": true, ".mp3": true, ".wav": true,
-		".pdf": true, ".zip": true, ".tar": true, ".gz": true,
-	}
-	return assetExts[ext]
+	return contentAssetExts[strings.ToLower(filepath.Ext(name))]
 }
 
 // copyColocatedAssets copies non-markdown files from a content source directory

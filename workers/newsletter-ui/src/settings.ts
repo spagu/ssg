@@ -27,6 +27,7 @@ import { siteOf } from "./render";
 import type { RouteContext } from "./router";
 import { schemaVersion } from "./schema";
 import { unsubscribeWindowDays } from "./stats-headline";
+import { utmHosts, utmOn, utmSource } from "./utm";
 
 const set = (v: string | undefined): boolean => !!(v ?? "").trim();
 const plain = (v: string | undefined): string | null => (v ?? "").trim() || null;
@@ -36,13 +37,14 @@ export function settingsOf(env: Env) {
   const cfg = engineConfig(env);
   const feed = feedSource(env);
   const smtpHost = plain(env.NEWSLETTER_SMTP_HOST);
+  const site = siteOf(env);
   return {
     transport: transportOf(env),
     // Why the configured transport can never send (SMTP only), or null.
     transportProblem: transportProblem(env),
     sender: { email: plain(env.NEWSLETTER_MAIL_FROM), name: plain(env.NEWSLETTER_MAIL_FROM_NAME) },
     siteUrl: plain(env.NEWSLETTER_SITE_URL),
-    siteUrlValid: siteOf(env) !== null,
+    siteUrlValid: site !== null,
     keys: { resend: set(env.NEWSLETTER_RESEND_API_KEY), mailchannels: set(env.NEWSLETTER_MAILCHANNELS_API_KEY) },
     smtp: smtpHost
       ? {
@@ -62,6 +64,8 @@ export function settingsOf(env: Env) {
       deadLetterQueue: plain(env.NEWSLETTER_DEAD_LETTER_QUEUE) ?? DEFAULT_DLQ,
     },
     clicks: { tracking: trackClicks(env), unsubscribeWindowDays: unsubscribeWindowDays(env) },
+    // UTM tagging (#443): hosts is what gets tagged, empty without a usable site URL.
+    utm: { enabled: utmOn(env), source: utmSource(env), hosts: site ? [...utmHosts(env, site)] : [] },
     bounces: { softLimit: softLimit(env) },
     webhooks: { resend: set(env.NEWSLETTER_RESEND_WEBHOOK_SECRET), mailchannels: set(env.NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY) },
     feedUrl: "url" in feed ? feed.url.href : null,

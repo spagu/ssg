@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Data files beside a page are published as co-located assets (#444).**
+  `.json`, `.csv`, `.txt` and `.xml` files next to a Markdown page or post
+  are now copied to its output directory, like images, audio, video, PDFs
+  and archives. The rule is unchanged: only files directly beside the
+  Markdown file, and only when the page's text mentions the filename. An
+  existing site that has such a file beside a page which names it now
+  publishes that file. See "Assets and static files" in `docs/CONTENT.md`.
+- **`newsletter-ui` can tag links to the site with UTM parameters (#443).**
+  With `NEWSLETTER_UTM=on` (default off) links whose host is the site's
+  (`NEWSLETTER_SITE_URL`, plus `NEWSLETTER_UTM_HOSTS`) get `utm_source`
+  (`NEWSLETTER_UTM_SOURCE`, default `newsletter`), `utm_medium=email`,
+  `utm_campaign` (a slug of the subject) and `utm_content` (the click
+  counter's link id). Links with their own `utm_*`, other hosts, the
+  unsubscribe link, `mailto:` links, images and the confirmation mail are
+  left alone. The preview and the test send show the tagged links, and the
+  settings API reports `utm: {enabled, source, hosts}`. See "Statistics and
+  privacy" in `workers/newsletter-ui/README.md`.
+
+### Fixed
+
+- **The `Organization` JSON-LD is on the page at the site root (#442).**
+  With `seo: true` the block built from `marketing.og_site_name`,
+  `marketing.logo` and `marketing.social_profiles` now sits on whatever is
+  served at `/`: the post listing, or the static front page when
+  `posts_page` moved the listing elsewhere (before, no page carried it
+  then). Templates of that front page get it as `.StructuredData`. It is
+  still injected only where the theme wrote no JSON-LD of its own.
+- **A post listing moved by `posts_page` is named after its address
+  (#442).** The `WebPage` name, the last `BreadcrumbList` step and the
+  listing's page title context were the domain. They now use the title of
+  the page at that address, else the address itself (`posts_page: ports`
+  gives "Ports"). The listing at the site root keeps the domain.
+
 ## [1.9.13] - 2026-11-23
 
 ### Added

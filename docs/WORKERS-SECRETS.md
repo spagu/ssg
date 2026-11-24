@@ -63,7 +63,7 @@ admin, so one set of values serves both:
 | `newsletter-ui` | `NEWSLETTER_RESEND_WEBHOOK_SECRET`, `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` (secrets) | verify the bounce/complaint webhooks |
 
 The full list of `newsletter-ui` variables (send rate, batch size, click
-counting, feed URL, …) is the "Configuration" table in
+counting, UTM tagging, feed URL, …) is the "Configuration" table in
 [its README](../workers/newsletter-ui/README.md#configuration).
 
 The admin sign-in settings of the other templates, and the secrets of `auth`

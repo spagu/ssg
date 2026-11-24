@@ -450,7 +450,7 @@ Rely on the tables below rather than assuming every value exists everywhere.
 | `.Description` | string | The site's description, the same value as `.Site.Description`: `description:` from the config, else `site.description` from metadata.json, else empty. A content page that claims `/` is rendered as a page instead, with its own front matter `description` |
 | `.Translations` | list | The listing in every language: `Lang`, `Locale`, `Title` (language name), `URL`, `Canonical`, `IsCurrent`, `IsDefault` |
 | `.Hreflang` | HTML | `<link rel="alternate" hreflang>` for every language plus `x-default`, built from `.Translations` |
-| `.StructuredData` | list | The listing's JSON-LD (an `ItemList`, plus the `Organization` on the front listing) |
+| `.StructuredData` | list | The listing's JSON-LD (an `ItemList`, plus the `Organization` on the page at the site root) |
 
 A shared `<head>` partial can therefore treat a listing like a page:
 

@@ -59,6 +59,10 @@ export interface Env extends MailEnv {
   // Campaign statistics (GO-129).
   NEWSLETTER_TRACK_CLICKS?: string; // "true" rewrites links through {base}/hooks/c/… (default off)
   NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS?: string; // unsubscribe attribution window after a send (default 14)
+  // UTM tagging of links to the site (#443).
+  NEWSLETTER_UTM?: string; // "on" adds utm_* to links whose host is the site's (default off)
+  NEWSLETTER_UTM_SOURCE?: string; // utm_source (default "newsletter")
+  NEWSLETTER_UTM_HOSTS?: string; // more hosts to tag, separated by commas or spaces
 }
 
 export const DEFAULT_BASE = "/newsletter-admin";
@@ -121,6 +125,9 @@ export function underBase(pathname: string, base: string): string | null {
   if (pathname === base) return "";
   return pathname.startsWith(base + "/") ? pathname.slice(base.length) : null;
 }
+
+// isOn reads an on/off variable: 1, true, yes or on (any case) is on.
+export const isOn = (raw: string | undefined): boolean => /^(1|true|yes|on)$/i.test((raw ?? "").trim());
 
 // intVar reads a positive integer variable, falling back to def.
 export function intVar(raw: string | undefined, def: number): number {

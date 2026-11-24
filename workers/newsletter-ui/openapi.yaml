@@ -1796,6 +1796,13 @@ components:
           properties:
             tracking: { type: boolean }
             unsubscribeWindowDays: { type: integer }
+        utm:
+          type: object
+          description: UTM tagging of links to the site (NEWSLETTER_UTM); hosts is empty without a usable site URL.
+          properties:
+            enabled: { type: boolean }
+            source: { type: string }
+            hosts: { type: array, items: { type: string } }
         bounces:
           type: object
           properties:

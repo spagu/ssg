@@ -231,6 +231,32 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.9.14">
+
+### 1.9.14 — nothing to do; check three things if they apply
+
+Replace the binary. No setting or migration is needed. Check these:
+
+- **Data files beside a page are now published.** A `.json`, `.csv`, `.txt` or
+  `.xml` file directly beside a Markdown page or post is copied to its output
+  when the page's text mentions its filename (#444). Before, such a file was
+  skipped. If a page names a file you did not want public, move it out of the
+  content directory or stop naming it.
+- **With `seo: true`, the `Organization` block now also sits on a static front
+  page.** When `posts_page` moves the post listing, the page at the site root
+  carries it, and its template gets it as `.StructuredData` (#442). Before, no
+  page did. It is still added only where the theme wrote no JSON-LD itself.
+- **A post listing moved by `posts_page` has a new name.** Its `WebPage.name`,
+  last breadcrumb step and page title context were the domain; they now use the
+  title of the page at that address, else the address (`posts_page: ports`
+  gives "Ports"). Check a theme or a test that matched the old value.
+
+Optional: `newsletter-ui` can tag links to your site with `utm_*` parameters.
+Set `NEWSLETTER_UTM=on` (default off); see
+[its README](../workers/newsletter-ui/README.md#configuration).
+
+</div>
+
 <div class="upgrade-step" data-since="1.9.9">
 
 ### 1.9.9 — nothing to do; check a few things if they apply
