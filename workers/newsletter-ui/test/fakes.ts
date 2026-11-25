@@ -146,6 +146,86 @@ export function fakeAssets(files: Record<string, string> = { "/index.html": "<!d
   };
 }
 
+// fakeR2 is an in-memory R2 bucket (get/put/head/delete) for the campaign
+// image store (#446). `calls` records "op key"; `state.failOn` makes matching
+// ops ("put", "delete", …) throw. get() honours If-None-Match given as Headers
+// in onlyIf the way R2 does: a match returns the object without a body.
+export function fakeR2() {
+  type Stored = { bytes: Uint8Array; httpMetadata: { contentType?: string; cacheControl?: string }; uploaded: Date };
+  const objects = new Map<string, Stored>();
+  const calls: string[] = [];
+  const state = { failOn: null as RegExp | null };
+  const record = (op: string, key: string) => {
+    calls.push(`${op} ${key}`);
+    if (state.failOn?.test(op)) throw new Error(`R2 ${op} failed (forced)`);
+  };
+  const meta = (key: string, o: Stored) => ({
+    key,
+    size: o.bytes.length,
+    etag: `e-${key.slice(0, 8)}`,
+    httpEtag: `"e-${key.slice(0, 8)}"`,
+    httpMetadata: o.httpMetadata,
+    uploaded: o.uploaded,
+  });
+  return {
+    objects,
+    calls,
+    state,
+    async head(key: string) {
+      record("head", key);
+      const o = objects.get(key);
+      return o ? meta(key, o) : null;
+    },
+    async get(key: string, options: { onlyIf?: Headers } = {}) {
+      record("get", key);
+      const o = objects.get(key);
+      if (!o) return null;
+      const m = meta(key, o);
+      if (options.onlyIf?.get("if-none-match")?.includes(m.httpEtag)) return m;
+      return { ...m, body: new Blob([o.bytes]).stream() };
+    },
+    async put(key: string, value: Uint8Array, options: { httpMetadata?: Stored["httpMetadata"] } = {}) {
+      record("put", key);
+      const o = { bytes: new Uint8Array(value), httpMetadata: options.httpMetadata ?? {}, uploaded: new Date() };
+      objects.set(key, o);
+      return meta(key, o);
+    },
+    async delete(key: string) {
+      record("delete", key);
+      objects.delete(key);
+    },
+  };
+}
+
+// fakeImages stands in for the Images binding (#446) along the chain the
+// worker calls: input(stream).transform({width}).output({format, quality}),
+// awaited, then .response(). `produce` makes the output bytes from the input
+// and the options (a test builds a header of the new width); `calls` records
+// the options; `state.fail` makes output() reject.
+type ImageOptions = { width: number; format: string; quality?: number };
+export function fakeImages(produce: (input: Uint8Array, o: ImageOptions) => Uint8Array = (input) => input) {
+  const calls: (ImageOptions & { inputBytes: number })[] = [];
+  const state = { fail: false };
+  return {
+    calls,
+    state,
+    input(stream: ReadableStream<Uint8Array>) {
+      return {
+        transform: ({ width }: { width: number }) => ({
+          async output(o: { format: string; quality?: number }) {
+            if (state.fail) throw new Error("IMAGES_TRANSFORM_ERROR (forced)");
+            const input = new Uint8Array(await new Response(stream).arrayBuffer());
+            const options = { width, ...o };
+            calls.push({ ...options, inputBytes: input.length });
+            const out = produce(input, options);
+            return { response: () => new Response(out, { headers: { "content-type": o.format } }) };
+          },
+        }),
+      };
+    },
+  };
+}
+
 // fakeCtx collects waitUntil promises so a test can await them.
 export function fakeCtx() {
   const pending: Promise<unknown>[] = [];

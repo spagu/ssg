@@ -13,11 +13,12 @@
 //      subscribers), then the audit row of a state-changing route
 //   8. anything else under base         → the panel files (ASSETS binding)
 
+import { assetsOrigin } from "./asset-config";
 import { authenticate } from "./auth";
 import type { Admin } from "./auth";
 import { recordAudit } from "./audit";
 import { MISSING_SUBSCRIBERS } from "./health";
-import { basePath, clientIP, json, secure, underBase } from "./lib";
+import { basePath, clientIP, cspWithImages, json, secure, underBase } from "./lib";
 import type { Env } from "./lib";
 import { missing } from "./permissions";
 import { match } from "./router";
@@ -84,7 +85,11 @@ export async function handleFetch(request: Request, env: Env, ctx: ExecutionCont
   if (!env.ASSETS) return json({ error: "not found" }, 404);
   const assetURL = new URL(request.url);
   assetURL.pathname = rel;
-  return secure(await env.ASSETS.fetch(new Request(assetURL, request)));
+  const panel = secure(await env.ASSETS.fetch(new Request(assetURL, request)));
+  // The panel shows stored campaign images (#446): their origin joins img-src.
+  const images = assetsOrigin(env);
+  if (images) panel.headers.set("content-security-policy", cspWithImages(images));
+  return panel;
 }
 
 // dispatch runs the matching route, or answers 404/405. `admin` is null on
@@ -108,7 +113,11 @@ async function run(request: Request, env: Env, ctx: ExecutionContext, url: URL, 
     if (route.needsSubscribers !== false && !(await subscribersReady(env))) {
       return json({ error: "newsletter not installed", hint: MISSING_SUBSCRIBERS }, 503);
     }
-    return secure(await route.handler({ request, env, ctx, url, params, admin }));
+    const res = await route.handler({ request, env, ctx, url, params, admin });
+    const out = secure(res);
+    const cache = route.publicCache ? res.headers.get("cache-control") : null;
+    if (cache) out.headers.set("cache-control", cache);
+    return out;
   } catch (e) {
     console.error("newsletter-ui:", request.method, rel, e);
     return json({ error: "internal error" }, 500);

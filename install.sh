@@ -14,7 +14,7 @@
 # =============================================================================
 set -euo pipefail
 
-VERSION="${SSG_VERSION:-1.9.14}"
+VERSION="${SSG_VERSION:-1.9.15}"
 INSTALL_DIR="${SSG_INSTALL_DIR:-/usr/local/bin}"
 RELEASE_URL="https://github.com/spagu/ssg/releases/download/v${VERSION}"
 

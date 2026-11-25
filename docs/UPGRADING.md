@@ -231,6 +231,26 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.9.15">
+
+### 1.9.15 — nothing to do; one new tag if `marketing.logo` is set
+
+Replace the binary. No setting or migration is needed.
+
+- **A site with `marketing.logo` and `seo: true` gets one more tag in every
+  page's head:** `<meta property="og:logo">`, with the logo's absolute address.
+  Before, the logo was used only in the `Organization` block. A theme that
+  writes `og:logo` itself keeps its own. To leave the tag out, write it in the
+  theme with the value you want; there is no switch.
+
+Optional: `newsletter-ui` can store campaign images and serve them from their
+own address (#446). It is off until an R2 bucket is bound as
+`NEWSLETTER_ASSETS`. A deployed `newsletter-ui` gets it by updating the
+worker's files from the new template and deploying; see
+[its README](../workers/newsletter-ui/README.md#campaign-images).
+
+</div>
+
 <div class="upgrade-step" data-since="1.9.14">
 
 ### 1.9.14 — nothing to do; check three things if they apply

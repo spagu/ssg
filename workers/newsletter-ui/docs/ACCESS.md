@@ -85,7 +85,7 @@ one of them) or `*` (everything, every worker).
 | Permission | Lets an account |
 |---|---|
 | `newsletter:read` | see the overview, subscribers, campaigns and their statistics, the suppression list, the configuration, a campaign's preview |
-| `newsletter:edit` | write and change campaign drafts (also from a post), duplicate and delete them; change a subscriber's tags and language; unsubscribe someone |
+| `newsletter:edit` | write and change campaign drafts (also from a post), duplicate and delete them; upload and delete campaign images; change a subscriber's tags and language; unsubscribe someone |
 | `newsletter:send` | send a test, schedule, unschedule, pause, resume and cancel a campaign, re-send or dismiss uncertain sends, mail confirmations to pending subscribers — everything that mails real people |
 | `newsletter:import` | import a subscriber list from a file |
 | `newsletter:export` | download subscribers as CSV, export one person's data |
@@ -104,6 +104,7 @@ a permission `module.json` does not declare. An account that only holds
 | `GET /api/subscribers`, `/api/subscribers/:id`, `/api/stats/subscribers` | `newsletter:read` | — |
 | `GET /api/campaigns`, `/api/campaigns/:id`, `…/progress`, `…/stats`, `…/uncertain`, `/api/stats/campaigns`, `/api/engine/status`, `/api/feed/posts` | `newsletter:read` | — |
 | `GET /api/suppressions`, `/api/stats/suppressions` | `newsletter:read` | — |
+| `GET /api/assets` | `newsletter:read` | — |
 | `POST /api/campaigns/:id/preview` | `newsletter:read` | — (changes nothing) |
 | `GET /api/subscribers.csv`, `/api/subscribers/:id/export` | `newsletter:export` | — |
 | `PATCH /api/subscribers/:id` | `newsletter:edit` | `subscriber.edit` |
@@ -117,13 +118,14 @@ a permission `module.json` does not declare. An account that only holds
 | `PATCH /api/campaigns/:id`, `DELETE …`, `POST …/duplicate` | `newsletter:edit` | `campaign.edit`, `campaign.delete`, `campaign.duplicate` |
 | `POST …/test`, `…/schedule`, `…/unschedule`, `…/pause`, `…/resume`, `…/cancel` | `newsletter:send` | `campaign.test`, `campaign.schedule`, … |
 | `POST …/uncertain/resend`, `…/uncertain/dismiss` | `newsletter:send` | `campaign.uncertain_resend`, `campaign.uncertain_dismiss` |
+| `POST /api/assets`, `DELETE /api/assets/:key` | `newsletter:edit` | `asset.upload`, `asset.delete` |
 | `POST /api/suppressions`, `DELETE /api/suppressions/:hash` | `newsletter:suppress` | `suppression.add`, `suppression.lift` |
 | `POST /api/suppressions/import/preview` | `newsletter:import` **and** `newsletter:suppress` | — (changes nothing) |
 | `POST /api/suppressions/import` | `newsletter:import` **and** `newsletter:suppress` | `suppressions.import` |
 | `POST /api/settings/smtp-test` | `newsletter:settings` | `settings.smtp_test` |
 | `GET /api/audit` | `newsletter:settings` | — |
 | `GET /api/me` | a session, nothing more | — |
-| `/hooks/…` (webhooks, click redirect) | public — each verifies its own signature | — |
+| `/hooks/…` (webhooks, click redirect, campaign images) | public — a webhook verifies its signature; the click redirect and an image only answer for what is stored | — |
 
 Two routes do two things. The suppression import writes suppressions in
 bulk, so it needs both `newsletter:import` and `newsletter:suppress`. The

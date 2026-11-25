@@ -26,6 +26,12 @@
 // DEMO_CORE=theme serves a demo site theme as /core/theme.css. Without the
 // switch /core/* reaches the worker and answers 404, as on a site without
 // `core`.
+//
+// DEMO_ASSETS=1 binds an in-memory image store (#446), so the editor offers
+// "Add image…", the image library and the image check. Image addresses start
+// with the pretend NEWSLETTER_SITE_URL (https://example.com), which this
+// server cannot answer: uploads, inserts, deletes and the check work, while a
+// browser shows the library's thumbnails as broken images.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -48,7 +54,7 @@ const BASE = "/newsletter-admin";
 const worker = (await import("../src/index.ts")).default;
 const { handleQueue } = await import("../src/jobs.ts");
 const { handleDeadLetters } = await import("../src/engine-status.ts");
-const { fakeD1, withSubscribers } = await import("./fakes.ts");
+const { fakeD1, fakeR2, withSubscribers } = await import("./fakes.ts");
 const { seedDemo } = await import("./demo-seed.ts");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -154,6 +160,7 @@ const env = {
   NEWSLETTER_SEND_BATCH: "10",
   NEWSLETTER_TRACK_CLICKS: "true",
 };
+if (process.env.DEMO_ASSETS === "1") env.NEWSLETTER_ASSETS = fakeR2();
 await seedDemo(env);
 
 // --- DEMO_AUTH=1: a pretend `auth` worker --------------------------------

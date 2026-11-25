@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Newsletter admin</title>
-  <meta name="description" content="Administration panel for the site's newsletter: subscribers, CSV import, campaigns, sending progress and the suppression list.">
+  <meta name="description" content="Administration panel for the site's newsletter: subscribers, CSV import, campaigns with their images, sending progress and the suppression list.">
   <!-- An admin page: never indexed, never sends a Referer, and deliberately
        carries no analytics or tag manager — an authenticated admin tool is
        not measured. The worker sends the same rules as headers; these cover a
@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/charts.css">
+  <link rel="stylesheet" href="css/images.css">
   <!-- Overrides without editing the panel: {"lang": "pl", "i18n": {"pl": {"nav.dashboard": "Start"}}}.
        A JSON block is data, never executed, so the CSP needs no exception for it. -->
   <script id="newsletter-admin-config" type="application/json">{}</script>

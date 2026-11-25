@@ -10,6 +10,8 @@ import { LANGS } from "../core/i18n.js";
 import { errorText, pageHead, slot } from "./ui.js";
 import { previewPane } from "./preview.js";
 import { campaignActions } from "./campaign-actions.js";
+import { imageTools } from "./asset-upload.js";
+import { imageCheckCard } from "./image-check.js";
 
 const AUTOSAVE_MS = 1200;
 
@@ -70,6 +72,8 @@ export default async function editor(app, root, route, campaign = null) {
       }
       status.set(t("editor.savedAt", { at: new Date().toLocaleTimeString(app.lang, { hour: "2-digit", minute: "2-digit" }) }));
       void preview.refresh(); // draws its own error state; a save is not undone by it
+      // Callers (Send test, Schedule, Check images) go on only on true.
+      return true;
     } catch (e) {
       status.set(h("span", { class: "bad" }, errorText(app, e)));
       return false;
@@ -95,6 +99,7 @@ export default async function editor(app, root, route, campaign = null) {
       ["markdown", "html"].map((v) => h("label", null, h("input", { type: "radio", name: "bodyFormat", value: v, checked: f.bodyFormat === v }), h("span", null, t(`editor.format.${v}`)))),
     ),
     h("div", { class: "field" }, h("label", { for: "c-body" }, t("editor.body")), h("textarea", { id: "c-body", name: "body", rows: "16", class: "code", "aria-describedby": "c-body-hint", spellcheck: "true" }, f.body), h("p", { id: "c-body-hint", class: "hint" }, t("editor.body.hint"))),
+    imageTools(app, { assets: settings?.assets ?? null, body: () => formEl.elements.body, format: () => formEl.elements.bodyFormat.value }),
     h(
       "details",
       { open: !!f.textOverride },
@@ -134,6 +139,7 @@ export default async function editor(app, root, route, campaign = null) {
       actions: c ? actions : null,
     }),
     h("div", { class: "editor" }, h("section", { class: "card", "aria-label": t("editor.form") }, form), preview.node),
+    c ? imageCheckCard(app, () => c, { ready: () => save({ quiet: true }) }) : null,
   ]);
   status.set(c ? t("editor.allSaved") : t("editor.notYet"));
   if (c) void preview.refresh();

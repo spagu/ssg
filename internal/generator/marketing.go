@@ -52,6 +52,11 @@ func (g *Generator) buildMarketingHead(existing string) string {
 	// og:image is per-page when the page has a featured image; this is the
 	// site-wide fallback for pages that have none.
 	addMeta("property", "og:image", g.socialURL(m.OGImage), "og:image")
+	// og:logo is not part of the Open Graph protocol (ogp.me lists no such
+	// property), but link-preview checkers and some readers look for it. The
+	// site already declared its logo for the Organization block, so the same
+	// value is written here, absolute like og:image.
+	addMeta("property", "og:logo", g.socialURL(m.Logo), "og:logo")
 	addMeta("name", "twitter:site", m.TwitterSite, "twitter:site")
 
 	// Verification tokens keep search-console and business-manager ownership
@@ -179,10 +184,7 @@ func (g *Generator) analyticsNoscript() string {
 	var b strings.Builder
 	ids := g.analyticsIDs()
 	for _, vendor := range sortedKeys(ids) {
-		id := strings.TrimSpace(ids[vendor])
-		if id == "" {
-			continue
-		}
+		id := strings.TrimSpace(ids[vendor]) // analyticsIDs holds no blank id
 		switch strings.ToLower(vendor) {
 		case "gtm", "google_tag_manager", "googletagmanager":
 			fmt.Fprintf(&b, `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=%s"`+

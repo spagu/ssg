@@ -35,7 +35,7 @@ test("a read-only account: the views to look at, no button that changes anything
 test("an editor: drafts and tags, not sending, erasing or exporting", () => {
   const editor = me(["newsletter:read", "newsletter:edit"]);
   const can = Object.keys(ACTION_NEEDS).filter((a) => allows(editor, a));
-  assert.deepEqual(can, ["save", "duplicate", "delete", "newCampaign", "fromPost", "editSubscriber", "unsubscribe"]);
+  assert.deepEqual(can, ["save", "duplicate", "delete", "newCampaign", "fromPost", "editSubscriber", "unsubscribe", "images"]);
   assert.equal(allows(editor, "newsletter:edit"), true, "a permission name works too");
 });
 

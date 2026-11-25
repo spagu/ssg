@@ -111,11 +111,11 @@
     {
       "name": "newsletter:edit",
       "description": {
-        "en": "Edit campaign drafts, and a subscriber's tags and language.",
-        "pl": "Edycja szkiców kampanii oraz tagów i języka subskrybenta.",
-        "hi": "कैंपेन ड्राफ़्ट, और किसी सब्सक्राइबर के टैग व भाषा बदलना।",
-        "de": "Kampagnenentwürfe sowie Tags und Sprache eines Abonnenten bearbeiten.",
-        "fr": "Modifier les brouillons de campagne ainsi que les étiquettes et la langue d'un abonné."
+        "en": "Edit campaign drafts and their images, and a subscriber's tags and language.",
+        "pl": "Edycja szkiców kampanii i ich obrazów oraz tagów i języka subskrybenta.",
+        "hi": "कैंपेन ड्राफ़्ट और उनकी छवियाँ, और किसी सब्सक्राइबर के टैग व भाषा बदलना।",
+        "de": "Kampagnenentwürfe und ihre Bilder sowie Tags und Sprache eines Abonnenten bearbeiten.",
+        "fr": "Modifier les brouillons de campagne et leurs images, ainsi que les étiquettes et la langue d'un abonné."
       }
     },
     {

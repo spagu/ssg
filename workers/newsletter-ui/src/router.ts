@@ -43,6 +43,10 @@ export interface Route {
   // ("campaign.schedule"), or false for a POST that changes nothing (a preview,
   // a connection test). Reads have none. Required of every non-GET /api/ route.
   audit?: string | false;
+  // #446: the handler's own cache-control stands instead of secure()'s
+  // "no-store" — for public, content-addressed files (campaign images) only.
+  // Every other security header is still set.
+  publicCache?: boolean;
 }
 
 export type Match =

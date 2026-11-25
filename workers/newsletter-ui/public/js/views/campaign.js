@@ -12,6 +12,7 @@ import { languageName } from "../models/dashboard.js";
 import { campaignActions } from "./campaign-actions.js";
 import editor from "./editor.js";
 import { previewPane } from "./preview.js";
+import { imageCheckCard } from "./image-check.js";
 import { uncertainSection } from "./uncertain.js";
 import { chip, errorBlock, loading, pageHead, slot } from "./ui.js";
 
@@ -92,6 +93,8 @@ export default async function campaign(app, root, route) {
     prog.node,
     stats.node,
     uncertain.node,
+    // Still to send: the image check (#446) can still change something.
+    c.status === "scheduled" || c.status === "paused" ? imageCheckCard(app, () => c) : null,
     preview.node,
   ]);
   void preview.refresh(); // draws its own error state

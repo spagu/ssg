@@ -18,7 +18,7 @@ import type { Route } from "../src/router.ts";
 import { ensureSchema } from "../src/schema.ts";
 import { addCampaign, fakeMailer, pump } from "./engine-fixtures.ts";
 import type { EngineEnv } from "./engine-fixtures.ts";
-import { PASSWORD, fakeCtx, fakeD1, makeEnv, req } from "./fakes.ts";
+import { PASSWORD, fakeCtx, fakeD1, fakeR2, makeEnv, req } from "./fakes.ts";
 import type { FakeD1 } from "./fakes.ts";
 import { RESEND_SECRET, resendEvent, svixHeaders } from "./hook-fixtures.ts";
 
@@ -74,6 +74,7 @@ function v1Env(): EngineEnv {
     NEWSLETTER_RESEND_API_KEY: "re_test",
     NEWSLETTER_RESEND_WEBHOOK_SECRET: RESEND_SECRET,
     NEWSLETTER_FEED_URL: "/feed.xml",
+    NEWSLETTER_ASSETS: fakeR2(),
   }) as EngineEnv;
 }
 
@@ -112,7 +113,7 @@ test("compat: newsletter-ui on a database made by the 1.9.7 newsletter template 
     const created = await (await send("POST", "/api/campaigns", JSON.stringify({ subject: "Hello", body: "Hi {{unsubscribe_url}}" }))).json();
     const campaign = created.id as string;
     assert.ok(campaign, "a campaign was created");
-    const ids: Record<string, string> = { ":id": campaign, ":campaign": campaign, ":link": "0", ":hash": "0".repeat(64) };
+    const ids: Record<string, string> = { ":id": campaign, ":campaign": campaign, ":link": "0", ":hash": "0".repeat(64), ":key": `${"0".repeat(64)}.png` };
     const bodies: Record<string, string> = {
       "/api/import/preview": JSON.stringify({ csv: "email,language\nnew@example.com,en\n", confirmed: true }),
       "/api/import": JSON.stringify({ csv: "email,language,status\nnew@example.com,en,confirmed\ns2@example.com,pl,unsubscribed\n", confirmed: true, consentSource: "Sign-up form, 2025" }),
@@ -137,6 +138,9 @@ test("compat: newsletter-ui on a database made by the 1.9.7 newsletter template 
     // signature (a complaint unsubscribes the person: a row change, nothing more).
     for (const method of ["GET", "HEAD"]) {
       await handleFetch(new Request(`https://example.com${B}/hooks/c/${campaign}/0`, { method }), env as never, fakeCtx() as never, routes);
+    }
+    for (const method of ["GET", "HEAD"]) {
+      await handleFetch(new Request(`https://example.com${B}/hooks/a/${"0".repeat(64)}.png`, { method }), env as never, fakeCtx() as never, routes);
     }
     const complaint = resendEvent("email.complained", "s2@example.com");
     await handleFetch(new Request(`https://example.com${B}/hooks/resend`, { method: "POST", body: complaint, headers: await svixHeaders(complaint) }), env as never, fakeCtx() as never, routes);

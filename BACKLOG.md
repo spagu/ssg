@@ -6,6 +6,7 @@ task takes the first row; once it is done, commit and delete the row.
 
 | Prompt | Size | Model |
 |---|---|---|
+| #446: newsletter-ui campaign images — optional R2 store `NEWSLETTER_ASSETS` + `NEWSLETTER_ASSETS_URL` (own host), upload JPEG/PNG/WebP with size cap and required alt, sha256 keys, immutable cache, no delete of assets a sent campaign uses, pre-send image check (warn only), no request counting; resize only if the Images binding is there | L | Opus |
 | `analytics_ids` from the config are ignored when `analytics: true` and no metadata.json is read (content_sources-only or mddb build): apply them in `loadContent` like the site identity (#440) | S | Sonnet |
 | Home page `og:description` and JSON-LD `description` never carry the site description (`indexPageContext`); decide with the owner whether to add it (changes output of existing sites) | S | Sonnet |
 | Config schema help text is wrong: `pretty_html` says "indent" (it only removes blank lines), `title`/`description` say "feeds" (feeds do not use them) — `internal/config/schema_docs_*.go`, the MCP pin test, designer-ui `config-schema.json` | S | Sonnet |

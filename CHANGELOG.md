@@ -9,6 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`og:logo` from `marketing.logo`.** With `seo: true`, a site that declares
+  `marketing.logo` gets `<meta property="og:logo">` on every page, with the
+  absolute address, unless the theme wrote the tag itself. `og:logo` is not
+  part of the Open Graph protocol, but link-preview checkers report it as
+  missing. A site with `marketing.logo` set now has one more tag in its head.
+  See "The site's social card" in `docs/CONFIGURATION.md`.
+- **`newsletter-ui`: campaign images, uploaded in the panel and served from
+  their own address (#446).** Optional, switched on by binding an R2 bucket
+  as `NEWSLETTER_ASSETS`; without it nothing changes and the mail is byte
+  for byte what it was.
+  - The campaign editor uploads JPEG, PNG or WebP (decided by the file's
+    bytes; default cap 2 MiB, `NEWSLETTER_ASSETS_MAX_BYTES`, at most 10 MiB)
+    and inserts the image with a required alt text. A file is stored once,
+    under the SHA-256 of its bytes.
+  - Images are served from `NEWSLETTER_ASSETS_URL` (for example an R2 custom
+    domain), or by the worker at `{base}/hooks/a/<key>` when that is unset.
+    Requests for images are not counted or stored.
+  - An image that any campaign uses, a draft included, cannot be deleted.
+  - With the `NEWSLETTER_IMAGES` binding, an upload wider than
+    `NEWSLETTER_ASSETS_MAX_WIDTH` (default 1200) is stored as a narrower
+    copy in the same format; if the transformation fails, the original is
+    stored.
+  - "Check images" on a campaign lists the images of the mail without alt
+    text, outside the store, or not answering `200` to a request made like a
+    mail image proxy's. It warns and never blocks sending, and works without
+    the store. A pass does not prove that a firewall lets the real proxies
+    through.
+  - New: `POST`/`GET {base}/api/assets`, `DELETE {base}/api/assets/:key`,
+    `GET {base}/api/campaigns/:id/images`, the table `assets` (schema
+    versions 7 and 8; `subscribers` is not touched), `assets` in
+    `GET {base}/api/settings`. Not verified against a live Cloudflare
+    account: the R2 and Images bindings. See "Campaign images" in
+    `workers/newsletter-ui/README.md`.
+
+### Changed
+
+- **The documentation site has share images.** `docs-site.yaml` now turns on
+  `og_cards` (a card per guide and post) and sets `marketing.og_image` (home
+  page and listings) and `marketing.logo`. Before, its pages had no `og:image`
+  and posted as text-only links.
+
+### Fixed
+
+- **`newsletter-ui`: "Send a test" and "Schedule…" pressed with unsaved
+  changes saved the draft and then did nothing.** The save reported no
+  result, which the two buttons read as a failure. They now go on after the
+  save.
+- **`newsletter-ui`: `openapi.yaml` was not valid YAML.** An unquoted
+  `Authorization: Bearer` in a description stopped parsers; it is quoted.
+
+## [1.9.14] - 2026-11-24
+
+### Added
+
 - **Data files beside a page are published as co-located assets (#444).**
   `.json`, `.csv`, `.txt` and `.xml` files next to a Markdown page or post
   are now copied to its output directory, like images, audio, video, PDFs
@@ -7645,7 +7699,9 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.12...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.14...HEAD
+[1.9.14]: https://github.com/spagu/ssg/compare/v1.9.13...v1.9.14
+[1.9.13]: https://github.com/spagu/ssg/compare/v1.9.12...v1.9.13
 [1.9.12]: https://github.com/spagu/ssg/compare/v1.9.11...v1.9.12
 [1.9.11]: https://github.com/spagu/ssg/compare/v1.9.10...v1.9.11
 [1.9.10]: https://github.com/spagu/ssg/compare/v1.9.9...v1.9.10

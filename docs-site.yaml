@@ -82,13 +82,23 @@ check_meta: warn
 # photograph, so the site default is the whole answer.
 marketing:
   og_site_name: "SSG"
-  # og_image: "/img/ssg-card.png"
-  #
-  # Uncomment once a card exists at that path (1200x630 PNG or JPEG, under 5 MB,
-  # published through static_dir). Until then the theme emits twitter:card
-  # "summary" rather than claiming summary_large_image with no image to show —
-  # and pointing this at a file that is not there would be worse than leaving it
-  # unset, which is the whole lesson of the past week.
+  # The card for pages og_cards below does not draw: the home page and the
+  # listings. docs-static/img/ssg-card.png, 1200x630, drawn with the same
+  # layout and colours as the per-page cards.
+  og_image: "/img/ssg-card.png"
+  # The site's logo: og:logo and the Organization block's logo. A copy of
+  # assets/logo.png under static_dir, because the theme's own copy is resized
+  # at build time and its name carries a hash.
+  logo: "/img/logo.png"
+
+# A card for every guide and post: the title on the theme's dark canvas
+# (#0f172a, text #f8fafc 16.9:1, accent #99bfeb 9.1:1 — the tokens.css dark
+# values), the logo bottom-right.
+og_cards:
+  background: "#0f172a"
+  text_color: "#f8fafc"
+  accent_color: "#99bfeb"
+  logo: assets/logo.png
 shortcode_errors: strict
 
 # docs/*.md have no "## Excerpt" section; derive one from the opening paragraph
@@ -255,7 +265,7 @@ variables:
   logo: logo.png # assets/logo.png, transparent, resized at build time
   hero_image: river.jpg # assets/river.jpg, resized at build time
   github_repo: spagu/ssg # enables the header star count
-  version: "1.9.14"
+  version: "1.9.15"
 
   # Google Analytics 4 (gtag.js). ssgtheme renders it Consent-Mode-v2-aware:
   # storage defaults to denied and the cookie-consent banner grants

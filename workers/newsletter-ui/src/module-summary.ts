@@ -56,6 +56,7 @@ export function configProblems(env: Env, subscribers: boolean): Problem[] {
   if (!s.siteUrlValid) out.push({ code: "no_site_url", text: PANEL_PROBLEMS.no_site_url });
   if (!s.sender.email) out.push({ code: "no_sender", text: PANEL_PROBLEMS.no_sender });
   if (!s.engine.queue) out.push({ code: "no_queue", text: PANEL_PROBLEMS.no_queue });
+  if (s.assets.problem) out.push({ code: "assets_unusable", text: withDetail(OWN_PROBLEMS.assets_unusable, s.assets.problem) });
   return out;
 }
 

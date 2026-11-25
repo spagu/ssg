@@ -34,6 +34,9 @@ import { suppressionStats } from "./suppression-stats";
 import { getSettings, smtpTest } from "./settings";
 import { moduleManifest } from "./module";
 import { moduleSummary } from "./module-summary";
+import { deleteAsset, listAssets, uploadAsset } from "./asset-store";
+import { serveAsset } from "./asset-serve";
+import { campaignImages } from "./image-check";
 
 // GO-137: who may call what. One permission per level of trust (module.json);
 // a route doing two things needs both (the suppression import writes
@@ -123,4 +126,13 @@ export const ROUTES: Route[] = [
   { method: "GET", path: "/api/me", handler: me, needsSubscribers: false, permission: SESSION },
   { method: "GET", path: "/api/audit", handler: listAudit, needsSubscribers: false, permission: SETTINGS },
   // end GO-137
+  // #446: campaign images (optional R2 store); the image itself is public and counted nowhere
+  { method: "GET", path: "/api/assets", handler: listAssets, needsSubscribers: false, permission: READ },
+  { method: "POST", path: "/api/assets", handler: uploadAsset, needsSubscribers: false, permission: EDIT, audit: "asset.upload" },
+  { method: "DELETE", path: "/api/assets/:key", handler: deleteAsset, needsSubscribers: false, permission: EDIT, audit: "asset.delete" },
+  { method: "GET", path: "/hooks/a/:key", handler: serveAsset, needsSubscribers: false, permission: PUBLIC, publicCache: true },
+  { method: "HEAD", path: "/hooks/a/:key", handler: serveAsset, needsSubscribers: false, permission: PUBLIC, publicCache: true },
+  // the pre-send image check: warns, never blocks; works with the store off
+  { method: "GET", path: "/api/campaigns/:id/images", handler: campaignImages, needsSubscribers: false, permission: READ },
+  // end #446
 ];

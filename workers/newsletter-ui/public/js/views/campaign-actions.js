@@ -7,6 +7,7 @@ import { h } from "../core/vnode.js";
 import { LANGS } from "../core/i18n.js";
 import { actionsFor, fromLocalInput, toLocalInput } from "../models/campaign.js";
 import { btn, busy, confirmDialog } from "./ui.js";
+import { dialogCheck } from "./image-check.js";
 
 const path = (c, action = "") => `campaigns/${encodeURIComponent(c.id)}${action ? "/" + action : ""}`;
 
@@ -49,21 +50,29 @@ export function campaignActions(app, c, { save = null } = {}) {
     if (!preview) return;
     const refs = {};
     const soon = toLocalInput(new Date(Date.now() + 3_600_000).toISOString());
-    const extra = h(
-      "fieldset",
-      { class: "dialog-fields" },
-      h("legend", null, t("schedule.when")),
-      h("label", { class: "radio" }, h("input", { type: "radio", name: "when", value: "now", checked: true, ref: (el) => (refs.now = el) }), t("schedule.now")),
-      h("label", { class: "radio" }, h("input", { type: "radio", name: "when", value: "at" }), t("schedule.at")),
-      h("div", { class: "field" }, h("label", { for: "sched-at" }, t("schedule.time")), h("input", { id: "sched-at", type: "datetime-local", value: soon, ref: (el) => (refs.at = el), on: { input: () => (refs.now.checked = false) } })),
-    );
-    const ok = await confirmDialog(app, {
+    // The image check (#446) runs once as the dialog opens and only warns:
+    // its result arrives while the author decides, and Schedule never waits.
+    const images = dialogCheck(app, c);
+    const extra = [
+      h(
+        "fieldset",
+        { class: "dialog-fields" },
+        h("legend", null, t("schedule.when")),
+        h("label", { class: "radio" }, h("input", { type: "radio", name: "when", value: "now", checked: true, ref: (el) => (refs.now = el) }), t("schedule.now")),
+        h("label", { class: "radio" }, h("input", { type: "radio", name: "when", value: "at" }), t("schedule.at")),
+        h("div", { class: "field" }, h("label", { for: "sched-at" }, t("schedule.time")), h("input", { id: "sched-at", type: "datetime-local", value: soon, ref: (el) => (refs.at = el), on: { input: () => (refs.now.checked = false) } })),
+      ),
+      images.node,
+    ];
+    const asked = confirmDialog(app, {
       title: t("schedule.title", { subject: name }),
       body: t("schedule.body", { count: preview.recipients.total, subject: name }),
       confirm: t("schedule.go", { count: preview.recipients.total }),
       danger: false,
       extra,
     });
+    images.start(); // confirmDialog has drawn the dialog synchronously
+    const ok = await asked;
     if (!ok) return;
     const at = refs.now.checked ? undefined : fromLocalInput(refs.at.value);
     if (!refs.now.checked && !at) return app.notify(t("schedule.badTime"), "critical");

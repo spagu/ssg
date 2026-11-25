@@ -67,6 +67,22 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 
+# Campaign images (optional, #446): an R2 bucket for pictures uploaded from the
+# panel, each at its own address instead of a page of the site. The binding is
+# the switch — without it every {base}/api/assets route answers 404
+# assets_disabled and mail renders exactly as before. Create the bucket with
+# `npx wrangler r2 bucket create ssg-newsletter-assets`, then uncomment:
+# [[r2_buckets]]
+# binding = "NEWSLETTER_ASSETS"
+# bucket_name = "ssg-newsletter-assets"
+
+# Optional width cap for those images (#446): with the Images binding, an
+# upload wider than NEWSLETTER_ASSETS_MAX_WIDTH is stored as a capped copy of
+# the same type. Each transform is a billable Images operation (README
+# "Campaign images"). Without it, uploads are stored exactly as sent.
+# [images]
+# binding = "NEWSLETTER_IMAGES"
+
 [vars]
 NEWSLETTER_UI_BASE = "/newsletter-admin"
 # Admin auth — the same names as the `newsletter` template; pick ONE
@@ -117,6 +133,10 @@ NEWSLETTER_UI_BASE = "/newsletter-admin"
 # NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS = "14"     # an unsubscribe is credited to the last send within this many days
 # Bounces — docs/BOUNCES.md:
 # NEWSLETTER_SOFT_BOUNCE_LIMIT = "3"     # soft bounces in a row before an address is suppressed
+# Campaign images — only with the NEWSLETTER_ASSETS bucket above (README "Campaign images"):
+# NEWSLETTER_ASSETS_URL = "https://<img.example.com>"   # the bucket's own https address; unset → served by this worker at {base}/hooks/a/
+# NEWSLETTER_ASSETS_MAX_BYTES = "2097152"   # largest upload (default 2 MiB, at most 10 MiB)
+# NEWSLETTER_ASSETS_MAX_WIDTH = "1200"     # width cap with the [images] binding (320-4000)
 
 # Secrets (never here — `npx wrangler secret put <NAME>`):
 #   NEWSLETTER_ADMIN_PASSWORD   admin password, auth mode (a)

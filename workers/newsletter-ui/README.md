@@ -157,6 +157,11 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_FEED_URL` | var | `/feed.xml` on the site | the feed for "campaign from a post" |
 | `NEWSLETTER_CONFIRM_BATCH` | var | `10` | confirmation mails per call, never more than the rate |
 | `NEWSLETTER_IMPORT_MAX_ROWS` | var | `20000` | rows per CSV import (1 KiB of body per row) |
+| `NEWSLETTER_ASSETS` | R2 binding | — | optional campaign image store, the switch ("Campaign images"); unbound → the asset routes answer `404 assets_disabled` |
+| `NEWSLETTER_ASSETS_URL` | var | — | the bucket's own `https://` address (an R2 custom domain), without credentials, query or fragment; unset → this worker serves images at `{NEWSLETTER_SITE_URL}{base}/hooks/a/`; an unusable value → `503 assets_misconfigured` |
+| `NEWSLETTER_ASSETS_MAX_BYTES` | var | `2097152` (2 MiB) | largest image upload; not a positive integer → the default, above 10 MiB → 10 MiB |
+| `NEWSLETTER_IMAGES` | Images binding | — | optional; unbound → files are stored as uploaded; bound → an image wider than `NEWSLETTER_ASSETS_MAX_WIDTH` is stored as a width-capped copy ("Campaign images") |
+| `NEWSLETTER_ASSETS_MAX_WIDTH` | var | `1200` | that width cap in pixels; not a positive integer → the default, then clamped to 320–4000; read only with `NEWSLETTER_IMAGES` |
 
 The transport is the first one set: **Resend → MailChannels → SMTP**. An SMTP
 setting that can never work (port 25, a port that is not a number, a user
@@ -360,6 +365,177 @@ minimisation). An import never undoes an unsubscribe, never touches an
 existing row, sends no mail, and marks people `confirmed` only when you say
 where they consented. Everything else: [IMPORT.md](docs/IMPORT.md).
 
+## Campaign images
+
+Optional. Images in a campaign must be public `https:` addresses. The site's
+own pages are a poor place for them: bot protection may answer a webmail image
+proxy with `403`, and an author who has a photo but no page for it has nowhere
+to put it. With an R2 bucket bound to the worker, the panel stores the
+image and gives it an address of its own. Without the binding nothing
+changes: every asset route answers `404 assets_disabled` and mail renders byte
+for byte as before.
+
+### Turn it on
+
+Create the bucket, then uncomment the `[[r2_buckets]]` block in
+`wrangler.toml` (the binding name is `NEWSLETTER_ASSETS`). The binding is the
+only switch.
+
+| Name | Kind | Default | When unset or out of range |
+|---|---|---|---|
+| `NEWSLETTER_ASSETS` | R2 binding | — | the feature is off; the asset routes answer `404 assets_disabled` |
+| `NEWSLETTER_ASSETS_URL` | var | — | this worker serves the images at `{NEWSLETTER_SITE_URL}{base}/hooks/a/`; set, it must be an `https://` base without credentials, query or fragment (an R2 custom domain) |
+| `NEWSLETTER_ASSETS_MAX_BYTES` | var | `2097152` (2 MiB) | not a positive integer: the default; above 10 MiB (`10485760`): 10 MiB |
+| `NEWSLETTER_IMAGES` | Images binding | — | no width cap: files are stored as uploaded (the `[images]` block in `wrangler.toml`) |
+| `NEWSLETTER_ASSETS_MAX_WIDTH` | var | `1200` | not a positive integer: the default; clamped to 320–4000; read only with `NEWSLETTER_IMAGES` |
+
+An address that cannot be built is a configuration problem, never a silent
+fallback to another address: `NEWSLETTER_ASSETS_URL` that is not `https://`,
+or, without it, no `https://` `NEWSLETTER_SITE_URL` (an `http://localhost`
+preview included: the sanitizer keeps `https:` images only, and that rule is
+not widened; set `NEWSLETTER_ASSETS_URL` for a preview). Then the three
+`/api/assets` routes answer `503 assets_misconfigured {detail}`, and
+`GET /api/settings` (`assets.problem`) and the module summary
+(`assets_unusable`) say why. `GET /api/settings` also reports `assets.enabled`,
+`assets.baseUrl`, `assets.maxBytes` and `assets.maxWidth` (`null` without
+`NEWSLETTER_IMAGES`).
+
+### Where images are served from
+
+| | Worker route (`NEWSLETTER_ASSETS_URL` unset) | R2 custom domain (`NEWSLETTER_ASSETS_URL` set) |
+|---|---|---|
+| Image address | `{NEWSLETTER_SITE_URL}{base}/hooks/a/{key}` | `{NEWSLETTER_ASSETS_URL}/{key}` |
+| Who answers | this worker, one R2 read per load | R2; the request never reaches the worker |
+| Worker requests per load | 1, counted toward the daily limit of the plan | 0 |
+| Response headers | set by the worker (below) | set by R2 and the domain, not by this worker |
+
+R2's own storage and operation pricing applies either way:
+[R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+The worker route is public, like the click redirect, because a mail client or
+its image proxy fetches it without credentials. Only a name the store itself
+writes (`<64 hex>.jpg|.png|.webp`) reaches the bucket; any other path is
+`404` before R2 is asked. The answer carries the stored content type,
+`cache-control: public, max-age=31536000, immutable`,
+`x-content-type-options: nosniff`, an `etag`, and `304` on a matching
+`If-None-Match`; `HEAD` answers the same headers.
+
+### Upload rules
+
+- **Accepted.** JPEG, PNG and WebP, recognised by their first bytes; the
+  `content-type` header and any file name are ignored. SVG, GIF and everything
+  else get `415 unsupported_type`. The file is the raw request body (no
+  multipart).
+- **Size.** A body over `NEWSLETTER_ASSETS_MAX_BYTES` gets `413 too_large`
+  (refused by `content-length` when sent, and counted on the bytes actually
+  read either way); an empty one `400 empty_body`. With the width cap the limit
+  applies to the file as uploaded.
+- **Stored once.** The key is the SHA-256 of the stored bytes plus the
+  extension, so uploading the same file again stores nothing new and answers
+  `200` with the existing record (`201` for a new one). Objects are written
+  with `cache-control: public, max-age=31536000, immutable`.
+- **Location in photos.** `metadata: true` means the file carries Exif or XMP
+  (JPEG APP1, PNG `eXIf`, WebP's EXIF/XMP flags), where phones keep the
+  location a picture was taken. The worker does not strip or rewrite it (only
+  a width-capped copy, below, loses most of it as a side effect). The panel
+  warns, and the author decides whether to upload a cleaned copy.
+- **Deleting.** `DELETE /api/assets/:key` is refused with `409 asset_in_use`
+  while any campaign's body or text version contains the key, whatever the
+  campaign's status: a sent mail stays in inboxes indefinitely, and a draft
+  would break too. An unknown key is `404`.
+- **When R2 and the table disagree.** The `assets` table is the listing, R2
+  holds the bytes. Upload writes R2 first, then the row; delete removes the R2
+  object first, then the row. A failure between the two leaves either an
+  unlisted object (the repeat upload lists it) or a listed image without
+  bytes (the repeat delete finishes; a repeat upload puts the bytes back), so
+  every step can be repeated.
+
+### Width cap (optional)
+
+With the Cloudflare Images binding bound as `NEWSLETTER_IMAGES`, an upload
+wider than `NEWSLETTER_ASSETS_MAX_WIDTH` (default `1200`, twice a 600 px mail
+column) is stored as a copy of that width. A narrower file, or one whose header
+gives no width, is stored as uploaded, and nothing is enlarged. The type is
+kept: JPEG and WebP at quality 80, PNG without a quality setting (for PNG it
+would switch to the lossy palette variant); WebP is not converted, so its
+uneven support in mail clients stays the author's choice.
+
+The key is the hash of the stored copy, and the row remembers the upload's
+hash (`source_sha256`, schema version 8), so the same file uploaded again
+answers `200` with that copy instead of making another; a transform need not
+give the same bytes twice. A file stored before the binding was set stays as
+stored. The binding keeps only the Exif copyright tag by default, and
+`metadata` describes the stored bytes, so a resized photo usually reports
+`false`.
+
+With the binding, the upload answer carries `resize: {resized, maxWidth,
+original: {width, height, bytes}, error}`; without it the field is absent. If
+the transform fails or returns something unexpected, the original is stored and
+`resize.error` is `transform_failed` or `unexpected_output`.
+
+Each transform is a billable Images operation (unique transformations, see
+[Images pricing](https://developers.cloudflare.com/images/pricing/)); a repeat
+upload of a stored file makes none.
+
+### Pre-send image check
+
+`GET /api/campaigns/:id/images?language=` renders the campaign with the real
+renderer and sanitizer and lists the images of the mail a reader gets, in order.
+Each item is `{url, alt, stored, probe, problems}`, and the answer adds
+`checked` (distinct images probed) and `skipped` (distinct images not probed).
+Problems:
+
+- `not_stored`: the store is on, has a usable address, and the image is not
+  under its base URL (a misconfigured store is reported in the settings, not
+  on each image);
+- `no_alt`: the alt text is missing or blank;
+- `unreachable`: the probe did not get `200` with an `image/*` type.
+
+It warns and never blocks. The campaign is not changed, sending does not
+consult the check, nothing about it is stored, and it works with the store
+off (then `not_stored` is never reported). It needs `NEWSLETTER_SITE_URL`
+(`503 no_site_url` otherwise).
+
+How an image is probed:
+
+- a `GET` with the User-Agent
+  `ssg-newsletter-image-check/1.0 (mail image proxy test; GoogleImageProxy)`,
+  then the same with `YahooMailProxy` (the second only when the first
+  passed): a labelled agent that carries the token of a webmail image proxy,
+  so a bot rule keyed on that token is exercised;
+- one redirect, `https:` only; 5 s per request; only the headers are read;
+- at most 8 distinct images per call, four at a time (at most 32
+  subrequests, within the 50 a Workers Free invocation allows). The rest are
+  listed with `probe: null`, counted in `skipped`, and still judged on alt text
+  and address;
+- an image this worker serves itself (`{site}{base}/hooks/a/…`) is judged from
+  the R2 object (`probe.via: "store"`) instead of a request to its own route.
+
+The `probe` object is `{via, ok, status, contentType, error, agent}`; its
+fields are in [API.md](docs/API.md#pre-send-image-check).
+
+What a pass does not prove: for an image served here, only that the bytes are
+in the bucket, not that the zone's bot rules let a proxy through; for a
+fetched one, that a request from Cloudflare's network got an image, so a
+rule keyed on the real proxies' IP ranges or verified-bot status is not
+exercised. Authors see the check where they prepare a campaign
+([SENDING.md](docs/SENDING.md#before-you-schedule)).
+
+### Nothing is counted
+
+Serving an image reads and stores nothing about the request: no IP,
+User-Agent or cookie, no per-load row. It is not open tracking, and every
+reader gets the same URL. See also "Statistics and privacy" below.
+
+### Not verified
+
+Against a live Cloudflare account, none of this was exercised: R2 and Images
+are stand-ins in the tests. The Images stand-in follows the documented call
+chain ([Optimize with Workers](https://developers.cloudflare.com/images/optimization/binding/)),
+so what a real transform returns for a given file, and what Cloudflare bills
+for it, is not confirmed. The probe was tested against stubbed responses, so
+how a real bot rule answers it is not known.
+
 ## Statistics and privacy
 
 Counts per campaign, from data the worker already keeps — every figure is a
@@ -401,6 +577,9 @@ count, and no table the statistics use links a click or an open to anyone.
   readers get. A link whose target was stored before `NEWSLETTER_UTM` was
   turned on keeps its stored target for that campaign. With it off the mail
   is byte for byte what it was.
+- **Images are not a tracking channel.** A campaign image has the same URL
+  for every reader and its route reads and stores nothing about the request
+  ("Campaign images"), so loading one is not counted as an open.
 - **Not counted, by design:** opens (no tracking pixel — privacy proxies make
   open rates meaningless, and a pixel only works by giving each person their
   own URL), who clicked, and bounces per campaign (a bounce reported later
@@ -431,6 +610,12 @@ node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/tes
 `DEMO_AUTH=1` runs it with `auth` accounts instead of the password: pick an
 owner, editor, sender, reader or an account with no permission at
 `/auth/login`, and see what each one is shown.
+
+`DEMO_ASSETS=1` runs it with the image store on, so the upload, the library
+and the image check can be tried. With the store on, the panel's
+`Content-Security-Policy` allows images from the store's origin, and only
+from it, so thumbnails and the preview can show them; see
+[docs/PANEL.md](docs/PANEL.md).
 
 ## Abuse protection
 
@@ -484,6 +669,10 @@ What this means here:
 - **The panel counts as requests.** `run_worker_first = true` sends every
   panel file through the worker (so it sits behind the login), and each such
   request counts toward Free's daily 100 000.
+- **Campaign images.** An image the worker serves is one request per load
+  against the daily 100 000 and one R2 read; one on an R2 custom domain is
+  none ("Campaign images"). The pre-send check makes at most 32 subrequests
+  in a call, inside Free's 50.
 - **Not verified:** whether Workers Free's 10 ms CPU limit applies to a queue
   consumer as it does to a request (the Queues limits page lists a 30 s
   default without a Free column); whether the subrequest limit counts a
@@ -526,7 +715,7 @@ deploy `newsletter` first; `GET {base}/api/health` still answers and reports
 
 | Table | Holds |
 |---|---|
-| `schema_meta` | the schema version per component (`newsletter-ui` = 5) |
+| `schema_meta` | the schema version per component (`newsletter-ui` = 7) |
 | `settings` | panel settings as JSON values (and the test-send counter); never secrets |
 | `campaigns` | subject, body, segment, status, schedule, counters, source post |
 | `campaign_sends` | the send ledger: one row per campaign and subscriber — `claimed` → `sent` / `failed` / `retry` / `skipped`, or `uncertain` |
@@ -538,12 +727,14 @@ deploy `newsletter` first; `GET {base}/api/health` still answers and reports
 | `soft_bounces` | soft bounces in a row per address, below the limit |
 | `hook_events` | webhook event ids already applied, kept 7 days |
 | `click_links` | per campaign link: the target and a counter — no column that can point at a person |
+| `admin_audit` | the audit trail of admin actions ("Who can do what") |
+| `assets` | campaign images in the optional R2 bucket: key (SHA-256 + extension), type, size, dimensions, whether Exif/XMP is present, and the upload's hash behind a width-capped copy (`source_sha256`) — the bytes are in R2 |
 
 ## Files
 
 ```
 workers/newsletter-ui/
-├── wrangler.toml     the Worker: D1, cron, queue + dead-letter queue, rate limit, assets
+├── wrangler.toml     the Worker: D1, cron, queue + dead-letter queue, rate limit, assets, optional R2
 ├── schema.sql        this worker's own tables (created on first use anyway)
 ├── openapi.yaml      the API, OpenAPI 3.1
 ├── module.json       the module manifest, served at {base}/api/module
@@ -558,7 +749,8 @@ workers/newsletter-ui/
 ├── src/session-verifier.ts  byte-identical copy of workers/auth/portable/session-verifier.ts
 ├── src/mail/         byte-identical copies of the `newsletter` template's mail modules
 ├── src/…             one feature per group of files: subscriber*, import*, campaign*, engine*,
-│                     bounce*, hook*, suppression*, stats*, click*, feed*, confirm*, render*, settings
+│                     bounce*, hook*, suppression*, stats*, click*, feed*, confirm*, render*, settings,
+│                     asset*, image-* (campaign images: config, type sniffing, width cap, API, serving; the pre-send check and its probe)
 └── test/             node:test suites; fakes.ts runs D1 on real SQLite
 ```
 
@@ -626,7 +818,7 @@ and the tokens, with their reasoning, in `public/css/tokens.css`:
 | Permission | Allows |
 |---|---|
 | `newsletter:read` | View subscribers, counts, campaigns and statistics. |
-| `newsletter:edit` | Edit campaign drafts, and a subscriber's tags and language. |
+| `newsletter:edit` | Edit campaign drafts and their images, and a subscriber's tags and language. |
 | `newsletter:send` | Send a test, schedule, pause and resume a campaign, and retry uncertain sends — mail that reaches real people. |
 | `newsletter:import` | Import subscribers and suppression lists from a file. |
 | `newsletter:export` | Download subscribers as CSV and export one person's data. |

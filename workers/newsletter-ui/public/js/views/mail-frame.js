@@ -9,7 +9,8 @@
 // CSSOM (a constructed stylesheet and element.style), which CSP does not
 // govern. The frame is sandboxed without allow-scripts, so nothing in it can
 // run, submit or navigate the panel; remote images stay blocked by img-src
-// (a test send shows them).
+// (a test send shows them), except those from the campaign image store,
+// whose origin the worker adds to the panel's img-src (#446).
 
 export function mailFrame(doc, { html, title, className = "mail-frame" }) {
   const frame = doc.createElement("iframe");
