@@ -65,3 +65,6 @@ services/tts-server/
 services/smtp-relay/
 
 .cache/
+
+# Session backlog: a local work plan
+BACKLOG.md

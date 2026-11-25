@@ -103,3 +103,6 @@ CLAUDE.md
 services/smtp-relay/.env
 services/smtp-relay/secrets/
 services/smtp-relay/tls/
+
+# Session backlog: a local work plan, not part of the repository
+BACKLOG.md
