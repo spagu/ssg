@@ -21,6 +21,8 @@ export function warnings({ settings, engine, campaigns = [] }) {
   if (settings && !settings.siteUrlValid) add("critical", "warn.noSiteUrl", {}, href("settings"));
   if (settings && !settings.sender.email) add("warning", "warn.noSender", {}, href("settings"));
   if (settings && !settings.engine.queue) add("critical", "warn.noQueue", {}, href("settings"));
+  if (settings?.imageRules?.problem) add("critical", "imageGate.warn", { detail: settings.imageRules.problem }, href("settings")); // #448: fail closed
+  if (settings?.contentRules?.problem) add("critical", "content.warn", { detail: settings.contentRules.problem }, href("settings")); // #449: fail closed
   for (const c of engine?.campaigns ?? []) {
     if (c.status === "paused" && c.error) add("critical", "warn.enginePaused", { subject: c.subject, error: c.error }, href("campaign", { id: c.id }));
   }

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`newsletter-ui`: the image check can refuse scheduling (#448).**
+  `NEWSLETTER_IMAGES_REQUIRE` takes any of `alt`, `store`, `load`. Unset,
+  nothing changes: the check only warns, and every response is what it was.
+  - `alt`: an image with no alt text, an empty one, or one of only
+    whitespace or invisible characters. `store`: an image outside the image
+    store. `load`: an image that does not answer `200` with an image type to
+    the probe; an image beyond the 8 probed per check fails as `not_probed`.
+  - Only `POST {base}/api/campaigns/:id/schedule` is refused, with
+    `409 image_check_failed` and the failing images. The campaign stays a
+    draft. Saving and a test send are never refused. A campaign scheduled
+    before the switch was set is not checked again.
+  - A draft saved while its images were being checked answers
+    `409 campaign_changed` instead of scheduling unchecked content.
+  - An unknown word, or `store` without a usable image store, is a
+    configuration problem: scheduling answers `503 image_rules_unusable`
+    until it is fixed, and the settings, the module summary and the
+    dashboard report it.
+  - The panel says which rules are enforced, marks the problems that block
+    scheduling, and shows a refusal in the Schedule dialog. See "Requiring
+    images to pass" in `workers/newsletter-ui/README.md`.
+- **`newsletter-ui`: content rules checked before scheduling (#449).** All
+  off until configured.
+  - `NEWSLETTER_BANNED_PHRASES`: phrases separated by `|`, matched as whole
+    words without regard to case, in the subject, the text of the body (with
+    link texts and alt texts) and the hand-written text version. Addresses
+    are not scanned. At most 200 phrases of 100 characters.
+  - `NEWSLETTER_BLOCKED_IMAGE_PATTERNS`: substrings separated by `|` that an
+    image address must not contain. At most 50 of 200 characters.
+  - `NEWSLETTER_UTM_STRICT=on`, with `NEWSLETTER_UTM` on: a link to a host
+    the worker tags that already carries a `utm_*` parameter is a finding.
+    Without it such a link is left as written, as before. Nothing is
+    rewritten.
+  - A finding refuses `POST {base}/api/campaigns/:id/schedule` with
+    `409 content_check_failed` and the findings. Saving and a test send are
+    never refused. A value over the bounds, or `NEWSLETTER_UTM_STRICT` on
+    with `NEWSLETTER_UTM` off, answers `503 content_rules_invalid`.
+  - New: `GET {base}/api/campaigns/:id/content-check`, `contentRules` and
+    `imageRules` in `GET {base}/api/settings`, a "Content rules" card in the
+    campaign editor. The configured lists are never returned, only counts
+    and the phrases or patterns that matched. See "Content rules" in
+    `workers/newsletter-ui/README.md`.
+- **`newsletter-ui` local preview takes `NEWSLETTER_*` variables from the
+  shell**, so a switch can be tried without editing a file.
+
+### Changed
+
+- **`newsletter-ui`: Polish panel strings corrected by a native speaker
+  (#450).** 21 strings: "we wrangler.toml", "proxy obrazów poczty", plural
+  forms and wording.
+- **`newsletter-ui`: the Schedule dialog stays open while the request runs.**
+  A refusal is shown in the dialog; Cancel and Escape do nothing until the
+  answer has arrived. A wrong date or time also keeps the dialog open
+  (before, it closed with a notice).
+
+### Fixed
+
+- **`newsletter-ui`: an image whose alt text was only an invisible character
+  passed the image check.** A zero-width space, a joiner or a soft hyphen
+  alone now counts as no alt text.
+
 ## [1.9.15] - 2026-11-25
 
 ### Added

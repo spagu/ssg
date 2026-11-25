@@ -8,14 +8,18 @@
 //   unreachable  did not answer 200 with an image type to a mail image
 //                proxy's kind of request (src/image-probe.ts)
 //
-// It warns, it never blocks: the campaign is not changed and sending does not
-// consult it. Nothing about the probe is stored. It works with the store off.
+// By itself it warns: the campaign is not changed and sending does not consult
+// it. NEWSLETTER_IMAGES_REQUIRE (#448, src/image-gate-rules.ts) turns chosen
+// findings into a refusal to schedule (src/image-gate.ts); this answer then
+// also says which rules are enforced and which problems block. Nothing about
+// the probe is stored. It works with the store off.
 
 import { ASSET_KEY, SERVE_PREFIX, assetsBaseUrl, assetsEnabled } from "./asset-config";
 import { previewMessage } from "./campaign-actions";
 import { loadCampaign } from "./campaign-model";
 import { pool, probeFetch, probeStore } from "./image-probe";
 import type { Fetcher, Probe } from "./image-probe";
+import { imageRules, withRules } from "./image-gate-rules";
 import { basePath, json } from "./lib";
 import type { Env } from "./lib";
 import { siteOf, unknownVariables } from "./render";
@@ -30,6 +34,12 @@ import type { HtmlNode } from "./sanitize";
 export const MAX_PROBED_IMAGES = 8;
 export const PROBE_POOL = 4;
 const LANGUAGE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/;
+
+// blankAlt: an alt of nothing a reader can see or hear is no alt. Besides
+// whitespace that is the soft hyphen and the zero-width characters (U+200B
+// to U+200D, U+2060, U+FEFF), which trim() leaves in place.
+const INVISIBLE = /[\s\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+export const blankAlt = (alt: string | null | undefined): boolean => !alt || alt.replace(INVISIBLE, "") === "";
 
 export type ImageProblem = "not_stored" | "no_alt" | "unreachable";
 
@@ -69,11 +79,12 @@ function ownKey(env: Env, site: Site, url: string): string | null {
   return ASSET_KEY.test(key) ? key : null;
 }
 
-// checkImages builds the report for a rendered mail's HTML.
-export async function checkImages(env: Env, site: Site, html: string, fetcher: Fetcher = fetch) {
+// checkImages builds the report for a rendered mail's HTML. `maxProbed` is 0
+// for a gate that does not enforce `load`: it then makes no request at all.
+export async function checkImages(env: Env, site: Site, html: string, fetcher: Fetcher = fetch, maxProbed = MAX_PROBED_IMAGES) {
   const images = imagesOf(html);
   const distinct = [...new Set(images.map((i) => i.url))];
-  const probed = distinct.slice(0, MAX_PROBED_IMAGES);
+  const probed = distinct.slice(0, maxProbed);
   const probes = await pool(probed, PROBE_POOL, (url) => {
     const key = ownKey(env, site, url);
     return key ? probeStore(env.NEWSLETTER_ASSETS as R2Bucket, key) : probeFetch(url, fetcher);
@@ -89,7 +100,7 @@ export async function checkImages(env: Env, site: Site, html: string, fetcher: F
     const probe = byUrl.get(url) ?? null;
     const problems: ImageProblem[] = [];
     if (usable && !stored) problems.push("not_stored");
-    if (!alt?.trim()) problems.push("no_alt");
+    if (blankAlt(alt)) problems.push("no_alt");
     if (probe && !probe.ok) problems.push("unreachable");
     return { url, alt, stored, probe, problems };
   });
@@ -106,5 +117,5 @@ export async function campaignImages({ env, params, url }: RouteContext): Promis
   // The renderer refuses unknown variables; say which, as saving would.
   const unknown = unknownVariables(c.subject, c.body, c.textOverride);
   if (unknown.length) return json({ error: "unknown_variable", detail: unknown.map((n) => `{{${n}}}`).join(", ") }, 400);
-  return json(await checkImages(env, site, previewMessage(c, language, site).html));
+  return json(withRules(await checkImages(env, site, previewMessage(c, language, site).html), imageRules(env)));
 }

@@ -37,6 +37,7 @@ import { moduleSummary } from "./module-summary";
 import { deleteAsset, listAssets, uploadAsset } from "./asset-store";
 import { serveAsset } from "./asset-serve";
 import { campaignImages } from "./image-check";
+import { campaignContentCheck } from "./content-rules"; // #449
 
 // GO-137: who may call what. One permission per level of trust (module.json);
 // a route doing two things needs both (the suppression import writes
@@ -132,7 +133,10 @@ export const ROUTES: Route[] = [
   { method: "DELETE", path: "/api/assets/:key", handler: deleteAsset, needsSubscribers: false, permission: EDIT, audit: "asset.delete" },
   { method: "GET", path: "/hooks/a/:key", handler: serveAsset, needsSubscribers: false, permission: PUBLIC, publicCache: true },
   { method: "HEAD", path: "/hooks/a/:key", handler: serveAsset, needsSubscribers: false, permission: PUBLIC, publicCache: true },
-  // the pre-send image check: warns, never blocks; works with the store off
+  // the pre-send image check: warns; NEWSLETTER_IMAGES_REQUIRE (#448) makes the schedule route enforce it; works with the store off
   { method: "GET", path: "/api/campaigns/:id/images", handler: campaignImages, needsSubscribers: false, permission: READ },
   // end #446
+  // #449: the read-only content rules check (scheduling runs the same check and refuses on a finding)
+  { method: "GET", path: "/api/campaigns/:id/content-check", handler: campaignContentCheck, needsSubscribers: false, permission: READ },
+  // end #449
 ];

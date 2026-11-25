@@ -90,7 +90,13 @@ export async function busy(app, button, fn) {
 // Cancel (the safe choice) unless `focus` names a field of `extra`, and
 // returns to the opener afterwards. showModal makes the rest of the page
 // inert, so Tab stays inside the dialog.
-export function confirmDialog(app, { title, body, confirm, danger = true, extra = null, focus = null }) {
+// `onConfirm` (optional, async) runs the action with the dialog still open
+// and its confirm button busy (through `busy`): it answers false to keep the
+// dialog open (a refusal it has drawn into `extra`); any other value except
+// undefined closes the dialog and becomes the result. A rejection is shown
+// with app.notify and keeps the dialog open, so the author can try again.
+// Cancel and Escape are ignored while it runs.
+export function confirmDialog(app, { title, body, confirm, danger = true, extra = null, focus = null, onConfirm = null }) {
   const opener = document.activeElement;
   return new Promise((resolve) => {
     let dialog;
@@ -100,20 +106,39 @@ export function confirmDialog(app, { title, body, confirm, danger = true, extra 
       if (opener && opener.focus) opener.focus();
       resolve(ok);
     };
+    // While onConfirm runs, Cancel and Escape do nothing: closing then would
+    // answer false for an action that may still succeed, and the page would
+    // never show its result.
+    let pending = false;
+    const cancel = () => {
+      if (!pending) close(false);
+    };
+    const settle = (r) => {
+      pending = false;
+      if (r !== false && r !== undefined) close(r);
+    };
+    const submit = (e) => {
+      e.preventDefault();
+      if (pending) return;
+      if (!onConfirm) return close(true);
+      const button = e.currentTarget.querySelector("button[type=submit]");
+      pending = true;
+      busy(app, button, onConfirm).then(settle, () => settle(false));
+    };
     dialog = render(
       h(
         "dialog",
-        { class: "dialog", "aria-labelledby": "dlg-title", "aria-describedby": "dlg-body", on: { cancel: (e) => (e.preventDefault(), close(false)) } },
+        { class: "dialog", "aria-labelledby": "dlg-title", "aria-describedby": "dlg-body", on: { cancel: (e) => (e.preventDefault(), cancel()) } },
         h(
           "form",
-          { on: { submit: (e) => (e.preventDefault(), close(true)) } },
+          { on: { submit } },
           h("h2", { id: "dlg-title" }, title),
           h("p", { id: "dlg-body" }, body),
           extra,
           h(
             "div",
             { class: "dialog-actions" },
-            h("button", { type: "button", class: "btn", autofocus: true, on: { click: () => close(false) } }, app.t("action.cancel")),
+            h("button", { type: "button", class: "btn", autofocus: true, on: { click: cancel } }, app.t("action.cancel")),
             h("button", { type: "submit", class: `btn ${danger ? "btn-danger" : "btn-primary"}` }, confirm),
           ),
         ),

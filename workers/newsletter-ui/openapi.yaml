@@ -539,8 +539,26 @@ paths:
                       recipients: { $ref: "#/components/schemas/Recipients" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-        "503": { $ref: "#/components/responses/NotReady" }
+        "409":
+          description: >-
+            invalid_transition; or content_check_failed {detail, findings} (#449) — the campaign breaks a configured
+            content rule and stays a draft; or image_check_failed {detail, items, rules} (#448) — an image breaks a
+            rule of NEWSLETTER_IMAGES_REQUIRE and the campaign stays a draft; or campaign_changed (#448) — the draft
+            was saved while its images were checked, so it was not scheduled
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Error"
+                  - $ref: "#/components/schemas/ContentCheckFailed"
+                  - $ref: "#/components/schemas/ImageCheckFailed"
+        "503":
+          description: >-
+            A setting the send needs is missing (no_site_url, no_transport, transport_unusable); or
+            content_rules_invalid {detail} (#449): the content rules cannot be applied, so nothing is scheduled; or
+            image_rules_unusable {detail} (#448): NEWSLETTER_IMAGES_REQUIRE cannot be applied (an unknown rule, or
+            store without a usable image store), so nothing is scheduled
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   /api/campaigns/{id}/unschedule:
     post:
@@ -1173,14 +1191,16 @@ paths:
       x-permission: newsletter:read
       operationId: campaignImages
       tags: [assets]
-      summary: Pre-send image check — the rendered mail's images and what may go wrong with each (warns, never blocks)
+      summary: Pre-send image check — the rendered mail's images and what may go wrong with each
       description: >-
         Works with the image store on or off. Images come from the real renderer and sanitizer. At most 8 distinct
         images are probed per call (the rest are counted in `skipped`, still judged on alt and address): a GET with
         a labelled User-Agent carrying the GoogleImageProxy token, then one with YahooMailProxy, at most 1 redirect
         (https only), 5 s per fetch, body never read. Images this worker serves ({site}{base}/hooks/a/…) are judged
         from R2 (probe.via = store) — proof the bytes exist, not that the zone's bot rules let a proxy through.
-        Nothing is stored; the campaign is not changed.
+        Nothing is stored; the campaign is not changed. By itself it only warns. With NEWSLETTER_IMAGES_REQUIRE set
+        (#448) the schedule route refuses images that break the enforced rules, and this answer adds `rules`,
+        `rulesProblem` and each item's `blocking`; unset, the answer is exactly as in 1.9.15, without those fields.
       parameters:
         - $ref: "#/components/parameters/Id"
         - { name: language, in: query, schema: { type: string, default: en, pattern: "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$" }, description: The recipient language to render for }
@@ -1193,6 +1213,30 @@ paths:
         "400": { description: "invalid_input (language) or unknown_variable {detail}", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { description: "no_site_url: NEWSLETTER_SITE_URL is not a usable https:// origin", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/campaigns/{id}/content-check:
+    get:
+      x-permission: newsletter:read
+      operationId: campaignContentCheck
+      tags: [campaigns]
+      summary: The content rules (#449) checked against the campaign, read-only — what scheduling would refuse
+      description: >-
+        The same check POST /api/campaigns/{id}/schedule runs (there in the segment's first language, else en).
+        With no rule configured it answers {findings: [], rules} without rendering. `rules` holds counts and
+        switches only: the configured phrase list is never returned, only phrases found in this campaign.
+        Nothing is stored; the campaign is not changed.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - { name: language, in: query, schema: { type: string, default: en, pattern: "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$" }, description: The recipient language to render for }
+      responses:
+        "200":
+          description: The findings (empty when the campaign passes)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContentCheck" }
+        "400": { description: "invalid_input (language) or unknown_variable {detail}", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { description: "content_rules_invalid {detail}: the rules cannot be applied; or no_site_url", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /api/assets/{key}:
     delete:
@@ -1933,7 +1977,13 @@ components:
               url: { type: string }
               alt: { type: [string, "null"] }
               stored: { type: boolean, description: Under the image store's base URL (always false with the store off) }
-              problems: { type: array, items: { type: string, enum: [not_stored, no_alt, unreachable] } }
+              problems: { type: array, items: { type: string, enum: [not_stored, no_alt, unreachable, not_probed] }, description: "not_probed only in a 409 image_check_failed (#448)" }
+              blocking:
+                type: array
+                items: { type: string, enum: [not_stored, no_alt, unreachable, not_probed] }
+                description: >-
+                  #448, only with NEWSLETTER_IMAGES_REQUIRE set: the problems that refuse scheduling; not_probed = over
+                  the probe limit while load is enforced. Empty while the rules cannot be applied.
               probe:
                 type: [object, "null"]
                 description: null when not probed (over the per-call limit)
@@ -1946,6 +1996,59 @@ components:
                   agent: { type: [string, "null"], description: The proxy token whose probe failed (GoogleImageProxy, YahooMailProxy) }
         checked: { type: integer, description: Distinct images probed }
         skipped: { type: integer, description: Distinct images not probed (over the limit of 8) }
+        rules: { type: array, items: { type: string, enum: [alt, store, load] }, description: "#448 — the enforced rules; present only with NEWSLETTER_IMAGES_REQUIRE set" }
+        rulesProblem: { type: [string, "null"], description: "#448 — why the rules cannot be applied (scheduling answers 503 image_rules_unusable while set); present only with NEWSLETTER_IMAGES_REQUIRE set" }
+    ImageCheckFailed:
+      type: object
+      description: >-
+        A schedule refused by NEWSLETTER_IMAGES_REQUIRE (#448). items are the failing images in the shape of
+        ImageCheck items, each with only its enforced problems (problems and blocking are then equal).
+      properties:
+        error: { type: string, enum: [image_check_failed] }
+        detail: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/ImageCheck/properties/items/items" } }
+        rules: { type: array, items: { type: string, enum: [alt, store, load] } }
+    ImageRules:
+      type: object
+      description: NEWSLETTER_IMAGES_REQUIRE (#448); rules is empty when unset (the image check only warns)
+      properties:
+        rules: { type: array, items: { type: string, enum: [alt, store, load] } }
+        problem: { type: [string, "null"], description: Why the rules cannot be applied; scheduling answers 503 image_rules_unusable while set }
+    ContentFinding:
+      type: object
+      description: >-
+        One finding of the content rules (#449). banned_phrase adds match and count; blocked_image adds pattern;
+        utm_conflict adds host and parameters.
+      required: [rule, where, value]
+      properties:
+        rule: { type: string, enum: [banned_phrase, blocked_image, utm_conflict] }
+        where: { type: string, enum: [subject, body, text], description: "subject; body (words, link texts, alt texts; links and images); text = the hand-written text version" }
+        value: { type: string, description: "The phrase as configured (banned_phrase), the image URL (blocked_image) or the link as written (utm_conflict)" }
+        match: { type: string, description: banned_phrase — the first occurrence as the mail spells it }
+        count: { type: integer, description: banned_phrase — occurrences in this part }
+        pattern: { type: string, description: blocked_image — the configured pattern the URL contains }
+        host: { type: string, description: utm_conflict — the tagged host of the link }
+        parameters: { type: array, items: { type: string }, description: utm_conflict — the link's utm_* parameter names as written }
+    ContentRules:
+      type: object
+      description: Which content rules are configured (#449) — counts and switches, never the phrases
+      properties:
+        active: { type: boolean, description: At least one rule is configured, or the configuration has a problem }
+        bannedPhrases: { type: integer, description: Distinct phrases in NEWSLETTER_BANNED_PHRASES }
+        blockedImagePatterns: { type: integer, description: Distinct patterns in NEWSLETTER_BLOCKED_IMAGE_PATTERNS }
+        utmStrict: { type: boolean, description: NEWSLETTER_UTM_STRICT is on and NEWSLETTER_UTM is on }
+        problem: { type: [string, "null"], description: Why the rules cannot be applied; scheduling answers 503 content_rules_invalid while set }
+    ContentCheck:
+      type: object
+      properties:
+        findings: { type: array, items: { $ref: "#/components/schemas/ContentFinding" } }
+        rules: { $ref: "#/components/schemas/ContentRules" }
+    ContentCheckFailed:
+      type: object
+      properties:
+        error: { type: string, enum: [content_check_failed] }
+        detail: { type: string }
+        findings: { type: array, items: { $ref: "#/components/schemas/ContentFinding" } }
     Settings:
       type: object
       properties:
@@ -2013,6 +2116,8 @@ components:
             maxBytes: { type: integer }
             maxWidth: { type: [integer, "null"], description: Width cap of the optional Images binding NEWSLETTER_IMAGES; null without it }
             problem: { type: [string, "null"], description: Why no address can be built (only with the binding) }
+        contentRules: { $ref: "#/components/schemas/ContentRules" }
+        imageRules: { $ref: "#/components/schemas/ImageRules" }
         auth: { type: string, enum: [access, basic] }
         base: { type: [string, "null"] }
         schemaVersion: { type: integer }

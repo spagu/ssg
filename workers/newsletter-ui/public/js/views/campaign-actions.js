@@ -8,6 +8,7 @@ import { LANGS } from "../core/i18n.js";
 import { actionsFor, fromLocalInput, toLocalInput } from "../models/campaign.js";
 import { btn, busy, confirmDialog } from "./ui.js";
 import { dialogCheck } from "./image-check.js";
+import { dialogRefusal } from "./content-check.js"; // #449
 
 const path = (c, action = "") => `campaigns/${encodeURIComponent(c.id)}${action ? "/" + action : ""}`;
 
@@ -50,9 +51,10 @@ export function campaignActions(app, c, { save = null } = {}) {
     if (!preview) return;
     const refs = {};
     const soon = toLocalInput(new Date(Date.now() + 3_600_000).toISOString());
-    // The image check (#446) runs once as the dialog opens and only warns:
-    // its result arrives while the author decides, and Schedule never waits.
+    // The image check (#446) runs once as the dialog opens: its result
+    // arrives while the author decides, and Schedule never waits for it.
     const images = dialogCheck(app, c);
+    const content = dialogRefusal(app); // #449: a 409 content_check_failed is drawn here
     const extra = [
       h(
         "fieldset",
@@ -63,6 +65,7 @@ export function campaignActions(app, c, { save = null } = {}) {
         h("div", { class: "field" }, h("label", { for: "sched-at" }, t("schedule.time")), h("input", { id: "sched-at", type: "datetime-local", value: soon, ref: (el) => (refs.at = el), on: { input: () => (refs.now.checked = false) } })),
       ),
       images.node,
+      content.node,
     ];
     const asked = confirmDialog(app, {
       title: t("schedule.title", { subject: name }),
@@ -70,13 +73,22 @@ export function campaignActions(app, c, { save = null } = {}) {
       confirm: t("schedule.go", { count: preview.recipients.total }),
       danger: false,
       extra,
+      // The request runs with the dialog open: a refusal it can show (#448:
+      // the images the enforced rules refuse) stays in the dialog, which stays
+      // open; anything else is notified by confirmDialog, also keeping it open.
+      onConfirm: async () => {
+        const at = refs.now.checked ? undefined : fromLocalInput(refs.at.value);
+        if (!refs.now.checked && !at) return (app.notify(t("schedule.badTime"), "critical"), false);
+        try {
+          return await api.post(path(c, "schedule"), at ? { at } : {});
+        } catch (err) {
+          if (content.refuse(err) || images.refuse(err)) return false;
+          throw err;
+        }
+      },
     });
     images.start(); // confirmDialog has drawn the dialog synchronously
-    const ok = await asked;
-    if (!ok) return;
-    const at = refs.now.checked ? undefined : fromLocalInput(refs.at.value);
-    if (!refs.now.checked && !at) return app.notify(t("schedule.badTime"), "critical");
-    const r = await busy(app, button, () => api.post(path(c, "schedule"), at ? { at } : {}));
+    const r = await asked;
     if (r) {
       app.notify(t("schedule.done", { subject: name, count: r.recipients.total, at: fmt.dateTime(r.scheduledAt) }));
       reload();

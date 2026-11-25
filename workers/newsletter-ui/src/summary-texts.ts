@@ -77,6 +77,22 @@ export const OWN_PROBLEMS = {
     de: "Kampagnenbilder können keine Adresse erhalten: {detail}",
     fr: "Les images de campagne ne peuvent pas recevoir d'adresse : {detail}",
   },
+  // #448: the image rules fail closed — every schedule is refused until fixed.
+  image_rules_unusable: {
+    en: "The image rules in NEWSLETTER_IMAGES_REQUIRE cannot be applied, so no campaign can be scheduled until they are fixed: {detail}",
+    pl: "Reguł obrazów z NEWSLETTER_IMAGES_REQUIRE nie da się zastosować, więc żadnej kampanii nie można zaplanować, dopóki nie zostaną poprawione: {detail}",
+    hi: "NEWSLETTER_IMAGES_REQUIRE के छवि नियम लागू नहीं किए जा सकते, इसलिए जब तक उन्हें ठीक नहीं किया जाता, कोई भी कैंपेन शेड्यूल नहीं किया जा सकता: {detail}",
+    de: "Die Bildregeln in NEWSLETTER_IMAGES_REQUIRE lassen sich nicht anwenden; bis sie korrigiert sind, kann keine Kampagne geplant werden: {detail}",
+    fr: "Les règles d'images de NEWSLETTER_IMAGES_REQUIRE ne peuvent pas être appliquées ; aucune campagne ne peut être programmée tant qu'elles ne sont pas corrigées : {detail}",
+  },
+  // #449: the content rules fail closed too.
+  content_rules_invalid: {
+    en: "The content rules cannot be applied, so no campaign can be scheduled until they are fixed in wrangler.toml: {detail}",
+    pl: "Reguł treści nie da się zastosować, więc żadnej kampanii nie można zaplanować, dopóki nie zostaną poprawione we wrangler.toml: {detail}",
+    hi: "सामग्री नियम लागू नहीं किए जा सकते, इसलिए जब तक wrangler.toml में उन्हें ठीक नहीं किया जाता, कोई भी कैंपेन शेड्यूल नहीं किया जा सकता: {detail}",
+    de: "Die Inhaltsregeln lassen sich nicht anwenden; bis sie in wrangler.toml korrigiert sind, kann keine Kampagne geplant werden: {detail}",
+    fr: "Les règles de contenu ne peuvent pas être appliquées ; aucune campagne ne peut être programmée tant qu'elles ne sont pas corrigées dans wrangler.toml : {detail}",
+  },
 } satisfies Record<string, Text>;
 
 // Panel strings, word for word (test/module-summary.test.ts holds them to

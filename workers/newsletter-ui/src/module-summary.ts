@@ -57,6 +57,8 @@ export function configProblems(env: Env, subscribers: boolean): Problem[] {
   if (!s.sender.email) out.push({ code: "no_sender", text: PANEL_PROBLEMS.no_sender });
   if (!s.engine.queue) out.push({ code: "no_queue", text: PANEL_PROBLEMS.no_queue });
   if (s.assets.problem) out.push({ code: "assets_unusable", text: withDetail(OWN_PROBLEMS.assets_unusable, s.assets.problem) });
+  if (s.imageRules.problem) out.push({ code: "image_rules_unusable", text: withDetail(OWN_PROBLEMS.image_rules_unusable, s.imageRules.problem) }); // #448
+  if (s.contentRules.problem) out.push({ code: "content_rules_invalid", text: withDetail(OWN_PROBLEMS.content_rules_invalid, s.contentRules.problem) }); // #449
   return out;
 }
 

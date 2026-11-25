@@ -56,14 +56,19 @@ function stamps(to: Status): string {
 // two concurrent callers (two cron ticks, an admin clicking twice) exactly one
 // wins; the other gets false and must not act. A move the table does not allow
 // returns false without touching the database. `scheduledAt` (ISO 8601,
-// default now) is used only for → scheduled.
-export async function transition(env: Env, id: string, from: Status, to: Status, scheduledAt?: string): Promise<boolean> {
+// default now) is used only for → scheduled. `unchangedSince` (#448) adds
+// "AND updated_at = it": a move decided on content checked a while ago (the
+// image gate probes the network for seconds) fails if the draft was edited
+// in the meantime, instead of scheduling content nobody checked.
+export async function transition(env: Env, id: string, from: Status, to: Status, scheduledAt?: string, unchangedSince?: string): Promise<boolean> {
   if (!canTransition(from, to)) return false;
   const now = new Date().toISOString();
+  const binds = [to, from, now, scheduledAt ?? now, id];
+  if (unchangedSince !== undefined) binds.push(unchangedSince);
   const r = await env.NEWSLETTER_DB.prepare(
-    `UPDATE campaigns SET status = ?1, updated_at = ?3${stamps(to)} WHERE id = ?5 AND status = ?2`,
+    `UPDATE campaigns SET status = ?1, updated_at = ?3${stamps(to)} WHERE id = ?5 AND status = ?2${unchangedSince === undefined ? "" : " AND updated_at = ?6"}`,
   )
-    .bind(to, from, now, scheduledAt ?? now, id)
+    .bind(...binds)
     .run();
   return r.meta.changes === 1;
 }

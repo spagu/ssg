@@ -231,6 +231,29 @@ which is a longer read but never a wrong one.
 -->
 
 
+<div class="upgrade-step" data-since="1.9.16">
+
+### 1.9.16 — nothing to do; `newsletter-ui` only
+
+Replace the binary. The generator itself is unchanged; the release carries a
+newer `newsletter-ui` template. A deployed `newsletter-ui` gets it by updating
+the worker's files from the new template and deploying.
+
+Optional, all off until set; see
+[its README](../workers/newsletter-ui/README.md#configuration):
+
+- `NEWSLETTER_IMAGES_REQUIRE` (`alt`, `store`, `load`): scheduling is refused
+  while an image of the mail breaks a chosen rule (#448).
+- `NEWSLETTER_BANNED_PHRASES`, `NEWSLETTER_BLOCKED_IMAGE_PATTERNS`,
+  `NEWSLETTER_UTM_STRICT`: scheduling is refused while the content breaks a
+  configured rule (#449).
+
+If you set one of them: a value the worker cannot use (an unknown word, a
+rule that needs the image store while it is off) refuses every schedule with
+a `503` until it is fixed. The dashboard and the settings name the problem.
+
+</div>
+
 <div class="upgrade-step" data-since="1.9.15">
 
 ### 1.9.15 — nothing to do; one new tag if `marketing.logo` is set

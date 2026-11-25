@@ -161,6 +161,10 @@ const env = {
   NEWSLETTER_TRACK_CLICKS: "true",
 };
 if (process.env.DEMO_ASSETS === "1") env.NEWSLETTER_ASSETS = fakeR2();
+// Any NEWSLETTER_* variable of the shell overrides the demo value, so a switch
+// can be tried without editing this file, e.g.
+//   NEWSLETTER_IMAGES_REQUIRE=alt NEWSLETTER_BANNED_PHRASES='act now' node … dev-server.mjs
+for (const [name, value] of Object.entries(process.env)) if (name.startsWith("NEWSLETTER_") && typeof value === "string") env[name] = value;
 await seedDemo(env);
 
 // --- DEMO_AUTH=1: a pretend `auth` worker --------------------------------

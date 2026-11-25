@@ -16,7 +16,7 @@ lives behind the same authentication as the API. Back to the
 | Subscriber | `#/subscribers/<id>` | record, consent text and time, sends, suppression; tags and language; unsubscribe, re-send confirmation, GDPR export, erase |
 | Import | `#/import` | CSV → preview (delimiter, editable column mapping, ignored columns and why, what each row becomes, dropped dates) → asks day-first or month-first when the file does not say → run |
 | Campaigns | `#/campaigns?status=` | list by status, new draft, draft from a post on the feed |
-| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
+| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check; the content rules check when configured); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
 | Suppressions | `#/suppressions?reason=&q=` | new suppressions by reason over 90 days, list, add, lift (a complaint asks for an explicit yes), CSV import with preview |
 | Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test |
 | Activity | `#/activity?actor=&action=` | the audit trail: who changed what, newest first, filtered by account and action (`GET /api/audit`, `newsletter:settings`) |
@@ -123,8 +123,51 @@ through. Images beyond the first 8 different ones are listed as not tested.
 The **Schedule…** dialog runs the same check once as it opens and shows the
 summary and the images that need attention when the answer arrives. It never
 runs while typing — each run renders the mail and makes up to 32 requests to
-the image addresses — and it only warns: no button waits for it or is
-disabled by it, and sending works exactly as before.
+the image addresses — and no button waits for it or is disabled by it.
+
+**When the worker enforces image rules** (`NEWSLETTER_IMAGES_REQUIRE`, #448)
+the card's lead names the enforced rules (alt text, image store, loading
+through a mail image proxy) and says that an image breaking one stops
+scheduling, while everything else only warns; with the switch unset it keeps
+the warning-only lead. The editor reads the rules from `GET /api/settings`; if
+that fails, the lead says the settings could not be read and the result tells.
+Each image whose problem is enforced is headed **Blocks scheduling**, and each
+enforced problem starts with **Blocks scheduling:** — in words, not colour
+alone — including an image beyond the first 8 that `load` cannot show to
+load. The summary turns critical and says a draft with these images cannot be
+scheduled. When the worker refuses a schedule (`409 image_check_failed`), the
+**Schedule…** dialog stays open and shows, in its image section's live region
+(`role="status"`, announced politely), "Not scheduled" with the refused
+images; a check still running cannot overwrite it. Cancel closes the dialog;
+fix the images in the editor and schedule again. Any other failure is shown as
+a notification and the dialog stays open too. A rule set the worker cannot
+apply shows on the dashboard as a critical warning, in the Settings view
+(**Image rules before scheduling**), and as the reason for a refused schedule.
+
+## Content rules
+
+When the worker has a content rule (`NEWSLETTER_BANNED_PHRASES`,
+`NEWSLETTER_BLOCKED_IMAGE_PATTERNS`, `NEWSLETTER_UTM_STRICT`, #449, read from
+`GET /api/settings` → `contentRules`), a draft's editor shows a **Content
+rules** card under **Images in this mail**. It says, in counts, what is
+checked (never the phrases themselves), and **Check content**
+(`GET /api/campaigns/:id/content-check`, segment's first language, else
+English; the draft is saved first) lists each finding as a sentence: which
+banned phrase was found in the subject, the mail's text or the text version
+and how it is written there; which image comes from a blocked source and
+which pattern it matched; which link already carries hand-written `utm_*`
+parameters on a host the worker tags. The result is in a polite live region.
+Without any rule the card is not shown; a scheduled campaign does not show it
+(its content passed the same check and can no longer change).
+
+When the worker refuses a schedule with `409 content_check_failed`, the
+**Schedule…** dialog stays open and shows "Not scheduled" with the findings in
+its own `role="alert"` region, present (empty) from the moment the dialog
+opens so the refusal is announced. Cancel closes the dialog; fix the draft and
+schedule again. A configuration the worker cannot apply shows on the
+dashboard as a critical warning, in the Settings view (**Content rules**), in
+the card, and as the reason for a refused schedule. Phrases and URLs are put
+on the page as text, never as markup.
 
 ## The site's shared admin bar (`core`)
 
@@ -246,6 +289,11 @@ DEMO_ASSETS=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/new
 # → with an in-memory image store: Add image…, the image library, Check images
 #   (image addresses use the pretend https://example.com, so thumbnails show as broken)
 ```
+
+Any `NEWSLETTER_*` variable set in the shell overrides the preview's own
+value, so a switch can be tried without editing a file, for example
+`NEWSLETTER_IMAGES_REQUIRE=alt NEWSLETTER_BANNED_PHRASES='act now'` in front
+of the command.
 
 `test/panel-shots.mjs` (not part of the test run; needs Playwright installed
 on the machine, never as a dependency here) takes screenshots of every view,

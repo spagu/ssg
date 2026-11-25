@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleFetch } from "../src/app.ts";
 import { MIGRATIONS, migrate } from "../src/schema.ts";
-import { MAX_PROBED_IMAGES, checkImages, imagesOf } from "../src/image-check.ts";
+import { MAX_PROBED_IMAGES, blankAlt, checkImages, imagesOf } from "../src/image-check.ts";
 import { MAX_REDIRECTS, PROBE_AGENTS, pool, probeFetch, probeStore } from "../src/image-probe.ts";
 import type { Fetcher } from "../src/image-probe.ts";
 import { PASSWORD, fakeCtx, fakeR2, makeEnv, req } from "./fakes.ts";
@@ -236,4 +236,9 @@ test("checkImages: an invalid base path never treats a URL as the worker's own",
   const own = { NEWSLETTER_SITE_URL: SITE, NEWSLETTER_ASSETS: bucket } as never;
   const r2 = await checkImages(own, { url: SITE, host: "example.com" }, `<img src="${SITE}/newsletter-admin/hooks/a/not-a-key.png" alt="b">`, net.f);
   assert.equal(r2.items[0].probe!.via, "fetch", "a name the store never writes is fetched, not looked up");
+});
+
+test("blankAlt: an alt of only invisible characters is no alt", () => {
+  for (const alt of [null, undefined, "", "  ", "​", "­‌‍", " ﻿⁠\n"]) assert.equal(blankAlt(alt), true, JSON.stringify(alt));
+  for (const alt of ["a", " cake ", "​x", "क‍ष"]) assert.equal(blankAlt(alt), false, JSON.stringify(alt));
 });

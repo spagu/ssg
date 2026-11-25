@@ -111,7 +111,12 @@ Writable fields: `subject` (one line, ≤ 250), `body` (≤ 256 KiB),
 `{error, detail}`: `invalid_json`, `invalid_input`, `unknown_variable`,
 `not_found`, and for test and schedule also `no_site_url` / `no_transport` /
 `transport_unusable` (503), `no_sender`, `empty_subject`, `empty_body`,
-`missing_unsubscribe`, `empty_segment` (400).
+`missing_unsubscribe`, `empty_segment` (400). With `NEWSLETTER_IMAGES_REQUIRE`
+set, schedule also answers `409 image_check_failed`, `409 campaign_changed`
+and `503 image_rules_unusable` ([below](#requiring-images-to-pass)). With a
+content rule set, schedule also answers `409 content_check_failed` and
+`503 content_rules_invalid` ([below](#content-rules)), checked before the
+image rules.
 
 **States.** `draft → scheduled → sending → sent`, `sending ⇄ paused`,
 `scheduled → draft` (unschedule), and `scheduled | sending | paused →
@@ -307,8 +312,9 @@ All four work without the `subscribers` table.
 
 ### Pre-send image check
 
-Works with the store on or off; needs `NEWSLETTER_SITE_URL`. Warns, never
-blocks: sending does not consult it, and nothing is stored.
+Works with the store on or off; needs `NEWSLETTER_SITE_URL`. By itself it
+warns and nothing is stored; `NEWSLETTER_IMAGES_REQUIRE` makes chosen findings
+refuse scheduling ([below](#requiring-images-to-pass)).
 
 | Method + path | Answer |
 |---|---|
@@ -333,12 +339,63 @@ blocks: sending does not consult it, and nothing is stored.
   through the zone's bot rules.
 - `checked` / `skipped`: distinct URLs probed / not probed (at most 8 per
   call).
+- With `NEWSLETTER_IMAGES_REQUIRE` set (absent otherwise, so the unset answer
+  is the 1.9.15 one): `rules` (the enforced rules), `rulesProblem` (why they
+  cannot be applied, or `null`) and, per item, `blocking` — the problems that
+  refuse scheduling, which can include `not_probed` (beyond the 8 probed
+  images while `load` is enforced; `problems` never has it here). `blocking`
+  is `[]` while `rulesProblem` is set: the configuration, not the image,
+  stops scheduling then.
+
+### Requiring images to pass
+
+`NEWSLETTER_IMAGES_REQUIRE` = any of `alt` (refuses `no_alt`), `store`
+(`not_stored`), `load` (`unreachable`, `not_probed`), separated by commas or
+spaces, any case. It gates `POST /api/campaigns/:id/schedule` only; test
+sends, draft saves, resume and the send engine are never gated (why:
+[README](../README.md#requiring-images-to-pass)). The schedule route checks the
+mail rendered in the campaign's first segment language (else `en`), as the
+panel's check does, after every other validation and before the state moves.
+
+| Answer | Body | When |
+|---|---|---|
+| `409 image_check_failed` | `{error, detail, items, rules}` — `items` in the shape of the check's items, only the failing images, each with only its enforced problems (`problems` = `blocking`); `rules` the enforced list | an image breaks an enforced rule; the campaign stays a draft, unchanged |
+| `409 campaign_changed` | `{error, detail}` | the draft was saved while its images were checked; check and schedule again |
+| `503 image_rules_unusable` | `{error, detail}` | an unknown word, or `store` while the store is off or has no usable address; every schedule is refused until it is fixed |
+
+A network failure while probing (`timeout`, `fetch_failed`) refuses the
+schedule like a failed image; trying again is the remedy.
+
+## Content rules
+
+`NEWSLETTER_BANNED_PHRASES`, `NEWSLETTER_BLOCKED_IMAGE_PATTERNS` and
+`NEWSLETTER_UTM_STRICT` (#449), all off unless set. What each matches, and
+what it does not: [README](../README.md#content-rules).
+
+| Method + path | Answer |
+|---|---|
+| `GET /api/campaigns/:id/content-check` | `?language=` (default `en`) → `{findings, rules}`; read permission, changes nothing; with no rule set `{findings: [], rules}` without rendering; `400 invalid_input` / `unknown_variable`, `404 not_found`, `503 content_rules_invalid` / `no_site_url` |
+| `POST /api/campaigns/:id/schedule` | runs the same check (in the segment's first language, else `en`) after the content checks and before the image rules: `409 {error: "content_check_failed", detail, findings}`, the campaign stays a draft; `503 {error: "content_rules_invalid", detail}` while the configuration cannot be honoured |
+
+A finding is `{rule, where, value, …}`:
+
+| `rule` | `where` | `value` | more |
+|---|---|---|---|
+| `banned_phrase` | `subject` \| `body` \| `text` | the phrase as configured | `match` (first occurrence as written in the mail), `count` |
+| `blocked_image` | `body` | the image URL | `pattern` (the configured pattern it contains) |
+| `utm_conflict` | `body` \| `text` | the link as written | `host` (the tagged host), `parameters` (its `utm_*` names as written) |
+
+`rules` (also `GET /api/settings` → `contentRules`) is
+`{active, bannedPhrases, blockedImagePatterns, utmStrict, problem}`: counts and
+switches, never the phrase list. Saving, previews and test sends are never
+gated; resume and re-sending uncertain sends are not either (the content was
+checked when the campaign was scheduled and cannot be edited since).
 
 ## Settings
 
 | Method + path | Answer |
 |---|---|
-| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels}, assets: {enabled, baseUrl, maxBytes, maxWidth, problem}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion}` — secrets only as booleans; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null` |
+| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels}, assets: {enabled, baseUrl, maxBytes, maxWidth, problem}, imageRules: {rules, problem}, contentRules: {active, bannedPhrases, blockedImagePatterns, utmStrict, problem}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion}` — secrets only as booleans; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null`; `imageRules` is `NEWSLETTER_IMAGES_REQUIRE` read: the enforced rules (`[]` when unset) and why they cannot be applied, else `null`; `contentRules` is the content rules read ([above](#content-rules)) |
 | `POST /api/settings/smtp-test` | opens a session with the configured SMTP server exactly as a send would (greeting, EHLO, STARTTLS, AUTH) and closes it without sending: `{ok, transport, stage, tls: "implicit" \| "starttls", authenticated, reply, detail?}` — `reply` is what the *server* said (the client's lines, AUTH included, are never recorded); `409 not_smtp` for an HTTP provider or no transport; `503 transport_unusable` for settings that can never work (no test-send budget used); counts against the 10 test sends per hour (`429 test_limit`) |
 
 Both work without the `subscribers` table. The panel never asks for, stores
