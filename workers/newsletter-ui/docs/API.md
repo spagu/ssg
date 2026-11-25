@@ -278,11 +278,67 @@ template mails a confirmation only at sign-up. These routes send it:
 How the list fills itself, and how to register the webhooks:
 [BOUNCES.md](BOUNCES.md).
 
+## Campaign images
+
+Only with the R2 binding `NEWSLETTER_ASSETS`; without it every route in the
+first table answers `404 assets_disabled` (the pre-send check below works
+without it). With a binding but no usable `https` base for image URLs the three
+`/api/assets` routes answer `503 assets_misconfigured {detail}`; the public
+`/hooks/a/:key` route does not check the base.
+Behaviour and configuration: [README](../README.md#campaign-images).
+
+| Method + path | Body → answer |
+|---|---|
+| `POST /api/assets` | the raw image as the body (JPEG, PNG or WebP, decided by its bytes) → `201 {key, url, type, bytes, width, height, metadata, createdAt}` (`key` = `<sha256 hex>.jpg\|png\|webp` of the stored bytes; `width`/`height` from the header or `null`; `metadata` = Exif/XMP present); `200` with the stored record for a file already stored; `400 empty_body`, `413 too_large` (over `NEWSLETTER_ASSETS_MAX_BYTES`), `415 unsupported_type` |
+| `GET /api/assets` | `?cursor=&limit=` → `{items: [{…the record, inUse}], nextCursor}`, newest first; `limit` 1–200, default 50; `inUse` = some campaign's body or text version contains the key; `400 invalid_limit` / `invalid_cursor` |
+| `DELETE /api/assets/:key` | `204` (the row and the R2 object); `409 asset_in_use` while any campaign, whatever its status, contains the key; `404 not_found` for a key that is not a stored name or has no row |
+| `GET` / `HEAD` `/hooks/a/:key` | public: the image with its stored `content-type`, `cache-control: public, max-age=31536000, immutable`, `x-content-type-options: nosniff`, `etag`, and the same headers for `HEAD`; `304` on a matching `If-None-Match`; `404 not_found` for any name the store does not write or an object that is gone, `404 assets_disabled` without the binding; nothing about the request is read or stored |
+
+With the optional Images binding `NEWSLETTER_IMAGES`, the upload answer also
+carries `resize: {resized, maxWidth, original: {width, height, bytes}, error}`:
+`resized` = the stored file is a copy capped at `maxWidth` pixels (same type;
+`key`, `bytes`, `width`, `height` and `metadata` describe the stored copy);
+`error` = `transform_failed` or `unexpected_output` when the original was
+stored although it is wider, else `null`. Without the binding the field is
+absent and the answer is the record alone.
+
+Upload and delete record `asset.upload` / `asset.delete` in the audit trail.
+All four work without the `subscribers` table.
+
+### Pre-send image check
+
+Works with the store on or off; needs `NEWSLETTER_SITE_URL`. Warns, never
+blocks: sending does not consult it, and nothing is stored.
+
+| Method + path | Answer |
+|---|---|
+| `GET /api/campaigns/:id/images` | `?language=` (default `en`) → `{items: [{url, alt, stored, probe, problems}], checked, skipped}`; `400 invalid_input` (`language` is not a language code) / `unknown_variable`, `404 not_found`, `503 no_site_url` |
+
+- `items`: one per `<img>` of the mail rendered for `language`, in order.
+  `alt` is `null` when missing; `stored` = the URL starts with the store's
+  base (always `false` with the store off).
+- `problems`: `not_stored` (store on with a usable address, image elsewhere), `no_alt` (missing or
+  blank alt), `unreachable` (the probe did not get `200` with an `image/*`
+  type).
+- `probe`: `null` when not probed, else `{via: "fetch" | "store", ok,
+  status, contentType, error, agent}`; `status` is the last HTTP status seen
+  (`null` without an answer); `contentType` is the last `content-type`
+  header or `null`; `error` is `timeout`, `fetch_failed`, `not_https`,
+  `too_many_redirects`, `not_image` or `null`; `ok` is `true` only for a
+  `200` with an `image/*` type; `agent` names the proxy token whose request
+  failed (`GoogleImageProxy`, `YahooMailProxy`) and is `null` when it
+  passed. `via: "store"` (an image this worker serves, judged from the R2
+  object) has `status` `200` or `404` (no object), `agent` `null`, and
+  `fetch_failed` when R2 could not be read; it does not prove a proxy gets
+  through the zone's bot rules.
+- `checked` / `skipped`: distinct URLs probed / not probed (at most 8 per
+  call).
+
 ## Settings
 
 | Method + path | Answer |
 |---|---|
-| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion}` — secrets only as booleans; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null` |
+| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels}, assets: {enabled, baseUrl, maxBytes, maxWidth, problem}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion}` — secrets only as booleans; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null` |
 | `POST /api/settings/smtp-test` | opens a session with the configured SMTP server exactly as a send would (greeting, EHLO, STARTTLS, AUTH) and closes it without sending: `{ok, transport, stage, tls: "implicit" \| "starttls", authenticated, reply, detail?}` — `reply` is what the *server* said (the client's lines, AUTH included, are never recorded); `409 not_smtp` for an HTTP provider or no transport; `503 transport_unusable` for settings that can never work (no test-send budget used); counts against the 10 test sends per hour (`429 test_limit`) |
 
 Both work without the `subscribers` table. The panel never asks for, stores

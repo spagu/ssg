@@ -63,6 +63,27 @@ func TestBuildMarketingHeadDefersToTheme(t *testing.T) {
 	}
 }
 
+// TestBuildMarketingHeadLogo: marketing.logo becomes og:logo, absolute like
+// og:image; a theme that wrote its own keeps it, and no logo means no tag.
+func TestBuildMarketingHeadLogo(t *testing.T) {
+	g, err := New(Config{Domain: "example.com", SEO: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.siteData = &models.SiteData{Marketing: models.Marketing{Logo: "/img/logo.png"}}
+	head := g.buildMarketingHead("<html><head></head>")
+	if want := `<meta property="og:logo" content="https://example.com/img/logo.png">`; !strings.Contains(head, want) {
+		t.Errorf("missing %s in:\n%s", want, head)
+	}
+	if own := g.buildMarketingHead(`<meta property="og:logo" content="/theme.svg">`); strings.Contains(own, "og:logo") {
+		t.Errorf("theme's own og:logo must win:\n%s", own)
+	}
+	g.siteData.Marketing = models.Marketing{OGSiteName: "Example"}
+	if none := g.buildMarketingHead(""); strings.Contains(none, "og:logo") {
+		t.Errorf("no logo declared → no og:logo, got:\n%s", none)
+	}
+}
+
 func TestBuildMarketingHeadEmpty(t *testing.T) {
 	if got := marketingGen(t, models.Marketing{}, nil, false).buildMarketingHead(""); got != "" {
 		t.Fatalf("nothing discovered → no markup, got %q", got)
@@ -157,5 +178,15 @@ func TestMarketingOGImageOnlyAsFallback(t *testing.T) {
 	without := g.seoHTMLString(doc, models.Page{Title: "Plain", Slug: "plain"}, false)
 	if n := strings.Count(without, `property="og:image"`); n != 1 || !strings.Contains(without, "https://example.com/card.png") {
 		t.Errorf("want the site fallback once, got %d in:\n%s", n, without)
+	}
+}
+
+// TestInjectAnalyticsWithoutHead: a fragment with no </head> still gets the
+// snippet, in front of it, rather than losing the tag.
+func TestInjectAnalyticsWithoutHead(t *testing.T) {
+	g := marketingGen(t, models.Marketing{}, map[string]string{"ga4": "G-ABC123"}, true)
+	out := g.injectAnalytics("<p>fragment</p>")
+	if !strings.HasPrefix(out, "<script") || !strings.HasSuffix(out, "<p>fragment</p>") {
+		t.Fatalf("snippet must precede a head-less fragment, got:\n%s", out)
 	}
 }

@@ -46,6 +46,7 @@ export const ACTION_NEEDS = {
   fromPost: EDIT,
   editSubscriber: EDIT,
   unsubscribe: EDIT,
+  images: EDIT, // upload, insert from and delete in the image library (#446)
   test: SEND,
   schedule: SEND,
   unschedule: SEND,
@@ -113,6 +114,7 @@ export const AUDIT_ACTIONS = [
   ...["add", "lift"].map((v) => `suppression.${v}`),
   "suppressions.import",
   "settings.smtp_test",
+  ...["upload", "delete"].map((v) => `asset.${v}`),
 ];
 
 // auditWho: the account an audit entry names, or null when the mode is all

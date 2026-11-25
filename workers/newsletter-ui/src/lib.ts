@@ -63,6 +63,12 @@ export interface Env extends MailEnv {
   NEWSLETTER_UTM?: string; // "on" adds utm_* to links whose host is the site's (default off)
   NEWSLETTER_UTM_SOURCE?: string; // utm_source (default "newsletter")
   NEWSLETTER_UTM_HOSTS?: string; // more hosts to tag, separated by commas or spaces
+  // Campaign images (#446); see src/asset-config.ts. The binding is the switch.
+  NEWSLETTER_ASSETS?: R2Bucket; // unbound → every asset route answers 404 assets_disabled
+  NEWSLETTER_ASSETS_URL?: string; // the bucket's own https base; unset → {site}{base}/hooks/a
+  NEWSLETTER_ASSETS_MAX_BYTES?: string; // largest upload (default 2 MiB, clamped to 10 MiB)
+  NEWSLETTER_IMAGES?: unknown; // optional Images binding: wider uploads are stored width-capped (src/asset-resize.ts)
+  NEWSLETTER_ASSETS_MAX_WIDTH?: string; // that cap in pixels (default 1200, clamped to 320-4000)
 }
 
 export const DEFAULT_BASE = "/newsletter-admin";
@@ -82,6 +88,13 @@ export const CSP = [
   "form-action 'self'",
   "frame-ancestors 'none'",
 ].join("; ");
+
+// cspWithImages is CSP with one more origin allowed for images: the campaign
+// image store's (#446), when it lives on another host than the panel, so the
+// image library's thumbnails and the preview's stored images load. Only that
+// exact origin, never a wildcard; the caller passes a URL's .origin, which
+// cannot hold a space or a semicolon.
+export const cspWithImages = (origin: string): string => CSP.replace("img-src 'self' data:", `img-src 'self' data: ${origin}`);
 
 const SECURITY_HEADERS: Record<string, string> = {
   "cache-control": "no-store", // admin data must never sit in a shared cache
@@ -135,8 +148,10 @@ export function intVar(raw: string | undefined, def: number): number {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
-export async function sha256hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+// sha256hex hashes a string (as UTF-8) or raw bytes (an uploaded image).
+export async function sha256hex(input: string | Uint8Array): Promise<string> {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 

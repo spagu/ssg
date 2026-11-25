@@ -1,0 +1,36 @@
+/* Campaign images (#446): the editor's image controls, the image library
+ * dialog and the pre-send image check. Tokens only (tokens.css); every state
+ * is also said in words (a chip's text), never by its colour alone. */
+
+.image-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 14px; }
+.image-tools-label { font-weight: 600; margin-right: 4px; }
+.image-tools .hint { flex-basis: 100%; }
+
+/* A dialog with a list in it: wider, and it scrolls inside the viewport
+ * with its heading and Close button kept in view. */
+.dialog-wide { max-width: min(880px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+.dialog-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; position: sticky; top: -24px; margin: -24px 0 8px; padding: 24px 0 8px; background: var(--surface); z-index: 1; }
+.dialog-head h2 { margin: 0; }
+.library-said p { margin: 0 0 8px; font-weight: 600; }
+
+.asset-grid { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.asset { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 12px; align-items: start; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.asset img { display: block; max-width: 100%; height: auto; justify-self: center; background: var(--surface-sunk); border: 1px solid var(--border); border-radius: 4px; }
+.asset-meta { font-size: .92rem; min-width: 0; }
+.asset-meta p { margin: 0 0 4px; overflow-wrap: anywhere; }
+.asset-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip-inuse { color: var(--primary); }
+.chip-unused { color: var(--text-muted); border-style: dashed; }
+.chip-attention { color: var(--danger); }
+.chip-fine { color: var(--ok); border-style: dashed; }
+
+.image-check-live { margin-top: 12px; }
+.image-report { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.image-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.image-item p { margin: 0 0 6px; }
+.image-item p:last-child { margin-bottom: 0; }
+.image-item-head { overflow-wrap: anywhere; }
+.image-item .plain { margin-bottom: 6px; }
+.dialog-images { margin-top: 16px; padding-top: 12px; box-shadow: inset 0 1px 0 var(--border); }
+.dialog-images h3 { font-size: 1rem; margin: 0 0 8px; }

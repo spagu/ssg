@@ -2530,6 +2530,7 @@ It is configuration now:
 ```yaml
 marketing:
   og_image: "/img/card.png"      # 1200×630; a site-relative path is written absolute
+  logo: "/img/logo.png"          # og:logo and the Organization logo; written absolute too
   og_site_name: "SSG"
   twitter_site: "@example"
   theme_color: "#0f172a"
@@ -2544,6 +2545,19 @@ the three an export found.
 The bundled `ssgtheme` uses the page's own `featured_image` when it has one and
 this default otherwise, and drops `twitter:card` to `summary` when there is no
 image at all, so the tag describes what is actually there.
+
+`marketing.logo` is written as `<meta property="og:logo">` on every page (since
+1.9.15), with `seo: true`, unless the theme wrote that tag itself. `og:logo` is
+not a property of the Open Graph protocol; some link-preview checkers and
+readers look for it all the same. The file has to be in the output at that
+address, for example through `static_dir`. The same value is the `logo` of the
+`Organization` block on the page at the site root.
+
+**A page reported without `og:image`.** A page has one when it has a
+`featured_image` (or `og_image`) of its own, when [`og_cards`](#a-card-for-every-page-og_cards)
+draws its card, or when `marketing.og_image` is set. Listings and the home page
+get no drawn card, so a site that uses `og_cards` still sets
+`marketing.og_image` for them.
 
 ### A card for every page (`og_cards`)
 

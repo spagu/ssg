@@ -168,8 +168,8 @@ test("an unreadable stored segment reaches nobody", async () => {
 test("auth refusal table: every campaign route needs auth; writes need the CSRF header", async () => {
   const mine = ROUTES.filter((r) => r.path.startsWith("/api/campaigns"));
   // 13 from GO-125 + GET /:id/progress (GO-126) + POST /from-post (GO-130) + GET /:id/stats (GO-129)
-  // + GET /:id/uncertain, POST /:id/uncertain/resend, POST /:id/uncertain/dismiss
-  assert.equal(mine.length, 19);
+  // + GET /:id/uncertain, POST /:id/uncertain/resend, POST /:id/uncertain/dismiss + GET /:id/images (#446)
+  assert.equal(mine.length, 20);
   const env = mailEnv();
   const c = await create(env);
   for (const [n, r] of mine.entries()) {

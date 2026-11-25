@@ -9,6 +9,8 @@
 // Configuration stays in wrangler.toml and `wrangler secret put`; the panel
 // has no way to change it, so a stolen panel session cannot redirect mail.
 
+import { assetMaxBytes, assetsBaseUrl, assetsConfigProblem, assetsEnabled } from "./asset-config";
+import { assetMaxWidth, resizeEnabled } from "./asset-resize";
 import { softLimit } from "./bounce-store";
 import { takeTestSend } from "./campaign-limit";
 import { trackClicks } from "./click-track";
@@ -67,6 +69,15 @@ export function settingsOf(env: Env) {
     // UTM tagging (#443): hosts is what gets tagged, empty without a usable site URL.
     utm: { enabled: utmOn(env), source: utmSource(env), hosts: site ? [...utmHosts(env, site)] : [] },
     bounces: { softLimit: softLimit(env) },
+    // Campaign images (#446): on with the R2 binding; problem = why no address can be built.
+    // maxWidth: the width cap of the optional Images binding, null without it.
+    assets: {
+      enabled: assetsEnabled(env),
+      baseUrl: assetsBaseUrl(env) || null,
+      maxBytes: assetMaxBytes(env),
+      maxWidth: resizeEnabled(env) ? assetMaxWidth(env) : null,
+      problem: assetsConfigProblem(env),
+    },
     webhooks: { resend: set(env.NEWSLETTER_RESEND_WEBHOOK_SECRET), mailchannels: set(env.NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY) },
     feedUrl: "url" in feed ? feed.url.href : null,
     confirmBatch: Math.min(intVar(env.NEWSLETTER_CONFIRM_BATCH, DEFAULT_CONFIRM_BATCH), cfg.rate),

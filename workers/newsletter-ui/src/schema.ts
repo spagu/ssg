@@ -130,6 +130,28 @@ export const AUDIT_TABLES = [
   `CREATE INDEX IF NOT EXISTS idx_admin_audit_at ON admin_audit (at, id)`,
 ];
 
+// Campaign images (#446), schema version 7: the listing of the optional R2
+// store (src/asset-store.ts). The bytes live in R2 under the same key — the
+// SHA-256 of the file plus its extension; metadata = 1 when the file carries
+// camera metadata (Exif / XMP) that may hold a location. source_sha256
+// (version 8) is the uploaded file's hash when the stored bytes are a
+// width-capped copy (src/asset-resize.ts), NULL when stored as uploaded: it
+// finds the copy when the same file is uploaded again. No index — the table
+// holds a site's images, hundreds of rows, and the lookup is one per upload.
+export const ASSET_TABLES = [
+  `CREATE TABLE IF NOT EXISTS assets (
+     key        TEXT PRIMARY KEY,
+     type       TEXT NOT NULL,
+     bytes      INTEGER NOT NULL,
+     width      INTEGER,
+     height     INTEGER,
+     metadata   INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL,
+     source_sha256 TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_assets_created ON assets (created_at, key)`,
+];
+
 export const TABLES = [
   `CREATE TABLE IF NOT EXISTS schema_meta (
      component  TEXT PRIMARY KEY,
@@ -194,6 +216,7 @@ export const TABLES = [
   ...STATS_TABLES,
   ...BOUNCE_TABLES,
   ...AUDIT_TABLES,
+  ...ASSET_TABLES,
 ];
 
 export interface Migration {
@@ -209,6 +232,9 @@ export const MIGRATIONS: Migration[] = [
   // Uncertain sends: a range reopened for re-sends only (src/engine-uncertain.ts).
   { version: 5, statements: ["ALTER TABLE send_batches ADD COLUMN retry_only INTEGER NOT NULL DEFAULT 0"] },
   { version: 6, statements: AUDIT_TABLES }, // GO-137: the admin audit trail
+  { version: 7, statements: ASSET_TABLES }, // #446: campaign images
+  // #446: the upload's hash behind a width-capped copy (a database at 7 lacks it).
+  { version: 8, statements: ["ALTER TABLE assets ADD COLUMN source_sha256 TEXT"] },
 ];
 
 export const BASE_VERSION = 1;

@@ -5,6 +5,14 @@ in batches. Nothing else is needed: schedule a campaign
 (`POST /api/campaigns/:id/schedule`) and it goes out. Back to the
 [README](../README.md) · [API reference](API.md).
 
+## Before you schedule
+
+If the campaign has images, `GET /api/campaigns/:id/images` lists each one
+with what may go wrong: not under the image store, no alt text, or no `200`
+with an image type for a mail image proxy's kind of request. The check warns
+and never blocks; scheduling and sending do not consult it and nothing about
+it is stored. Details and limits: [Campaign images](../README.md#pre-send-image-check).
+
 ## How a campaign goes out
 
 1. *Cron, every minute.* A `scheduled` campaign whose time has come is moved

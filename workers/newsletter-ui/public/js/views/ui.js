@@ -125,6 +125,33 @@ export function confirmDialog(app, { title, body, confirm, danger = true, extra 
   });
 }
 
+// panelDialog: a modal <dialog> holding a small view of its own (the image
+// library): a heading, the content and a Close button; Escape closes it too.
+// Focus starts on Close and returns to the opener. `id` prefixes the
+// heading's id, so it never collides with confirmDialog's, which can open
+// on top of it. Returns {close}.
+export function panelDialog(app, { id, title, content }) {
+  const opener = document.activeElement;
+  let dialog;
+  const close = () => {
+    if (!dialog.open) return;
+    dialog.close();
+    dialog.remove();
+    if (opener && opener.focus) opener.focus();
+  };
+  dialog = render(
+    h(
+      "dialog",
+      { class: "dialog dialog-wide", "aria-labelledby": `${id}-title`, on: { cancel: (e) => (e.preventDefault(), close()) } },
+      h("div", { class: "dialog-head" }, h("h2", { id: `${id}-title`, tabindex: "-1" }, title), h("button", { type: "button", class: "btn btn-quiet", autofocus: true, on: { click: close } }, app.t("action.close"))),
+      content,
+    ),
+  );
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  return { close };
+}
+
 // slot: a placeholder element a view re-renders on its own (a list, a panel).
 export function slot(className = "") {
   const ref = { el: null };

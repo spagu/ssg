@@ -70,6 +70,13 @@ export const OWN_PROBLEMS = {
     de: "Der konfigurierte Mailversand kann nie senden: {detail}",
     fr: "Le transport d'e-mail configuré ne peut jamais envoyer : {detail}",
   },
+  assets_unusable: {
+    en: "Campaign images cannot be given an address: {detail}",
+    pl: "Obrazy kampanii nie mogą dostać adresu: {detail}",
+    hi: "कैंपेन की छवियों को पता नहीं दिया जा सकता: {detail}",
+    de: "Kampagnenbilder können keine Adresse erhalten: {detail}",
+    fr: "Les images de campagne ne peuvent pas recevoir d'adresse : {detail}",
+  },
 } satisfies Record<string, Text>;
 
 // Panel strings, word for word (test/module-summary.test.ts holds them to

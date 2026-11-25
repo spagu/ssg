@@ -82,6 +82,8 @@ tags:
     description: "Public routes: provider webhooks (signed) and the click redirect"
   - name: access
     description: "Who is calling, and the audit trail of admin actions"
+  - name: assets
+    description: "Campaign images in the optional R2 bucket NEWSLETTER_ASSETS (404 assets_disabled without it)"
 
 paths:
   /api/health:
@@ -1105,6 +1107,139 @@ paths:
         "429": { $ref: "#/components/responses/TestLimit" }
         "503": { $ref: "#/components/responses/NotReady" }
 
+  /api/assets:
+    get:
+      x-permission: newsletter:read
+      operationId: listAssets
+      tags: [assets]
+      summary: Stored campaign images, newest first, each saying whether a campaign uses it
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit200"
+      responses:
+        "200":
+          description: A page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Asset"
+                        - type: object
+                          properties:
+                            inUse: { type: boolean, description: Some campaign's body or text version contains the key, whatever its status }
+                  nextCursor: { type: [string, "null"] }
+        "400": { description: "invalid_limit or invalid_cursor", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: assets_disabled — the R2 binding is not set }
+        "503": { description: "assets_misconfigured {detail}: no https address for images (NEWSLETTER_ASSETS_URL / NEWSLETTER_SITE_URL)" }
+    post:
+      x-permission: newsletter:edit
+      operationId: uploadAsset
+      tags: [assets]
+      summary: Store an image (the raw file as the body; type decided by its bytes)
+      description: >-
+        JPEG, PNG or WebP only, recognised by magic bytes — the content-type header and file names are ignored;
+        SVG and GIF are refused. The key is the SHA-256 of the bytes plus the extension, so the same file is
+        stored once: a repeat upload answers 200 with the existing record. Without the optional Images binding
+        NEWSLETTER_IMAGES the file is stored unchanged; with it, an image wider than NEWSLETTER_ASSETS_MAX_WIDTH
+        (default 1200) is stored as a width-capped copy of the same type (key = SHA-256 of the copy; the upload's
+        hash is remembered, so the same file uploaded again still answers 200 with that copy), and the answer
+        carries `resize`. A failed transform stores the original and says so in resize.error. metadata = true
+        flags Exif / XMP in the stored bytes, which may hold a location.
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+          application/octet-stream: { schema: { type: string, format: binary } }
+      responses:
+        "201": { description: Stored, content: { application/json: { schema: { $ref: "#/components/schemas/AssetUpload" } } } }
+        "200": { description: Already stored (the same file), content: { application/json: { schema: { $ref: "#/components/schemas/AssetUpload" } } } }
+        "400": { description: empty_body, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: assets_disabled — the R2 binding is not set }
+        "413": { description: "too_large: over NEWSLETTER_ASSETS_MAX_BYTES (default 2 MiB)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "415": { description: "unsupported_type: not JPEG, PNG or WebP", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "assets_misconfigured {detail}" }
+
+  /api/campaigns/{id}/images:
+    get:
+      x-permission: newsletter:read
+      operationId: campaignImages
+      tags: [assets]
+      summary: Pre-send image check — the rendered mail's images and what may go wrong with each (warns, never blocks)
+      description: >-
+        Works with the image store on or off. Images come from the real renderer and sanitizer. At most 8 distinct
+        images are probed per call (the rest are counted in `skipped`, still judged on alt and address): a GET with
+        a labelled User-Agent carrying the GoogleImageProxy token, then one with YahooMailProxy, at most 1 redirect
+        (https only), 5 s per fetch, body never read. Images this worker serves ({site}{base}/hooks/a/…) are judged
+        from R2 (probe.via = store) — proof the bytes exist, not that the zone's bot rules let a proxy through.
+        Nothing is stored; the campaign is not changed.
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - { name: language, in: query, schema: { type: string, default: en, pattern: "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$" }, description: The recipient language to render for }
+      responses:
+        "200":
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageCheck" }
+        "400": { description: "invalid_input (language) or unknown_variable {detail}", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { description: "no_site_url: NEWSLETTER_SITE_URL is not a usable https:// origin", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/assets/{key}:
+    delete:
+      x-permission: newsletter:edit
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Delete an image no campaign uses
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{64}\\.(jpg|png|webp)$" } }
+        - $ref: "#/components/parameters/Csrf"
+      responses:
+        "204": { description: Deleted (the row and the R2 object) }
+        "404": { description: "not_found (not a stored key, or no row) or assets_disabled" }
+        "409": { description: "asset_in_use: some campaign's stored content contains the key, whatever its status", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "assets_misconfigured {detail}" }
+
+  /hooks/a/{key}:
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{64}\\.(jpg|png|webp)$" } }
+    get:
+      x-permission: public
+      operationId: serveAsset
+      tags: [hooks]
+      summary: A campaign image, when this worker serves them (NEWSLETTER_ASSETS_URL unset); nothing is counted or stored
+      security: []
+      parameters:
+        - { name: if-none-match, in: header, schema: { type: string } }
+      responses:
+        "200":
+          description: "The image; cache-control: public, max-age=31536000, immutable; x-content-type-options: nosniff; etag"
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "304": { description: The etag matches If-None-Match }
+        "404": { description: Not a stored key, or assets_disabled }
+    head:
+      x-permission: public
+      operationId: serveAssetHead
+      tags: [hooks]
+      summary: The same headers, no body
+      security: []
+      responses:
+        "200": { description: The image's headers }
+        "304": { description: The etag matches If-None-Match }
+        "404": { description: Not a stored key, or assets_disabled }
+
 components:
   securitySchemes:
     basicAuth:
@@ -1120,7 +1255,7 @@ components:
       type: apiKey
       in: cookie
       name: __Host-ssg-auth
-      description: The `auth` worker's session (NEWSLETTER_AUTH_*), an ES256 token checked locally with its public key; `perms` decide each operation's x-permission. A service token goes in `Authorization: Bearer` instead.
+      description: "The `auth` worker's session (NEWSLETTER_AUTH_*), an ES256 token checked locally with its public key; `perms` decide each operation's x-permission. A service token goes in `Authorization: Bearer` instead."
 
   parameters:
     Csrf:
@@ -1757,6 +1892,60 @@ components:
             invalid: { type: integer }
         sample: { type: object, additionalProperties: { type: array, items: { $ref: "#/components/schemas/Entry" } } }
         invalid: { type: array, items: { type: object } }
+    Asset:
+      type: object
+      properties:
+        key: { type: string, pattern: "^[0-9a-f]{64}\\.(jpg|png|webp)$", description: SHA-256 of the bytes + extension }
+        url: { type: string, description: "The public https address (NEWSLETTER_ASSETS_URL or {site}{base}/hooks/a)" }
+        type: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        bytes: { type: integer }
+        width: { type: [integer, "null"] }
+        height: { type: [integer, "null"] }
+        metadata: { type: boolean, description: "Exif / XMP present in the stored bytes (may hold a location); the worker does not strip it" }
+        createdAt: { type: string, format: date-time }
+    AssetUpload:
+      allOf:
+        - $ref: "#/components/schemas/Asset"
+        - type: object
+          properties:
+            resize:
+              type: object
+              description: Only with the Images binding NEWSLETTER_IMAGES; absent without it
+              properties:
+                resized: { type: boolean, description: The stored file is a width-capped copy }
+                maxWidth: { type: integer }
+                original:
+                  type: object
+                  properties:
+                    width: { type: [integer, "null"] }
+                    height: { type: [integer, "null"] }
+                    bytes: { type: integer }
+                error: { type: [string, "null"], enum: [transform_failed, unexpected_output, null], description: Why the original was stored although it is wider than maxWidth }
+    ImageCheck:
+      type: object
+      properties:
+        items:
+          type: array
+          description: One per <img> of the rendered mail, in order
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              alt: { type: [string, "null"] }
+              stored: { type: boolean, description: Under the image store's base URL (always false with the store off) }
+              problems: { type: array, items: { type: string, enum: [not_stored, no_alt, unreachable] } }
+              probe:
+                type: [object, "null"]
+                description: null when not probed (over the per-call limit)
+                properties:
+                  via: { type: string, enum: [fetch, store] }
+                  ok: { type: boolean, description: true only for a 200 with an image/* type }
+                  status: { type: [integer, "null"], description: "The last HTTP status seen; null without an answer. With via = store: 200, or 404 when the object is missing" }
+                  contentType: { type: [string, "null"], description: The last content-type header }
+                  error: { type: [string, "null"], enum: [timeout, fetch_failed, not_https, too_many_redirects, not_image, null] }
+                  agent: { type: [string, "null"], description: The proxy token whose probe failed (GoogleImageProxy, YahooMailProxy) }
+        checked: { type: integer, description: Distinct images probed }
+        skipped: { type: integer, description: Distinct images not probed (over the limit of 8) }
     Settings:
       type: object
       properties:
@@ -1815,6 +2004,15 @@ components:
         feedUrl: { type: [string, "null"] }
         confirmBatch: { type: integer }
         importMaxRows: { type: integer }
+        assets:
+          type: object
+          description: Campaign images (#446); enabled = the R2 binding is set
+          properties:
+            enabled: { type: boolean }
+            baseUrl: { type: [string, "null"], description: The https base image URLs start with; null when none can be built }
+            maxBytes: { type: integer }
+            maxWidth: { type: [integer, "null"], description: Width cap of the optional Images binding NEWSLETTER_IMAGES; null without it }
+            problem: { type: [string, "null"], description: Why no address can be built (only with the binding) }
         auth: { type: string, enum: [access, basic] }
         base: { type: [string, "null"] }
         schemaVersion: { type: integer }

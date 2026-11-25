@@ -209,3 +209,23 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_at
   ON admin_audit (at, id);
+
+-- ---------------------------------------------------------------------------
+-- Schema version 7 (#446): campaign images, used only with the optional R2
+-- bucket NEWSLETTER_ASSETS.
+
+-- The listing of the image store; the bytes live in R2 under the same key.
+CREATE TABLE IF NOT EXISTS assets (
+  key        TEXT PRIMARY KEY,             -- sha256 hex of the file + .jpg | .png | .webp
+  type       TEXT NOT NULL,                -- image/jpeg | image/png | image/webp (from the bytes)
+  bytes      INTEGER NOT NULL,
+  width      INTEGER,                      -- from the image header; NULL when it does not say
+  height     INTEGER,
+  metadata   INTEGER NOT NULL DEFAULT 0,   -- 1: Exif / XMP present (may hold a location)
+  created_at TEXT NOT NULL,
+  source_sha256 TEXT                       -- version 8: the upload's sha256 hex when the stored file is a
+                                           -- width-capped copy (NEWSLETTER_IMAGES); NULL when stored as uploaded
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_created
+  ON assets (created_at, key);

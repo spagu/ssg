@@ -16,7 +16,7 @@ lives behind the same authentication as the API. Back to the
 | Subscriber | `#/subscribers/<id>` | record, consent text and time, sends, suppression; tags and language; unsubscribe, re-send confirmation, GDPR export, erase |
 | Import | `#/import` | CSV → preview (delimiter, editable column mapping, ignored columns and why, what each row becomes, dropped dates) → asks day-first or month-first when the file does not say → run |
 | Campaigns | `#/campaigns?status=` | list by status, new draft, draft from a post on the feed |
-| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
+| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
 | Suppressions | `#/suppressions?reason=&q=` | new suppressions by reason over 90 days, list, add, lift (a complaint asks for an explicit yes), CSV import with preview |
 | Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test |
 | Activity | `#/activity?actor=&action=` | the audit trail: who changed what, newest first, filtered by account and action (`GET /api/audit`, `newsletter:settings`) |
@@ -44,7 +44,12 @@ it is parsed inert with `DOMParser`, its CSS is lifted out and re-applied
 through the CSSOM (`element.style`, a constructed stylesheet), because a
 `srcdoc` frame inherits the panel's CSP and the mail's inline styles would
 otherwise be blocked; the CSP was not relaxed for it. Remote images in a body
-are not loaded in the preview (`img-src 'self'`); a test send shows them. Only
+are not loaded in the preview (`img-src 'self'`); a test send shows them. The
+one exception is the campaign image store: when it is on and has an address,
+the worker adds that store's origin, and only it, to `img-src` on the panel's
+own files (`cspWithImages` in `src/lib.ts`), so the image library's
+thumbnails and stored images in the preview load; the API keeps the plain
+policy. Only
 the language and theme are kept in `localStorage` (and the chart period in
 `sessionStorage`); never a token, an address or a file.
 
@@ -65,6 +70,61 @@ password or the login page), 403 with a permission → the permission the
 account lacks, 429 → the wait, 503 → the missing setting or "deploy the
 newsletter template first", a failed fetch → check the connection; each with
 Try again. Every destructive action names its object and its consequence.
+
+## Campaign images
+
+Shown only when the worker has the image store (`NEWSLETTER_ASSETS`, see the
+README) and the account may edit (`newsletter:edit`, the `images` action in
+`js/models/access.js`). When the store is bound but cannot give images an
+address, the editor shows why (`GET /api/settings` → `assets.problem`)
+instead of the buttons. Everything goes through the worker, which stays the
+authority: the panel's own checks only spare an upload that cannot work.
+
+**Adding an image.** Under the body field of a draft, **Add image…** opens a
+dialog with a file field and an alt text field. The file is checked in the
+browser first (JPEG, PNG or WebP; not empty; not over `assets.maxBytes`), and
+a wrong one keeps the dialog open with the reason under the field. Alt text
+is required: the dialog does not submit without it, whitespace included.
+**Upload and insert** sends the bytes (`POST /api/assets`) and puts the image
+where the cursor was — `![alt](url)` in a Markdown body, `<img src alt>` in
+an HTML one — on a paragraph of its own; the draft then saves itself as after
+typing. Brackets, backslashes and backticks in the alt text are escaped and
+line breaks become spaces, so the text cannot end the `![…]` or start
+anything else. The notice then says what matters: that the photo carries
+camera metadata, which may include where it was taken (and what to do about
+it); that a too-wide image was stored width-capped, at what size; or that
+capping failed and the original was stored unchanged. Each error code of the
+upload (`too_large`, `unsupported_type`, `empty_body`, `assets_disabled`,
+`assets_misconfigured`) is a sentence in the panel's language.
+
+**The image library.** **Image library…** next to it opens the stored
+images, newest first, 24 at a time with **Show more images**: a thumbnail
+(lazy-loaded, its space reserved by `width`/`height`, alt text naming its
+size and upload date), the size in pixels and bytes, the upload date, and
+**In use** or **Not used** in words. **Insert** asks for the alt text again
+— it belongs to the place in the mail, not to the file — and puts the image
+at the cursor. **Delete** is offered only for an image no campaign mentions,
+after a confirmation; if a campaign started using it meanwhile, the worker
+answers `409 asset_in_use`, the image is kept and the dialog says so. The
+library is a dialog over the editor, not a view of its own, because inserting
+needs the open draft and its cursor; while it is open its own live line says
+what happened (the page behind it is inert).
+
+**Checking the images before sending.** A draft's editor and a scheduled or
+paused campaign have an **Images in this mail** card with **Check images**
+(`GET /api/campaigns/:id/images`, in the segment's first language, else
+English; a draft is saved first). Each image is listed with its address, its
+alt text and, in plain words, what needs attention: not from the image store,
+no alt text, did not load the way a mail image proxy loads it (with the
+status or the reason). A pass is worded with what it does not prove: an
+image read from the store directly was not fetched over the internet, and a
+fetched image answering this check does not show that the real proxies get
+through. Images beyond the first 8 different ones are listed as not tested.
+The **Schedule…** dialog runs the same check once as it opens and shows the
+summary and the images that need attention when the answer arrives. It never
+runs while typing — each run renders the mail and makes up to 32 requests to
+the image addresses — and it only warns: no button waits for it or is
+disabled by it, and sending works exactly as before.
 
 ## The site's shared admin bar (`core`)
 
@@ -182,6 +242,9 @@ DEMO_AUTH=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsl
 DEMO_CORE=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
 # → with the `core` worker's files at /core/ and a stand-in /api/core/modules: the shared bar
 #   (DEMO_CORE=theme also serves a demo site theme as /core/theme.css)
+DEMO_ASSETS=1 node --import ./workers/newsletter-ui/test/resolve.mjs workers/newsletter-ui/test/dev-server.mjs
+# → with an in-memory image store: Add image…, the image library, Check images
+#   (image addresses use the pretend https://example.com, so thumbnails show as broken)
 ```
 
 `test/panel-shots.mjs` (not part of the test run; needs Playwright installed
