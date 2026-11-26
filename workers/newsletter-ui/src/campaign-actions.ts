@@ -129,7 +129,7 @@ export async function scheduleCampaign({ request, env, params }: RouteContext): 
   if (problem) return json(problem, 400);
   const recipients = await countSegment(env, c.segment);
   if (recipients.total === 0) return json({ error: "empty_segment", detail: "no confirmed subscriber matches the segment" }, 400);
-  const contentBlocked = await contentGate(env, c, ready.site); // #449: before the image gate, it needs no network
+  const contentBlocked = contentGate(env, c, ready.site); // #449: before the image gate, it needs no network
   if (contentBlocked) return contentBlocked;
   const imagesBlocked = await imageGate(env, c); // #448: last, it may probe the network
   if (imagesBlocked) return imagesBlocked;

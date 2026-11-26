@@ -5,21 +5,21 @@
 // they go into the sentence as variables, never as markup.
 
 export const RULES = ["banned_phrase", "blocked_image", "utm_conflict"];
-const PHRASE_PLACES = ["subject", "body", "text"];
-const LINK_PLACES = ["body", "text"];
+const PHRASE_PLACES = new Set(["subject", "body", "text"]);
+const LINK_PLACES = new Set(["body", "text"]);
 
 // rulesShown: whether the editor shows the "Content rules" card — only when
 // a rule is configured, or the configuration has a problem to show.
-export const rulesShown = (rules) => Boolean(rules && rules.active);
+export const rulesShown = (rules) => Boolean(rules?.active);
 
 // findingNote: one finding as a sentence key and its variables. A finding the
 // panel does not know (a newer worker) still gets a sentence.
 export function findingNote(f) {
-  if (f.rule === "banned_phrase" && PHRASE_PLACES.includes(f.where)) {
+  if (f.rule === "banned_phrase" && PHRASE_PLACES.has(f.where)) {
     return { key: `content.finding.phrase.${f.where}`, vars: { phrase: f.value, match: f.match ?? f.value, count: f.count ?? 1 } };
   }
   if (f.rule === "blocked_image") return { key: "content.finding.image", vars: { url: f.value, pattern: f.pattern ?? "" } };
-  if (f.rule === "utm_conflict" && LINK_PLACES.includes(f.where)) {
+  if (f.rule === "utm_conflict" && LINK_PLACES.has(f.where)) {
     return { key: `content.finding.utm.${f.where}`, vars: { url: f.value, host: f.host ?? "", parameters: (f.parameters ?? []).join(", ") } };
   }
   return { key: "content.finding.other", vars: {} };

@@ -117,7 +117,7 @@ export const gateLanguage = (c: Campaign): string => c.segment.languages[0] ?? "
 // 503 content_rules_invalid for a configuration that cannot be honoured,
 // 409 content_check_failed with the findings. Call it after contentProblem
 // (the renderer refuses unknown variables).
-export async function contentGate(env: Env, c: Campaign, site: Site): Promise<Response | null> {
+export function contentGate(env: Env, c: Campaign, site: Site): Response | null {
   const { rules, problem } = rulesConfig(env);
   if (problem) return invalid(problem);
   if (!summaryOf(rules, null).active) return null;

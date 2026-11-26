@@ -110,7 +110,8 @@ export function confirmDialog(app, { title, body, confirm, danger = true, extra 
     // answer false for an action that may still succeed, and the page would
     // never show its result.
     let pending = false;
-    const cancel = () => {
+    const cancel = (e) => {
+      e.preventDefault();
       if (!pending) close(false);
     };
     const settle = (r) => {
@@ -128,7 +129,7 @@ export function confirmDialog(app, { title, body, confirm, danger = true, extra 
     dialog = render(
       h(
         "dialog",
-        { class: "dialog", "aria-labelledby": "dlg-title", "aria-describedby": "dlg-body", on: { cancel: (e) => (e.preventDefault(), cancel()) } },
+        { class: "dialog", "aria-labelledby": "dlg-title", "aria-describedby": "dlg-body", on: { cancel } },
         h(
           "form",
           { on: { submit } },

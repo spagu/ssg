@@ -21,7 +21,8 @@ const problemWords = (code) => (code === "not_probed" ? "imageGate.problem.not_p
 function itemView(app, item) {
   const { t } = app;
   const bad = needsAttention(item);
-  const head = isBlocking(item) ? "imageGate.blocks" : bad ? "images.attention" : "images.fine";
+  const state = bad ? "images.attention" : "images.fine";
+  const head = isBlocking(item) ? "imageGate.blocks" : state;
   const alt = item.alt?.trim();
   return h(
     "li",

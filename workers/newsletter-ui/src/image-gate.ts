@@ -54,7 +54,8 @@ export async function imageGate(env: Env, c: Campaign, fetcher?: Fetcher): Promi
     })
     .filter((i) => i.blocking.length);
   if (!items.length) return null;
-  const detail = `${items.length === 1 ? "1 image breaks" : `${items.length} images break`} the enforced rules (${rules.join(", ")})`;
+  const count = items.length === 1 ? "1 image breaks" : `${items.length} images break`;
+  const detail = `${count} the enforced rules (${rules.join(", ")})`;
   return json({ error: "image_check_failed", detail, items, rules }, 409);
 }
 
@@ -68,7 +69,7 @@ export const unchangedSince = (env: Env, c: Campaign): string | undefined => (im
 export async function changedWhileChecked(env: Env, c: Campaign): Promise<Response | null> {
   if (unchangedSince(env, c) === undefined) return null;
   const now = await loadCampaign(env, c.id);
-  return now && now.status === c.status && now.updatedAt !== c.updatedAt
+  return now?.status === c.status && now.updatedAt !== c.updatedAt
     ? json({ error: "campaign_changed", detail: "the campaign was edited while its images were checked; check it and schedule it again" }, 409)
     : null;
 }

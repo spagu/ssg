@@ -22,8 +22,8 @@ const INVISIBLE = /[­​⁠﻿]/g;
 // reads as a sentence, and the address is the author's to choose.
 const URL_IN_TEXT = /(?:https?:\/\/|mailto:)\S+/gi;
 const WORD = /[\p{L}\p{N}\p{M}]/u;
-const NOT_BEFORE = "(?<![\\p{L}\\p{N}\\p{M}])";
-const NOT_AFTER = "(?![\\p{L}\\p{N}\\p{M}])";
+const NOT_BEFORE = String.raw`(?<![\p{L}\p{N}\p{M}])`;
+const NOT_AFTER = String.raw`(?![\p{L}\p{N}\p{M}])`;
 // Inline elements join their text to the neighbours'; every other element
 // (a paragraph, a list item, a cell, a line break) separates words.
 const INLINE = new Set(["a", "b", "strong", "em", "i", "u", "s", "del", "sup", "sub", "small", "span", "code"]);
@@ -58,13 +58,13 @@ export function readerText(nodes: HtmlNode[]): string {
   return out;
 }
 
-const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 // phraseRegExp compiles one normalised phrase.
 export function phraseRegExp(phrase: string): RegExp {
   const chars = [...phrase];
   const before = WORD.test(chars[0]) ? NOT_BEFORE : "";
-  const after = WORD.test(chars[chars.length - 1]) ? NOT_AFTER : "";
+  const after = WORD.test(chars.at(-1) as string) ? NOT_AFTER : "";
   return new RegExp(before + escapeRegExp(phrase) + after, "giu");
 }
 

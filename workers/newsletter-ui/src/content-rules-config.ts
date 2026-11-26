@@ -50,8 +50,10 @@ function list(raw: string | undefined, norm: (s: string) => string): string[] {
 
 // utmFlag reads NEWSLETTER_UTM_STRICT: true, false, or null for a value that
 // is neither an on nor an off word (a typo must not pass as "off").
-export const utmFlag = (raw: string | undefined): boolean | null =>
-  isOn(raw) ? true : /^(|0|false|no|off)$/i.test((raw ?? "").trim()) ? false : null;
+export function utmFlag(raw: string | undefined): boolean | null {
+  if (isOn(raw)) return true;
+  return /^(0|false|no|off)?$/i.test((raw ?? "").trim()) ? false : null;
+}
 
 const length = (s: string): number => [...s].length; // characters, not UTF-16 units
 

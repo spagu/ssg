@@ -48,7 +48,8 @@ export function imageRules(env: Env): ImageRules {
 
 function rulesProblem(env: Env, rules: ImageRule[], unknown: string[]): string | null {
   if (unknown.length) {
-    return `NEWSLETTER_IMAGES_REQUIRE: unknown rule ${unknown.map((w) => `"${w.slice(0, 40)}"`).join(", ")}; use alt, store or load, separated by commas`;
+    const quoted = unknown.map((w) => JSON.stringify(w.slice(0, 40))).join(", ");
+    return `NEWSLETTER_IMAGES_REQUIRE: unknown rule ${quoted}; use alt, store or load, separated by commas`;
   }
   if (!rules.includes("store")) return null;
   // `store` can only be judged against a usable base; without one every image
