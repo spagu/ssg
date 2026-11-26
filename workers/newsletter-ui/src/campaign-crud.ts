@@ -118,6 +118,9 @@ export async function deleteCampaign({ env, params }: RouteContext): Promise<Res
     // GO-127: the engine's plan and ranges for it (a cancelled campaign has them).
     db.prepare("DELETE FROM send_plans WHERE campaign_id = ? AND NOT EXISTS (SELECT 1 FROM campaigns WHERE id = ?)").bind(params.id, params.id),
     db.prepare("DELETE FROM send_batches WHERE campaign_id = ? AND NOT EXISTS (SELECT 1 FROM campaigns WHERE id = ?)").bind(params.id, params.id),
+    // #460: its attributed bounce counts and webhook breaker state.
+    db.prepare("DELETE FROM campaign_bounces WHERE campaign_id = ? AND NOT EXISTS (SELECT 1 FROM campaigns WHERE id = ?)").bind(params.id, params.id),
+    db.prepare("DELETE FROM hook_breaker WHERE campaign_id = ? AND NOT EXISTS (SELECT 1 FROM campaigns WHERE id = ?)").bind(params.id, params.id),
   ]);
   if (gone.meta.changes === 1) return new Response(null, { status: 204 });
   const c = await loadCampaign(env, params.id);

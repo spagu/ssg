@@ -205,6 +205,17 @@ Without a key every request is byte for byte what it was before.
 `honoursIdempotencyKey(env)` says whether the configured transport itself
 guarantees the de-duplication (Resend only).
 
+A message may also carry optional `tags`, an object of name → value pairs
+(the confirmation mail sends none). Only Resend receives them, as its `tags`
+list `[{name, value}]`, and Resend returns them in each webhook event about
+the message. `newsletter-ui` uses this to attribute bounces to a campaign.
+MailChannels and SMTP leave tags out: no header, no change to the request or
+the MIME text. Names and values must follow Resend's rule (ASCII letters,
+digits, `_`, `-`, at most 256 characters). A message that breaks the rule is
+refused on every transport, so it is valid or invalid whichever transport
+sends it. Without tags, or with an empty object, every request is byte for
+byte what it was before.
+
 Resend refuses a keyed request with `409` in two documented cases, told
 apart by the error `name` in the JSON body: `invalid_idempotent_request` (the
 key was used in the last 24 hours with a different payload — a message under

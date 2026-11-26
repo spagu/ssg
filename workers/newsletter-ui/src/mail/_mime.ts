@@ -18,6 +18,12 @@ export interface MailMessage {
   // once per key within 24 hours; SMTP gets a Message-ID derived from it, which
   // only helps receivers that de-duplicate. Absent: the request is unchanged.
   idempotencyKey?: string;
+  // Name → value pairs the provider returns in its webhooks about this message.
+  // Only Resend sends them (as its `tags`, echoed in every webhook event about
+  // the message); MailChannels and SMTP leave them out of the request and the
+  // MIME text. Checked on every transport, so a message is valid or invalid
+  // whichever one sends it. Absent or empty: the request is unchanged.
+  tags?: Record<string, string>;
 }
 
 // A message whose sender has been resolved — what a transport actually sends.
@@ -54,6 +60,11 @@ export function checkMessage(m: Outgoing): string | null {
   }
   // Visible ASCII, 1–256 characters: what Resend accepts, and safe in a header.
   if (m.idempotencyKey !== undefined && !/^[!-~]{1,256}$/.test(m.idempotencyKey)) return "invalid idempotency key";
+  // Resend's documented rule for a tag name and value: ASCII letters, digits,
+  // "_" and "-", at most 256 characters.
+  for (const [name, value] of Object.entries(m.tags ?? {})) {
+    if (!/^[\w-]{1,256}$/.test(name) || !/^[\w-]{1,256}$/.test(value)) return `invalid tag ${JSON.stringify(name)}`;
+  }
   for (const [name, value] of Object.entries(m.headers ?? {})) {
     // RFC 5322 field name: printable ASCII except ":"; short enough that the
     // header line stays far below the 998-octet limit.

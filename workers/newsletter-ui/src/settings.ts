@@ -20,6 +20,7 @@ import { DEFAULT_DLQ } from "./engine-status";
 import { feedSource } from "./feed-fetch";
 import { DEFAULT_MAX_ROWS } from "./import";
 import { authName } from "./health";
+import { webhookActivity } from "./hook-activity";
 import { imageRules } from "./image-gate-rules";
 import { rulesSummary } from "./content-rules-config"; // #449
 import { basePath, intVar, json } from "./lib";
@@ -94,9 +95,9 @@ export function settingsOf(env: Env) {
   };
 }
 
-// GET /api/settings → settingsOf + schemaVersion.
+// GET /api/settings → settingsOf + schemaVersion + webhookActivity (#460).
 export async function getSettings({ env }: RouteContext): Promise<Response> {
-  return json({ ...settingsOf(env), schemaVersion: await schemaVersion(env) });
+  return json({ ...settingsOf(env), schemaVersion: await schemaVersion(env), webhookActivity: await webhookActivity(env) });
 }
 
 const MAX_TRANSCRIPT = 2000; // characters of server replies returned

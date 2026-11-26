@@ -4,7 +4,7 @@
 //                                        numbers, for the dashboard's bar chart
 // What is counted and what is not: README "Statistics and privacy".
 
-import { BOUNCES } from "./stats-bounces";
+import { campaignBounces } from "./stats-bounces";
 import { trackClicks } from "./click-track";
 import { headlines, unsubscribeWindowDays } from "./stats-headline";
 import type { Headline } from "./stats-headline";
@@ -35,7 +35,8 @@ const timing = (c: CampaignTimes) => ({
 });
 
 // GET /api/campaigns/:id/stats → {id, subject, status, recipients: {total,
-// sent, failed, skipped, pending, uncertain}, bounces, unsubscribes: {count, windowDays,
+// sent, failed, skipped, pending, uncertain}, bounces: {hard, soft, complaints,
+// attribution, detail} (stats-bounces.ts), unsubscribes: {count, windowDays,
 // attribution}, clicks: {tracking, total, links: [{linkId, url, clicks}]},
 // timing: {scheduledAt, startedAt, finishedAt, durationSeconds}}, or 404.
 export async function campaignStats({ env, params }: RouteContext): Promise<Response> {
@@ -53,7 +54,7 @@ export async function campaignStats({ env, params }: RouteContext): Promise<Resp
     subject: c.subject,
     status: c.status,
     recipients: { total: h.total, sent: h.sent, failed: h.failed, skipped: h.skipped, pending: h.pending, uncertain: h.uncertain },
-    bounces: BOUNCES,
+    bounces: await campaignBounces(env, c.id),
     unsubscribes: { count: h.unsubscribes, windowDays, attribution: "time-window" },
     clicks: {
       tracking: trackClicks(env),

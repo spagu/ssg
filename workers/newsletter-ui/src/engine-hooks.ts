@@ -19,11 +19,13 @@ export interface PermanentFailure {
 // and the send was recorded as `failed`. A refusal of the mailbox (SMTP 550 /
 // 551 / 553, 5.1.x at RCPT TO) is a hard bounce, a full mailbox (5.2.2) a soft
 // one; anything else — policy, content, authentication, an HTTP provider's
-// API error — leaves the address alone (bounce-classify.ts says why).
+// API error — leaves the address alone (bounce-classify.ts says why). The
+// refusal is about this campaign's message, so it is counted for it (#460).
 export async function onPermanentFailure(env: Env, failure: PermanentFailure): Promise<void> {
   const kind = classifyPermanent(failure.detail);
   if (!kind) return;
-  await applyBounces(env, "smtp", [{ id: null, kind, emails: [failure.email], source: "smtp", detail: failure.detail }]);
+  const bounce = { id: null, kind, emails: [failure.email], source: "smtp", detail: failure.detail, campaignId: failure.campaignId };
+  await applyBounces(env, "smtp", [bounce]);
 }
 
 // onDelivered runs once per batch with the addresses the transport accepted:

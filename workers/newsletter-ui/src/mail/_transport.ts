@@ -72,6 +72,7 @@ function resolve(env: MailEnv, m: MailMessage): Outgoing | MailFailure {
 }
 
 const hasHeaders = (m: Outgoing): boolean => Object.keys(m.headers ?? {}).length > 0;
+const hasTags = (m: Outgoing): boolean => Object.keys(m.tags ?? {}).length > 0;
 
 // honoursIdempotencyKey says whether the configured transport itself refuses
 // to send a message twice for the same idempotencyKey. Only Resend documents
@@ -95,6 +96,7 @@ function resendRequest(key: string, m: Outgoing): Promise<Response> {
       text: m.text,
       ...(m.html ? { html: m.html } : {}),
       ...(hasHeaders(m) ? { headers: m.headers } : {}),
+      ...(hasTags(m) ? { tags: Object.entries(m.tags as Record<string, string>).map(([name, value]) => ({ name, value })) } : {}),
     }),
   });
 }

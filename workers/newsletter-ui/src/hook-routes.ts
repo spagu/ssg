@@ -7,16 +7,18 @@
 //   secret / key not configured → 503 (never open)
 //   body over MAX_BODY          → 413
 //   signature or time wrong     → 401, nothing read further, nothing written
-// Only then is the body parsed, classified (bounce-classify.ts) and applied
-// (bounce-store.ts), with redelivered event ids skipped.
+// Only then is the body parsed, classified (bounce-classify.ts) and settled
+// (hook-settle.ts): its arrival counted, bounces applied with redelivered event
+// ids skipped, attributed hard bounces shown to the webhook bounce breaker.
 
+import { resendCampaign } from "./bounce-attribution";
 import { fromMailChannels, fromResend } from "./bounce-classify";
 import type { Classified } from "./bounce-classify";
-import { applyBounces } from "./bounce-store";
-import type { Bounce } from "./bounce-store";
 import { importEd25519, verifyMessageSignature, verifySvix } from "./hook-verify";
 import { json, sha256hex } from "./lib";
 import type { RouteContext } from "./router";
+import { settle } from "./hook-settle";
+import type { HookEvent } from "./hook-settle";
 
 export const MAX_BODY = 2 * 1024 * 1024; // MailChannels sends up to 1 000 events per request
 
@@ -39,11 +41,6 @@ function parse(body: Uint8Array): unknown {
   }
 }
 
-// toBounce: `delivered` events carry no id — resetting a counter twice is
-// harmless, and recording one row per delivered message would cost a write
-// per mail sent.
-const toBounce = (c: Classified, id: string, source: string): Bounce => ({ id: c.kind === "delivered" ? null : id, source, ...c });
-
 export async function resendHook({ request, env }: RouteContext): Promise<Response> {
   const secret = env.NEWSLETTER_RESEND_WEBHOOK_SECRET;
   if (!secret) return notConfigured("NEWSLETTER_RESEND_WEBHOOK_SECRET");
@@ -54,7 +51,8 @@ export async function resendHook({ request, env }: RouteContext): Promise<Respon
   if (payload === undefined) return json({ error: "invalid_json" }, 400);
   const c = fromResend(payload);
   // svix-id is the same on every retry of one event: the dedup key.
-  const result = await applyBounces(env, "resend", c ? [toBounce(c, request.headers.get("svix-id") as string, "resend")] : []);
+  const event = { classified: c, id: request.headers.get("svix-id") as string, campaign: resendCampaign(payload) };
+  const result = await settle(env, "resend", [event]);
   return json({ ok: true, ...result, ignored: c ? 0 : 1 });
 }
 
@@ -81,11 +79,12 @@ export async function mailchannelsHook({ request, env }: RouteContext): Promise<
   const payload = parse(body);
   if (payload === undefined) return json({ error: "invalid_json" }, 400);
   const events = Array.isArray(payload) ? payload : [payload];
-  const bounces: Bounce[] = [];
+  // MailChannels events name no campaign: they stay unattributed (bounce-attribution.ts).
+  const settled: HookEvent[] = [];
   for (const e of events) {
     const c = fromMailChannels(e);
-    if (c) bounces.push(toBounce(c, await eventId(e, c), "mailchannels"));
+    settled.push({ classified: c, id: c ? await eventId(e, c) : "", campaign: null });
   }
-  const result = await applyBounces(env, "mailchannels", bounces);
-  return json({ ok: true, ...result, ignored: events.length - bounces.length });
+  const result = await settle(env, "mailchannels", settled);
+  return json({ ok: true, ...result, ignored: settled.filter((e) => !e.classified).length });
 }

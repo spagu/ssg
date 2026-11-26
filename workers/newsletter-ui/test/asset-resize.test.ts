@@ -186,5 +186,5 @@ test("migration 8 adds source_sha256 to a version-7 assets table", async () => {
   await migrate(d1 as never, MIGRATIONS);
   const cols = d1.sqlite.prepare("PRAGMA table_info(assets)").all().map((c) => c.name);
   assert.ok(cols.includes("source_sha256"));
-  assert.equal(d1.sqlite.prepare("SELECT version FROM schema_meta").get()!.version, 8);
+  assert.equal(d1.sqlite.prepare("SELECT version FROM schema_meta").get()!.version, MIGRATIONS[MIGRATIONS.length - 1].version);
 });

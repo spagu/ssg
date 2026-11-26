@@ -130,6 +130,17 @@ progress) and any other or unreadable 409 are temporary — the row is retried
 like a `429`. A request without a key keeps the old reading (a `409` is a
 permanent refusal).
 
+**The campaign tag.** Every campaign message also carries the tag
+`newsletter_campaign` = the campaign id. Over Resend it is part of the
+request (`tags: [{name, value}]`) and comes back in the webhooks, which is how
+bounces are attributed to the campaign ([BOUNCES.md](BOUNCES.md#attribution-to-a-campaign)).
+The tag is the same on every attempt, so it does not change the payload a key
+was first used with. One exception: a message first attempted by an older
+version without the tag and re-sent after the upgrade within 24 hours has a
+different payload, so Resend answers `invalid_idempotent_request` and the
+row is recorded `sent` as described above. MailChannels and SMTP do not send
+the tag. Test sends carry none.
+
 ## Pause, resume, cancel, unsubscribes
 
 The status is read at the start of every job and again before every message:
@@ -161,6 +172,7 @@ it one too high.
 | permanent (other HTTP 4xx, SMTP 5xx) | `failed` with the transport's words in `error`; `onPermanentFailure` in `src/engine-hooks.ts` classifies it (a mailbox refusal suppresses, a sender-side refusal does not — [BOUNCES.md](BOUNCES.md)). The hook runs at the end of the batch, after the breaker below had its say; a consumer killed mid-batch loses that batch's suppressions (the rows keep the server's words; the next campaign bounces and suppresses them) |
 | render error (an unknown `{{variable}}`) | the campaign is **paused** with `error: "render: …"`; nobody else is tried |
 | hard bounces from one batch reach the breaker (default ≥ 5 **and** ≥ 50 % of the batch's messages so far) | the campaign is **paused** with `error: "bounces: N of M messages in one batch were refused as unknown mailboxes; nothing was suppressed …"`; that batch's permanent-failure hooks never run (nobody from it is suppressed, no soft count moves) and its hard-bounced rows go back to `retry` without counting the attempt, so a resume after fixing the server tries them again |
+| hard bounces reported by webhook for a campaign still `sending` reach the same thresholds, counted over the campaign's sent messages since the last trip | the campaign is **paused** with `error: "bounces: the provider reported N hard bounces by webhook for the last M messages sent; …"`; those addresses are suppressed (each is the provider's report about one mailbox) — [BOUNCES.md](BOUNCES.md#webhook-bounce-breaker) |
 | no site URL, no sender, transport refuses login | paused with `error: "config: …"` / `"transport: …"` |
 | transport unreachable | the job throws and is retried; nothing was claimed |
 

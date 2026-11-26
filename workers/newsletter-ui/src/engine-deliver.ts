@@ -7,6 +7,7 @@
 // only the row being handed to the transport can be left `claimed` (and later
 // `uncertain`, engine-claim.ts); the rows after it have no claim to clean up.
 
+import { CAMPAIGN_TAG } from "./bounce-attribution";
 import type { Campaign } from "./campaign-model";
 import { pauseFor, stopBatch } from "./engine-batches";
 import type { SendJob } from "./engine-batches";
@@ -100,7 +101,8 @@ export async function deliver(d: DeliverInput): Promise<Delivered> {
       breaker.attempted++;
       current.handed = true;
       const message = { to: r.email, subject: m.subject, text: m.text, html: m.html, headers: m.headers, ...d.sender };
-      const result = await opened.mailer.send({ ...message, idempotencyKey: idempotencyKey(c.id, r.id) });
+      // The campaign id comes back in the provider's webhooks (#460, bounce-attribution.ts).
+      const result = await opened.mailer.send({ ...message, idempotencyKey: idempotencyKey(c.id, r.id), tags: { [CAMPAIGN_TAG]: c.id } });
       if (result.ok) {
         // duplicate: the provider already accepted a message under this key
         // (an earlier attempt whose answer was lost) — sent, with a note why.

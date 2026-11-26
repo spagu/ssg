@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleFetch } from "../src/app.ts";
-import { BOUNCES } from "../src/stats-bounces.ts";
+import { EXACT_DETAIL } from "../src/stats-bounces.ts";
 import { addCampaign, engineEnv } from "./engine-fixtures.ts";
 import type { EngineEnv } from "./engine-fixtures.ts";
 import { fakeCtx, req } from "./fakes.ts";
@@ -88,7 +88,7 @@ test("one campaign: the numbers worked out by hand", async () => {
     subject: "March",
     status: "sent",
     recipients: { total: 9, sent: 6, failed: 1, skipped: 1, pending: 1, uncertain: 0 },
-    bounces: BOUNCES,
+    bounces: { hard: 0, soft: 0, complaints: 0, attribution: "exact", detail: EXACT_DETAIL },
     unsubscribes: { count: 2, windowDays: 14, attribution: "time-window" },
     clicks: {
       tracking: false,
@@ -101,7 +101,7 @@ test("one campaign: the numbers worked out by hand", async () => {
     timing: { scheduledAt: "2026-01-01T00:00:00.000Z", startedAt: "2026-03-01T10:00:00.000Z", finishedAt: "2026-03-01T10:30:00.000Z", durationSeconds: 1800 },
   });
   assert.doesNotMatch(JSON.stringify(body), /@example|"s\d+"|tok-/, "no person in the answer");
-  assert.equal(body.bounces.hard, null, "not credited to a campaign without the data: null, with the reason");
+  assert.equal(body.bounces.hard, 0, "Resend tags every campaign message (#460): a zero is a real count");
 
   const b = (await get(env, "/api/campaigns/B/stats")).body;
   assert.deepEqual(b.recipients, { total: 3, sent: 2, failed: 0, skipped: 0, pending: 1, uncertain: 0 });

@@ -233,11 +233,14 @@ which is a longer read but never a wrong one.
 
 <div class="upgrade-step" data-since="1.9.16">
 
-### 1.9.16 — nothing to do; `newsletter-ui` only
+### 1.9.16 — nothing to do; worker templates only
 
-Replace the binary. The generator itself is unchanged; the release carries a
-newer `newsletter-ui` template. A deployed `newsletter-ui` gets it by updating
-the worker's files from the new template and deploying.
+Replace the binary. The generator itself is unchanged apart from dependency
+updates; the release carries a newer `newsletter-ui` template, and the mail
+module shared by `newsletter`, `newsletter-ui` and `auth` gained an optional
+field. A deployed `newsletter-ui` gets the changes by updating the worker's
+files from the new template and deploying. `newsletter` and `auth` need no
+redeploy for this release.
 
 Optional, all off until set; see
 [its README](../workers/newsletter-ui/README.md#configuration):
@@ -251,6 +254,27 @@ Optional, all off until set; see
 If you set one of them: a value the worker cannot use (an unknown word, a
 rule that needs the image store while it is off) refuses every schedule with
 a `503` until it is fixed. The dashboard and the settings name the problem.
+
+Changes that apply without a setting, once the worker is updated:
+
+- **Schema version 9** is applied on the first request. It adds three tables
+  of counts; `subscribers` is not touched.
+- **Resend bounces (#461).** A permanent bounce of subtype `General` now
+  suppresses the address. Before, it was ignored.
+- **Bounces per campaign and the breaker (#460).** With the Resend transport,
+  campaign messages carry a `newsletter_campaign` tag. Bounces and complaints
+  for them are counted for the campaign, and hard bounces reported by webhook
+  can pause a campaign that is still sending, under
+  `NEWSLETTER_BOUNCE_BREAKER_MIN` and `NEWSLETTER_BOUNCE_BREAKER_PERCENT`. If
+  you raised the percentage for the send-time breaker, it now governs webhook
+  bounces too.
+- **Webhook health (#460).** Subscribe the provider's `delivered` event
+  beside the bounce and complaint events, so Settings can show that webhooks
+  arrive. Without it a quiet list looks like a broken webhook.
+- A campaign message first attempted before the update and retried within 24
+  hours after it is answered by Resend as already accepted, because the
+  request now differs under the same idempotency key. The worker records it
+  as sent; nothing is sent twice.
 
 </div>
 

@@ -11,8 +11,10 @@
 //
 // One call = one db.batch = one transaction, including the hook_events rows
 // that make a redelivered webhook event count once: either the event and its
-// effects are written, or neither is.
+// effects are written, or neither is. A bounce that names its campaign (#460,
+// bounce-attribution.ts) is also counted for that campaign in the same batch.
 
+import { ATTRIBUTED_KINDS, countStatement } from "./bounce-attribution";
 import type { BounceKind } from "./bounce-classify";
 import { normaliseEmail } from "./input";
 import { intVar } from "./lib";
@@ -30,6 +32,7 @@ export interface Bounce {
   emails: string[];
   source: string; // smtp | resend | mailchannels
   detail: string;
+  campaignId?: string | null; // the campaign it is attributed to exactly, if any (#460)
 }
 
 export interface Applied {
@@ -95,12 +98,24 @@ export async function statementsFor(env: Env, b: Bounce, at: string): Promise<St
   return out;
 }
 
+// Report: Applied plus the bounces that were new (not duplicates), for the
+// webhook side of the bounce breaker.
+export interface Report extends Applied {
+  fresh: Bounce[];
+}
+
 // applyBounces writes the bounces of one report (a webhook request, one
 // engine failure). Events with an id seen before are skipped; the new ids are
 // recorded in the same transaction as their effects. If a concurrent delivery
 // of the same event wins the race, the UNIQUE id makes this batch fail and roll
 // back — the caller answers 500 and the provider's retry finds it applied.
 export async function applyBounces(env: Env, provider: string, bounces: Bounce[]): Promise<Applied> {
+  const { applied, duplicate } = await applyReport(env, provider, bounces);
+  return { applied, duplicate };
+}
+
+// applyReport is applyBounces that also returns the bounces it applied.
+export async function applyReport(env: Env, provider: string, bounces: Bounce[]): Promise<Report> {
   const db = env.NEWSLETTER_DB;
   const at = new Date().toISOString();
   const ids = bounces.filter((b) => b.id !== null).map((b) => `${provider}:${b.id}`);
@@ -112,7 +127,7 @@ export async function applyBounces(env: Env, provider: string, bounces: Bounce[]
       .all<{ id: string }>();
     for (const r of results) seen.add(r.id);
   }
-  const out: Applied = { applied: 0, duplicate: 0 };
+  const out: Report = { applied: 0, duplicate: 0, fresh: [] };
   const writes: Stmt[] = [];
   for (const b of bounces) {
     if (b.id !== null) {
@@ -125,7 +140,9 @@ export async function applyBounces(env: Env, provider: string, bounces: Bounce[]
       writes.push(db.prepare("INSERT INTO hook_events (id, received_at) VALUES (?, ?)").bind(id, at));
     }
     writes.push(...(await statementsFor(env, b, at)));
+    if (b.campaignId && ATTRIBUTED_KINDS.has(b.kind)) writes.push(countStatement(env, b.campaignId, b.source, b.kind, at));
     out.applied++;
+    out.fresh.push(b);
   }
   if (ids.length) {
     writes.push(db.prepare("DELETE FROM hook_events WHERE received_at < ?").bind(new Date(Date.now() - EVENT_RETENTION_MS).toISOString()));
