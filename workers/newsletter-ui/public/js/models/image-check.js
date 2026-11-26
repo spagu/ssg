@@ -1,7 +1,10 @@
 // The pre-send image check (#446, GET /api/campaigns/:id/images), in words.
 // The worker answers with codes (problems, probe errors); this turns each
 // into {key, vars} for strings/*, so the view only lays them out. The check
-// warns and never blocks: nothing here decides whether a campaign may send.
+// itself decides nothing; with NEWSLETTER_IMAGES_REQUIRE set the worker says
+// which findings block scheduling (models/image-gate.js puts that in words).
+
+import { gateNote, isBlocking } from "./image-gate.js";
 
 // PROBE_LIMIT mirrors MAX_PROBED_IMAGES in src/image-check.ts: how many
 // different images one check tests; the rest come back with probe: null.
@@ -32,18 +35,25 @@ export function probeNote(probe) {
   return { key: "images.probe.status", vars };
 }
 
+// needsAttention: an image with a problem, or one the gate blocks (an image
+// beyond the probe bound blocks under `load` with no problem of its own).
+export const needsAttention = (i) => i.problems.length > 0 || isBlocking(i);
+
 // checkSummary: the sentences above the list, and the callout level they
-// add up to (warning when any image has a problem).
+// add up to (warning when any image has a problem, critical when the
+// enforced rules refuse the campaign or cannot be applied).
 export function checkSummary(report) {
   const items = report.items ?? [];
   const notes = [];
-  const bad = items.filter((i) => i.problems.length).length;
+  const bad = items.filter(needsAttention).length;
   if (!items.length) notes.push({ key: "images.summary.none", vars: {} });
   else if (bad) notes.push({ key: "images.summary.problems", vars: { count: bad, total: items.length } });
   else notes.push({ key: "images.summary.clean", vars: { count: items.length } });
   if (report.skipped) notes.push({ key: "images.summary.skipped", vars: { count: report.skipped, max: PROBE_LIMIT } });
-  if (items.length) notes.push({ key: "images.summary.warnOnly", vars: {} });
-  return { notes, level: bad ? "warning" : "ok" };
+  const gate = gateNote(report);
+  if (gate) notes.push(gate.note);
+  else if (items.length) notes.push({ key: "images.summary.warnOnly", vars: {} });
+  return { notes, level: gate?.level ?? (bad ? "warning" : "ok") };
 }
 
 // checkLanguage: the language the mail is rendered in for the check — the

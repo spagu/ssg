@@ -62,9 +62,10 @@ admin, so one set of values serves both:
 | `newsletter`, `newsletter-ui` | `NEWSLETTER_SMTP_PASSWORD` (secret) + `NEWSLETTER_SMTP_HOST`, `_PORT`, `_USER`, `_HELO` (vars) | your own SMTP server as the mail transport, used when neither provider key is set (order: Resend → MailChannels → SMTP); port 465 or 587, never 25 |
 | `newsletter-ui` | `NEWSLETTER_RESEND_WEBHOOK_SECRET`, `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` (secrets) | verify the bounce/complaint webhooks |
 | `newsletter-ui` | `NEWSLETTER_ASSETS` (R2 bucket binding, optional) + `NEWSLETTER_ASSETS_URL` (var) | campaign images uploaded in the panel; the var is the `https:` address they are served from, the worker's own route when unset |
+| `newsletter-ui` | `NEWSLETTER_IMAGES_REQUIRE`, `NEWSLETTER_BANNED_PHRASES`, `NEWSLETTER_BLOCKED_IMAGE_PATTERNS`, `NEWSLETTER_UTM_STRICT` (vars, optional) | rules a campaign must pass before it can be scheduled: image alt text, store and loading; banned phrases; blocked image addresses; hand-written `utm_*` |
 
 The full list of `newsletter-ui` variables (send rate, batch size, click
-counting, UTM tagging, campaign images, feed URL, …) is the "Configuration" table in
+counting, UTM tagging, campaign images, rules before scheduling, feed URL, …) is the "Configuration" table in
 [its README](../workers/newsletter-ui/README.md#configuration).
 
 The admin sign-in settings of the other templates, and the secrets of `auth`

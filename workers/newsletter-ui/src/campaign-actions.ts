@@ -17,6 +17,8 @@ import { renderMessage, siteOf, unknownVariables, unsubscribeUrl } from "./rende
 import type { Rendered, Site } from "./render";
 import type { RouteContext } from "./router";
 import { countSegment } from "./segment";
+import { changedWhileChecked, imageGate, unchangedSince } from "./image-gate";
+import { contentGate } from "./content-rules"; // #449
 
 // Preview and test mails link to an unsubscribe token no subscriber has: the
 // `newsletter` endpoint answers "this link is not valid", and a test address
@@ -127,7 +129,11 @@ export async function scheduleCampaign({ request, env, params }: RouteContext): 
   if (problem) return json(problem, 400);
   const recipients = await countSegment(env, c.segment);
   if (recipients.total === 0) return json({ error: "empty_segment", detail: "no confirmed subscriber matches the segment" }, 400);
-  if (!(await transition(env, c.id, c.status, "scheduled", at.toISOString()))) return invalidTransition(c.status, "scheduled");
+  const contentBlocked = contentGate(env, c, ready.site); // #449: before the image gate, it needs no network
+  if (contentBlocked) return contentBlocked;
+  const imagesBlocked = await imageGate(env, c); // #448: last, it may probe the network
+  if (imagesBlocked) return imagesBlocked;
+  if (!(await transition(env, c.id, c.status, "scheduled", at.toISOString(), unchangedSince(env, c)))) return (await changedWhileChecked(env, c)) ?? invalidTransition(c.status, "scheduled");
   return json({ ...(await loadCampaign(env, c.id)), recipients });
 }
 

@@ -12,6 +12,7 @@ import { previewPane } from "./preview.js";
 import { campaignActions } from "./campaign-actions.js";
 import { imageTools } from "./asset-upload.js";
 import { imageCheckCard } from "./image-check.js";
+import { contentCheckCard } from "./content-check.js"; // #449
 
 const AUTOSAVE_MS = 1200;
 
@@ -139,7 +140,8 @@ export default async function editor(app, root, route, campaign = null) {
       actions: c ? actions : null,
     }),
     h("div", { class: "editor" }, h("section", { class: "card", "aria-label": t("editor.form") }, form), preview.node),
-    c ? imageCheckCard(app, () => c, { ready: () => save({ quiet: true }) }) : null,
+    c ? imageCheckCard(app, () => c, { ready: () => save({ quiet: true }), gate: settings ? (settings.imageRules ?? { rules: [] }) : null }) : null, // gate: #448
+    c ? contentCheckCard(app, () => c, { rules: settings?.contentRules, ready: () => save({ quiet: true }) }) : null, // #449
   ]);
   status.set(c ? t("editor.allSaved") : t("editor.notYet"));
   if (c) void preview.refresh();

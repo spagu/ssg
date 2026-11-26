@@ -5,6 +5,8 @@
 
 import { h, mount } from "../core/vnode.js";
 import { busy, errorBlock, loading, pageHead } from "./ui.js";
+import { imageRulesFact } from "./image-check.js"; // #448
+import { contentRulesFact } from "./content-check.js"; // #449
 
 const yes = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.yes" : "set.no"));
 const onOff = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.on" : "set.off"));
@@ -71,6 +73,8 @@ export default async function settings(app, root) {
         [t("set.site"), s.siteUrl ? h("span", null, code(s.siteUrl), " ", s.siteUrlValid ? null : h("span", { class: "flag off" }, t("set.invalid"))) : h("span", { class: "flag off bad" }, t("set.none"))],
         ["Resend", yes(app, s.keys.resend)],
         ["MailChannels", yes(app, s.keys.mailchannels)],
+        [t("imageGate.setting"), imageRulesFact(app, s.imageRules)], // #448
+        [t("content.setting"), contentRulesFact(app, s.contentRules)], // #449
       ], t("set.mail.note")),
       h(
         "section",

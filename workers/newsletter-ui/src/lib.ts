@@ -63,12 +63,18 @@ export interface Env extends MailEnv {
   NEWSLETTER_UTM?: string; // "on" adds utm_* to links whose host is the site's (default off)
   NEWSLETTER_UTM_SOURCE?: string; // utm_source (default "newsletter")
   NEWSLETTER_UTM_HOSTS?: string; // more hosts to tag, separated by commas or spaces
+  // Content rules checked before scheduling (#449); see src/content-rules*.ts. All off unless set.
+  NEWSLETTER_BANNED_PHRASES?: string; // phrases separated by |, whole words, any case
+  NEWSLETTER_BLOCKED_IMAGE_PATTERNS?: string; // substrings separated by | an image URL must not contain
+  NEWSLETTER_UTM_STRICT?: string; // "on": a hand-written utm_* on a tagged host blocks scheduling
   // Campaign images (#446); see src/asset-config.ts. The binding is the switch.
   NEWSLETTER_ASSETS?: R2Bucket; // unbound → every asset route answers 404 assets_disabled
   NEWSLETTER_ASSETS_URL?: string; // the bucket's own https base; unset → {site}{base}/hooks/a
   NEWSLETTER_ASSETS_MAX_BYTES?: string; // largest upload (default 2 MiB, clamped to 10 MiB)
   NEWSLETTER_IMAGES?: unknown; // optional Images binding: wider uploads are stored width-capped (src/asset-resize.ts)
   NEWSLETTER_ASSETS_MAX_WIDTH?: string; // that cap in pixels (default 1200, clamped to 320-4000)
+  // #448: image check findings that refuse scheduling; see src/image-gate-rules.ts.
+  NEWSLETTER_IMAGES_REQUIRE?: string; // any of alt, store, load (commas or spaces); unset = warn only
 }
 
 export const DEFAULT_BASE = "/newsletter-admin";

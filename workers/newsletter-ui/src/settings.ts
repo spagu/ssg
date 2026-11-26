@@ -20,6 +20,8 @@ import { DEFAULT_DLQ } from "./engine-status";
 import { feedSource } from "./feed-fetch";
 import { DEFAULT_MAX_ROWS } from "./import";
 import { authName } from "./health";
+import { imageRules } from "./image-gate-rules";
+import { rulesSummary } from "./content-rules-config"; // #449
 import { basePath, intVar, json } from "./lib";
 import type { Env } from "./lib";
 import { openMailer, transportOf, transportProblem } from "./mail/_transport";
@@ -78,6 +80,11 @@ export function settingsOf(env: Env) {
       maxWidth: resizeEnabled(env) ? assetMaxWidth(env) : null,
       problem: assetsConfigProblem(env),
     },
+    // #448: {rules, problem}: the image check rules that refuse scheduling, and
+    // why they cannot be applied (scheduling is then refused altogether).
+    imageRules: imageRules(env),
+    // #449: which content rules are on — counts and switches, never the phrases — and why they cannot be applied.
+    contentRules: rulesSummary(env),
     webhooks: { resend: set(env.NEWSLETTER_RESEND_WEBHOOK_SECRET), mailchannels: set(env.NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY) },
     feedUrl: "url" in feed ? feed.url.href : null,
     confirmBatch: Math.min(intVar(env.NEWSLETTER_CONFIRM_BATCH, DEFAULT_CONFIRM_BATCH), cfg.rate),

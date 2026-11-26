@@ -9,9 +9,28 @@ in batches. Nothing else is needed: schedule a campaign
 
 If the campaign has images, `GET /api/campaigns/:id/images` lists each one
 with what may go wrong: not under the image store, no alt text, or no `200`
-with an image type for a mail image proxy's kind of request. The check warns
-and never blocks; scheduling and sending do not consult it and nothing about
-it is stored. Details and limits: [Campaign images](../README.md#pre-send-image-check).
+with an image type for a mail image proxy's kind of request. By itself the
+check warns; nothing about it is stored. With `NEWSLETTER_IMAGES_REQUIRE` set
+(`alt`, `store`, `load`), scheduling runs it on the mail as it would go out and
+refuses with `409 image_check_failed` when an image breaks an enforced rule;
+the campaign stays a draft. Only scheduling is gated: test sends, resume and
+the send engine are not, because a scheduled campaign's content cannot change.
+A network failure during the `load` probe refuses the schedule; try again. A
+value that cannot be applied refuses every schedule with
+`503 image_rules_unusable` rather than letting campaigns through unchecked.
+Details and limits: [Campaign images](../README.md#pre-send-image-check),
+[Requiring images to pass](../README.md#requiring-images-to-pass).
+
+With content rules set (banned phrases, blocked image sources, hand-written
+`utm_*` with `NEWSLETTER_UTM_STRICT`), scheduling checks them first — they
+need no network — and refuses with `409 content_check_failed` and the
+findings; the campaign stays a draft. As with the image rules only
+scheduling is gated: test sends, resume, re-sending uncertain sends and the
+engine are not, and a campaign scheduled before the rules changed is not
+re-checked (unschedule and schedule it again). A configuration that cannot be
+honoured refuses every schedule with `503 content_rules_invalid`. These are
+the site's own rules, not a spam filter, and say nothing about delivery.
+Details: [Content rules](../README.md#content-rules).
 
 ## How a campaign goes out
 

@@ -16,6 +16,7 @@ import { escapeHtml } from "./render-entities";
 import { layout } from "./render-layout";
 import { htmlToText } from "./render-text";
 import { sanitizeHtml, serialize } from "./sanitize";
+import type { HtmlNode } from "./sanitize";
 
 export interface CampaignContent {
   subject: string;
@@ -93,22 +94,41 @@ function substitute(text: string, values: Record<string, string>, escape: boolea
   });
 }
 
-export function renderMessage(c: CampaignContent, r: Recipient, site: Site, opts: RenderOptions = {}): Rendered {
+// The author's part of a mail, before links are rewritten and before the
+// layout and the footer are added: the subject, the sanitized body tree and
+// the text override (null = the text part is generated from the tree).
+export interface RenderedParts {
+  lang: string;
+  unsub: string;
+  subject: string;
+  tree: HtmlNode[];
+  override: string | null;
+}
+
+// renderParts is the first half of renderMessage, also read by the content
+// rules (content-rules.ts), which judge only what the author wrote.
+export function renderParts(c: CampaignContent, r: Recipient, site: Site): RenderedParts {
   const lang = footerLanguage(r.language);
   const unsub = unsubscribeUrl(site, r.token);
   const values = { unsubscribe_url: unsub, language: r.language && LANGUAGE.test(r.language) ? r.language : lang, site_url: site.url };
   const source = c.bodyFormat === "html" ? substitute(c.body, values, true) : markdownToHtml(substitute(c.body, values, false));
+  const tree = sanitizeHtml(source);
+  const subject = substitute(c.subject, values, false);
+  const override = c.textOverride !== null ? substitute(c.textOverride, values, false).trim() : null;
+  return { lang, unsub, subject, tree, override };
+}
+
+export function renderMessage(c: CampaignContent, r: Recipient, site: Site, opts: RenderOptions = {}): Rendered {
+  const { lang, unsub, subject, tree: written, override } = renderParts(c, r, site);
   // The rewriter never sees the unsubscribe link or a non-http(s) one, and
   // the footer is added after it ran: leaving the list is never redirected.
   const links = opts.links ? guarded(opts.links, unsubscribeEndpoint(site)) : null;
-  const tree = links ? rewriteTree(sanitizeHtml(source), links) : sanitizeHtml(source);
-  const subject = substitute(c.subject, values, false);
+  const tree = links ? rewriteTree(written, links) : written;
   const t = FOOTER[lang];
   const reason = t.reason.replace("{site}", site.host);
 
   const footerHtml = `<p style="margin:0;">${escapeHtml(reason)}<br>\n<a href="${escapeHtml(unsub)}">${escapeHtml(t.unsubscribe)}</a></p>`;
   const html = layout({ lang, title: subject, content: serialize(tree), footer: footerHtml });
-  const override = c.textOverride !== null ? substitute(c.textOverride, values, false).trim() : null;
   const body = override === null ? htmlToText(tree) : links ? rewriteText(override, links) : override;
   const text = `${body}\n\n-- \n${reason}\n${t.unsubscribe}: ${unsub}\n`;
 

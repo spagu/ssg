@@ -153,6 +153,9 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_UTM` | var | off | `on` adds `utm_*` parameters to links to the site |
 | `NEWSLETTER_UTM_SOURCE` | var | `newsletter` | the `utm_source` value |
 | `NEWSLETTER_UTM_HOSTS` | var | — | more hosts to tag (commas or spaces), besides the host of `NEWSLETTER_SITE_URL` |
+| `NEWSLETTER_UTM_STRICT` | var | off | `on`: a link to a tagged host that already has a `utm_*` parameter stops scheduling (`409 content_check_failed`); needs `NEWSLETTER_UTM` on, otherwise every schedule answers `503 content_rules_invalid`; a value that is neither on (`1`, `true`, `yes`, `on`) nor off (`0`, `false`, `no`, `off`, empty) → 503 too ("Content rules") |
+| `NEWSLETTER_BANNED_PHRASES` | var | — | phrases separated by `\|`, matched as whole words in any case; a hit stops scheduling (`409 content_check_failed`); more than 200 phrases or one longer than 100 characters → `503 content_rules_invalid` ("Content rules") |
+| `NEWSLETTER_BLOCKED_IMAGE_PATTERNS` | var | — | substrings separated by `\|` an image URL of the mail must not contain, in any case; a hit stops scheduling; more than 50 patterns or one longer than 200 characters → 503 ("Content rules") |
 | `NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS` | var | `14` | how long after a send an unsubscribe is credited to it |
 | `NEWSLETTER_FEED_URL` | var | `/feed.xml` on the site | the feed for "campaign from a post" |
 | `NEWSLETTER_CONFIRM_BATCH` | var | `10` | confirmation mails per call, never more than the rate |
@@ -162,6 +165,7 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_ASSETS_MAX_BYTES` | var | `2097152` (2 MiB) | largest image upload; not a positive integer → the default, above 10 MiB → 10 MiB |
 | `NEWSLETTER_IMAGES` | Images binding | — | optional; unbound → files are stored as uploaded; bound → an image wider than `NEWSLETTER_ASSETS_MAX_WIDTH` is stored as a width-capped copy ("Campaign images") |
 | `NEWSLETTER_ASSETS_MAX_WIDTH` | var | `1200` | that width cap in pixels; not a positive integer → the default, then clamped to 320–4000; read only with `NEWSLETTER_IMAGES` |
+| `NEWSLETTER_IMAGES_REQUIRE` | var | — | any of `alt`, `store`, `load`, separated by commas (or spaces), any case; unset or empty → the image check only warns; set → scheduling refuses images that break these rules (`409 image_check_failed`); an unknown word, or `store` without a usable image store → every schedule answers `503 image_rules_unusable` ("Campaign images → Requiring images to pass") |
 
 The transport is the first one set: **Resend → MailChannels → SMTP**. An SMTP
 setting that can never work (port 25, a port that is not a number, a user
@@ -491,8 +495,8 @@ Problems:
 - `no_alt`: the alt text is missing or blank;
 - `unreachable`: the probe did not get `200` with an `image/*` type.
 
-It warns and never blocks. The campaign is not changed, sending does not
-consult the check, nothing about it is stored, and it works with the store
+By itself it warns and never blocks (to make findings block, see "Requiring
+images to pass" below). The campaign is not changed, nothing about the check is stored, and it works with the store
 off (then `not_stored` is never reported). It needs `NEWSLETTER_SITE_URL`
 (`503 no_site_url` otherwise).
 
@@ -521,6 +525,53 @@ rule keyed on the real proxies' IP ranges or verified-bot status is not
 exercised. Authors see the check where they prepare a campaign
 ([SENDING.md](docs/SENDING.md#before-you-schedule)).
 
+### Requiring images to pass
+
+`NEWSLETTER_IMAGES_REQUIRE` (#448) turns chosen findings of the check into a
+refusal to schedule. Unset or empty, nothing changes: every response is the
+same as without it. Each rule enforces problem codes of the check:
+
+| Rule | Refuses | Notes |
+|---|---|---|
+| `alt` | `no_alt` | alt missing, empty or only whitespace, judged on the rendered, sanitized mail: Markdown `![](…)` and `![  ](…)`; in HTML a missing `alt`, a bare `alt`, `alt=""`, `alt=''`, `alt="  "`, `alt=` with no value, `alt="&nbsp;"`, and an alt of only invisible characters (soft hyphen, zero-width space and joiners). No network. |
+| `store` | `not_stored` | the image is not under the store's base URL. Needs the store on with a usable address. No network. |
+| `load` | `unreachable`, `not_probed` | the probe above must pass. One check probes at most 8 distinct images (the Workers Free budget of 50 subrequests); an image beyond that was never shown to load and fails with `not_probed`. Use at most 8 different images, or leave `load` out. |
+
+What is gated: only `POST /api/campaigns/:id/schedule` (draft → scheduled),
+the one move that commits a draft's content to the list. Only drafts can be
+edited, so resume (paused → sending) and the send engine's scheduled →
+sending carry content that was already checked when it was scheduled; a
+campaign scheduled before the switch was set is not checked again (unschedule
+and schedule it to check it). A test send and saving a draft are never
+refused, so the author can look at the mail while fixing it.
+
+The refusal is `409 {error: "image_check_failed", detail, items, rules}`:
+`items` are the failing images in the shape of the check's items, each with
+only its enforced problems; `rules` is the enforced list. The campaign stays a
+draft, unchanged. With `load`, the probe takes up to a few seconds; it runs
+before the state moves, and the move only succeeds if the draft was not saved
+in the meantime (`409 campaign_changed` otherwise: check and schedule again).
+A second click while the first request runs gets `409 invalid_transition`
+once the first has scheduled.
+
+The mail is checked as rendered in the campaign's first segment language,
+else `en`. An image address built with `{{language}}` is therefore checked
+for that one language only.
+
+A network failure during the probe (`timeout`, `fetch_failed`) refuses the
+schedule like any failed image; try again once the image host answers. The
+limits of a pass above still hold: `load` proves what a request from
+Cloudflare's network got, not what every mail proxy will get.
+
+Fail closed: an unknown word, or `store` while the store is off or has no
+usable address, is a configuration problem. `GET /api/settings` reports it in
+`imageRules.problem`, the module summary lists `image_rules_unusable`, the
+panel's dashboard shows it, and every schedule answers
+`503 {error: "image_rules_unusable", detail}` until the value is fixed. The
+check's own answer then carries `rules`, `rulesProblem` and, per item,
+`blocking` (the problems that refuse scheduling) — those fields are absent
+while the switch is unset.
+
 ### Nothing is counted
 
 Serving an image reads and stores nothing about the request: no IP,
@@ -535,6 +586,93 @@ chain ([Optimize with Workers](https://developers.cloudflare.com/images/optimiza
 so what a real transform returns for a given file, and what Cloudflare bills
 for it, is not confirmed. The probe was tested against stubbed responses, so
 how a real bot rule answers it is not known.
+
+## Content rules
+
+Optional house rules a campaign must pass before it is scheduled (#449). All
+three are off unless set in `wrangler.toml`; with none set, no answer and no
+mail differs from a worker without them. They live in `wrangler.toml` only:
+the panel is read-only about configuration, so a panel session cannot loosen
+them. They are a check of the site's own rules, not a spam filter, and they
+say nothing about whether a mail is delivered.
+
+What is checked is what the author wrote, rendered by the real renderer with
+the preview token: the subject, the body as readers get it, and the text
+version when it is written by hand (`textOverride`). The footer the worker
+adds (the unsubscribe line) is never checked. There is no preheader field in
+this worker, so there is nothing else to check.
+
+- **`NEWSLETTER_BANNED_PHRASES`** — phrases separated by `|`, each trimmed;
+  empty items are dropped, items that differ only in case count once. A
+  phrase is compared literally (it is never a regular expression), in any
+  case (Unicode simple case folding: `ß` does not match `SS`), as a whole
+  word or run of words. A phrase edge that is a letter, a digit or a
+  combining mark must not touch another one in the text, which is right for
+  Polish and Hindi where `\b` is not: `kup teraz` is not found in
+  `zakup teraz`, and `कर` is not found in `करें`. Both sides are normalised to
+  NFC, soft hyphens and zero-width spaces are removed, and any run of
+  whitespace (line breaks included) counts as one space. Scanned: the
+  subject; the body's words, link texts and image alt texts; the
+  hand-written text version. Not scanned: addresses (`href`, `src`, and a URL
+  written out in the text, `https://…`, `http://…`, `mailto:…`), `title`
+  tooltips, the footer. When the text version is generated from the body it
+  is not scanned again. Bounds: at most 200 phrases of at most 100
+  characters; matching is linear in the length of the mail.
+- **`NEWSLETTER_BLOCKED_IMAGE_PATTERNS`** — substrings separated by `|`. An
+  image of the rendered mail whose URL contains one, compared in any case
+  (host and path alike: on most servers `/WP-Content/` and `/wp-content/`
+  are the same files, and a false hit costs one edit), is a finding naming
+  the image and the first pattern it contains. The URL is compared as the
+  mail has it (after the sanitizer). Bounds: at most 50 patterns of at most
+  200 characters.
+- **`NEWSLETTER_UTM_STRICT=on`** — with `NEWSLETTER_UTM` on, the worker
+  leaves a link that already has a `utm_*` parameter exactly as written
+  ("Statistics and privacy"). With strict mode on, such a link to a host the
+  worker tags (the site's host plus `NEWSLETTER_UTM_HOSTS`) is a finding
+  naming the link and its `utm_*` parameters instead; the worker never
+  rewrites or replaces them. The links checked are exactly those UTM tagging
+  is offered (http(s) links of the body and of a hand-written text version,
+  never the unsubscribe link or `mailto:`). With `NEWSLETTER_UTM` off strict
+  mode has nothing to compare with, so it is a configuration problem rather
+  than a silent no-op.
+
+**When it runs.** `POST /api/campaigns/:id/schedule` runs it after the
+content checks it already had and before the image rules ("Requiring images
+to pass"), rendered in the segment's first language (else `en`; only
+`{{language}}` depends on it). A finding answers
+`409 {error: "content_check_failed", detail, findings}` and the campaign stays
+a draft. Each finding is `{rule, where, value, …}`:
+
+| `rule` | `where` | `value` | more fields |
+|---|---|---|---|
+| `banned_phrase` | `subject`, `body`, `text` | the phrase as configured | `match` (the first occurrence as the mail spells it), `count` |
+| `blocked_image` | `body` | the image URL | `pattern` |
+| `utm_conflict` | `body`, `text` | the link as written | `host`, `parameters` (the `utm_*` names as written) |
+
+Not affected: saving a draft, test sends, previews. Not re-checked: resume
+(`paused → sending`) and re-sending uncertain sends continue a send whose
+content was checked when it was scheduled and can no longer be edited —
+refusing them would leave a half-sent campaign that can only be cancelled. A
+campaign already scheduled when the rules change is not re-checked either:
+unschedule and schedule it again to apply them.
+
+**Fails closed.** A configuration that cannot be honoured (too many or too
+long phrases or patterns, `NEWSLETTER_UTM_STRICT` with a value that is
+neither on nor off, or on with `NEWSLETTER_UTM` off) makes every schedule
+answer `503 content_rules_invalid` with the reason, never a check that runs
+with part of the rules. The reason is in `GET /api/settings`
+(`contentRules.problem`), in the module summary's problems
+(`content_rules_invalid`) and on the panel's overview.
+
+**Reading it.** `GET /api/campaigns/:id/content-check?language=` (read
+permission) answers `{findings, rules}` without changing anything; the
+panel's "Content rules" card in the editor uses it. `rules` and
+`GET /api/settings` → `contentRules` say
+`{active, bannedPhrases, blockedImagePatterns, utmStrict, problem}`: counts
+and switches, never the phrase list. A reader-level account sees only the
+phrases its campaign actually contains; the list itself stays with whoever
+can read `wrangler.toml`, since it may hold wording a site does not want
+shown to every panel account.
 
 ## Statistics and privacy
 
@@ -561,7 +699,9 @@ count, and no table the statistics use links a click or an open to anyone.
   too and nothing is de-duplicated, so read clicks as a relative signal
   between links and campaigns, not as a number of people. With tracking off
   the mail is byte for byte what it was.
-- **UTM parameters**, only with `NEWSLETTER_UTM` on: a link whose host is the
+- **UTM parameters**, only with `NEWSLETTER_UTM` on (to refuse links that
+  already carry hand-written `utm_*` instead of leaving them, see
+  `NEWSLETTER_UTM_STRICT` in "Content rules"): a link whose host is the
   site's (the host of `NEWSLETTER_SITE_URL`, plus `NEWSLETTER_UTM_HOSTS`;
   hosts are compared whole, so list `www.example.com` beside `example.com`)
   gets `utm_source` (`NEWSLETTER_UTM_SOURCE`, default `newsletter`),
@@ -750,7 +890,8 @@ workers/newsletter-ui/
 ├── src/mail/         byte-identical copies of the `newsletter` template's mail modules
 ├── src/…             one feature per group of files: subscriber*, import*, campaign*, engine*,
 │                     bounce*, hook*, suppression*, stats*, click*, feed*, confirm*, render*, settings,
-│                     asset*, image-* (campaign images: config, type sniffing, width cap, API, serving; the pre-send check and its probe)
+│                     asset*, image-* (campaign images: config, type sniffing, width cap, API, serving; the pre-send check and its probe),
+│                     content-rules* (the content rules checked before scheduling)
 └── test/             node:test suites; fakes.ts runs D1 on real SQLite
 ```
 
