@@ -644,6 +644,7 @@ Development workflow and review requirements are in
 | [docs/MCP.md](docs/MCP.md) | MCP server for AI agents: roles, tools, find-then-edit, MDDB search, git write-back |
 | [docs/RENDER_HOOKS.md](docs/RENDER_HOOKS.md) | Render hooks: responsive images for content, an external-link policy, wrapping code blocks |
 | [docs/COMPONENTS.md](docs/COMPONENTS.md) | Typed content components: the props schema, the call syntax, assets per page, `components.json` |
+| [docs/BUILD-INPUTS.md](docs/BUILD-INPUTS.md) | What a one-shot build reads: the settings that cause a network request, the environment variables, the configuration sources, the programs it starts |
 | [docs/INCREMENTAL.md](docs/INCREMENTAL.md) | `--incremental` and `ssg graph`: what a change rebuilds, when a build is full anyway, what it saves |
 | [docs/EDITING.md](docs/EDITING.md) | `--edit`: editing frontmatter in the browser — what a theme marks, where a save goes, the security rules |
 | [docs/UPGRADING.md](docs/UPGRADING.md) | Version-to-version upgrade steps, with a picker for your current version |

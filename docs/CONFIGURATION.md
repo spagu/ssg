@@ -270,6 +270,11 @@ program.
 config file → `.ssg.designer.json` → command-line flags. `$NAME` references are
 resolved from the environment where each key is used, after all of these.
 
+A theme directory is not a configuration source, and no per-user or system-wide
+file is read. [BUILD-INPUTS.md](BUILD-INPUTS.md) lists everything a build takes
+from outside its source tree: the settings that cause a network request, the
+environment variables, and the programs it starts.
+
 ## Core and paths
 
 | Key | Default | CLI | Purpose |

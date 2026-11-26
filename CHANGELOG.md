@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **What a one-shot build reads (#452).** New page `docs/BUILD-INPUTS.md`: the
+  settings that cause a network request (none is made without one of them),
+  every environment variable a build reads or sets, the configuration sources
+  (a theme directory is not one), and the programs a build starts from `PATH`.
+  No behaviour changes.
+
 ### Added
 
 - **`newsletter-ui`: the image check can refuse scheduling (#448).**
