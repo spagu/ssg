@@ -143,8 +143,8 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_SEND_BATCH` | var | `10` | messages per queue job, never more than the rate; see "Limits per Cloudflare plan" |
 | `NEWSLETTER_SEND_STALE_MINUTES` | var | `30` | after this a claimed row becomes `uncertain` and a lost job is re-queued; keep it above 15 (a consumer's wall-clock limit) |
 | `NEWSLETTER_SEND_MAX_ATTEMPTS` | var | `3` | tries per recipient on temporary failures |
-| `NEWSLETTER_BOUNCE_BREAKER_MIN` | var | `5` | hard bounces in one batch before the campaign pauses … |
-| `NEWSLETTER_BOUNCE_BREAKER_PERCENT` | var | `50` | … if they are also this share of the batch's messages |
+| `NEWSLETTER_BOUNCE_BREAKER_MIN` | var | `5` | hard bounces in one batch (or reported by webhook for a sending campaign since its last trip) before the campaign pauses … |
+| `NEWSLETTER_BOUNCE_BREAKER_PERCENT` | var | `50` | … if they are also this share of the batch's messages (of the campaign's sent messages, for webhook bounces) |
 | `NEWSLETTER_DEAD_LETTER_QUEUE` | var | `ssg-newsletter-send-dlq` | only if you renamed the queue |
 | `NEWSLETTER_SOFT_BOUNCE_LIMIT` | var | `3` | soft bounces in a row before a suppression |
 | `NEWSLETTER_RESEND_WEBHOOK_SECRET` | secret | — | the Resend webhook's `whsec_…`; unset → `/hooks/resend` answers 503 |
@@ -343,7 +343,10 @@ step by step, are in [SENDING.md](docs/SENDING.md). What you can rely on:
   `NEWSLETTER_BOUNCE_BREAKER_PERCENT` % of its messages, the campaign pauses
   and nobody from that batch is suppressed: a server refusing everyone is a
   configuration problem, not a list problem. A render error or a transport
-  that refuses the login pauses it too, with the reason in the panel.
+  that refuses the login pauses it too, with the reason in the panel. Hard
+  bounces a provider reports later by webhook, attributed to a campaign that
+  is still sending, go through the same rule and pause it the same way
+  ([BOUNCES.md](docs/BOUNCES.md#webhook-bounce-breaker)).
 - **Unsubscribes take effect at once**, mid-campaign included.
 
 ## Bounces and webhooks
@@ -358,6 +361,16 @@ once (a complaint also unsubscribes); soft bounces only after
 configured answers `503`, never accepts unsigned events, and a redelivered
 event counts once. Classification tables and the registration steps:
 [BOUNCES.md](docs/BOUNCES.md).
+
+A report counts for a campaign only when it names the campaign: SMTP
+refusals while sending, and Resend events that carry the
+`newsletter_campaign` tag, which the Resend transport sends with every
+campaign message. MailChannels events name no campaign and are never
+attributed. Every verified webhook, `delivered`
+included, is counted per hour, so Settings and `GET /api/health` show when
+the last one arrived, with a warning when a webhook transport has been
+silent since the last campaign started
+([BOUNCES.md](docs/BOUNCES.md#webhook-health)).
 
 ## Import
 
@@ -720,10 +733,15 @@ count, and no table the statistics use links a click or an open to anyone.
 - **Images are not a tracking channel.** A campaign image has the same URL
   for every reader and its route reads and stores nothing about the request
   ("Campaign images"), so loading one is not counted as an open.
+- **Bounces and complaints per campaign — only when the report names the
+  campaign.** Hard, soft and complaint counts come from `campaign_bounces`:
+  SMTP refusals while sending, and webhook events that carry the campaign's
+  tag. A report that names no campaign (MailChannels, mail sent before
+  attribution) is never credited by address or time; the figures are then
+  `null` with the reason ([BOUNCES.md](docs/BOUNCES.md#attribution-to-a-campaign)).
 - **Not counted, by design:** opens (no tracking pixel — privacy proxies make
   open rates meaningless, and a pixel only works by giving each person their
-  own URL), who clicked, and bounces per campaign (a bounce reported later
-  carries no campaign id, and the worker does not guess).
+  own URL) and who clicked.
 
 Personal data: subscriber rows are the `newsletter` template's; this worker
 adds the send ledger (who got which campaign, when), suppressions (an
@@ -855,7 +873,7 @@ deploy `newsletter` first; `GET {base}/api/health` still answers and reports
 
 | Table | Holds |
 |---|---|
-| `schema_meta` | the schema version per component (`newsletter-ui` = 7) |
+| `schema_meta` | the schema version per component (`newsletter-ui` = 9) |
 | `settings` | panel settings as JSON values (and the test-send counter); never secrets |
 | `campaigns` | subject, body, segment, status, schedule, counters, source post |
 | `campaign_sends` | the send ledger: one row per campaign and subscriber — `claimed` → `sent` / `failed` / `retry` / `skipped`, or `uncertain` |
@@ -866,6 +884,9 @@ deploy `newsletter` first; `GET {base}/api/health` still answers and reports
 | `send_dead_letters` | queue jobs that ran out of retries |
 | `soft_bounces` | soft bounces in a row per address, below the limit |
 | `hook_events` | webhook event ids already applied, kept 7 days |
+| `campaign_bounces` | hard / soft / complaint counts attributed to a campaign, per source — no addresses |
+| `hook_breaker` | per campaign: webhook hard bounces since the breaker's last trip, and the sent count at that trip |
+| `hook_activity` | verified webhook events per UTC hour, provider and class, with the latest time — counts only, kept 8 days |
 | `click_links` | per campaign link: the target and a counter — no column that can point at a person |
 | `admin_audit` | the audit trail of admin actions ("Who can do what") |
 | `assets` | campaign images in the optional R2 bucket: key (SHA-256 + extension), type, size, dimensions, whether Exif/XMP is present, and the upload's hash behind a width-capped copy (`source_sha256`) — the bytes are in R2 |

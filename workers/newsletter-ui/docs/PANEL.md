@@ -16,9 +16,9 @@ lives behind the same authentication as the API. Back to the
 | Subscriber | `#/subscribers/<id>` | record, consent text and time, sends, suppression; tags and language; unsubscribe, re-send confirmation, GDPR export, erase |
 | Import | `#/import` | CSV → preview (delimiter, editable column mapping, ignored columns and why, what each row becomes, dropped dates) → asks day-first or month-first when the file does not say → run |
 | Campaigns | `#/campaigns?status=` | list by status, new draft, draft from a post on the feed |
-| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check; the content rules check when configured); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, clicks per link, timing, uncertain sends to re-send or dismiss |
+| Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check; the content rules check when configured); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, hard / soft / complaint counts when the reports name the campaign (else a note why there are none), clicks per link, timing, uncertain sends to re-send or dismiss |
 | Suppressions | `#/suppressions?reason=&q=` | new suppressions by reason over 90 days, list, add, lift (a complaint asks for an explicit yes), CSV import with preview |
-| Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test |
+| Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test, webhook health (the latest verified webhook, counts per class for 24 hours and 7 days, a warning when a webhook transport has been silent since the last campaign started) |
 | Activity | `#/activity?actor=&action=` | the audit trail: who changed what, newest first, filtered by account and action (`GET /api/audit`, `newsletter:settings`) |
 | Help | `#/help` | what each part does, where configuration lives, how to read the charts |
 

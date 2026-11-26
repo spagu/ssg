@@ -52,6 +52,32 @@ test("Resend events → classes", () => {
   assert.deepEqual(fromResend({ type: "email.complained", data: [] })?.emails, []);
 });
 
+test("Resend permanent bounces: the server's diagnosticCode decides, provider advice text is not read", () => {
+  const ses =
+    "The recipient's email provider sent a hard bounce message, but didn't specify the reason for the hard bounce. " +
+    "We recommend removing the recipient's email address from your mailing list. Sending messages to addresses that " +
+    "produce hard bounces can have a negative impact on your reputation as a sender.";
+  const kind = (bounce: Record<string, unknown>) =>
+    fromResend({ type: "email.bounced", data: { to: ["a@example.com"], bounce } })?.kind ?? null;
+  const general = { type: "Permanent", subType: "General", message: ses };
+  assert.equal(kind(general), "hard", "SES General text alone");
+  assert.equal(kind({ ...general, diagnosticCode: ["smtp; 550 5.1.1 user unknown"] }), "hard", "array");
+  assert.equal(kind({ ...general, diagnosticCode: "smtp; 550 5.1.1 user unknown" }), "hard", "string");
+  assert.equal(kind({ ...general, diagnosticCode: ["smtp; 550 5.7.1 blocked by policy"] }), null, "sender problem by code");
+  assert.equal(kind({ ...general, diagnosticCode: ["smtp; 550 blocked by policy"] }), null, "sender problem by words");
+  assert.equal(kind({ ...general, diagnosticCode: ["smtp; 552 5.2.2 mailbox full"] }), "soft", "soft code in Permanent");
+  assert.equal(kind({ ...general, diagnosticCode: ["smtp; 550 mailbox unavailable"] }), "hard", "no code, no sender words");
+  for (const diagnosticCode of [undefined, null, 5, [], [1, null], ""]) assert.equal(kind({ ...general, diagnosticCode }), "hard");
+  assert.equal(kind({ type: "Permanent", subType: "NoEmail", message: "The mailbox doesn't exist, reputation" }), "hard");
+  assert.equal(kind({ type: "Permanent", subType: "Suppressed", message: "on the suppression list, reputation" }), "hard");
+  assert.equal(kind({ type: "Permanent", subType: "General", message: "5.7.1 policy" }), null, "code in advice text");
+  assert.equal(kind({ type: "Permanent", subType: "Other", message: "blocked by policy" }), null, "unknown subtype keeps words");
+  assert.equal(kind({ type: "Permanent", subType: "Other", message: "gone" }), "hard");
+  assert.equal(kind({ type: "Permanent", subType: "ContentRejected", diagnosticCode: ["smtp; 550 5.1.1 x"] }), null);
+  assert.equal(kind({ type: "Transient", subType: "General", message: "mailbox busy" }), "soft");
+  assert.equal(kind({ type: "Transient", subType: "General", message: "blocked by policy" }), null);
+});
+
 test("MailChannels events → classes", () => {
   const ev = (event: string, extra: Record<string, unknown> = {}) => fromMailChannels({ event, recipients: ["a@example.com"], ...extra });
   assert.deepEqual(ev("hard-bounced", { status: "550", reason: "5.1.1 user unknown" }), {

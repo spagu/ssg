@@ -95,6 +95,76 @@ window, the public-key endpoint, the event names and the `recipients` field
 of bounce events) but **not against a live delivery**; the `complained`
 event's recipient field is assumed to be `recipients` like the bounces.
 
+## Attribution to a campaign
+
+A bounce or complaint counts for a campaign only when the report itself names
+it. The worker never matches by address and time. The counts are kept in
+`campaign_bounces` (schema version 9): one number per campaign, source and
+class, with no addresses.
+
+| Transport | What names the campaign | Attributed |
+|---|---|---|
+| SMTP | the engine knows which campaign's message the server refused while sending | `hard` and `soft` refusals at send time (source `smtp`) |
+| Resend | the webhook's `data.tags.newsletter_campaign` | `hard`, `soft`, `complaint` from events that carry the tag |
+| MailChannels | nothing the webhook returns | nothing |
+
+The Resend hook reads the tag from every event and counts the event for the
+campaign when the value has the shape of a campaign id and names a campaign
+that exists. Anything else is applied to the address as before and left
+unattributed.
+
+The send engine gives every campaign message the tag
+`newsletter_campaign` = the campaign id. The Resend transport sends it in the
+request's `tags` list, and Resend returns it in each webhook event about that
+message. MailChannels and SMTP leave the tag out: no header is added and the
+MIME text is unchanged. Test sends and confirmation mail carry no tag.
+Messages sent before this version are never attributed, and neither are SMTP
+bounces that come back later as mail (see the CSV import below).
+
+`GET /api/campaigns/:id/stats` → `bounces` returns the counts with
+`attribution: "exact"` when the campaign has attributed reports or the
+transport is SMTP or Resend. Otherwise `hard`, `soft` and `complaints` are `null`, with
+`attribution: "none"` and a `detail` that says why.
+
+## Webhook bounce breaker
+
+A provider accepts nearly every message and reports unknown mailboxes minutes
+later by webhook, so the send-time breaker ([SENDING.md](SENDING.md#failures))
+never sees them. Hard bounces attributed to a campaign that is `sending` are
+counted in `hook_breaker`, and the campaign pauses when
+
+    hard ≥ NEWSLETTER_BOUNCE_BREAKER_MIN  and  hard × 100 ≥ NEWSLETTER_BOUNCE_BREAKER_PERCENT × sent
+
+`hard` counts webhook hard bounces since the last trip, and `sent` counts the
+campaign's messages recorded as sent since that trip. Same variables, same
+defaults (5 and 50 %), same pause as a send-time trip: the campaign moves to
+`paused` and the reason is shown in the panel (`bounces: the provider reported
+N hard bounces by webhook for the last M messages sent; …`). Each trip starts
+a new count, so a resume is not paused again by the bounces that caused the
+first pause. Bounces that arrive while the campaign is paused, sent or
+cancelled change its counts only.
+
+Unlike a send-time trip, the bounced addresses are suppressed: each one is the
+provider's report about one mailbox, not a relay refusing everyone.
+
+## Webhook health
+
+Every request whose signature checks out is counted in `hook_activity` per
+UTC hour, provider and class (`delivered`, `hard`, `soft`, `complaint`,
+`other` for events the classifier ignores), with the time of the latest
+event. That includes `delivered` events, which otherwise leave no row. Only
+totals are stored. Rows older than 8 days are deleted whenever a webhook
+arrives. Requests with a bad signature or bad JSON are not counted.
+
+`GET /api/health` and `GET /api/settings` (both behind admin auth) return
+`webhookActivity`: `lastReceivedAt`, counts for the last 24 hours and the last
+7 days (by whole UTC hours), `reportsByWebhook`, `lastCampaignStartedAt` and
+`warning`. The warning is `no_webhook_since_campaign` when the transport is
+Resend or MailChannels, the latest campaign started more than 30 minutes ago,
+and no verified webhook has arrived since it started. Subscribe the
+`email.delivered` (Resend) or `delivered` (MailChannels) event too: without it
+a quiet list with no bounces looks the same as a broken webhook.
+
 ## Source 3: CSV import
 
 For SMTP users, whose bounces arrive as mail: columns by header name, `email`

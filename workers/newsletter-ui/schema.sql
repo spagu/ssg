@@ -229,3 +229,35 @@ CREATE TABLE IF NOT EXISTS assets (
 
 CREATE INDEX IF NOT EXISTS idx_assets_created
   ON assets (created_at, key);
+
+-- ---------------------------------------------------------------------------
+-- Schema version 9 (#460): webhook attribution and health. Counts only, no
+-- addresses (src/schema-hooks.ts).
+
+-- Hard / soft / complaint reports attributed exactly to a campaign.
+CREATE TABLE IF NOT EXISTS campaign_bounces (
+  campaign_id TEXT NOT NULL,
+  source      TEXT NOT NULL,               -- smtp (refused while sending) | resend | mailchannels
+  kind        TEXT NOT NULL,               -- hard | soft | complaint
+  count       INTEGER NOT NULL DEFAULT 0,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (campaign_id, source, kind)
+);
+
+-- The webhook side of the bounce breaker, per campaign.
+CREATE TABLE IF NOT EXISTS hook_breaker (
+  campaign_id TEXT PRIMARY KEY,
+  hard        INTEGER NOT NULL DEFAULT 0,  -- webhook hard bounces while sending, since the last trip
+  sent_base   INTEGER NOT NULL DEFAULT 0,  -- the campaign's sent messages at the last trip
+  updated_at  TEXT NOT NULL
+);
+
+-- Verified webhook events per UTC hour; pruned after 8 days.
+CREATE TABLE IF NOT EXISTS hook_activity (
+  hour     TEXT NOT NULL,                  -- e.g. 2026-11-26T14 (UTC)
+  provider TEXT NOT NULL,                  -- resend | mailchannels
+  kind     TEXT NOT NULL,                  -- delivered | hard | soft | complaint | other
+  count    INTEGER NOT NULL DEFAULT 0,
+  last_at  TEXT NOT NULL,                  -- the latest event of the row
+  PRIMARY KEY (hour, provider, kind)
+);

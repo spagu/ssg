@@ -2,9 +2,11 @@
 // the worker is wired up: schema version, whether the `newsletter` template's
 // table is there, and which optional bindings are bound. Behind admin auth like
 // every other API route; it names no secrets, only whether they are set.
+// webhookActivity (#460): counts of verified webhook events, no addresses.
 
 import type { RouteContext } from "./router";
 import { modeOf } from "./auth";
+import { webhookActivity } from "./hook-activity";
 import { json } from "./lib";
 import type { Env } from "./lib";
 import { schemaVersion, subscribersReady } from "./schema";
@@ -21,6 +23,7 @@ export async function health({ env }: RouteContext): Promise<Response> {
       rateLimiter: !!env.RATE_LIMITER,
       assets: !!env.ASSETS,
     },
+    webhookActivity: await webhookActivity(env),
     ...(subscribers ? {} : { hint: MISSING_SUBSCRIBERS }),
   });
 }

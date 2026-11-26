@@ -18,6 +18,9 @@
 // price: a consumer killed by the platform mid-batch loses that batch's
 // suppressions; the rows stay `failed` with the server's words and the next
 // campaign bounces and suppresses them.
+//
+// Hard bounces a provider reports later by webhook, for a campaign still
+// sending, go through the same rule (`trips`) in hook-breaker.ts (#460).
 
 import { classifyPermanent } from "./bounce-classify";
 import type { PermanentFailure } from "./engine-hooks";
@@ -35,14 +38,19 @@ export interface Breaker {
   failures: PermanentFailure[]; // every permanent failure, for the deferred hooks
 }
 
+// breakerLimits reads NEWSLETTER_BOUNCE_BREAKER_MIN and _PERCENT.
+export const breakerLimits = (env: Env): { min: number; percent: number } => ({
+  min: intVar(env.NEWSLETTER_BOUNCE_BREAKER_MIN, DEFAULT_BREAKER_MIN),
+  percent: Math.min(100, intVar(env.NEWSLETTER_BOUNCE_BREAKER_PERCENT, DEFAULT_BREAKER_PERCENT)),
+});
+
+// trips is the rule: at least `min` hard bounces, and at least `percent` % of
+// the messages handed to the transport.
+export const trips = (hard: number, handed: number, limits: { min: number; percent: number }): boolean =>
+  hard >= limits.min && hard * 100 >= limits.percent * handed;
+
 export function breakerFor(env: Env): Breaker {
-  return {
-    min: intVar(env.NEWSLETTER_BOUNCE_BREAKER_MIN, DEFAULT_BREAKER_MIN),
-    percent: Math.min(100, intVar(env.NEWSLETTER_BOUNCE_BREAKER_PERCENT, DEFAULT_BREAKER_PERCENT)),
-    attempted: 0,
-    hard: [],
-    failures: [],
-  };
+  return { ...breakerLimits(env), attempted: 0, hard: [], failures: [] };
 }
 
 // notePermanent records one permanent failure and reports whether the
@@ -51,7 +59,7 @@ export function notePermanent(b: Breaker, f: PermanentFailure): boolean {
   b.failures.push(f);
   if (classifyPermanent(f.detail) !== "hard") return false;
   b.hard.push(f.subscriberId);
-  return b.hard.length >= b.min && b.hard.length * 100 >= b.percent * b.attempted;
+  return trips(b.hard.length, b.attempted, b);
 }
 
 export const breakerReason = (b: Breaker): string =>

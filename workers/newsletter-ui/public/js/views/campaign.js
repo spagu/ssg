@@ -38,6 +38,20 @@ function progressCard(app, p) {
   );
 }
 
+// bounceBlock (#460): the counts attributed to this campaign, or why there are none.
+function bounceBlock(app, b) {
+  const { t, fmt } = app;
+  if (b.attribution !== "exact") return [h("p", { class: "note" }, t("stats.bounceNote"))];
+  return [
+    facts([
+      [t("stats.hard"), fmt.number(b.hard)],
+      [t("stats.soft"), fmt.number(b.soft)],
+      [t("stats.complaints"), fmt.number(b.complaints)],
+    ]),
+    h("p", { class: "note" }, t("stats.bounceExact")),
+  ];
+}
+
 function statsCard(app, s) {
   const { t, fmt } = app;
   const clicks = clicksFigure({ stats: s, t, fmt });
@@ -48,7 +62,7 @@ function statsCard(app, s) {
     h("div", { class: "chart-grid tight" }, resultsFigure({ stats: s, t, fmt }), clicks),
     h("p", { class: "note" }, t("stats.unsubNote", { days: s.unsubscribes.windowDays })),
     clicks ? h("p", { class: "note" }, t("stats.clickNote")) : h("p", { class: "note" }, t("stats.noClicks")),
-    h("p", { class: "note" }, t("stats.bounceNote")),
+    ...bounceBlock(app, s.bounces),
     facts([
       [t("timing.scheduled"), fmt.dateTime(s.timing.scheduledAt)],
       [t("timing.started"), fmt.dateTime(s.timing.startedAt)],

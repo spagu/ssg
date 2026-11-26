@@ -145,6 +145,14 @@ test("the default registry serves health", async () => {
     subscribersTable: true,
     auth: "basic",
     bindings: { queue: true, rateLimiter: false, assets: true },
+    webhookActivity: {
+      lastReceivedAt: null,
+      last24h: { delivered: 0, hard: 0, soft: 0, complaint: 0, other: 0 },
+      last7d: { delivered: 0, hard: 0, soft: 0, complaint: 0, other: 0 },
+      reportsByWebhook: false,
+      lastCampaignStartedAt: null,
+      warning: null,
+    },
   });
   const bare = makeEnv({ NEWSLETTER_DB: fakeD1(), NEWSLETTER_QUEUE: undefined, ASSETS: undefined, RATE_LIMITER: fakeRateLimiter() });
   const missing = await (await handleFetch(req(B + "/api/health", { auth: PASSWORD }), bare as never, fakeCtx() as never)).json();

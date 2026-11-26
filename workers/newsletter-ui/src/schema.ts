@@ -19,6 +19,7 @@
 // uses. Never DROP, never change a column's type.
 
 import type { Env } from "./lib";
+import { HOOK_TABLES } from "./schema-hooks";
 
 export const COMPONENT = "newsletter-ui";
 
@@ -217,6 +218,7 @@ export const TABLES = [
   ...BOUNCE_TABLES,
   ...AUDIT_TABLES,
   ...ASSET_TABLES,
+  ...HOOK_TABLES,
 ];
 
 export interface Migration {
@@ -235,6 +237,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 7, statements: ASSET_TABLES }, // #446: campaign images
   // #446: the upload's hash behind a width-capped copy (a database at 7 lacks it).
   { version: 8, statements: ["ALTER TABLE assets ADD COLUMN source_sha256 TEXT"] },
+  { version: 9, statements: HOOK_TABLES }, // #460: webhook attribution and health (src/schema-hooks.ts)
 ];
 
 export const BASE_VERSION = 1;

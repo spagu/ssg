@@ -96,8 +96,13 @@ export async function stopBatch(env: Env, j: SendJob, campaignStatus: string): P
 export async function pauseFor(env: Env, j: SendJob, reason: string): Promise<void> {
   console.error("newsletter-ui: campaign paused by the send engine", j.campaignId, reason);
   await transition(env, j.campaignId, "sending", "paused");
-  await env.NEWSLETTER_DB.prepare("UPDATE send_plans SET error = ?, updated_at = ? WHERE campaign_id = ?")
-    .bind(reason, new Date().toISOString(), j.campaignId)
-    .run();
+  await setPauseReason(env, j.campaignId, reason);
   await setBatch(env, j, "parked", "queued");
+}
+
+// setPauseReason records why the engine paused a campaign, for the panel.
+export async function setPauseReason(env: Env, campaignId: string, reason: string): Promise<void> {
+  await env.NEWSLETTER_DB.prepare("UPDATE send_plans SET error = ?, updated_at = ? WHERE campaign_id = ?")
+    .bind(reason, new Date().toISOString(), campaignId)
+    .run();
 }

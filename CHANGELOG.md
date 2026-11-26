@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.16] - 2026-11-26
 
 ### Documentation
 
@@ -17,6 +17,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`newsletter-ui`: bounces and complaints are counted per campaign (#460).**
+  Attribution is exact, never by address and time. It covers SMTP refusals
+  while sending, and Resend webhook events through the `newsletter_campaign`
+  tag every campaign message now carries. MailChannels reports name no
+  campaign and stay unattributed, as do messages sent before the upgrade.
+  `GET /api/campaigns/:id/stats` gains `bounces.attribution` (`exact` or
+  `none`) and the campaign view shows hard, soft and complaint counts.
+- **`newsletter-ui`: webhook bounces feed the bounce circuit breaker (#460).**
+  Hard bounces reported by webhook for a campaign that is still sending count
+  toward `NEWSLETTER_BOUNCE_BREAKER_MIN` / `_PERCENT`, over the campaign's
+  messages sent since the last trip, and pause it. A report for a campaign
+  that is paused or finished changes the counts only. No new variable.
+- **`newsletter-ui`: webhook health (#460).** Verified webhook events,
+  `delivered` included, are counted per hour and kept for 8 days, as totals
+  with no addresses. `webhookActivity` in `GET /api/health`,
+  `GET /api/settings` and the Settings view gives the last arrival, the counts
+  for 24 hours and 7 days, and a warning when no webhook has arrived since the
+  last campaign started. Schema version 9 adds `campaign_bounces`,
+  `hook_breaker` and `hook_activity`; `subscribers` is untouched.
+- **`newsletter` mail module: optional `MailMessage.tags` (#460).** Sent only
+  by the Resend transport, as its `tags` list; the other transports ignore
+  them. A message without tags produces the same request as before. The copies
+  in `newsletter-ui` and `auth` are refreshed.
 - **`newsletter-ui`: the image check can refuse scheduling (#448).**
   `NEWSLETTER_IMAGES_REQUIRE` takes any of `alt`, `store`, `load`. Unset,
   nothing changes: the check only warns, and every response is what it was.
@@ -63,6 +86,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`newsletter-ui`: campaign stats `bounces` (#460).** With the SMTP or
+  Resend transport `hard`, `soft` and `complaints` are numbers instead of
+  `null`. No field was removed.
+- **Dependencies.** `golang.org/x/net` 0.63.0, `modernc.org/sqlite` 1.63.0,
+  `github.com/tdewolff/parse/v2` 2.25.0, `github.com/go-sql-driver/mysql`
+  1.10.2, `lukechampine.com/blake3` 1.5.3; in CI `actions/setup-go` 7.1.0 and
+  `ossf/scorecard-action` 2.6.0.
 - **`newsletter-ui`: Polish panel strings corrected by a native speaker
   (#450).** 21 strings: "we wrangler.toml", "proxy obrazów poczty", plural
   forms and wording.
@@ -73,6 +103,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`newsletter-ui`: permanent Resend bounces of subtype `General` were
+  ignored (#461).** The provider's advice text mentions "reputation", which
+  matched the sender-problem words, so the address was never suppressed. The
+  classifier now reads `bounce.diagnosticCode`, the receiving server's reply,
+  first: its status code decides hard, soft (`5.2.2`) or sender problem.
+  Without one, a permanent `General`, `NoEmail` or `Suppressed` bounce is hard.
+- **`newsletter-ui`: `delivered` webhooks left no trace (#460)**, so a working
+  webhook looked the same as a broken one until the first bounce.
 - **`newsletter-ui`: an image whose alt text was only an invisible character
   passed the image check.** A zero-width space, a joiner or a soft hyphen
   alone now counts as no alt text.
@@ -7771,7 +7809,8 @@ Audit hardening round: 5 security + 3 correctness fixes from the local audit bac
 - Cross-platform build support (Linux, macOS, Windows)
 
 <!-- Compare links (DOC-011) -->
-[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.15...HEAD
+[Unreleased]: https://github.com/spagu/ssg/compare/v1.9.16...HEAD
+[1.9.16]: https://github.com/spagu/ssg/compare/v1.9.15...v1.9.16
 [1.9.15]: https://github.com/spagu/ssg/compare/v1.9.14...v1.9.15
 [1.9.14]: https://github.com/spagu/ssg/compare/v1.9.13...v1.9.14
 [1.9.13]: https://github.com/spagu/ssg/compare/v1.9.12...v1.9.13

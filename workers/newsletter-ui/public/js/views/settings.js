@@ -7,6 +7,7 @@ import { h, mount } from "../core/vnode.js";
 import { busy, errorBlock, loading, pageHead } from "./ui.js";
 import { imageRulesFact } from "./image-check.js"; // #448
 import { contentRulesFact } from "./content-check.js"; // #449
+import { webhookCard } from "./webhook-activity.js"; // #460
 
 const yes = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.yes" : "set.no"));
 const onOff = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.on" : "set.off"));
@@ -111,6 +112,7 @@ export default async function settings(app, root) {
         [t("set.feed"), code(s.feedUrl)],
         [t("set.importMax"), app.fmt.number(s.importMaxRows)],
       ]),
+      webhookCard(app, s.webhookActivity),
       group("set-worker", t("set.worker"), [
         [t("set.auth"), t(`set.auth.${s.auth}`)],
         [t("set.base"), code(s.base)],

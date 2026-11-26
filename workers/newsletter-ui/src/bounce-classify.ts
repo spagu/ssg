@@ -78,11 +78,48 @@ export interface Classified {
 // Resend's bounce subtypes that are about the message, not the mailbox.
 const RESEND_CONTENT = new Set(["MessageTooLarge", "ContentRejected", "AttachmentRejected"]);
 
+// Permanent subtypes whose `message` is the provider's own advice text (it
+// talks about "reputation" every time), not the receiving server's reply.
+const RESEND_PROVIDER_TEXT = new Set(["General", "NoEmail", "Suppressed"]);
+
+// enhancedKind classifies the enhanced status code found in text; undefined
+// when the text carries none.
+function enhancedKind(text: string): "hard" | "soft" | null | undefined {
+  const code = ENHANCED.exec(text)?.[1];
+  if (!code) return undefined;
+  if (HARD_ENHANCED.has(code)) return "hard";
+  return SOFT_ENHANCED.has(code) ? "soft" : null;
+}
+
+// diagnosticText reads bounce.diagnosticCode: a string, an array of strings, or
+// anything else (ignored).
+function diagnosticText(v: unknown): string {
+  const list = Array.isArray(v) ? v : [v];
+  return list.filter((x): x is string => typeof x === "string").join(" ").trim();
+}
+
+// resendPermanent decides a permanent bounce. The receiving server's own words
+// (diagnosticCode) come first: its enhanced code decides, and without a code
+// the sender-problem words still apply to it. Without a usable diagnostic code
+// the provider's advice text of General / NoEmail / Suppressed is not read for
+// words (only for an enhanced code); other subtypes keep the word check.
+function resendPermanent(b: Obj, subType: string): "hard" | "soft" | null {
+  const diagnostic = diagnosticText(b.diagnosticCode);
+  const byDiagnostic = enhancedKind(diagnostic);
+  if (byDiagnostic !== undefined) return byDiagnostic;
+  if (SENDER_PROBLEM.test(diagnostic)) return null;
+  const message = str(b.message);
+  const byMessage = enhancedKind(message);
+  if (byMessage !== undefined) return byMessage;
+  return RESEND_PROVIDER_TEXT.has(subType) || !senderProblem(message) ? "hard" : null;
+}
+
 // fromResend maps one Resend webhook payload {type, data: {to, bounce}}.
 //   email.bounced     bounce.type Permanent (or absent: Resend sends this event
-//                     for permanent rejections) → hard; Transient /
-//                     Undetermined → soft; a content subtype or a reply that
-//                     reads as the sender's problem → null
+//                     for permanent rejections) → hard, decided by
+//                     bounce.diagnosticCode first (see resendPermanent);
+//                     Transient / Undetermined → soft; a content subtype or a
+//                     reply that reads as the sender's problem → null
 //   email.complained  → complaint
 //   email.delivered   → delivered
 //   anything else     → null (sent, opened, clicked, delivery_delayed: Resend
@@ -100,8 +137,13 @@ export function fromResend(payload: unknown): Classified | null {
       const b = obj(data.bounce);
       const type = str(b.type);
       const detail = `resend: ${type || "bounce"} ${str(b.subType)} ${str(b.message)}`.trim();
-      if (RESEND_CONTENT.has(str(b.subType)) || senderProblem(str(b.message))) return null;
-      return { kind: type === "Transient" || type === "Undetermined" ? "soft" : "hard", emails, detail };
+      const subType = str(b.subType);
+      if (RESEND_CONTENT.has(subType)) return null;
+      if (type === "Transient" || type === "Undetermined") {
+        return senderProblem(str(b.message)) ? null : { kind: "soft", emails, detail };
+      }
+      const kind = resendPermanent(b, subType);
+      return kind ? { kind, emails, detail } : null;
     }
     default:
       return null;

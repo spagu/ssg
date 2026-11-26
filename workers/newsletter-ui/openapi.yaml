@@ -1655,7 +1655,30 @@ components:
             queue: { type: boolean }
             rateLimiter: { type: boolean }
             assets: { type: boolean }
+        webhookActivity: { $ref: "#/components/schemas/WebhookActivity" }
         hint: { type: string }
+    WebhookCounts:
+      type: object
+      description: Verified webhook events by class (#460), counts only
+      properties:
+        delivered: { type: integer }
+        hard: { type: integer }
+        soft: { type: integer }
+        complaint: { type: integer }
+        other: { type: integer, description: Events the classifier ignores (opened, sent, soft-bounced at MailChannels, …) }
+    WebhookActivity:
+      type: object
+      description: Webhook health (#460) — totals of verified webhook events by whole UTC hours, never an address
+      properties:
+        lastReceivedAt: { type: [string, "null"], format: date-time }
+        last24h: { $ref: "#/components/schemas/WebhookCounts" }
+        last7d: { $ref: "#/components/schemas/WebhookCounts" }
+        reportsByWebhook: { type: boolean, description: The configured transport (Resend, MailChannels) reports bounces only by webhook }
+        lastCampaignStartedAt: { type: [string, "null"], format: date-time }
+        warning:
+          type: [string, "null"]
+          enum: [no_webhook_since_campaign, null]
+          description: Set when reportsByWebhook, the latest campaign started more than 30 minutes ago and no verified webhook has arrived since
     Subscriber:
       type: object
       properties:
@@ -1881,11 +1904,14 @@ components:
             uncertain: { type: integer }
         bounces:
           type: object
-          description: Always null counts with a detail — a bounce cannot be credited to a campaign without guessing
+          description: >-
+            Counts attributed to this campaign exactly (#460) — SMTP refusals while sending and webhook events that name the
+            campaign; never by address or time. null counts with attribution "none" when nothing names the campaign.
           properties:
-            hard: { type: "null" }
-            soft: { type: "null" }
-            complaints: { type: "null" }
+            hard: { type: [integer, "null"] }
+            soft: { type: [integer, "null"] }
+            complaints: { type: [integer, "null"] }
+            attribution: { type: string, enum: [exact, none] }
             detail: { type: string }
         unsubscribes:
           type: object
@@ -2121,3 +2147,4 @@ components:
         auth: { type: string, enum: [access, basic] }
         base: { type: [string, "null"] }
         schemaVersion: { type: integer }
+        webhookActivity: { $ref: "#/components/schemas/WebhookActivity" }
