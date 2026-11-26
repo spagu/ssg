@@ -19,7 +19,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/go-jose/go-jose/v4 v4.1.9
-	github.com/go-sql-driver/mysql v1.10.1
+	github.com/go-sql-driver/mysql v1.10.2
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jlaffaye/ftp v0.2.4
 	github.com/microcosm-cc/bluemonday v1.0.27
