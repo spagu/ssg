@@ -52,12 +52,14 @@ export interface Env extends MailEnv {
   NEWSLETTER_SOFT_BOUNCE_LIMIT?: string; // soft bounces in a row before a suppression (default 3)
   NEWSLETTER_RESEND_WEBHOOK_SECRET?: string; // "whsec_…" from Resend's webhook page; unset → the hook answers 503
   NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY?: string; // MailChannels' Ed25519 public key (PEM); unset → 503
+  NEWSLETTER_HOOK_FROM_DOMAINS?: string; // #463: sender domains whose webhook events apply (commas/spaces); unset → all
   // Campaign from a post (GO-130): the site feed, absolute https:// or a path
   // on NEWSLETTER_SITE_URL (default /feed.xml, what ssg's `feed: true` writes).
   NEWSLETTER_FEED_URL?: string;
   NEWSLETTER_CONFIRM_BATCH?: string; // confirmation mails per call to /api/subscribers/confirmations (default 10)
   // Campaign statistics (GO-129).
   NEWSLETTER_TRACK_CLICKS?: string; // "true" rewrites links through {base}/hooks/c/… (default off)
+  NEWSLETTER_TRACK_SKIP_HOSTS?: string; // #464: hosts whose links go out as written (no counting, no UTM), commas or spaces
   NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS?: string; // unsubscribe attribution window after a send (default 14)
   // UTM tagging of links to the site (#443).
   NEWSLETTER_UTM?: string; // "on" adds utm_* to links whose host is the site's (default off)

@@ -21,11 +21,13 @@ import type { Env } from "./lib";
 import { basePath, isOn, sha256hex } from "./lib";
 import { renderMessage } from "./render";
 import type { CampaignContent, Recipient, Rendered, Site } from "./render";
+import { skipHostsConfig, skipsLink } from "./click-skip";
 import { tagUrl, utmFor } from "./utm";
 
 // MAX_LINKS caps the distinct links counted per campaign; links beyond it are
 // sent as written. A newsletter has a handful; a body with thousands is not
-// worth thousands of rows.
+// worth thousands of rows. Links to a skipped host (click-skip.ts) do not
+// count towards it.
 export const MAX_LINKS = 100;
 
 export const trackClicks = (env: Env): boolean => isOn(env.NEWSLETTER_TRACK_CLICKS);
@@ -58,6 +60,7 @@ export async function rendererFor(env: Env, c: TrackedContent, site: Site, recip
   const track = trackClicks(env) && base !== null;
   const utm = utmFor(env, site, c);
   if (!track && !utm) return (r) => renderMessage(c, r, site);
+  const skip = skipHostsConfig(env).hosts;
   const ids = new Map<string, string>(); // url as written → link id
   const seen = new Set<string | null>();
   for (const r of recipients) {
@@ -69,7 +72,9 @@ export async function rendererFor(env: Env, c: TrackedContent, site: Site, recip
     } catch {
       continue;
     }
-    for (const u of urls) if (!ids.has(u) && ids.size < MAX_LINKS) ids.set(u, await linkId(u));
+    // A link to a NEWSLETTER_TRACK_SKIP_HOSTS host (#464) gets no id: it is
+    // neither counted, stored nor tagged, and does not use up MAX_LINKS.
+    for (const u of urls) if (!ids.has(u) && ids.size < MAX_LINKS && !skipsLink(skip, u)) ids.set(u, await linkId(u));
   }
   const target = (u: string, id: string): string => (utm ? (tagUrl(u, utm, id) ?? u) : u);
   if (register && track && ids.size) await registerLinks(env, c.id, new Map([...ids].map(([u, id]) => [target(u, id), id])));

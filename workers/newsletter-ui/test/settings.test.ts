@@ -47,8 +47,8 @@ test("settings: reports configuration, never a secret value", async () => {
   assert.deepEqual(s.keys, { resend: true, mailchannels: false });
   assert.deepEqual(s.smtp, { host: "smtp.example.com", port: 465, user: "mailer@example.com", passwordSet: true, helo: null });
   assert.deepEqual(s.engine, { rate: 120, batchSize: 20, staleMinutes: 30, maxAttempts: 3, queue: true, deadLetterQueue: "my-dlq" });
-  assert.deepEqual(s.clicks, { tracking: true, unsubscribeWindowDays: 14 });
-  assert.deepEqual(s.webhooks, { resend: true, mailchannels: true });
+  assert.deepEqual(s.clicks, { tracking: true, unsubscribeWindowDays: 14, skipHosts: [], skipHostsProblem: null });
+  assert.deepEqual(s.webhooks, { resend: true, mailchannels: true, fromDomains: [], fromDomainsProblem: null });
   assert.equal(s.feedUrl, "https://example.com/feed.xml");
   assert.equal(s.confirmBatch, 120, "never above the rate");
   assert.equal(s.importMaxRows, 20000);

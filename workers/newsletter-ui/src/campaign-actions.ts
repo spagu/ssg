@@ -14,7 +14,7 @@ import { isAddress } from "./mail/_mime";
 import { sendMail, transportOf } from "./mail/_transport";
 import { transportReady } from "./transport-ready";
 import { renderMessage, siteOf, unknownVariables, unsubscribeUrl } from "./render";
-import type { Rendered, Site } from "./render";
+import type { CampaignContent, Rendered, Site } from "./render";
 import type { RouteContext } from "./router";
 import { countSegment } from "./segment";
 import { changedWhileChecked, imageGate, unchangedSince } from "./image-gate";
@@ -32,7 +32,7 @@ const noSite = () =>
 
 // previewMessage is what both the preview and the test send show: the real
 // renderer, for a recipient in `language` with the preview token.
-export const previewMessage = (c: Campaign, language: string, site: Site): Rendered =>
+export const previewMessage = (c: CampaignContent, language: string, site: Site): Rendered =>
   renderMessage(c, { email: "", language, token: PREVIEW_TOKEN }, site);
 
 // shownMessage is the preview as the preview route and the test send show it:

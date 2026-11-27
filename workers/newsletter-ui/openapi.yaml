@@ -555,7 +555,8 @@ paths:
         "503":
           description: >-
             A setting the send needs is missing (no_site_url, no_transport, transport_unusable); or
-            content_rules_invalid {detail} (#449): the content rules cannot be applied, so nothing is scheduled; or
+            content_rules_invalid {detail} (#449): the content rules cannot be applied, or NEWSLETTER_TRACK_SKIP_HOSTS
+            has an entry that is not a plain host name (#464), so nothing is scheduled; or
             image_rules_unusable {detail} (#448): NEWSLETTER_IMAGES_REQUIRE cannot be applied (an unknown rule, or
             store without a usable image store), so nothing is scheduled
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
@@ -1478,7 +1479,7 @@ components:
             properties:
               suppression: { $ref: "#/components/schemas/Suppression" }
     HookOk:
-      description: Applied (a redelivered event counts once)
+      description: Applied (a redelivered event counts once); events from a sender domain outside NEWSLETTER_HOOK_FROM_DOMAINS, when set, are counted in ignored and change nothing
       content:
         application/json:
           schema:
@@ -1494,7 +1495,10 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     HookNotConfigured:
-      description: hook_not_configured — its secret or key is not set (never open)
+      description: >-
+        hook_not_configured — its secret or key is not set (never open); or, after a valid
+        signature, hook_misconfigured — NEWSLETTER_HOOK_FROM_DOMAINS is not a list of plain
+        domains (detail says why); nothing is applied and the provider retries
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -2114,6 +2118,13 @@ components:
           properties:
             tracking: { type: boolean }
             unsubscribeWindowDays: { type: integer }
+            skipHosts:
+              type: array
+              items: { type: string }
+              description: NEWSLETTER_TRACK_SKIP_HOSTS (#464), lower case; links to these hosts and their subdomains are sent as written (not counted, not tagged). Empty when unset.
+            skipHostsProblem:
+              type: [string, "null"]
+              description: Why an entry of NEWSLETTER_TRACK_SKIP_HOSTS is not a plain host name; scheduling answers 503 content_rules_invalid while set (also in contentRules.problem)
         utm:
           type: object
           description: UTM tagging of links to the site (NEWSLETTER_UTM); hosts is empty without a usable site URL.
@@ -2130,6 +2141,11 @@ components:
           properties:
             resend: { type: boolean }
             mailchannels: { type: boolean }
+            fromDomains:
+              type: array
+              items: { type: string }
+              description: NEWSLETTER_HOOK_FROM_DOMAINS read, lower-cased (#463); empty = events of every sender domain are applied
+            fromDomainsProblem: { type: [string, "null"], description: Why the list cannot be applied; both hooks answer 503 while set }
         feedUrl: { type: [string, "null"] }
         confirmBatch: { type: integer }
         importMaxRows: { type: integer }

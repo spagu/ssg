@@ -95,6 +95,56 @@ window, the public-key endpoint, the event names and the `recipients` field
 of bounce events) but **not against a live delivery**; the `complained`
 event's recipient field is assumed to be `recipients` like the bounces.
 
+### Several sites on one provider account
+
+A Resend webhook cannot be limited to one sending domain: every webhook of an
+account receives the events of every domain on it. The same can happen with
+MailChannels when several sites send through one account. With two sites, each with its own worker and database, on one
+account, each worker receives the other's events. Without a list, every
+verified event is applied by address:
+
+- the other site's hard bounce or complaint suppresses the address here, and
+  its complaint unsubscribes it here;
+- its `delivered` resets this site's soft-bounce count for the address;
+- its events count in this site's [webhook health](#webhook-health).
+
+Campaign attribution and the [webhook bounce breaker](#webhook-bounce-breaker)
+are not affected: they act only on events tagged with one of this worker's
+own campaign ids.
+
+`NEWSLETTER_HOOK_FROM_DOMAINS` lists this site's sender domains, separated by
+commas or spaces:
+
+```toml
+NEWSLETTER_HOOK_FROM_DOMAINS = "example.com, news.example.com"
+```
+
+Once set, after the signature check and before anything else, each event's
+sender address is read (Resend: `data.from`, either `a@example.com` or
+`Name <a@example.com>`; MailChannels: `email`, which its webhook schema
+documents as the sender's address) and its domain compared with the list:
+exact, ignoring case, no subdomain matching (`news.example.com` and
+`example.com` are different senders, and two sites may share a parent
+domain). An event whose domain is not on the list, or which has no readable
+sender, is acknowledged with `200` and changes nothing: no suppression, no
+unsubscribe, no soft-count reset, no campaign count, no breaker count, no
+`hook_events` row and no webhook activity count. The response counts it in
+`ignored`. A MailChannels request is filtered event by event. Nothing records
+how many events were ignored.
+
+Each entry must be a plain domain: letters, digits and hyphens in two or more
+dot-separated labels. An address, a URL, a port or a single word is a
+configuration problem: `GET /api/settings` reports it in
+`webhooks.fromDomainsProblem`, Settings shows it, and both hooks answer
+`503 {error: "hook_misconfigured", detail}` (after the signature check) until
+it is fixed, so the provider keeps retrying and no event is lost. A value made
+of separators only counts as unset. There is no default: the list is never
+derived from `NEWSLETTER_MAIL_FROM` or a campaign's sender, so a site that does
+not set it keeps applying every verified event.
+
+The MailChannels side is taken from MailChannels' published webhook schema
+and has not been checked against a live delivery.
+
 ## Attribution to a campaign
 
 A bounce or complaint counts for a campaign only when the report itself names

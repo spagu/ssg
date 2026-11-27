@@ -8,6 +8,8 @@
 # [vars]
 # NEWSLETTER_THANKS_URL = "/{lang}/thanks/"  # or a JSON map: '{"en":"/thanks/","pl":"/pl/dziekujemy/","default":"/thanks/"}'
 # NEWSLETTER_RETENTION_DAYS = "0"            # 0 = keep; N = purge pending/unsubscribed rows untouched for N days
+# NEWSLETTER_PENDING_RETENTION_DAYS = "30"   # pending only, from the last sign-up or confirmation mail; 0 = keep; unset = the line above
+# NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS = "1095"  # unsubscribed only, from the unsubscribe; 0 = keep; unset = the line above
 # NEWSLETTER_MAIL_FROM = "news@example.com"  # with a transport (key below or SMTP): double opt-in
 # NEWSLETTER_MAIL_FROM_NAME = "Example News"
 #

@@ -40,6 +40,7 @@ workers/newsletter/
 ├── functions/api/newsletter/unsubscribe.ts    GET page + POST unsubscribe (RFC 8058)
 ├── functions/api/newsletter/admin.ts          GET counts / CSV, POST purge
 ├── functions/api/newsletter/_*.ts             shared modules (not routes)
+├── functions/api/newsletter/_purge.ts         the retention purge, one period per status
 ├── functions/api/newsletter/_transport.ts     mail: Resend → MailChannels → SMTP, one interface
 ├── functions/api/newsletter/_smtp*.ts         the SMTP client (cloudflare:sockets)
 ├── functions/api/newsletter/_mime.ts          message checks + MIME rendering
@@ -341,9 +342,36 @@ it would quietly become the way in again; nothing removes it for you.
 ## Retention
 
 `NEWSLETTER_RETENTION_DAYS = "30"` deletes `pending` and `unsubscribed` rows
-untouched for 30 days; confirmed subscribers are never purged. `0` (the default)
-keeps everything. The purge runs lazily after sign-up, confirm and unsubscribe
-writes, at most hourly per isolate. A quiet site can run it from cron:
+untouched (`updated_at`) for 30 days; confirmed subscribers are never purged.
+`0` (the default) keeps everything.
+
+The two statuses usually need different periods: an unconfirmed sign-up is of
+no use after a few weeks, while an unsubscribed row is the record that consent
+was withdrawn. Each has its own variable, which wins over
+`NEWSLETTER_RETENTION_DAYS` for that status:
+
+| Var | Deletes | Counted from |
+|---|---|---|
+| `NEWSLETTER_PENDING_RETENTION_DAYS` | `pending` rows | the latest of the sign-up (`created_at`), the last consent (`consent_at`) and the last confirmation mail (`confirm_sent_at`) |
+| `NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS` | `unsubscribed` rows | `unsubscribed_at` (`updated_at` when it is empty) |
+
+Unset or empty, a status falls back to `NEWSLETTER_RETENTION_DAYS` and its
+`updated_at` rule, so a project that sets neither sees no change. `0` keeps
+that status forever, even when `NEWSLETTER_RETENTION_DAYS` is set; so does any
+value that is not a whole number (`-1`, `30d`), so a typo never deletes rows.
+
+```toml
+NEWSLETTER_PENDING_RETENTION_DAYS = "30"         # unconfirmed sign-ups: 30 days after the last mail
+NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS = "1095"  # unsubscribes: 3 years after the unsubscribe
+```
+
+The clocks matter for imported lists: an import stamps `updated_at` with the
+import day, so under `NEWSLETTER_RETENTION_DAYS` an unsubscribe from years ago
+counts from the day it was imported. `NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS`
+counts from the unsubscribe itself.
+
+The purge runs lazily after sign-up, confirm and unsubscribe writes, at most
+hourly per isolate. A quiet site can run it from cron:
 
 ```sh
 curl -u :"$NEWSLETTER_ADMIN_PASSWORD" -H 'content-type: application/json' \
@@ -386,6 +414,8 @@ may never retry. `newsletter.js` shows a "too many attempts" message on `429`.
 |---|---|
 | `NEWSLETTER_THANKS_URL` | where a form post goes: `/{lang}/thanks/`, or a JSON map `{"en":"/thanks/","pl":"/pl/dziekujemy/","default":"/thanks/"}`. Unset: back to the sign-up page at `#newsletter-thanks` |
 | `NEWSLETTER_RETENTION_DAYS` | purge pending/unsubscribed rows after N days (`0` = keep) |
+| `NEWSLETTER_PENDING_RETENTION_DAYS` | purge pending rows N days after the last sign-up or confirmation mail; unset = `NEWSLETTER_RETENTION_DAYS`, `0` = keep (see *Retention*) |
+| `NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS` | purge unsubscribed rows N days after the unsubscribe; unset = `NEWSLETTER_RETENTION_DAYS`, `0` = keep |
 | `NEWSLETTER_MAIL_FROM` | sender for confirmation mail; with a transport, enables double opt-in |
 | `NEWSLETTER_MAIL_FROM_NAME` | optional sender display name |
 | `NEWSLETTER_SMTP_HOST` | your mail server; used only when no Resend or MailChannels key is set |
@@ -450,7 +480,13 @@ session without its permission, exactly it and the owner;
 Stored per subscriber: the email, status, language, source page, tags, the
 consent text and time, timestamps, the link token and — only with a salt — the
 salted hashes of IP and User-Agent. Say so in your privacy policy, with the
-retention you chose. The hashes exist to spot one source signing up hundreds of
+retention you chose. What the worker deletes, and when, is set by the
+*Retention* variables: unconfirmed sign-ups after
+`NEWSLETTER_PENDING_RETENTION_DAYS` from the last sign-up or confirmation mail,
+unsubscribed rows (the record that consent was withdrawn) after
+`NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS` from the unsubscribe, either falling
+back to `NEWSLETTER_RETENTION_DAYS`. The purge never deletes a confirmed
+subscriber. With no retention set, it deletes nothing. The hashes exist to spot one source signing up hundreds of
 addresses, not to identify anyone; the admin export leaves them out. The pages
 the worker renders send no `Referer` (their URL carries a token), are not cached
 and are marked `noindex`.

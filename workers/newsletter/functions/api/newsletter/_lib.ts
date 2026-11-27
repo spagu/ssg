@@ -23,6 +23,8 @@ export interface Env extends MailEnv {
   NEWSLETTER_AUTH_LOGIN_URL?: string; // where a page without a session is sent, e.g. "/auth/login"
   NEWSLETTER_THANKS_URL?: string; // where a plain form POST is sent: "/{lang}/thanks/" or a JSON map
   NEWSLETTER_RETENTION_DAYS?: string; // purge pending/unsubscribed rows after N days (0/unset = keep)
+  NEWSLETTER_PENDING_RETENTION_DAYS?: string; // pending only, from the last sign-up or mail (_purge.ts)
+  NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS?: string; // unsubscribed only, from unsubscribed_at (_purge.ts)
   // Double opt-in: the NEWSLETTER_MAIL_* / _RESEND_ / _MAILCHANNELS_ / _SMTP_
   // settings come from MailEnv (_transport.ts). Set a sender and ONE transport
   // and every new sign-up is `pending` until the confirmation link is

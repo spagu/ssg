@@ -149,7 +149,9 @@ names are the `newsletter` template's, so one set of values serves both.
 | `NEWSLETTER_SOFT_BOUNCE_LIMIT` | var | `3` | soft bounces in a row before a suppression |
 | `NEWSLETTER_RESEND_WEBHOOK_SECRET` | secret | — | the Resend webhook's `whsec_…`; unset → `/hooks/resend` answers 503 |
 | `NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY` | secret | — | MailChannels' Ed25519 public key (PEM); unset → 503 |
+| `NEWSLETTER_HOOK_FROM_DOMAINS` | var | off | sender domains (commas or spaces) whose webhook events are applied; others are acknowledged and ignored; a malformed value → the hooks answer 503 |
 | `NEWSLETTER_TRACK_CLICKS` | var | off | `true` counts clicks per link |
+| `NEWSLETTER_TRACK_SKIP_HOSTS` | var | — | hosts (commas or spaces) whose links are sent exactly as written: not counted, not stored, not tagged; a subdomain matches its parent entry; an entry that is not a plain host name → every schedule answers `503 content_rules_invalid` ("Links sent as written") |
 | `NEWSLETTER_UTM` | var | off | `on` adds `utm_*` parameters to links to the site |
 | `NEWSLETTER_UTM_SOURCE` | var | `newsletter` | the `utm_source` value |
 | `NEWSLETTER_UTM_HOSTS` | var | — | more hosts to tag (commas or spaces), besides the host of `NEWSLETTER_SITE_URL` |
@@ -371,6 +373,22 @@ included, is counted per hour, so Settings and `GET /api/health` show when
 the last one arrived, with a warning when a webhook transport has been
 silent since the last campaign started
 ([BOUNCES.md](docs/BOUNCES.md#webhook-health)).
+
+### Several sites on one provider account
+
+A provider webhook receives the events of every sending domain on the
+account, so a second site's bounces and complaints would suppress addresses
+here too. Set `NEWSLETTER_HOOK_FROM_DOMAINS` to this site's sender domains
+(`example.com, news.example.com`) and each hook applies only events whose
+sender address is on one of them: an exact domain, any case, no subdomain
+matching. Other events, and events without a readable sender, are
+acknowledged with `200` and write nothing, not even the webhook activity
+count. Unset, every verified event is applied as before. A value that is not
+a list of plain domains is reported in `GET /api/settings` and Settings, and
+both hooks answer `503` until it is fixed, so the provider retries and
+nothing is lost. The list applies to Resend (`data.from`) and MailChannels
+(`email`, the sender in its webhook schema)
+([BOUNCES.md](docs/BOUNCES.md#several-sites-on-one-provider-account)).
 
 ## Import
 
@@ -730,6 +748,9 @@ count, and no table the statistics use links a click or an open to anyone.
   readers get. A link whose target was stored before `NEWSLETTER_UTM` was
   turned on keeps its stored target for that campaign. With it off the mail
   is byte for byte what it was.
+- **Links sent as written**, with `NEWSLETTER_TRACK_SKIP_HOSTS` (see
+  [below](#links-sent-as-written)): links to the listed hosts are neither
+  counted nor tagged.
 - **Images are not a tracking channel.** A campaign image has the same URL
   for every reader and its route reads and stores nothing about the request
   ("Campaign images"), so loading one is not counted as an open.
@@ -749,6 +770,42 @@ address, or only its SHA-256 after an erasure), soft-bounce counts and hashed
 IPs of failed logins (kept for the lockout window). An erasure removes the
 person's row and sends in one transaction and leaves only the hash, so an
 import cannot bring them back. Say so in your privacy policy.
+
+### Links sent as written
+
+Click counting is all links or none, and some links must reach the reader
+exactly as written — for example links whose owner does not allow them to be
+redirected. `NEWSLETTER_TRACK_SKIP_HOSTS` lists those hosts, separated by
+commas or spaces:
+
+```toml
+NEWSLETTER_TRACK_SKIP_HOSTS = "shop.example, short.example"
+```
+
+A link whose host is a listed one, or a subdomain of it (`www.shop.example`
+matches `shop.example`; `notshop.example` does not), goes out character for
+character as the author wrote it, in the HTML and the text part: no
+`/hooks/c/` rewrite, no `click_links` row, no `utm_*`. Skipping wins: a host
+listed here is not tagged even when it is the site's own host or is in
+`NEWSLETTER_UTM_HOSTS`, and `NEWSLETTER_UTM_STRICT` never flags such a link.
+With click counting off the list only keeps UTM tagging away from those
+hosts. Every other link is still counted and tagged as before, the
+unsubscribe and confirmation links stay untouched, and the 100-link cap
+counts only the links that are counted. The preview, a test send and the
+real send show the same URLs. Skipped links are not listed in a campaign's
+clicks.
+
+Hosts are compared case-insensitively with the link's host name, port
+ignored. Write an internationalised name in its `xn--` form, as a URL
+parser gives it. An entry that is not a plain host name (it has a scheme,
+`/`, `@`, `:`, characters other than letters, digits, dots and dashes, or no
+dot) refuses every schedule with `503 content_rules_invalid` and is shown in
+`GET /api/settings` (`clicks.skipHostsProblem`, and `contentRules.problem`)
+and in the panel: a typo must not send a link through the redirect. The
+valid entries still apply to whatever is rendered meanwhile: previews, test
+sends, and a campaign scheduled before the value changed (scheduling is the
+only gate, as for the other content rules). Unset or empty, every
+mail is byte for byte what it was.
 
 ## The panel and local preview
 

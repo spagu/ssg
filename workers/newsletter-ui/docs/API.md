@@ -280,6 +280,12 @@ template mails a confirmation only at sign-up. These routes send it:
 | `POST /hooks/resend` | Resend's webhook, signed → `{ok, applied, duplicate, ignored}` |
 | `POST /hooks/mailchannels` | MailChannels' webhook, signed → the same |
 
+With `NEWSLETTER_HOOK_FROM_DOMAINS` set, an event whose sender domain is not on
+the list (or has no readable sender) is counted in `ignored` and changes
+nothing; a value that is not a list of plain domains makes both hooks answer
+`503 hook_misconfigured` after the signature check
+([BOUNCES.md](BOUNCES.md#several-sites-on-one-provider-account)).
+
 How the list fills itself, and how to register the webhooks:
 [BOUNCES.md](BOUNCES.md).
 
@@ -370,7 +376,11 @@ schedule like a failed image; trying again is the remedy.
 
 `NEWSLETTER_BANNED_PHRASES`, `NEWSLETTER_BLOCKED_IMAGE_PATTERNS` and
 `NEWSLETTER_UTM_STRICT` (#449), all off unless set. What each matches, and
-what it does not: [README](../README.md#content-rules).
+what it does not: [README](../README.md#content-rules). A malformed
+`NEWSLETTER_TRACK_SKIP_HOSTS` (#464, an entry that is not a plain host name)
+is reported and refused here too: `503 content_rules_invalid` from both
+routes below, its reason in `rules.problem`; links to a skipped host are
+never a `utm_conflict` ([README](../README.md#links-sent-as-written)).
 
 | Method + path | Answer |
 |---|---|
@@ -395,7 +405,7 @@ checked when the campaign was scheduled and cannot be edited since).
 
 | Method + path | Answer |
 |---|---|
-| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels}, assets: {enabled, baseUrl, maxBytes, maxWidth, problem}, imageRules: {rules, problem}, contentRules: {active, bannedPhrases, blockedImagePatterns, utmStrict, problem}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion, webhookActivity}` — secrets only as booleans; `webhookActivity` as in `/api/health`; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null`; `imageRules` is `NEWSLETTER_IMAGES_REQUIRE` read: the enforced rules (`[]` when unset) and why they cannot be applied, else `null`; `contentRules` is the content rules read ([above](#content-rules)) |
+| `GET /api/settings` | `{transport, transportProblem, sender: {email, name}, siteUrl, siteUrlValid, keys: {resend, mailchannels}, smtp: {host, port, user, passwordSet, helo} \| null, engine: {rate, batchSize, staleMinutes, maxAttempts, queue, deadLetterQueue}, clicks: {tracking, unsubscribeWindowDays, skipHosts, skipHostsProblem}, utm: {enabled, source, hosts}, bounces: {softLimit}, webhooks: {resend, mailchannels, fromDomains, fromDomainsProblem}, assets: {enabled, baseUrl, maxBytes, maxWidth, problem}, imageRules: {rules, problem}, contentRules: {active, bannedPhrases, blockedImagePatterns, utmStrict, problem}, feedUrl, confirmBatch, importMaxRows, auth, base, schemaVersion, webhookActivity}` — secrets only as booleans; `webhookActivity` as in `/api/health`; `transportProblem` says why the configured transport can never send (SMTP on port 25, a port that is not a number, a user without a password, a bad EHLO name), else `null`; `imageRules` is `NEWSLETTER_IMAGES_REQUIRE` read: the enforced rules (`[]` when unset) and why they cannot be applied, else `null`; `contentRules` is the content rules read ([above](#content-rules)); `clicks.skipHosts` is `NEWSLETTER_TRACK_SKIP_HOSTS` read, lower-cased (`[]` when unset), and `clicks.skipHostsProblem` why an entry is not a plain host name (scheduling then answers `503 content_rules_invalid`), else `null`; `webhooks.fromDomains` is `NEWSLETTER_HOOK_FROM_DOMAINS` read, lower-cased (`[]` when unset), and `webhooks.fromDomainsProblem` why it cannot be applied (both hooks then answer `503`), else `null` |
 | `POST /api/settings/smtp-test` | opens a session with the configured SMTP server exactly as a send would (greeting, EHLO, STARTTLS, AUTH) and closes it without sending: `{ok, transport, stage, tls: "implicit" \| "starttls", authenticated, reply, detail?}` — `reply` is what the *server* said (the client's lines, AUTH included, are never recorded); `409 not_smtp` for an HTTP provider or no transport; `503 transport_unusable` for settings that can never work (no test-send budget used); counts against the 10 test sends per hour (`429 test_limit`) |
 
 Both work without the `subscribers` table. The panel never asks for, stores

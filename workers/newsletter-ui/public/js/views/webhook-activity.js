@@ -39,3 +39,11 @@ export function webhookCard(app, a) {
     h("p", { class: "note" }, t("set.hooks.note")),
   );
 }
+
+// hookFromFact (#463): NEWSLETTER_HOOK_FROM_DOMAINS as the worker read it —
+// broken (the hooks answer 503), unset (events of every domain apply), or the list.
+export function hookFromFact(app, w) {
+  if (w.fromDomainsProblem) return h("span", { class: "flag off bad" }, app.t("set.hookFrom.broken", { detail: w.fromDomainsProblem }));
+  if (!w.fromDomains?.length) return h("span", { class: "flag off" }, app.t("set.hookFrom.all"));
+  return h("code", null, w.fromDomains.join(", "));
+}

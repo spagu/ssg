@@ -6,7 +6,7 @@
 //   (new) ──sign-up──▶ confirmed                               (single opt-in)
 //   pending | confirmed ──unsubscribe──▶ unsubscribed ──sign-up──▶ as (new)
 
-import { newToken, retentionDays } from "./_lib";
+import { newToken } from "./_lib";
 import type { Env } from "./_lib";
 
 export interface Signup {
@@ -152,22 +152,6 @@ export async function markConfirmSent(env: Env, email: string): Promise<void> {
   await env.NEWSLETTER_DB.prepare("UPDATE subscribers SET confirm_sent_at = ? WHERE email = ?").bind(now(), email).run();
 }
 
-// Per-isolate timestamp of the last purge: the lazy purge piggybacks on writes
-// and runs at most hourly per isolate, so a busy sign-up form does not turn
-// into a DELETE per request.
-let lastPurge = 0;
-const PURGE_EVERY_MS = 60 * 60 * 1000;
-
-// purgeExpired deletes pending and unsubscribed rows untouched for
-// NEWSLETTER_RETENTION_DAYS. Confirmed subscribers are never purged. `force`
-// skips the hourly throttle (the admin endpoint). Returns the rows deleted.
-export async function purgeExpired(env: Env, force = false): Promise<number> {
-  const days = retentionDays(env);
-  if (!days || (!force && Date.now() - lastPurge < PURGE_EVERY_MS)) return 0;
-  lastPurge = Date.now();
-  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
-  const res = await env.NEWSLETTER_DB.prepare(
-    `DELETE FROM subscribers WHERE status IN ('pending', 'unsubscribed') AND updated_at < ?`,
-  ).bind(cutoff).run();
-  return res.meta.changes ?? 0;
-}
+// The retention purge lives in _purge.ts (one period per status, #465); the
+// endpoints import it from here, as they always have.
+export { purgeExpired } from "./_purge";

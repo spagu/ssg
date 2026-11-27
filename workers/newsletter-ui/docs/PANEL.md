@@ -18,7 +18,7 @@ lives behind the same authentication as the API. Back to the
 | Campaigns | `#/campaigns?status=` | list by status, new draft, draft from a post on the feed |
 | Campaign | `#/campaigns/<id>` | a draft opens the editor (autosaves, live recipient count, preview in each language as HTML or text, test send, schedule now or at a time, duplicate, delete; images: add, the library, the pre-send check; the content rules check when configured); otherwise progress (polled every 3 s while sending, not while the tab is hidden), results, hard / soft / complaint counts when the reports name the campaign (else a note why there are none), clicks per link, timing, uncertain sends to re-send or dismiss |
 | Suppressions | `#/suppressions?reason=&q=` | new suppressions by reason over 90 days, list, add, lift (a complaint asks for an explicit yes), CSV import with preview |
-| Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test, webhook health (the latest verified webhook, counts per class for 24 hours and 7 days, a warning when a webhook transport has been silent since the last campaign started) |
+| Settings | `#/settings` | what the worker is configured with (`GET /api/settings`), the SMTP connection test, the webhook sender domains (`NEWSLETTER_HOOK_FROM_DOMAINS`: the list, "all", or why it cannot be applied), webhook health (the latest verified webhook, counts per class for 24 hours and 7 days, a warning when a webhook transport has been silent since the last campaign started) |
 | Activity | `#/activity?actor=&action=` | the audit trail: who changed what, newest first, filtered by account and action (`GET /api/audit`, `newsletter:settings`) |
 | Help | `#/help` | what each part does, where configuration lives, how to read the charts |
 
@@ -168,6 +168,13 @@ schedule again. A configuration the worker cannot apply shows on the
 dashboard as a critical warning, in the Settings view (**Content rules**), in
 the card, and as the reason for a refused schedule. Phrases and URLs are put
 on the page as text, never as markup.
+
+The Settings view shows, under **Click counting**, **Hosts whose links are
+sent as written** (`GET /api/settings` → `clicks.skipHosts`, #464): the
+listed hosts, "None" when unset, or — when an entry is not a plain host name
+(`clicks.skipHostsProblem`) — that it cannot be applied and no campaign can
+be scheduled, with the reason as text. The same reason reaches the dashboard
+and the Schedule dialog through the content rules (`content_rules_invalid`).
 
 ## The site's shared admin bar (`core`)
 
