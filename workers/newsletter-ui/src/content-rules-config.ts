@@ -3,6 +3,7 @@
 //   NEWSLETTER_BANNED_PHRASES          phrases separated by |
 //   NEWSLETTER_BLOCKED_IMAGE_PATTERNS  substrings separated by | an image URL must not contain
 //   NEWSLETTER_UTM_STRICT              on: a hand-written utm_* on a tagged host is a finding
+//   NEWSLETTER_TRACK_SKIP_HOSTS        not a rule, but its problem is reported here (#464, click-skip.ts)
 //
 // Every rule is off unless set. Configuration lives in wrangler.toml only —
 // the panel is read-only about configuration, so a stolen panel session
@@ -10,6 +11,7 @@
 // `problem`: scheduling is refused (503) until it is fixed, never silently
 // run with part of the rules.
 
+import { skipHostsConfig } from "./click-skip";
 import { normalise } from "./content-rules-text";
 import type { Env } from "./lib";
 import { isOn } from "./lib";
@@ -77,6 +79,9 @@ export function rulesConfig(env: Env): { rules: ContentRules; problem: string | 
     // off there are none, so the setting would promise a check that cannot
     // run. Refusing is cheaper than a send the admin thought was checked.
     strict && !utmOn(env) ? "NEWSLETTER_UTM_STRICT is on but NEWSLETTER_UTM is off: turn NEWSLETTER_UTM on, or remove NEWSLETTER_UTM_STRICT" : null,
+    // #464: a mistyped skip host would send a link the admin wanted left
+    // alone through the counting redirect; refuse like any other rule.
+    skipHostsConfig(env).problem,
   ].filter((p): p is string => p !== null);
   return { rules: { phrases, imagePatterns, utmStrict: strict === true && utmOn(env) }, problem: problems.length ? problems.join("; ") : null };
 }

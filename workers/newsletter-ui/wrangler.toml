@@ -127,12 +127,15 @@ NEWSLETTER_UI_BASE = "/newsletter-admin"
 # NEWSLETTER_CONFIRM_BATCH = "10"        # confirmation mails per call; shares NEWSLETTER_SEND_RATE with campaigns
 # Campaign statistics — README "Statistics and privacy" says what is counted:
 # NEWSLETTER_TRACK_CLICKS = "true"              # count clicks per link (no person tracked); default off
+# NEWSLETTER_TRACK_SKIP_HOSTS = "shop.example"  # links to these hosts (and subdomains) go out as written: not counted, not tagged
 # NEWSLETTER_UTM = "on"                         # add utm_* to links to the site (campaign and link, no person); default off
 # NEWSLETTER_UTM_SOURCE = "newsletter"          # the utm_source value
 # NEWSLETTER_UTM_HOSTS = "www.example.com"      # more hosts to tag besides the one in NEWSLETTER_SITE_URL
 # NEWSLETTER_UNSUBSCRIBE_WINDOW_DAYS = "14"     # an unsubscribe is credited to the last send within this many days
 # Bounces — docs/BOUNCES.md:
 # NEWSLETTER_SOFT_BOUNCE_LIMIT = "3"     # soft bounces in a row before an address is suppressed
+# NEWSLETTER_HOOK_FROM_DOMAINS = "example.com, news.example.com"   # one provider account, several sites: apply only
+#                                        # webhook events sent from these domains (exact, any case); unset → all
 # Campaign images — only with the NEWSLETTER_ASSETS bucket above (README "Campaign images"):
 # NEWSLETTER_ASSETS_URL = "https://<img.example.com>"   # the bucket's own https address; unset → served by this worker at {base}/hooks/a/
 # NEWSLETTER_ASSETS_MAX_BYTES = "2097152"   # largest upload (default 2 MiB, at most 10 MiB)

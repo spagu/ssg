@@ -5,7 +5,7 @@ the binary, rebuild, and the site you had is the site you get.
 
 Where that is not true — where a default changed, a flag moved, or a setting
 started meaning something new — it is listed below, with the version it landed
-in and what to do about it. Of the 66 releases so far, 53 need nothing at
+in and what to do about it. Of the 67 releases so far, 54 need nothing at
 all, which is why this page is organised by **what changed**, not by release
 number: a section per version would be mostly empty and would bury the handful
 that matter.
@@ -230,6 +230,39 @@ which is a longer read but never a wrong one.
   entries; never renumber existing ones.
 -->
 
+
+<div class="upgrade-step" data-since="1.9.17">
+
+### 1.9.17 — nothing to do; worker templates only
+
+Replace the binary. The generator itself is unchanged; the release carries
+newer `newsletter` and `newsletter-ui` templates. A deployed worker gets the
+changes by updating its files from the new template and deploying. No schema
+change in either worker.
+
+Optional, all off until set:
+
+- `NEWSLETTER_PENDING_RETENTION_DAYS` and
+  `NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS` (`newsletter`, #465): a retention
+  period per status. Unset, `NEWSLETTER_RETENTION_DAYS` applies to both as
+  before. `0`, or a value that is not a whole number, keeps that status
+  forever, even with `NEWSLETTER_RETENTION_DAYS` set. See
+  [its README](../workers/newsletter/README.md).
+- `NEWSLETTER_HOOK_FROM_DOMAINS` (`newsletter-ui`, #463): webhook events whose
+  sender domain is not on the list are acknowledged and not applied, for
+  several sites on one provider account.
+- `NEWSLETTER_TRACK_SKIP_HOSTS` (`newsletter-ui`, #464): links to these hosts
+  are sent as written, with no click redirect and no UTM parameters.
+
+If you set one of the last two: a value the worker cannot use (an entry that
+is not a plain domain or host name) is refused, not guessed. A bad
+`NEWSLETTER_HOOK_FROM_DOMAINS` makes both webhook endpoints answer `503`
+until it is fixed, so the provider retries; a bad
+`NEWSLETTER_TRACK_SKIP_HOSTS` refuses every schedule with a `503`. The
+settings name the problem. See
+[its README](../workers/newsletter-ui/README.md#configuration).
+
+</div>
 
 <div class="upgrade-step" data-since="1.9.16">
 

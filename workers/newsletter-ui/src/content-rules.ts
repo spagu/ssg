@@ -12,7 +12,8 @@
 //   utm_conflict   with NEWSLETTER_UTM_STRICT, a link the worker would tag
 //                  (its host is in utmHosts) that already has a utm_*
 //                  parameter: the worker leaves such a link as written, so
-//                  the mail would carry the author's tags, not the worker's
+//                  the mail would carry the author's tags, not the worker's;
+//                  a link to a NEWSLETTER_TRACK_SKIP_HOSTS host is never one
 //
 // GET /api/campaigns/:id/content-check is the read-only check for the panel;
 // contentGate is what scheduling calls. Both render once per call.
@@ -21,6 +22,7 @@ import { PREVIEW_TOKEN, previewMessage } from "./campaign-actions";
 import { loadCampaign } from "./campaign-model";
 import type { Campaign } from "./campaign-model";
 import { rewriteText, rewriteTree, guarded } from "./click-rewrite";
+import { skipHostsConfig, skipsLink } from "./click-skip";
 import { rulesConfig, summaryOf } from "./content-rules-config";
 import type { ContentRules } from "./content-rules-config";
 import { phraseHits, phraseRegExp, readerText, scannable } from "./content-rules-text";
@@ -79,11 +81,12 @@ function utmParameters(url: string, hosts: Set<string>): { host: string; paramet
 // unsubscribe link (click-rewrite.ts decides, here as in the renderer).
 function utmFindings(env: Env, site: Site, tree: Parameters<typeof rewriteTree>[0], override: string | null): Finding[] {
   const hosts = utmHosts(env, site);
+  const skip = skipHostsConfig(env).hosts; // #464: sent as written, so never tagged by the worker
   const out: Finding[] = [];
   const collect = (where: "body" | "text") => {
     const seen = new Set<string>();
     return guarded((url) => {
-      const found = seen.has(url) ? null : utmParameters(url, hosts);
+      const found = seen.has(url) || skipsLink(skip, url) ? null : utmParameters(url, hosts);
       seen.add(url);
       if (found) out.push({ rule: "utm_conflict", where, value: url, ...found });
       return null;

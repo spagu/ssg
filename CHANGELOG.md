@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Version 1.9.17. Worker templates only; the generator is unchanged.
+
+### Added
+
+- **`newsletter`: a retention period per status (#465).**
+  `NEWSLETTER_PENDING_RETENTION_DAYS` deletes unconfirmed sign-ups that many
+  days after the latest of sign-up, consent and confirmation mail.
+  `NEWSLETTER_UNSUBSCRIBED_RETENTION_DAYS` deletes unsubscribed rows that many
+  days after `unsubscribed_at` (`updated_at` when it is empty), so imported
+  history ages from the day of the unsubscribe, not the day of the import.
+  Unset, `NEWSLETTER_RETENTION_DAYS` applies as before, counted from
+  `updated_at`. `0`, or a value that is not a whole number, keeps that status
+  forever. Confirmed subscribers are never deleted. No schema change.
+- **`newsletter-ui`: webhook events from other sender domains can be ignored
+  (#463).** `NEWSLETTER_HOOK_FROM_DOMAINS` lists the sender domains whose
+  events this worker applies. A verified event from another domain, or with no
+  readable sender, is acknowledged with `200` and writes nothing: no
+  suppression, no unsubscribe, no soft-bounce reset, no webhook-activity
+  count. The match is exact and case-insensitive, with no subdomain matching.
+  It covers the Resend hook (`data.from`) and the MailChannels hook (`email`);
+  the MailChannels field was read from the provider's schema and not checked
+  against a live delivery. A list with an entry that is not a plain domain
+  makes both hooks answer `503 hook_misconfigured` until fixed. Unset, nothing
+  changes. `GET /api/settings` gains `webhooks.fromDomains` and
+  `webhooks.fromDomainsProblem`; the Settings view shows them.
+- **`newsletter-ui`: links to chosen hosts are sent as written (#464).**
+  `NEWSLETTER_TRACK_SKIP_HOSTS` lists hosts whose links get no click redirect,
+  no `click_links` row and no UTM parameters; a subdomain matches its parent
+  entry. Skipping wins over `NEWSLETTER_UTM_HOSTS` and the site's own host,
+  and skipped links do not count toward the 100 tracked links of a campaign.
+  Preview, test send and the real send show the same addresses. An entry that
+  is not a plain host name refuses scheduling with `503
+  content_rules_invalid` until fixed; a campaign already scheduled still
+  sends, with the valid entries applied. Unset, mail is byte-identical to
+  before. `GET /api/settings` gains `clicks.skipHosts` and
+  `clicks.skipHostsProblem`. Skipped links are not listed in a campaign's
+  click statistics.
+
+### Fixed
+
+- **`newsletter`: an absurdly large `NEWSLETTER_RETENTION_DAYS` no longer
+  makes the purge throw.** Periods are capped at 1,000,000 days, which deletes
+  nothing.
+
 ## [1.9.16] - 2026-11-26
 
 ### Documentation

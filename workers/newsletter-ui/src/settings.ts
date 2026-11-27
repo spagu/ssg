@@ -13,6 +13,7 @@ import { assetMaxBytes, assetsBaseUrl, assetsConfigProblem, assetsEnabled } from
 import { assetMaxWidth, resizeEnabled } from "./asset-resize";
 import { softLimit } from "./bounce-store";
 import { takeTestSend } from "./campaign-limit";
+import { skipHostsOf } from "./click-skip";
 import { trackClicks } from "./click-track";
 import { DEFAULT_CONFIRM_BATCH } from "./confirm";
 import { engineConfig } from "./engine-rate";
@@ -21,6 +22,7 @@ import { feedSource } from "./feed-fetch";
 import { DEFAULT_MAX_ROWS } from "./import";
 import { authName } from "./health";
 import { webhookActivity } from "./hook-activity";
+import { originSettings } from "./hook-origin";
 import { imageRules } from "./image-gate-rules";
 import { rulesSummary } from "./content-rules-config"; // #449
 import { basePath, intVar, json } from "./lib";
@@ -68,7 +70,8 @@ export function settingsOf(env: Env) {
       queue: !!env.NEWSLETTER_QUEUE,
       deadLetterQueue: plain(env.NEWSLETTER_DEAD_LETTER_QUEUE) ?? DEFAULT_DLQ,
     },
-    clicks: { tracking: trackClicks(env), unsubscribeWindowDays: unsubscribeWindowDays(env) },
+    // #464: skipHosts = links sent as written; skipHostsProblem refuses scheduling while set.
+    clicks: { tracking: trackClicks(env), unsubscribeWindowDays: unsubscribeWindowDays(env), ...skipHostsOf(env) },
     // UTM tagging (#443): hosts is what gets tagged, empty without a usable site URL.
     utm: { enabled: utmOn(env), source: utmSource(env), hosts: site ? [...utmHosts(env, site)] : [] },
     bounces: { softLimit: softLimit(env) },
@@ -86,7 +89,12 @@ export function settingsOf(env: Env) {
     imageRules: imageRules(env),
     // #449: which content rules are on — counts and switches, never the phrases — and why they cannot be applied.
     contentRules: rulesSummary(env),
-    webhooks: { resend: set(env.NEWSLETTER_RESEND_WEBHOOK_SECRET), mailchannels: set(env.NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY) },
+    // #463: fromDomains/fromDomainsProblem = NEWSLETTER_HOOK_FROM_DOMAINS read (hook-origin.ts).
+    webhooks: {
+      resend: set(env.NEWSLETTER_RESEND_WEBHOOK_SECRET),
+      mailchannels: set(env.NEWSLETTER_MAILCHANNELS_WEBHOOK_KEY),
+      ...originSettings(env),
+    },
     feedUrl: "url" in feed ? feed.url.href : null,
     confirmBatch: Math.min(intVar(env.NEWSLETTER_CONFIRM_BATCH, DEFAULT_CONFIRM_BATCH), cfg.rate),
     importMaxRows: intVar(env.NEWSLETTER_IMPORT_MAX_ROWS, DEFAULT_MAX_ROWS),

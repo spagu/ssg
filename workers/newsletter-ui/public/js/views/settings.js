@@ -7,11 +7,17 @@ import { h, mount } from "../core/vnode.js";
 import { busy, errorBlock, loading, pageHead } from "./ui.js";
 import { imageRulesFact } from "./image-check.js"; // #448
 import { contentRulesFact } from "./content-check.js"; // #449
-import { webhookCard } from "./webhook-activity.js"; // #460
+import { hookFromFact, webhookCard } from "./webhook-activity.js"; // #460, #463
 
 const yes = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.yes" : "set.no"));
 const onOff = (app, v) => h("span", { class: `flag ${v ? "on" : "off"}` }, app.t(v ? "set.on" : "set.off"));
 const code = (v) => (v === null || v === undefined || v === "" ? "—" : h("code", null, String(v)));
+
+// #464: the hosts whose links go out as written, or why the list cannot be used.
+export function skipHostsFact(app, clicks) {
+  if (clicks.skipHostsProblem) return h("span", { class: "flag off bad" }, app.t("set.skipHosts.broken", { detail: clicks.skipHostsProblem }));
+  return clicks.skipHosts?.length ? code(clicks.skipHosts.join(", ")) : h("span", { class: "flag off" }, app.t("set.skipHosts.none"));
+}
 
 function group(id, title, rows, note = null) {
   return h(
@@ -103,12 +109,14 @@ export default async function settings(app, root) {
       ]),
       group("set-stats", t("set.stats"), [
         [t("set.clicks"), onOff(app, s.clicks.tracking)],
+        [t("set.skipHosts"), skipHostsFact(app, s.clicks)], // #464
         [t("set.window"), t("set.days", { count: s.clicks.unsubscribeWindowDays })],
         [t("set.utm"), onOff(app, s.utm.enabled)],
         ...(s.utm.enabled ? [[t("set.utmSource"), code(s.utm.source)], [t("set.utmHosts"), code(s.utm.hosts.join(", "))]] : []),
         [t("set.softLimit"), app.fmt.number(s.bounces.softLimit)],
         [t("set.hookResend"), yes(app, s.webhooks.resend)],
         [t("set.hookMc"), yes(app, s.webhooks.mailchannels)],
+        [t("set.hookFrom"), hookFromFact(app, s.webhooks)], // #463
         [t("set.feed"), code(s.feedUrl)],
         [t("set.importMax"), app.fmt.number(s.importMaxRows)],
       ]),

@@ -32,6 +32,15 @@ honoured refuses every schedule with `503 content_rules_invalid`. These are
 the site's own rules, not a spam filter, and say nothing about delivery.
 Details: [Content rules](../README.md#content-rules).
 
+`NEWSLETTER_TRACK_SKIP_HOSTS` with an entry that is not a plain host name
+refuses every schedule the same way (`503 content_rules_invalid`), so a typo
+cannot send a link the admin listed through the click redirect. Well-formed,
+it changes only the links: those to a listed host (or a subdomain of it) go
+out exactly as written in the preview, the test send and every reader's
+mail — no click counting, no `click_links` row, no `utm_*` — while every
+other link is counted and tagged as before. Details:
+[Links sent as written](../README.md#links-sent-as-written).
+
 ## How a campaign goes out
 
 1. *Cron, every minute.* A `scheduled` campaign whose time has come is moved
